@@ -1,0 +1,17 @@
+# Render.com one-click deploy config.
+# Push the repo to GitHub, then on Render: New → Blueprint → connect repo.
+# Render reads this file and creates the service. You only have to add the
+# ANTHROPIC_API_KEY value in the dashboard before first deploy.
+
+services:
+  - type: web
+    name: criminal-law-ai
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false   # add manually in Render dashboard, not in repo
+      - key: PYTHON_VERSION
+        value: "3.11"
