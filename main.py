@@ -255,7 +255,15 @@ init_feedback_db()
 
 
 @app.get("/")
-def index():
+def landing():
+    """Marketing landing page."""
+    return FileResponse(STATIC_DIR / "landing.html")
+
+
+@app.get("/app")
+@app.get("/app/")
+def app_index():
+    """The actual research tool."""
     return FileResponse(STATIC_DIR / "index.html")
 
 
