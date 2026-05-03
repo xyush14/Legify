@@ -347,6 +347,91 @@ a:hover { text-decoration-color: var(--primary); }
 .confidence--medium { background: var(--warning-soft); color: var(--warning); }
 .confidence--low { background: var(--danger-soft); color: var(--danger); }
 
+/* ============ Language bar (prominent, above results) ============ */
+.lang-bar {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .65rem .85rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  flex-wrap: wrap;
+  box-shadow: var(--shadow-sm);
+}
+.lang-bar__left { display: flex; align-items: center; gap: .65rem; }
+.lang-bar__label {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.lang-switch {
+  display: inline-flex;
+  background: var(--surface-tint);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 3px;
+  gap: 2px;
+}
+.lang-switch__btn {
+  padding: .35rem .9rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: all var(--t-fast) var(--ease);
+  min-width: 78px;
+  text-align: center;
+}
+.lang-switch__btn:hover:not(:disabled):not(.lang-switch__btn--active) {
+  background: var(--surface);
+  color: var(--primary);
+}
+.lang-switch__btn--active {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+}
+.lang-switch__btn--loading {
+  background: var(--accent);
+  color: #fff;
+  cursor: wait;
+  position: relative;
+  padding-left: 2.1rem !important;
+}
+.lang-switch__btn--loading::before {
+  content: "";
+  position: absolute;
+  left: 0.7rem; top: 50%;
+  width: 12px; height: 12px;
+  margin-top: -6px;
+  border: 2px solid rgba(255,255,255,.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin .65s linear infinite;
+}
+.lang-switch__btn:disabled { cursor: not-allowed; }
+
+.lang-bar__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: .2rem .65rem;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: 1px solid #E5D4AB;
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.lang-bar__right { display: flex; gap: .35rem; margin-left: auto; }
+
+@media (max-width: 480px) {
+  .lang-bar { padding: .55rem .65rem; }
+  .lang-bar__label { display: none; }
+  .lang-bar__right { width: 100%; margin-left: 0; justify-content: flex-end; }
+}
+
 /* ============ Case card ============ */
 .case-card {
   background: var(--surface);

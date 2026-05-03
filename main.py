@@ -57,9 +57,8 @@ from prompts import (
     HEADNOTE_USER_TEMPLATE,
     build_digest_system_prompt,
     DIGEST_USER_TEMPLATE,
-    HINDI_TRANSLATE_SYSTEM_PROMPT,
-    HINDI_TRANSLATE_USER_TEMPLATE,
 )
+from translate import translate_payload
 
 # -------------------------------------------------------------------- config
 
@@ -70,7 +69,8 @@ CASES_PATH = APP_DIR / "cases.json"
 FEEDBACK_DB = Path(os.environ.get("FEEDBACK_DB", str(APP_DIR / "feedback.db")))
 
 DEFAULT_MODEL = os.environ.get("MODEL", "claude-opus-4-6")
-TRANSLATE_MODEL = os.environ.get("TRANSLATE_MODEL", "claude-haiku-4-5-20251001")
+# Hindi translation uses FREE Google Translate (deep-translator) — no API
+# call, no cost. See translate.py.
 MAX_TOKENS = 4096
 
 # Approximate Opus 4.6 prices (USD per million tokens). Adjust if Anthropic
@@ -86,6 +86,12 @@ PRICE_HAIKU = {
     "input_cache_write": 1.00,
     "input_cache_read": 0.08,
     "output": 4.00,
+}
+PRICE_SONNET = {
+    "input": 3.00,
+    "input_cache_write": 3.75,
+    "input_cache_read": 0.30,
+    "output": 15.00,
 }
 USD_TO_INR = 84.0
 
@@ -168,7 +174,13 @@ def call_claude_cached(
 
 
 def estimate_cost_usd(usage: dict) -> float:
-    pricing = PRICE_HAIKU if "haiku" in usage.get("model", "") else PRICE_OPUS
+    model = usage.get("model", "")
+    if "haiku" in model:
+        pricing = PRICE_HAIKU
+    elif "sonnet" in model:
+        pricing = PRICE_SONNET
+    else:
+        pricing = PRICE_OPUS  # default — also covers claude-opus-4-6 / 4-7
     return (
         usage.get("input_tokens", 0) * pricing["input"] / 1_000_000
         + usage.get("cache_creation_input_tokens", 0) * pricing["input_cache_write"] / 1_000_000
@@ -334,25 +346,32 @@ def api_headnote(req: HeadnoteRequest):
 
 @app.post("/api/translate")
 def api_translate(req: TranslateRequest):
-    """Translate an English JSON result to Hindi while preserving citations,
-    statute names, paragraph anchors, and case titles in their original form
-    (lawyers expect citations untouched)."""
-    payload_str = json.dumps(req.payload, ensure_ascii=False)
-    user_prompt = HINDI_TRANSLATE_USER_TEMPLATE.format(payload=payload_str)
+    """Translate an English JSON result to Hindi using FREE Google Translate
+    (no Anthropic API call, no API key, no LLM cost). Citations, statute names,
+    paragraph anchors, and case titles are protected via placeholder
+    substitution so they survive translation untouched.
+    """
     t0 = time.time()
-    raw, usage = call_claude_cached(
-        HINDI_TRANSLATE_SYSTEM_PROMPT,
-        user_prompt,
-        model=TRANSLATE_MODEL,  # cheaper model for translation
-        cache=False,
-    )
+    try:
+        translated = translate_payload(req.payload, target=req.target_language)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Translation failed: {e}")
     elapsed = time.time() - t0
 
-    parsed = parse_json_response(raw)
     return {
-        "result": parsed,
-        "raw": raw,
-        "meta": build_meta(usage, elapsed),
+        "result": translated,
+        "raw": json.dumps(translated, ensure_ascii=False),
+        "meta": {
+            "elapsed_seconds": round(elapsed, 2),
+            "model": "google-translate (free)",
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "cost_usd": 0.0,
+            "cost_inr": 0.0,
+            "free": True,
+        },
     }
 
 

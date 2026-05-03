@@ -41,6 +41,19 @@
   let currentMode = 'situation';
   let lastResult = null; // { mode, rawJson, parsed, container }
 
+  // Stable snapshots of the ORIGINAL English result, keyed by mode.
+  // These persist across re-renders (which is exactly what was broken before:
+  // toggling Hindi rebuilt the result and overwrote "originalEnglish" with the
+  // Hindi version, so the English button had nothing to restore to).
+  const ORIGINAL = { situation: null, digest: null, headnote: null };
+  // Current language per mode: 'en' | 'hi'
+  const LANG = { situation: 'en', digest: 'en', headnote: 'en' };
+
+  function setOriginal(mode, result) {
+    ORIGINAL[mode] = JSON.parse(JSON.stringify(result));
+    LANG[mode] = 'en';
+  }
+
   // ---------- Toast ----------
   function toast(msg, kind = 'info', ms = 2400) {
     const t = ce('div', { cls: `toast toast--${kind}`, text: msg });
@@ -146,10 +159,14 @@
     if (meta.input_tokens > 0) {
       strip.appendChild(pill(`${meta.input_tokens.toLocaleString()} new in / ${meta.output_tokens.toLocaleString()} out`));
     }
-    strip.appendChild(ce('span', {
-      cls: 'meta-strip__cost',
-      text: `≈ $${meta.cost_usd.toFixed(4)} (₹${meta.cost_inr.toFixed(2)})`,
-    }));
+    if (meta.free) {
+      strip.appendChild(ce('span', { cls: 'meta-strip__cost', text: 'Free · Google Translate' }));
+    } else {
+      strip.appendChild(ce('span', {
+        cls: 'meta-strip__cost',
+        text: `≈ $${meta.cost_usd.toFixed(4)} (₹${meta.cost_inr.toFixed(2)})`,
+      }));
+    }
     return strip;
   }
 
@@ -275,6 +292,7 @@
     const root = $('#situationResults');
     root.innerHTML = '';
     root.appendChild(renderMetaStrip(data.meta));
+    root.appendChild(renderLanguageBar('situation', data));
 
     const result = data.result || {};
     const cases = result.cases || [];
@@ -334,7 +352,7 @@
       root.appendChild(card);
     });
 
-    attachLanguageAndFeedback(root, 'situation', data);
+    root.appendChild(renderFeedbackBar('situation'));
   }
 
   // ---------- Render Mode 2: Digest ----------
@@ -342,6 +360,7 @@
     const root = $('#digestResults');
     root.innerHTML = '';
     root.appendChild(renderMetaStrip(data.meta));
+    root.appendChild(renderLanguageBar('digest', data));
 
     const result = data.result || {};
 
@@ -397,7 +416,7 @@
       }));
     }
 
-    attachLanguageAndFeedback(root, 'digest', data);
+    root.appendChild(renderFeedbackBar('digest'));
   }
 
   // ---------- Render Mode 3: Headnote ----------
@@ -405,6 +424,7 @@
     const root = $('#headnoteResults');
     root.innerHTML = '';
     root.appendChild(renderMetaStrip(data.meta));
+    root.appendChild(renderLanguageBar('headnote', data));
 
     const result = data.result || {};
     const meta = result.case_metadata || {};
@@ -467,59 +487,101 @@
       root.appendChild(card);
     }
 
-    attachLanguageAndFeedback(root, 'headnote', data);
+    root.appendChild(renderFeedbackBar('headnote'));
   }
 
-  // ---------- Language toggle (Hindi) + Feedback ----------
-  function attachLanguageAndFeedback(root, mode, data) {
-    const bar = ce('div', { cls: 'feedback' });
-    bar.appendChild(ce('div', { cls: 'feedback__title', text: 'Translation & feedback' }));
+  // ---------- Language switcher (TOP of results) ----------
+  // Renders a prominent EN/HI toggle right after the meta strip.
+  // Reads ORIGINAL[mode] (stable across re-renders) so toggling back to
+  // English always works.
+  function renderLanguageBar(mode, data) {
+    const bar = ce('div', { cls: 'lang-bar' });
 
-    // Language buttons
-    const langRow = ce('div', { cls: 'feedback__buttons' });
-    const enBtn = ce('button', { cls: 'btn btn--soft btn--sm', text: '🇬🇧 English' });
-    const hiBtn = ce('button', { cls: 'btn btn--soft btn--sm', text: '🇮🇳 हिन्दी (Hindi)' });
-    const copyAllBtn = ce('button', { cls: 'btn btn--ghost btn--sm', text: '📋 Copy all' });
+    const left = ce('div', { cls: 'lang-bar__left' });
+    left.appendChild(ce('span', { cls: 'lang-bar__label', text: 'View in:' }));
+    const switcher = ce('div', { cls: 'lang-switch', attrs: { role: 'tablist', 'aria-label': 'Language' } });
+    const enBtn = ce('button', {
+      cls: 'lang-switch__btn' + (LANG[mode] === 'en' ? ' lang-switch__btn--active' : ''),
+      text: 'English',
+      attrs: { type: 'button', role: 'tab', 'aria-selected': LANG[mode] === 'en' ? 'true' : 'false' },
+    });
+    const hiBtn = ce('button', {
+      cls: 'lang-switch__btn' + (LANG[mode] === 'hi' ? ' lang-switch__btn--active' : ''),
+      text: 'हिन्दी',
+      attrs: { type: 'button', role: 'tab', 'aria-selected': LANG[mode] === 'hi' ? 'true' : 'false' },
+    });
+    switcher.append(enBtn, hiBtn);
+    left.appendChild(switcher);
+    bar.appendChild(left);
+
+    if (LANG[mode] === 'hi') {
+      const badge = ce('span', { cls: 'lang-bar__badge', text: 'अनुवादित' });
+      bar.appendChild(badge);
+    }
+
+    const right = ce('div', { cls: 'lang-bar__right' });
+    const copyAllBtn = ce('button', { cls: 'btn btn--ghost btn--sm', text: '📋 Copy' });
+    copyAllBtn.addEventListener('click', () => {
+      const root = document.getElementById(`${mode}Results`);
+      copyToClipboard(root.innerText);
+    });
     const printBtn = ce('button', { cls: 'btn btn--ghost btn--sm', text: '🖨 Print' });
-    langRow.append(enBtn, hiBtn, copyAllBtn, printBtn);
-    bar.appendChild(langRow);
+    printBtn.addEventListener('click', () => window.print());
+    right.append(copyAllBtn, printBtn);
+    bar.appendChild(right);
 
-    let originalEnglish = JSON.parse(JSON.stringify(data.result));
-
+    // English: restore original snapshot
     enBtn.addEventListener('click', () => {
-      data.result = originalEnglish;
+      if (LANG[mode] === 'en') return;
+      data.result = JSON.parse(JSON.stringify(ORIGINAL[mode]));
+      LANG[mode] = 'en';
       rerender(mode, data);
     });
 
+    // Hindi: translate then re-render
     hiBtn.addEventListener('click', async () => {
-      hiBtn.classList.add('btn--loading');
-      hiBtn.innerHTML = '<span class="btn__label">Translating…</span>';
+      if (LANG[mode] === 'hi') return;
+      enBtn.disabled = true;
+      hiBtn.disabled = true;
+      hiBtn.classList.add('lang-switch__btn--loading');
+      hiBtn.textContent = 'अनुवाद हो रहा है…';
       try {
         const tr = await api('/api/translate', {
-          payload: originalEnglish,
+          payload: ORIGINAL[mode],     // ALWAYS translate from the stable English snapshot
           target_language: 'hi',
         });
         data.result = tr.result;
+        LANG[mode] = 'hi';
         rerender(mode, data);
         toast('Translated to हिन्दी', 'success');
       } catch (e) {
+        hiBtn.classList.remove('lang-switch__btn--loading');
+        hiBtn.textContent = 'हिन्दी';
+        enBtn.disabled = false;
+        hiBtn.disabled = false;
         toast(`Translation failed: ${e.message}`, 'error');
-      } finally {
-        hiBtn.classList.remove('btn--loading');
-        hiBtn.innerHTML = '🇮🇳 हिन्दी (Hindi)';
+        // Show inline error so it's not just a fleeting toast
+        const root = document.getElementById(`${mode}Results`);
+        const err = ce('div', {
+          cls: 'state state--error',
+          children: [
+            ce('h3', { cls: 'state__title', text: 'Translation failed' }),
+            ce('p', { cls: 'state__body', text: e.message }),
+          ],
+        });
+        bar.after(err);
+        setTimeout(() => err.remove(), 6000);
       }
     });
 
-    copyAllBtn.addEventListener('click', () => {
-      const text = root.innerText;
-      copyToClipboard(text);
-    });
+    return bar;
+  }
 
-    printBtn.addEventListener('click', () => window.print());
+  // ---------- Feedback (separate, at bottom) ----------
+  function renderFeedbackBar(mode) {
+    const bar = ce('div', { cls: 'feedback' });
+    bar.appendChild(ce('div', { cls: 'feedback__title', text: 'Was this useful?' }));
 
-    // Feedback
-    const fbTitle = ce('div', { cls: 'feedback__title', text: 'Was this useful?', attrs: { style: 'margin-top:.75rem' } });
-    bar.appendChild(fbTitle);
     const fbRow = ce('div', { cls: 'feedback__buttons' });
     const upBtn = ce('button', { cls: 'btn btn--soft btn--sm', text: '👍 Useful' });
     const downBtn = ce('button', { cls: 'btn btn--soft btn--sm', text: '👎 Not useful' });
@@ -536,8 +598,12 @@
       const inputText = $(`#${mode}Input`)?.value || '';
       try {
         await api('/api/feedback', {
-          mode, input_text: inputText, output_json: JSON.stringify(originalEnglish),
-          rating, correction: correction.value, lawyer_handle: localStorage.getItem('lawyer_handle') || '',
+          mode,
+          input_text: inputText,
+          output_json: JSON.stringify(ORIGINAL[mode]),
+          rating,
+          correction: correction.value,
+          lawyer_handle: localStorage.getItem('lawyer_handle') || '',
         });
         toast('Thanks — feedback saved', 'success');
       } catch (e) {
@@ -547,7 +613,7 @@
     upBtn.addEventListener('click', () => submitFeedback(1));
     downBtn.addEventListener('click', () => submitFeedback(-1));
 
-    root.appendChild(bar);
+    return bar;
   }
 
   function rerender(mode, data) {
@@ -568,6 +634,7 @@
     try {
       const data = await api('/api/situation', { situation: input, style });
       pushHistory({ mode: 'situation', input, style, ts: Date.now() });
+      setOriginal('situation', data.result);
       renderSituation(data);
     } catch (e) {
       showError('#situationResults', e.message);
@@ -586,6 +653,7 @@
     try {
       const data = await api('/api/digest', { topic: input });
       pushHistory({ mode: 'digest', input, ts: Date.now() });
+      setOriginal('digest', data.result);
       renderDigest(data);
     } catch (e) {
       showError('#digestResults', e.message);
@@ -604,6 +672,7 @@
     try {
       const data = await api('/api/headnote', { judgment_text: input });
       pushHistory({ mode: 'headnote', input: input.slice(0, 200) + '…', ts: Date.now() });
+      setOriginal('headnote', data.result);
       renderHeadnote(data);
     } catch (e) {
       showError('#headnoteResults', e.message);
