@@ -3,403 +3,339 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#F7F4ED" />
-  <meta name="description" content="Headnote — research that holds up in court. A criminal-law-only AI tool for India's advocates, with verified citations and journal-grade output." />
-  <meta property="og:title" content="Headnote · Research that holds up in court" />
-  <meta property="og:description" content="A criminal-law-only AI research tool for India's 300,000+ advocates. Journal-format headnotes. Verified citations. Beta." />
-  <meta property="og:type" content="website" />
-  <title>Headnote · Research that holds up in court</title>
+  <meta name="theme-color" content="#0F0C08" />
+  <meta name="description" content="Headnote — every citation, verified. AI research for India's criminal lawyers." />
+  <meta property="og:title" content="Headnote — Every citation, verified." />
+  <meta property="og:description" content="An AI research tool for India's criminal lawyers — journal-grade headnotes, every citation traced to its source." />
+  <title>Headnote — Every citation, verified.</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
   <link rel="stylesheet" href="/static/landing.css" />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2316110A'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-family='Georgia,serif' font-size='18' font-weight='600' fill='%23B8924E'%3EH%3C/text%3E%3C/svg%3E" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230F0C08'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-family='-apple-system,sans-serif' font-size='18' font-weight='700' fill='%23D4A858'%3EH%3C/text%3E%3C/svg%3E" />
 </head>
 
 <body>
 
-  <!-- ============================================================
-       MASTHEAD — built like a journal cover
-       ============================================================ -->
-  <header class="masthead">
-    <div class="masthead__bar">
-      <div class="masthead__date">Beta · Edition 1 · Established 2026</div>
-      <div class="masthead__motto">Lex sine fide nihil est.</div>
+  <!-- ============ NAV ============ -->
+  <header class="nav" data-reveal>
+    <div class="nav__inner">
+      <a href="/" class="nav__brand">
+        <span class="nav__mark"></span>
+        <span class="nav__name">Headnote</span>
+      </a>
+      <nav class="nav__links">
+        <a href="#how">How it works</a>
+        <a href="#why">Why</a>
+        <a href="#trust">Trust</a>
+        <a href="#beta">Beta</a>
+      </nav>
+      <a class="btn btn--quiet" href="/app">Open app <span class="arrow">→</span></a>
     </div>
-
-    <nav class="masthead__nav">
-      <a href="/" class="masthead__brand">Headnote</a>
-      <ul class="masthead__links">
-        <li><a href="#manifesto">The case for this</a></li>
-        <li><a href="#what">What we make</a></li>
-        <li><a href="#trust">Trust</a></li>
-        <li><a href="#chambers">From chambers</a></li>
-        <li><a href="#beta">Beta</a></li>
-      </ul>
-      <a class="masthead__cta" href="/app">Open the app →</a>
-    </nav>
-
-    <div class="masthead__rule"></div>
   </header>
 
-  <!-- ============================================================
-       HERO — a real headnote, rendered as it would appear in print
-       This IS the product. No chat bubbles, no screenshots.
-       ============================================================ -->
+  <!-- ============ HERO ============ -->
   <section class="hero">
-    <div class="hero__col hero__col--copy">
-      <p class="hero__kicker">A research tool for the Indian criminal bar.</p>
-      <h1 class="hero__head">
-        Research that holds up
-        <span class="hero__head-accent">in court.</span>
+    <div class="hero__bg" aria-hidden="true"></div>
+
+    <div class="hero__inner">
+      <p class="hero__pill" data-reveal>
+        <span class="dot"></span> Live beta · India · Criminal law
+      </p>
+
+      <h1 class="hero__title" data-reveal>
+        Every citation,
+        <span class="hero__title--accent">verified.</span>
       </h1>
-      <p class="hero__lede">
-        Headnote produces journal-grade case headnotes for any Indian criminal-law query — every citation verified to its source paragraph by architecture, not by hope.
+
+      <p class="hero__sub" data-reveal>
+        Headnote is an AI research tool for India's criminal-law advocates. Journal-grade headnotes. Every cited case traced to its source paragraph, by code — not by hope.
       </p>
-      <div class="hero__cta-row">
-        <a class="btn btn--primary" href="/app">Open the app</a>
-        <a class="btn btn--quiet" href="#what">See what it produces</a>
+
+      <div class="hero__ctas" data-reveal>
+        <a class="btn btn--primary" href="/app">
+          Open the app
+          <span class="arrow">→</span>
+        </a>
+        <a class="btn btn--ghost" href="#how">See how it works</a>
       </div>
-      <p class="hero__small">
-        <span class="status-dot"></span>
-        Live beta · Free · No card · Daily limits apply
+
+      <p class="hero__small" data-reveal>
+        Free during beta. No card. No commitment.
       </p>
     </div>
 
-    <!-- Real headnote — rendered as it would appear in Cri.L.J. -->
-    <aside class="hero__col hero__col--specimen">
-      <figure class="specimen">
-        <figcaption class="specimen__cap">
-          <span>Specimen — produced by Headnote · Mode: paste judgment</span>
-          <span class="specimen__seal">✓ Verified</span>
-        </figcaption>
-        <div class="specimen__doc">
-          <p class="specimen__cite">2014 Cri.L.J. 4350</p>
-          <p class="specimen__court">SUPREME COURT</p>
-          <p class="specimen__bench">T. S. Thakur, Vikramajit Sen, C. Nagappan, JJ.</p>
-          <p class="specimen__title"><em>Dashrath Rupsingh Rathod</em> v. State of Maharashtra</p>
-
-          <p class="specimen__hn">
-            <strong>(C)</strong> <strong>Negotiable Instruments Act (26 of 1881), S. 138 — Code of Criminal Procedure (2 of 1974), S. 177</strong> — Complaint — Territorial jurisdiction — Return of cheque by drawee bank — Alone constitutes commission of offence — <em>Situs or venue of trial thus restricted to place where drawee bank is located</em> — Place of issuance or delivery of statutory notice or where complainant presents cheque for encashment — Not relevant for purpose of territorial jurisdiction. <span class="specimen__paras">(Paras 16, 17)</span>
-          </p>
-
-          <p class="specimen__overruling">
-            <em>K. Bhaskaran v. Sankaran Vaidhyan Balan, AIR 1999 SC 3762, overruled.</em>
-          </p>
-        </div>
-      </figure>
-    </aside>
+    <!-- Hero visual: the library -->
+    <figure class="hero__image" data-reveal>
+      <div class="hero__imageFrame">
+        <img src="/static/hero-library.jpg"
+             alt="A library of bound criminal-law journals from 1885 to 2018"
+             loading="eager" />
+        <div class="hero__imageOverlay" aria-hidden="true"></div>
+      </div>
+      <figcaption>
+        <span>One hundred and forty years of Indian criminal law.</span>
+        <span class="dim">Indexed, searchable, cited correctly.</span>
+      </figcaption>
+    </figure>
   </section>
 
-  <div class="strap">
-    <div class="strap__inner">
-      <span>Beta</span>
-      <span class="strap__sep">·</span>
-      <span>1 senior advocate of 26 years editing</span>
-      <span class="strap__sep">·</span>
-      <span>42 cases live</span>
-      <span class="strap__sep">·</span>
-      <span>5,000 by Q3 2026</span>
-      <span class="strap__sep">·</span>
-      <span>Every citation verified before display</span>
-    </div>
-  </div>
-
-  <!-- ============================================================
-       MANIFESTO — short, opinionated, founder voice.
-       Reads like an editorial, not a marketing page.
-       ============================================================ -->
-  <section class="manifesto" id="manifesto">
-    <div class="manifesto__head">
-      <p class="section-label">The case for this</p>
-      <h2 class="section-title">A criminal-law tool, not a generic AI wrapper.</h2>
-    </div>
-
-    <div class="manifesto__body">
-      <p class="dropcap">
-        <span class="dropcap__letter">I</span>n India, criminal practice happens at midnight. A junior is handed a brief at 9 p.m., the bail hearing is at 11 a.m., and the cases that matter are buried somewhere between Indian Kanoon, a senior's borrowed SCC login, and the printed Cri.L.J. volume on the chambers shelf. The work is brutal and the tools are wrong.
-      </p>
-
-      <p>
-        The legacy databases — SCC Online, Manupatra, AIR — are excellent and unaffordable. Forty thousand a year for a single seat, in a profession where 72% of juniors earn under twenty thousand a month. The new AI tools that arrived after 2023 are cheap and dangerous. In February 2026 the Supreme Court formally ruled that citing AI-generated fake precedents constitutes judicial misconduct — and quietly, every honest practitioner stopped trusting AI summaries.
-      </p>
-
-      <p>
-        Two months later, the IPC, the CrPC, and the Evidence Act were replaced by BNS, BNSS, and BSA. Three decades of precedent now reference repealed statutes. The big publishers are still re-indexing.
-      </p>
-
-      <p class="manifesto__pull">
-        Headnote is the small, opinionated answer to all three problems at once.
-      </p>
-
-      <p>
-        We build only for criminal lawyers. We produce only headnotes — the format that pastes into a written submission, not chatty summaries you have to rewrite. We verify every citation against a real corpus before it reaches you. We map every IPC reference to its BNS successor. And we are free during beta because pricing should not be the reason a junior advocate cannot research.
-      </p>
-
-      <p class="manifesto__sign">— Founder, Headnote · Spring 2026</p>
+  <!-- ============ TICKER ============ -->
+  <section class="ticker" aria-label="At a glance">
+    <div class="ticker__inner">
+      <div class="ticker__item"><span class="ticker__num">42</span><span class="ticker__lbl">Cases live</span></div>
+      <div class="ticker__sep"></div>
+      <div class="ticker__item"><span class="ticker__num">3</span><span class="ticker__lbl">Modes</span></div>
+      <div class="ticker__sep"></div>
+      <div class="ticker__item"><span class="ticker__num">100%</span><span class="ticker__lbl">Citations verified</span></div>
+      <div class="ticker__sep"></div>
+      <div class="ticker__item"><span class="ticker__num">हिन्दी</span><span class="ticker__lbl">Built-in translation</span></div>
+      <div class="ticker__sep"></div>
+      <div class="ticker__item"><span class="ticker__num">₹0</span><span class="ticker__lbl">During beta</span></div>
     </div>
   </section>
 
-  <!-- ============================================================
-       WHAT WE MAKE — three real specimens, not "how it works" cards
-       Each is an actual sample of real product output.
-       ============================================================ -->
-  <section class="produced" id="what">
-    <div class="produced__head">
-      <p class="section-label">What we make</p>
-      <h2 class="section-title">The output, in three forms.</h2>
-      <p class="section-lede">
-        Three modes that map to how research actually happens — from the moment a brief lands on your desk to the moment a paragraph ends up in a written submission.
-      </p>
+  <!-- ============ HOW IT WORKS ============ -->
+  <section class="how" id="how">
+    <div class="how__head" data-reveal>
+      <p class="kicker">How it works</p>
+      <h2 class="h2">Three modes. The way research actually happens.</h2>
     </div>
 
-    <div class="produced__grid">
-
-      <!-- Specimen 1 -->
-      <article class="produced__item">
-        <header class="produced__hdr">
-          <span class="produced__no">I</span>
-          <div>
-            <h3>Describe a situation. Receive cases.</h3>
-            <p>Plain-English query → 3 strongly relevant precedents.</p>
+    <!-- Step 1 — text left, visual right -->
+    <article class="step" data-reveal>
+      <div class="step__copy">
+        <span class="step__no">01</span>
+        <h3 class="step__title">Describe a situation.</h3>
+        <p class="step__body">
+          Type the matter in plain English — the way you'd explain it to a colleague over chai. Headnote returns the three most relevant precedents from a curated corpus.
+        </p>
+        <p class="step__sample">"My client received a cheque dishonour notice but the notice was sent to a wrong address — what's the position on validity of notice?"</p>
+      </div>
+      <div class="step__visual">
+        <div class="card card--floating">
+          <div class="card__chrome"><span class="dot dot--r"></span><span class="dot dot--y"></span><span class="dot dot--g"></span></div>
+          <div class="card__body">
+            <p class="card__cite">Supreme Court · 2007 · (2007) 6 SCC 555</p>
+            <p class="card__title"><em>C.C. Alavi Haji</em> v. Palapetty Muhammed</p>
+            <p class="card__hn"><strong>NI Act, S. 138 — General Clauses Act, S. 27</strong> — Service of notice — Returned 'unclaimed' or 'refused' — <em>Service is presumed.</em> <span class="anchor">(Paras 11–17)</span></p>
+            <span class="badge badge--ok">✓ Verified to source</span>
           </div>
-        </header>
-
-        <blockquote class="produced__query">
-          A complaint under S. 138 NI Act has been filed in Delhi where the complainant received the cheque, but the drawee bank dishonoured it in Mumbai. What are the governing precedents on territorial jurisdiction?
-        </blockquote>
-
-        <div class="produced__output">
-          <p class="produced__caseTitle"><em>Dashrath Rupsingh Rathod</em> v. State of Maharashtra</p>
-          <p class="produced__caseCite">SC, 2014 · (2014) 9 SCC 129 · 2014 Cri.L.J. 4350</p>
-          <p class="produced__hn"><strong>NI Act S. 138 — CrPC S. 177</strong> — Territorial jurisdiction — Return of cheque by drawee bank alone constitutes commission of offence — <em>Situs of trial restricted to where drawee bank is located.</em> <span class="produced__paras">(Paras 16, 17)</span></p>
         </div>
-      </article>
+      </div>
+    </article>
 
-      <!-- Specimen 2 -->
-      <article class="produced__item">
-        <header class="produced__hdr">
-          <span class="produced__no">II</span>
-          <div>
-            <h3>Ask a topic. Receive a digest.</h3>
-            <p>Doctrinal question → chambers-notebook-style digest.</p>
-          </div>
-        </header>
-
-        <blockquote class="produced__query">
-          Five-fold test for circumstantial evidence — when can a conviction be sustained on circumstantial evidence alone?
-        </blockquote>
-
-        <div class="produced__output">
-          <p class="produced__subhead">Foundational test</p>
-          <p class="produced__digest">
-            <strong>Sharad Birdhichand Sarda v. State of Maharashtra</strong>, (1984) 4 SCC 116. Five golden principles (panchsheel): circumstances fully established · consistent only with guilt · conclusive nature · every alternative hypothesis excluded · chain complete. Suspicion alone never substitutes proof. <em>(Para 153)</em>
-          </p>
-          <p class="produced__subhead">Acquittal on broken chain</p>
-          <p class="produced__digest">
-            <strong>Rajesh v. State of MP</strong>, 2023 INSC 839. Death-penalty acquittal where DNA from hair was inherently improbable and police investigation flawed. <em>(Paras 33–34)</em>
-          </p>
+    <!-- Step 2 — visual left, text right -->
+    <article class="step step--rev" data-reveal>
+      <div class="step__copy">
+        <span class="step__no">02</span>
+        <h3 class="step__title">Ask a topic.</h3>
+        <p class="step__body">
+          For doctrinal research — five-fold test for circumstantial evidence, S. 482 quashing on settlement. Headnote returns a topic-organised digest in chambers-notebook form.
+        </p>
+        <p class="step__sample">"When can a conviction be sustained on circumstantial evidence alone?"</p>
+      </div>
+      <div class="step__visual">
+        <div class="card card--floating card--digest">
+          <p class="card__sub">The foundational test</p>
+          <p class="card__digest"><strong>Sharad Birdhichand Sarda</strong>, 1984. Five golden principles. Suspicion never substitutes proof. <em>(Para 153)</em></p>
+          <p class="card__sub">Acquittal on broken chain</p>
+          <p class="card__digest"><strong>Rajesh v. State of MP</strong>, 2023. DNA evidence held suspect; chain incomplete. <em>(Paras 33–34)</em></p>
+          <p class="card__sub">Conviction sustained</p>
+          <p class="card__digest"><strong>Manu Sharma</strong>, 2010. Ballistics + witness + recovery. <em>(Paras 271–285)</em></p>
         </div>
-      </article>
+      </div>
+    </article>
 
-      <!-- Specimen 3 -->
-      <article class="produced__item">
-        <header class="produced__hdr">
-          <span class="produced__no">III</span>
-          <div>
-            <h3>Paste a judgment. Receive a headnote.</h3>
-            <p>Full judgment text → lettered headnotes for each point of law.</p>
-          </div>
-        </header>
-
-        <blockquote class="produced__query">
-          [pasted: full text of Karuppudayar v. State, 2025 INSC 132, on the SC-ST Act "public view" requirement]
-        </blockquote>
-
-        <div class="produced__output">
-          <p class="produced__hn"><strong>(A) SC-ST (Prevention of Atrocities) Act, 1989, Ss. 3(1)(r), 3(1)(s)</strong> — Caste-based abuse — "In any place within public view" — Office with no third party present — <em>Public-view requirement is not satisfied where the alleged abuse occurs inside an office with no independent third party present at the time of the incident.</em> <span class="produced__paras">(Paras 14–19)</span></p>
-          <p class="produced__hn"><strong>(B) CrPC, 1973, S. 482</strong> — Inherent powers — Quashing — <em>Bhajan Lal first category</em> — Allegations even at face value not constituting offence. <span class="produced__paras">(Paras 17, 21)</span></p>
+    <!-- Step 3 — text left, visual right -->
+    <article class="step" data-reveal>
+      <div class="step__copy">
+        <span class="step__no">03</span>
+        <h3 class="step__title">Paste a judgment.</h3>
+        <p class="step__body">
+          Drop full judgment text. Headnote produces lettered headnotes — one per discrete point of law — in journal format, with cases referred and treatment classification.
+        </p>
+        <p class="step__sample">[paste: full text of any criminal judgment from Indian Kanoon, eCourts, or your file]</p>
+      </div>
+      <div class="step__visual">
+        <div class="card card--floating">
+          <p class="card__cite">Supreme Court · 2025 · 2025 INSC 132</p>
+          <p class="card__title"><em>Karuppudayar</em> v. State</p>
+          <p class="card__hn"><strong>(A) SC-ST Act, S. 3(1)(r), (s)</strong> — "Public view" requirement — <em>Office with no third party present does not satisfy.</em> <span class="anchor">(Paras 14–19)</span></p>
+          <p class="card__hn"><strong>(B) CrPC, S. 482</strong> — Quashing under <em>Bhajan Lal</em> first category. <span class="anchor">(Paras 17, 21)</span></p>
+          <span class="badge badge--ok">✓ Verified · 3 cases referred</span>
         </div>
-      </article>
+      </div>
+    </article>
+  </section>
 
+  <!-- ============ WHY ============ -->
+  <section class="why" id="why">
+    <div class="why__head" data-reveal>
+      <p class="kicker">Why Headnote</p>
+      <h2 class="h2">Built around how lawyers actually cite.</h2>
+    </div>
+
+    <div class="why__grid">
+      <article class="feat" data-reveal>
+        <div class="feat__num">01</div>
+        <h3>Hallucination-proof.</h3>
+        <p>Every cited case is verified against a real corpus. Hallucinations dropped before they reach you. After the SC's February 2026 ruling, this is the floor.</p>
+      </article>
+      <article class="feat" data-reveal>
+        <div class="feat__num">02</div>
+        <h3>Journal-grade format.</h3>
+        <p>Output is structured to the six-element Cri.L.J. schema — pasteable into a written submission, not a chatbot paragraph you have to rewrite.</p>
+      </article>
+      <article class="feat" data-reveal>
+        <div class="feat__num">03</div>
+        <h3>BNS-aware by default.</h3>
+        <p>Every IPC reference auto-mapped to its 2024 successor. Search a BNS section and pre-2024 IPC precedents surface with mapping notes.</p>
+      </article>
+      <article class="feat" data-reveal>
+        <div class="feat__num">04</div>
+        <h3>Hindi, citations preserved.</h3>
+        <p>One-click Devanagari translation of the prose. Case names, citations, and paragraph anchors stay verbatim in English — the things you copy into court.</p>
+      </article>
     </div>
   </section>
 
-  <!-- ============================================================
-       TRUST — the verification commitment.
-       The most important section of the page.
-       ============================================================ -->
+  <!-- ============ TRUST / PLEDGE ============ -->
   <section class="trust" id="trust">
-    <div class="trust__col trust__col--head">
-      <p class="section-label section-label--inverse">A pledge</p>
-      <h2 class="trust__head">
-        After February 2026, "AI summary" is not a defence in a courtroom.
+    <div class="trust__inner">
+      <p class="kicker kicker--inverse" data-reveal>The pledge</p>
+      <h2 class="trust__head" data-reveal>
+        We do not ship<br/>
+        an unverified citation.
       </h2>
-      <p class="trust__lede">
-        On 27 February 2026 the Supreme Court formally classified AI-generated fake citations as judicial misconduct. We built our verification architecture before that ruling and tightened it after. It is the centerpiece of the product.
-      </p>
-    </div>
-
-    <div class="trust__col trust__col--list">
-      <ol class="pledge">
-        <li>
-          <span class="pledge__no">I.</span>
-          <div>
-            <p class="pledge__title">Every cited case must exist in our verified corpus.</p>
-            <p class="pledge__body">If the model attempts to return a case our corpus does not contain, the system silently drops it before it reaches you. Hallucinated citations are not a possibility we paper over with a disclaimer.</p>
-          </div>
-        </li>
-        <li>
-          <span class="pledge__no">II.</span>
-          <div>
-            <p class="pledge__title">Every quoted phrase must appear verbatim in the source.</p>
-            <p class="pledge__body">A character-for-character substring check. If the quote does not survive verification, the output is regenerated or routed to editor review. You never see an unverified quote.</p>
-          </div>
-        </li>
-        <li>
-          <span class="pledge__no">III.</span>
-          <div>
-            <p class="pledge__title">Every paragraph anchor must point to a real paragraph.</p>
-            <p class="pledge__body">The anchor renders as a click-through to the actual passage in the actual judgment. The lawyer can verify in one second. We assume the lawyer will.</p>
-          </div>
-        </li>
-        <li>
-          <span class="pledge__no">IV.</span>
-          <div>
-            <p class="pledge__title">Every IPC reference is auto-mapped to BNS.</p>
-            <p class="pledge__body">A maintained graph of IPC ↔ BNS, CrPC ↔ BNSS, and Evidence Act ↔ BSA, surfaced as a one-click bridge on every result for matters arising after 1 July 2024.</p>
-          </div>
-        </li>
-      </ol>
-    </div>
-  </section>
-
-  <!-- ============================================================
-       FROM CHAMBERS — the editorial supervision (subtle father ref)
-       ============================================================ -->
-  <section class="chambers" id="chambers">
-    <div class="chambers__inner">
-      <p class="section-label section-label--centered">From chambers</p>
-      <p class="chambers__quote">
-        “Headnote is built with editorial supervision from a senior criminal advocate of <span class="chambers__hl">twenty-six years at the Bar</span>, alongside continuing feedback from practising lawyers across the country. The names will be public when the product is.”
-      </p>
-      <p class="chambers__cap">A research tool, designed in chambers — not in a hackathon.</p>
-    </div>
-  </section>
-
-  <!-- ============================================================
-       BETA — quiet, restrained pricing block
-       ============================================================ -->
-  <section class="beta" id="beta">
-    <div class="beta__inner">
-      <p class="section-label">Beta access</p>
-      <h2 class="section-title">Free during beta. Indefinitely, for now.</h2>
-      <p class="section-lede beta__lede">
-        We will set a price when the corpus reaches v1.0 (5,000 cases) and not before. When we do, it will be priced for the lawyer earning ₹20,000 a month, not for the partner earning fifty times that.
+      <p class="trust__sub" data-reveal>
+        Three checks run on every result, before you see it. If any fails, the output is regenerated or routed to editor review. You never see a fabricated cite.
       </p>
 
-      <ul class="beta__list">
-        <li>All three modes — describe, digest, headnote.</li>
-        <li>Journal-grade output, every citation verified.</li>
-        <li>Hindi translation on every result.</li>
-        <li>BNS / BNSS / BSA bridge on every result.</li>
-        <li>Daily usage limits — set internally, generous.</li>
+      <ul class="checks">
+        <li data-reveal>
+          <span class="checks__no">I.</span>
+          <div>
+            <p class="checks__title">Existence check</p>
+            <p class="checks__body">Every cited case must exist in our verified corpus.</p>
+          </div>
+        </li>
+        <li data-reveal>
+          <span class="checks__no">II.</span>
+          <div>
+            <p class="checks__title">Verbatim check</p>
+            <p class="checks__body">Every quoted phrase must appear character-for-character in source.</p>
+          </div>
+        </li>
+        <li data-reveal>
+          <span class="checks__no">III.</span>
+          <div>
+            <p class="checks__title">Anchor check</p>
+            <p class="checks__body">Every paragraph anchor must point to a real paragraph. Click-through, always.</p>
+          </div>
+        </li>
       </ul>
-
-      <a class="btn btn--primary btn--lg" href="/app">Open the app →</a>
     </div>
   </section>
 
-  <!-- ============================================================
-       FAQ — terse, real questions
-       ============================================================ -->
+  <!-- ============ FROM CHAMBERS ============ -->
+  <section class="origin">
+    <div class="origin__inner" data-reveal>
+      <p class="origin__quote">
+        Built with editorial supervision from a senior criminal advocate of <span class="origin__hl">twenty-six years</span> at the Bar — alongside continuing feedback from practising lawyers across the country.
+      </p>
+      <p class="origin__cap">A research tool, designed in chambers.</p>
+    </div>
+  </section>
+
+  <!-- ============ BETA CTA ============ -->
+  <section class="beta" id="beta">
+    <div class="beta__inner" data-reveal>
+      <p class="kicker">Beta</p>
+      <h2 class="h2 beta__h">Free, indefinitely — for now.</h2>
+      <p class="beta__lede">
+        We will set a price when the corpus reaches v1.0. When we do, it will be priced for the lawyer earning ₹20,000 a month, not the partner earning fifty times that.
+      </p>
+      <a class="btn btn--primary btn--lg" href="/app">
+        Open the app
+        <span class="arrow">→</span>
+      </a>
+      <p class="beta__small">No card · No commitment · Daily limits, generous.</p>
+    </div>
+  </section>
+
+  <!-- ============ FAQ ============ -->
   <section class="faq" id="faq">
-    <div class="faq__head">
-      <p class="section-label">Practitioner questions</p>
-      <h2 class="section-title">What lawyers ask first.</h2>
+    <div class="faq__head" data-reveal>
+      <p class="kicker">Practitioner questions</p>
+      <h2 class="h2">What lawyers ask first.</h2>
     </div>
-    <div class="faq__list">
+    <div class="faq__list" data-reveal>
       <details>
-        <summary>Will it hallucinate citations?</summary>
-        <p>By architecture, no. Every cited case must exist in our verified corpus; hallucinations are dropped before they reach you. Every paragraph anchor and quoted phrase is verified against source. After February 2026, we treat this as a non-negotiable.</p>
+        <summary>Will it hallucinate citations?<span class="plus">+</span></summary>
+        <p>By architecture, no. Every cited case must exist in our corpus; hallucinations are dropped before display. Every paragraph anchor and quoted phrase is verified against source. After February 2026, this is non-negotiable.</p>
       </details>
       <details>
-        <summary>How current is the corpus?</summary>
-        <p>The current beta corpus is 42 hand-curated landmark Supreme Court judgments. The next milestone is 500 by end of Q2 2026, then 5,000 by Q3 — including post-July-2024 BNS-era rulings. You can request specific cases be added.</p>
+        <summary>How current is the corpus?<span class="plus">+</span></summary>
+        <p>Currently 42 hand-curated landmark Supreme Court judgments. Roadmap: 500 by Q2, 5,000 by Q3 — including post-July-2024 BNS-era rulings. You can request specific cases be added.</p>
       </details>
       <details>
-        <summary>Why criminal law only?</summary>
-        <p>Depth, not breadth. Horizontal AI legal-tech is a kilometre wide and a centimetre deep on every domain. Criminal law has its own taxonomy, its own appellate doctrines, its own statutes. We chose to be world-class on one thing rather than mediocre across all.</p>
+        <summary>Why criminal law only?<span class="plus">+</span></summary>
+        <p>Depth, not breadth. Horizontal AI legal-tech is shallow on every domain. Criminal law has its own taxonomy, statutes, and appellate doctrines. We chose to be world-class on one thing.</p>
       </details>
       <details>
-        <summary>Does it work in Hindi?</summary>
-        <p>Yes. Every result has a one-click Hindi toggle. Translation is natural lawyer-Hindi; case names, citations, statute references and paragraph anchors are preserved verbatim in English — those are the things you copy into court papers.</p>
+        <summary>Does it work in Hindi?<span class="plus">+</span></summary>
+        <p>Yes — one-click Devanagari translation on every result. Case names, citations, statute references, and paragraph anchors are preserved verbatim in English.</p>
       </details>
       <details>
-        <summary>Can I cite Headnote in court?</summary>
-        <p>You cite the underlying judgment, not Headnote. Every result links you to the source paragraph. Treat Headnote as a research assistant, not a citation source.</p>
-      </details>
-      <details>
-        <summary>Who is behind this?</summary>
-        <p>A small founding team working with practising criminal advocates. Editorial supervision comes from a senior advocate with twenty-six years at the Bar. We do not publish individual names while in beta.</p>
+        <summary>Can I cite Headnote in court?<span class="plus">+</span></summary>
+        <p>You cite the underlying judgment, not Headnote. Every result links to the source paragraph. Treat Headnote as a research assistant, not a citation source.</p>
       </details>
     </div>
   </section>
 
-  <!-- ============================================================
-       COLOPHON — the closing colophon, like a journal's
-       ============================================================ -->
-  <footer class="colophon">
-    <div class="colophon__inner">
-      <div class="colophon__top">
-        <p class="colophon__brand">Headnote</p>
-        <p class="colophon__motto">Research that holds up in court.</p>
+  <!-- ============ FOOTER ============ -->
+  <footer class="foot">
+    <div class="foot__inner">
+      <div class="foot__top">
+        <a href="/" class="foot__brand">
+          <span class="nav__mark"></span>
+          <span>Headnote</span>
+        </a>
+        <p class="foot__tag">Every citation, verified.</p>
       </div>
-
-      <div class="colophon__cols">
+      <div class="foot__cols">
         <div>
-          <p class="colophon__h">The product</p>
+          <p class="foot__h">Product</p>
           <ul>
-            <li><a href="/app">Open the app</a></li>
-            <li><a href="#what">What we make</a></li>
+            <li><a href="/app">Open app</a></li>
+            <li><a href="#how">How it works</a></li>
             <li><a href="#trust">Trust</a></li>
           </ul>
         </div>
         <div>
-          <p class="colophon__h">About</p>
+          <p class="foot__h">About</p>
           <ul>
-            <li><a href="#manifesto">The case for this</a></li>
-            <li><a href="#chambers">From chambers</a></li>
+            <li><a href="#why">Why Headnote</a></li>
             <li><a href="#faq">FAQ</a></li>
+            <li><a href="#beta">Beta</a></li>
           </ul>
         </div>
         <div>
-          <p class="colophon__h">Beta</p>
+          <p class="foot__h">Contact</p>
           <ul>
-            <li><a href="#beta">Beta access</a></li>
-            <li><a href="mailto:beta@headnote.app">Request a feature</a></li>
-            <li><a href="mailto:beta@headnote.app">Report an issue</a></li>
+            <li><a href="mailto:beta@headnote.app">beta@headnote.app</a></li>
           </ul>
-        </div>
-        <div>
-          <p class="colophon__h">Quiet things</p>
-          <p class="colophon__small">
-            Headnote is a research aid. The lawyer is the lawyer. Always verify citations against the source judgment before relying on them in court — especially after the SC's February 2026 ruling.
-          </p>
         </div>
       </div>
-
-      <p class="colophon__legal">
-        <span>© 2026 Headnote.</span>
-        <span class="colophon__sep">·</span>
-        <span><em>Lex sine fide nihil est.</em></span>
-        <span class="colophon__sep">·</span>
-        <span>Beta · Confidential.</span>
+      <p class="foot__legal">
+        © 2026 Headnote. Beta — confidential. Headnote is a research aid; always verify citations against the source judgment.
       </p>
     </div>
   </footer>
 
+  <script src="/static/landing.js" defer></script>
 </body>
 </html>
