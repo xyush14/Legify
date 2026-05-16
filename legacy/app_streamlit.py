@@ -43,7 +43,7 @@ from pathlib import Path
 import streamlit as st
 from anthropic import Anthropic
 
-from prompts import (
+from headnote.llm.prompts import (
     build_situation_system_prompt,
     SITUATION_USER_TEMPLATE,
     HEADNOTE_SYSTEM_PROMPT,
