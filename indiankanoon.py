@@ -1,46 +1,41 @@
 """
-Indian Kanoon API helper for Legify.
+Indian Kanoon API helper for Legify — WITH DEBUG LOGGING.
 
-Provides:
-    search_ik(query, max_results, from_date, court) -> list[dict]
-    fetch_ik(doc_id)                                -> dict
-    expand_query_for_ik(situation, anthropic_client)-> list[str]
-
-Configuration via env vars:
-    KANOON_API_TOKEN     (required)
-
-Errors:
-    IKError       generic
-    IKAuthError   token rejected (401/403)
-    IKRateLimit   429
+Every call prints to stdout so Render Logs shows what's happening.
+Once we find the bug, we can remove the print() statements.
 """
 
 from __future__ import annotations
 
 import os
 import re
+import sys
 import json
 import requests
 from typing import Optional
 
 
-# -------------------------------------------------------------------- config
-
 KANOON_BASE = "https://api.indiankanoon.org"
 TIMEOUT_SEARCH = 30
 TIMEOUT_FETCH = 60
-
-# Cheap model for expanding a lawyer's plain-English situation into IK queries
 EXPAND_MODEL = "claude-sonnet-4-6"
+
+
+def _log(msg: str) -> None:
+    """Force flush so Render Logs sees it immediately."""
+    print(f"[ik] {msg}", flush=True)
+    sys.stdout.flush()
 
 
 def _token() -> str:
     tok = os.environ.get("KANOON_API_TOKEN")
     if not tok:
+        _log("ERROR: KANOON_API_TOKEN env var is empty or not set!")
         raise IKAuthError(
             "KANOON_API_TOKEN env var not set. "
             "Add it in Render → Environment, then restart the service."
         )
+    _log(f"token loaded, first 8 chars: {tok[:8]}...")
     return tok
 
 
@@ -51,52 +46,43 @@ def _headers() -> dict:
     }
 
 
-# -------------------------------------------------------------------- errors
-
 class IKError(Exception):
-    """Generic Indian Kanoon error."""
+    pass
 
 
 class IKAuthError(IKError):
-    """Token missing, invalid, or revoked."""
+    pass
 
 
 class IKRateLimit(IKError):
-    """IK is throttling — back off and retry."""
+    pass
 
-
-# -------------------------------------------------------------------- helpers
 
 def _clean_html(raw: str) -> str:
     if not raw:
         return ""
     t = re.sub(r"<[^>]+>", " ", raw)
-    t = (
-        t.replace("&amp;", "&")
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&nbsp;", " ")
-        .replace("&quot;", '"')
-        .replace("&#39;", "'")
-        .replace("&#8377;", "₹")
-    )
+    t = (t.replace("&amp;", "&")
+          .replace("&lt;", "<")
+          .replace("&gt;", ">")
+          .replace("&nbsp;", " ")
+          .replace("&quot;", '"')
+          .replace("&#39;", "'")
+          .replace("&#8377;", "₹"))
     return re.sub(r"\s+", " ", t).strip()
 
 
 def _check_status(resp: requests.Response, context: str) -> None:
     if resp.status_code == 200:
         return
+    _log(f"ERROR: {context} returned HTTP {resp.status_code}")
+    _log(f"       body: {resp.text[:300]}")
     if resp.status_code in (401, 403):
-        raise IKAuthError(
-            f"{context}: IK token rejected ({resp.status_code}). "
-            f"Token may be revoked or invalid."
-        )
+        raise IKAuthError(f"{context}: IK token rejected ({resp.status_code})")
     if resp.status_code == 429:
-        raise IKRateLimit(f"{context}: IK rate-limited (429). Back off and retry.")
+        raise IKRateLimit(f"{context}: IK rate-limited (429)")
     raise IKError(f"{context}: IK returned {resp.status_code} — {resp.text[:200]}")
 
-
-# -------------------------------------------------------------------- search
 
 def search_ik(
     query: str,
@@ -104,9 +90,11 @@ def search_ik(
     from_date: Optional[str] = None,
     court: Optional[str] = None,
 ) -> list[dict]:
-    """Search Indian Kanoon. Returns judgment summaries."""
     if not query or not query.strip():
+        _log("search_ik called with empty query, returning []")
         return []
+
+    _log(f"search_ik: query='{query}' from_date={from_date} court={court}")
 
     data = {"formInput": query.strip(), "pagenum": 0}
     if from_date:
@@ -119,11 +107,22 @@ def search_ik(
             data=data,
             timeout=TIMEOUT_SEARCH,
         )
+        _log(f"search_ik HTTP status: {resp.status_code}, body length: {len(resp.text)}")
     except requests.RequestException as e:
+        _log(f"search_ik network error: {e}")
         raise IKError(f"search_ik network error: {e}") from e
 
     _check_status(resp, "search_ik")
-    docs = resp.json().get("docs", [])
+
+    try:
+        payload = resp.json()
+    except Exception as e:
+        _log(f"search_ik JSON parse failed: {e}")
+        _log(f"       raw body: {resp.text[:500]}")
+        raise IKError(f"search_ik: bad JSON from IK") from e
+
+    docs = payload.get("docs", [])
+    _log(f"search_ik: IK returned {len(docs)} raw docs")
 
     out = []
     for d in docs:
@@ -144,14 +143,13 @@ def search_ik(
         if len(out) >= max_results:
             break
 
+    _log(f"search_ik returning {len(out)} filtered results")
     return out
 
 
-# -------------------------------------------------------------------- fetch
-
 def fetch_ik(doc_id: str) -> dict:
-    """Fetch full clean text of one judgment."""
     doc_id = str(doc_id).strip()
+    _log(f"fetch_ik: doc_id={doc_id}")
     if not doc_id.isdigit():
         raise IKError(f"fetch_ik: invalid doc_id '{doc_id}'")
 
@@ -161,15 +159,19 @@ def fetch_ik(doc_id: str) -> dict:
             headers=_headers(),
             timeout=TIMEOUT_FETCH,
         )
+        _log(f"fetch_ik HTTP status: {resp.status_code}")
     except requests.RequestException as e:
+        _log(f"fetch_ik network error: {e}")
         raise IKError(f"fetch_ik network error: {e}") from e
 
     _check_status(resp, f"fetch_ik(doc_id={doc_id})")
     payload = resp.json()
     full_text = _clean_html(payload.get("doc", ""))
     if not full_text:
-        raise IKError(f"fetch_ik(doc_id={doc_id}): empty judgment body")
+        _log(f"fetch_ik: empty judgment body for doc_id={doc_id}")
+        raise IKError(f"fetch_ik: empty judgment body")
 
+    _log(f"fetch_ik: got {len(full_text)} chars for doc_id={doc_id}")
     return {
         "doc_id":     doc_id,
         "title":      _clean_html(payload.get("title", "")),
@@ -180,8 +182,6 @@ def fetch_ik(doc_id: str) -> dict:
         "url":        f"https://indiankanoon.org/doc/{doc_id}/",
     }
 
-
-# -------------------------------------------------------------------- expand
 
 _EXPAND_SYSTEM = """You convert an Indian criminal advocate's plain-English description of a legal situation, OR a doctrinal topic, into 2-3 search queries optimized for the Indian Kanoon search engine.
 
@@ -200,11 +200,10 @@ Example output:
 
 
 def expand_query_for_ik(situation: str, anthropic_client) -> list[str]:
-    """Turn lawyer's situation/topic into 2-3 IK-optimized queries.
-    Falls back to [situation] if expansion fails — never crashes the request.
-    """
     if not situation or not situation.strip():
         return []
+
+    _log(f"expand_query_for_ik input: '{situation[:80]}...'")
 
     try:
         msg = anthropic_client.messages.create(
@@ -214,18 +213,20 @@ def expand_query_for_ik(situation: str, anthropic_client) -> list[str]:
             messages=[{"role": "user", "content": situation.strip()}],
         )
         raw = msg.content[0].text.strip()
+        _log(f"expand_query_for_ik raw response: {raw[:200]}")
         raw = re.sub(r"^```(?:json)?\s*", "", raw)
         raw = re.sub(r"\s*```$", "", raw)
         queries = json.loads(raw)
         if isinstance(queries, list) and all(isinstance(q, str) for q in queries):
-            return [q.strip() for q in queries if q.strip()][:3]
-    except Exception:
-        pass
+            result = [q.strip() for q in queries if q.strip()][:3]
+            _log(f"expand_query_for_ik produced: {result}")
+            return result
+    except Exception as e:
+        _log(f"expand_query_for_ik FAILED: {type(e).__name__}: {e}")
 
+    _log(f"expand_query_for_ik fallback to raw input")
     return [situation.strip()]
 
-
-# -------------------------------------------------------------------- compose
 
 def gather_relevant_judgments(
     situation_or_topic: str,
@@ -236,42 +237,44 @@ def gather_relevant_judgments(
     from_date: Optional[str] = "2010-01-01",
     court: Optional[str] = "Supreme Court",
 ) -> list[dict]:
-    """High-level: situation/topic in, full-text judgments out.
+    _log("=" * 60)
+    _log(f"gather_relevant_judgments START")
+    _log(f"  input: '{situation_or_topic[:100]}'")
+    _log(f"  court filter: {court}, from_date: {from_date}")
 
-    1. Expand the input into 2-3 IK search queries (Sonnet).
-    2. Run each query; take union; dedupe by doc_id.
-    3. Fetch full text for the top `max_total` results.
-    4. Truncate each doc to `max_chars_per_doc` to control LLM cost.
-
-    Returns judgment dicts in the shape the prompts expect.
-    """
     queries = expand_query_for_ik(situation_or_topic, anthropic_client)
+    _log(f"  queries to run: {queries}")
+
     if not queries:
+        _log("  no queries — returning []")
         return []
 
     seen: dict[str, dict] = {}
     for q in queries:
         try:
             hits = search_ik(q, max_results=5, from_date=from_date, court=court)
-        except IKError:
+            _log(f"  query '{q}' -> {len(hits)} hits after court filter")
+        except IKError as e:
+            _log(f"  query '{q}' FAILED: {e}")
             continue
         for h in hits:
             if h["doc_id"] not in seen:
                 seen[h["doc_id"]] = h
-            if len(seen) >= max_total * 3:  # gather extra, trim after
+            if len(seen) >= max_total * 3:
                 break
         if len(seen) >= max_total * 3:
             break
 
-    # Take the first max_total in insertion order (already rank-prioritized
-    # because IK returns by relevance and we process top-results queries first)
+    _log(f"  total unique judgments collected: {len(seen)}")
     picks = list(seen.values())[:max_total]
+    _log(f"  fetching full text for top {len(picks)}")
 
     judgments = []
     for p in picks:
         try:
             full = fetch_ik(p["doc_id"])
-        except IKError:
+        except IKError as e:
+            _log(f"  fetch failed for {p['doc_id']}: {e}")
             continue
         text = full["full_text"]
         if len(text) > max_chars_per_doc:
@@ -286,6 +289,8 @@ def gather_relevant_judgments(
             "year":      _year_from_date(full["date"] or p["date"]),
         })
 
+    _log(f"gather_relevant_judgments END — returning {len(judgments)} judgments")
+    _log("=" * 60)
     return judgments
 
 
@@ -294,37 +299,3 @@ def _year_from_date(date_str: str) -> Optional[int]:
         return None
     m = re.search(r"(19|20)\d{2}", date_str)
     return int(m.group(0)) if m else None
-
-
-# -------------------------------------------------------------------- smoke
-
-if __name__ == "__main__":
-    print("Smoke-testing indiankanoon.py …")
-    print("-" * 60)
-    print("\n[1] search_ik for 'Section 482 CrPC quashing'")
-    try:
-        hits = search_ik(
-            "Section 482 CrPC quashing Supreme Court",
-            max_results=3, from_date="2020-01-01", court="Supreme Court",
-        )
-        for h in hits:
-            print(f"   - {h['doc_id']:>10}  {h['date']}  {h['title'][:60]}")
-    except IKError as e:
-        print(f"   ERROR: {e}")
-        raise SystemExit(1)
-    if not hits:
-        print("   No hits. Investigate.")
-        raise SystemExit(1)
-
-    print(f"\n[2] fetch_ik for doc_id={hits[0]['doc_id']}")
-    try:
-        case = fetch_ik(hits[0]["doc_id"])
-        print(f"   title:      {case['title'][:70]}")
-        print(f"   court:      {case['court']}")
-        print(f"   char_count: {case['char_count']:,}")
-        print(f"   preview:    {case['full_text'][:160]}…")
-    except IKError as e:
-        print(f"   ERROR: {e}")
-        raise SystemExit(1)
-
-    print("\n✓ IK helper working. Ready to wire into endpoints.")
