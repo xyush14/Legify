@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Headnote — Live Research</title>
+<style>
+  :root {
+    --bg: #fbfaf6;
+    --card: #ffffff;
+    --ink: #1a1d23;
+    --ink-soft: #5a5f6a;
+    --line: #e8e4dc;
+    --accent: #1a3a5c;
+    --accent-soft: #e8eef5;
+    --success: #2d6e4e;
+    --warning: #b8841e;
+    --error: #b53939;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Charter', 'Iowan Old Style', 'Source Serif Pro', Georgia, serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.55;
+    min-height: 100vh;
+    padding: 2rem 1rem;
+  }
+  .container { max-width: 920px; margin: 0 auto; }
+
+  /* Header */
+  .brand {
+    display: flex; align-items: center; gap: .75rem;
+    margin-bottom: 2rem;
+  }
+  .brand__logo {
+    width: 40px; height: 40px;
+    background: var(--accent); color: white;
+    border-radius: 8px;
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 1.25rem;
+    font-family: -apple-system, system-ui, sans-serif;
+  }
+  .brand__name {
+    font-size: 1.5rem; font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .brand__tag {
+    font-size: 0.85rem; color: var(--ink-soft);
+    margin-left: auto; font-family: -apple-system, system-ui, sans-serif;
+  }
+
+  /* Hero */
+  .hero {
+    margin-bottom: 2rem;
+    padding: 2rem 0 1rem;
+  }
+  .hero__eyebrow {
+    font-family: -apple-system, system-ui, sans-serif;
+    font-size: 0.75rem; font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0.1em; text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+  .hero__title {
+    font-size: 2.5rem; line-height: 1.15;
+    letter-spacing: -0.02em;
+    font-weight: 600;
+    margin-bottom: .75rem;
+  }
+  .hero__sub {
+    color: var(--ink-soft); font-size: 1.05rem;
+    max-width: 600px;
+  }
+
+  /* Input card */
+  .input-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 1.25rem;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .input-card__label {
+    display: block;
+    font-family: -apple-system, system-ui, sans-serif;
+    font-size: 0.85rem; font-weight: 600;
+    color: var(--ink-soft);
+    margin-bottom: 0.5rem;
+  }
+  textarea {
+    width: 100%;
+    min-height: 120px;
+    padding: 0.75rem;
+    font-family: inherit;
+    font-size: 1rem;
+    line-height: 1.5;
+    color: var(--ink);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    resize: vertical;
+  }
+  textarea:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
+    border-color: var(--accent);
+  }
+
+  .controls {
+    display: flex; align-items: center; gap: 1rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+  }
+  .style-toggle {
+    display: inline-flex;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 2px;
+  }
+  .style-toggle button {
+    border: none; background: transparent;
+    padding: 0.4rem 0.9rem;
+    font-family: -apple-system, system-ui, sans-serif;
+    font-size: 0.85rem; font-weight: 500;
+    color: var(--ink-soft);
+    cursor: pointer;
+    border-radius: 6px;
+  }
+  .style-toggle button.active {
+    background: var(--ink); color: white;
+  }
+
+  .submit-btn {
+    margin-left: auto;
+    background: var(--ink);
+    color: white;
+    border: none;
+    padding: 0.65rem 1.5rem;
+    font-family: -apple-system, system-ui, sans-serif;
+    font-size: 0.95rem; font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .submit-btn:hover:not(:disabled) { opacity: 0.85; }
+  .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Examples */
+  .examples {
+    margin-top: 1rem;
+    font-family: -apple-system, system-ui, sans-serif;
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+  }
+  .examples__title { font-weight: 600; margin-right: 0.5rem; }
+  .examples button {
+    background: var(--accent-soft);
+    border: none;
+    padding: 0.35rem 0.7rem;
+    margin: 0.25rem 0.25rem 0.25rem 0;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    color: var(--accent);
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .examples button:hover { background: #d8e3ef; }
+
+  /* Status bar */
+  .status {
+    margin: 1.5rem 0;
+    display: flex; align-items: center; gap: 0.75rem;
+    flex-wrap: wrap;
+    font-family: -apple-system, system-ui, sans-serif;
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+  }
+  .status__pill {
+    background: var(--accent-soft);
+    color: var(--accent);
+    padding: 0.25rem 0.6rem;
+    border-radius: 99px;
+    font-weight: 500;
+  }
+  .status__pill--success { background: #d6e8de; color: var(--success); }
+  .status__pill--warn { background: #f5e7c4; color: var(--warning); }
+  .status__pill--error { background: #f5d6d6; color: var(--error); }
+
+  /* Loading */
+  .loading {
+    margin-top: 2rem;
+    padding: 2rem;
+    text-align: center;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    color: var(--ink-soft);
+  }
+  .loading__steps {
+    margin-top: 1rem;
+    font-family: -apple-system, system-ui, sans-serif;
+    font-size: 0.85rem;
+    text-align: left;
+    max-width: 400px;
+    margin-left: auto; margin-right: auto;
+  }
+  .loading__step {
+    padding: 0.4rem 0;
+    color: var(--ink-soft);
+    opacity: 0.4;
+    transition: opacity 0.3s, color 0.3s;
+  }
+  .loading__step.active { opacity: 1; color: var(--accent); font-weight: 600; }
+  .loading__step.done { opacity: 0.7; color: var(--success); }
+  .loading__step.done::before { content: "✓ "; }
+  .loading__step.active::before { content: "→ "; }
+
+  /* Case cards */
+  .results { margin-top: 2rem; }
+  .case-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .case-card__rank {
+    display: inline-block;
+    background: var(--accent);
+    color: white;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 28px;
+    font-family: -apple-system, system-ui, sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    margin-right: 0.5rem;
+    vertical-align: middle;
+  }
+  .case-card__title {
+    display: inline;
+    font-size: 1.25rem;
+    font-style: italic;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .case-card__cite {
+    margin-top: 0.5rem;
+    color: var(--ink-soft);
+    font-family: -apple-system, system-ui, sans-serif;
+    font-size: 0.85rem;
+  }
+  .case-card__link {
+    color: var(--accent);
+    text-decoration: none;
+    margin-left: 0.5rem;
+  }
+  .case-card__link:hover { text-decoration: underline; }
+
+  .relevance {
+    margin: 1rem 0;
+    padding: 0.85rem 1rem;
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    font-size: 0.95rem;
+  }
+  .relevance__label {
+    display: block;
+    font-family: -apple-system, system-ui, sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 0.35rem;
+  }
+
+  .headnote {
+    margin-top: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fdfcf8;
+  }
+  .headnote__section {
+    margin-bottom: 0.85rem;
+  }
+  .headnote__section:last-child { margin-bottom: 0; }
+  .headnote__label {
+    display: block;
+    font-family: -apple-system, system-ui, sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--ink-soft);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.25rem;
+  }
+  .headnote__value { color: var(--ink); }
+  .headnote__value--ratio {
+    font-weight: 500;
+    border-left: 3px solid var(--ink);
+    padding-left: 0.75rem;
+    margin-top: 0.25rem;
+  }
+
+  .bns-note {
+    margin-top: 1rem;
+    padding: 0.65rem 0.9rem;
+    background: #f5f0e8;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    color: var(--ink-soft);
+  }
+  .bns-note strong { color: var(--ink); }
+
+  .error-state {
+    background: #fef0f0;
+    border: 1px solid #f5d6d6;
+    color: var(--error);
+    padding: 1rem;
+    border-radius: 8px;
+    margin-top: 1rem;
+  }
+
+  .footer {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--line);
+    text-align: center;
+    font-family: -apple-system, system-ui, sans-serif;
+    font-size: 0.8rem;
+    color: var(--ink-soft);
+  }
+
+  @media (max-width: 600px) {
+    .hero__title { font-size: 1.85rem; }
+    .submit-btn { width: 100%; margin-left: 0; }
+    .controls { flex-direction: column; align-items: stretch; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="brand">
+    <div class="brand__logo">H</div>
+    <div class="brand__name">Headnote</div>
+    <div class="brand__tag">Beta · Live Demo</div>
+  </div>
+
+  <section class="hero">
+    <div class="hero__eyebrow">Vertical AI for India's Criminal Advocates</div>
+    <h1 class="hero__title">Research a matter in plain English. Get the three best precedents.</h1>
+    <p class="hero__sub">Live access to Supreme Court criminal jurisprudence. Cri.L.J.-format headnotes. Every citation verified. Built for the post-Feb 2026 misconduct standard.</p>
+  </section>
+
+  <section class="input-card">
+    <label class="input-card__label" for="situation">Describe your matter</label>
+    <textarea
+      id="situation"
+      placeholder="Facts, parties, sections invoked, the question you need to answer..."></textarea>
+
+    <div class="controls">
+      <div class="style-toggle">
+        <button type="button" data-style="journal" class="active">Cri.L.J. Journal</button>
+        <button type="button" data-style="practitioner">Practitioner Notes</button>
+      </div>
+      <button type="button" class="submit-btn" id="submit">Find Cases →</button>
+    </div>
+
+    <div class="examples">
+      <span class="examples__title">Try:</span>
+      <button data-example="bail-antecedents">Bail vs criminal antecedents</button>
+      <button data-example="482-matrimonial">S. 482 quashing in matrimonial dispute</button>
+      <button data-example="ndps-bail">NDPS bail with twin conditions</button>
+    </div>
+  </section>
+
+  <div id="output"></div>
+
+  <div class="footer">
+    Editorial supervision · Senior Criminal Advocate, 26 years at the Bar<br>
+    Every citation verified to source paragraph · Built for the post-Feb 2026 SC misconduct standard
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const EXAMPLES = {
+  'bail-antecedents': 'My client is accused under S. 380 and S. 411 IPC. Bail is opposed citing prior criminal antecedents. Looking for Supreme Court precedents that criminal antecedents alone cannot be the basis for denying bail.',
+  '482-matrimonial': 'Quashing petition under S. 482 CrPC for 498A FIR filed by estranged wife two years after separation. Marriage settled by mutual consent. Looking for SC authorities for quashing on settlement.',
+  'ndps-bail': 'NDPS case under S. 22 — commercial quantity. Bail twin conditions under S. 37 NDPS Act. Looking for SC cases where bail granted despite the rigour of S. 37.'
+};
+
+let currentStyle = 'journal';
+
+// Style toggle
+document.querySelectorAll('.style-toggle button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.style-toggle button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentStyle = btn.dataset.style;
+  });
+});
+
+// Example buttons
+document.querySelectorAll('[data-example]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.getElementById('situation').value = EXAMPLES[btn.dataset.example];
+  });
+});
+
+// Submit
+document.getElementById('submit').addEventListener('click', submitQuery);
+
+document.getElementById('situation').addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    e.preventDefault();
+    submitQuery();
+  }
+});
+
+async function submitQuery() {
+  const situation = document.getElementById('situation').value.trim();
+  if (situation.length < 20) {
+    alert('Please describe your situation in more detail (at least 20 characters).');
+    return;
+  }
+
+  const submitBtn = document.getElementById('submit');
+  const output = document.getElementById('output');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Researching...';
+
+  // Show loading state with steps
+  output.innerHTML = `
+    <div class="loading">
+      <div style="font-size: 1.1rem; margin-bottom: 0.5rem;">Researching your matter</div>
+      <div style="font-size: 0.9rem;">This takes 30-60 seconds. We're searching live across Indian Kanoon.</div>
+      <div class="loading__steps">
+        <div class="loading__step active" data-step="expand">Understanding your situation</div>
+        <div class="loading__step" data-step="search">Searching Supreme Court jurisprudence</div>
+        <div class="loading__step" data-step="fetch">Retrieving full judgment texts</div>
+        <div class="loading__step" data-step="generate">Generating Cri.L.J. headnotes</div>
+      </div>
+    </div>
+  `;
+
+  // Simulate step progression while waiting
+  setTimeout(() => advanceStep('expand', 'search'), 3000);
+  setTimeout(() => advanceStep('search', 'fetch'), 12000);
+  setTimeout(() => advanceStep('fetch', 'generate'), 22000);
+
+  try {
+    const r = await fetch('/api/situation', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ situation, style: currentStyle })
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Request failed');
+    renderResults(data);
+  } catch (err) {
+    output.innerHTML = `
+      <div class="error-state">
+        <strong>Something went wrong:</strong> ${escapeHtml(err.message)}<br>
+        <span style="font-size:0.85rem; font-family: -apple-system, system-ui, sans-serif;">Try again or refine your query.</span>
+      </div>
+    `;
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Find Cases →';
+  }
+}
+
+function advanceStep(doneStep, nextStep) {
+  const done = document.querySelector(`[data-step="${doneStep}"]`);
+  const next = document.querySelector(`[data-step="${nextStep}"]`);
+  if (done) { done.classList.remove('active'); done.classList.add('done'); }
+  if (next) { next.classList.add('active'); }
+}
+
+function renderResults(data) {
+  const output = document.getElementById('output');
+  const result = data.result || {};
+  const cases = result.cases || [];
+  const meta = data.meta || {};
+
+  let html = '';
+
+  // Status bar
+  const conf = result.confidence || 'unknown';
+  const confMap = {
+    high: ['🟢 Strong matches', 'success'],
+    medium: ['🟡 Relevant matches', 'warn'],
+    low: ['🔴 Limited matches', 'error']
+  };
+  const [confText, confCls] = confMap[conf] || ['Unknown', ''];
+
+  html += `<div class="status">
+    <span class="status__pill status__pill--${confCls}">${confText}</span>
+    <span>${cases.length} case${cases.length === 1 ? '' : 's'} returned</span>
+    <span>·</span>
+    <span>${meta.ik_judgments || 0} judgments fetched from Indian Kanoon</span>
+    <span>·</span>
+    <span>${meta.elapsed_seconds || '?'}s · ≈₹${(meta.cost_inr || 0).toFixed(2)}</span>
+  </div>`;
+
+  if (!cases.length) {
+    html += `<div class="error-state">
+      <strong>No relevant judgments found.</strong><br>
+      ${escapeHtml(result.no_match_reason || 'Try refining your query with specific statute sections or facts.')}
+    </div>`;
+    output.innerHTML = html;
+    return;
+  }
+
+  // Render each case
+  cases.forEach((c, i) => {
+    html += renderCase(c, i + 1);
+  });
+
+  output.innerHTML = html;
+}
+
+function renderCase(c, rank) {
+  const ikUrl = c.case_id && c.case_id.startsWith('ik_')
+    ? `https://indiankanoon.org/doc/${c.case_id.slice(3)}/`
+    : null;
+
+  let html = `<article class="case-card">
+    <div>
+      <span class="case-card__rank">${rank}</span>
+      <span class="case-card__title">${escapeHtml(c.title || 'Untitled')}</span>
+    </div>
+    <div class="case-card__cite">
+      ${escapeHtml(c.court || '')} · ${escapeHtml(c.year || '')} · ${escapeHtml(c.citation || '')}
+      ${ikUrl ? ` <a class="case-card__link" href="${ikUrl}" target="_blank" rel="noopener">View on IK ↗</a>` : ''}
+    </div>`;
+
+  if (c.relevance_explanation) {
+    html += `<div class="relevance">
+      <span class="relevance__label">Why this matches</span>
+      ${escapeHtml(c.relevance_explanation)}
+    </div>`;
+  }
+
+  if (c.journal_headnote) {
+    const h = c.journal_headnote;
+    html += `<div class="headnote">`;
+
+    if (h.statute_index) {
+      html += `<div class="headnote__section">
+        <span class="headnote__label">Statute Index</span>
+        <div class="headnote__value">${escapeHtml(h.statute_index)}</div>
+      </div>`;
+    }
+    if (h.catchword_chain) {
+      html += `<div class="headnote__section">
+        <span class="headnote__label">Catchwords</span>
+        <div class="headnote__value">${escapeHtml(h.catchword_chain)}</div>
+      </div>`;
+    }
+    if (h.ratio) {
+      html += `<div class="headnote__section">
+        <span class="headnote__label">Ratio</span>
+        <div class="headnote__value headnote__value--ratio">${escapeHtml(h.ratio)}</div>
+      </div>`;
+    }
+    if (h.negative_carve_out) {
+      html += `<div class="headnote__section">
+        <span class="headnote__label">Negative Carve-Out</span>
+        <div class="headnote__value">${escapeHtml(h.negative_carve_out)}</div>
+      </div>`;
+    }
+    if (h.paragraph_anchor) {
+      html += `<div class="headnote__section">
+        <span class="headnote__label">Paragraph Anchor</span>
+        <div class="headnote__value">${escapeHtml(h.paragraph_anchor)}</div>
+      </div>`;
+    }
+    if (h.per_judge_attribution) {
+      html += `<div class="headnote__section">
+        <span class="headnote__label">Per</span>
+        <div class="headnote__value">${escapeHtml(h.per_judge_attribution)}</div>
+      </div>`;
+    }
+    html += `</div>`;
+  }
+
+  if (c.practitioner_notes) {
+    const p = c.practitioner_notes;
+    html += `<div class="headnote">`;
+    if (p.one_line_topic) {
+      html += `<div class="headnote__section">
+        <span class="headnote__label">Topic</span>
+        <div class="headnote__value">${escapeHtml(p.one_line_topic)}</div>
+      </div>`;
+    }
+    if (p.gist) {
+      html += `<div class="headnote__section">
+        <span class="headnote__label">Gist</span>
+        <div class="headnote__value">${escapeHtml(p.gist)}</div>
+      </div>`;
+    }
+    if (p.quotable_phrase) {
+      html += `<div class="headnote__section">
+        <span class="headnote__label">Quotable</span>
+        <div class="headnote__value" style="font-style:italic">"${escapeHtml(p.quotable_phrase)}"</div>
+      </div>`;
+    }
+    if (p.cross_refs && p.cross_refs.length) {
+      html += `<div class="headnote__section">
+        <span class="headnote__label">Cross-refs</span>
+        <div class="headnote__value">${p.cross_refs.map(escapeHtml).join(' · ')}</div>
+      </div>`;
+    }
+    html += `</div>`;
+  }
+
+  if (c.bns_note) {
+    html += `<div class="bns-note">
+      <strong>BNS / BNSS mapping:</strong> ${escapeHtml(c.bns_note)}
+    </div>`;
+  }
+
+  html += `</article>`;
+  return html;
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+</script>
+</body>
+</html>
