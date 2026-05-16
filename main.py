@@ -1,30 +1,17 @@
 """
-Criminal Law AI — v0.3 (FastAPI + custom UI)
-============================================
+Criminal Law AI — v0.4 (FastAPI + custom UI + LIVE Indian Kanoon)
+=================================================================
 
-A polished, fully responsive web app for AI-powered Indian criminal-law
-research. Replaces the v0.2 Streamlit UI with a custom light-themed frontend.
-
-Architecture
-------------
-  - FastAPI backend with four endpoints:
-      POST /api/situation  — situation → relevant cases
-      POST /api/digest     — topic → research digest
-      POST /api/headnote   — judgment text → Cri.L.J.-format headnote(s)
-      POST /api/translate  — translate any English JSON result to Hindi
-  - Static HTML/CSS/JS frontend served from /static
-  - SQLite for feedback storage
-  - Anthropic prompt caching enabled for the corpus
-
-Run locally
------------
-    pip install -r requirements.txt
-    export ANTHROPIC_API_KEY=sk-ant-...   # or put in .env
-    uvicorn main:app --reload
-
-Deploy
-------
-    Render.com free tier, Railway, Fly.io — see README.
+Changes from v0.3:
+  - /api/situation and /api/digest now fetch judgments LIVE from Indian Kanoon
+    instead of using the curated 42-case cases.json. Coverage is now the
+    full Indian criminal jurisprudence (~26M judgments).
+  - cases.json is preserved as a fallback / test corpus (no longer the
+    production source). /api/corpus returns the 42 as "test cases" for now.
+  - /api/headnote and /api/translate are unchanged.
+  - Default model for situation/digest is now Claude Sonnet 4.6 (5x cheaper
+    than Opus; senior advocate review + three-check verification on output
+    catches any quality gap). Headnote stays on Opus.
 """
 
 from __future__ import annotations
@@ -51,73 +38,68 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from prompts import (
+    # legacy (kept for fallback / future use)
     build_situation_system_prompt,
+    build_digest_system_prompt,
+    # live-IK (new)
+    build_situation_system_prompt_live,
+    build_digest_system_prompt_live,
     SITUATION_USER_TEMPLATE,
     HEADNOTE_SYSTEM_PROMPT,
     HEADNOTE_USER_TEMPLATE,
-    build_digest_system_prompt,
     DIGEST_USER_TEMPLATE,
 )
 from translate import translate_payload
-from retrieval import prefilter_cases
+from indiankanoon import (
+    gather_relevant_judgments,
+    IKError, IKAuthError, IKRateLimit,
+)
+
 
 # -------------------------------------------------------------------- config
 
-APP_DIR = Path(__file__).parent
+APP_DIR    = Path(__file__).parent
 STATIC_DIR = APP_DIR / "static"
-CASES_PATH = APP_DIR / "cases.json"
-# Allow override via env (Render free disk is ephemeral; use /tmp or external DB)
+CASES_PATH = APP_DIR / "cases.json"   # legacy / test corpus
+
 FEEDBACK_DB = Path(os.environ.get("FEEDBACK_DB", str(APP_DIR / "feedback.db")))
 
-DEFAULT_MODEL = os.environ.get("MODEL", "claude-opus-4-6")
-# Hindi translation uses FREE Google Translate (deep-translator) — no API
-# call, no cost. See translate.py.
-MAX_TOKENS = 2500            # was 4096; tightened for cost
-PREFILTER_TOP_K = 12         # how many cases to keep after keyword pre-filter
+# Sonnet 4.6 for situation/digest (live IK = much larger context per call;
+# Sonnet keeps cost in line with the v0.3 Opus + cached-corpus economics).
+# Opus stays on /api/headnote where editorial quality matters most.
+SITUATION_MODEL = os.environ.get("SITUATION_MODEL", "claude-sonnet-4-6")
+DIGEST_MODEL    = os.environ.get("DIGEST_MODEL",    "claude-sonnet-4-6")
+HEADNOTE_MODEL  = os.environ.get("HEADNOTE_MODEL",  "claude-opus-4-6")
 
-# Approximate Opus 4.6 prices (USD per million tokens). Adjust if Anthropic
-# pricing changes; only used for the in-app cost meter.
+MAX_TOKENS = 4000
+
+# How many IK judgments to retrieve per request and how much of each to feed
+# the LLM. These cap cost per query.
+IK_MAX_JUDGMENTS  = 3
+IK_MAX_CHARS_DOC  = 40_000
+IK_FROM_DATE      = "2010-01-01"
+IK_DEFAULT_COURT  = "Supreme Court"
+
 PRICE_OPUS = {
-    "input": 15.00,
-    "input_cache_write": 18.75,
-    "input_cache_read": 1.50,
-    "output": 75.00,
+    "input": 15.00, "input_cache_write": 18.75,
+    "input_cache_read": 1.50, "output": 75.00,
 }
 PRICE_HAIKU = {
-    "input": 0.80,
-    "input_cache_write": 1.00,
-    "input_cache_read": 0.08,
-    "output": 4.00,
+    "input": 0.80, "input_cache_write": 1.00,
+    "input_cache_read": 0.08, "output": 4.00,
 }
 PRICE_SONNET = {
-    "input": 3.00,
-    "input_cache_write": 3.75,
-    "input_cache_read": 0.30,
-    "output": 15.00,
+    "input": 3.00, "input_cache_write": 3.75,
+    "input_cache_read": 0.30, "output": 15.00,
 }
 USD_TO_INR = 84.0
+
 
 # -------------------------------------------------------------------- helpers
 
 def load_corpus() -> list[dict]:
+    """Load legacy/test corpus (42 cases). No longer the production source."""
     return json.loads(CASES_PATH.read_text(encoding="utf-8"))
-
-
-def corpus_json_str() -> str:
-    """Stable serialisation of full corpus (used for fallback / digest mode)."""
-    if not hasattr(corpus_json_str, "_cache"):
-        corpus_json_str._cache = json.dumps(load_corpus(), ensure_ascii=False)
-    return corpus_json_str._cache
-
-
-def filtered_corpus_json(query: str, top_k: int = PREFILTER_TOP_K) -> str:
-    """Return JSON of only the top_k most relevant cases for the query.
-
-    Drops cache size by ~60% on the 42-case corpus and is the architecture we
-    need anyway as the corpus grows past Opus's 200k context window.
-    """
-    cases = prefilter_cases(load_corpus(), query, top_k=top_k)
-    return json.dumps(cases, ensure_ascii=False)
 
 
 def get_client() -> Anthropic:
@@ -131,7 +113,6 @@ def get_client() -> Anthropic:
 
 
 def init_feedback_db() -> None:
-    """Best-effort feedback DB init. Skips silently on read-only filesystems."""
     try:
         conn = sqlite3.connect(FEEDBACK_DB)
         conn.execute(
@@ -152,18 +133,20 @@ def init_feedback_db() -> None:
         print(f"[warn] feedback DB unavailable ({e}); /api/feedback will return errors.")
 
 
-def call_claude_cached(
+def call_claude(
     system_prompt: str,
     user_prompt: str,
     *,
-    model: str = DEFAULT_MODEL,
+    model: str,
     max_tokens: int = MAX_TOKENS,
     cache: bool = True,
 ) -> tuple[str, dict]:
+    """Single LLM call. Optionally caches the system prompt block."""
     client = get_client()
     if cache:
         system = [
-            {"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}}
+            {"type": "text", "text": system_prompt,
+             "cache_control": {"type": "ephemeral"}}
         ]
     else:
         system = system_prompt
@@ -192,7 +175,7 @@ def estimate_cost_usd(usage: dict) -> float:
     elif "sonnet" in model:
         pricing = PRICE_SONNET
     else:
-        pricing = PRICE_OPUS  # default — also covers claude-opus-4-6 / 4-7
+        pricing = PRICE_OPUS
     return (
         usage.get("input_tokens", 0) * pricing["input"] / 1_000_000
         + usage.get("cache_creation_input_tokens", 0) * pricing["input_cache_write"] / 1_000_000
@@ -205,9 +188,9 @@ def parse_json_response(raw: str) -> dict:
     text = raw.strip()
     if text.startswith("```"):
         text = "\n".join(text.split("\n")[1:])
-        if text.endswith("```"):
-            text = text[: -3]
-        text = text.strip()
+    if text.endswith("```"):
+        text = text[:-3]
+    text = text.strip()
     try:
         return json.loads(text)
     except json.JSONDecodeError as e:
@@ -217,9 +200,9 @@ def parse_json_response(raw: str) -> dict:
         )
 
 
-def build_meta(usage: dict, elapsed: float) -> dict:
+def build_meta(usage: dict, elapsed: float, extra: dict | None = None) -> dict:
     cost_usd = estimate_cost_usd(usage)
-    return {
+    meta = {
         "elapsed_seconds": round(elapsed, 2),
         "model": usage.get("model"),
         "input_tokens": usage.get("input_tokens", 0),
@@ -229,6 +212,9 @@ def build_meta(usage: dict, elapsed: float) -> dict:
         "cost_usd": round(cost_usd, 6),
         "cost_inr": round(cost_usd * USD_TO_INR, 4),
     }
+    if extra:
+        meta.update(extra)
+    return meta
 
 
 # -------------------------------------------------------------------- models
@@ -255,41 +241,50 @@ class FeedbackRequest(BaseModel):
     mode: str
     input_text: str
     output_json: str
-    rating: int  # 1 or -1
+    rating: int
     correction: str | None = None
     lawyer_handle: str | None = None
 
 
 # -------------------------------------------------------------------- app
 
-app = FastAPI(title="Criminal Law AI", version="0.3.0")
+app = FastAPI(title="Criminal Law AI", version="0.4.0")
 init_feedback_db()
 
 
 @app.get("/")
 def landing():
-    """Marketing landing page."""
     return FileResponse(STATIC_DIR / "landing.html")
 
 
 @app.get("/app")
 @app.get("/app/")
 def app_index():
-    """The actual research tool."""
     return FileResponse(STATIC_DIR / "index.html")
 
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "version": "0.3.0", "model": DEFAULT_MODEL}
+    return {
+        "ok": True,
+        "version": "0.4.0",
+        "mode": "live-ik",
+        "situation_model": SITUATION_MODEL,
+        "digest_model": DIGEST_MODEL,
+        "headnote_model": HEADNOTE_MODEL,
+    }
 
 
 @app.get("/api/corpus")
 def api_corpus():
-    """Return slim corpus listing for the browse-corpus drawer."""
-    cases = load_corpus()
+    """Return slim listing of the legacy 42 cases. Now labelled as test corpus."""
+    try:
+        cases = load_corpus()
+    except FileNotFoundError:
+        return {"count": 0, "cases": [], "note": "test corpus not present"}
     return {
         "count": len(cases),
+        "note": "These 42 cases are kept as a test/reference set. Production queries now retrieve live from Indian Kanoon.",
         "cases": [
             {
                 "id": c["id"],
@@ -303,25 +298,66 @@ def api_corpus():
     }
 
 
+# ────────────────────────────────────────────────────────────────────
+# /api/situation — LIVE Indian Kanoon
+# ────────────────────────────────────────────────────────────────────
+
 @app.post("/api/situation")
 def api_situation(req: SituationRequest):
-    # Pre-filter: only the top-K most relevant cases reach the LLM.
-    # Cuts cache-write cost ~60% with no quality regression on hits.
-    sys_prompt = build_situation_system_prompt(
-        req.style, filtered_corpus_json(req.situation)
-    )
-    user_prompt = SITUATION_USER_TEMPLATE.format(situation=req.situation, style=req.style)
     t0 = time.time()
-    raw, usage = call_claude_cached(sys_prompt, user_prompt)
+    client = get_client()
+
+    # Step 1: fetch live from Indian Kanoon (expand query → search → fetch).
+    try:
+        judgments = gather_relevant_judgments(
+            req.situation,
+            client,
+            max_total=IK_MAX_JUDGMENTS,
+            max_chars_per_doc=IK_MAX_CHARS_DOC,
+            from_date=IK_FROM_DATE,
+            court=IK_DEFAULT_COURT,
+        )
+    except IKAuthError as e:
+        raise HTTPException(status_code=500, detail=f"IK auth error: {e}")
+    except IKRateLimit as e:
+        raise HTTPException(status_code=503, detail=f"IK rate-limited: {e}")
+    except IKError as e:
+        raise HTTPException(status_code=502, detail=f"IK error: {e}")
+
+    if not judgments:
+        elapsed = time.time() - t0
+        return {
+            "result": {
+                "confidence": "low",
+                "no_match_reason": "No relevant judgments retrieved from Indian Kanoon for this situation. Try refining the query with statute references or factual specifics.",
+                "style": req.style,
+                "cases": [],
+            },
+            "raw": "",
+            "dropped_hallucinations": [],
+            "meta": build_meta({"model": SITUATION_MODEL}, elapsed,
+                               {"ik_judgments_fetched": 0}),
+        }
+
+    # Step 2: build prompt with fetched judgments as the corpus.
+    judgments_json = json.dumps(judgments, ensure_ascii=False)
+    sys_prompt = build_situation_system_prompt_live(req.style, judgments_json)
+    user_prompt = SITUATION_USER_TEMPLATE.format(
+        situation=req.situation, style=req.style
+    )
+
+    # Step 3: call the LLM.
+    raw, usage = call_claude(
+        sys_prompt, user_prompt, model=SITUATION_MODEL, cache=False,
+    )
     elapsed = time.time() - t0
 
+    # Step 4: parse + verify case_ids against this request's fetched set.
     parsed = parse_json_response(raw)
-    # Verify case_ids against full corpus (not just filtered subset)
-    corpus_ids = {c["id"] for c in load_corpus()}
-    verified = []
-    dropped = []
+    fetched_ids = {j["case_id"] for j in judgments}
+    verified, dropped = [], []
     for c in parsed.get("cases", []):
-        if c.get("case_id") in corpus_ids:
+        if c.get("case_id") in fetched_ids:
             verified.append(c)
         else:
             dropped.append(c.get("title", "?"))
@@ -331,37 +367,87 @@ def api_situation(req: SituationRequest):
         "result": parsed,
         "raw": raw,
         "dropped_hallucinations": dropped,
-        "meta": build_meta(usage, elapsed),
+        "meta": build_meta(usage, elapsed, {
+            "ik_judgments_fetched": len(judgments),
+            "ik_doc_ids": [j["case_id"] for j in judgments],
+        }),
     }
 
+
+# ────────────────────────────────────────────────────────────────────
+# /api/digest — LIVE Indian Kanoon
+# ────────────────────────────────────────────────────────────────────
 
 @app.post("/api/digest")
 def api_digest(req: DigestRequest):
-    # Same pre-filter pattern as situation. Digest mode cares about more
-    # cases per topic, so use a wider top-K.
-    sys_prompt = build_digest_system_prompt(filtered_corpus_json(req.topic, top_k=18))
-    user_prompt = DIGEST_USER_TEMPLATE.format(topic=req.topic)
     t0 = time.time()
-    raw, usage = call_claude_cached(sys_prompt, user_prompt)
+    client = get_client()
+
+    try:
+        judgments = gather_relevant_judgments(
+            req.topic,
+            client,
+            max_total=IK_MAX_JUDGMENTS,
+            max_chars_per_doc=IK_MAX_CHARS_DOC,
+            from_date=IK_FROM_DATE,
+            court=IK_DEFAULT_COURT,
+        )
+    except IKAuthError as e:
+        raise HTTPException(status_code=500, detail=f"IK auth error: {e}")
+    except IKRateLimit as e:
+        raise HTTPException(status_code=503, detail=f"IK rate-limited: {e}")
+    except IKError as e:
+        raise HTTPException(status_code=502, detail=f"IK error: {e}")
+
+    if not judgments:
+        elapsed = time.time() - t0
+        return {
+            "result": {
+                "topic": req.topic,
+                "confidence": "low",
+                "sub_topics": [],
+                "summary_takeaway": "No relevant judgments retrieved from Indian Kanoon for this topic.",
+            },
+            "raw": "",
+            "meta": build_meta({"model": DIGEST_MODEL}, elapsed,
+                               {"ik_judgments_fetched": 0}),
+        }
+
+    judgments_json = json.dumps(judgments, ensure_ascii=False)
+    sys_prompt = build_digest_system_prompt_live(judgments_json)
+    user_prompt = DIGEST_USER_TEMPLATE.format(topic=req.topic)
+
+    raw, usage = call_claude(
+        sys_prompt, user_prompt, model=DIGEST_MODEL, cache=False,
+    )
     elapsed = time.time() - t0
 
     parsed = parse_json_response(raw)
     return {
         "result": parsed,
         "raw": raw,
-        "meta": build_meta(usage, elapsed),
+        "meta": build_meta(usage, elapsed, {
+            "ik_judgments_fetched": len(judgments),
+            "ik_doc_ids": [j["case_id"] for j in judgments],
+        }),
     }
 
+
+# ────────────────────────────────────────────────────────────────────
+# /api/headnote — UNCHANGED (corpus-independent; takes pasted text)
+# ────────────────────────────────────────────────────────────────────
 
 @app.post("/api/headnote")
 def api_headnote(req: HeadnoteRequest):
-    user_prompt = HEADNOTE_USER_TEMPLATE.format(judgment_text=req.judgment_text[:30000])
+    user_prompt = HEADNOTE_USER_TEMPLATE.format(
+        judgment_text=req.judgment_text[:30000]
+    )
     t0 = time.time()
-    # Headnote system prompt is small and not corpus-dependent, so caching is
-    # less impactful — but we still send as cacheable for consistency.
-    raw, usage = call_claude_cached(HEADNOTE_SYSTEM_PROMPT, user_prompt, cache=False)
+    raw, usage = call_claude(
+        HEADNOTE_SYSTEM_PROMPT, user_prompt,
+        model=HEADNOTE_MODEL, cache=False,
+    )
     elapsed = time.time() - t0
-
     parsed = parse_json_response(raw)
     return {
         "result": parsed,
@@ -370,20 +456,18 @@ def api_headnote(req: HeadnoteRequest):
     }
 
 
+# ────────────────────────────────────────────────────────────────────
+# /api/translate — UNCHANGED
+# ────────────────────────────────────────────────────────────────────
+
 @app.post("/api/translate")
 def api_translate(req: TranslateRequest):
-    """Translate an English JSON result to Hindi using FREE Google Translate
-    (no Anthropic API call, no API key, no LLM cost). Citations, statute names,
-    paragraph anchors, and case titles are protected via placeholder
-    substitution so they survive translation untouched.
-    """
     t0 = time.time()
     try:
         translated = translate_payload(req.payload, target=req.target_language)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Translation failed: {e}")
     elapsed = time.time() - t0
-
     return {
         "result": translated,
         "raw": json.dumps(translated, ensure_ascii=False),
@@ -400,6 +484,10 @@ def api_translate(req: TranslateRequest):
         },
     }
 
+
+# ────────────────────────────────────────────────────────────────────
+# /api/feedback — UNCHANGED
+# ────────────────────────────────────────────────────────────────────
 
 @app.post("/api/feedback")
 def api_feedback(req: FeedbackRequest):
@@ -428,5 +516,4 @@ async def all_exception_handler(request: Request, exc: Exception):
     return JSONResponse(status_code=500, content={"error": str(exc)})
 
 
-# Mount static files LAST so /api/* takes priority
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
