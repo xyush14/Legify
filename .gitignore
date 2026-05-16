@@ -1,0 +1,33 @@
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Local data
+feedback.db
+feedback.db-journal
+*.sqlite
+*.sqlite3
+kanoon_cache/
+.cache/
+
+# IDE / tooling
+.vscode/
+.idea/
+.claude/
+*.swp
+.DS_Store
+
+# Logs
+*.log

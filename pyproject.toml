@@ -1,0 +1,103 @@
+# Modern Python packaging metadata for Headnote.
+# Co-exists with requirements.txt (kept for Render's build pipeline) and
+# requirements-dev.txt (extras for local development).
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "headnote"
+version = "0.4.0"
+description = "Verified AI legal research for Indian criminal advocates."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+authors = [{ name = "Ayush Shivhare", email = "ayushshivhare02@gmail.com" }]
+keywords = ["legal", "ai", "india", "criminal-law", "citations", "verification", "rag"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: FastAPI",
+    "Intended Audience :: Legal Industry",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+]
+
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "anthropic>=0.39",
+    "pydantic>=2.6",
+    "python-dotenv>=1.0",
+    "deep-translator>=1.11",
+    "requests>=2.31",
+    "beautifulsoup4>=4.12",
+    # Backport for Py 3.9 — Pydantic v2 can't evaluate `str | None` without it
+    "eval_type_backport>=0.2; python_version < '3.10'",
+]
+
+[project.optional-dependencies]
+embeddings = [
+    # Local paragraph embeddings — adds ~80MB of model files + onnxruntime.
+    # Without these, the retrieval pipeline degrades to keyword-only.
+    "fastembed>=0.3",
+    "numpy>=1.24",
+]
+dev = [
+    "pytest>=8.0",
+    "fastembed>=0.3",
+    "numpy>=1.24",
+    "ruff>=0.4",
+    "mypy>=1.10",
+]
+
+[project.urls]
+Homepage = "https://github.com/xyush14/Legify"
+Issues = "https://github.com/xyush14/Legify/issues"
+"Live beta" = "https://criminal-law-ai.onrender.com/"
+
+[project.scripts]
+# `headnote-backfill-embeddings` — embed all currently-cached IK docs
+headnote-backfill-embeddings = "scripts.backfill_embeddings:main"
+# `headnote-ingest <url>` — fetch a judgment from IK and emit JSON
+headnote-ingest = "scripts.ingest:main"
+
+[tool.setuptools.packages.find]
+include = ["headnote*"]
+exclude = ["tests*", "scripts*", "legacy*", "docs*", "static*"]
+
+[tool.setuptools.package-data]
+headnote = ["data/*.json"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+filterwarnings = [
+    # Suppress the LibreSSL warning from urllib3 on macOS system Python
+    "ignore::urllib3.exceptions.NotOpenSSLWarning",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+extend-exclude = ["legacy", ".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = [
+    "E501",   # line too long — many prompt strings are intentionally long
+    "B008",   # FastAPI's `Depends()` in default arg position is idiomatic
+]
+
+[tool.mypy]
+python_version = "3.9"
+warn_unused_ignores = true
+warn_redundant_casts = true
+exclude = ["legacy/", "scripts/", "tests/"]

@@ -1,0 +1,15 @@
+# Dev-only dependencies — not deployed to Render.
+# Install: .venv/bin/pip install -r requirements.txt -r requirements-dev.txt
+#
+# Production deps live in requirements.txt.
+
+pytest>=8.0
+
+# Local embeddings (ONNX-based, much lighter than torch).
+# Without this, the retrieval pipeline gracefully degrades to keyword-only.
+fastembed>=0.3
+numpy>=1.24
+
+# Backport for Python 3.9 only — Pydantic v2 needs this to evaluate `str | None`
+# style type hints in 3.9. Render uses 3.11 where this is native; safe to skip.
+eval_type_backport>=0.2; python_version < "3.10"

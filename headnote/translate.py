@@ -89,9 +89,8 @@ def _load_corpus_titles() -> list[str]:
     if _corpus_titles_cache is not None:
         return _corpus_titles_cache
     try:
-        cases = json.loads(
-            (Path(__file__).parent / "cases.json").read_text(encoding="utf-8")
-        )
+        from headnote.config import CASES_PATH
+        cases = json.loads(CASES_PATH.read_text(encoding="utf-8"))
         titles = [c["title"] for c in cases if "title" in c]
         # Sort longest first so we match the most specific name before partials
         titles.sort(key=len, reverse=True)

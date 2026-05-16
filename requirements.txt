@@ -1,9 +1,27 @@
+# Production dependencies. Render builds from this file.
+# For dev (pytest, ruff, etc.) see requirements-dev.txt.
+# Modern packaging metadata lives in pyproject.toml.
+
+# ---- API + LLM
 fastapi>=0.110
 uvicorn[standard]>=0.27
 anthropic>=0.39
 pydantic>=2.6
 python-dotenv>=1.0
-deep-translator>=1.11      # free Hindi translation (no API key)
 
-# legacy Streamlit version — only needed if running app.py
-streamlit>=1.36
+# ---- IK API client + HTML parsing
+requests>=2.31
+beautifulsoup4>=4.12
+
+# ---- Hindi translation (free; no API key, no LLM cost)
+deep-translator>=1.11
+
+# ---- Local paragraph embeddings + cosine search
+# fastembed is ~80MB plus the bge model (~80MB more, fetched at first use).
+# Without these, the retrieval pipeline degrades to keyword-only.
+fastembed>=0.3
+numpy>=1.24
+
+# ---- Py 3.9 backport for Pydantic v2 evaluation of `str | None` style hints.
+# No-op on 3.10+. Render uses 3.11; safe to keep.
+eval_type_backport>=0.2; python_version < "3.10"
