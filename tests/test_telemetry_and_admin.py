@@ -90,16 +90,21 @@ def test_situation_request_records_telemetry(client, fake_anthropic, tmp_db):
     assert row[4] == 8   # confidence
 
 
-def test_low_confidence_logged_as_escalated(client, fake_anthropic, tmp_db):
-    # Sonnet returns low confidence -> router retries with Opus
+def test_low_confidence_does_not_escalate(client, fake_anthropic, tmp_db):
+    """Auto-escalation is off: low-confidence Sonnet stays on Sonnet.
+
+    Lawyers can opt into Opus via the explicit deep_mode toggle; the
+    auto-retry was stacking two LLM calls and blowing past Render's
+    request budget.
+    """
     fake_anthropic.queue('{"cases": []}\nCONFIDENCE: 4')
-    fake_anthropic.queue('{"cases": []}\nCONFIDENCE: 9')
     resp = client.post("/api/situation", json={
-        "situation": "Another situation requiring escalation",
+        "situation": "Another situation that would have escalated",
         "style": "journal",
     })
     assert resp.status_code == 200
-    assert resp.json()["meta"]["escalated_to_opus"] is True
+    assert resp.json()["meta"]["escalated_to_opus"] is False
+    assert resp.json()["meta"]["model"] == "claude-sonnet-4-6"
 
     import sqlite3
     conn = sqlite3.connect(tmp_db)
@@ -107,8 +112,8 @@ def test_low_confidence_logged_as_escalated(client, fake_anthropic, tmp_db):
         "SELECT escalated, primary_model FROM query_telemetry"
     ).fetchone()
     conn.close()
-    assert row[0] == 1  # escalated
-    assert row[1] == "claude-opus-4-6"  # final model after escalation
+    assert row[0] == 0                       # not escalated
+    assert row[1] == "claude-sonnet-4-6"     # stayed on Sonnet
 
 
 def test_deep_mode_forces_opus_and_skips_retry(client, fake_anthropic, tmp_db):
@@ -172,15 +177,14 @@ def test_admin_telemetry_returns_empty_summary_initially(client):
 
 
 def test_admin_telemetry_summarises_recorded_queries(client, fake_anthropic, tmp_db):
-    # Make a few queries
+    # Three queries: 2 situation (default Sonnet) + 1 digest (Sonnet)
     fake_anthropic.queue('{"cases": []}\nCONFIDENCE: 8')
     fake_anthropic.queue('{"topic": "x", "sub_topics": []}\nCONFIDENCE: 9')
-    fake_anthropic.queue('{"cases": []}\nCONFIDENCE: 3')   # Sonnet
-    fake_anthropic.queue('{"cases": []}\nCONFIDENCE: 9')   # Opus retry
+    fake_anthropic.queue('{"cases": []}\nCONFIDENCE: 5')
 
     client.post("/api/situation", json={"situation": "abc def ghi jkl mno", "style": "journal"})
     client.post("/api/digest", json={"topic": "circumstantial evidence topic"})
-    client.post("/api/situation", json={"situation": "another scenario to escalate", "style": "journal"})
+    client.post("/api/situation", json={"situation": "another scenario to record", "style": "journal"})
 
     resp = client.get("/admin/telemetry?days=7",
                       headers={"Authorization": "Bearer test-token-12345"})
@@ -188,11 +192,9 @@ def test_admin_telemetry_summarises_recorded_queries(client, fake_anthropic, tmp
     body = resp.json()
     assert body["total_queries"] == 3
     assert body["total_cost_paise"] > 0
-    # 3 generation queries (2 situation + 1 digest), 1 escalated -> 33.33%
-    assert body["escalation_rate_pct"] == pytest.approx(33.33, abs=0.5)
-    # cost_by_model has both Sonnet and Opus entries
+    # Auto-escalation is disabled; nothing escalated.
+    assert body["escalation_rate_pct"] == 0.0
     assert any("sonnet" in m.lower() for m in body["cost_by_model"])
-    assert any("opus" in m.lower() for m in body["cost_by_model"])
 
 
 def test_admin_telemetry_disabled_when_no_token_configured(monkeypatch, fake_anthropic, tmp_db):

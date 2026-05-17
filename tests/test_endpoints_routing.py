@@ -98,11 +98,16 @@ def test_situation_routes_to_sonnet_by_default(client, fake_anthropic):
     assert fake_anthropic.calls[0]["model"] == "claude-sonnet-4-6"
 
 
-def test_situation_low_confidence_auto_upgrades_to_opus(client, fake_anthropic):
-    # First call (Sonnet) returns low confidence -> auto-retry
+def test_situation_low_confidence_does_not_auto_upgrade(client, fake_anthropic):
+    """Auto-escalation to Opus is OFF for /api/situation by default.
+
+    Previously a Sonnet response with confidence < 7 triggered a silent
+    Opus retry — stacking two calls and blowing past Render's request
+    budget (60-90s). Lawyers have an explicit `deep_mode` toggle for
+    Opus; we no longer spend their ₹20 silently to bump a "medium"
+    answer. This test pins the new behaviour.
+    """
     fake_anthropic.queue('{"cases": []}\nCONFIDENCE: 3')
-    # Second call (Opus) returns clean
-    fake_anthropic.queue('{"cases": []}\nCONFIDENCE: 9')
 
     resp = client.post("/api/situation", json={
         "situation": "Another scenario, well over ten characters in length.",
@@ -110,12 +115,13 @@ def test_situation_low_confidence_auto_upgrades_to_opus(client, fake_anthropic):
     })
     assert resp.status_code == 200, resp.text
     body = resp.json()
-    assert body["meta"]["model"] == "claude-opus-4-6"
-    # cost_paise is the sum of both calls
-    assert body["meta"]["cost_paise"] > 0
-    assert len(fake_anthropic.calls) == 2
+    # Stayed on Sonnet despite low confidence — no auto-Opus retry
+    assert body["meta"]["model"] == "claude-sonnet-4-6"
+    assert body["meta"]["confidence_score"] == 3
+    assert body["meta"]["escalated_to_opus"] is False
+    # Exactly one call: Sonnet, no retry
+    assert len(fake_anthropic.calls) == 1
     assert fake_anthropic.calls[0]["model"] == "claude-sonnet-4-6"
-    assert fake_anthropic.calls[1]["model"] == "claude-opus-4-6"
 
 
 # ============================================================================
