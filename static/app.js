@@ -598,18 +598,21 @@
   async function submitBrowse() {
     const q = $('#browse-input').value.trim();
     if (!q) { toast('type a query first', 'error'); return; }
-    const court = $('#browse-court').value;
-    const yearFrom = $('#browse-year-from').value;
-    const yearTo = $('#browse-year-to').value;
+
+    const params = new URLSearchParams({ q });
+    const fields = {
+      court:      $('#browse-court').value,
+      year_from:  $('#browse-year-from').value,
+      year_to:    $('#browse-year-to').value,
+      judge:      $('#browse-judge') && $('#browse-judge').value,
+      statute:    $('#browse-statute') && $('#browse-statute').value,
+      sort:       $('#browse-sort') && $('#browse-sort').value,
+    };
+    Object.entries(fields).forEach(([k, v]) => { if (v) params.set(k, v); });
 
     const target = $('#browse-results');
     target.innerHTML = '';
     target.appendChild(renderLoadingCards(4));
-
-    const params = new URLSearchParams({ q });
-    if (court) params.set('court', court);
-    if (yearFrom) params.set('year_from', yearFrom);
-    if (yearTo) params.set('year_to', yearTo);
 
     const btn = $('#browse-submit');
     btn.disabled = true; btn.querySelector('.btn__label').textContent = 'searching…';
@@ -619,7 +622,14 @@
       target.innerHTML = '';
 
       const hits = data.hits || [];
-      target.appendChild(ce('div', { cls: 'browse-meta', text: `${data.found || hits.length + ' hits'} · ik query: "${data.english_query || q}"` }));
+      const source = data.source || 'ik';
+      const headerLine = source === 'curated-fallback'
+        ? `${hits.length} curated matches · ik offline (admin: set INDIAN_KANOON_TOKEN)`
+        : `${data.found || hits.length + ' hits'}`;
+      target.appendChild(ce('div', { cls: 'browse-meta', text: headerLine }));
+      if (data.note) {
+        target.appendChild(ce('div', { cls: 'browse-note', text: data.note }));
+      }
       if (data.input_script === 'devanagari') {
         target.appendChild(renderBilingualStrip(data.original_query || q, data.english_query));
       }

@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
-  <link rel="stylesheet" href="/static/style.css?v=20260517c" />
+  <link rel="stylesheet" href="/static/style.css?v=20260517d" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23ffffff'/%3E%3Ccircle cx='50' cy='50' r='12' fill='%23121212'/%3E%3C/svg%3E" />
 </head>
 
@@ -161,22 +161,59 @@
                 type="text"
                 autocomplete="off"
                 placeholder="search judgments by topic, statute, citation, or party..." />
-              <select id="browse-court" class="select" aria-label="court filter">
-                <option value="">all courts (sc + hc)</option>
-                <option value="supremecourt">supreme court</option>
-                <option value="highcourts">high courts</option>
-                <option value="bombay">bombay hc</option>
-                <option value="delhi">delhi hc</option>
-                <option value="madras">madras hc</option>
-                <option value="calcutta">calcutta hc</option>
-                <option value="kerala">kerala hc</option>
-                <option value="madhya pradesh">mp hc</option>
-              </select>
-              <input id="browse-year-from" class="input input--year mono" type="number" placeholder="from year" min="1950" max="2026" />
-              <input id="browse-year-to" class="input input--year mono" type="number" placeholder="to year" min="1950" max="2026" />
               <button type="button" id="browse-submit" class="btn btn--primary">
                 <span class="btn__label">search</span>
               </button>
+            </div>
+
+            <div class="browse-filters">
+              <div class="browse-filter">
+                <label class="browse-filter__label mono">court</label>
+                <select id="browse-court" class="select">
+                  <option value="">all courts (sc + hc)</option>
+                  <option value="supremecourt">supreme court</option>
+                  <option value="highcourts">high courts</option>
+                  <option value="bombay">bombay hc</option>
+                  <option value="delhi">delhi hc</option>
+                  <option value="madras">madras hc</option>
+                  <option value="calcutta">calcutta hc</option>
+                  <option value="allahabad">allahabad hc</option>
+                  <option value="karnataka">karnataka hc</option>
+                  <option value="kerala">kerala hc</option>
+                  <option value="madhya pradesh">mp hc</option>
+                  <option value="punjab">punjab &amp; haryana hc</option>
+                  <option value="rajasthan">rajasthan hc</option>
+                  <option value="gujarat">gujarat hc</option>
+                  <option value="telangana">telangana hc</option>
+                  <option value="andhra pradesh">andhra pradesh hc</option>
+                </select>
+              </div>
+
+              <div class="browse-filter">
+                <label class="browse-filter__label mono">year</label>
+                <input id="browse-year-from" class="input input--year mono" type="number" placeholder="from" min="1950" max="2026" />
+                <span class="browse-filter__sep">–</span>
+                <input id="browse-year-to" class="input input--year mono" type="number" placeholder="to" min="1950" max="2026" />
+              </div>
+
+              <div class="browse-filter">
+                <label class="browse-filter__label mono">judge</label>
+                <input id="browse-judge" class="input input--judge mono" type="text" placeholder="bench name (eg. khanna)" />
+              </div>
+
+              <div class="browse-filter">
+                <label class="browse-filter__label mono">statute</label>
+                <input id="browse-statute" class="input input--statute mono" type="text" placeholder="cites (eg. POCSO, S.125 CrPC)" />
+              </div>
+
+              <div class="browse-filter">
+                <label class="browse-filter__label mono">sort</label>
+                <select id="browse-sort" class="select">
+                  <option value="">relevance</option>
+                  <option value="recent">most recent</option>
+                  <option value="cited">most cited</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>
@@ -202,6 +239,6 @@
   <!-- Toasts -->
   <div id="toasts" class="toasts" aria-live="polite"></div>
 
-  <script src="/static/app.js?v=20260517c" defer></script>
+  <script src="/static/app.js?v=20260517d" defer></script>
 </body>
 </html>

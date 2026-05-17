@@ -315,16 +315,17 @@ def api_situation(req: SituationRequest):
 
     user_prompt = SITUATION_USER_TEMPLATE.format(situation=working_situation, style=req.style)
     t0 = time.time()
-    # deep_mode = user-opted premium: skip Sonnet, go straight to Opus, no
-    # confidence retry. ENABLE_OPUS_ESCALATION=false (env override) also
-    # disables the confidence retry — force Sonnet to commit to its first
-    # answer (useful during a cost-spike incident).
+    # Model routing for /api/situation:
+    #   - deep_mode on  → force Opus, no auto-escalation, no regen retry.
+    #   - deep_mode off → force Sonnet, NO auto-escalation to Opus.
+    # Auto-escalation (Sonnet → Opus on low confidence) was doubling latency
+    # past the request budget (90s+ on Render free tier) and tripling cost.
+    # The lawyer has an explicit `deep_mode` switch for Opus; we don't need
+    # to spend their ₹20 silently to bump a "medium confidence" answer.
     if req.deep_mode:
         route_force: Optional[str] = "opus"
-    elif not config.ENABLE_OPUS_ESCALATION:
-        route_force = "sonnet"
     else:
-        route_force = None
+        route_force = "sonnet"
 
     route_result = route_call(
         "situation",
@@ -336,14 +337,10 @@ def api_situation(req: SituationRequest):
     total_paise = route_result.cost_paise
     chosen_model = route_result.model_name
     primary_model = chosen_model  # what the first call ran on (for telemetry)
-    # Detect whether the router did an internal Sonnet -> Opus escalation
-    # by comparing the chosen model to what routing would have selected
-    # without force_model. Sonnet would have been default for "situation".
-    escalated = (
-        chosen_model == "claude-opus-4-6"
-        and not req.deep_mode
-        and config.ENABLE_OPUS_ESCALATION
-    )
+    # We now force Sonnet/Opus explicitly, so escalation only happens when
+    # the lawyer explicitly enabled deep_mode (which forces Opus from the
+    # start). Auto-escalation is disabled. Keep the flag for telemetry.
+    escalated = False
 
     parsed = parse_json_response(raw)
 
@@ -760,39 +757,77 @@ def api_decompose(payload: dict):
 # Browse Judgments — direct IK search, AI-augmented from the UI.
 # -----------------------------------------------------------------------------
 
+def _curated_browse_fallback(q: str) -> list[dict]:
+    """Keyword-rank the curated corpus when IK is unavailable. Always works,
+    even on an under-configured server. Returns up to 20 hits, browse-shaped."""
+    cases = prefilter_cases(config.load_curated_corpus(), q, top_k=20)
+    out: list[dict] = []
+    for c in cases:
+        kdoc = str(c.get("kanoon_doc_id") or "") or None
+        headline = (c.get("holding") or c.get("facts") or "")[:300]
+        out.append({
+            "tid": kdoc or c.get("id"),
+            "title": c.get("title", ""),
+            "court": c.get("court", ""),
+            "publishdate": str(c.get("year", "")),
+            "headline": headline,
+            "numcitedby": 0,
+            "fame_indicator": "curated",
+            "kanoon_url": f"https://indiankanoon.org/doc/{kdoc}/" if kdoc else None,
+            "_source": "curated",
+        })
+    return out
+
+
 @app.get("/api/browse/search", summary="Direct Indian Kanoon search (Browse view)")
 def api_browse_search(
     q: str,
     court: Optional[str] = None,
     year_from: Optional[int] = None,
     year_to: Optional[int] = None,
+    judge: Optional[str] = None,
+    statute: Optional[str] = None,
+    sort: Optional[str] = None,
     page: int = 0,
 ):
     """Browse Judgments: pass a query through to Indian Kanoon and return
     light search-hit metadata for the UI list.
 
-    Costs: ₹0.50 per search page (cached for 30 days). The UI is expected to
-    use this as a free-tier-friendly browse surface.
+    Costs: ₹0.50 per search page (cached for 30 days). When IK isn't
+    configured, falls back to keyword-ranking the curated corpus so the
+    surface always returns *something*.
 
-    Filters supported (translated into IK formInput tokens):
-      court     — e.g. 'supremecourt', 'highcourts', 'bombay' (partial match)
-      year_from / year_to — ISO years; appended as `fromdate:` / `todate:`.
+    Filters (translated into IK formInput tokens):
+      court     — 'supremecourt', 'highcourts', or a partial HC name
+      year_from / year_to — ISO years; appended as fromdate / todate
+      judge     — bench-name substring (IK supports `bench:`)
+      statute   — text the judgment must cite (IK `cites:`)
+      sort      — 'recent' | 'cited' | 'relevance' (default)
     """
-    client = _get_kanoon_client()
-    if client is None:
-        raise HTTPException(
-            status_code=503,
-            detail="Browse requires INDIAN_KANOON_TOKEN + USE_IK_RETRIEVAL=1.",
-        )
     if not q or not q.strip():
         raise HTTPException(status_code=400, detail="q is required")
 
-    # Pre-translate Hindi queries so IK keyword search works
+    client = _get_kanoon_client()
     translation = maybe_translate(q)
     working = translation["english_query"]
 
-    # Build IK formInput. Use doctype filter for SC/HC by default; honour
-    # specific court hint when given.
+    # Fallback path: IK is off → use the curated 42-case corpus
+    if client is None:
+        hits = _curated_browse_fallback(working)
+        return {
+            "query": q,
+            "english_query": working,
+            "input_script": translation["script"],
+            "filters": {"court": court, "year_from": year_from, "year_to": year_to,
+                        "judge": judge, "statute": statute, "sort": sort},
+            "page": 0,
+            "found": f"{len(hits)} curated matches",
+            "hits": hits,
+            "source": "curated-fallback",
+            "note": "Indian Kanoon search is offline (token not set). Showing curated matches.",
+        }
+
+    # Build IK formInput from filters
     filters: list[str] = []
     if court:
         c = court.lower().strip()
@@ -808,13 +843,35 @@ def api_browse_search(
         filters.append(f"fromdate:{int(year_from)}-01-01")
     if year_to:
         filters.append(f"todate:{int(year_to)}-12-31")
+    if judge and judge.strip():
+        filters.append(f'bench:"{judge.strip()}"')
+    if statute and statute.strip():
+        # IK lets us pin search to documents that cite a specific statute
+        filters.append(f'cites:"{statute.strip()}"')
+    if sort == "recent":
+        filters.append("sortby:mostrecent")
+    elif sort == "cited":
+        filters.append("sortby:citedcount")
 
     form_input = " ".join([working.strip()] + filters)
 
     try:
         page_result = client.search(form_input, pagenum=int(page or 0))
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"IK search failed: {e}")
+        # Fall back rather than 502 — user gets *something*
+        hits = _curated_browse_fallback(working)
+        return {
+            "query": q,
+            "english_query": working,
+            "input_script": translation["script"],
+            "filters": {"court": court, "year_from": year_from, "year_to": year_to,
+                        "judge": judge, "statute": statute, "sort": sort},
+            "page": 0,
+            "found": f"{len(hits)} curated matches",
+            "hits": hits,
+            "source": "curated-fallback",
+            "note": f"IK search failed ({type(e).__name__}); showing curated matches.",
+        }
 
     hits = [
         {
@@ -826,6 +883,7 @@ def api_browse_search(
             "numcitedby": h.numcitedby,
             "fame_indicator": _fame_indicator(h.numcitedby),
             "kanoon_url": f"https://indiankanoon.org/doc/{h.tid}/",
+            "_source": "ik",
         }
         for h in page_result.hits
     ]
@@ -833,10 +891,12 @@ def api_browse_search(
         "query": q,
         "english_query": working,
         "input_script": translation["script"],
-        "filters": {"court": court, "year_from": year_from, "year_to": year_to},
+        "filters": {"court": court, "year_from": year_from, "year_to": year_to,
+                    "judge": judge, "statute": statute, "sort": sort},
         "page": page_result.page,
         "found": page_result.found_label,
         "hits": hits,
+        "source": "ik",
         "spend": client.spend_summary(),
     }
 
