@@ -36,7 +36,7 @@ class SituationRequest(BaseModel):
             "Ranking mode for candidate cases. "
             "'hidden' (default) — penalises fame; surfaces obscure-but-relevant authorities. "
             "'famous' — boosts citation count; returns the leading cases lawyers already know. "
-            "'mixed' — neutral; ranks purely on fact-pattern + jurisdiction + recency."
+            "'mixed' — neutral; ranks on fact-pattern + jurisdiction + recency."
         ),
     )
     jurisdiction: Optional[str] = Field(
