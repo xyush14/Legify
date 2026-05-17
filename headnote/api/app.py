@@ -205,86 +205,38 @@ def api_situation(req: SituationRequest):
         from headnote.kanoon.retrieval import (
             retrieve_for_situation, result_to_prompt_corpus_json, IK_PROMPT_ADDENDUM,
         )
-        from headnote.retrieval import Candidate, rank_candidates, explain_score
-
         ret = retrieve_for_situation(
-            req.situation, client=client, curated_corpus=curated,
+            req.situation,
+            client=client,
+            curated_corpus=curated,
+            mode=req.mode,
+            jurisdiction=req.jurisdiction,
         )
         evidence = ret.evidence
         curated_lookup = {c["id"]: c for c in curated}
-
-        # Hidden Authorities re-rank — runs on whatever candidates retrieval
-        # produced (no extra IK fetches). Sonnet rates each candidate's
-        # fact-pattern match to the user's situation; mode-specific weights
-        # then either penalise fame ("hidden") or boost it ("famous").
-        candidates: list = []
-        for cs in ret.cases:
-            year_int = 0
-            try:
-                year_int = int(cs.year) if cs.year else 0
-            except (TypeError, ValueError):
-                year_int = 0
-            summary = ""
-            if cs.paragraphs:
-                summary = " ".join(p.text for p in cs.paragraphs[:2])[:1200]
-            elif cs.case_id in curated_lookup:
-                cl = curated_lookup[cs.case_id]
-                summary = f"{cl.get('facts', '')} {cl.get('holding', '')}".strip()[:1200]
-            subsequent_treatment = ""
-            if cs.case_id in curated_lookup:
-                subsequent_treatment = curated_lookup[cs.case_id].get("subsequent_treatment", "")
-            candidates.append(Candidate(
-                case_id=cs.case_id, title=cs.title, court=cs.court,
-                year=year_int, citation=cs.citation, numcitedby=cs.numcitedby,
-                semantic_similarity=min(1.0, max(0.0, cs.relevance_score / 10.0)),
-                summary=summary, subsequent_treatment=subsequent_treatment,
-                source=cs.source,
-            ))
-
-        # Mixed mode skips Sonnet rerank — costs ~Rs.0 extra. Hidden/famous
-        # call Sonnet on the candidates we have (no extra IK fetches).
-        skip_sonnet = (req.mode == "mixed")
-        ranked = rank_candidates(
-            req.situation, candidates, mode=req.mode,
-            query_jurisdiction=req.jurisdiction,
-            rerank_top_k=max(len(candidates), 1),
-            result_top_k=len(candidates),  # don't truncate here; let prompt pick top-N
-            skip_sonnet_rerank=skip_sonnet,
-        )
-        # Reorder ret.cases by the ranker's verdict
-        ordered_case_ids = [s.candidate.case_id for s in ranked]
-        ret_cases_by_id = {cs.case_id: cs for cs in ret.cases}
-        ret.cases = [ret_cases_by_id[cid] for cid in ordered_case_ids if cid in ret_cases_by_id]
-
         corpus_json = result_to_prompt_corpus_json(ret, curated_lookup)
         sys_prompt = build_situation_system_prompt(req.style, corpus_json) + IK_PROMPT_ADDENDUM
         ik_meta_extra = {
             "retrieval_path": "ik+curated",
+            "retrieval_mode": req.mode,
+            "jurisdiction_hint": req.jurisdiction,
             "retrieval_elapsed_seconds": ret.meta.elapsed_seconds,
             "ik_search_calls": ret.meta.ik_search_calls,
             "ik_fetch_calls": ret.meta.ik_fetch_calls,
             "ik_cache_hits": ret.meta.cache_hits,
             "ik_inr_spent_this_call": ret.meta.inr_spent_this_call,
             "retrieval_notes": ret.meta.notes,
-            "ranking_mode": req.mode,
             "cases_returned": [
-                {
-                    "case_id": s.candidate.case_id,
-                    "title": s.candidate.title,
-                    "source": s.candidate.source,
-                    "numcitedby": s.candidate.numcitedby,
-                    "score": round(s.final_score, 3),
-                    "signals": s.explanation,
-                    "why_picked": explain_score(s, req.mode),
-                }
-                for s in ranked
+                {"case_id": cs.case_id, "title": cs.title, "source": cs.source,
+                 "numcitedby": cs.numcitedby, "score": round(cs.relevance_score, 3)}
+                for cs in ret.cases
             ],
         }
     else:
         sys_prompt = build_situation_system_prompt(
             req.style, _filtered_corpus_json(req.situation),
         )
-        ik_meta_extra = {"retrieval_path": "curated-only", "ranking_mode": req.mode}
+        ik_meta_extra = {"retrieval_path": "curated-only"}
 
     user_prompt = SITUATION_USER_TEMPLATE.format(situation=req.situation, style=req.style)
     t0 = time.time()

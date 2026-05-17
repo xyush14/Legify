@@ -56,7 +56,7 @@ import json
 import re
 import time
 from dataclasses import dataclass, field
-from typing import Iterable
+from typing import Iterable, Optional
 
 from headnote.kanoon.client import (
     KanoonBudgetExceeded,
@@ -89,12 +89,14 @@ except Exception as _emb_err:
 DEFAULT_SEARCH_FILTERS = "doctypes:supremecourt,highcourts"
 
 # Per-call caps. Tune in main.py once we have real usage data.
-DEFAULT_TOP_CASES = 6
+DEFAULT_TOP_CASES = 5           # final cases returned to the LLM
+DEFAULT_CANDIDATE_POOL = 25     # candidates to collect before hidden_authorities reranking
 DEFAULT_TOP_PARAGRAPHS_PER_CASE = 4
-DEFAULT_MAX_NEW_FETCHES = 5     # never fetch more than this many NEW docs per query
+DEFAULT_MAX_NEW_FETCHES = 5         # mixed mode: max new IK doc fetches (₹0.20 each)
+DEFAULT_MAX_NEW_FETCHES_HIDDEN = 10 # hidden/famous: wider pool needs more candidates
 
-# Cost-saving: don't burn ₹0.50 on an IK search if curated+semantic already
-# filled at least this many slots. Tunable per call.
+# Cost-saving for mixed mode: don't burn ₹0.50 on an IK search if curated+semantic
+# already filled at least this many slots. Ignored for hidden/famous modes.
 DEFAULT_SKIP_IK_SEARCH_IF_CASES_AT_LEAST = 3
 
 # Structural priors for paragraph ranking. Higher = more likely to carry the ratio.
@@ -257,22 +259,19 @@ def _build_search_input(situation: str, extra_filters: str = "") -> str:
 # ----------------------------------------------------------- hit ranking
 
 def _rank_search_hits(
-    hits: list[SearchHit], query: str, *, curated_titles_lc: set[str]
+    hits: list[SearchHit], query: str, *, curated_titles_lc: set[str],
+    mode: str = "mixed",
 ) -> list[tuple[float, SearchHit]]:
     """Return hits sorted by composite relevance score (highest first).
 
-    Components:
-      - Citation weight (log-scaled numcitedby): a 3,000-citation case is
-        much more likely the precedent the lawyer wants than a 0-citation
-        recent decision.
-      - Keyword overlap on the headline snippet (free; IK already highlighted
-        the matches).
-      - Recency neutral by default — we let citation weight dominate, since
-        legal research usually wants authority, not freshness. If you want a
-        recency tilt later, add it here.
+    The mode parameter controls how citation count (fame) is weighted:
+      mixed  — citation weight positive (log×1.5); classic authority ranking.
+      famous — citation weight strongly boosted (log×2.5); returns landmarks.
+      hidden — citation weight PENALISED (log×−0.5); obscure-but-relevant
+               cases bubble up. Headline keyword match is the primary signal.
 
-    Drops hits whose title (lowercased) is already in the curated corpus —
-    no point spending ₹0.20 to fetch what we already have.
+    Always drops hits already in the curated corpus (no point paying ₹0.20
+    to re-fetch what we already have verbatim).
     """
     import math
 
@@ -281,13 +280,19 @@ def _rank_search_hits(
     for h in hits:
         title_lc = h.title.lower()
         if any(ct in title_lc or title_lc in ct for ct in curated_titles_lc):
-            # Curated copy already exists — don't pay to refetch
             continue
 
-        citation_score = math.log1p(h.numcitedby) * 1.5     # log-scaled authority
-        headline_score = len(query_tokens & set(_tokens(h.headline))) * 0.5
-        # Small bonus if IK classifies the doc as SC (most authoritative)
-        court_bonus = 2.0 if "supreme court" in h.docsource.lower() else 0.0
+        headline_score = len(query_tokens & set(_tokens(h.headline))) * 1.0
+        court_bonus = 1.5 if "supreme court" in h.docsource.lower() else 0.0
+
+        if mode == "hidden":
+            # Penalise fame so obscure-but-relevant cases rank above famous ones
+            citation_score = -math.log1p(h.numcitedby) * 0.5
+        elif mode == "famous":
+            citation_score = math.log1p(h.numcitedby) * 2.5
+        else:  # mixed — original neutral behaviour
+            citation_score = math.log1p(h.numcitedby) * 1.5
+
         score = citation_score + headline_score + court_bonus
         scored.append((score, h))
     scored.sort(key=lambda t: t[0], reverse=True)
@@ -394,30 +399,39 @@ def retrieve_for_situation(
     client: KanoonClient,
     curated_corpus: list[dict],
     top_cases: int = DEFAULT_TOP_CASES,
+    candidate_pool: int = DEFAULT_CANDIDATE_POOL,
     top_paragraphs_per_case: int = DEFAULT_TOP_PARAGRAPHS_PER_CASE,
     max_new_fetches: int = DEFAULT_MAX_NEW_FETCHES,
     search_filters: str = DEFAULT_SEARCH_FILTERS,
     use_embeddings: bool = True,
     embedding_index: "EmbeddingIndex | None" = None,
     skip_ik_search_if_cases_at_least: int = DEFAULT_SKIP_IK_SEARCH_IF_CASES_AT_LEAST,
+    mode: str = "mixed",
+    jurisdiction: Optional[str] = None,
 ) -> RetrievalResult:
     """End-to-end retrieval for a lawyer's situation query.
 
-    Pipeline (cheapest first; bails early when slots are filled):
+    Pipeline (cheapest first):
       1. Curated pre-filter (free, instant)
       2. Semantic search over locally-cached paragraphs (free, ~20ms)
-         - Surfaces relevant cached IK cases not in curated
-         - Critical for paraphrased queries where keywords don't overlap
-      3. IK live search (₹0.50) + top-N fetch (₹0.20 each, capped)
-         - Only entered if slots remain after steps 1+2
-      4. Newly-fetched paragraphs are embedded for future calls
-         (the cache + embedding index self-grow with usage)
+      3. IK live search (₹0.50/page) + top-N fetch (₹0.20 each, capped)
+           - hidden/famous: always runs IK (never skipped) to guarantee
+             non-curated candidates enter the pool.
+           - hidden: fetches page 1 as well (deeper, less-cited results).
+           - mixed: skips IK when curated+semantic already filled the threshold.
+      4. hidden_authorities reranker picks top_cases from the full pool.
 
-    Never raises on IK errors — falls back to whatever we have so far and
-    records the failure in meta.notes. Lawyer always sees *something*.
+    Separation of concerns:
+      - candidate_pool (default 25): how many docs to collect before reranking.
+      - top_cases (default 5): how many to return to the LLM after reranking.
+
+    Never raises on IK errors — falls back to whatever we have so far.
     """
     t0 = time.time()
     spend_before = client.spend_summary()
+
+    # candidate_pool must be at least top_cases
+    candidate_pool = max(candidate_pool, top_cases)
 
     meta = RetrievalMeta(elapsed_seconds=0.0)
     cases: list[CaseSummary] = []
@@ -433,6 +447,7 @@ def retrieve_for_situation(
             emb_idx = None
 
     # 1. Curated pre-filter (always; free)
+    # Collect up to candidate_pool entries — reranker trims to top_cases later.
     curated_scored = [(score_curated_case(c, situation), c) for c in curated_corpus]
     curated_scored.sort(key=lambda t: -t[0])
     curated_used: list[str] = []
@@ -444,39 +459,34 @@ def retrieve_for_situation(
         evidence.extend(_curated_to_evidence(c))
         curated_used.append(c["title"].lower())
         curated_case_ids.add(c["id"])
-        if len(cases) >= top_cases:
+        if len(cases) >= candidate_pool:
             break
 
     # 2. Semantic search over locally-cached paragraphs (free)
-    # Surfaces relevant IK cases already in cache that keyword search would miss.
+    # Surfaces IK cases already in cache that keyword search would miss.
     semantic_case_ids: set[str] = set()
-    if emb_idx is not None and len(cases) < top_cases:
+    if emb_idx is not None and len(cases) < candidate_pool:
         try:
-            # Pull more hits than slots so we can aggregate by case
             sem_hits = emb_idx.search(situation, top_k=40, min_similarity=0.55)
             meta.semantic_hits = len(sem_hits)
-            # Group hits by case_id; keep top per case
             by_case: dict[str, list[EmbeddingHit]] = {}
             for h in sem_hits:
                 if h.case_id in curated_case_ids:
-                    continue  # already covered by curated path
+                    continue
                 by_case.setdefault(h.case_id, []).append(h)
 
-            # Rank cases by max sim (top hit) + a small boost for multiple hits
             case_rank = sorted(
                 by_case.items(),
                 key=lambda kv: -(max(h.similarity for h in kv[1]) + 0.05 * (len(kv[1]) - 1)),
             )
             for case_id, hits_for_case in case_rank:
-                if len(cases) >= top_cases:
+                if len(cases) >= candidate_pool:
                     break
                 if not case_id.startswith("ik:"):
                     continue
                 tid = int(case_id.split(":", 1)[1])
-                # We already have this in IK doc cache (semantic hits only come
-                # from cached docs); fetch metadata cheaply via the cached doc.
                 try:
-                    doc = client.get_doc(tid)              # cache hit → ₹0
+                    doc = client.get_doc(tid)          # cache hit → ₹0
                     meta.cache_hits += 1
                 except KanoonError as e:
                     meta.notes.append(f"semantic-cache-hit miss for tid={tid}: {e}")
@@ -486,14 +496,10 @@ def retrieve_for_situation(
                     title_hint=doc.title, court_hint=doc.docsource,
                     publishdate_hint=doc.publishdate,
                 )
-                # Use the semantic hits as the evidence — they're already
-                # the most relevant paragraphs by definition. Map to Paragraph
-                # objects so the downstream code is identical.
                 top_paras = [
                     p for p in parsed.paragraphs
                     if any(h.para_id == p.id for h in hits_for_case)
                 ][:top_paragraphs_per_case]
-                # Fallback: if mapping failed (shouldn't), use structural ranking
                 if not top_paras:
                     top_paras = _rank_paragraphs(parsed.paragraphs, situation, top_paragraphs_per_case)
 
@@ -505,9 +511,9 @@ def retrieve_for_situation(
                     year=parsed.date_of_decision[:4] if parsed.date_of_decision else "",
                     citation=parsed.primary_citation,
                     bench=", ".join(parsed.bench),
-                    source="ik-semantic",   # distinguishable in UI from fresh-fetched ik
+                    source="ik-semantic",
                     numcitedby=doc.numcitedby,
-                    relevance_score=round(top_sim * 10, 2),  # scale for display
+                    relevance_score=round(top_sim * 10, 2),
                     paragraphs=top_paras,
                     statutes=parsed.statutes,
                 ))
@@ -519,41 +525,72 @@ def retrieve_for_situation(
         except Exception as e:
             meta.notes.append(f"semantic search failed: {e}")
 
-    # 3. IK live search (paid) — only if we still need more cases AND we
-    # don't already have enough from curated + semantic. Saves ₹0.50 per
-    # query once the cache is sufficiently warm.
-    remaining_slots = max(0, top_cases - len(cases))
-    if remaining_slots > 0 and len(cases) >= skip_ik_search_if_cases_at_least:
+    # 3. IK live search (paid).
+    #
+    # hidden/famous: ALWAYS run — we need non-curated candidates for the
+    #   reranker to surface obscure authorities. Skip threshold is ignored.
+    # mixed: only run when curated+semantic didn't fill the threshold
+    #   (saves ₹0.50 when the cache is warm).
+    run_ik_search = False
+    if mode in ("hidden", "famous"):
+        run_ik_search = True
+    elif len(cases) < skip_ik_search_if_cases_at_least:
+        run_ik_search = True
+    else:
         meta.notes.append(
             f"Skipped IK search (saved ₹0.50): {len(cases)} cases already from "
-            f"curated+semantic, above min threshold of {skip_ik_search_if_cases_at_least}"
+            f"curated+semantic (mode={mode}, threshold={skip_ik_search_if_cases_at_least})"
         )
-    elif remaining_slots > 0:
+
+    if run_ik_search:
         form_input = _build_search_input(situation, extra_filters=search_filters)
-        try:
-            page = client.search(form_input)
-            meta.ik_search_calls += 1  # actual spend tracked by ledger; this is informational
-        except KanoonBudgetExceeded as e:
-            meta.notes.append(f"IK budget exceeded; using curated+semantic only: {e}")
-            return _finalise(cases, evidence, meta, t0, client, spend_before)
-        except KanoonError as e:
-            meta.notes.append(f"IK search failed ({type(e).__name__}); using curated+semantic only: {e}")
-            return _finalise(cases, evidence, meta, t0, client, spend_before)
+        all_hits: list[SearchHit] = []
+
+        # hidden mode: fetch two IK result pages so the second page surfaces
+        # lower-cited (less famous) but still topically relevant documents.
+        pages_to_fetch = 2 if mode == "hidden" else 1
+        for page_n in range(pages_to_fetch):
+            try:
+                page = client.search(form_input, pagenum=page_n)
+                meta.ik_search_calls += 1
+                all_hits.extend(page.hits)
+            except KanoonBudgetExceeded as e:
+                if page_n == 0:
+                    meta.notes.append(f"IK budget exceeded; using curated+semantic only: {e}")
+                    return _finalise(cases, evidence, meta, t0, client, spend_before)
+                else:
+                    meta.notes.append(f"IK page {page_n} budget exceeded; using page 0 results only")
+                    break
+            except KanoonError as e:
+                if page_n == 0:
+                    meta.notes.append(
+                        f"IK search failed ({type(e).__name__}); using curated+semantic only: {e}"
+                    )
+                    return _finalise(cases, evidence, meta, t0, client, spend_before)
+                else:
+                    meta.notes.append(f"IK search page {page_n} failed: {e}")
+                    break
 
         ranked = _rank_search_hits(
-            page.hits, situation,
+            all_hits, situation,
             curated_titles_lc=set(curated_used),
+            mode=mode,
         )
-        # Also drop hits we already added via semantic path
         ranked = [(s, h) for s, h in ranked if f"ik:{h.tid}" not in semantic_case_ids]
+
+        # hidden/famous: allow more new fetches to build a wider candidate pool.
+        effective_max_fetches = (
+            DEFAULT_MAX_NEW_FETCHES_HIDDEN if mode in ("hidden", "famous") else max_new_fetches
+        )
 
         fetched_new = 0
         for score, hit in ranked:
-            if len(cases) >= top_cases:
+            if len(cases) >= candidate_pool:
                 break
-            if fetched_new >= max_new_fetches:
+            if fetched_new >= effective_max_fetches:
                 meta.notes.append(
-                    f"hit max_new_fetches={max_new_fetches}; stopping. Cache will warm over time."
+                    f"hit max_new_fetches={effective_max_fetches} (mode={mode}); "
+                    "stopping. Cache will warm over time."
                 )
                 break
             try:
@@ -581,8 +618,7 @@ def retrieve_for_situation(
             top_paras = _rank_paragraphs(parsed.paragraphs, situation, top_paragraphs_per_case)
             case_id = f"ik:{hit.tid}"
 
-            # Auto-embed all paragraphs (not just top_paras) so future
-            # semantic searches benefit. Free, runs in ~1-3s for a typical doc.
+            # Auto-embed all paragraphs so future semantic searches benefit.
             if emb_idx is not None and parsed.paragraphs and not was_cached:
                 try:
                     emb_idx.upsert_paragraphs([
@@ -610,6 +646,69 @@ def retrieve_for_situation(
                 evidence.append(EvidenceParagraph(
                     case_id=case_id, para_id=p.id, para_num=p.num, text=p.text,
                 ))
+
+    # 4. Hidden-authorities reranking: score the full candidate pool by mode,
+    # then trim to top_cases. This is the step that lets obscure-but-relevant
+    # cases beat famous-but-less-relevant ones in hidden mode.
+    if len(cases) > top_cases or mode != "mixed":
+        pool_size = len(cases)
+        try:
+            from headnote.retrieval.hidden_authorities import rank_candidates, Candidate
+
+            # Normalise relevance_score to 0-1 for the Candidate.semantic_similarity field.
+            max_rel = max(c.relevance_score for c in cases) or 1.0
+
+            def _summary(cs: CaseSummary) -> str:
+                if cs.paragraphs:
+                    return " ".join(p.text for p in cs.paragraphs[:2])[:600]
+                return cs.title
+
+            candidates = [
+                Candidate(
+                    case_id=cs.case_id,
+                    title=cs.title,
+                    court=cs.court,
+                    year=int(str(cs.year)[:4]) if str(cs.year)[:4].isdigit() else 0,
+                    citation=cs.citation,
+                    numcitedby=cs.numcitedby,
+                    # semantic_similarity is the primary relevance proxy when
+                    # Sonnet rerank is skipped — normalise to 0-1.
+                    semantic_similarity=max(0.0, min(1.0, cs.relevance_score / max_rel)),
+                    summary=_summary(cs),
+                    source=cs.source,
+                )
+                for cs in cases
+            ]
+
+            # skip_sonnet_rerank=True avoids an extra ~₹4 Sonnet call per query.
+            # semantic_similarity (normalised relevance) is used as the fact-match
+            # proxy; a good enough approximation for the retrieval use-case.
+            scored = rank_candidates(
+                situation,
+                candidates,
+                mode,
+                query_jurisdiction=jurisdiction,
+                result_top_k=top_cases,
+                skip_sonnet_rerank=True,
+            )
+
+            # Map scored results back to CaseSummary (preserving paragraph data).
+            case_by_id = {cs.case_id: cs for cs in cases}
+            cases = [case_by_id[sc.candidate.case_id]
+                     for sc in scored if sc.candidate.case_id in case_by_id]
+
+            # Trim evidence to match selected cases.
+            selected_ids = {c.case_id for c in cases}
+            evidence = [e for e in evidence if e.case_id in selected_ids]
+            meta.notes.append(
+                f"hidden_authorities reranker applied (mode={mode}, pool={pool_size}→top={len(cases)})"
+            )
+        except Exception as e:
+            # Reranker failure is non-fatal — use collection order with a hard trim.
+            meta.notes.append(f"hidden_authorities reranker failed ({e}); using collection order")
+            cases = cases[:top_cases]
+            selected_ids = {c.case_id for c in cases}
+            evidence = [e for e in evidence if e.case_id in selected_ids]
 
     return _finalise(cases, evidence, meta, t0, client, spend_before)
 
