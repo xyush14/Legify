@@ -797,12 +797,15 @@ def result_to_prompt_corpus_json(
             "subsequent_treatment": "",
             "_source": "ik",
             "_numcitedby": cs.numcitedby,
+            # Cap each paragraph at ~700 chars so a heavy judgment doesn't
+            # blow the prompt budget — Opus latency scales with input size
+            # and Render's request timeout is the binding constraint here.
             "_ik_paragraphs": [
                 {
                     "id": p.id,
                     "num": p.num,
                     "structure": p.structure,
-                    "text": p.text,
+                    "text": p.text[:700] + ("…" if len(p.text) > 700 else ""),
                 }
                 for p in cs.paragraphs
             ],
