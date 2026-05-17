@@ -27,7 +27,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /build
 
 # Install only the deps first (better layer caching on rebuild)
-COPY requirements.txt requirements-dev.txt ./
+COPY requirements.txt ./
 RUN python -m venv /opt/venv \
  && /opt/venv/bin/pip install --upgrade pip \
  && /opt/venv/bin/pip install -r requirements.txt \
