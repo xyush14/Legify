@@ -23,6 +23,8 @@ Only the lawyer's situation + style toggle change between calls, so cache
 hits cover ~95% of the input on every call after the first.
 """
 
+import json
+
 # =====================================================================
 # COMMON OUTPUT-STYLE BLOCKS
 # =====================================================================
@@ -189,6 +191,135 @@ SITUATION_USER_TEMPLATE = """LAWYER'S SITUATION:
 {situation}
 
 Identify the 3-5 most relevant cases from the corpus and return JSON conforming to the schema. Style requested: {style}."""
+
+
+# =====================================================================
+# 1b. TWO-PHASE PIPELINE PROMPTS (preferred path; see situation_pipeline.py)
+# =====================================================================
+#
+# Phase 1 — small Haiku call that picks 3-5 case_ids from the candidate
+# pool. Lightweight input (titles + summaries), tiny output (just IDs).
+# Phase 2 — parallel Sonnet calls, ONE per selected case. Each call sees
+# the full evidence for one case and emits its headnote block.
+#
+# Splitting the work into many small parallel calls keeps each LLM call's
+# generation time short — the single-call approach was bottlenecked on
+# Sonnet generating 5×700 output tokens serially (~70s wall-clock).
+#
+
+SELECT_CANDIDATES_SYSTEM = """You are filtering Indian criminal-law precedents for relevance to a lawyer's matter. Your only job in this call is to PICK which of the candidate cases are factually relevant. You will NOT write headnotes or ratios in this call — that happens in a separate downstream step.
+
+PREFERENCE ORDER (apply in order, top wins):
+1. Cases on the SAME statute / section the matter engages (e.g. POCSO, NDPS, PMLA, S. 138 NI Act). A 100-citation HC order squarely on the matter's statute beats a 5,000-citation SC ruling on a collateral doctrine.
+2. Cases with similar procedural posture (FIR / bail / trial / appeal / revision).
+3. Cases whose disposition aligns with what the lawyer needs (acquittal cases when the matter is a defence; conviction-affirmation cases when the matter is a complainant's appeal).
+4. Recent cases over older cases, all else equal.
+
+REJECT candidates that are:
+- Tangentially related (same broad topic, different facts)
+- Cited only for general/foundational doctrine (Bhajan Lal categories, Sibbia, etc.) when a more specific case is in the pool
+- Outside the matter's statute / era
+
+Return STRICT JSON only — no preamble, no fences:
+
+{
+  "selected_case_ids": ["case_id_1", "case_id_2", "case_id_3", "..."],
+  "rejection_reasons": {
+    "case_id_x": "one short reason this was rejected"
+  }
+}
+
+Pick 3 to 5 case_ids. Order from most relevant (rank 1) to least."""
+
+
+def _compact_candidate_block(c: dict) -> str:
+    """One-line-per-field compact representation of a candidate for the
+    Phase-1 prompt. Keeps token count low."""
+    parts = [f"id: {c.get('id', '')}", f"title: {c.get('title', '')}"]
+    if c.get("citation"):
+        parts.append(f"citation: {c.get('citation')}")
+    if c.get("court"):
+        parts.append(f"court: {c.get('court')}")
+    if c.get("year"):
+        parts.append(f"year: {c.get('year')}")
+    if c.get("_numcitedby") is not None:
+        parts.append(f"cited_by: {c.get('_numcitedby')}")
+    if c.get("_source"):
+        parts.append(f"source: {c.get('_source')}")
+    # 1-line summary — prefer holding, fall back to first IK paragraph
+    summary = (c.get("holding") or "")[:280]
+    if not summary and c.get("_ik_paragraphs"):
+        first = c["_ik_paragraphs"][0]
+        summary = (first.get("text") or "")[:280]
+    if summary:
+        parts.append(f"summary: {summary}")
+    if c.get("statutes"):
+        parts.append(f"statutes: {', '.join(c['statutes'][:5])}")
+    return "\n".join(parts)
+
+
+def build_select_candidates_user(situation: str, candidates: list[dict], max_cases: int = 5) -> str:
+    blocks = "\n\n---\n\n".join(_compact_candidate_block(c) for c in candidates)
+    return (
+        f"LAWYER'S SITUATION:\n{situation.strip()}\n\n"
+        f"================\n\n"
+        f"CANDIDATE CASES ({len(candidates)} total — pick up to {max_cases}):\n\n{blocks}\n\n"
+        f"================\n\n"
+        f"Return JSON only with selected_case_ids ordered most-relevant first."
+    )
+
+
+PER_CASE_HEADNOTE_SYSTEM = """You are an Indian criminal-law research editor. You will be given the lawyer's situation and ONE candidate case. Produce a single JSON object containing:
+
+  - case_id: must echo the id you were given
+  - title, citation, court, year: copy from the case data
+  - relevance_explanation: 2-3 sentences explaining how THIS case's facts and ratio apply to the lawyer's matter. Be specific about factual alignment — not a generic summary.
+  - outcome: one of [acquittal, quashed, dismissed, conviction, remand, bail-granted, bail-denied, other]. Derive from the case's holding/treatment text.
+  - bns_note: 1 sentence noting IPC/CrPC/Evidence Act → BNS/BNSS/BSA mapping for matters after 1 July 2024 (use the case's bns_mapping field if present).
+
+PLUS exactly one of these blocks depending on the requested style:
+
+  practitioner_notes: {
+    one_line_topic: "...",
+    gist: "compressed 2-4 sentence working-lawyer summary",
+    quotable_phrase: "verbatim line from the source",
+    cross_refs: ["case 1", "case 2", ...]
+  }
+
+  journal_headnote: {
+    statute_index: "Formal statute index in Cri.L.J. style — e.g. 'Code of Criminal Procedure, 1973 — S. 482 — Penal Code, 1860 — S. 376'",
+    catchword_chain: "Em-dash separated catchwords",
+    ratio: "1-3 sentences, compressed citable form",
+    negative_carve_out: "What the case does NOT establish, if material",
+    paragraph_anchor: "(Para X) or (Paras X-Y, Z)",
+    per_judge_attribution: "(per Khanna, J.)" or "" if single bench
+  }
+
+VERIFICATION DISCIPLINE:
+  • Every quoted phrase must appear VERBATIM in the case's holding / key_paras / _ik_paragraphs.
+  • Every paragraph_anchor must reference a real paragraph in the evidence.
+  • Do NOT fabricate citations, dates, paragraph numbers, or holdings.
+  • If the case is a poor fit for the matter (you've been asked to write about a case that doesn't actually map), set relevance_explanation to honestly flag the gap rather than forcing alignment.
+
+Return STRICT JSON only — no preamble, no fences."""
+
+
+def build_per_case_user(situation: str, case_entry: dict, style: str) -> str:
+    """Build the user prompt for a single per-case generation call."""
+    style_directive = (
+        'Style requested: practitioner. Populate practitioner_notes; leave journal_headnote null.'
+        if style == "practitioner"
+        else 'Style requested: journal. Populate journal_headnote; leave practitioner_notes null.'
+    )
+    case_json = json.dumps(case_entry, ensure_ascii=False, indent=2)
+    return (
+        f"LAWYER'S SITUATION:\n{situation.strip()}\n\n"
+        f"================\n\n"
+        f"THE ONE CASE TO WRITE UP:\n\n{case_json}\n\n"
+        f"================\n\n"
+        f"{style_directive}\n\n"
+        f"Return the JSON object now."
+    )
 
 
 # =====================================================================
