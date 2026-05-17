@@ -92,11 +92,12 @@ DEFAULT_SEARCH_FILTERS = "doctypes:supremecourt,highcourts"
 DEFAULT_TOP_CASES = 3           # 5→3: smaller output volume keeps Sonnet under 25s budget
 DEFAULT_CANDIDATE_POOL = 25     # candidates to collect before hidden_authorities reranking
 DEFAULT_TOP_PARAGRAPHS_PER_CASE = 2   # 4→2: shorter Phase 2 prompts, faster generation
-DEFAULT_MAX_NEW_FETCHES = 5         # mixed mode: max new IK doc fetches (₹0.20 each)
-# Render free-tier kills requests around 25s. Cold-cache IK doc fetches take
-# ~1-1.5s each — 10 fetches alone burn the entire request budget. Cap hidden
-# mode at 4 cold fetches so Phase 1 + Phase 2 actually get to run.
-DEFAULT_MAX_NEW_FETCHES_HIDDEN = 4
+# IK doc-fetch caps. On Railway/Pro (5-min request budget) these can be
+# higher; on Render free (18s budget) keep them tight. Override via env:
+#   MAX_IK_FETCHES, MAX_IK_FETCHES_HIDDEN.
+import os as _os
+DEFAULT_MAX_NEW_FETCHES = int(_os.environ.get("MAX_IK_FETCHES", "8"))
+DEFAULT_MAX_NEW_FETCHES_HIDDEN = int(_os.environ.get("MAX_IK_FETCHES_HIDDEN", "8"))
 
 # Cost-saving for mixed mode: don't burn ₹0.50 on an IK search if curated+semantic
 # already filled at least this many slots. Ignored for hidden/famous modes.
@@ -513,15 +514,14 @@ def retrieve_for_situation(
             meta.notes.append(f"embedding index unavailable: {e}")
             emb_idx = None
 
-    # 1. Curated pre-filter (always; free)
-    # IMPORTANT: For hidden/famous modes, cap curated count so IK cases get
-    # room in the candidate pool. Without this cap, the 42 curated cases
-    # (all famous landmarks) fill all 25 slots, IK never contributes, and
-    # the Hidden Authorities reranker has nothing obscure to surface.
-    if mode in ("hidden", "famous"):
-        max_curated = 5
-    else:
-        max_curated = candidate_pool
+    # 1. Curated pre-filter — minimal in all modes.
+    # The 42-case curated corpus is a FALLBACK for when IK is unavailable
+    # or returns nothing. When IK is configured, the lawyer wants the
+    # 26-lakh judgment universe, not a handful of famous landmarks every
+    # tool already surfaces. So we collect at most 3 curated cases here
+    # to keep the pool seeded; the rerank step (after IK runs) will drop
+    # curated entirely if IK contributed ≥3 cases.
+    max_curated = 3
 
     curated_scored = [(score_curated_case(c, situation), c) for c in curated_corpus]
     curated_scored.sort(key=lambda t: -t[0])
@@ -733,17 +733,20 @@ def retrieve_for_situation(
             from headnote.retrieval.hidden_authorities import rank_candidates, Candidate
 
             # HIDDEN MODE — hard-filter curated when we have enough IK cases.
-            # The 42 curated cases are famous landmarks; surfacing them is
-            # the OPPOSITE of the Hidden Authorities promise. Curated stays
-            # only as a last-resort fallback (when IK has <3 candidates).
-            if mode == "hidden":
-                ik_only = [c for c in cases if c.source != "curated"]
-                if len(ik_only) >= 3:
-                    cases = ik_only
-                    meta.notes.append(
-                        f"hidden mode: dropped curated landmarks, "
-                        f"ranking over {len(cases)} IK candidates only"
-                    )
+            # ALL MODES — curated is a last-resort fallback. When IK has
+            # contributed ≥3 candidates, drop curated entirely. The 42
+            # curated cases are famous landmarks (Bhajan Lal, Lalita
+            # Kumari, Arnesh Kumar, Bhaskaran...) — every junior already
+            # knows them. The product promise is the 26-lakh IK universe;
+            # curated only surfaces when IK is unavailable / empty.
+            ik_only = [c for c in cases if c.source != "curated"]
+            if len(ik_only) >= 3:
+                dropped_count = len(cases) - len(ik_only)
+                cases = ik_only
+                meta.notes.append(
+                    f"dropped {dropped_count} curated landmarks, ranking over "
+                    f"{len(cases)} IK candidates only (mode={mode})"
+                )
 
             # PER-SOURCE relevance normalisation. The old global-max approach
             # divided IK relevance scores (mixed scale, can be small or
