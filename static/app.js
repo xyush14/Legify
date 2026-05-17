@@ -55,14 +55,29 @@
   }
 
   // -------------------------------------------------------------- API
+  function friendlyError(status, errText) {
+    if (status === 502 || status === 504) {
+      return 'request took too long. opus + the full corpus can exceed the request budget on the free tier. try without deep mode, or narrow your query.';
+    }
+    if (status === 503) return 'a backend dependency is down (likely IK token / anthropic key not set). check the server config.';
+    if (status === 429) return 'rate-limited. wait 30 seconds and try again.';
+    if (status === 0)   return 'network error or request was cancelled.';
+    return errText || `HTTP ${status}`;
+  }
+
   async function post(path, body) {
-    const r = await fetch(path, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    let r;
+    try {
+      r = await fetch(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    } catch (e) {
+      throw new Error(friendlyError(0, e.message));
+    }
     const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+    if (!r.ok) throw new Error(friendlyError(r.status, data.error));
     return data;
   }
   async function getJson(path) {

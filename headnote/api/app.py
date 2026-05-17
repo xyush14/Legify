@@ -361,13 +361,16 @@ def api_situation(req: SituationRequest):
             dropped.append(c.get("title", "?"))
     parsed["cases"] = verified
 
-    # Three-check verification + at most one regeneration retry
+    # Three-check verification + at most one regeneration retry.
+    # In deep_mode we already paid for Opus, so re-running Opus to "regenerate"
+    # buys nothing and doubles total latency past Render's request budget.
+    # Surface verification status but skip the regen.
     regen_attempted = False
     regen_helped = False
     if evidence:
         report = verify_situation_response(parsed, evidence)
 
-        if not report.is_clean():
+        if not report.is_clean() and not req.deep_mode:
             regen_attempted = True
             feedback = build_regen_feedback(report)
             try:
