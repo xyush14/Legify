@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Headnote — Cost Dashboard</title>
+  <style>
+    :root {
+      --bg: #fafaf7; --card: #fff; --text: #1f2937; --muted: #6b7280;
+      --border: #e5e7eb; --accent: #2c5282; --good: #2d6a2d; --bad: #9b2c2c;
+      --warn: #b7791f; --shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Inter",sans-serif;
+      background:var(--bg); color:var(--text); padding:2rem; }
+    h1 { font-size:1.6rem; margin:0 0 .5rem; }
+    .subtitle { color:var(--muted); font-size:.9rem; margin-bottom:1.5rem; }
+    .auth-gate { max-width:520px; margin:4rem auto; background:var(--card);
+      padding:2rem; border-radius:8px; box-shadow:var(--shadow); }
+    .auth-gate input { width:100%; padding:.7rem; font-family:monospace; font-size:.9rem;
+      border:1px solid var(--border); border-radius:4px; box-sizing:border-box; }
+    .auth-gate button { margin-top:1rem; padding:.6rem 1.2rem; background:var(--accent);
+      color:#fff; border:0; border-radius:4px; cursor:pointer; font-weight:500; }
+    .auth-gate button:hover { background:#1e3a5f; }
+    .auth-error { color:var(--bad); margin-top:.6rem; font-size:.85rem; }
+    .toolbar { display:flex; gap:.5rem; margin-bottom:1rem; align-items:center; }
+    .toolbar select, .toolbar button { padding:.4rem .8rem; border:1px solid var(--border);
+      border-radius:4px; background:#fff; font-size:.85rem; cursor:pointer; }
+    .alerts { margin-bottom:1rem; }
+    .alert { padding:.7rem 1rem; border-radius:4px; margin-bottom:.5rem; font-size:.9rem; }
+    .alert--warning { background:#fdf6e3; border-left:3px solid var(--warn); color:#92400e; }
+    .alert--info { background:#eff6ff; border-left:3px solid var(--accent); color:#1e3a5f; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));
+      gap:1rem; margin-bottom:1.5rem; }
+    .stat { background:var(--card); padding:1.2rem; border-radius:8px; box-shadow:var(--shadow); }
+    .stat__label { color:var(--muted); font-size:.78rem; text-transform:uppercase;
+      letter-spacing:.05em; margin-bottom:.25rem; }
+    .stat__value { font-size:1.6rem; font-weight:600; }
+    .stat__sub { color:var(--muted); font-size:.8rem; margin-top:.2rem; }
+    .charts { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.5rem; }
+    .chart-card { background:var(--card); padding:1.2rem; border-radius:8px;
+      box-shadow:var(--shadow); min-height:300px; }
+    .chart-card h3 { margin:0 0 1rem; font-size:.95rem; color:var(--muted);
+      font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+    @media (max-width:768px) { .charts { grid-template-columns:1fr; } body { padding:1rem; } }
+    table { width:100%; border-collapse:collapse; font-size:.85rem; }
+    th, td { padding:.5rem .75rem; text-align:left; border-bottom:1px solid var(--border); }
+    th { color:var(--muted); font-weight:500; text-transform:uppercase;
+      font-size:.7rem; letter-spacing:.05em; }
+    .num { text-align:right; font-variant-numeric:tabular-nums; }
+    .footer { color:var(--muted); font-size:.75rem; margin-top:2rem; }
+  </style>
+</head>
+<body>
+  <div id="auth-gate" class="auth-gate">
+    <h1>Cost Dashboard</h1>
+    <p style="color:var(--muted);font-size:.9rem;">
+      Enter the ADMIN_TOKEN from your environment to view telemetry.
+    </p>
+    <input type="password" id="token-input" placeholder="ADMIN_TOKEN" autocomplete="off" />
+    <button id="auth-submit">Open dashboard</button>
+    <div id="auth-error" class="auth-error" style="display:none"></div>
+  </div>
+
+  <div id="dashboard" style="display:none">
+    <h1>Cost Dashboard</h1>
+    <div class="subtitle" id="window-label">Loading…</div>
+
+    <div class="toolbar">
+      <label>Window:</label>
+      <select id="days-select">
+        <option value="7" selected>Last 7 days</option>
+        <option value="30">Last 30 days</option>
+        <option value="90">Last 90 days</option>
+      </select>
+      <button id="refresh-btn">Refresh</button>
+      <button id="logout-btn" style="margin-left:auto">Lock</button>
+    </div>
+
+    <div class="alerts" id="alerts"></div>
+
+    <div class="grid">
+      <div class="stat"><div class="stat__label">Total queries</div>
+        <div class="stat__value" id="stat-queries">—</div></div>
+      <div class="stat"><div class="stat__label">Total spend</div>
+        <div class="stat__value" id="stat-total-inr">—</div>
+        <div class="stat__sub" id="stat-total-paise">— paise</div></div>
+      <div class="stat"><div class="stat__label">Avg cost / query</div>
+        <div class="stat__value" id="stat-avg">—</div>
+        <div class="stat__sub">per-credit effective cost</div></div>
+      <div class="stat"><div class="stat__label">Escalation rate</div>
+        <div class="stat__value" id="stat-escalation">—</div>
+        <div class="stat__sub">% Sonnet calls upgraded to Opus</div></div>
+      <div class="stat"><div class="stat__label">Success rate</div>
+        <div class="stat__value" id="stat-success">—</div></div>
+      <div class="stat"><div class="stat__label">Avg latency</div>
+        <div class="stat__value" id="stat-latency">—</div></div>
+    </div>
+
+    <div class="charts">
+      <div class="chart-card"><h3>Cost by model</h3>
+        <canvas id="chart-by-model"></canvas></div>
+      <div class="chart-card"><h3>Avg cost by task</h3>
+        <canvas id="chart-by-task"></canvas></div>
+      <div class="chart-card"><h3>Daily spend (paise)</h3>
+        <canvas id="chart-daily"></canvas></div>
+      <div class="chart-card"><h3>Confidence distribution</h3>
+        <canvas id="chart-confidence"></canvas></div>
+    </div>
+
+    <div class="chart-card">
+      <h3>Hot users — top 10 by spend</h3>
+      <table>
+        <thead><tr><th>User</th><th class="num">Queries</th><th class="num">Spend (₹)</th></tr></thead>
+        <tbody id="hot-users-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="footer">
+      Window ends now (UTC). Auto-refresh every 60s.
+      Built into headnote/api/admin.py — protected by ADMIN_TOKEN env var.
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script>
+    const $ = id => document.getElementById(id);
+    const TOKEN_KEY = "headnote_admin_token";
+    let token = localStorage.getItem(TOKEN_KEY) || "";
+    const charts = {};
+
+    function showAuth() { $("auth-gate").style.display = "block"; $("dashboard").style.display = "none"; }
+    function showDashboard() { $("auth-gate").style.display = "none"; $("dashboard").style.display = "block"; }
+
+    $("auth-submit").addEventListener("click", () => {
+      const t = $("token-input").value.trim();
+      if (!t) { $("auth-error").textContent = "Enter the token."; $("auth-error").style.display = "block"; return; }
+      token = t; localStorage.setItem(TOKEN_KEY, t); $("auth-error").style.display = "none";
+      load();
+    });
+    $("logout-btn").addEventListener("click", () => {
+      localStorage.removeItem(TOKEN_KEY); token = ""; showAuth();
+    });
+    $("days-select").addEventListener("change", load);
+    $("refresh-btn").addEventListener("click", load);
+
+    async function load() {
+      const days = $("days-select").value;
+      try {
+        const r = await fetch(`/admin/telemetry?days=${days}`, {
+          headers: { "Authorization": `Bearer ${token}` },
+        });
+        if (r.status === 401 || r.status === 403) {
+          $("auth-error").textContent = "Token rejected.";
+          $("auth-error").style.display = "block";
+          showAuth();
+          return;
+        }
+        if (r.status === 503) {
+          $("auth-error").textContent = "ADMIN_TOKEN not configured on the server.";
+          $("auth-error").style.display = "block";
+          showAuth();
+          return;
+        }
+        if (!r.ok) {
+          $("auth-error").textContent = `Server error ${r.status}`;
+          $("auth-error").style.display = "block";
+          return;
+        }
+        const data = await r.json();
+        showDashboard();
+        render(data);
+      } catch (e) {
+        $("auth-error").textContent = "Network error: " + e.message;
+        $("auth-error").style.display = "block";
+      }
+    }
+
+    function render(d) {
+      $("window-label").textContent =
+        `${d.total_queries.toLocaleString()} queries over ${d.window_days} days · since ${d.since_utc}`;
+      $("stat-queries").textContent = d.total_queries.toLocaleString();
+      $("stat-total-inr").textContent = `₹${d.total_cost_inr.toFixed(2)}`;
+      $("stat-total-paise").textContent = `${d.total_cost_paise.toLocaleString()} paise`;
+      $("stat-avg").textContent = `${(d.avg_cost_paise_per_call / 100).toFixed(2)} ₹`;
+      $("stat-escalation").textContent = `${d.escalation_rate_pct.toFixed(1)}%`;
+      $("stat-success").textContent = `${d.success_rate_pct.toFixed(1)}%`;
+      $("stat-latency").textContent = d.avg_latency_ms != null
+        ? `${(d.avg_latency_ms / 1000).toFixed(1)}s` : "—";
+
+      // Alerts banner
+      const alertsEl = $("alerts");
+      alertsEl.innerHTML = "";
+      (d.alerts || []).forEach(a => {
+        const div = document.createElement("div");
+        div.className = `alert alert--${a.level}`;
+        div.textContent = a.message;
+        alertsEl.appendChild(div);
+      });
+
+      drawCostByModel(d.cost_by_model || {});
+      drawCostByTask(d.per_task || {});
+      drawDaily(d.daily_trend || []);
+      drawConfidence(d.confidence_histogram || {});
+      renderHotUsers(d.hot_users || []);
+    }
+
+    function destroyChart(key) { if (charts[key]) { charts[key].destroy(); delete charts[key]; } }
+
+    function drawCostByModel(byModel) {
+      destroyChart("model");
+      const labels = Object.keys(byModel);
+      const data = labels.map(k => byModel[k].paise / 100);
+      charts.model = new Chart($("chart-by-model"), {
+        type: "bar",
+        data: { labels, datasets: [{ label: "INR", data, backgroundColor: ["#2c5282", "#2d6a2d", "#b7791f", "#9b2c2c"] }] },
+        options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } },
+      });
+    }
+
+    function drawCostByTask(byTask) {
+      destroyChart("task");
+      const labels = Object.keys(byTask);
+      const avg = labels.map(k => byTask[k].avg_paise / 100);
+      charts.task = new Chart($("chart-by-task"), {
+        type: "bar",
+        data: { labels, datasets: [{ label: "Avg INR/call", data: avg, backgroundColor: "#2c5282" }] },
+        options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } },
+      });
+    }
+
+    function drawDaily(daily) {
+      destroyChart("daily");
+      const labels = daily.map(d => d.day);
+      const data = daily.map(d => d.paise / 100);
+      charts.daily = new Chart($("chart-daily"), {
+        type: "line",
+        data: { labels, datasets: [{ label: "INR/day", data, borderColor: "#2c5282", backgroundColor: "rgba(44,82,130,0.1)", fill: true, tension: 0.3 }] },
+        options: { responsive: true, scales: { y: { beginAtZero: true } } },
+      });
+    }
+
+    function drawConfidence(hist) {
+      destroyChart("conf");
+      const labels = [1,2,3,4,5,6,7,8,9,10];
+      const data = labels.map(k => hist[k] || 0);
+      charts.conf = new Chart($("chart-confidence"), {
+        type: "bar",
+        data: { labels, datasets: [{ label: "Queries at this score", data, backgroundColor: labels.map(k => k < 7 ? "#9b2c2c" : "#2d6a2d") }] },
+        options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } },
+      });
+    }
+
+    function renderHotUsers(rows) {
+      const tbody = $("hot-users-tbody");
+      tbody.innerHTML = "";
+      if (rows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" style="color:var(--muted);text-align:center;padding:1.5rem">No queries in this window.</td></tr>';
+        return;
+      }
+      rows.forEach(r => {
+        const tr = document.createElement("tr");
+        tr.innerHTML =
+          `<td>${r.user_id}</td>` +
+          `<td class="num">${r.calls.toLocaleString()}</td>` +
+          `<td class="num">${(r.total_paise / 100).toFixed(2)}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Boot
+    if (token) load(); else showAuth();
+    setInterval(() => { if (token) load(); }, 60_000);
+  </script>
+</body>
+</html>

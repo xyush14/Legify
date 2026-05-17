@@ -64,6 +64,16 @@ INDIAN_KANOON_DAILY_CAP_INR: Optional[float] = (
 
 PREFILTER_TOP_K = int(os.environ.get("PREFILTER_TOP_K", "12"))
 
+# Sonnet -> Opus auto-escalation on low confidence. Set to "0" / "false" in
+# env to disable the retry, e.g. during a cost-spike incident — Sonnet will
+# return its first attempt regardless of confidence.
+ENABLE_OPUS_ESCALATION = os.environ.get(
+    "ENABLE_OPUS_ESCALATION", "true",
+).lower() in {"1", "true", "yes"}
+
+# Bearer token for /admin/* routes. Unset means admin endpoints return 503.
+ADMIN_TOKEN: Optional[str] = os.environ.get("ADMIN_TOKEN")
+
 
 # ----------------------------------------------------------------- pricing meter
 
@@ -109,6 +119,8 @@ def summary() -> dict:
         "ik_token_configured": bool(INDIAN_KANOON_TOKEN),
         "ik_daily_cap_inr": INDIAN_KANOON_DAILY_CAP_INR,
         "anthropic_key_configured": bool(ANTHROPIC_API_KEY),
+        "admin_configured": bool(ADMIN_TOKEN),
+        "opus_escalation_enabled": ENABLE_OPUS_ESCALATION,
         "cases_path": str(CASES_PATH.relative_to(PROJECT_ROOT)) if CASES_PATH.is_relative_to(PROJECT_ROOT) else str(CASES_PATH),
         "static_dir": str(STATIC_DIR.relative_to(PROJECT_ROOT)) if STATIC_DIR.is_relative_to(PROJECT_ROOT) else str(STATIC_DIR),
     }

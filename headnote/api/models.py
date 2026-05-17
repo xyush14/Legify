@@ -22,12 +22,40 @@ class SituationRequest(BaseModel):
         "journal",
         description="'journal' = Cri.L.J. headnote format; 'practitioner' = compressed chambers digest.",
     )
+    deep_mode: bool = Field(
+        False,
+        description=(
+            "Premium toggle: skip Sonnet entirely and go straight to Opus "
+            "for highest-quality output. Disables the confidence-based "
+            "auto-retry (no upgrade path beyond Opus)."
+        ),
+    )
+    mode: Literal["hidden", "famous", "mixed"] = Field(
+        "hidden",
+        description=(
+            "Ranking mode for candidate cases. "
+            "'hidden' (default) — penalises fame; surfaces obscure-but-relevant authorities. "
+            "'famous' — boosts citation count; returns the leading cases lawyers already know. "
+            "'mixed' — neutral; ranks purely on fact-pattern + jurisdiction + recency."
+        ),
+    )
+    jurisdiction: Optional[str] = Field(
+        None,
+        description=(
+            "Optional jurisdiction hint for the ranker (e.g. 'Bombay High Court'). "
+            "Boosts cases from the same court. Supreme Court is always boosted."
+        ),
+    )
 
 
 class DigestRequest(BaseModel):
     """Input for POST /api/digest."""
     topic: str = Field(..., min_length=5, max_length=2000,
                        description="Doctrinal topic (e.g. 'circumstantial evidence requirements').")
+    deep_mode: bool = Field(
+        False,
+        description="Premium toggle: force Opus for highest-quality output.",
+    )
 
 
 class HeadnoteRequest(BaseModel):

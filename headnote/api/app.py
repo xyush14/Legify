@@ -48,13 +48,17 @@ from headnote.llm import (
     build_situation_system_prompt, SITUATION_USER_TEMPLATE,
     build_digest_system_prompt, DIGEST_USER_TEMPLATE,
     HEADNOTE_SYSTEM_PROMPT, HEADNOTE_USER_TEMPLATE,
-    call_claude_cached, parse_json_response, build_meta,
+    HEADNOTE_VERIFY_SYSTEM_PROMPT, HEADNOTE_VERIFY_USER_TEMPLATE,
+    parse_json_response,
+    route_call, build_router_meta, OPUS_MODEL,
 )
 from headnote.retrieval.keyword import prefilter_cases
-from headnote.translate import translate_payload
+from headnote.translate import translate_payload, translate_payload_haiku
 from headnote.verify import (
     EvidenceParagraph, verify_situation_response, build_regen_feedback,
 )
+from headnote.api.telemetry import init_telemetry_db, record_query
+from headnote.api.admin import router as admin_router
 
 
 # Lazy IK client singleton — only spun up if enabled AND token is configured.
@@ -135,6 +139,8 @@ def _is_strictly_better(retry_report, original_report) -> bool:
 app = FastAPI(title="Headnote", version=__version__,
               description="Verified AI legal research for Indian criminal advocates.")
 _init_feedback_db()
+init_telemetry_db()
+app.include_router(admin_router)
 
 
 @app.get("/", include_in_schema=False)
@@ -199,11 +205,57 @@ def api_situation(req: SituationRequest):
         from headnote.kanoon.retrieval import (
             retrieve_for_situation, result_to_prompt_corpus_json, IK_PROMPT_ADDENDUM,
         )
+        from headnote.retrieval import Candidate, rank_candidates, explain_score
+
         ret = retrieve_for_situation(
             req.situation, client=client, curated_corpus=curated,
         )
         evidence = ret.evidence
         curated_lookup = {c["id"]: c for c in curated}
+
+        # Hidden Authorities re-rank — runs on whatever candidates retrieval
+        # produced (no extra IK fetches). Sonnet rates each candidate's
+        # fact-pattern match to the user's situation; mode-specific weights
+        # then either penalise fame ("hidden") or boost it ("famous").
+        candidates: list = []
+        for cs in ret.cases:
+            year_int = 0
+            try:
+                year_int = int(cs.year) if cs.year else 0
+            except (TypeError, ValueError):
+                year_int = 0
+            summary = ""
+            if cs.paragraphs:
+                summary = " ".join(p.text for p in cs.paragraphs[:2])[:1200]
+            elif cs.case_id in curated_lookup:
+                cl = curated_lookup[cs.case_id]
+                summary = f"{cl.get('facts', '')} {cl.get('holding', '')}".strip()[:1200]
+            subsequent_treatment = ""
+            if cs.case_id in curated_lookup:
+                subsequent_treatment = curated_lookup[cs.case_id].get("subsequent_treatment", "")
+            candidates.append(Candidate(
+                case_id=cs.case_id, title=cs.title, court=cs.court,
+                year=year_int, citation=cs.citation, numcitedby=cs.numcitedby,
+                semantic_similarity=min(1.0, max(0.0, cs.relevance_score / 10.0)),
+                summary=summary, subsequent_treatment=subsequent_treatment,
+                source=cs.source,
+            ))
+
+        # Mixed mode skips Sonnet rerank — costs ~Rs.0 extra. Hidden/famous
+        # call Sonnet on the candidates we have (no extra IK fetches).
+        skip_sonnet = (req.mode == "mixed")
+        ranked = rank_candidates(
+            req.situation, candidates, mode=req.mode,
+            query_jurisdiction=req.jurisdiction,
+            rerank_top_k=max(len(candidates), 1),
+            result_top_k=len(candidates),  # don't truncate here; let prompt pick top-N
+            skip_sonnet_rerank=skip_sonnet,
+        )
+        # Reorder ret.cases by the ranker's verdict
+        ordered_case_ids = [s.candidate.case_id for s in ranked]
+        ret_cases_by_id = {cs.case_id: cs for cs in ret.cases}
+        ret.cases = [ret_cases_by_id[cid] for cid in ordered_case_ids if cid in ret_cases_by_id]
+
         corpus_json = result_to_prompt_corpus_json(ret, curated_lookup)
         sys_prompt = build_situation_system_prompt(req.style, corpus_json) + IK_PROMPT_ADDENDUM
         ik_meta_extra = {
@@ -214,22 +266,57 @@ def api_situation(req: SituationRequest):
             "ik_cache_hits": ret.meta.cache_hits,
             "ik_inr_spent_this_call": ret.meta.inr_spent_this_call,
             "retrieval_notes": ret.meta.notes,
+            "ranking_mode": req.mode,
             "cases_returned": [
-                {"case_id": cs.case_id, "title": cs.title, "source": cs.source,
-                 "numcitedby": cs.numcitedby, "score": round(cs.relevance_score, 3)}
-                for cs in ret.cases
+                {
+                    "case_id": s.candidate.case_id,
+                    "title": s.candidate.title,
+                    "source": s.candidate.source,
+                    "numcitedby": s.candidate.numcitedby,
+                    "score": round(s.final_score, 3),
+                    "signals": s.explanation,
+                    "why_picked": explain_score(s, req.mode),
+                }
+                for s in ranked
             ],
         }
     else:
         sys_prompt = build_situation_system_prompt(
             req.style, _filtered_corpus_json(req.situation),
         )
-        ik_meta_extra = {"retrieval_path": "curated-only"}
+        ik_meta_extra = {"retrieval_path": "curated-only", "ranking_mode": req.mode}
 
     user_prompt = SITUATION_USER_TEMPLATE.format(situation=req.situation, style=req.style)
     t0 = time.time()
-    raw, usage = call_claude_cached(sys_prompt, user_prompt)
+    # deep_mode = user-opted premium: skip Sonnet, go straight to Opus, no
+    # confidence retry. ENABLE_OPUS_ESCALATION=false (env override) also
+    # disables the confidence retry — force Sonnet to commit to its first
+    # answer (useful during a cost-spike incident).
+    if req.deep_mode:
+        route_force: Optional[str] = "opus"
+    elif not config.ENABLE_OPUS_ESCALATION:
+        route_force = "sonnet"
+    else:
+        route_force = None
+
+    route_result = route_call(
+        "situation",
+        {"system_prompt": sys_prompt, "user_prompt": user_prompt},
+        force_model=route_force,
+    )
     elapsed = time.time() - t0
+    raw = route_result.response
+    total_paise = route_result.cost_paise
+    chosen_model = route_result.model_name
+    primary_model = chosen_model  # what the first call ran on (for telemetry)
+    # Detect whether the router did an internal Sonnet -> Opus escalation
+    # by comparing the chosen model to what routing would have selected
+    # without force_model. Sonnet would have been default for "situation".
+    escalated = (
+        chosen_model == "claude-opus-4-6"
+        and not req.deep_mode
+        and config.ENABLE_OPUS_ESCALATION
+    )
 
     parsed = parse_json_response(raw)
 
@@ -258,7 +345,18 @@ def api_situation(req: SituationRequest):
             feedback = build_regen_feedback(report)
             try:
                 retry_prompt = user_prompt + feedback
-                retry_raw, retry_usage = call_claude_cached(sys_prompt, retry_prompt)
+                # Verification-failure regen ALWAYS forces Opus. The router
+                # already auto-upgrades on low confidence; reaching this
+                # branch means the response was wrong in a way confidence
+                # alone didn't catch (fabricated citation/quote/anchor),
+                # so we commit to the highest-quality model.
+                retry_result = route_call(
+                    "situation",
+                    {"system_prompt": sys_prompt, "user_prompt": retry_prompt},
+                    force_model="opus",
+                )
+                retry_raw = retry_result.response
+                total_paise += retry_result.cost_paise
                 retry_parsed = parse_json_response(retry_raw)
                 retry_parsed["cases"] = [
                     c for c in retry_parsed.get("cases", [])
@@ -269,21 +367,42 @@ def api_situation(req: SituationRequest):
                     parsed = retry_parsed
                     raw = retry_raw
                     report = retry_report
+                    chosen_model = retry_result.model_name  # Opus
                     regen_helped = True
-                    for k in ("input_tokens", "output_tokens",
-                              "cache_creation_input_tokens", "cache_read_input_tokens"):
-                        usage[k] = usage.get(k, 0) + retry_usage.get(k, 0)
             except HTTPException:
+                # Bad JSON from retry → keep the original
                 pass
 
         verification_report = report.summary()
 
-    meta = build_meta(usage, elapsed)
+    # Synthesise a RouteResult-shaped object so build_router_meta sees the
+    # final (possibly-regen-augmented) totals.
+    from headnote.llm import RouteResult
+    final_result = RouteResult(
+        model_name=chosen_model,
+        response=raw,
+        cost_paise=total_paise,
+        confidence_score=route_result.confidence_score,
+    )
+    meta = build_router_meta(final_result, elapsed)
     meta.update(ik_meta_extra)
+    meta["deep_mode"] = req.deep_mode
+    meta["escalated_to_opus"] = escalated
     if verification_report is not None:
         meta["verification"] = verification_report
         meta["verification_regen_attempted"] = regen_attempted
         meta["verification_regen_helped"] = regen_helped
+
+    # Telemetry — fire-and-forget, never blocks the response
+    record_query(
+        task_type="situation",
+        primary_model=primary_model,
+        escalated=escalated or regen_attempted,
+        total_cost_paise=total_paise,
+        latency_ms=int(elapsed * 1000),
+        confidence=route_result.confidence_score,
+        success=verification_report is None or verification_report.get("clean", True),
+    )
 
     return {
         "result": parsed,
@@ -297,48 +416,250 @@ def api_situation(req: SituationRequest):
 def api_digest(req: DigestRequest):
     sys_prompt = build_digest_system_prompt(_filtered_corpus_json(req.topic, top_k=18))
     user_prompt = DIGEST_USER_TEMPLATE.format(topic=req.topic)
-    t0 = time.time()
-    raw, usage = call_claude_cached(sys_prompt, user_prompt)
-    elapsed = time.time() - t0
+    if req.deep_mode:
+        route_force: Optional[str] = "opus"
+    elif not config.ENABLE_OPUS_ESCALATION:
+        route_force = "sonnet"
+    else:
+        route_force = None
 
-    parsed = parse_json_response(raw)
-    return {"result": parsed, "raw": raw, "meta": build_meta(usage, elapsed)}
+    t0 = time.time()
+    route_result = route_call(
+        "digest",
+        {"system_prompt": sys_prompt, "user_prompt": user_prompt},
+        force_model=route_force,
+    )
+    elapsed = time.time() - t0
+    primary_model = route_result.model_name
+    escalated = (
+        route_result.model_name == "claude-opus-4-6"
+        and not req.deep_mode
+        and config.ENABLE_OPUS_ESCALATION
+    )
+
+    parsed = parse_json_response(route_result.response)
+    meta = build_router_meta(route_result, elapsed)
+    meta["deep_mode"] = req.deep_mode
+    meta["escalated_to_opus"] = escalated
+
+    record_query(
+        task_type="digest",
+        primary_model=primary_model,
+        escalated=escalated,
+        total_cost_paise=route_result.cost_paise,
+        latency_ms=int(elapsed * 1000),
+        confidence=route_result.confidence_score,
+    )
+
+    return {
+        "result": parsed,
+        "raw": route_result.response,
+        "meta": meta,
+    }
 
 
 @app.post("/api/headnote", summary="Judgment text -> Cri.L.J. headnote(s)")
 def api_headnote(req: HeadnoteRequest):
-    user_prompt = HEADNOTE_USER_TEMPLATE.format(judgment_text=req.judgment_text[:30000])
+    """Two-stage pipeline for headnote generation:
+
+      1. Opus generates the headnotes from the full judgment text.
+         The system prompt (with 3 gold-standard example headnotes) is
+         cached — cache_read at 10% of input price keeps per-call Opus
+         cost dominated by the variable judgment text, not the examples.
+
+      2. Haiku verifies each generated headnote against the source
+         judgment: checks that the quoted ratio appears in the source,
+         that paragraph anchors point to real paragraphs, and that the
+         statute_index uses formal Cri.L.J. style. Cheap (~Rs.0.50).
+
+      3. If Haiku flags any headnote as "failed", that specific headnote
+         is re-issued to Opus once with the verification errors pasted
+         in as feedback. The retry response replaces the original entry.
+
+    The Sonnet pre-process step from the original spec was dropped to
+    avoid lossy compression — the headnote is the moat workflow and we
+    want Opus to see the full judgment text directly.
+    """
+    judgment_text = req.judgment_text[:30000]
+    user_prompt = HEADNOTE_USER_TEMPLATE.format(judgment_text=judgment_text)
+
     t0 = time.time()
-    raw, usage = call_claude_cached(HEADNOTE_SYSTEM_PROMPT, user_prompt, cache=False)
+    # Stage 1: Opus with cached examples.  cache=True so the (long, static)
+    # system prompt with gold-standard examples hits the prompt cache after
+    # the first call. The judgment text in the user prompt is per-request
+    # and uncacheable, which is fine.
+    opus_result = route_call(
+        "headnote",
+        {
+            "system_prompt": HEADNOTE_SYSTEM_PROMPT,
+            "user_prompt": user_prompt,
+            "cache": True,
+        },
+    )
+    parsed = parse_json_response(opus_result.response)
+    total_paise = opus_result.cost_paise
+
+    # Stage 2: Haiku verification — only meaningful if we got structured
+    # headnotes back. Verify each, then collect any that failed.
+    verifications: list[dict] = []
+    retried_letters: list[str] = []
+    headnotes = parsed.get("headnotes") or []
+    if headnotes:
+        verify_user = HEADNOTE_VERIFY_USER_TEMPLATE.format(
+            judgment_text=judgment_text,
+            headnotes_json=json.dumps(headnotes, ensure_ascii=False),
+        )
+        try:
+            verify_result = route_call(
+                "verification",
+                {
+                    "system_prompt": HEADNOTE_VERIFY_SYSTEM_PROMPT,
+                    "user_prompt": verify_user,
+                    "cache": False,
+                },
+            )
+            total_paise += verify_result.cost_paise
+            try:
+                verify_parsed = parse_json_response(verify_result.response)
+                verifications = list(verify_parsed.get("verifications") or [])
+            except HTTPException:
+                # Haiku returned non-JSON — skip verification but don't fail the request
+                verifications = []
+        except Exception as e:
+            print(f"[headnote] verification step failed ({e}); skipping")
+            verifications = []
+
+        # Stage 3: per-headnote Opus retry where verification failed.
+        # Single retry, only for entries marked "failed" (not "warning").
+        verifications_by_letter = {v.get("letter"): v for v in verifications}
+        new_headnotes = []
+        for hn in headnotes:
+            letter = hn.get("letter")
+            v = verifications_by_letter.get(letter)
+            if v and v.get("overall") == "failed":
+                issues = "; ".join(v.get("issues") or [])
+                retry_user = (
+                    user_prompt
+                    + f"\n\n---\n\nREGENERATE HEADNOTE ({letter}) ONLY. "
+                    f"The previous attempt failed verification:\n  - {issues}\n\n"
+                    "Re-emit the COMPLETE response JSON (all headnotes), but "
+                    f"with headnote ({letter}) corrected to address these issues."
+                )
+                try:
+                    retry_result = route_call(
+                        "headnote",
+                        {
+                            "system_prompt": HEADNOTE_SYSTEM_PROMPT,
+                            "user_prompt": retry_user,
+                            "cache": True,
+                        },
+                    )
+                    total_paise += retry_result.cost_paise
+                    retry_parsed = parse_json_response(retry_result.response)
+                    retry_headnotes = retry_parsed.get("headnotes") or []
+                    retry_match = next(
+                        (h for h in retry_headnotes if h.get("letter") == letter),
+                        None,
+                    )
+                    if retry_match is not None:
+                        new_headnotes.append(retry_match)
+                        retried_letters.append(letter)
+                        continue
+                except (HTTPException, Exception) as e:
+                    print(f"[headnote] retry for letter {letter} failed: {e}")
+            new_headnotes.append(hn)
+        parsed["headnotes"] = new_headnotes
+
     elapsed = time.time() - t0
 
-    parsed = parse_json_response(raw)
-    return {"result": parsed, "raw": raw, "meta": build_meta(usage, elapsed)}
+    # Synthesise a RouteResult-shaped object for build_router_meta
+    from headnote.llm import RouteResult
+    final_result = RouteResult(
+        model_name=opus_result.model_name,
+        response=opus_result.response,
+        cost_paise=total_paise,
+        confidence_score=opus_result.confidence_score,
+    )
+
+    meta = build_router_meta(final_result, elapsed)
+    meta["verifications"] = verifications
+    meta["retried_letters"] = retried_letters
+
+    record_query(
+        task_type="headnote",
+        primary_model=opus_result.model_name,
+        escalated=bool(retried_letters),
+        total_cost_paise=total_paise,
+        latency_ms=int(elapsed * 1000),
+        confidence=opus_result.confidence_score,
+    )
+    return {
+        "result": parsed,
+        "raw": opus_result.response,
+        "meta": meta,
+    }
 
 
 @app.post("/api/translate", summary="Translate English JSON result to Hindi")
 def api_translate(req: TranslateRequest):
-    """Translates prose fields to Hindi via free Google Translate. Citations,
-    case titles, statute names, and paragraph anchors are protected from
-    translation via placeholder substitution. No LLM cost."""
+    """Translate prose fields via Haiku 4.5 with a citation verifier.
+
+    Primary path: Haiku 4.5 via the model router. Each translatable field
+    gets a citation-preservation check; on failure, one retry with a
+    stricter prompt that names the dropped tokens. If citations are still
+    missing after retry, the response sets `meta.quality="degraded"` so
+    the frontend can warn the lawyer to manually verify those specific
+    citations.
+
+    Fallback path: free Google Translate, used only if Anthropic is not
+    configured (no API key) or fails outright. Meta block reflects which
+    path ran.
+    """
     t0 = time.time()
     try:
+        if config.ANTHROPIC_API_KEY:
+            translated, paise, quality, preserved = translate_payload_haiku(req.payload)
+            elapsed = time.time() - t0
+            record_query(
+                task_type="translate",
+                primary_model="claude-haiku-4-5",
+                escalated=False,
+                total_cost_paise=paise,
+                latency_ms=int(elapsed * 1000),
+                success=(quality == "ok"),
+            )
+            return {
+                "result": translated,
+                "raw": json.dumps(translated, ensure_ascii=False),
+                "meta": {
+                    "elapsed_seconds": round(elapsed, 2),
+                    "model": "claude-haiku-4-5",
+                    "cost_paise": paise,
+                    "cost_inr": round(paise / 100, 4),
+                    "cost_usd": round(paise / 100 / config.USD_TO_INR, 6),
+                    "quality": quality,
+                    "preserved_citations": preserved,
+                    "translator": "haiku",
+                },
+            }
+        # No Anthropic key configured — fall back to free Google Translate
         translated = translate_payload(req.payload, target=req.target_language)
+        elapsed = time.time() - t0
+        return {
+            "result": translated,
+            "raw": json.dumps(translated, ensure_ascii=False),
+            "meta": {
+                "elapsed_seconds": round(elapsed, 2),
+                "model": "google-translate (free)",
+                "cost_paise": 0, "cost_inr": 0.0, "cost_usd": 0.0,
+                "quality": "ok",
+                "preserved_citations": [],
+                "translator": "google",
+                "free": True,
+            },
+        }
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Translation failed: {e}")
-    elapsed = time.time() - t0
-
-    return {
-        "result": translated,
-        "raw": json.dumps(translated, ensure_ascii=False),
-        "meta": {
-            "elapsed_seconds": round(elapsed, 2),
-            "model": "google-translate (free)",
-            "input_tokens": 0, "output_tokens": 0,
-            "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0,
-            "cost_usd": 0.0, "cost_inr": 0.0, "free": True,
-        },
-    }
 
 
 @app.post("/api/feedback", summary="Lawyer thumbs-up/down + comment")
