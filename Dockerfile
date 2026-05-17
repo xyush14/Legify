@@ -26,8 +26,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /build
 
-# Install only the deps first (better layer caching on rebuild)
-COPY requirements.txt requirements-dev.txt ./
+# Install only the deps first (better layer caching on rebuild). Note we
+# DON'T copy requirements-dev.txt — it's excluded by .dockerignore and
+# never installed in the production image anyway. Including it in COPY
+# breaks Railway / Docker BuildKit because the file isn't in the build
+# context.
+COPY requirements.txt ./
 RUN python -m venv /opt/venv \
  && /opt/venv/bin/pip install --upgrade pip \
  && /opt/venv/bin/pip install -r requirements.txt \
