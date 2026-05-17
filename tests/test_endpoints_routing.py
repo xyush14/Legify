@@ -99,8 +99,11 @@ def _mock_pipeline(*, cases=None, select_paise=20, generate_paise=300):
 # /api/situation — Sonnet by default
 # ============================================================================
 
-def test_situation_routes_to_sonnet_by_default(client, fake_anthropic):
-    """Sonnet is the user-facing model when deep_mode is off."""
+def test_situation_routes_to_haiku_by_default(client, fake_anthropic):
+    """Haiku is the user-facing model when deep_mode is off — chosen
+    because Render free tier's ~18s request budget can't fit Sonnet's
+    ~15-20s generation reliably. Once on a paid plan / better host, the
+    default should move back up to Sonnet."""
     fake_anthropic.queue('{"cases": [], "confidence": "low"}\nCONFIDENCE: 8')
     resp = client.post("/api/situation", json={
         "situation": "Some legal scenario, at least ten characters.",
@@ -108,22 +111,14 @@ def test_situation_routes_to_sonnet_by_default(client, fake_anthropic):
     })
     assert resp.status_code == 200, resp.text
     body = resp.json()
-    assert body["meta"]["model"] == "claude-sonnet-4-6"
+    assert body["meta"]["model"] == "claude-haiku-4-5"
     assert body["meta"]["cost_paise"] > 0
     assert body["meta"]["escalated_to_opus"] is False
-    # Exactly one LLM call — auto-escalation is disabled.
     assert len(fake_anthropic.calls) == 1
 
 
 def test_situation_low_confidence_does_not_auto_upgrade(client, fake_anthropic):
-    """Auto-escalation to Opus is OFF for /api/situation by default.
-
-    Previously a Sonnet response with confidence < 7 triggered a silent
-    Opus retry — stacking two calls and blowing past Render's request
-    budget (60-90s). Lawyers have an explicit `deep_mode` toggle for
-    Opus; we no longer spend their ₹20 silently to bump a "medium"
-    answer.
-    """
+    """Auto-escalation is structurally off — deep_mode is the only toggle."""
     fake_anthropic.queue('{"cases": []}\nCONFIDENCE: 3')
     resp = client.post("/api/situation", json={
         "situation": "Another scenario, well over ten characters in length.",
@@ -131,9 +126,8 @@ def test_situation_low_confidence_does_not_auto_upgrade(client, fake_anthropic):
     })
     assert resp.status_code == 200, resp.text
     body = resp.json()
-    assert body["meta"]["model"] == "claude-sonnet-4-6"
+    assert body["meta"]["model"] == "claude-haiku-4-5"
     assert body["meta"]["escalated_to_opus"] is False
-    # Exactly one LLM call — even at confidence 3, no retry fires.
     assert len(fake_anthropic.calls) == 1
 
 

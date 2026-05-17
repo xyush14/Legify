@@ -333,12 +333,13 @@ def api_situation(req: SituationRequest):
     user_prompt = SITUATION_USER_TEMPLATE.format(
         situation=working_situation, style=req.style,
     )
-    # Sonnet is the default — the right model for legal reasoning quality.
-    # deep_mode escalates to Opus for the lawyer's hardest matters.
-    # (Render free tier struggles with Sonnet's 15-20s generation time;
-    # Railway / Render Starter / any platform with a >30s request budget
-    # handles this cleanly. The model isn't the bottleneck; the host is.)
-    force_model_choice = "opus" if req.deep_mode else "sonnet"
+    # MODEL LADDER (calibrated for Render free tier's ~18s request budget):
+    #   default       → Haiku 4.5  (~6-10s, fits free tier with margin)
+    #   deep_mode on  → Sonnet 4.6 (~15-20s, premium path; may occasionally
+    #                              cold-start 502 but warms after first hit)
+    # Move every step UP when the deploy host has a normal request budget
+    # (Railway / Render Pro / a VPS): Sonnet default, Opus on deep_mode.
+    force_model_choice = "sonnet" if req.deep_mode else "haiku"
     route_result = route_call(
         "situation",
         {"system_prompt": sys_prompt, "user_prompt": user_prompt, "cache": True},
