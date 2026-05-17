@@ -153,8 +153,104 @@ def get_summary(days: int = 7) -> dict:
             round(float(latency_row["avg_ms"]), 0)
             if latency_row["avg_ms"] is not None else None
         )
+
+        # Per-task aggregates: calls + total cost + avg cost
+        per_task_rows = conn.execute(
+            "SELECT task_type, COUNT(*) AS n, "
+            "       COALESCE(SUM(total_cost_paise), 0) AS paise "
+            "FROM query_telemetry WHERE ts >= ? "
+            "GROUP BY task_type",
+            (cutoff,),
+        ).fetchall()
+        per_task = {}
+        for r in per_task_rows:
+            n = int(r["n"] or 0)
+            p = int(r["paise"] or 0)
+            per_task[r["task_type"]] = {
+                "calls": n,
+                "total_paise": p,
+                "avg_paise": round(p / n, 1) if n > 0 else 0,
+            }
+
+        # Confidence histogram (buckets 1-10)
+        conf_hist_rows = conn.execute(
+            "SELECT confidence, COUNT(*) AS n FROM query_telemetry "
+            "WHERE ts >= ? AND confidence IS NOT NULL "
+            "GROUP BY confidence ORDER BY confidence",
+            (cutoff,),
+        ).fetchall()
+        confidence_histogram = {int(r["confidence"]): int(r["n"]) for r in conf_hist_rows}
+
+        # Hot users (top 10 by spend). user_id is nullable until auth lands;
+        # rows without user_id are bucketed under "(anonymous)".
+        hot_rows = conn.execute(
+            "SELECT COALESCE(user_id, '(anonymous)') AS uid, "
+            "       COUNT(*) AS n, COALESCE(SUM(total_cost_paise), 0) AS paise "
+            "FROM query_telemetry WHERE ts >= ? "
+            "GROUP BY uid ORDER BY paise DESC LIMIT 10",
+            (cutoff,),
+        ).fetchall()
+        hot_users = [
+            {"user_id": r["uid"], "calls": int(r["n"]), "total_paise": int(r["paise"])}
+            for r in hot_rows
+        ]
+
+        # Daily trend (one bucket per ISO day in the window)
+        daily_rows = conn.execute(
+            "SELECT substr(ts, 1, 10) AS day, "
+            "       COUNT(*) AS n, COALESCE(SUM(total_cost_paise), 0) AS paise "
+            "FROM query_telemetry WHERE ts >= ? "
+            "GROUP BY day ORDER BY day",
+            (cutoff,),
+        ).fetchall()
+        daily_trend = [
+            {"day": r["day"], "queries": int(r["n"]), "paise": int(r["paise"])}
+            for r in daily_rows
+        ]
     finally:
         conn.close()
+
+    avg_cost_per_call = (round(total_paise / total_queries, 1)
+                         if total_queries > 0 else 0.0)
+
+    # Alert conditions — surfaced as banners on the dashboard.
+    alerts = []
+    if escalation_rate_pct > 25.0:
+        alerts.append({
+            "level": "warning",
+            "metric": "escalation_rate_pct",
+            "value": escalation_rate_pct,
+            "message": (
+                f"Sonnet is escalating to Opus on {escalation_rate_pct:.1f}% "
+                "of generation queries (>25% threshold). Tighten Sonnet "
+                "prompts or accept higher blended cost."
+            ),
+        })
+    if avg_cost_per_call > 1200:  # ₹12 = 1200 paise
+        alerts.append({
+            "level": "warning",
+            "metric": "avg_cost_paise_per_call",
+            "value": avg_cost_per_call,
+            "message": (
+                f"Average cost per query is ₹{avg_cost_per_call / 100:.2f} "
+                "(>₹12 threshold). Per-credit pricing may not hold."
+            ),
+        })
+    for u in hot_users:
+        if u["user_id"] == "(anonymous)":
+            continue
+        avg_daily = u["total_paise"] / max(1, days)
+        if avg_daily > 50_000:  # ₹500/day
+            alerts.append({
+                "level": "info",
+                "metric": "hot_user",
+                "user_id": u["user_id"],
+                "value": int(avg_daily),
+                "message": (
+                    f"User {u['user_id']} averaging ₹{avg_daily / 100:.0f}/day. "
+                    "Likely power user or abuse — review."
+                ),
+            })
 
     return {
         "window_days": days,
@@ -165,10 +261,14 @@ def get_summary(days: int = 7) -> dict:
                              if total_queries > 0 else 0.0),
         "total_cost_paise": total_paise,
         "total_cost_inr": round(total_paise / 100, 2),
-        "avg_cost_paise_per_call": (round(total_paise / total_queries, 1)
-                                    if total_queries > 0 else 0.0),
+        "avg_cost_paise_per_call": avg_cost_per_call,
         "cost_by_model": cost_by_model,
         "escalation_rate_pct": escalation_rate_pct,
         "avg_confidence_by_task": avg_confidence_by_task,
         "avg_latency_ms": avg_latency_ms,
+        "per_task": per_task,
+        "confidence_histogram": confidence_histogram,
+        "hot_users": hot_users,
+        "daily_trend": daily_trend,
+        "alerts": alerts,
     }

@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Optional
 
 from fastapi import APIRouter, Header, HTTPException, Query, status
+from fastapi.responses import FileResponse
 
 from headnote import config
 from headnote.api.telemetry import get_summary
@@ -72,3 +73,18 @@ def admin_telemetry(
     """
     _require_admin(authorization)
     return get_summary(days=days)
+
+
+@router.get("/cost-dashboard", summary="HTML dashboard rendering telemetry charts",
+            include_in_schema=False)
+def admin_cost_dashboard():
+    """Serve the cost dashboard HTML page.
+
+    The page shell itself is unauthenticated — it asks for the
+    ADMIN_TOKEN in-browser on first load, stores it in localStorage,
+    and uses it as a Bearer header when calling /admin/telemetry.
+    The token is the actual access control; the HTML is inert without it.
+
+    Open in browser: https://<your-deploy>/admin/cost-dashboard
+    """
+    return FileResponse(config.STATIC_DIR / "admin-dashboard.html")
