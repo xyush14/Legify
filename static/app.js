@@ -1,12 +1,19 @@
-/* =========================================================================
-   Criminal Law AI — frontend logic
-   Vanilla JS, no framework. State kept in module scope.
-   ========================================================================= */
-
+/* =============================================================================
+ * Headnote app · vanilla JS, no framework
+ *
+ * One file, three views: Research, Browse, Drafting (placeholder).
+ *
+ * Research auto-detects the user's intent from the input:
+ *   - >1800 chars + paragraph breaks  → Headnote (Cri.L.J. format generation)
+ *   - <80 chars, no sentence punctuation → Digest (topic research)
+ *   - default                          → Situation (facts → ranked precedents)
+ *
+ * The user can override via the mode chip if detection is wrong.
+ * ========================================================================== */
 (() => {
   'use strict';
 
-  // ---------- DOM helpers ----------
+  // ---------------------------------------------------------------- helpers
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
   const ce = (tag, opts = {}) => {
@@ -15,46 +22,27 @@
     if (opts.text != null) el.textContent = opts.text;
     if (opts.html != null) el.innerHTML = opts.html;
     if (opts.attrs) for (const [k, v] of Object.entries(opts.attrs)) el.setAttribute(k, v);
-    if (opts.children) opts.children.forEach((c) => c && el.appendChild(c));
+    if (opts.children) opts.children.forEach(c => c && el.appendChild(c));
     return el;
   };
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 
-  // Lightweight HTML escape (we generally use textContent)
-  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
-    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  // -------------------------------------------------------------- state
+  const HISTORY_KEY = 'headnote.history.v2';
+  const HISTORY_MAX = 12;
+  const VIEW_TOGGLE_KEY = 'headnote.viewmode.v1';   // headnote | table
 
-  // ---------- Config ----------
-  const EXAMPLES = {
-    situationInput:
-      'My client received a cheque dishonour notice but the notice was sent to a wrong address. ' +
-      'Bank dishonour happened in Mumbai. Complainant filed the complaint in Delhi where he received the cheque. ' +
-      'What are the precedents on territorial jurisdiction and validity of notice?',
-    digestInput:
-      'Five golden principles of circumstantial evidence — when can conviction be sustained ' +
-      'on circumstantial evidence alone?',
+  const state = {
+    activeView: 'research',
+    mode: 'hidden',        // ranking mode: hidden | famous | mixed
+    deepMode: false,
+    jurisdiction: '',
+    lastResult: null,      // { autoMode, parsed, meta, query }
+    resultView: localStorage.getItem(VIEW_TOGGLE_KEY) || 'cards',
   };
 
-  const HISTORY_KEY = 'criminallawai.history.v1';
-  const HISTORY_MAX = 30;
-
-  // ---------- State ----------
-  let currentMode = 'situation';
-  let lastResult = null; // { mode, rawJson, parsed, container }
-
-  // Stable snapshots of the ORIGINAL English result, keyed by mode.
-  // These persist across re-renders (which is exactly what was broken before:
-  // toggling Hindi rebuilt the result and overwrote "originalEnglish" with the
-  // Hindi version, so the English button had nothing to restore to).
-  const ORIGINAL = { situation: null, digest: null, headnote: null };
-  // Current language per mode: 'en' | 'hi'
-  const LANG = { situation: 'en', digest: 'en', headnote: 'en' };
-
-  function setOriginal(mode, result) {
-    ORIGINAL[mode] = JSON.parse(JSON.stringify(result));
-    LANG[mode] = 'en';
-  }
-
-  // ---------- Toast ----------
+  // -------------------------------------------------------------- toasts
   function toast(msg, kind = 'info', ms = 2400) {
     const t = ce('div', { cls: `toast toast--${kind}`, text: msg });
     $('#toasts').appendChild(t);
@@ -65,8 +53,8 @@
     }, ms);
   }
 
-  // ---------- API ----------
-  async function api(path, body) {
+  // -------------------------------------------------------------- API
+  async function post(path, body) {
     const r = await fetch(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -76,856 +64,562 @@
     if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
     return data;
   }
-
-  async function apiGet(path) {
+  async function getJson(path) {
     const r = await fetch(path);
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    return r.json();
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+    return data;
   }
 
-  // ---------- Modes ----------
-  function switchMode(mode) {
-    currentMode = mode;
-    $$('.mode').forEach((b) => {
-      const active = b.dataset.mode === mode;
-      b.classList.toggle('mode--active', active);
-      b.setAttribute('aria-selected', active ? 'true' : 'false');
-    });
-    $$('.panel').forEach((p) => {
-      p.hidden = p.dataset.panel !== mode;
-    });
-    // Focus the textarea of the active mode
-    const ta = $(`[data-panel="${mode}"] textarea`);
-    if (ta) setTimeout(() => ta.focus(), 50);
+  // -------------------------------------------------------------- view router
+  function switchView(view) {
+    state.activeView = view;
+    $$('.view').forEach(el => el.classList.toggle('is-active', el.dataset.view === view));
+    $$('.navitem').forEach(el => el.classList.toggle('is-active', el.dataset.view === view));
   }
 
-  $$('.mode').forEach((b) => b.addEventListener('click', () => switchMode(b.dataset.mode)));
-
-  // ---------- Examples ----------
-  $$('[data-action="example"]').forEach((b) => {
-    b.addEventListener('click', () => {
-      const ta = $('#' + b.dataset.target);
-      if (!ta) return;
-      const ex = EXAMPLES[b.dataset.target];
-      if (ex) {
-        ta.value = ex;
-        ta.dispatchEvent(new Event('input'));
-        ta.focus();
-      }
-    });
-  });
-
-  // ---------- Char count ----------
-  function bindCharCount(textareaId, displayId, max) {
-    const ta = $('#' + textareaId);
-    const out = $('#' + displayId);
-    if (!ta || !out) return;
-    const update = () => {
-      const len = ta.value.length;
-      out.textContent = `${len.toLocaleString()} / ${max.toLocaleString()}`;
-      out.style.color = len > max * 0.9 ? 'var(--warning)' : '';
-    };
-    ta.addEventListener('input', update);
-    update();
-  }
-  bindCharCount('situationInput', 'situationCount', 8000);
-  bindCharCount('digestInput', 'digestCount', 2000);
-  bindCharCount('headnoteInput', 'headnoteCount', 80000);
-
-  // ---------- Keyboard shortcuts ----------
-  $$('.composer textarea').forEach((ta) => {
-    ta.addEventListener('keydown', (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-        e.preventDefault();
-        const panel = ta.closest('.panel').dataset.panel;
-        const submitBtn = $(`#${panel}Submit`);
-        if (submitBtn && !submitBtn.disabled) submitBtn.click();
-      }
-    });
-  });
-
-  // ---------- Renderers ----------
-
-  function renderMetaStrip(meta) {
-    const pill = (txt, cls) => ce('span', { cls: `meta-strip__pill ${cls || ''}`, text: txt });
-    const strip = ce('div', { cls: 'meta-strip' });
-
-    strip.appendChild(pill(`⏱ ${meta.elapsed_seconds}s`));
-    if (meta.cache_read_input_tokens > 0) {
-      strip.appendChild(pill(`Cache hit: ${meta.cache_read_input_tokens.toLocaleString()} tokens`, 'meta-strip__pill--cache'));
-    } else if (meta.cache_creation_input_tokens > 0) {
-      strip.appendChild(pill(`Cache write: ${meta.cache_creation_input_tokens.toLocaleString()} tokens`, 'meta-strip__pill--write'));
-    }
-    if (meta.input_tokens > 0) {
-      strip.appendChild(pill(`${meta.input_tokens.toLocaleString()} new in / ${meta.output_tokens.toLocaleString()} out`));
-    }
-
-    // IK retrieval pills (only present when USE_IK_RETRIEVAL=1 server-side)
-    if (meta.retrieval_path && meta.retrieval_path !== 'curated-only') {
-      strip.appendChild(pill(`📚 ${meta.retrieval_path}`, 'meta-strip__pill--cache'));
-      if (typeof meta.ik_inr_spent_this_call === 'number') {
-        const ik = meta.ik_inr_spent_this_call;
-        strip.appendChild(pill(`IK ₹${ik.toFixed(2)}`, ik === 0 ? 'meta-strip__pill--cache' : 'meta-strip__pill--write'));
-      }
-    }
-    if (meta.verification_regen_attempted) {
-      const ok = meta.verification_regen_helped;
-      strip.appendChild(pill(
-        ok ? '✓ verified after retry' : '⚠ retry did not improve',
-        ok ? 'meta-strip__pill--cache' : 'meta-strip__pill--write'
-      ));
-    }
-    if (meta.verification && meta.verification.clean === false) {
-      strip.appendChild(pill(
-        `⚠ ${meta.verification.failing_citations?.length || 0} citation(s) failed verification`,
-        'meta-strip__pill--write'
-      ));
-    } else if (meta.verification && meta.verification.clean === true) {
-      strip.appendChild(pill('✓ all citations verified', 'meta-strip__pill--cache'));
-    }
-
-    if (meta.free) {
-      strip.appendChild(ce('span', { cls: 'meta-strip__cost', text: 'Free · Google Translate' }));
-    } else {
-      strip.appendChild(ce('span', {
-        cls: 'meta-strip__cost',
-        text: `≈ $${meta.cost_usd.toFixed(4)} (₹${meta.cost_inr.toFixed(2)})`,
-      }));
-    }
-    return strip;
+  // -------------------------------------------------------------- input intent
+  function detectIntent(text) {
+    const t = (text || '').trim();
+    if (!t) return 'situation';
+    // Headnote: long judgment-like text with multiple paragraphs
+    if (t.length > 1800 && (t.match(/\n\s*\n/g) || []).length >= 1) return 'headnote';
+    if (t.length > 3000) return 'headnote';
+    // Digest: short doctrinal phrase, no sentence punctuation
+    const sentenceMarks = (t.match(/[.?!।]/g) || []).length;
+    if (t.length < 80 && sentenceMarks === 0) return 'digest';
+    return 'situation';
   }
 
-  // ---------- Source + verification badges (per-case) ----------
-
-  // Maps server-side CaseSummary.source values to display config
-  const SOURCE_BADGE = {
-    'curated':      { label: 'Curated',          cls: 'src-badge src-badge--curated',  tooltip: 'Hand-edited by senior advocate; highest trust' },
-    'ik':           { label: 'Indian Kanoon',    cls: 'src-badge src-badge--ik',       tooltip: 'Fresh fetch from Indian Kanoon API' },
-    'ik-semantic':  { label: 'IK · cache',       cls: 'src-badge src-badge--cache',    tooltip: 'Previously fetched from Indian Kanoon; found via semantic search' },
-  };
-
-  function renderSourceBadge(caseObj, retrievalCases) {
-    // retrievalCases is the meta.cases_returned array from server (may be absent)
-    if (!retrievalCases) return null;
-    const entry = retrievalCases.find(rc => rc.case_id === caseObj.case_id);
-    if (!entry) return null;
-    const cfg = SOURCE_BADGE[entry.source];
-    if (!cfg) return null;
-    return ce('span', { cls: cfg.cls, text: cfg.label, attrs: { title: cfg.tooltip } });
+  function describeMode(intent) {
+    if (intent === 'headnote') return 'detected: long judgment text → cri.l.j. headnote';
+    if (intent === 'digest')   return 'detected: short doctrinal phrase → research digest';
+    return 'detected: factual situation → ranked precedents';
   }
 
-  function renderVerificationBadge(caseObj, verification) {
-    if (!verification) return null;
-    const failing = (verification.failing_citations || []).find(f => f.case_id === caseObj.case_id);
-    if (!failing) {
-      return ce('span', {
-        cls: 'verify-badge verify-badge--ok',
-        text: '✓ verified',
-        attrs: { title: 'All citations and quotes for this case matched the source paragraphs.' },
-      });
-    }
-    const parts = [];
-    if (!failing.exists) parts.push('case_id not in evidence');
-    if (failing.anchors_missing && failing.anchors_missing.length) parts.push(`anchors missing: ${failing.anchors_missing.join(', ')}`);
-    if (failing.bad_quotes && failing.bad_quotes.length) parts.push(`${failing.bad_quotes.length} unverifiable quote(s)`);
-    return ce('span', {
-      cls: 'verify-badge verify-badge--fail',
-      text: '⚠ unverified',
-      attrs: { title: parts.join(' · ') || 'Verification failed' },
-    });
+  // -------------------------------------------------------------- history
+  function readHistory() {
+    try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); }
+    catch { return []; }
   }
-
-  function renderConfidence(level) {
-    const cls = `confidence confidence--${level}`;
-    const map = { high: '🟢 High match', medium: '🟡 Medium match', low: '🔴 Low match' };
-    return ce('span', { cls, text: map[level] || level });
+  function pushHistory(text) {
+    if (!text || !text.trim()) return;
+    const items = readHistory().filter(s => s !== text);
+    items.unshift(text);
+    while (items.length > HISTORY_MAX) items.pop();
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(items));
+    renderHistory();
   }
-
-  function renderJournalHeadnote(hn, letter) {
-    if (!hn) return ce('div', { cls: 'state', text: 'No journal headnote.' });
-    const wrap = ce('div', { cls: 'headnote' });
-    const inner = ce('span');
-    if (letter) inner.appendChild(ce('span', { cls: 'headnote__letter', text: `(${letter})` }));
-    if (hn.statute_index) {
-      inner.appendChild(document.createTextNode(' '));
-      inner.appendChild(ce('span', { cls: 'headnote__statute', text: hn.statute_index }));
-    }
-    if (hn.catchword_chain) {
-      inner.appendChild(document.createTextNode(' — '));
-      inner.appendChild(ce('span', { cls: 'headnote__catchwords', text: hn.catchword_chain }));
-    }
-    if (hn.ratio) {
-      inner.appendChild(document.createTextNode(' — '));
-      inner.appendChild(ce('span', { cls: 'headnote__ratio', text: hn.ratio }));
-    }
-    if (hn.negative_carve_out) {
-      inner.appendChild(document.createTextNode(' — '));
-      inner.appendChild(ce('span', { cls: 'headnote__carve-out', text: hn.negative_carve_out }));
-    }
-    if (hn.per_judge_attribution) {
-      inner.appendChild(document.createTextNode(' '));
-      inner.appendChild(ce('span', { cls: 'headnote__per-judge', text: hn.per_judge_attribution }));
-    }
-    if (hn.paragraph_anchor) {
-      inner.appendChild(document.createTextNode(' '));
-      inner.appendChild(ce('span', { cls: 'headnote__anchor', text: hn.paragraph_anchor }));
-    }
-    wrap.appendChild(inner);
-    return wrap;
-  }
-
-  function renderPractitionerNotes(pn) {
-    if (!pn) return ce('div', { cls: 'state', text: 'No practitioner notes.' });
-    const wrap = ce('div', { cls: 'pnotes' });
-    if (pn.one_line_topic) wrap.appendChild(ce('div', { cls: 'pnotes__topic', text: pn.one_line_topic }));
-    if (pn.gist) wrap.appendChild(ce('div', { cls: 'pnotes__gist', text: pn.gist }));
-    if (pn.quotable_phrase) wrap.appendChild(ce('blockquote', { cls: 'pnotes__quote', text: '"' + pn.quotable_phrase + '"' }));
-    if (Array.isArray(pn.cross_refs) && pn.cross_refs.length) {
-      const refs = ce('div', { cls: 'pnotes__refs' });
-      refs.appendChild(ce('strong', { text: 'Cross-refs:' }));
-      pn.cross_refs.forEach((r) => refs.appendChild(ce('span', { text: r })));
-      wrap.appendChild(refs);
-    }
-    return wrap;
-  }
-
-  function caseActions(caseObj, container) {
-    const actions = ce('div', { cls: 'case-card__actions' });
-
-    const copyBtn = ce('button', { cls: 'iconbtn', attrs: { 'aria-label': 'Copy', title: 'Copy this case' } });
-    copyBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
-    copyBtn.addEventListener('click', () => copyToClipboard(caseToText(caseObj)));
-
-    const shareBtn = ce('button', { cls: 'iconbtn', attrs: { 'aria-label': 'Share via WhatsApp', title: 'Share via WhatsApp' } });
-    shareBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>';
-    shareBtn.addEventListener('click', () => shareViaWhatsapp(caseToText(caseObj)));
-
-    actions.appendChild(copyBtn);
-    actions.appendChild(shareBtn);
-    return actions;
-  }
-
-  function caseToText(c) {
-    const lines = [];
-    lines.push(c.title);
-    if (c.citation) lines.push(c.citation);
-    if (c.court) lines.push(`${c.court}${c.year ? ' · ' + c.year : ''}`);
-    lines.push('');
-    if (c.journal_headnote) {
-      const h = c.journal_headnote;
-      const parts = [];
-      if (h.statute_index) parts.push(h.statute_index);
-      if (h.catchword_chain) parts.push(h.catchword_chain);
-      if (h.ratio) parts.push(h.ratio);
-      if (h.negative_carve_out) parts.push(h.negative_carve_out);
-      lines.push(parts.join(' — '));
-      const tail = [h.per_judge_attribution, h.paragraph_anchor].filter(Boolean).join(' ');
-      if (tail) lines.push(tail);
-    }
-    if (c.practitioner_notes) {
-      const p = c.practitioner_notes;
-      if (p.one_line_topic) lines.push(`Topic: ${p.one_line_topic}`);
-      if (p.gist) lines.push(p.gist);
-      if (p.quotable_phrase) lines.push(`"${p.quotable_phrase}"`);
-      if (p.cross_refs?.length) lines.push(`Cross-refs: ${p.cross_refs.join(' · ')}`);
-    }
-    if (c.relevance_explanation) {
-      lines.push('');
-      lines.push(`Why it matches: ${c.relevance_explanation}`);
-    }
-    if (c.bns_note) lines.push(`BNS note: ${c.bns_note}`);
-    return lines.join('\n');
-  }
-
-  function copyToClipboard(text) {
-    if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(text).then(() => toast('Copied to clipboard', 'success')).catch(() => toast('Copy failed', 'error'));
-    } else {
-      const ta = ce('textarea'); ta.value = text; document.body.appendChild(ta);
-      ta.select(); document.execCommand('copy'); ta.remove();
-      toast('Copied to clipboard', 'success');
-    }
-  }
-
-  function shareViaWhatsapp(text) {
-    const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
-    window.open(url, '_blank');
-  }
-
-  // ---------- Render Mode 1: Situation results ----------
-  function renderSituation(data) {
-    const root = $('#situationResults');
-    root.innerHTML = '';
-    root.appendChild(renderMetaStrip(data.meta));
-    root.appendChild(renderLanguageBar('situation', data));
-
-    const result = data.result || {};
-    const cases = result.cases || [];
-
-    const headerRow = ce('div', { cls: 'meta-strip', attrs: { style: 'background:transparent;border:0;padding:.25rem 0' } });
-    headerRow.appendChild(renderConfidence(result.confidence || 'unknown'));
-    headerRow.appendChild(ce('span', { text: `${cases.length} case${cases.length === 1 ? '' : 's'}` }));
-    if ((data.dropped_hallucinations || []).length) {
-      headerRow.appendChild(ce('span', { cls: 'meta-strip__pill meta-strip__pill--write', text: `Dropped ${data.dropped_hallucinations.length} hallucinated` }));
-    }
-    root.appendChild(headerRow);
-
-    if (!cases.length) {
-      root.appendChild(ce('div', {
-        cls: 'state',
-        children: [
-          ce('h3', { cls: 'state__title', text: 'No strong matches in the corpus' }),
-          ce('p', {
-            cls: 'state__body',
-            text: result.no_match_reason ||
-              'The 42-case curated corpus does not contain genuinely relevant cases for this situation. A production system would have 50,000+ cases.',
-          }),
-        ],
-      }));
-      attachLanguageAndFeedback(root, 'situation', data);
-      return;
-    }
-
-    const retrievalCases = data.meta && data.meta.cases_returned;
-    const verification = data.meta && data.meta.verification;
-
-    cases.forEach((c, i) => {
-      const card = ce('article', { cls: 'case-card case-card--with-rank', attrs: { 'data-rank': i + 1 } });
-      card.appendChild(caseActions(c, card));
-
-      const header = ce('header', { cls: 'case-card__header' });
-      header.appendChild(ce('h2', { cls: 'case-card__title case-card__title--italic', text: c.title || '' }));
-
-      // Source + verification badges (only present when IK retrieval is on)
-      const badges = ce('div', { cls: 'case-card__badges' });
-      const srcBadge = renderSourceBadge(c, retrievalCases);
-      if (srcBadge) badges.appendChild(srcBadge);
-      const verBadge = renderVerificationBadge(c, verification);
-      if (verBadge) badges.appendChild(verBadge);
-      if (badges.children.length > 0) header.appendChild(badges);
-
-      const cite = [];
-      if (c.court) cite.push(c.court);
-      if (c.year) cite.push(c.year);
-      if (c.citation) cite.push(c.citation);
-      header.appendChild(ce('div', { cls: 'case-card__cite', text: cite.join(' · ') }));
-      card.appendChild(header);
-
-      if (c.journal_headnote) card.appendChild(renderJournalHeadnote(c.journal_headnote));
-      if (c.practitioner_notes) card.appendChild(renderPractitionerNotes(c.practitioner_notes));
-
-      if (c.relevance_explanation) {
-        card.appendChild(ce('div', {
-          cls: 'match-reason',
-          html: `<strong>Why this matches your situation:</strong> ${esc(c.relevance_explanation)}`,
-        }));
-      }
-      if (c.bns_note) {
-        card.appendChild(ce('div', {
-          cls: 'bns-note',
-          html: `<span><strong>BNS / BNSS note:</strong> ${esc(c.bns_note)}</span>`,
-        }));
-      }
-      root.appendChild(card);
-    });
-
-    root.appendChild(renderFeedbackBar('situation'));
-  }
-
-  // ---------- Render Mode 2: Digest ----------
-  function renderDigest(data) {
-    const root = $('#digestResults');
-    root.innerHTML = '';
-    root.appendChild(renderMetaStrip(data.meta));
-    root.appendChild(renderLanguageBar('digest', data));
-
-    const result = data.result || {};
-
-    const headerRow = ce('div', { cls: 'meta-strip', attrs: { style: 'background:transparent;border:0;padding:.25rem 0' } });
-    headerRow.appendChild(renderConfidence(result.confidence || 'unknown'));
-    if (result.topic) headerRow.appendChild(ce('span', { text: result.topic, attrs: { style: 'font-style:italic' } }));
-    root.appendChild(headerRow);
-
-    const subTopics = result.sub_topics || [];
-    if (!subTopics.length) {
-      root.appendChild(ce('div', {
-        cls: 'state',
-        children: [
-          ce('h3', { cls: 'state__title', text: 'No matching cases' }),
-          ce('p', { cls: 'state__body', text: 'Try a different topic phrasing or expand the corpus.' }),
-        ],
-      }));
-    } else {
-      subTopics.forEach((sub) => {
-        const block = ce('section', { cls: 'subtopic' });
-        block.appendChild(ce('h3', { cls: 'subtopic__heading', text: sub.heading || '' }));
-        const list = ce('div', { cls: 'subtopic__cases' });
-        (sub.cases || []).forEach((c) => {
-          const card = ce('article', { cls: 'case-card' });
-          card.appendChild(caseActions(c, card));
-          card.appendChild(ce('h4', {
-            cls: 'case-card__title case-card__title--italic',
-            text: c.title || '',
-          }));
-          card.appendChild(ce('div', {
-            cls: 'case-card__cite',
-            text: [c.year, c.citation].filter(Boolean).join(' · '),
-          }));
-          if (c.gist) card.appendChild(ce('div', { cls: 'pnotes__gist', text: c.gist, attrs: { style: 'margin-top:.5rem' } }));
-          if (c.quotable_phrase) card.appendChild(ce('blockquote', { cls: 'pnotes__quote', text: '"' + c.quotable_phrase + '"' }));
-          if (c.cross_refs?.length) {
-            const refs = ce('div', { cls: 'pnotes__refs' });
-            refs.appendChild(ce('strong', { text: 'Cross-refs:' }));
-            c.cross_refs.forEach((r) => refs.appendChild(ce('span', { text: r })));
-            card.appendChild(refs);
-          }
-          list.appendChild(card);
-        });
-        block.appendChild(list);
-        root.appendChild(block);
-      });
-    }
-
-    if (result.summary_takeaway) {
-      root.appendChild(ce('div', {
-        cls: 'takeaway',
-        html: `<strong>Takeaway:</strong> ${esc(result.summary_takeaway)}`,
-      }));
-    }
-
-    root.appendChild(renderFeedbackBar('digest'));
-  }
-
-  // ---------- Render Mode 3: Headnote ----------
-  function renderHeadnote(data) {
-    const root = $('#headnoteResults');
-    root.innerHTML = '';
-    root.appendChild(renderMetaStrip(data.meta));
-    root.appendChild(renderLanguageBar('headnote', data));
-
-    const result = data.result || {};
-    const meta = result.case_metadata || {};
-
-    if (meta.title) {
-      const card = ce('article', { cls: 'case-card' });
-      card.appendChild(ce('h2', { cls: 'case-card__title case-card__title--italic', text: meta.title }));
-      const subBits = [meta.court, meta.bench, meta.date_of_decision && `D/- ${meta.date_of_decision}`].filter(Boolean);
-      card.appendChild(ce('div', { cls: 'case-card__cite', text: subBits.join(' · ') }));
-      if (meta.appeal_number) {
-        card.appendChild(ce('div', { cls: 'case-card__cite', text: meta.appeal_number, attrs: { style: 'margin-top:2px' } }));
-      }
-      root.appendChild(card);
-    }
-
-    const headnotes = result.headnotes || [];
-    headnotes.forEach((hn, i) => {
-      const card = ce('article', { cls: 'case-card' });
-      card.appendChild(caseActions({ title: `Headnote (${hn.letter || String.fromCharCode(65 + i)})`, journal_headnote: hn.journal_headnote, practitioner_notes: hn.practitioner_notes }, card));
-
-      const tabs = ce('div', { cls: 'tabs', attrs: { role: 'tablist' } });
-      const journalTab = ce('button', { cls: 'tab tab--active', text: '📜 Journal headnote', attrs: { role: 'tab' } });
-      const practTab = ce('button', { cls: 'tab', text: '📝 Practitioner notes', attrs: { role: 'tab' } });
-      tabs.append(journalTab, practTab);
-      card.appendChild(tabs);
-
-      const jp = ce('div', { cls: 'tab-panel' });
-      jp.appendChild(renderJournalHeadnote(hn.journal_headnote, hn.letter));
-      const pp = ce('div', { cls: 'tab-panel', attrs: { hidden: '' } });
-      pp.appendChild(renderPractitionerNotes(hn.practitioner_notes));
-      card.appendChild(jp);
-      card.appendChild(pp);
-
-      journalTab.addEventListener('click', () => {
-        journalTab.classList.add('tab--active'); practTab.classList.remove('tab--active');
-        jp.hidden = false; pp.hidden = true;
-      });
-      practTab.addEventListener('click', () => {
-        practTab.classList.add('tab--active'); journalTab.classList.remove('tab--active');
-        pp.hidden = false; jp.hidden = true;
-      });
-
-      root.appendChild(card);
-    });
-
-    const refs = result.cases_referred || [];
-    if (refs.length) {
-      const card = ce('article', { cls: 'case-card' });
-      card.appendChild(ce('h3', { cls: 'subtopic__heading', text: 'Cases referred', attrs: { style: 'border:0;padding:0;margin:0 0 .5rem' } }));
-      const list = ce('div', { cls: 'refs-list' });
-      refs.forEach((r) => {
-        const badge = { followed: '🟢', distinguished: '🟡', overruled: '🔴', referred: '⚪' }[r.treatment] || '⚪';
-        const item = ce('div', { cls: 'ref-item' });
-        item.appendChild(ce('span', { cls: 'ref-item__badge', text: badge }));
-        item.appendChild(ce('span', { text: r.citation || '' }));
-        if (r.treatment) item.appendChild(ce('span', { cls: 'ref-item__treatment', text: r.treatment }));
-        list.appendChild(item);
-      });
-      card.appendChild(list);
-      root.appendChild(card);
-    }
-
-    root.appendChild(renderFeedbackBar('headnote'));
-  }
-
-  // ---------- Language switcher (TOP of results) ----------
-  // Renders a prominent EN/HI toggle right after the meta strip.
-  // Reads ORIGINAL[mode] (stable across re-renders) so toggling back to
-  // English always works.
-  function renderLanguageBar(mode, data) {
-    const bar = ce('div', { cls: 'lang-bar' });
-
-    const left = ce('div', { cls: 'lang-bar__left' });
-    left.appendChild(ce('span', { cls: 'lang-bar__label', text: 'View in:' }));
-    const switcher = ce('div', { cls: 'lang-switch', attrs: { role: 'tablist', 'aria-label': 'Language' } });
-    const enBtn = ce('button', {
-      cls: 'lang-switch__btn' + (LANG[mode] === 'en' ? ' lang-switch__btn--active' : ''),
-      text: 'English',
-      attrs: { type: 'button', role: 'tab', 'aria-selected': LANG[mode] === 'en' ? 'true' : 'false' },
-    });
-    const hiBtn = ce('button', {
-      cls: 'lang-switch__btn' + (LANG[mode] === 'hi' ? ' lang-switch__btn--active' : ''),
-      text: 'हिन्दी',
-      attrs: { type: 'button', role: 'tab', 'aria-selected': LANG[mode] === 'hi' ? 'true' : 'false' },
-    });
-    switcher.append(enBtn, hiBtn);
-    left.appendChild(switcher);
-    bar.appendChild(left);
-
-    if (LANG[mode] === 'hi') {
-      const badge = ce('span', { cls: 'lang-bar__badge', text: 'अनुवादित' });
-      bar.appendChild(badge);
-    }
-
-    const right = ce('div', { cls: 'lang-bar__right' });
-    const copyAllBtn = ce('button', { cls: 'btn btn--ghost btn--sm', text: '📋 Copy' });
-    copyAllBtn.addEventListener('click', () => {
-      const root = document.getElementById(`${mode}Results`);
-      copyToClipboard(root.innerText);
-    });
-    const printBtn = ce('button', { cls: 'btn btn--ghost btn--sm', text: '🖨 Print' });
-    printBtn.addEventListener('click', () => window.print());
-    right.append(copyAllBtn, printBtn);
-    bar.appendChild(right);
-
-    // English: restore original snapshot
-    enBtn.addEventListener('click', () => {
-      if (LANG[mode] === 'en') return;
-      data.result = JSON.parse(JSON.stringify(ORIGINAL[mode]));
-      LANG[mode] = 'en';
-      rerender(mode, data);
-    });
-
-    // Hindi: translate then re-render
-    hiBtn.addEventListener('click', async () => {
-      if (LANG[mode] === 'hi') return;
-      enBtn.disabled = true;
-      hiBtn.disabled = true;
-      hiBtn.classList.add('lang-switch__btn--loading');
-      hiBtn.textContent = 'अनुवाद हो रहा है…';
-      try {
-        const tr = await api('/api/translate', {
-          payload: ORIGINAL[mode],     // ALWAYS translate from the stable English snapshot
-          target_language: 'hi',
-        });
-        data.result = tr.result;
-        LANG[mode] = 'hi';
-        rerender(mode, data);
-        toast('Translated to हिन्दी', 'success');
-      } catch (e) {
-        hiBtn.classList.remove('lang-switch__btn--loading');
-        hiBtn.textContent = 'हिन्दी';
-        enBtn.disabled = false;
-        hiBtn.disabled = false;
-        toast(`Translation failed: ${e.message}`, 'error');
-        // Show inline error so it's not just a fleeting toast
-        const root = document.getElementById(`${mode}Results`);
-        const err = ce('div', {
-          cls: 'state state--error',
-          children: [
-            ce('h3', { cls: 'state__title', text: 'Translation failed' }),
-            ce('p', { cls: 'state__body', text: e.message }),
-          ],
-        });
-        bar.after(err);
-        setTimeout(() => err.remove(), 6000);
-      }
-    });
-
-    return bar;
-  }
-
-  // ---------- Feedback (separate, at bottom) ----------
-  function renderFeedbackBar(mode) {
-    const bar = ce('div', { cls: 'feedback' });
-    bar.appendChild(ce('div', { cls: 'feedback__title', text: 'Was this useful?' }));
-
-    const fbRow = ce('div', { cls: 'feedback__buttons' });
-    const upBtn = ce('button', { cls: 'btn btn--soft btn--sm', text: '👍 Useful' });
-    const downBtn = ce('button', { cls: 'btn btn--soft btn--sm', text: '👎 Not useful' });
-    fbRow.append(upBtn, downBtn);
-    bar.appendChild(fbRow);
-
-    const correction = ce('textarea', {
-      cls: 'feedback__correction',
-      attrs: { rows: '3', placeholder: 'Optional comment — what was wrong, what should have been returned?' },
-    });
-    bar.appendChild(correction);
-
-    const submitFeedback = async (rating) => {
-      const inputText = $(`#${mode}Input`)?.value || '';
-      try {
-        await api('/api/feedback', {
-          mode,
-          input_text: inputText,
-          output_json: JSON.stringify(ORIGINAL[mode]),
-          rating,
-          correction: correction.value,
-          lawyer_handle: localStorage.getItem('lawyer_handle') || '',
-        });
-        toast('Thanks — feedback saved', 'success');
-      } catch (e) {
-        toast(`Feedback failed: ${e.message}`, 'error');
-      }
-    };
-    upBtn.addEventListener('click', () => submitFeedback(1));
-    downBtn.addEventListener('click', () => submitFeedback(-1));
-
-    return bar;
-  }
-
-  function rerender(mode, data) {
-    if (mode === 'situation') renderSituation(data);
-    else if (mode === 'digest') renderDigest(data);
-    else if (mode === 'headnote') renderHeadnote(data);
-  }
-
-  // ---------- Submit handlers ----------
-  async function submitSituation() {
-    const input = $('#situationInput').value.trim();
-    if (input.length < 10) return toast('Please describe your situation in more detail', 'error');
-    const style = document.querySelector('input[name="style"]:checked').value;
-
-    const btn = $('#situationSubmit');
-    setLoading(btn, true);
-    showSkeleton('#situationResults');
-    try {
-      const data = await api('/api/situation', { situation: input, style });
-      pushHistory({ mode: 'situation', input, style, ts: Date.now() });
-      setOriginal('situation', data.result);
-      renderSituation(data);
-    } catch (e) {
-      showError('#situationResults', e.message);
-    } finally {
-      setLoading(btn, false);
-    }
-  }
-
-  async function submitDigest() {
-    const input = $('#digestInput').value.trim();
-    if (input.length < 5) return toast('Please type a longer topic query', 'error');
-
-    const btn = $('#digestSubmit');
-    setLoading(btn, true);
-    showSkeleton('#digestResults');
-    try {
-      const data = await api('/api/digest', { topic: input });
-      pushHistory({ mode: 'digest', input, ts: Date.now() });
-      setOriginal('digest', data.result);
-      renderDigest(data);
-    } catch (e) {
-      showError('#digestResults', e.message);
-    } finally {
-      setLoading(btn, false);
-    }
-  }
-
-  async function submitHeadnote() {
-    const input = $('#headnoteInput').value.trim();
-    if (input.length < 200) return toast('Please paste a longer judgment text', 'error');
-
-    const btn = $('#headnoteSubmit');
-    setLoading(btn, true);
-    showSkeleton('#headnoteResults');
-    try {
-      const data = await api('/api/headnote', { judgment_text: input });
-      pushHistory({ mode: 'headnote', input: input.slice(0, 200) + '…', ts: Date.now() });
-      setOriginal('headnote', data.result);
-      renderHeadnote(data);
-    } catch (e) {
-      showError('#headnoteResults', e.message);
-    } finally {
-      setLoading(btn, false);
-    }
-  }
-
-  $('#situationSubmit').addEventListener('click', submitSituation);
-  $('#digestSubmit').addEventListener('click', submitDigest);
-  $('#headnoteSubmit').addEventListener('click', submitHeadnote);
-
-  function setLoading(btn, on) {
-    if (!btn) return;
-    btn.classList.toggle('btn--loading', on);
-    btn.disabled = on;
-  }
-
-  function showSkeleton(sel) {
-    const root = $(sel);
-    root.innerHTML = `
-      <div class="case-card">
-        <div class="skeleton skeleton--title"></div>
-        <div class="skeleton skeleton--line"></div>
-        <div class="skeleton skeleton--line"></div>
-        <div class="skeleton skeleton--line skeleton--short"></div>
-      </div>
-      <div class="case-card">
-        <div class="skeleton skeleton--title"></div>
-        <div class="skeleton skeleton--line"></div>
-        <div class="skeleton skeleton--line skeleton--short"></div>
-      </div>
-    `;
-  }
-
-  function showError(sel, msg) {
-    const root = $(sel);
-    root.innerHTML = '';
-    root.appendChild(ce('div', {
-      cls: 'state state--error',
-      children: [
-        ce('h3', { cls: 'state__title', text: 'Something went wrong' }),
-        ce('p', { cls: 'state__body', text: msg }),
-      ],
-    }));
-  }
-
-  // ---------- Drawers ----------
-  function openDrawer(id) {
-    const d = document.getElementById(id);
-    if (!d) return;
-    d.hidden = false;
-    document.body.style.overflow = 'hidden';
-    d.querySelector('button')?.focus();
-  }
-  function closeDrawer(id) {
-    const d = document.getElementById(id);
-    if (!d) return;
-    d.hidden = true;
-    document.body.style.overflow = '';
-  }
-
-  $('#corpusBtn').addEventListener('click', () => { loadCorpus(); openDrawer('corpusDrawer'); });
-  $('#historyBtn').addEventListener('click', () => { renderHistory(); openDrawer('historyDrawer'); });
-  $('#aboutBtn').addEventListener('click', () => openDrawer('aboutDrawer'));
-  $('#footerAbout')?.addEventListener('click', (e) => { e.preventDefault(); openDrawer('aboutDrawer'); });
-
-  $$('.drawer').forEach((d) => {
-    d.addEventListener('click', (e) => {
-      if (e.target === d) closeDrawer(d.id);
-    });
-    d.querySelectorAll('[data-close-drawer]').forEach((b) => b.addEventListener('click', () => closeDrawer(d.id)));
-  });
-
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      $$('.drawer').forEach((d) => { if (!d.hidden) closeDrawer(d.id); });
-    }
-  });
-
-  // ---------- Corpus drawer ----------
-  let corpusCache = null;
-
-  async function loadCorpus() {
-    if (corpusCache) return renderCorpusList(corpusCache);
-    const list = $('#corpusList');
-    list.innerHTML = '<div class="skeleton skeleton--line"></div><div class="skeleton skeleton--line"></div><div class="skeleton skeleton--line skeleton--short"></div>';
-    try {
-      const data = await apiGet('/api/corpus');
-      corpusCache = data.cases;
-      renderCorpusList(corpusCache);
-    } catch (e) {
-      list.innerHTML = `<p class="state state--error">Could not load corpus: ${esc(e.message)}</p>`;
-    }
-  }
-
-  function renderCorpusList(cases) {
-    const list = $('#corpusList');
-    list.innerHTML = '';
-    cases.forEach((c) => {
-      const item = ce('button', { cls: 'corpus-item', attrs: { type: 'button' } });
-      item.appendChild(ce('div', { cls: 'corpus-item__title', text: c.title }));
-      item.appendChild(ce('div', { cls: 'corpus-item__meta', text: `${c.court} · ${c.year}` }));
-      if (c.topics?.length) {
-        const topics = ce('div', { cls: 'corpus-item__topics' });
-        c.topics.forEach((t) => topics.appendChild(ce('span', { text: t })));
-        item.appendChild(topics);
-      }
-      list.appendChild(item);
-    });
-  }
-
-  $('#corpusSearch').addEventListener('input', (e) => {
-    if (!corpusCache) return;
-    const q = e.target.value.toLowerCase().trim();
-    if (!q) return renderCorpusList(corpusCache);
-    const filtered = corpusCache.filter((c) =>
-      (c.title?.toLowerCase().includes(q)) ||
-      (String(c.year).includes(q)) ||
-      (c.topics?.some((t) => t.toLowerCase().includes(q)))
-    );
-    renderCorpusList(filtered);
-  });
-
-  // ---------- History ----------
-  function pushHistory(item) {
-    let arr = [];
-    try { arr = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch {}
-    arr.unshift(item);
-    if (arr.length > HISTORY_MAX) arr = arr.slice(0, HISTORY_MAX);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(arr));
-  }
-
   function renderHistory() {
-    const list = $('#historyList');
-    let arr = [];
-    try { arr = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch {}
-    list.innerHTML = '';
-    if (!arr.length) {
-      list.innerHTML = '<p class="state state__body">No recent searches yet. Run a query to see it here.</p>';
+    const wrap = $('#history');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    const items = readHistory();
+    if (!items.length) {
+      wrap.appendChild(ce('div', { cls: 'history-empty', text: 'nothing yet' }));
       return;
     }
-    arr.forEach((it) => {
-      const btn = ce('button', { cls: 'corpus-item', attrs: { type: 'button' } });
-      const date = new Date(it.ts).toLocaleString();
-      btn.appendChild(ce('div', { cls: 'corpus-item__title', text: it.input.slice(0, 80) + (it.input.length > 80 ? '…' : '') }));
-      btn.appendChild(ce('div', { cls: 'corpus-item__meta', text: `${it.mode} · ${date}` }));
-      btn.addEventListener('click', () => {
-        switchMode(it.mode);
-        const ta = $(`#${it.mode}Input`);
-        if (ta) ta.value = it.input;
-        ta?.dispatchEvent(new Event('input'));
-        if (it.mode === 'situation' && it.style) {
-          $(`input[name="style"][value="${it.style}"]`)?.click();
-        }
-        closeDrawer('historyDrawer');
-        ta?.focus();
+    items.forEach(text => {
+      const b = ce('button', { cls: 'history-item', text: text.length > 70 ? text.slice(0, 67) + '…' : text, attrs: { title: text, role: 'listitem' } });
+      b.addEventListener('click', () => {
+        switchView('research');
+        $('#situation-input').value = text;
+        updateModeDisplay();
+        $('#situation-input').focus();
       });
-      list.appendChild(btn);
+      wrap.appendChild(b);
     });
   }
 
-  $('#historyClear').addEventListener('click', () => {
-    if (confirm('Clear all search history?')) {
-      localStorage.removeItem(HISTORY_KEY);
-      renderHistory();
-      toast('History cleared', 'success');
+  // -------------------------------------------------------------- composer chips
+  function setMode(m) {
+    state.mode = m;
+    $$('.composer__chips .chip').forEach(c => c.classList.toggle('is-active', c.dataset.mode === m));
+  }
+  function updateModeDisplay() {
+    const q = $('#situation-input').value;
+    const intent = detectIntent(q);
+    const el = $('#mode-display');
+    if (!q.trim()) { el.textContent = ''; return; }
+    el.textContent = describeMode(intent);
+  }
+
+  // -------------------------------------------------------------- result rendering
+  function renderResearching(text, isLoading) {
+    return ce('div', {
+      cls: 'researching' + (isLoading ? ' is-loading' : ''),
+      children: [
+        ce('div', { cls: 'researching__label', text: 'researching' }),
+        ce('div', { cls: 'researching__line', children: [
+          ce('div', { cls: 'researching__text', text: isLoading ? 'preparing focused sub-queries…' : (text || '—') }),
+        ]}),
+      ],
+    });
+  }
+
+  function renderBilingualStrip(originalHindi, englishQuery) {
+    return ce('div', {
+      cls: 'bilingual',
+      children: [
+        ce('div', { cls: 'bilingual__line', children: [
+          ce('div', { cls: 'bilingual__label', text: 'आपकी क्वेरी' }),
+          ce('div', { cls: 'bilingual__text', text: originalHindi }),
+        ]}),
+        ce('div', { cls: 'bilingual__line', children: [
+          ce('div', { cls: 'bilingual__label', text: 'translated' }),
+          ce('div', { cls: 'bilingual__english', text: englishQuery }),
+        ]}),
+      ],
+    });
+  }
+
+  function renderLoadingCards(n = 3) {
+    const wrap = ce('div', { cls: 'loading-cards' });
+    for (let i = 0; i < n; i++) {
+      wrap.appendChild(ce('div', { cls: 'skeleton-card', children: [
+        ce('div', { cls: 'skeleton-line skeleton-line--title' }),
+        ce('div', { cls: 'skeleton-line skeleton-line--short' }),
+        ce('div', { cls: 'skeleton-line' }),
+        ce('div', { cls: 'skeleton-line skeleton-line--med' }),
+      ]}));
     }
-  });
+    return wrap;
+  }
 
-  // ---------- Init ----------
-  switchMode('situation');
+  function renderError(msg) {
+    return ce('div', { cls: 'error-card', text: msg });
+  }
 
-  // Set lawyer handle if URL contains ?u=NAME (for sharing testing URLs to specific lawyers)
-  const params = new URLSearchParams(location.search);
-  if (params.get('u')) {
-    localStorage.setItem('lawyer_handle', params.get('u'));
+  // ---- helpers shared between card + table renderers ----
+  function fameBadge(case_) {
+    const fi = case_.fame_indicator || '';
+    if (fi === 'obscure') return ce('span', { cls: 'badge badge--obscure', text: '⟡ obscure' });
+    if (fi === 'famous')  return ce('span', { cls: 'badge badge--famous',  text: 'leading authority' });
+    if (fi === 'lesser-known') return ce('span', { cls: 'badge', text: 'lesser-known' });
+    return null;
+  }
+  function verifiedBadge() {
+    return ce('span', { cls: 'badge badge--verified', text: 'verified' });
+  }
+  function judgmentLink(case_) {
+    if (!case_.kanoon_url) return null;
+    const label = case_.citation || case_.case_id || 'open on indian kanoon';
+    return ce('a', {
+      cls: 'judgment-link',
+      text: label + ' ↗',
+      attrs: { href: case_.kanoon_paragraph_url || case_.kanoon_url, target: '_blank', rel: 'noopener' },
+    });
+  }
+  function metaBits(case_) {
+    const bits = [];
+    if (case_.court) bits.push(case_.court);
+    if (case_.year)  bits.push(String(case_.year));
+    if (case_.bench) bits.push(case_.bench);
+    return bits;
+  }
+
+  function renderCaseCard(case_, idx) {
+    const head = ce('div', { cls: 'case-card__head' });
+    const titleText = case_.title || case_.case_title || 'untitled case';
+    const titleEl = ce('div', { cls: 'case-card__title' });
+    if (case_.kanoon_url) {
+      titleEl.appendChild(ce('a', {
+        text: titleText,
+        attrs: { href: case_.kanoon_url, target: '_blank', rel: 'noopener' },
+      }));
+      titleEl.appendChild(ce('span', { cls: 'ext-arrow', text: '↗' }));
+    } else {
+      titleEl.appendChild(document.createTextNode(titleText));
+    }
+    head.appendChild(titleEl);
+    head.appendChild(ce('div', { cls: 'case-card__meta mono', text: `#${idx + 1}` }));
+
+    const metaLine = ce('div', { cls: 'case-card__meta mono' });
+    metaBits(case_).forEach(b => metaLine.appendChild(ce('span', { text: b })));
+
+    const rows = [];
+    const ratio = case_.ratio || case_.holding || case_.summary || '';
+    if (ratio) {
+      rows.push(ce('div', { cls: 'case-card__row', children: [
+        ce('div', { cls: 'case-card__rowlabel', text: 'ratio' }),
+        ce('div', { cls: 'case-card__rowtext', text: ratio }),
+      ]}));
+    }
+    const factMatch = case_.fact_match || case_.relevance_note || case_.why_this_matches;
+    if (factMatch) {
+      rows.push(ce('div', { cls: 'case-card__row case-card__row--factmatch', children: [
+        ce('div', { cls: 'case-card__rowlabel', text: 'fact match' }),
+        ce('div', { cls: 'case-card__rowtext', text: factMatch }),
+      ]}));
+    }
+    const quote = case_.quotable_phrase || case_.quote;
+    if (quote) {
+      rows.push(ce('div', { cls: 'case-card__row', children: [
+        ce('div', { cls: 'case-card__rowlabel', text: 'quote' }),
+        ce('div', { cls: 'case-card__rowtext', html: '"' + esc(quote) + '"' }),
+      ]}));
+    }
+    const anchor = case_.paragraph_anchor;
+    if (anchor) {
+      rows.push(ce('div', { cls: 'case-card__row', children: [
+        ce('div', { cls: 'case-card__rowlabel', text: 'paragraph' }),
+        ce('div', { cls: 'case-card__rowtext', children: [
+          case_.kanoon_paragraph_url
+            ? ce('a', { cls: 'judgment-link', text: anchor + ' ↗', attrs: { href: case_.kanoon_paragraph_url, target: '_blank', rel: 'noopener' } })
+            : document.createTextNode(anchor),
+        ]}),
+      ]}));
+    }
+
+    const badges = ce('div', { cls: 'case-card__badges' });
+    const fb = fameBadge(case_); if (fb) badges.appendChild(fb);
+    badges.appendChild(verifiedBadge());
+    const j = judgmentLink(case_); if (j) badges.appendChild(j);
+
+    return ce('div', { cls: 'case-card', children: [
+      head,
+      metaLine,
+      ...rows,
+      badges,
+    ]});
+  }
+
+  function renderCasesAsCards(cases) {
+    const list = ce('div', { cls: 'results' });
+    cases.forEach((c, i) => list.appendChild(renderCaseCard(c, i)));
+    return list;
+  }
+
+  function renderCasesAsTable(cases) {
+    const wrap = ce('div', { cls: 'comparison-table-wrap' });
+    const table = ce('table', { cls: 'comparison-table' });
+    const thead = ce('thead', { children: [
+      ce('tr', { children: [
+        ce('th', { text: 'case / authority' }),
+        ce('th', { text: 'court / year' }),
+        ce('th', { text: 'ratio' }),
+        ce('th', { cls: 'fact-match-col', text: 'fact match' }),
+        ce('th', { text: 'paragraph' }),
+      ]}),
+    ]});
+    const tbody = ce('tbody');
+    cases.forEach((c) => {
+      const titleCell = ce('td');
+      const titleEl = ce('span', { cls: 'ct-title' });
+      if (c.kanoon_url) {
+        titleEl.appendChild(ce('a', { text: c.title || c.case_id, attrs: { href: c.kanoon_url, target: '_blank', rel: 'noopener' } }));
+      } else {
+        titleEl.appendChild(document.createTextNode(c.title || c.case_id || '—'));
+      }
+      titleCell.appendChild(titleEl);
+      if (c.citation) titleCell.appendChild(ce('span', { cls: 'ct-citation', text: c.citation }));
+
+      const courtCell = ce('td', { text: [c.court, c.year, c.bench].filter(Boolean).join(' · ') || '—' });
+      const ratioCell = ce('td', { text: c.ratio || c.holding || '—' });
+      const factCell  = ce('td', { cls: 'fact-match', text: c.fact_match || c.relevance_note || '—' });
+      const paraCell  = ce('td');
+      if (c.paragraph_anchor && c.kanoon_paragraph_url) {
+        paraCell.appendChild(ce('a', { cls: 'judgment-link', text: c.paragraph_anchor + ' ↗', attrs: { href: c.kanoon_paragraph_url, target: '_blank', rel: 'noopener' } }));
+      } else if (c.paragraph_anchor) {
+        paraCell.textContent = c.paragraph_anchor;
+      } else {
+        paraCell.textContent = '—';
+      }
+
+      tbody.appendChild(ce('tr', { children: [titleCell, courtCell, ratioCell, factCell, paraCell] }));
+    });
+    table.appendChild(thead); table.appendChild(tbody);
+    wrap.appendChild(table);
+    return wrap;
+  }
+
+  function renderResultsHeader(count, showToggle) {
+    const head = ce('div', { cls: 'results-header' });
+    head.appendChild(ce('div', { cls: 'results-header__count', text: `${count} precedent${count === 1 ? '' : 's'} returned` }));
+    if (showToggle) {
+      const wrap = ce('div', { cls: 'view-toggle' });
+      const cardBtn = ce('button', { cls: 'view-toggle__btn' + (state.resultView === 'cards' ? ' is-active' : ''), text: 'cards' });
+      const tableBtn = ce('button', { cls: 'view-toggle__btn' + (state.resultView === 'table' ? ' is-active' : ''), text: 'table' });
+      cardBtn.addEventListener('click', () => { state.resultView = 'cards'; localStorage.setItem(VIEW_TOGGLE_KEY, 'cards'); renderResearchResult(); });
+      tableBtn.addEventListener('click', () => { state.resultView = 'table'; localStorage.setItem(VIEW_TOGGLE_KEY, 'table'); renderResearchResult(); });
+      wrap.appendChild(cardBtn); wrap.appendChild(tableBtn);
+      head.appendChild(wrap);
+    }
+    return head;
+  }
+
+  // ---- digest + headnote views ----
+  function renderDigest(parsed) {
+    const wrap = ce('div', { cls: 'results' });
+    const sections = parsed.sections || parsed.subtopics || [];
+    if (!sections.length) {
+      wrap.appendChild(ce('div', { cls: 'empty', children: [
+        ce('h2', { text: 'no digest sections returned' }),
+        ce('p', { text: 'try rephrasing the topic — be specific about the doctrine and statute.' }),
+      ]}));
+      return wrap;
+    }
+    sections.forEach(s => {
+      const block = ce('div', { cls: 'digest-block', children: [
+        ce('div', { cls: 'digest-subhead', text: s.subhead || s.title || '—' }),
+        ce('div', { cls: 'digest-text', text: s.summary || s.discussion || s.text || '' }),
+      ]});
+      const cases = (s.leading_cases || s.cases || []).filter(Boolean);
+      if (cases.length) {
+        block.appendChild(ce('div', {
+          cls: 'digest-cases',
+          text: 'leading authority: ' + cases.map(c => typeof c === 'string' ? c : (c.case_id || c.title || '?')).join(' · '),
+        }));
+      }
+      wrap.appendChild(block);
+    });
+    return wrap;
+  }
+
+  function renderHeadnotes(parsed) {
+    const wrap = ce('div', { cls: 'results' });
+    const list = parsed.headnotes || [];
+    if (!list.length) {
+      wrap.appendChild(ce('div', { cls: 'empty', children: [
+        ce('h2', { text: 'no headnotes produced' }),
+        ce('p', { text: 'the judgment may have been too short or unstructured for Opus to extract distinct points of law.' }),
+      ]}));
+      return wrap;
+    }
+    list.forEach(hn => {
+      const block = ce('div', { cls: 'headnote-block' });
+      if (hn.letter) block.appendChild(ce('span', { cls: 'headnote-block__letter', text: '(' + hn.letter + ')' }));
+      if (hn.catchwords) block.appendChild(ce('div', { cls: 'headnote-block__catchwords', text: hn.catchwords }));
+      if (hn.ratio) block.appendChild(ce('div', { cls: 'headnote-block__ratio', text: hn.ratio }));
+      if (hn.quotable_phrase) block.appendChild(ce('div', { cls: 'headnote-block__quote', text: '“' + hn.quotable_phrase + '”' }));
+      if (hn.cases_referred && hn.cases_referred.length) {
+        block.appendChild(ce('div', { cls: 'headnote-block__cases', text: 'cases referred: ' + hn.cases_referred.join(' · ') }));
+      }
+      wrap.appendChild(block);
+    });
+    return wrap;
+  }
+
+  // -------------------------------------------------------------- main result render
+  function renderResearchResult() {
+    const r = state.lastResult;
+    const target = $('#results');
+    target.innerHTML = '';
+    if (!r) return;
+
+    const { autoMode, parsed, meta, query } = r;
+
+    // 1. researching panel (Situation mode only — other modes don't need it)
+    if (autoMode === 'situation' && meta && (meta.researching || meta.english_query)) {
+      target.appendChild(renderResearching(meta.researching, false));
+    }
+
+    // 2. Hindi bilingual strip
+    if (meta && meta.input_script === 'devanagari' && meta.original_query) {
+      target.appendChild(renderBilingualStrip(meta.original_query, meta.english_query || query));
+    }
+
+    // 3. body — depends on mode
+    if (autoMode === 'situation') {
+      const cases = (parsed && parsed.cases) || [];
+      if (!cases.length) {
+        target.appendChild(ce('div', { cls: 'empty', children: [
+          ce('h2', { text: 'no cases survived verification' }),
+          ce('p', { text: 'every candidate was either fabricated or unverifiable. try rephrasing with more specific statute references.' }),
+        ]}));
+        return;
+      }
+      target.appendChild(renderResultsHeader(cases.length, true));
+      target.appendChild(state.resultView === 'table' ? renderCasesAsTable(cases) : renderCasesAsCards(cases));
+    } else if (autoMode === 'digest') {
+      target.appendChild(renderDigest(parsed));
+    } else if (autoMode === 'headnote') {
+      target.appendChild(renderHeadnotes(parsed));
+    }
+  }
+
+  // -------------------------------------------------------------- submit
+  async function submitResearch() {
+    const input = $('#situation-input').value.trim();
+    if (!input) { toast('type something first', 'error'); return; }
+    const btn = $('#submit-btn');
+    btn.disabled = true; btn.querySelector('.btn__label').textContent = 'thinking…';
+
+    const intent = detectIntent(input);
+    const target = $('#results');
+    target.innerHTML = '';
+
+    // Loading state — show researching shimmer + skeleton cards for situation;
+    // just skeletons for digest/headnote.
+    if (intent === 'situation') {
+      target.appendChild(renderResearching('', true));
+    }
+    target.appendChild(renderLoadingCards(intent === 'headnote' ? 2 : 3));
+
+    pushHistory(input);
+    state.jurisdiction = $('#jurisdiction-input').value.trim();
+    state.deepMode = $('#deep-mode').checked;
+
+    // For situation mode, fire decomposition in parallel — non-blocking.
+    let decompPromise = null;
+    if (intent === 'situation') {
+      decompPromise = post('/api/decompose', { query: input }).catch(() => null);
+    }
+
+    try {
+      let resp;
+      if (intent === 'situation') {
+        resp = await post('/api/situation', {
+          situation: input,
+          style: 'practitioner',
+          deep_mode: state.deepMode,
+          mode: state.mode,
+          jurisdiction: state.jurisdiction || null,
+        });
+      } else if (intent === 'digest') {
+        resp = await post('/api/digest', { topic: input, deep_mode: state.deepMode });
+      } else {
+        resp = await post('/api/headnote', { judgment_text: input });
+      }
+
+      // Resolve decomposition (best-effort enrichment)
+      let decomp = null;
+      if (decompPromise) {
+        try { decomp = await decompPromise; } catch { decomp = null; }
+      }
+      const meta = Object.assign({}, resp.meta || {}, decomp && decomp.decomposition ? {
+        researching: decomp.decomposition.user_facing_summary,
+        decomposition: decomp.decomposition,
+      } : {});
+
+      state.lastResult = {
+        autoMode: intent,
+        parsed: resp.result || {},
+        meta,
+        query: input,
+      };
+      renderResearchResult();
+    } catch (err) {
+      target.innerHTML = '';
+      target.appendChild(renderError(err.message || 'request failed'));
+    } finally {
+      btn.disabled = false;
+      btn.querySelector('.btn__label').textContent = 'research';
+    }
+  }
+
+  // -------------------------------------------------------------- Browse
+  async function submitBrowse() {
+    const q = $('#browse-input').value.trim();
+    if (!q) { toast('type a query first', 'error'); return; }
+    const court = $('#browse-court').value;
+    const yearFrom = $('#browse-year-from').value;
+    const yearTo = $('#browse-year-to').value;
+
+    const target = $('#browse-results');
+    target.innerHTML = '';
+    target.appendChild(renderLoadingCards(4));
+
+    const params = new URLSearchParams({ q });
+    if (court) params.set('court', court);
+    if (yearFrom) params.set('year_from', yearFrom);
+    if (yearTo) params.set('year_to', yearTo);
+
+    const btn = $('#browse-submit');
+    btn.disabled = true; btn.querySelector('.btn__label').textContent = 'searching…';
+
+    try {
+      const data = await getJson(`/api/browse/search?${params}`);
+      target.innerHTML = '';
+
+      const hits = data.hits || [];
+      target.appendChild(ce('div', { cls: 'browse-meta', text: `${data.found || hits.length + ' hits'} · ik query: "${data.english_query || q}"` }));
+      if (data.input_script === 'devanagari') {
+        target.appendChild(renderBilingualStrip(data.original_query || q, data.english_query));
+      }
+      if (!hits.length) {
+        target.appendChild(ce('div', { cls: 'empty', children: [
+          ce('h2', { text: 'no judgments matched' }),
+          ce('p', { text: 'broaden your filters or try different keywords. fewer constraints = more results.' }),
+        ]}));
+        return;
+      }
+      hits.forEach(h => target.appendChild(renderBrowseItem(h, q)));
+    } catch (err) {
+      target.innerHTML = '';
+      target.appendChild(renderError(err.message || 'browse failed'));
+    } finally {
+      btn.disabled = false; btn.querySelector('.btn__label').textContent = 'search';
+    }
+  }
+
+  function renderBrowseItem(hit, originalQuery) {
+    const titleA = ce('a', { text: hit.title, attrs: { href: hit.kanoon_url, target: '_blank', rel: 'noopener' } });
+    const titleEl = ce('div', { cls: 'browse-item__title' });
+    titleEl.appendChild(titleA);
+
+    const meta = ce('div', { cls: 'browse-item__meta mono' });
+    if (hit.court) meta.appendChild(ce('span', { text: hit.court }));
+    if (hit.publishdate) meta.appendChild(ce('span', { text: hit.publishdate }));
+    if (typeof hit.numcitedby === 'number') meta.appendChild(ce('span', { text: hit.numcitedby + ' citations' }));
+
+    const fame = ce('div', { cls: 'case-card__badges' });
+    const fb = fameBadge({ fame_indicator: hit.fame_indicator });
+    if (fb) fame.appendChild(fb);
+
+    const headline = ce('div', { cls: 'browse-item__headline', html: hit.headline || '' });
+
+    const actions = ce('div', { cls: 'browse-item__actions' });
+    const openBtn = ce('a', { cls: 'browse-item__action', text: 'open on ik ↗', attrs: { href: hit.kanoon_url, target: '_blank', rel: 'noopener' } });
+    const findBtn = ce('button', { cls: 'browse-item__action', text: 'find cases like this' });
+    findBtn.addEventListener('click', () => {
+      switchView('research');
+      $('#situation-input').value = `find precedents factually similar to: ${hit.title}. ${originalQuery || ''}`;
+      updateModeDisplay();
+      $('#situation-input').focus();
+    });
+    actions.appendChild(openBtn);
+    actions.appendChild(findBtn);
+
+    return ce('div', { cls: 'browse-item', children: [titleEl, meta, fame, headline, actions] });
+  }
+
+  // -------------------------------------------------------------- boot
+  function attachEvents() {
+    // Sidebar nav
+    $$('.navitem').forEach(b => {
+      if (b.disabled) return;
+      b.addEventListener('click', () => switchView(b.dataset.view));
+    });
+
+    // Mode chips
+    $$('.composer__chips .chip').forEach(c => {
+      c.addEventListener('click', () => setMode(c.dataset.mode));
+    });
+
+    // Submit handlers
+    $('#submit-btn').addEventListener('click', submitResearch);
+    $('#situation-input').addEventListener('input', updateModeDisplay);
+    $('#situation-input').addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') submitResearch();
+    });
+
+    $('#browse-submit').addEventListener('click', submitBrowse);
+    $('#browse-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') submitBrowse();
+    });
+  }
+
+  function boot() {
+    attachEvents();
+    renderHistory();
+    updateModeDisplay();
+    setMode('hidden');
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
   }
 })();

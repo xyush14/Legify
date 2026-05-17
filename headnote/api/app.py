@@ -30,6 +30,7 @@ All settings come from headnote.config (env-driven; .env is auto-loaded).
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 import time
 from datetime import datetime, timezone
@@ -54,11 +55,57 @@ from headnote.llm import (
 )
 from headnote.retrieval.keyword import prefilter_cases
 from headnote.translate import translate_payload, translate_payload_haiku
+from headnote.translate_input import maybe_translate
+from headnote.decompose import decompose as decompose_query
 from headnote.verify import (
     EvidenceParagraph, verify_situation_response, build_regen_feedback,
 )
 from headnote.api.telemetry import init_telemetry_db, record_query
 from headnote.api.admin import router as admin_router
+
+
+# ----- Helpers shared by /api/situation and /api/browse -----
+
+def _kanoon_doc_id_from_case_id(case_id: str) -> Optional[str]:
+    """Extract numeric IK doc id from an internal case_id ('ik:529907' → '529907').
+    Returns None for curated case_ids that don't carry an IK id directly."""
+    if isinstance(case_id, str) and case_id.startswith("ik:"):
+        return case_id.split(":", 1)[1]
+    return None
+
+
+def _fame_indicator(numcitedby: int) -> str:
+    """Map raw IK citation count to the three-bucket label used in the UI."""
+    if numcitedby is None:
+        return "unknown"
+    if numcitedby >= 50:
+        return "famous"
+    if numcitedby >= 10:
+        return "lesser-known"
+    return "obscure"
+
+
+def _enrich_case(case: dict, meta_by_id: dict) -> dict:
+    """Attach kanoon_doc_id, kanoon_url, kanoon_paragraph_url, fame_indicator,
+    numcitedby to a single case dict produced by the LLM. Non-destructive —
+    overwrites only when we have better data."""
+    cid = case.get("case_id")
+    meta = meta_by_id.get(cid) or {}
+    kdoc = meta.get("kanoon_doc_id") or _kanoon_doc_id_from_case_id(cid or "")
+    if kdoc:
+        case["kanoon_doc_id"] = str(kdoc)
+        case["kanoon_url"] = f"https://indiankanoon.org/doc/{kdoc}/"
+        anchor = case.get("paragraph_anchor") or ""
+        if anchor:
+            # Strip "Para " / "(Para X)" wrappers so the anchor is just the token IK uses
+            tok = re.sub(r"^[\(\s]*Para[\s\.]*", "", anchor, flags=re.IGNORECASE).rstrip(") ").strip()
+            if tok:
+                case["kanoon_paragraph_url"] = f"https://indiankanoon.org/doc/{kdoc}/#{tok}"
+    if "numcitedby" not in case and "numcitedby" in meta:
+        case["numcitedby"] = meta["numcitedby"]
+    if "fame_indicator" not in case:
+        case["fame_indicator"] = _fame_indicator(case.get("numcitedby") or meta.get("numcitedby") or 0)
+    return case
 
 
 # Lazy IK client singleton — only spun up if enabled AND token is configured.
@@ -197,21 +244,29 @@ def api_situation(req: SituationRequest):
     client = _get_kanoon_client()
     curated = config.load_curated_corpus()
 
+    # Hindi pre-translation: if the lawyer wrote in Devanagari, translate
+    # to English via Haiku BEFORE retrieval and generation run. The
+    # original Hindi is preserved in the response so the UI can show both.
+    translation_info = maybe_translate(req.situation)
+    working_situation = translation_info["english_query"]
+
     ik_meta_extra: dict = {}
     verification_report: Optional[dict] = None
     evidence: list = []
+    retrieval_cases: list = []
 
     if client is not None:
         from headnote.kanoon.retrieval import (
             retrieve_for_situation, result_to_prompt_corpus_json, IK_PROMPT_ADDENDUM,
         )
         ret = retrieve_for_situation(
-            req.situation,
+            working_situation,
             client=client,
             curated_corpus=curated,
             mode=req.mode,
             jurisdiction=req.jurisdiction,
         )
+        retrieval_cases = list(ret.cases)
         evidence = ret.evidence
         curated_lookup = {c["id"]: c for c in curated}
         corpus_json = result_to_prompt_corpus_json(ret, curated_lookup)
@@ -234,11 +289,11 @@ def api_situation(req: SituationRequest):
         }
     else:
         sys_prompt = build_situation_system_prompt(
-            req.style, _filtered_corpus_json(req.situation),
+            req.style, _filtered_corpus_json(working_situation),
         )
         ik_meta_extra = {"retrieval_path": "curated-only"}
 
-    user_prompt = SITUATION_USER_TEMPLATE.format(situation=req.situation, style=req.style)
+    user_prompt = SITUATION_USER_TEMPLATE.format(situation=working_situation, style=req.style)
     t0 = time.time()
     # deep_mode = user-opted premium: skip Sonnet, go straight to Opus, no
     # confidence retry. ENABLE_OPUS_ESCALATION=false (env override) also
@@ -340,17 +395,41 @@ def api_situation(req: SituationRequest):
     meta.update(ik_meta_extra)
     meta["deep_mode"] = req.deep_mode
     meta["escalated_to_opus"] = escalated
+    # Hindi pipeline info — UI shows a bilingual strip when script == devanagari
+    meta["input_script"] = translation_info["script"]
+    meta["original_query"] = translation_info["original_query"]
+    meta["english_query"] = translation_info["english_query"]
+    meta["translation_cost_paise"] = translation_info["translation_cost_paise"]
+    if translation_info["preserved_terms"]:
+        meta["translation_preserved_terms"] = translation_info["preserved_terms"]
     if verification_report is not None:
         meta["verification"] = verification_report
         meta["verification_regen_attempted"] = regen_attempted
         meta["verification_regen_helped"] = regen_helped
+
+    # Enrich each returned case with kanoon_doc_id, kanoon_url, fame_indicator.
+    # Build a quick lookup from retrieval-time metadata (numcitedby, source).
+    meta_by_id: dict = {}
+    for cs in retrieval_cases:
+        meta_by_id[cs.case_id] = {
+            "kanoon_doc_id": _kanoon_doc_id_from_case_id(cs.case_id),
+            "numcitedby": cs.numcitedby,
+            "source": cs.source,
+        }
+    for c in curated:
+        if c.get("id"):
+            meta_by_id.setdefault(c["id"], {})
+            if c.get("kanoon_doc_id"):
+                meta_by_id[c["id"]]["kanoon_doc_id"] = str(c["kanoon_doc_id"])
+    for case in parsed.get("cases", []):
+        _enrich_case(case, meta_by_id)
 
     # Telemetry — fire-and-forget, never blocks the response
     record_query(
         task_type="situation",
         primary_model=primary_model,
         escalated=escalated or regen_attempted,
-        total_cost_paise=total_paise,
+        total_cost_paise=total_paise + translation_info["translation_cost_paise"],
         latency_ms=int(elapsed * 1000),
         confidence=route_result.confidence_score,
         success=verification_report is None or verification_report.get("clean", True),
@@ -629,6 +708,142 @@ def api_feedback(req: FeedbackRequest):
     conn.commit()
     conn.close()
     return {"ok": True}
+
+
+@app.post("/api/decompose", summary="Query → two sub-queries + 'researching:' summary")
+def api_decompose(payload: dict):
+    """Generate the transparency panel content for a situation query.
+
+    Body: {"query": "..."}.
+
+    Pre-translates Devanagari input to English before decomposing so the
+    panel reads naturally for Hindi queries too. Cheap Haiku call (~₹0.20).
+    """
+    query = (payload or {}).get("query", "")
+    if not isinstance(query, str) or not query.strip():
+        raise HTTPException(status_code=400, detail="query is required")
+    translation = maybe_translate(query)
+    decomp = decompose_query(translation["english_query"])
+    return {
+        "input_script": translation["script"],
+        "original_query": translation["original_query"],
+        "english_query": translation["english_query"],
+        "decomposition": decomp,
+        "cost_paise": (translation["translation_cost_paise"] or 0) + (decomp.get("cost_paise") or 0),
+    }
+
+
+# -----------------------------------------------------------------------------
+# Browse Judgments — direct IK search, AI-augmented from the UI.
+# -----------------------------------------------------------------------------
+
+@app.get("/api/browse/search", summary="Direct Indian Kanoon search (Browse view)")
+def api_browse_search(
+    q: str,
+    court: Optional[str] = None,
+    year_from: Optional[int] = None,
+    year_to: Optional[int] = None,
+    page: int = 0,
+):
+    """Browse Judgments: pass a query through to Indian Kanoon and return
+    light search-hit metadata for the UI list.
+
+    Costs: ₹0.50 per search page (cached for 30 days). The UI is expected to
+    use this as a free-tier-friendly browse surface.
+
+    Filters supported (translated into IK formInput tokens):
+      court     — e.g. 'supremecourt', 'highcourts', 'bombay' (partial match)
+      year_from / year_to — ISO years; appended as `fromdate:` / `todate:`.
+    """
+    client = _get_kanoon_client()
+    if client is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Browse requires INDIAN_KANOON_TOKEN + USE_IK_RETRIEVAL=1.",
+        )
+    if not q or not q.strip():
+        raise HTTPException(status_code=400, detail="q is required")
+
+    # Pre-translate Hindi queries so IK keyword search works
+    translation = maybe_translate(q)
+    working = translation["english_query"]
+
+    # Build IK formInput. Use doctype filter for SC/HC by default; honour
+    # specific court hint when given.
+    filters: list[str] = []
+    if court:
+        c = court.lower().strip()
+        if c in ("supremecourt", "sc", "supreme court"):
+            filters.append("doctypes:supremecourt")
+        elif c in ("highcourts", "hc", "high court", "high courts"):
+            filters.append("doctypes:highcourts")
+        else:
+            filters.append(f"doctypes:{c}")
+    else:
+        filters.append("doctypes:supremecourt,highcourts")
+    if year_from:
+        filters.append(f"fromdate:{int(year_from)}-01-01")
+    if year_to:
+        filters.append(f"todate:{int(year_to)}-12-31")
+
+    form_input = " ".join([working.strip()] + filters)
+
+    try:
+        page_result = client.search(form_input, pagenum=int(page or 0))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"IK search failed: {e}")
+
+    hits = [
+        {
+            "tid": h.tid,
+            "title": h.title,
+            "court": h.docsource,
+            "publishdate": h.publishdate,
+            "headline": h.headline,
+            "numcitedby": h.numcitedby,
+            "fame_indicator": _fame_indicator(h.numcitedby),
+            "kanoon_url": f"https://indiankanoon.org/doc/{h.tid}/",
+        }
+        for h in page_result.hits
+    ]
+    return {
+        "query": q,
+        "english_query": working,
+        "input_script": translation["script"],
+        "filters": {"court": court, "year_from": year_from, "year_to": year_to},
+        "page": page_result.page,
+        "found": page_result.found_label,
+        "hits": hits,
+        "spend": client.spend_summary(),
+    }
+
+
+@app.get("/api/browse/doc/{tid}", summary="Fetch a single judgment's metadata + body")
+def api_browse_doc(tid: int):
+    """Fetch one full judgment by Indian Kanoon tid. Cached forever locally
+    (judgments don't change). Cost: ₹0.20 on first fetch, free thereafter."""
+    client = _get_kanoon_client()
+    if client is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Browse requires INDIAN_KANOON_TOKEN + USE_IK_RETRIEVAL=1.",
+        )
+    try:
+        doc = client.get_doc(int(tid))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"IK fetch failed: {e}")
+    return {
+        "tid": doc.tid,
+        "title": doc.title,
+        "court": doc.docsource,
+        "publishdate": doc.publishdate,
+        "numcitedby": doc.numcitedby,
+        "numcites": doc.numcites,
+        "fame_indicator": _fame_indicator(doc.numcitedby),
+        "kanoon_url": f"https://indiankanoon.org/doc/{doc.tid}/",
+        "doc_html": doc.doc_html,
+        "cats": doc.cats,
+    }
 
 
 @app.exception_handler(Exception)
