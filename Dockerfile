@@ -69,6 +69,9 @@ USER headnote
 # Railway's gateway uses the PORT env var for routing; the app binds to it.
 # Render uses its own out-of-band healthcheck against the URL Render assigns.
 
-# Shell form (not exec) so $PORT gets expanded by /bin/sh. Falls back to
-# 8000 for local runs without a PORT env var.
-CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips '*'
+# Run as a Python script so PORT is read inside Python — bypasses every
+# shell-expansion gotcha (Railway exec-form override, alpine /bin/sh
+# quirks, etc.). main.py's `if __name__ == "__main__"` block reads PORT
+# from env and starts uvicorn programmatically. Exec form preserves
+# SIGTERM propagation for clean shutdown.
+CMD ["python", "main.py"]
