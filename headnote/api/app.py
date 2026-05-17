@@ -158,12 +158,17 @@ def _get_kanoon_client():
 
 def _filtered_corpus_json(query: str, *, top_k: Optional[int] = None) -> str:
     """JSON of the top-K most relevant curated cases. Used in the curated-only
-    path and as a fallback for digest mode (which doesn't go through IK yet)."""
+    path and as a fallback for digest mode (which doesn't go through IK yet).
+
+    Strips `_prefilter_*` diagnostic fields before serialisation — those
+    exist for tuning + cost-dashboard reporting, not for the LLM to read.
+    """
+    from headnote.retrieval.keyword import strip_debug_fields
     cases = prefilter_cases(
         config.load_curated_corpus(), query,
         top_k=top_k or config.PREFILTER_TOP_K,
     )
-    return json.dumps(cases, ensure_ascii=False)
+    return json.dumps(strip_debug_fields(cases), ensure_ascii=False)
 
 
 def _init_feedback_db() -> None:
@@ -339,11 +344,18 @@ def api_situation(req: SituationRequest):
     force_model_choice = (
         config.SITUATION_DEEP_MODEL if req.deep_mode else config.SITUATION_MODEL
     )
-    route_result = route_call(
-        "situation",
-        {"system_prompt": sys_prompt, "user_prompt": user_prompt, "cache": True},
-        force_model=force_model_choice,
-    )
+
+    # Extended thinking gives Sonnet/Opus a scratch space to actually execute
+    # the four-dimension scoring rubric in the v2 prompt before writing JSON.
+    # Haiku doesn't support it (skipped silently inside call_claude_cached).
+    payload = {
+        "system_prompt": sys_prompt,
+        "user_prompt": user_prompt,
+        "cache": True,
+        "enable_thinking": config.ENABLE_THINKING,
+        "thinking_budget": config.THINKING_BUDGET_TOKENS,
+    }
+    route_result = route_call("situation", payload, force_model=force_model_choice)
     elapsed = time.time() - t0
     raw = route_result.response
     total_paise = route_result.cost_paise
@@ -358,13 +370,40 @@ def api_situation(req: SituationRequest):
     else:
         known_ids = {c["id"] for c in curated}
 
+    # Defensive parsing for the v2 schema (rubric + internal_reasoning).
+    # The model is instructed to populate these fields, but production code
+    # should never assume the model followed instructions.
+    parsed.setdefault("internal_reasoning", {})
+    parsed.setdefault("confidence", "medium")
+    for c in parsed.get("cases", []):
+        c.setdefault("relevance_scores", {
+            "fact_archetype_match": 0,
+            "doctrinal_match": 0,
+            "outcome_alignment": 0,
+            "authority_weight": 0,
+            "total": 0,
+        })
+
     verified, dropped = [], []
     for c in parsed.get("cases", []):
         if c.get("case_id") in known_ids:
             verified.append(c)
         else:
             dropped.append(c.get("title", "?"))
-    parsed["cases"] = verified
+
+    # Defensive filter: the v2 prompt instructs the model to drop any case
+    # scoring 0 on fact-archetype match. Enforce here too in case the
+    # model didn't comply.
+    filtered_zero_archetype = 0
+    final = []
+    for c in verified:
+        score = c.get("relevance_scores", {}).get("fact_archetype_match", 0)
+        if score > 0:
+            final.append(c)
+        else:
+            filtered_zero_archetype += 1
+    parsed["cases"] = final
+    parsed["filtered_zero_archetype"] = filtered_zero_archetype
 
     # Verification (in-process, no LLM call): the three-check verifier
     # cross-references each cited paragraph_anchor and quotable_phrase

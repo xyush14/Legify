@@ -311,23 +311,32 @@ def route_call(
     system_prompt = payload["system_prompt"]
     user_prompt = payload["user_prompt"]
     use_cache = bool(payload.get("cache", True))
+    enable_thinking = bool(payload.get("enable_thinking", False))
+    thinking_budget = int(payload.get("thinking_budget", 3000))
 
     model = _select_model(task_type, force_model)
     is_generation = task_type in _GENERATION_TASKS
 
     # Confidence prompt is appended to the USER prompt (not system) so the
     # system-prompt cache key doesn't drift across calls and we keep cache hits.
+    # Skip the confidence prompt when extended thinking is enabled — the
+    # model's reasoning is already happening in the thinking block, no need
+    # to also force a "CONFIDENCE: N" suffix that has been observed to
+    # interfere with the model's JSON output discipline.
     augmented_user_prompt = user_prompt
-    if is_generation:
+    if is_generation and not enable_thinking:
         augmented_user_prompt = user_prompt + CONFIDENCE_PROMPT_SUFFIX
 
-    log.info("route_call task=%s model=%s force=%s", task_type, model, force_model)
+    log.info("route_call task=%s model=%s force=%s thinking=%s",
+             task_type, model, force_model, enable_thinking)
 
     raw, usage = call_claude_cached(
         system_prompt,
         augmented_user_prompt,
         model=model,
         cache=use_cache,
+        enable_thinking=enable_thinking,
+        thinking_budget=thinking_budget,
     )
     first_cost = calculate_cost_paise(usage, model)
 

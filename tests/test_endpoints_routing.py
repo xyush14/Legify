@@ -36,7 +36,7 @@ class FakeAnthropic:
                           "cache_read_input_tokens": 0}
         self.responses.append((text, usage))
 
-    def __call__(self, system_prompt, user_prompt, *, model="", cache=True):
+    def __call__(self, system_prompt, user_prompt, *, model="", cache=True, **kwargs):
         self.calls.append({
             "model": model, "system_prompt": system_prompt,
             "user_prompt": user_prompt, "cache": cache,
