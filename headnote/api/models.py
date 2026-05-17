@@ -30,6 +30,22 @@ class SituationRequest(BaseModel):
             "auto-retry (no upgrade path beyond Opus)."
         ),
     )
+    mode: Literal["hidden", "famous", "mixed"] = Field(
+        "hidden",
+        description=(
+            "Ranking mode for candidate cases. "
+            "'hidden' (default) — penalises fame; surfaces obscure-but-relevant authorities. "
+            "'famous' — boosts citation count; returns the leading cases lawyers already know. "
+            "'mixed' — neutral; ranks purely on fact-pattern + jurisdiction + recency."
+        ),
+    )
+    jurisdiction: Optional[str] = Field(
+        None,
+        description=(
+            "Optional jurisdiction hint for the ranker (e.g. 'Bombay High Court'). "
+            "Boosts cases from the same court. Supreme Court is always boosted."
+        ),
+    )
 
 
 class DigestRequest(BaseModel):
