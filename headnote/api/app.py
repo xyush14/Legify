@@ -333,6 +333,11 @@ def api_situation(req: SituationRequest):
     user_prompt = SITUATION_USER_TEMPLATE.format(
         situation=working_situation, style=req.style,
     )
+    # Sonnet is the default — the right model for legal reasoning quality.
+    # deep_mode escalates to Opus for the lawyer's hardest matters.
+    # (Render free tier struggles with Sonnet's 15-20s generation time;
+    # Railway / Render Starter / any platform with a >30s request budget
+    # handles this cleanly. The model isn't the bottleneck; the host is.)
     force_model_choice = "opus" if req.deep_mode else "sonnet"
     route_result = route_call(
         "situation",
