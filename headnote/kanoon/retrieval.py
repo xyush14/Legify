@@ -89,7 +89,7 @@ except Exception as _emb_err:
 DEFAULT_SEARCH_FILTERS = "doctypes:supremecourt,highcourts"
 
 # Per-call caps. Tune in main.py once we have real usage data.
-DEFAULT_TOP_CASES = 5           # final cases returned to the LLM
+DEFAULT_TOP_CASES = 3           # 5→3: smaller output volume keeps Sonnet under 25s budget
 DEFAULT_CANDIDATE_POOL = 25     # candidates to collect before hidden_authorities reranking
 DEFAULT_TOP_PARAGRAPHS_PER_CASE = 2   # 4→2: shorter Phase 2 prompts, faster generation
 DEFAULT_MAX_NEW_FETCHES = 5         # mixed mode: max new IK doc fetches (₹0.20 each)

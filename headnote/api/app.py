@@ -314,62 +314,38 @@ def api_situation(req: SituationRequest):
         ik_meta_extra = {"retrieval_path": "curated-only"}
 
     t0 = time.time()
-    # ---------- Two-phase pipeline (situation_pipeline.py) ----------
-    # Phase 1: Haiku picks 3-5 case_ids from the candidate pool (cheap).
-    # Phase 2: Sonnet generates one headnote per case in parallel.
+    # ---------- Single-call generation (predictable latency) ----------
+    # The two-phase pipeline (Phase 1 Haiku + Phase 2 parallel Sonnet) was
+    # bottlenecking in production: parallelism wasn't materialising over the
+    # network (suspected httpx connection pool / Anthropic rate-limit
+    # serialisation on Render's outbound). 5 Sonnet calls in sequence = 70s+
+    # = 502 every time.
     #
-    # This replaces the legacy single Sonnet call that bottlenecked on
-    # output volume (5 cases × ~700 tokens of journal headnote serially
-    # = 70s+ wall-clock, past Render's request budget).
-    from headnote.situation_pipeline import run_two_phase_pipeline
-
-    # Rebuild a clean candidate list from the corpus JSON we already produced.
-    if client is not None:
-        candidates_for_prompt = json.loads(corpus_json)
-    else:
-        # Curated-only path: load the prefiltered curated cases as candidates
-        candidates_for_prompt = json.loads(_filtered_corpus_json(working_situation))
-        # The legacy curated entries have no `_source` flag; tag them so the
-        # Phase 1 prompt understands the provenance.
-        for c in candidates_for_prompt:
-            c.setdefault("_source", "curated")
-
-    # deep_mode is the only model knob the user controls: it forces Opus
-    # in Phase 2 for every per-case generation. Phase 1 stays on Haiku
-    # regardless (its job — picking case IDs — doesn't need a heavy model).
-    phase2_model = "opus" if req.deep_mode else "sonnet"
-    pipeline_result = run_two_phase_pipeline(
-        situation=working_situation,
-        candidates_for_prompt=candidates_for_prompt,
-        style=req.style,
-        max_cases=5,
-        force_model=phase2_model,
+    # Going back to a single Sonnet call with TWO key wins versus the legacy
+    # single call:
+    #   1. Hidden Authorities reranker has already trimmed the corpus to 3
+    #      candidates — so the LLM only writes up 3 cases worth of output
+    #      (not 5), keeping wall-clock under Render's 25s budget.
+    #   2. The system prompt is now PURELY cacheable (base + style block);
+    #      the corpus moves into the user prompt. After the first call,
+    #      every subsequent call hits Anthropic's prompt cache for ~90%
+    #      of system-prompt input cost.
+    user_prompt = SITUATION_USER_TEMPLATE.format(
+        situation=working_situation, style=req.style,
+    )
+    force_model_choice = "opus" if req.deep_mode else "sonnet"
+    route_result = route_call(
+        "situation",
+        {"system_prompt": sys_prompt, "user_prompt": user_prompt, "cache": True},
+        force_model=force_model_choice,
     )
     elapsed = time.time() - t0
-
-    total_paise = (
-        pipeline_result["_phase_costs"]["select_paise"]
-        + pipeline_result["_phase_costs"]["generate_paise"]
-    )
-    primary_model = "claude-opus-4-6" if req.deep_mode else "claude-sonnet-4-6"
-    chosen_model = primary_model
+    raw = route_result.response
+    total_paise = route_result.cost_paise
+    chosen_model = route_result.model_name
+    primary_model = chosen_model
     escalated = False
-    raw = json.dumps(pipeline_result, ensure_ascii=False)
-    parsed = {
-        "confidence": pipeline_result["confidence"],
-        "style": pipeline_result["style"],
-        "cases": pipeline_result["cases"],
-    }
-
-    # Synthesize a RouteResult-shaped object so build_router_meta below sees
-    # the right totals. Phase costs are surfaced separately in the meta.
-    from headnote.llm import RouteResult
-    route_result = RouteResult(
-        model_name=primary_model,
-        response=raw,
-        cost_paise=total_paise,
-        confidence_score=None,
-    )
+    parsed = parse_json_response(raw)
 
     # Existence filter (drop case_ids we don't recognise)
     if client is not None:

@@ -84,10 +84,8 @@ def _mock_pipeline(*, cases=None, select_paise=20, generate_paise=300):
 # Telemetry recording
 # ============================================================================
 
-def test_situation_request_records_telemetry(client, tmp_db, monkeypatch):
-    monkeypatch.setattr(
-        "headnote.situation_pipeline.run_two_phase_pipeline", _mock_pipeline(cases=[])
-    )
+def test_situation_request_records_telemetry(client, fake_anthropic, tmp_db):
+    fake_anthropic.queue('{"cases": []}\nCONFIDENCE: 8')
     resp = client.post("/api/situation", json={
         "situation": "Some legal scenario text here", "style": "journal",
     })
@@ -103,20 +101,13 @@ def test_situation_request_records_telemetry(client, tmp_db, monkeypatch):
     row = rows[0]
     assert row[0] == "situation"
     assert row[1] == "claude-sonnet-4-6"
-    assert row[2] == 0   # not escalated (auto-escalation removed)
-    assert row[3] > 0    # paid something
+    assert row[2] == 0
+    assert row[3] > 0
 
 
-def test_low_confidence_does_not_escalate(client, tmp_db, monkeypatch):
-    """Auto-escalation is off: low-confidence Sonnet stays on Sonnet.
-
-    Lawyers can opt into Opus via the explicit deep_mode toggle; the
-    auto-retry was stacking two LLM calls and blowing past Render's
-    request budget.
-    """
-    monkeypatch.setattr(
-        "headnote.situation_pipeline.run_two_phase_pipeline", _mock_pipeline(cases=[])
-    )
+def test_low_confidence_does_not_escalate(client, fake_anthropic, tmp_db):
+    """Auto-escalation is off: low-confidence Sonnet stays on Sonnet."""
+    fake_anthropic.queue('{"cases": []}\nCONFIDENCE: 4')
     resp = client.post("/api/situation", json={
         "situation": "Another situation that would have escalated",
         "style": "journal",
@@ -124,6 +115,7 @@ def test_low_confidence_does_not_escalate(client, tmp_db, monkeypatch):
     assert resp.status_code == 200
     assert resp.json()["meta"]["escalated_to_opus"] is False
     assert resp.json()["meta"]["model"] == "claude-sonnet-4-6"
+    assert len(fake_anthropic.calls) == 1
 
     import sqlite3
     conn = sqlite3.connect(tmp_db)
@@ -135,11 +127,9 @@ def test_low_confidence_does_not_escalate(client, tmp_db, monkeypatch):
     assert row[1] == "claude-sonnet-4-6"
 
 
-def test_deep_mode_forces_opus_and_skips_retry(client, tmp_db, monkeypatch):
-    """deep_mode forces Opus for Phase 2 of the two-phase pipeline."""
-    monkeypatch.setattr(
-        "headnote.situation_pipeline.run_two_phase_pipeline", _mock_pipeline(cases=[])
-    )
+def test_deep_mode_forces_opus_and_skips_retry(client, fake_anthropic, tmp_db):
+    """deep_mode forces Opus from the start, no retry."""
+    fake_anthropic.queue('{"cases": []}\nCONFIDENCE: 3')
     resp = client.post("/api/situation", json={
         "situation": "Premium-tier query with deep_mode",
         "style": "journal",
@@ -151,6 +141,7 @@ def test_deep_mode_forces_opus_and_skips_retry(client, tmp_db, monkeypatch):
     assert body["meta"]["deep_mode"] is True
     # Opus was the FIRST model, not an upgrade — auto-escalation is removed.
     assert body["meta"]["escalated_to_opus"] is False
+    assert len(fake_anthropic.calls) == 1
 
 
 def test_translate_records_telemetry(client, fake_anthropic, tmp_db, monkeypatch):
@@ -196,12 +187,11 @@ def test_admin_telemetry_returns_empty_summary_initially(client):
     assert body["total_cost_paise"] == 0
 
 
-def test_admin_telemetry_summarises_recorded_queries(client, fake_anthropic, tmp_db, monkeypatch):
-    """Two situation queries via the pipeline + one digest via the legacy path."""
-    monkeypatch.setattr(
-        "headnote.situation_pipeline.run_two_phase_pipeline", _mock_pipeline(cases=[])
-    )
-    fake_anthropic.queue('{"topic": "x", "sub_topics": []}\nCONFIDENCE: 9')   # for digest
+def test_admin_telemetry_summarises_recorded_queries(client, fake_anthropic, tmp_db):
+    """Two situation queries + one digest, all Sonnet, no auto-escalation."""
+    fake_anthropic.queue('{"cases": []}\nCONFIDENCE: 8')                       # situation 1
+    fake_anthropic.queue('{"topic": "x", "sub_topics": []}\nCONFIDENCE: 9')   # digest
+    fake_anthropic.queue('{"cases": []}\nCONFIDENCE: 5')                       # situation 2
 
     client.post("/api/situation", json={"situation": "abc def ghi jkl mno", "style": "journal"})
     client.post("/api/digest", json={"topic": "circumstantial evidence topic"})
@@ -231,19 +221,16 @@ def test_admin_telemetry_disabled_when_no_token_configured(monkeypatch, fake_ant
 # ENABLE_OPUS_ESCALATION feature flag
 # ============================================================================
 
-def test_disable_opus_escalation_keeps_sonnet_on_low_confidence(monkeypatch, tmp_db):
-    """ENABLE_OPUS_ESCALATION is now a no-op: auto-escalation was removed
-    structurally from /api/situation. The flag is preserved so older deploys
-    don't break, but the endpoint always stays on Sonnet unless deep_mode
-    is on."""
+def test_disable_opus_escalation_keeps_sonnet_on_low_confidence(monkeypatch, fake_anthropic, tmp_db):
+    """ENABLE_OPUS_ESCALATION flag is preserved but the endpoint always
+    stays on Sonnet unless deep_mode is on — auto-escalation removed
+    structurally."""
     monkeypatch.setattr("headnote.config.ENABLE_OPUS_ESCALATION", False)
     monkeypatch.setattr("headnote.config.ADMIN_TOKEN", "test")
-    monkeypatch.setattr(
-        "headnote.situation_pipeline.run_two_phase_pipeline", _mock_pipeline(cases=[])
-    )
     with patch("headnote.api.app._get_kanoon_client", return_value=None):
         from headnote.api.app import app
         with TestClient(app) as c:
+            fake_anthropic.queue('{"cases": []}\nCONFIDENCE: 3')
             resp = c.post("/api/situation", json={
                 "situation": "Test scenario with escalation disabled",
                 "style": "journal",
@@ -252,3 +239,4 @@ def test_disable_opus_escalation_keeps_sonnet_on_low_confidence(monkeypatch, tmp
     body = resp.json()
     assert body["meta"]["model"] == "claude-sonnet-4-6"
     assert body["meta"]["escalated_to_opus"] is False
+    assert len(fake_anthropic.calls) == 1
