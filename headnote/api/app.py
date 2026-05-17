@@ -87,24 +87,44 @@ def _fame_indicator(numcitedby: int) -> str:
 
 def _enrich_case(case: dict, meta_by_id: dict) -> dict:
     """Attach kanoon_doc_id, kanoon_url, kanoon_paragraph_url, fame_indicator,
-    numcitedby to a single case dict produced by the LLM. Non-destructive —
-    overwrites only when we have better data."""
+    numcitedby, source to a single case dict produced by the LLM. Non-destructive —
+    overwrites only when we have better data.
+
+    Pulls paragraph_anchor out of the nested journal_headnote block if the LLM
+    placed it there (per the prompt schema), so the deep-link helper can use it.
+    """
     cid = case.get("case_id")
     meta = meta_by_id.get(cid) or {}
+    case["source"] = meta.get("source", case.get("source") or "ik")
+
+    # Anchor may live at top level OR nested under journal_headnote (journal style)
+    anchor = (
+        case.get("paragraph_anchor")
+        or (case.get("journal_headnote") or {}).get("paragraph_anchor")
+        or ""
+    )
+    if anchor and "paragraph_anchor" not in case:
+        case["paragraph_anchor"] = anchor
+
     kdoc = meta.get("kanoon_doc_id") or _kanoon_doc_id_from_case_id(cid or "")
     if kdoc:
         case["kanoon_doc_id"] = str(kdoc)
         case["kanoon_url"] = f"https://indiankanoon.org/doc/{kdoc}/"
-        anchor = case.get("paragraph_anchor") or ""
         if anchor:
-            # Strip "Para " / "(Para X)" wrappers so the anchor is just the token IK uses
-            tok = re.sub(r"^[\(\s]*Para[\s\.]*", "", anchor, flags=re.IGNORECASE).rstrip(") ").strip()
+            tok = re.sub(r"^[\(\s]*Para[s]?[\s\.]*", "", anchor, flags=re.IGNORECASE).rstrip(") ").strip()
+            # Para anchors can list multiple ("14, 16-17"); take the first
+            tok = re.split(r"[,\s]", tok, maxsplit=1)[0]
             if tok:
                 case["kanoon_paragraph_url"] = f"https://indiankanoon.org/doc/{kdoc}/#{tok}"
     if "numcitedby" not in case and "numcitedby" in meta:
         case["numcitedby"] = meta["numcitedby"]
     if "fame_indicator" not in case:
-        case["fame_indicator"] = _fame_indicator(case.get("numcitedby") or meta.get("numcitedby") or 0)
+        # Curated cases have no IK citation count, so the "obscure" bucket would
+        # be misleading. Label them as curated to signal editorial provenance.
+        if case["source"] == "curated":
+            case["fame_indicator"] = "curated"
+        else:
+            case["fame_indicator"] = _fame_indicator(case.get("numcitedby") or meta.get("numcitedby") or 0)
     return case
 
 

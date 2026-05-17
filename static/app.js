@@ -35,10 +35,11 @@
 
   const state = {
     activeView: 'research',
-    mode: 'hidden',        // ranking mode: hidden | famous | mixed
+    mode: 'hidden',         // ranking mode: hidden | famous | mixed
+    style: 'practitioner',  // output style: practitioner | journal
     deepMode: false,
     jurisdiction: '',
-    lastResult: null,      // { autoMode, parsed, meta, query }
+    lastResult: null,       // { autoMode, parsed, meta, query }
     resultView: localStorage.getItem(VIEW_TOGGLE_KEY) || 'cards',
   };
 
@@ -134,7 +135,11 @@
   // -------------------------------------------------------------- composer chips
   function setMode(m) {
     state.mode = m;
-    $$('.composer__chips .chip').forEach(c => c.classList.toggle('is-active', c.dataset.mode === m));
+    $$('.composer__chips .chip[data-mode]').forEach(c => c.classList.toggle('is-active', c.dataset.mode === m));
+  }
+  function setStyle(s) {
+    state.style = s;
+    $$('.composer__chips .chip[data-style]').forEach(c => c.classList.toggle('is-active', c.dataset.style === s));
   }
   function updateModeDisplay() {
     const q = $('#situation-input').value;
@@ -196,7 +201,41 @@
     if (fi === 'obscure') return ce('span', { cls: 'badge badge--obscure', text: '⟡ obscure' });
     if (fi === 'famous')  return ce('span', { cls: 'badge badge--famous',  text: 'leading authority' });
     if (fi === 'lesser-known') return ce('span', { cls: 'badge', text: 'lesser-known' });
+    if (fi === 'curated') return ce('span', { cls: 'badge', text: 'curated' });
     return null;
+  }
+
+  // Normalise a case object from the situation schema (practitioner_notes or
+  // journal_headnote nested) into the flat fields the renderer wants.
+  function normaliseCase(c) {
+    const pn = c.practitioner_notes || {};
+    const jh = c.journal_headnote || {};
+    return {
+      // identifiers
+      case_id: c.case_id,
+      title: c.title || c.case_title || c.case_id || 'untitled',
+      citation: c.citation || '',
+      court: c.court || '',
+      year: c.year || '',
+      bench: c.bench || jh.per_judge_attribution || '',
+      // deep-links / provenance
+      kanoon_url: c.kanoon_url,
+      kanoon_paragraph_url: c.kanoon_paragraph_url,
+      kanoon_doc_id: c.kanoon_doc_id,
+      fame_indicator: c.fame_indicator,
+      source: c.source,
+      // body — the differentiator and the substance
+      fact_match: c.relevance_explanation || c.fact_match || pn.one_line_topic || '',
+      one_line_topic: pn.one_line_topic || '',
+      ratio: jh.ratio || pn.gist || c.ratio || c.holding || '',
+      negative_carve_out: jh.negative_carve_out || '',
+      catchword_chain: jh.catchword_chain || '',
+      statute_index: jh.statute_index || '',
+      quotable_phrase: pn.quotable_phrase || c.quotable_phrase || '',
+      paragraph_anchor: c.paragraph_anchor || jh.paragraph_anchor || '',
+      cross_refs: pn.cross_refs || c.cross_refs || [],
+      bns_note: c.bns_note || '',
+    };
   }
   function verifiedBadge() {
     return ce('span', { cls: 'badge badge--verified', text: 'verified' });
@@ -218,70 +257,101 @@
     return bits;
   }
 
-  function renderCaseCard(case_, idx) {
+  function renderCaseCard(raw, idx) {
+    const c = normaliseCase(raw);
     const head = ce('div', { cls: 'case-card__head' });
-    const titleText = case_.title || case_.case_title || 'untitled case';
     const titleEl = ce('div', { cls: 'case-card__title' });
-    if (case_.kanoon_url) {
-      titleEl.appendChild(ce('a', {
-        text: titleText,
-        attrs: { href: case_.kanoon_url, target: '_blank', rel: 'noopener' },
-      }));
+    if (c.kanoon_url) {
+      titleEl.appendChild(ce('a', { text: c.title, attrs: { href: c.kanoon_url, target: '_blank', rel: 'noopener' } }));
       titleEl.appendChild(ce('span', { cls: 'ext-arrow', text: '↗' }));
     } else {
-      titleEl.appendChild(document.createTextNode(titleText));
+      titleEl.appendChild(document.createTextNode(c.title));
     }
     head.appendChild(titleEl);
     head.appendChild(ce('div', { cls: 'case-card__meta mono', text: `#${idx + 1}` }));
 
+    // Meta line: court · year · bench · citation
     const metaLine = ce('div', { cls: 'case-card__meta mono' });
-    metaBits(case_).forEach(b => metaLine.appendChild(ce('span', { text: b })));
+    metaBits(c).forEach(b => metaLine.appendChild(ce('span', { text: b })));
+    if (c.citation) metaLine.appendChild(ce('span', { text: c.citation }));
+
+    // Catchword chain (journal style only) — shows above the body
+    const preBody = [];
+    if (c.statute_index) {
+      preBody.push(ce('div', { cls: 'headnote-block__catchwords', text: c.statute_index }));
+    }
+    if (c.catchword_chain) {
+      preBody.push(ce('div', { cls: 'headnote-block__catchwords', text: c.catchword_chain }));
+    }
 
     const rows = [];
-    const ratio = case_.ratio || case_.holding || case_.summary || '';
-    if (ratio) {
-      rows.push(ce('div', { cls: 'case-card__row', children: [
-        ce('div', { cls: 'case-card__rowlabel', text: 'ratio' }),
-        ce('div', { cls: 'case-card__rowtext', text: ratio }),
-      ]}));
-    }
-    const factMatch = case_.fact_match || case_.relevance_note || case_.why_this_matches;
-    if (factMatch) {
+
+    // Fact-match row — THE differentiator, navy tint
+    if (c.fact_match) {
       rows.push(ce('div', { cls: 'case-card__row case-card__row--factmatch', children: [
         ce('div', { cls: 'case-card__rowlabel', text: 'fact match' }),
-        ce('div', { cls: 'case-card__rowtext', text: factMatch }),
+        ce('div', { cls: 'case-card__rowtext', text: c.fact_match }),
       ]}));
     }
-    const quote = case_.quotable_phrase || case_.quote;
-    if (quote) {
+
+    // Ratio (holding compressed)
+    if (c.ratio) {
+      rows.push(ce('div', { cls: 'case-card__row', children: [
+        ce('div', { cls: 'case-card__rowlabel', text: 'ratio' }),
+        ce('div', { cls: 'case-card__rowtext', text: c.ratio }),
+      ]}));
+    }
+
+    // Negative carve-out — journal style; warn-coloured to signal limitation
+    if (c.negative_carve_out) {
+      rows.push(ce('div', { cls: 'case-card__row', children: [
+        ce('div', { cls: 'case-card__rowlabel', text: 'carve-out' }),
+        ce('div', { cls: 'case-card__rowtext', text: c.negative_carve_out }),
+      ]}));
+    }
+
+    // Quotable phrase
+    if (c.quotable_phrase) {
       rows.push(ce('div', { cls: 'case-card__row', children: [
         ce('div', { cls: 'case-card__rowlabel', text: 'quote' }),
-        ce('div', { cls: 'case-card__rowtext', html: '"' + esc(quote) + '"' }),
+        ce('div', { cls: 'case-card__rowtext', text: '“' + c.quotable_phrase + '”' }),
       ]}));
     }
-    const anchor = case_.paragraph_anchor;
-    if (anchor) {
+
+    // Paragraph anchor → deep link
+    if (c.paragraph_anchor) {
       rows.push(ce('div', { cls: 'case-card__row', children: [
         ce('div', { cls: 'case-card__rowlabel', text: 'paragraph' }),
         ce('div', { cls: 'case-card__rowtext', children: [
-          case_.kanoon_paragraph_url
-            ? ce('a', { cls: 'judgment-link', text: anchor + ' ↗', attrs: { href: case_.kanoon_paragraph_url, target: '_blank', rel: 'noopener' } })
-            : document.createTextNode(anchor),
+          c.kanoon_paragraph_url
+            ? ce('a', { cls: 'judgment-link', text: c.paragraph_anchor + ' ↗', attrs: { href: c.kanoon_paragraph_url, target: '_blank', rel: 'noopener' } })
+            : document.createTextNode(c.paragraph_anchor),
         ]}),
       ]}));
     }
 
-    const badges = ce('div', { cls: 'case-card__badges' });
-    const fb = fameBadge(case_); if (fb) badges.appendChild(fb);
-    badges.appendChild(verifiedBadge());
-    const j = judgmentLink(case_); if (j) badges.appendChild(j);
+    // Cross-refs (practitioner style)
+    if (c.cross_refs && c.cross_refs.length) {
+      rows.push(ce('div', { cls: 'case-card__row', children: [
+        ce('div', { cls: 'case-card__rowlabel', text: 'cited' }),
+        ce('div', { cls: 'case-card__rowtext mono', text: c.cross_refs.join(' · ') }),
+      ]}));
+    }
 
-    return ce('div', { cls: 'case-card', children: [
-      head,
-      metaLine,
-      ...rows,
-      badges,
-    ]});
+    // BNS / BNSS mapping note (helps the lawyer translate IPC→BNS)
+    if (c.bns_note) {
+      rows.push(ce('div', { cls: 'case-card__row', children: [
+        ce('div', { cls: 'case-card__rowlabel', text: 'bns' }),
+        ce('div', { cls: 'case-card__rowtext', text: c.bns_note }),
+      ]}));
+    }
+
+    const badges = ce('div', { cls: 'case-card__badges' });
+    const fb = fameBadge(c); if (fb) badges.appendChild(fb);
+    badges.appendChild(verifiedBadge());
+    const j = judgmentLink(c); if (j) badges.appendChild(j);
+
+    return ce('div', { cls: 'case-card', children: [head, metaLine, ...preBody, ...rows, badges] });
   }
 
   function renderCasesAsCards(cases) {
@@ -303,20 +373,21 @@
       ]}),
     ]});
     const tbody = ce('tbody');
-    cases.forEach((c) => {
+    cases.forEach((raw) => {
+      const c = normaliseCase(raw);
       const titleCell = ce('td');
       const titleEl = ce('span', { cls: 'ct-title' });
       if (c.kanoon_url) {
-        titleEl.appendChild(ce('a', { text: c.title || c.case_id, attrs: { href: c.kanoon_url, target: '_blank', rel: 'noopener' } }));
+        titleEl.appendChild(ce('a', { text: c.title, attrs: { href: c.kanoon_url, target: '_blank', rel: 'noopener' } }));
       } else {
-        titleEl.appendChild(document.createTextNode(c.title || c.case_id || '—'));
+        titleEl.appendChild(document.createTextNode(c.title));
       }
       titleCell.appendChild(titleEl);
       if (c.citation) titleCell.appendChild(ce('span', { cls: 'ct-citation', text: c.citation }));
 
       const courtCell = ce('td', { text: [c.court, c.year, c.bench].filter(Boolean).join(' · ') || '—' });
-      const ratioCell = ce('td', { text: c.ratio || c.holding || '—' });
-      const factCell  = ce('td', { cls: 'fact-match', text: c.fact_match || c.relevance_note || '—' });
+      const ratioCell = ce('td', { text: c.ratio || '—' });
+      const factCell  = ce('td', { cls: 'fact-match', text: c.fact_match || '—' });
       const paraCell  = ce('td');
       if (c.paragraph_anchor && c.kanoon_paragraph_url) {
         paraCell.appendChild(ce('a', { cls: 'judgment-link', text: c.paragraph_anchor + ' ↗', attrs: { href: c.kanoon_paragraph_url, target: '_blank', rel: 'noopener' } }));
@@ -471,7 +542,7 @@
       if (intent === 'situation') {
         resp = await post('/api/situation', {
           situation: input,
-          style: 'practitioner',
+          style: state.style,
           deep_mode: state.deepMode,
           mode: state.mode,
           jurisdiction: state.jurisdiction || null,
@@ -592,9 +663,12 @@
       b.addEventListener('click', () => switchView(b.dataset.view));
     });
 
-    // Mode chips
-    $$('.composer__chips .chip').forEach(c => {
+    // Mode + style chips
+    $$('.composer__chips .chip[data-mode]').forEach(c => {
       c.addEventListener('click', () => setMode(c.dataset.mode));
+    });
+    $$('.composer__chips .chip[data-style]').forEach(c => {
+      c.addEventListener('click', () => setStyle(c.dataset.style));
     });
 
     // Submit handlers
@@ -615,6 +689,7 @@
     renderHistory();
     updateModeDisplay();
     setMode('hidden');
+    setStyle('practitioner');
   }
 
   if (document.readyState === 'loading') {
