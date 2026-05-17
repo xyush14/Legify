@@ -77,6 +77,32 @@ INDIAN_KANOON_DAILY_CAP_INR: Optional[float] = (
     float(_daily_cap_env) if _daily_cap_env else None
 )
 
+# ----------------------------------------------------------------- quality knobs
+# Two env-var knobs that flip the quality/cost trade-off per-host.
+# Cheap-and-fast preset (Render Free):  SITUATION_MODEL=haiku, ENABLE_SONNET_RERANKER=0
+# Quality preset (Railway / Pro / VPS): SITUATION_MODEL=sonnet, ENABLE_SONNET_RERANKER=1  (default)
+
+# Model the situation endpoint uses when deep_mode is OFF.
+# Accepts: haiku | sonnet | opus (or a full Anthropic model id).
+SITUATION_MODEL: str = os.environ.get("SITUATION_MODEL", "sonnet").lower().strip()
+
+# When the situation endpoint is in deep_mode (the explicit "premium" toggle),
+# use this model. Defaults to Opus.
+SITUATION_DEEP_MODEL: str = os.environ.get("SITUATION_DEEP_MODEL", "opus").lower().strip()
+
+# Enable Sonnet fact-pattern reranking inside Hidden Authorities. This is the
+# single biggest case-relevance lever — without it the reranker only uses
+# semantic similarity as a proxy for fact-pattern match. Costs ~₹4 per query
+# but turns "topically related" results into "factually aligned" results.
+_rerank_env = os.environ.get("ENABLE_SONNET_RERANKER", "").lower()
+if _rerank_env in {"0", "false", "no"}:
+    ENABLE_SONNET_RERANKER = False
+elif _rerank_env in {"1", "true", "yes"}:
+    ENABLE_SONNET_RERANKER = True
+else:
+    # Default ON. Operator can disable for free-tier latency.
+    ENABLE_SONNET_RERANKER = True
+
 PREFILTER_TOP_K = int(os.environ.get("PREFILTER_TOP_K", "12"))
 
 # Sonnet -> Opus auto-escalation on low confidence. Set to "0" / "false" in
