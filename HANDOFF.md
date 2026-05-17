@@ -87,7 +87,17 @@ File: `headnote/kanoon/retrieval.py` → `retrieve_for_situation()`
 
 **Auto-escalation Sonnet→Opus is OFF** for the situation route. Was causing 60-90s timeouts. deep_mode is the only explicit escalation toggle.
 
-**WHEN HOST MOVES OFF RENDER FREE** (Railway / Render Pro / VPS): in `headnote/api/app.py` `api_situation` change `force_model_choice = "sonnet" if req.deep_mode else "haiku"` to `force_model_choice = "opus" if req.deep_mode else "sonnet"`. Sonnet is the right legal-reasoning default; Haiku is the free-tier compromise.
+**MODEL LADDER IS NOW ENV-VAR DRIVEN.** No code change needed when switching hosts. Three env vars:
+
+| Var | Default | What it does |
+|---|---|---|
+| `SITUATION_MODEL` | `sonnet` | Model when deep_mode is OFF. Set to `haiku` on Render free for 6-10s latency. |
+| `SITUATION_DEEP_MODEL` | `opus` | Model when deep_mode is ON. Set to `sonnet` on free-tier if Opus is too slow. |
+| `ENABLE_SONNET_RERANKER` | `1` (on) | The single biggest case-relevance lever. Costs ~₹4 per query but turns "topically related" results into "factually aligned" results via a Sonnet fact-pattern judgment call. Set to `0` on free-tier to save the call + latency. |
+
+Suggested presets:
+- **Render Free:** `SITUATION_MODEL=haiku`, `ENABLE_SONNET_RERANKER=0`
+- **Railway / Render Pro / VPS:** all defaults (Sonnet + reranker on)
 
 ---
 

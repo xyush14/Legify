@@ -100,7 +100,7 @@ def test_situation_request_records_telemetry(client, fake_anthropic, tmp_db):
     assert len(rows) == 1
     row = rows[0]
     assert row[0] == "situation"
-    assert row[1] == "claude-haiku-4-5"     # Haiku is the default on free tier
+    assert row[1] == "claude-sonnet-4-6"     # Sonnet is the SITUATION_MODEL default
     assert row[2] == 0
     assert row[3] > 0
 
@@ -114,7 +114,7 @@ def test_low_confidence_does_not_escalate(client, fake_anthropic, tmp_db):
     })
     assert resp.status_code == 200
     assert resp.json()["meta"]["escalated_to_opus"] is False
-    assert resp.json()["meta"]["model"] == "claude-haiku-4-5"
+    assert resp.json()["meta"]["model"] == "claude-sonnet-4-6"
     assert len(fake_anthropic.calls) == 1
 
     import sqlite3
@@ -124,11 +124,11 @@ def test_low_confidence_does_not_escalate(client, fake_anthropic, tmp_db):
     ).fetchone()
     conn.close()
     assert row[0] == 0
-    assert row[1] == "claude-haiku-4-5"
+    assert row[1] == "claude-sonnet-4-6"
 
 
-def test_deep_mode_routes_to_sonnet(client, fake_anthropic, tmp_db):
-    """deep_mode escalates from Haiku (default) to Sonnet."""
+def test_deep_mode_routes_to_opus(client, fake_anthropic, tmp_db):
+    """deep_mode escalates to Opus (the SITUATION_DEEP_MODEL default)."""
     fake_anthropic.queue('{"cases": []}\nCONFIDENCE: 3')
     resp = client.post("/api/situation", json={
         "situation": "Premium-tier query with deep_mode",
@@ -137,7 +137,7 @@ def test_deep_mode_routes_to_sonnet(client, fake_anthropic, tmp_db):
     })
     assert resp.status_code == 200
     body = resp.json()
-    assert body["meta"]["model"] == "claude-sonnet-4-6"
+    assert body["meta"]["model"] == "claude-opus-4-6"
     assert body["meta"]["deep_mode"] is True
     assert body["meta"]["escalated_to_opus"] is False
     assert len(fake_anthropic.calls) == 1
@@ -236,6 +236,6 @@ def test_disable_opus_escalation_keeps_sonnet_on_low_confidence(monkeypatch, fak
             })
     assert resp.status_code == 200
     body = resp.json()
-    assert body["meta"]["model"] == "claude-haiku-4-5"
+    assert body["meta"]["model"] == "claude-sonnet-4-6"
     assert body["meta"]["escalated_to_opus"] is False
     assert len(fake_anthropic.calls) == 1

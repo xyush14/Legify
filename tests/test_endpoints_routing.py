@@ -99,11 +99,10 @@ def _mock_pipeline(*, cases=None, select_paise=20, generate_paise=300):
 # /api/situation — Sonnet by default
 # ============================================================================
 
-def test_situation_routes_to_haiku_by_default(client, fake_anthropic):
-    """Haiku is the user-facing model when deep_mode is off — chosen
-    because Render free tier's ~18s request budget can't fit Sonnet's
-    ~15-20s generation reliably. Once on a paid plan / better host, the
-    default should move back up to Sonnet."""
+def test_situation_routes_to_sonnet_by_default(client, fake_anthropic):
+    """Sonnet is the default — the right model for legal reasoning quality.
+    Operators can override to Haiku on free-tier hosts by setting
+    SITUATION_MODEL=haiku in the environment."""
     fake_anthropic.queue('{"cases": [], "confidence": "low"}\nCONFIDENCE: 8')
     resp = client.post("/api/situation", json={
         "situation": "Some legal scenario, at least ten characters.",
@@ -111,7 +110,7 @@ def test_situation_routes_to_haiku_by_default(client, fake_anthropic):
     })
     assert resp.status_code == 200, resp.text
     body = resp.json()
-    assert body["meta"]["model"] == "claude-haiku-4-5"
+    assert body["meta"]["model"] == "claude-sonnet-4-6"
     assert body["meta"]["cost_paise"] > 0
     assert body["meta"]["escalated_to_opus"] is False
     assert len(fake_anthropic.calls) == 1
@@ -126,7 +125,7 @@ def test_situation_low_confidence_does_not_auto_upgrade(client, fake_anthropic):
     })
     assert resp.status_code == 200, resp.text
     body = resp.json()
-    assert body["meta"]["model"] == "claude-haiku-4-5"
+    assert body["meta"]["model"] == "claude-sonnet-4-6"
     assert body["meta"]["escalated_to_opus"] is False
     assert len(fake_anthropic.calls) == 1
 

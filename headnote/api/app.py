@@ -333,13 +333,12 @@ def api_situation(req: SituationRequest):
     user_prompt = SITUATION_USER_TEMPLATE.format(
         situation=working_situation, style=req.style,
     )
-    # MODEL LADDER (calibrated for Render free tier's ~18s request budget):
-    #   default       → Haiku 4.5  (~6-10s, fits free tier with margin)
-    #   deep_mode on  → Sonnet 4.6 (~15-20s, premium path; may occasionally
-    #                              cold-start 502 but warms after first hit)
-    # Move every step UP when the deploy host has a normal request budget
-    # (Railway / Render Pro / a VPS): Sonnet default, Opus on deep_mode.
-    force_model_choice = "sonnet" if req.deep_mode else "haiku"
+    # Model selection is env-var driven so the same code runs on Render
+    # free (set SITUATION_MODEL=haiku) AND Railway / Pro (SITUATION_MODEL
+    # defaults to sonnet) without redeploying.
+    force_model_choice = (
+        config.SITUATION_DEEP_MODEL if req.deep_mode else config.SITUATION_MODEL
+    )
     route_result = route_call(
         "situation",
         {"system_prompt": sys_prompt, "user_prompt": user_prompt, "cache": True},

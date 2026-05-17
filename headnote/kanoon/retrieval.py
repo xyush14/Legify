@@ -779,16 +779,21 @@ def retrieve_for_situation(
                 for cs in cases
             ]
 
-            # skip_sonnet_rerank=True avoids an extra ~₹4 Sonnet call per query.
-            # semantic_similarity (normalised relevance) is used as the fact-match
-            # proxy; a good enough approximation for the retrieval use-case.
+            # The Sonnet fact-pattern reranker is the single biggest case-
+            # relevance lever. When enabled, Sonnet judges how well each
+            # candidate's facts actually align with the lawyer's situation
+            # (~₹4 extra per query). When disabled, the reranker falls back
+            # to semantic_similarity as a proxy, which is faster + free but
+            # produces "topically related" rather than "factually aligned"
+            # results. Operator picks via the ENABLE_SONNET_RERANKER env var.
+            from headnote import config as _hncfg
             scored = rank_candidates(
                 situation,
                 candidates,
                 mode,
                 query_jurisdiction=jurisdiction,
                 result_top_k=top_cases,
-                skip_sonnet_rerank=True,
+                skip_sonnet_rerank=not _hncfg.ENABLE_SONNET_RERANKER,
             )
 
             # Map scored results back to CaseSummary (preserving paragraph data).
