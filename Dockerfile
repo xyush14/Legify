@@ -70,5 +70,8 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
         r = urllib.request.urlopen('http://localhost:8000/api/health', timeout=3); \
         sys.exit(0 if r.status == 200 else 1)" || exit 1
 
-# Use exec form so SIGTERM propagates cleanly to uvicorn
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Shell form (not exec) so $PORT gets expanded by the shell. Railway
+# injects PORT dynamically; locally we fall back to 8000.
+# Tradeoff vs exec form: SIGTERM now goes to /bin/sh first, then uvicorn.
+# uvicorn handles this gracefully — graceful shutdown still works.
+CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}
