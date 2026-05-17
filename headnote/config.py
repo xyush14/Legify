@@ -54,8 +54,23 @@ MAX_TOKENS = int(os.environ.get("MAX_TOKENS", "2500"))
 
 # ----------------------------------------------------------------- IK / retrieval
 
-USE_IK_RETRIEVAL = os.environ.get("USE_IK_RETRIEVAL", "").lower() in {"1", "true", "yes"}
-INDIAN_KANOON_TOKEN: Optional[str] = os.environ.get("INDIAN_KANOON_TOKEN")
+# IK token: accept either INDIAN_KANOON_TOKEN (canonical) or KANOON_API_TOKEN
+# (legacy alias used in some Render dashboards). Whichever is set wins.
+INDIAN_KANOON_TOKEN: Optional[str] = (
+    os.environ.get("INDIAN_KANOON_TOKEN")
+    or os.environ.get("KANOON_API_TOKEN")
+)
+
+# USE_IK_RETRIEVAL: explicit opt-in normally, but auto-enable if a token IS
+# configured — there's no good reason to have the token set and not use it.
+# Set USE_IK_RETRIEVAL=0 to force-disable even with token present.
+_use_ik_env = os.environ.get("USE_IK_RETRIEVAL", "").lower()
+if _use_ik_env in {"0", "false", "no"}:
+    USE_IK_RETRIEVAL = False
+elif _use_ik_env in {"1", "true", "yes"}:
+    USE_IK_RETRIEVAL = True
+else:
+    USE_IK_RETRIEVAL = bool(INDIAN_KANOON_TOKEN)
 
 _daily_cap_env = os.environ.get("INDIAN_KANOON_DAILY_CAP_INR", "100").strip()
 INDIAN_KANOON_DAILY_CAP_INR: Optional[float] = (
