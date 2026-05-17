@@ -165,10 +165,19 @@ class KanoonClient:
         timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
         daily_cap_inr: float | None = None,
     ):
-        self.token = token or os.environ.get("INDIAN_KANOON_TOKEN", "")
+        # Accept either canonical (INDIAN_KANOON_TOKEN) or legacy
+        # (KANOON_API_TOKEN) env var name — some Render dashboards use the
+        # shorter alias.
+        self.token = (
+            token
+            or os.environ.get("INDIAN_KANOON_TOKEN")
+            or os.environ.get("KANOON_API_TOKEN")
+            or ""
+        )
         if not self.token:
             raise KanoonAuthError(
-                "INDIAN_KANOON_TOKEN not set. Add it to .env or pass token=..."
+                "Indian Kanoon token not set. Add INDIAN_KANOON_TOKEN "
+                "(or legacy KANOON_API_TOKEN) to .env or pass token=..."
             )
         self.cache_path = Path(cache_path) if cache_path else DEFAULT_CACHE_PATH
         self.throttle_seconds = throttle_seconds
