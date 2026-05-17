@@ -63,15 +63,12 @@ WORKDIR /app
 COPY --chown=headnote:headnote . /app
 
 USER headnote
-EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD python -c "import urllib.request, sys; \
-        r = urllib.request.urlopen('http://localhost:8000/api/health', timeout=3); \
-        sys.exit(0 if r.status == 200 else 1)" || exit 1
+# No EXPOSE / HEALTHCHECK directives. Both were hardcoded to port 8000 which
+# breaks on hosts that inject a dynamic $PORT (Railway, fly.io, Cloud Run).
+# Railway's gateway uses the PORT env var for routing; the app binds to it.
+# Render uses its own out-of-band healthcheck against the URL Render assigns.
 
-# Shell form (not exec) so $PORT gets expanded by the shell. Railway
-# injects PORT dynamically; locally we fall back to 8000.
-# Tradeoff vs exec form: SIGTERM now goes to /bin/sh first, then uvicorn.
-# uvicorn handles this gracefully — graceful shutdown still works.
-CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}
+# Shell form (not exec) so $PORT gets expanded by /bin/sh. Falls back to
+# 8000 for local runs without a PORT env var.
+CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips '*'
