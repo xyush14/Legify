@@ -75,15 +75,35 @@ def client(fake_anthropic):
             yield c
 
 
+def _mock_pipeline(*, cases=None, select_paise=20, generate_paise=300):
+    """Build a stub for headnote.situation_pipeline.run_two_phase_pipeline.
+
+    The two-phase pipeline makes 1 Haiku + N Sonnet calls; for endpoint
+    tests we don't care about that internal mechanic — we care that the
+    endpoint surfaces the right model/cost/telemetry. Stub the pipeline
+    output and assert on the endpoint contract.
+    """
+    cases = cases if cases is not None else []
+    def _stub(*args, **kwargs):
+        return {
+            "confidence": "medium" if cases else "low",
+            "style": kwargs.get("style", "journal"),
+            "cases": cases,
+            "_phase_costs": {"select_paise": select_paise, "generate_paise": generate_paise},
+            "_phase_elapsed": {"select_seconds": 1.0, "generate_seconds": 2.0},
+        }
+    return _stub
+
+
 # ============================================================================
 # /api/situation — Sonnet by default
 # ============================================================================
 
-def test_situation_routes_to_sonnet_by_default(client, fake_anthropic):
-    # Valid JSON with no cases (avoids the existence-filter dropping anything)
-    # plus the confidence suffix
-    fake_anthropic.queue('{"cases": [], "confidence": "low"}\nCONFIDENCE: 8')
-
+def test_situation_routes_to_sonnet_by_default(client, monkeypatch):
+    """Sonnet is the user-facing model when deep_mode is off."""
+    monkeypatch.setattr(
+        "headnote.situation_pipeline.run_two_phase_pipeline", _mock_pipeline(cases=[])
+    )
     resp = client.post("/api/situation", json={
         "situation": "Some legal scenario, at least ten characters.",
         "style": "journal",
@@ -91,37 +111,30 @@ def test_situation_routes_to_sonnet_by_default(client, fake_anthropic):
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["meta"]["model"] == "claude-sonnet-4-6"
-    assert body["meta"]["confidence_score"] == 8
     assert body["meta"]["cost_paise"] > 0
-    # Anthropic was called exactly once (high confidence -> no retry)
-    assert len(fake_anthropic.calls) == 1
-    assert fake_anthropic.calls[0]["model"] == "claude-sonnet-4-6"
+    assert body["meta"]["escalated_to_opus"] is False
 
 
-def test_situation_low_confidence_does_not_auto_upgrade(client, fake_anthropic):
+def test_situation_low_confidence_does_not_auto_upgrade(client, monkeypatch):
     """Auto-escalation to Opus is OFF for /api/situation by default.
 
     Previously a Sonnet response with confidence < 7 triggered a silent
     Opus retry — stacking two calls and blowing past Render's request
     budget (60-90s). Lawyers have an explicit `deep_mode` toggle for
     Opus; we no longer spend their ₹20 silently to bump a "medium"
-    answer. This test pins the new behaviour.
+    answer.
     """
-    fake_anthropic.queue('{"cases": []}\nCONFIDENCE: 3')
-
+    monkeypatch.setattr(
+        "headnote.situation_pipeline.run_two_phase_pipeline", _mock_pipeline(cases=[])
+    )
     resp = client.post("/api/situation", json={
         "situation": "Another scenario, well over ten characters in length.",
         "style": "journal",
     })
     assert resp.status_code == 200, resp.text
     body = resp.json()
-    # Stayed on Sonnet despite low confidence — no auto-Opus retry
     assert body["meta"]["model"] == "claude-sonnet-4-6"
-    assert body["meta"]["confidence_score"] == 3
     assert body["meta"]["escalated_to_opus"] is False
-    # Exactly one call: Sonnet, no retry
-    assert len(fake_anthropic.calls) == 1
-    assert fake_anthropic.calls[0]["model"] == "claude-sonnet-4-6"
 
 
 # ============================================================================

@@ -64,12 +64,30 @@ def client(fake_anthropic, tmp_db, monkeypatch):
             yield c
 
 
+def _mock_pipeline(*, cases=None, select_paise=20, generate_paise=300):
+    """Stub the two-phase pipeline. Endpoint tests check the user-facing
+    contract (model + cost + telemetry), not the internal Phase 1 / Phase 2
+    call mechanics."""
+    cases = cases if cases is not None else []
+    def _stub(*args, **kwargs):
+        return {
+            "confidence": "medium" if cases else "low",
+            "style": kwargs.get("style", "journal"),
+            "cases": cases,
+            "_phase_costs": {"select_paise": select_paise, "generate_paise": generate_paise},
+            "_phase_elapsed": {"select_seconds": 1.0, "generate_seconds": 2.0},
+        }
+    return _stub
+
+
 # ============================================================================
 # Telemetry recording
 # ============================================================================
 
-def test_situation_request_records_telemetry(client, fake_anthropic, tmp_db):
-    fake_anthropic.queue('{"cases": []}\nCONFIDENCE: 8')
+def test_situation_request_records_telemetry(client, tmp_db, monkeypatch):
+    monkeypatch.setattr(
+        "headnote.situation_pipeline.run_two_phase_pipeline", _mock_pipeline(cases=[])
+    )
     resp = client.post("/api/situation", json={
         "situation": "Some legal scenario text here", "style": "journal",
     })
@@ -78,26 +96,27 @@ def test_situation_request_records_telemetry(client, fake_anthropic, tmp_db):
     import sqlite3
     conn = sqlite3.connect(tmp_db)
     rows = conn.execute(
-        "SELECT task_type, primary_model, escalated, total_cost_paise, confidence FROM query_telemetry"
+        "SELECT task_type, primary_model, escalated, total_cost_paise FROM query_telemetry"
     ).fetchall()
     conn.close()
     assert len(rows) == 1
     row = rows[0]
     assert row[0] == "situation"
     assert row[1] == "claude-sonnet-4-6"
-    assert row[2] == 0   # not escalated
+    assert row[2] == 0   # not escalated (auto-escalation removed)
     assert row[3] > 0    # paid something
-    assert row[4] == 8   # confidence
 
 
-def test_low_confidence_does_not_escalate(client, fake_anthropic, tmp_db):
+def test_low_confidence_does_not_escalate(client, tmp_db, monkeypatch):
     """Auto-escalation is off: low-confidence Sonnet stays on Sonnet.
 
     Lawyers can opt into Opus via the explicit deep_mode toggle; the
     auto-retry was stacking two LLM calls and blowing past Render's
     request budget.
     """
-    fake_anthropic.queue('{"cases": []}\nCONFIDENCE: 4')
+    monkeypatch.setattr(
+        "headnote.situation_pipeline.run_two_phase_pipeline", _mock_pipeline(cases=[])
+    )
     resp = client.post("/api/situation", json={
         "situation": "Another situation that would have escalated",
         "style": "journal",
@@ -112,12 +131,15 @@ def test_low_confidence_does_not_escalate(client, fake_anthropic, tmp_db):
         "SELECT escalated, primary_model FROM query_telemetry"
     ).fetchone()
     conn.close()
-    assert row[0] == 0                       # not escalated
-    assert row[1] == "claude-sonnet-4-6"     # stayed on Sonnet
+    assert row[0] == 0
+    assert row[1] == "claude-sonnet-4-6"
 
 
-def test_deep_mode_forces_opus_and_skips_retry(client, fake_anthropic, tmp_db):
-    fake_anthropic.queue('{"cases": []}\nCONFIDENCE: 3')  # low conf, but...
+def test_deep_mode_forces_opus_and_skips_retry(client, tmp_db, monkeypatch):
+    """deep_mode forces Opus for Phase 2 of the two-phase pipeline."""
+    monkeypatch.setattr(
+        "headnote.situation_pipeline.run_two_phase_pipeline", _mock_pipeline(cases=[])
+    )
     resp = client.post("/api/situation", json={
         "situation": "Premium-tier query with deep_mode",
         "style": "journal",
@@ -127,9 +149,7 @@ def test_deep_mode_forces_opus_and_skips_retry(client, fake_anthropic, tmp_db):
     body = resp.json()
     assert body["meta"]["model"] == "claude-opus-4-6"
     assert body["meta"]["deep_mode"] is True
-    # No retry — deep_mode disables confidence-based escalation
-    assert len(fake_anthropic.calls) == 1
-    # escalated_to_opus is False — Opus was the FIRST model, not an upgrade
+    # Opus was the FIRST model, not an upgrade — auto-escalation is removed.
     assert body["meta"]["escalated_to_opus"] is False
 
 
@@ -176,11 +196,12 @@ def test_admin_telemetry_returns_empty_summary_initially(client):
     assert body["total_cost_paise"] == 0
 
 
-def test_admin_telemetry_summarises_recorded_queries(client, fake_anthropic, tmp_db):
-    # Three queries: 2 situation (default Sonnet) + 1 digest (Sonnet)
-    fake_anthropic.queue('{"cases": []}\nCONFIDENCE: 8')
-    fake_anthropic.queue('{"topic": "x", "sub_topics": []}\nCONFIDENCE: 9')
-    fake_anthropic.queue('{"cases": []}\nCONFIDENCE: 5')
+def test_admin_telemetry_summarises_recorded_queries(client, fake_anthropic, tmp_db, monkeypatch):
+    """Two situation queries via the pipeline + one digest via the legacy path."""
+    monkeypatch.setattr(
+        "headnote.situation_pipeline.run_two_phase_pipeline", _mock_pipeline(cases=[])
+    )
+    fake_anthropic.queue('{"topic": "x", "sub_topics": []}\nCONFIDENCE: 9')   # for digest
 
     client.post("/api/situation", json={"situation": "abc def ghi jkl mno", "style": "journal"})
     client.post("/api/digest", json={"topic": "circumstantial evidence topic"})
@@ -192,7 +213,6 @@ def test_admin_telemetry_summarises_recorded_queries(client, fake_anthropic, tmp
     body = resp.json()
     assert body["total_queries"] == 3
     assert body["total_cost_paise"] > 0
-    # Auto-escalation is disabled; nothing escalated.
     assert body["escalation_rate_pct"] == 0.0
     assert any("sonnet" in m.lower() for m in body["cost_by_model"])
 
@@ -211,14 +231,19 @@ def test_admin_telemetry_disabled_when_no_token_configured(monkeypatch, fake_ant
 # ENABLE_OPUS_ESCALATION feature flag
 # ============================================================================
 
-def test_disable_opus_escalation_keeps_sonnet_on_low_confidence(monkeypatch, fake_anthropic, tmp_db):
+def test_disable_opus_escalation_keeps_sonnet_on_low_confidence(monkeypatch, tmp_db):
+    """ENABLE_OPUS_ESCALATION is now a no-op: auto-escalation was removed
+    structurally from /api/situation. The flag is preserved so older deploys
+    don't break, but the endpoint always stays on Sonnet unless deep_mode
+    is on."""
     monkeypatch.setattr("headnote.config.ENABLE_OPUS_ESCALATION", False)
     monkeypatch.setattr("headnote.config.ADMIN_TOKEN", "test")
+    monkeypatch.setattr(
+        "headnote.situation_pipeline.run_two_phase_pipeline", _mock_pipeline(cases=[])
+    )
     with patch("headnote.api.app._get_kanoon_client", return_value=None):
         from headnote.api.app import app
         with TestClient(app) as c:
-            # Low confidence — would normally trigger Opus, but disabled
-            fake_anthropic.queue('{"cases": []}\nCONFIDENCE: 3')
             resp = c.post("/api/situation", json={
                 "situation": "Test scenario with escalation disabled",
                 "style": "journal",
@@ -227,5 +252,3 @@ def test_disable_opus_escalation_keeps_sonnet_on_low_confidence(monkeypatch, fak
     body = resp.json()
     assert body["meta"]["model"] == "claude-sonnet-4-6"
     assert body["meta"]["escalated_to_opus"] is False
-    # Only ONE call — no auto-retry when flag is off
-    assert len(fake_anthropic.calls) == 1

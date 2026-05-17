@@ -313,36 +313,63 @@ def api_situation(req: SituationRequest):
         )
         ik_meta_extra = {"retrieval_path": "curated-only"}
 
-    user_prompt = SITUATION_USER_TEMPLATE.format(situation=working_situation, style=req.style)
     t0 = time.time()
-    # Model routing for /api/situation:
-    #   - deep_mode on  → force Opus, no auto-escalation, no regen retry.
-    #   - deep_mode off → force Sonnet, NO auto-escalation to Opus.
-    # Auto-escalation (Sonnet → Opus on low confidence) was doubling latency
-    # past the request budget (90s+ on Render free tier) and tripling cost.
-    # The lawyer has an explicit `deep_mode` switch for Opus; we don't need
-    # to spend their ₹20 silently to bump a "medium confidence" answer.
-    if req.deep_mode:
-        route_force: Optional[str] = "opus"
-    else:
-        route_force = "sonnet"
+    # ---------- Two-phase pipeline (situation_pipeline.py) ----------
+    # Phase 1: Haiku picks 3-5 case_ids from the candidate pool (cheap).
+    # Phase 2: Sonnet generates one headnote per case in parallel.
+    #
+    # This replaces the legacy single Sonnet call that bottlenecked on
+    # output volume (5 cases × ~700 tokens of journal headnote serially
+    # = 70s+ wall-clock, past Render's request budget).
+    from headnote.situation_pipeline import run_two_phase_pipeline
 
-    route_result = route_call(
-        "situation",
-        {"system_prompt": sys_prompt, "user_prompt": user_prompt},
-        force_model=route_force,
+    # Rebuild a clean candidate list from the corpus JSON we already produced.
+    if client is not None:
+        candidates_for_prompt = json.loads(corpus_json)
+    else:
+        # Curated-only path: load the prefiltered curated cases as candidates
+        candidates_for_prompt = json.loads(_filtered_corpus_json(working_situation))
+        # The legacy curated entries have no `_source` flag; tag them so the
+        # Phase 1 prompt understands the provenance.
+        for c in candidates_for_prompt:
+            c.setdefault("_source", "curated")
+
+    # deep_mode is the only model knob the user controls: it forces Opus
+    # in Phase 2 for every per-case generation. Phase 1 stays on Haiku
+    # regardless (its job — picking case IDs — doesn't need a heavy model).
+    phase2_model = "opus" if req.deep_mode else "sonnet"
+    pipeline_result = run_two_phase_pipeline(
+        situation=working_situation,
+        candidates_for_prompt=candidates_for_prompt,
+        style=req.style,
+        max_cases=5,
+        force_model=phase2_model,
     )
     elapsed = time.time() - t0
-    raw = route_result.response
-    total_paise = route_result.cost_paise
-    chosen_model = route_result.model_name
-    primary_model = chosen_model  # what the first call ran on (for telemetry)
-    # We now force Sonnet/Opus explicitly, so escalation only happens when
-    # the lawyer explicitly enabled deep_mode (which forces Opus from the
-    # start). Auto-escalation is disabled. Keep the flag for telemetry.
-    escalated = False
 
-    parsed = parse_json_response(raw)
+    total_paise = (
+        pipeline_result["_phase_costs"]["select_paise"]
+        + pipeline_result["_phase_costs"]["generate_paise"]
+    )
+    primary_model = "claude-opus-4-6" if req.deep_mode else "claude-sonnet-4-6"
+    chosen_model = primary_model
+    escalated = False
+    raw = json.dumps(pipeline_result, ensure_ascii=False)
+    parsed = {
+        "confidence": pipeline_result["confidence"],
+        "style": pipeline_result["style"],
+        "cases": pipeline_result["cases"],
+    }
+
+    # Synthesize a RouteResult-shaped object so build_router_meta below sees
+    # the right totals. Phase costs are surfaced separately in the meta.
+    from headnote.llm import RouteResult
+    route_result = RouteResult(
+        model_name=primary_model,
+        response=raw,
+        cost_paise=total_paise,
+        confidence_score=None,
+    )
 
     # Existence filter (drop case_ids we don't recognise)
     if client is not None:
@@ -358,48 +385,22 @@ def api_situation(req: SituationRequest):
             dropped.append(c.get("title", "?"))
     parsed["cases"] = verified
 
-    # Three-check verification + at most one regeneration retry.
-    # In deep_mode we already paid for Opus, so re-running Opus to "regenerate"
-    # buys nothing and doubles total latency past Render's request budget.
-    # Surface verification status but skip the regen.
+    # Verification (in-process, no LLM call): the three-check verifier
+    # cross-references each cited paragraph_anchor and quotable_phrase
+    # against the source evidence. We DROP the failing case rather than
+    # regenerating — the two-phase pipeline produces much cleaner output
+    # than the legacy single-call path, so regen rarely helps and always
+    # adds 30-60s of latency.
     regen_attempted = False
     regen_helped = False
     if evidence:
         report = verify_situation_response(parsed, evidence)
-
-        if not report.is_clean() and not req.deep_mode:
-            regen_attempted = True
-            feedback = build_regen_feedback(report)
-            try:
-                retry_prompt = user_prompt + feedback
-                # Verification-failure regen ALWAYS forces Opus. The router
-                # already auto-upgrades on low confidence; reaching this
-                # branch means the response was wrong in a way confidence
-                # alone didn't catch (fabricated citation/quote/anchor),
-                # so we commit to the highest-quality model.
-                retry_result = route_call(
-                    "situation",
-                    {"system_prompt": sys_prompt, "user_prompt": retry_prompt},
-                    force_model="opus",
-                )
-                retry_raw = retry_result.response
-                total_paise += retry_result.cost_paise
-                retry_parsed = parse_json_response(retry_raw)
-                retry_parsed["cases"] = [
-                    c for c in retry_parsed.get("cases", [])
-                    if c.get("case_id") in known_ids
-                ]
-                retry_report = verify_situation_response(retry_parsed, evidence)
-                if _is_strictly_better(retry_report, report):
-                    parsed = retry_parsed
-                    raw = retry_raw
-                    report = retry_report
-                    chosen_model = retry_result.model_name  # Opus
-                    regen_helped = True
-            except HTTPException:
-                # Bad JSON from retry → keep the original
-                pass
-
+        if not report.is_clean():
+            # Drop only the cases that actually failed verification
+            failed_ids = {f.case_id for f in report.findings if not f.is_clean()}
+            kept = [c for c in parsed.get("cases", []) if c.get("case_id") not in failed_ids]
+            if kept and len(kept) < len(parsed["cases"]):
+                parsed["cases"] = kept
         verification_report = report.summary()
 
     # Synthesise a RouteResult-shaped object so build_router_meta sees the
