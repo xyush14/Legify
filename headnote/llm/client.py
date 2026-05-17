@@ -33,11 +33,31 @@ def call_claude_cached(
     model: str = "",
     max_tokens: int = 0,
     cache: bool = True,
+    enable_thinking: bool = False,
+    thinking_budget: int = 3000,
 ) -> Tuple[str, dict]:
     """Send a single user message with `system_prompt` optionally cached.
 
     Returns (response_text, usage_dict). usage_dict has input/output/cache token
     counts; pass it to `estimate_cost_usd()` for the meter.
+
+    Extended thinking
+    -----------------
+    When `enable_thinking=True`, the model gets a dedicated scratch space
+    (`thinking_budget` tokens) for chain-of-thought BEFORE producing its
+    JSON output. The thinking blocks are stripped from the response — the
+    caller sees only the final text. Thinking tokens are billed as output.
+
+    For the SITUATION endpoint, thinking is what gives the model room to
+    actually execute the four-dimension scoring rubric (fact-archetype /
+    doctrinal / outcome / authority) on every corpus case before writing
+    the final JSON. Without thinking, the model has to interleave the
+    reasoning with the structured output, which degrades both.
+
+    Supported on Sonnet 4 / Opus 4 model families (claude-sonnet-4-*,
+    claude-opus-4-*). Haiku 4.5 does not support extended thinking.
+    When thinking is enabled, temperature is forced to 1.0 (Anthropic
+    requirement).
     """
     model = model or config.DEFAULT_MODEL
     max_tokens = max_tokens or config.MAX_TOKENS
@@ -49,12 +69,24 @@ def call_claude_cached(
     else:
         system = system_prompt
 
-    resp = client.messages.create(
+    create_kwargs = dict(
         model=model,
         max_tokens=max_tokens,
         system=system,
         messages=[{"role": "user", "content": user_prompt}],
     )
+
+    if enable_thinking and "haiku" not in model.lower():
+        # max_tokens must be greater than thinking budget — bump if needed
+        if max_tokens <= thinking_budget:
+            create_kwargs["max_tokens"] = thinking_budget + 2000
+        create_kwargs["thinking"] = {
+            "type": "enabled",
+            "budget_tokens": thinking_budget,
+        }
+        create_kwargs["temperature"] = 1.0   # Required by API when thinking is on
+
+    resp = client.messages.create(**create_kwargs)
     usage = resp.usage
     usage_dict = {
         "model": model,
@@ -63,7 +95,15 @@ def call_claude_cached(
         "cache_creation_input_tokens": getattr(usage, "cache_creation_input_tokens", 0),
         "cache_read_input_tokens": getattr(usage, "cache_read_input_tokens", 0),
     }
-    return resp.content[0].text, usage_dict
+
+    # When thinking is on, response.content may include thinking blocks
+    # BEFORE the text blocks. Concatenate only the text blocks for the
+    # caller — the thinking is internal scratch space.
+    text_blocks = [b.text for b in resp.content if getattr(b, "type", None) == "text"]
+    response_text = "\n".join(text_blocks) if text_blocks else (
+        resp.content[0].text if resp.content else ""
+    )
+    return response_text, usage_dict
 
 
 def estimate_cost_usd(usage: dict) -> float:

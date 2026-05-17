@@ -34,22 +34,41 @@ CASES_PATH = PACKAGE_DIR / "data" / "cases.json"
 # package root, because the frontend is intentionally outside the package.
 STATIC_DIR = PROJECT_ROOT / "static"
 
-# Caches. Both default to inside the project root so they're easy to find /
-# back up; overridable for production where you'd put them on a persistent
-# volume (Render disk, EFS, etc.).
-KANOON_CACHE_PATH = Path(os.environ.get(
-    "KANOON_CACHE_PATH", str(PROJECT_ROOT / "kanoon_cache.sqlite"),
-))
-FEEDBACK_DB = Path(os.environ.get(
-    "FEEDBACK_DB", str(PROJECT_ROOT / "feedback.db"),
-))
+# Caches. Default to inside the project root so they're easy to find / back
+# up; overridable for production where you'd put them on a persistent
+# volume (Render disk, EFS, Railway volume, etc.).
+#
+# Defensive: if the configured directory isn't writable (e.g. Railway
+# without a volume mount, immutable container layer), fall back to /tmp.
+# Persistence is lost on restart, but the app at least boots.
+
+def _writable_path(env_var: str, default: Path) -> Path:
+    candidate = Path(os.environ.get(env_var, str(default)))
+    try:
+        candidate.parent.mkdir(parents=True, exist_ok=True)
+        # Touch-test
+        candidate.parent.touch(exist_ok=True)
+        return candidate
+    except (PermissionError, OSError):
+        import tempfile
+        fallback = Path(tempfile.gettempdir()) / candidate.name
+        print(f"[config] {env_var} dir not writable; falling back to {fallback}")
+        return fallback
+
+
+KANOON_CACHE_PATH = _writable_path(
+    "KANOON_CACHE_PATH", PROJECT_ROOT / "kanoon_cache.sqlite",
+)
+FEEDBACK_DB = _writable_path(
+    "FEEDBACK_DB", PROJECT_ROOT / "feedback.db",
+)
 
 
 # ----------------------------------------------------------------- LLM / Claude
 
 ANTHROPIC_API_KEY: Optional[str] = os.environ.get("ANTHROPIC_API_KEY")
 DEFAULT_MODEL = os.environ.get("MODEL", "claude-opus-4-6")
-MAX_TOKENS = int(os.environ.get("MAX_TOKENS", "2500"))
+MAX_TOKENS = int(os.environ.get("MAX_TOKENS", "4000"))   # 2500→4000: room for relevance_explanations + internal_reasoning
 
 
 # ----------------------------------------------------------------- IK / retrieval
@@ -103,7 +122,21 @@ else:
     # Default ON. Operator can disable for free-tier latency.
     ENABLE_SONNET_RERANKER = True
 
-PREFILTER_TOP_K = int(os.environ.get("PREFILTER_TOP_K", "12"))
+# Extended thinking on the SITUATION call. The four-dimension scoring rubric
+# in the v2 prompt needs reasoning space the model can use BEFORE writing
+# JSON. Without thinking, scoring + JSON output share the same stream and
+# both degrade. Thinking tokens are billed as output (~₹1.50 extra per
+# query on Sonnet at 3000 budget). Disable for free-tier latency.
+_thinking_env = os.environ.get("ENABLE_THINKING", "").lower()
+if _thinking_env in {"0", "false", "no"}:
+    ENABLE_THINKING = False
+elif _thinking_env in {"1", "true", "yes"}:
+    ENABLE_THINKING = True
+else:
+    ENABLE_THINKING = True   # default ON for quality
+THINKING_BUDGET_TOKENS = int(os.environ.get("THINKING_BUDGET_TOKENS", "3000"))
+
+PREFILTER_TOP_K = int(os.environ.get("PREFILTER_TOP_K", "20"))   # 12→20: wider pool for the LLM to discriminate from
 
 # Sonnet -> Opus auto-escalation on low confidence. Set to "0" / "false" in
 # env to disable the retry, e.g. during a cost-spike incident — Sonnet will
