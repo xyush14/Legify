@@ -285,15 +285,20 @@ def _rank_search_hits(
         headline_score = len(query_tokens & set(_tokens(h.headline))) * 1.0
         court_bonus = 1.5 if "supreme court" in h.docsource.lower() else 0.0
 
-        if mode == "hidden":
-            # Penalise fame so obscure-but-relevant cases rank above famous ones
-            citation_score = -math.log1p(h.numcitedby) * 0.5
-        elif mode == "famous":
+        # IMPORTANT: in hidden mode we do NOT penalise citations here. Producing
+        # negative scores breaks downstream normalisation (max_rel becomes
+        # dominated by curated cases' positive keyword scores; IK gets pushed
+        # to the bottom). Fame is penalised in rank_candidates() instead, where
+        # the per-source-normalised relevance keeps the math fair.
+        if mode == "famous":
             citation_score = math.log1p(h.numcitedby) * 2.5
-        else:  # mixed — original neutral behaviour
-            citation_score = math.log1p(h.numcitedby) * 1.5
+        elif mode == "hidden":
+            citation_score = 0.5            # constant; reranker handles fame
+        else:  # mixed
+            citation_score = math.log1p(h.numcitedby) * 1.0
 
-        score = citation_score + headline_score + court_bonus
+        # Always-positive base so normalisation across sources is comparable
+        score = max(0.5, citation_score + headline_score + court_bonus)
         scored.append((score, h))
     scored.sort(key=lambda t: t[0], reverse=True)
     return scored
@@ -537,22 +542,17 @@ def retrieve_for_situation(
         except Exception as e:
             meta.notes.append(f"semantic search failed: {e}")
 
-    # 3. IK live search (paid).
+    # 3. IK live search (paid) — ALWAYS run regardless of mode.
     #
-    # hidden/famous: ALWAYS run — we need non-curated candidates for the
-    #   reranker to surface obscure authorities. Skip threshold is ignored.
-    # mixed: only run when curated+semantic didn't fill the threshold
-    #   (saves ₹0.50 when the cache is warm).
-    run_ik_search = False
-    if mode in ("hidden", "famous"):
-        run_ik_search = True
-    elif len(cases) < skip_ik_search_if_cases_at_least:
-        run_ik_search = True
-    else:
-        meta.notes.append(
-            f"Skipped IK search (saved ₹0.50): {len(cases)} cases already from "
-            f"curated+semantic (mode={mode}, threshold={skip_ik_search_if_cases_at_least})"
-        )
+    # Previously, mixed mode skipped IK once curated+semantic returned a
+    # threshold count of cases. In practice, the 42 curated cases match
+    # 3+ keywords for almost every criminal query, so IK never ran and
+    # the result pool was always 100% famous landmarks. The product can't
+    # claim "Hidden Authorities" if the IK retrieval doesn't fire.
+    #
+    # Cost: ₹0.50 per search (cached 30 days), so the same query in the
+    # next 30 days is free. Worth it.
+    run_ik_search = True
 
     if run_ik_search:
         form_input = _build_search_input(situation, extra_filters=search_filters)
@@ -667,8 +667,29 @@ def retrieve_for_situation(
         try:
             from headnote.retrieval.hidden_authorities import rank_candidates, Candidate
 
-            # Normalise relevance_score to 0-1 for the Candidate.semantic_similarity field.
-            max_rel = max(c.relevance_score for c in cases) or 1.0
+            # HIDDEN MODE — hard-filter curated when we have enough IK cases.
+            # The 42 curated cases are famous landmarks; surfacing them is
+            # the OPPOSITE of the Hidden Authorities promise. Curated stays
+            # only as a last-resort fallback (when IK has <3 candidates).
+            if mode == "hidden":
+                ik_only = [c for c in cases if c.source != "curated"]
+                if len(ik_only) >= 3:
+                    cases = ik_only
+                    meta.notes.append(
+                        f"hidden mode: dropped curated landmarks, "
+                        f"ranking over {len(cases)} IK candidates only"
+                    )
+
+            # PER-SOURCE relevance normalisation. The old global-max approach
+            # divided IK relevance scores (mixed scale, can be small or
+            # negative pre-fix) by the same denominator as curated keyword
+            # scores (0-15) — IK always got rel ≈ 0.1, curated got rel ≈ 1.0,
+            # curated won every time. Now each source is normalised against
+            # its own peer max so cross-source comparison stays fair.
+            rel_by_src: dict[str, float] = {}
+            for c in cases:
+                rel_by_src[c.source] = max(rel_by_src.get(c.source, 0.0), float(c.relevance_score))
+            rel_by_src = {k: (v or 1.0) for k, v in rel_by_src.items()}
 
             def _summary(cs: CaseSummary) -> str:
                 if cs.paragraphs:
@@ -683,9 +704,10 @@ def retrieve_for_situation(
                     year=int(str(cs.year)[:4]) if str(cs.year)[:4].isdigit() else 0,
                     citation=cs.citation,
                     numcitedby=cs.numcitedby,
-                    # semantic_similarity is the primary relevance proxy when
-                    # Sonnet rerank is skipped — normalise to 0-1.
-                    semantic_similarity=max(0.0, min(1.0, cs.relevance_score / max_rel)),
+                    semantic_similarity=max(
+                        0.0,
+                        min(1.0, cs.relevance_score / (rel_by_src.get(cs.source) or 1.0)),
+                    ),
                     summary=_summary(cs),
                     source=cs.source,
                 )
