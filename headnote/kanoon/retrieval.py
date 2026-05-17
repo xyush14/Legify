@@ -168,15 +168,55 @@ _SECTION_HINT_RX = re.compile(
 )
 _ARTICLE_HINT_RX = re.compile(r"\bArt(?:icle)?\.?\s*(\d+[A-Z]?(?:\([\d\w]+\))?)", re.IGNORECASE)
 
-# Stopwords that add noise to IK search if passed verbatim
+# Stopwords that add noise to IK search if passed verbatim. Includes:
+#   - English function words (the, a, of, ...)
+#   - Generic legal procedural nouns that match too many docs (accused,
+#     complainant, person, party, year, month, age)
+#   - First-person framing words from a lawyer's prose (client, my, his)
 _QUERY_STOPWORDS = {
+    # function words
     "the", "a", "an", "and", "or", "but", "if", "in", "on", "at", "to", "of",
     "for", "with", "by", "from", "as", "is", "are", "was", "were", "be",
     "been", "being", "this", "that", "these", "those", "what", "which",
-    "who", "whether", "case", "court", "judgment", "law", "client",
-    "lawyer", "wants", "needs", "looking", "find", "precedents", "ruling",
-    "rulings", "matter", "situation", "facts", "question", "my", "his",
-    "her", "their",
+    "who", "whether", "when", "where", "while", "such",
+    # generic procedural nouns (match thousands of docs)
+    "case", "cases", "court", "courts", "judgment", "judgments", "law",
+    "client", "lawyer", "matter", "situation", "facts", "fact", "question",
+    "accused", "complainant", "victim", "person", "party", "parties",
+    "year", "years", "month", "months", "day", "days", "age", "old",
+    "male", "female", "boy", "girl", "man", "woman", "child",
+    "rep", "representative", "deputy", "officer",
+    # framing verbs from prose
+    "wants", "needs", "need", "looking", "find", "needed", "want",
+    "precedents", "precedent", "ruling", "rulings", "ratio", "principle",
+    "principles", "leading", "important", "key", "main", "alleged",
+    "alleging", "claims", "claiming", "stated", "states",
+    # possessives + pronouns
+    "my", "his", "her", "their", "our", "your",
+}
+
+# High-signal legal terms — when present, KEEP them even if short. These
+# are the words that actually distinguish a POCSO acquittal case from a
+# general quashing case.
+_LEGAL_KEEP_TERMS = {
+    # statutes + procedural acts
+    "pocso", "ndps", "pmla", "uapa", "ipc", "crpc", "bns", "bnss", "bsa",
+    "mcoca", "tada", "fir", "ecir",
+    # remedies / dispositions (the lawyer's actual ask)
+    "acquittal", "acquitted", "conviction", "convicted",
+    "quashing", "quashed", "bail", "anticipatory", "discharge", "discharged",
+    "remand", "revision", "appeal", "review", "stay", "suspension",
+    # substantive triggers
+    "consent", "consensual", "minor", "majority", "voluntary",
+    "cruelty", "dowry", "domestic", "rape", "murder", "homicide",
+    "circumstantial", "dishonour", "cheque", "maintenance",
+    "custody", "remand", "chargesheet", "discharge", "compromise",
+    # evidentiary terms
+    "evidence", "evidentiary", "testimony", "corroboration", "delay",
+    "improvement", "contradiction", "hearsay", "electronic",
+    "chats", "messages", "calls", "records",
+    # outcome favorability
+    "false", "implication", "malicious",
 }
 
 # Proper-noun detector: capitalised tokens with at least 2 chars, not at
@@ -184,34 +224,45 @@ _QUERY_STOPWORDS = {
 _PROPER_NOUN_RX = re.compile(r"\b([A-Z][a-zA-Z]{2,})(?:\s+([A-Z][a-zA-Z]{2,}))+\b")
 
 
-def _distill_query(situation: str, *, max_tokens: int = 10) -> str:
+def _distill_query(situation: str, *, max_tokens: int = 8) -> str:
     """Turn a lawyer's natural-language situation into an IK-friendly search.
 
-    IK's search is closer to Boolean keyword retrieval than semantic search.
-    Sending 30+ words of prose typically returns zero hits because every term
-    is treated as a constraint. We extract the signal-bearing tokens:
+    IK's search is keyword-boolean. The previous distiller produced queries
+    like "FIR POCSO Need POCSO Accused major male complainant years months
+    Consensual" — over-constrained on generic procedural words, under-
+    specific on the actual legal question. Result: IK returned generic
+    quashing cases instead of POCSO acquittal cases.
 
-      1. Statute names (PMLA, NI Act, ...)
-      2. Section/article refs (S. 138, Art. 21)
-      3. Multi-word proper nouns (case names like "Vijay Madanlal Choudhary")
-      4. A few residual content words (filtered through stopwords)
+    New strategy, in priority order (best signal first):
 
-    Returns a space-joined token string of length <= max_tokens.
+      1. Statute names (POCSO, NDPS, NI Act, ...) — most distinguishing
+      2. Section / article refs (S. 138, Art. 21)
+      3. High-signal legal terms from _LEGAL_KEEP_TERMS (acquittal,
+         consent, quashing, ...) — the lawyer's actual ask
+      4. Multi-word proper nouns (specific case names)
+      5. Residual long content words (a fallback)
+
+    Deduplication is case-insensitive, including across categories.
     """
     tokens: list[str] = []
     seen: set[str] = set()
 
-    def add(tok: str) -> None:
+    def add(tok: str) -> bool:
         t = tok.strip()
         if not t:
-            return
+            return False
         key = t.lower()
+        # Reject duplicates and substring duplicates ("POCSO" + "pocso" + "POCSO Act")
         if key in seen:
-            return
+            return False
+        for prev in seen:
+            if key == prev or (len(key) > 3 and key in prev) or (len(prev) > 3 and prev in key):
+                return False
         seen.add(key)
         tokens.append(t)
+        return True
 
-    # 1. Statute names (lowercased canonical)
+    # 1. Statute names (canonical) — deduplicate aggressively
     for m in _STATUTE_HINT_RX.finditer(situation):
         add(m.group(0).strip())
 
@@ -221,21 +272,29 @@ def _distill_query(situation: str, *, max_tokens: int = 10) -> str:
     for m in _ARTICLE_HINT_RX.finditer(situation):
         add(f"Article {m.group(1)}")
 
-    # 3. Multi-word proper nouns (likely case party names)
-    for m in _PROPER_NOUN_RX.finditer(situation):
-        # Reconstruct the full match (m.group(0) covers the whole proper-noun span)
-        add(m.group(0).strip())
+    # 3. High-signal legal terms — the words that actually distinguish
+    # the lawyer's matter from a generic case
+    for w in re.findall(r"[A-Za-z][A-Za-z\-]+", situation):
+        if len(tokens) >= max_tokens:
+            break
+        wl = w.lower()
+        if wl in _LEGAL_KEEP_TERMS:
+            add(w)
 
-    # 4. Fill remaining budget with content words (alpha tokens, not stop)
+    # 4. Multi-word proper nouns (case names like "Vijay Madanlal Choudhary")
+    if len(tokens) < max_tokens:
+        for m in _PROPER_NOUN_RX.finditer(situation):
+            if len(tokens) >= max_tokens:
+                break
+            add(m.group(0).strip())
+
+    # 5. Residual content words (last resort — only longish words, not stop)
     if len(tokens) < max_tokens:
         for w in re.findall(r"[A-Za-z][A-Za-z\-]+", situation):
             if len(tokens) >= max_tokens:
                 break
             wl = w.lower()
-            if len(w) < 4 or wl in _QUERY_STOPWORDS or wl in seen:
-                continue
-            # skip if already covered by a token we added
-            if any(wl in tk.lower() for tk in tokens):
+            if len(w) < 5 or wl in _QUERY_STOPWORDS:
                 continue
             add(w)
 
