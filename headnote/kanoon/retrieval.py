@@ -91,9 +91,12 @@ DEFAULT_SEARCH_FILTERS = "doctypes:supremecourt,highcourts"
 # Per-call caps. Tune in main.py once we have real usage data.
 DEFAULT_TOP_CASES = 5           # final cases returned to the LLM
 DEFAULT_CANDIDATE_POOL = 25     # candidates to collect before hidden_authorities reranking
-DEFAULT_TOP_PARAGRAPHS_PER_CASE = 4
+DEFAULT_TOP_PARAGRAPHS_PER_CASE = 2   # 4→2: shorter Phase 2 prompts, faster generation
 DEFAULT_MAX_NEW_FETCHES = 5         # mixed mode: max new IK doc fetches (₹0.20 each)
-DEFAULT_MAX_NEW_FETCHES_HIDDEN = 10 # hidden/famous: wider pool needs more candidates
+# Render free-tier kills requests around 25s. Cold-cache IK doc fetches take
+# ~1-1.5s each — 10 fetches alone burn the entire request budget. Cap hidden
+# mode at 4 cold fetches so Phase 1 + Phase 2 actually get to run.
+DEFAULT_MAX_NEW_FETCHES_HIDDEN = 4
 
 # Cost-saving for mixed mode: don't burn ₹0.50 on an IK search if curated+semantic
 # already filled at least this many slots. Ignored for hidden/famous modes.
@@ -558,9 +561,12 @@ def retrieve_for_situation(
         form_input = _build_search_input(situation, extra_filters=search_filters)
         all_hits: list[SearchHit] = []
 
-        # hidden mode: fetch two IK result pages so the second page surfaces
-        # lower-cited (less famous) but still topically relevant documents.
-        pages_to_fetch = 2 if mode == "hidden" else 1
+        # Single IK search page per query to stay inside Render's request
+        # budget. A second page was being fetched in hidden mode to surface
+        # lower-cited results, but the extra ₹0.50 + ~1.5s round-trip wasn't
+        # worth pushing past the 25s timeout. The fame penalty in the
+        # reranker already pulls obscure cases up from page 0 results.
+        pages_to_fetch = 1
         for page_n in range(pages_to_fetch):
             try:
                 page = client.search(form_input, pagenum=page_n)
