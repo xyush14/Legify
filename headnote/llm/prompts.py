@@ -109,6 +109,19 @@ CRITICAL ANTI-HALLUCINATION RULES — apply without exception:
 6. Include for each case:
    - "relevance_explanation" (2-3 sentences) explaining why THIS case matches the lawyer's situation. This is what makes your output useful — not a generic summary.
    - "bns_note" — 1 sentence noting how IPC/CrPC/Evidence Act references map to BNS/BNSS/BSA for matters arising after 1 July 2024 (use the corpus entry's bns_mapping field).
+   - "outcome" — single token classification of the case's disposition for the accused. Use exactly one of:
+        "acquittal"   — accused found not guilty / acquitted on merits
+        "quashed"     — FIR / chargesheet / proceedings quashed under S. 482 CrPC or Art. 226
+        "dismissed"   — appeal/petition dismissed (no relief; usually status-quo for accused)
+        "conviction"  — accused convicted / appeal against acquittal allowed
+        "remand"      — matter remanded for fresh consideration
+        "bail-granted"  — bail / anticipatory bail granted
+        "bail-denied"   — bail / anticipatory bail refused
+        "other"       — disposition does not fit the above buckets (e.g. constitutional declaration without affecting accused)
+     Derive this strictly from the corpus entry's `holding` / `subsequent_treatment` / `_ik_paragraphs`. If unclear, use "other".
+
+PREFERENCE FOR SPECIFICITY:
+When the lawyer's situation engages a specific statute (e.g. POCSO, NDPS, PMLA), strongly prefer cases construing THAT statute over generic landmark cases on collateral doctrines. A 100-citation HC order squarely on POCSO acquittal facts is more useful than a 5000-citation SC ruling on the general quashing test. Surface the specific case; mention the landmark only if it directly governs the same point.
 
 7. Confidence flag for whole response:
    - "high" if 3+ strongly relevant cases found
@@ -130,6 +143,7 @@ OUTPUT JSON SCHEMA (style-dependent fields shown together — populate the field
       "year": number,
       "relevance_explanation": "string",
       "bns_note": "string",
+      "outcome": "acquittal | quashed | dismissed | conviction | remand | bail-granted | bail-denied | other",
 
       // populate ONLY IF style == "journal":
       "journal_headnote": {
