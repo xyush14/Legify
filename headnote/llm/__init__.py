@@ -1,10 +1,12 @@
-"""LLM prompt templates + Claude client wrapper."""
+"""LLM prompt templates, Claude client wrapper, and model router."""
 
 from .prompts import (
     build_situation_system_prompt,
     SITUATION_USER_TEMPLATE,
     HEADNOTE_SYSTEM_PROMPT,
     HEADNOTE_USER_TEMPLATE,
+    HEADNOTE_VERIFY_SYSTEM_PROMPT,
+    HEADNOTE_VERIFY_USER_TEMPLATE,
     build_digest_system_prompt,
     DIGEST_USER_TEMPLATE,
 )
@@ -15,12 +17,27 @@ from .client import (
     parse_json_response,
     build_meta,
 )
+from .router import (
+    TaskType,
+    RouteResult,
+    route_call,
+    build_router_meta,
+    calculate_cost_paise,
+    parse_and_strip_confidence,
+    CONFIDENCE_PROMPT_SUFFIX,
+    CONFIDENCE_RETRY_THRESHOLD,
+    HAIKU_MODEL,
+    SONNET_MODEL,
+    OPUS_MODEL,
+)
 
 __all__ = [
     "build_situation_system_prompt",
     "SITUATION_USER_TEMPLATE",
     "HEADNOTE_SYSTEM_PROMPT",
     "HEADNOTE_USER_TEMPLATE",
+    "HEADNOTE_VERIFY_SYSTEM_PROMPT",
+    "HEADNOTE_VERIFY_USER_TEMPLATE",
     "build_digest_system_prompt",
     "DIGEST_USER_TEMPLATE",
     "get_client",
@@ -28,4 +45,15 @@ __all__ = [
     "estimate_cost_usd",
     "parse_json_response",
     "build_meta",
+    "TaskType",
+    "RouteResult",
+    "route_call",
+    "build_router_meta",
+    "calculate_cost_paise",
+    "parse_and_strip_confidence",
+    "CONFIDENCE_PROMPT_SUFFIX",
+    "CONFIDENCE_RETRY_THRESHOLD",
+    "HAIKU_MODEL",
+    "SONNET_MODEL",
+    "OPUS_MODEL",
 ]

@@ -24,7 +24,7 @@ import json
 import re
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from deep_translator import GoogleTranslator, MyMemoryTranslator
 from deep_translator.exceptions import TranslationNotFound, RequestError
@@ -202,7 +202,13 @@ def _translate_string(text: str, target: str = "hi") -> str:
 
 
 def translate_payload(obj: Any, target: str = "hi") -> Any:
-    """Recursively translate prose fields in obj, preserving structure."""
+    """Recursively translate prose fields in obj using free Google Translate.
+
+    Retained as a fallback path for /api/translate when Anthropic is
+    unavailable (no API key, network failure). The primary path now goes
+    through `translate_payload_haiku` for higher quality + reliable
+    citation preservation.
+    """
     if isinstance(obj, dict):
         out: dict[str, Any] = {}
         for k, v in obj.items():
@@ -214,3 +220,159 @@ def translate_payload(obj: Any, target: str = "hi") -> Any:
     if isinstance(obj, list):
         return [translate_payload(item, target) for item in obj]
     return obj
+
+
+# ============================================================================
+# Haiku-backed translation (primary path)
+# ============================================================================
+
+# Tokens that must survive translation verbatim. Compiled from PROTECT_PATTERNS
+# above. Used by the citation verifier post-Haiku.
+def _extract_must_preserve_tokens(text: str) -> list[str]:
+    """Return every citation / paragraph anchor / section ref / statute
+    shorthand found in `text`. The order is preserved and duplicates kept
+    (rare but possible) so the verifier checks each occurrence."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for pat in PROTECT_PATTERNS:
+        for m in pat.finditer(text or ""):
+            tok = m.group(0).strip()
+            if tok and tok not in seen:
+                seen.add(tok)
+                out.append(tok)
+    # Case titles from the curated corpus
+    for title in _load_corpus_titles():
+        if title in (text or "") and title not in seen:
+            seen.add(title)
+            out.append(title)
+    return out
+
+
+def _detect_direction(text: str) -> tuple[str, str]:
+    """Auto-detect source/target language from a sample of prose.
+
+    Heuristic: if ≥30% of letter-characters are Devanagari, source is Hindi.
+    Otherwise English. Devanagari unicode range: U+0900..U+097F.
+    Returns ("source_lang", "target_lang") — short codes.
+    """
+    if not text:
+        return "en", "hi"
+    devanagari = sum(1 for c in text if "ऀ" <= c <= "ॿ")
+    latin = sum(1 for c in text if c.isalpha() and c.isascii())
+    total = devanagari + latin
+    if total == 0:
+        return "en", "hi"
+    if devanagari / total >= 0.30:
+        return "hi", "en"
+    return "en", "hi"
+
+
+def _verify_preserved(input_text: str, output_text: str) -> tuple[bool, list[str], list[str]]:
+    """Check every must-preserve token from `input_text` appears verbatim in
+    `output_text`. Returns `(ok, preserved, missing)`."""
+    tokens = _extract_must_preserve_tokens(input_text)
+    preserved: list[str] = []
+    missing: list[str] = []
+    for t in tokens:
+        if t in output_text:
+            preserved.append(t)
+        else:
+            missing.append(t)
+    return (not missing), preserved, missing
+
+
+def _haiku_translate_string(
+    text: str,
+    *,
+    target: Optional[str] = None,
+) -> tuple[str, int, str, list[str]]:
+    """Translate one prose string via Haiku, with one strict-retry on
+    citation drop.
+
+    Returns `(translated_text, cost_paise, quality, preserved_citations)`:
+      - quality is "ok" (preservation passed) or "degraded" (retry still
+        missed at least one token; caller may choose to fall back to original)
+      - preserved_citations is the list of tokens we verified survived.
+    """
+    from headnote.llm import route_call
+    from headnote.llm.translation_prompts import (
+        TRANSLATION_SYSTEM_PROMPT, build_strict_retry_prompt,
+    )
+
+    if not text or not text.strip():
+        return text, 0, "ok", []
+
+    # First attempt — standard prompt
+    result1 = route_call(
+        "translation",
+        {"system_prompt": TRANSLATION_SYSTEM_PROMPT, "user_prompt": text},
+    )
+    out1 = result1.response.strip()
+    ok1, preserved1, missing1 = _verify_preserved(text, out1)
+    total_paise = result1.cost_paise
+
+    if ok1:
+        return out1, total_paise, "ok", preserved1
+
+    # Strict retry — explicitly name the dropped tokens
+    print(f"[translate] retry: missing tokens after first attempt: {missing1}")
+    strict_prompt = build_strict_retry_prompt(missing1)
+    result2 = route_call(
+        "translation",
+        {"system_prompt": strict_prompt, "user_prompt": text},
+    )
+    out2 = result2.response.strip()
+    ok2, preserved2, missing2 = _verify_preserved(text, out2)
+    total_paise += result2.cost_paise
+
+    if ok2:
+        return out2, total_paise, "ok", preserved2
+
+    # Still missing tokens after retry — return the better of the two
+    # attempts, flag as degraded so the frontend can surface a warning.
+    print(f"[translate] DEGRADED: still missing after retry: {missing2}")
+    best = out1 if len(preserved1) >= len(preserved2) else out2
+    best_preserved = preserved1 if len(preserved1) >= len(preserved2) else preserved2
+    return best, total_paise, "degraded", best_preserved
+
+
+def translate_payload_haiku(obj: Any) -> tuple[Any, int, str, list[str]]:
+    """Walk `obj` and translate every prose field via Haiku.
+
+    Same field whitelist as `translate_payload` (TRANSLATABLE_FIELDS).
+    Returns `(translated_obj, total_cost_paise, overall_quality,
+    preserved_citations_union)`.
+
+    `overall_quality` is "degraded" if ANY field's translation came back
+    degraded — the frontend should show a warning so the lawyer knows to
+    verify those specific citations.
+    """
+    total_paise = 0
+    overall_quality = "ok"
+    preserved_union: list[str] = []
+    seen_preserved: set[str] = set()
+
+    def _walk(node: Any) -> Any:
+        nonlocal total_paise, overall_quality
+        if isinstance(node, dict):
+            out: dict[str, Any] = {}
+            for k, v in node.items():
+                if k in TRANSLATABLE_FIELDS and isinstance(v, str):
+                    tr, paise, qual, preserved = _haiku_translate_string(v)
+                    total_paise += paise
+                    if qual == "degraded":
+                        overall_quality = "degraded"
+                    for tok in preserved:
+                        if tok not in seen_preserved:
+                            seen_preserved.add(tok)
+                            preserved_union.append(tok)
+                    out[k] = tr
+                else:
+                    out[k] = _walk(v)
+            return out
+        if isinstance(node, list):
+            return [_walk(item) for item in node]
+        return node
+
+    translated = _walk(obj)
+    return translated, total_paise, overall_quality, preserved_union

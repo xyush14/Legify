@@ -22,12 +22,24 @@ class SituationRequest(BaseModel):
         "journal",
         description="'journal' = Cri.L.J. headnote format; 'practitioner' = compressed chambers digest.",
     )
+    deep_mode: bool = Field(
+        False,
+        description=(
+            "Premium toggle: skip Sonnet entirely and go straight to Opus "
+            "for highest-quality output. Disables the confidence-based "
+            "auto-retry (no upgrade path beyond Opus)."
+        ),
+    )
 
 
 class DigestRequest(BaseModel):
     """Input for POST /api/digest."""
     topic: str = Field(..., min_length=5, max_length=2000,
                        description="Doctrinal topic (e.g. 'circumstantial evidence requirements').")
+    deep_mode: bool = Field(
+        False,
+        description="Premium toggle: force Opus for highest-quality output.",
+    )
 
 
 class HeadnoteRequest(BaseModel):

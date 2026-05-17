@@ -1,0 +1,66 @@
+# Run the full pytest suite on every push + PR.
+#
+# Cost: $0 — the suite runs entirely on cached data (the IK cache lives at
+# repo root locally, but CI uses a stub cache fixture). No live IK or Claude
+# calls. Typical wall time: ~5s.
+
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install runtime + dev deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Verify package imports cleanly
+        run: |
+          python -c "from headnote.api.app import app; print('routes:', len(app.routes))"
+
+      - name: Run pytest
+        # Tests that need a populated kanoon cache (parser, verify, hybrid
+        # retrieval) auto-skip in CI via the kanoon_client fixture in
+        # conftest.py. The pure-unit tests (query distillation, hit ranking,
+        # paragraph ranking helpers) always run.
+        run: |
+          pytest -v --tb=short
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip }
+      - run: |
+          python -m pip install --upgrade pip
+          pip install ruff
+      - run: ruff check headnote/ tests/ scripts/
