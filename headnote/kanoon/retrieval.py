@@ -447,11 +447,20 @@ def retrieve_for_situation(
             emb_idx = None
 
     # 1. Curated pre-filter (always; free)
-    # Collect up to candidate_pool entries — reranker trims to top_cases later.
+    # IMPORTANT: For hidden/famous modes, cap curated count so IK cases get
+    # room in the candidate pool. Without this cap, the 42 curated cases
+    # (all famous landmarks) fill all 25 slots, IK never contributes, and
+    # the Hidden Authorities reranker has nothing obscure to surface.
+    if mode in ("hidden", "famous"):
+        max_curated = 5
+    else:
+        max_curated = candidate_pool
+
     curated_scored = [(score_curated_case(c, situation), c) for c in curated_corpus]
     curated_scored.sort(key=lambda t: -t[0])
     curated_used: list[str] = []
     curated_case_ids: set[str] = set()
+    curated_count = 0
     for score, c in curated_scored:
         if score <= 0:
             break
@@ -459,6 +468,9 @@ def retrieve_for_situation(
         evidence.extend(_curated_to_evidence(c))
         curated_used.append(c["title"].lower())
         curated_case_ids.add(c["id"])
+        curated_count += 1
+        if curated_count >= max_curated:
+            break
         if len(cases) >= candidate_pool:
             break
 

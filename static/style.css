@@ -515,6 +515,81 @@ button { font-family: inherit; }
   color: transparent;
   height: 16px;
 }
+
+/* Progressive stage indicator */
+.stages {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 14px 18px;
+  margin-bottom: 16px;
+}
+.stages__label {
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: 4px;
+}
+.stage {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  font-size: 12.5px;
+  color: var(--ink-3);
+  transition: color 0.2s ease;
+}
+.stage__icon {
+  width: 14px; height: 14px;
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  font-size: 11px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line);
+  color: transparent;
+  flex-shrink: 0;
+}
+.stage__label { letter-spacing: -0.005em; }
+.stage--active .stage__icon {
+  border-color: var(--ink);
+  position: relative;
+}
+.stage--active .stage__icon::after {
+  content: '';
+  position: absolute; inset: 2px;
+  border: 1.5px solid var(--ink);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spinner 0.8s linear infinite;
+}
+.stage--active .stage__label { color: var(--ink); font-weight: 500; }
+.stage--done .stage__icon {
+  background: #e6efff;
+  border-color: #b9d3ff;
+  color: #1e4fb5;
+}
+.stage--done .stage__icon::before { content: '✓'; }
+.stage--done .stage__label { color: var(--ink-2); }
+@keyframes spinner { to { transform: rotate(360deg); } }
+
+.btn--ghost {
+  padding: 4px 10px;
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+  border-radius: 999px;
+  cursor: pointer;
+  letter-spacing: 0.005em;
+}
+.btn--ghost:hover { background: var(--soft); color: var(--ink); }
+.btn--ghost.is-active { background: var(--ink); color: var(--surface); border-color: var(--ink); }
 @keyframes shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
@@ -698,15 +773,19 @@ button { font-family: inherit; }
   color: var(--ink-2);
 }
 .badge--verified {
-  background: var(--accent);
-  color: var(--ink);
-  border-color: rgba(12, 12, 10, 0.15);
+  background: #e6efff;
+  color: #1e4fb5;
+  border-color: #b9d3ff;
   font-weight: 600;
 }
 .badge--verified::before {
   content: '✓';
   font-weight: 700;
+  color: #1e4fb5;
 }
+.badge--outcome-good { color: var(--good); background: rgba(45, 106, 45, 0.07); border-color: rgba(45, 106, 45, 0.20); font-weight: 600; }
+.badge--outcome-bad  { color: var(--bad);  background: rgba(155, 44, 44, 0.07); border-color: rgba(155, 44, 44, 0.20); font-weight: 600; }
+.badge--outcome-neutral { color: var(--ink-2); background: var(--soft); border-color: var(--line); }
 .badge--treatment-good { color: var(--good); background: rgba(45, 106, 45, 0.07); border-color: rgba(45, 106, 45, 0.15); }
 .badge--treatment-bad  { color: var(--bad);  background: rgba(155, 44, 44, 0.07); border-color: rgba(155, 44, 44, 0.15); }
 .badge--treatment-warn { color: var(--warn); background: rgba(183, 121, 31, 0.08); border-color: rgba(183, 121, 31, 0.18); }

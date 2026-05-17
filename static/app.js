@@ -177,6 +177,35 @@
     });
   }
 
+  // Progressive stage indicator. Updates as the request progresses.
+  // Each call to advanceStage(n) marks stage n as done and the next as active.
+  function renderStagesPanel(stages) {
+    const wrap = ce('div', { cls: 'stages' });
+    wrap.appendChild(ce('div', { cls: 'stages__label', text: 'progress' }));
+    stages.forEach((label, i) => {
+      wrap.appendChild(ce('div', {
+        cls: `stage ${i === 0 ? 'stage--active' : ''}`,
+        attrs: { 'data-stage': String(i) },
+        children: [
+          ce('div', { cls: 'stage__icon' }),
+          ce('div', { cls: 'stage__label', text: label }),
+        ],
+      }));
+    });
+    return wrap;
+  }
+  function advanceStage(panel, doneIndex, activateNext = true) {
+    if (!panel) return;
+    const stages = panel.querySelectorAll('.stage');
+    if (doneIndex >= 0 && doneIndex < stages.length) {
+      stages[doneIndex].classList.remove('stage--active');
+      stages[doneIndex].classList.add('stage--done');
+    }
+    if (activateNext && doneIndex + 1 < stages.length) {
+      stages[doneIndex + 1].classList.add('stage--active');
+    }
+  }
+
   function renderBilingualStrip(originalHindi, englishQuery) {
     return ce('div', {
       cls: 'bilingual',
@@ -220,6 +249,26 @@
     return null;
   }
 
+  // Outcome badge — derived from the case's disposition. Green for outcomes
+  // that favour the accused (acquittal, quashed, bail-granted), red for
+  // adverse outcomes (conviction, bail-denied), neutral for the rest.
+  const OUTCOME_BUCKETS = {
+    'acquittal':    { cls: 'badge--outcome-good',    label: 'acquittal' },
+    'quashed':      { cls: 'badge--outcome-good',    label: 'quashed' },
+    'bail-granted': { cls: 'badge--outcome-good',    label: 'bail granted' },
+    'dismissed':    { cls: 'badge--outcome-neutral', label: 'dismissed' },
+    'conviction':   { cls: 'badge--outcome-bad',     label: 'conviction' },
+    'bail-denied':  { cls: 'badge--outcome-bad',     label: 'bail denied' },
+    'remand':       { cls: 'badge--outcome-neutral', label: 'remand' },
+    'other':        null,
+  };
+  function outcomeBadge(case_) {
+    const o = (case_.outcome || '').toLowerCase();
+    const spec = OUTCOME_BUCKETS[o];
+    if (!spec) return null;
+    return ce('span', { cls: `badge ${spec.cls}`, text: spec.label });
+  }
+
   // Normalise a case object from the situation schema (practitioner_notes or
   // journal_headnote nested) into the flat fields the renderer wants.
   function normaliseCase(c) {
@@ -250,6 +299,7 @@
       paragraph_anchor: c.paragraph_anchor || jh.paragraph_anchor || '',
       cross_refs: pn.cross_refs || c.cross_refs || [],
       bns_note: c.bns_note || '',
+      outcome: c.outcome || '',
     };
   }
   function verifiedBadge() {
@@ -362,11 +412,61 @@
     }
 
     const badges = ce('div', { cls: 'case-card__badges' });
-    const fb = fameBadge(c); if (fb) badges.appendChild(fb);
+    const ob = outcomeBadge(c); if (ob) badges.appendChild(ob);
+    const fb = fameBadge(c);    if (fb) badges.appendChild(fb);
     badges.appendChild(verifiedBadge());
-    const j = judgmentLink(c); if (j) badges.appendChild(j);
+    const j = judgmentLink(c);  if (j) badges.appendChild(j);
+
+    // Hindi toggle button (per-card back-translation of ratio + quote)
+    const hindiBtn = ce('button', { cls: 'btn--ghost', text: 'हिंदी में दिखाएँ' });
+    hindiBtn.addEventListener('click', () => toggleCardHindi(hindiBtn, c, rows));
+    badges.appendChild(hindiBtn);
 
     return ce('div', { cls: 'case-card', children: [head, metaLine, ...preBody, ...rows, badges] });
+  }
+
+  // ---- Per-card Hindi back-translation (lazy) ----
+  const hindiCache = new Map();   // case_id -> { ratio, quote, fact_match }
+  async function toggleCardHindi(btn, c, rows) {
+    const cid = c.case_id || c.title;
+    if (btn.classList.contains('is-active')) {
+      // Restore English — re-render is the easiest; just refresh the page render
+      btn.classList.remove('is-active');
+      btn.textContent = 'हिंदी में दिखाएँ';
+      renderResearchResult();
+      return;
+    }
+    btn.classList.add('is-active');
+    btn.textContent = 'translating…';
+    btn.disabled = true;
+    try {
+      let cached = hindiCache.get(cid);
+      if (!cached) {
+        const payload = {
+          ratio: c.ratio || '',
+          fact_match: c.fact_match || '',
+          quotable_phrase: c.quotable_phrase || '',
+        };
+        const resp = await post('/api/translate', { payload });
+        cached = resp.result || {};
+        hindiCache.set(cid, cached);
+      }
+      // Mutate the displayed rows to show Hindi
+      rows.forEach(row => {
+        const label = row.querySelector('.case-card__rowlabel').textContent;
+        const text = row.querySelector('.case-card__rowtext');
+        if (label === 'ratio' && cached.ratio) text.textContent = cached.ratio;
+        else if (label === 'fact match' && cached.fact_match) text.textContent = cached.fact_match;
+        else if (label === 'quote' && cached.quotable_phrase) text.textContent = '“' + cached.quotable_phrase + '”';
+      });
+      btn.textContent = 'show in english';
+      btn.disabled = false;
+    } catch (err) {
+      btn.classList.remove('is-active');
+      btn.textContent = 'हिंदी में दिखाएँ';
+      btn.disabled = false;
+      toast('hindi translation failed: ' + (err.message || 'unknown'), 'error');
+    }
   }
 
   function renderCasesAsCards(cases) {
@@ -535,11 +635,38 @@
     const target = $('#results');
     target.innerHTML = '';
 
-    // Loading state — show researching shimmer + skeleton cards for situation;
-    // just skeletons for digest/headnote.
-    if (intent === 'situation') {
-      target.appendChild(renderResearching('', true));
-    }
+    // Progressive stage indicator — paced timers approximate the backend phases.
+    // Real events would need server-sent events; this is a reasonable UX proxy.
+    let stagePanel = null;
+    const isHindi = /[ऀ-ॿ]/.test(input);
+    const stages = intent === 'situation' ? [
+      ...(isHindi ? ['translating hindi → english'] : []),
+      'distilling query into sub-queries',
+      'fetching judgments from indian kanoon',
+      'reading + ranking candidates',
+      'generating headnotes',
+      'verifying citations',
+    ] : intent === 'headnote' ? [
+      'reading the judgment',
+      'extracting points of law',
+      'generating cri.l.j. headnote',
+      'verifying with haiku',
+    ] : [
+      'reading the topic',
+      'sweeping curated authority',
+      'generating digest',
+    ];
+    stagePanel = renderStagesPanel(stages);
+    target.appendChild(stagePanel);
+
+    // Pace the stage advances on a timer. They're approximate, but they
+    // give the lawyer a sense of forward motion instead of a blank stare.
+    const paceMs = intent === 'situation' ? 3500 : 4500;
+    const timers = stages.slice(0, -1).map((_, i) =>
+      setTimeout(() => advanceStage(stagePanel, i, true), paceMs * (i + 1))
+    );
+    const stopStageTimers = () => timers.forEach(clearTimeout);
+
     target.appendChild(renderLoadingCards(intent === 'headnote' ? 2 : 3));
 
     pushHistory(input);
@@ -589,6 +716,7 @@
       target.innerHTML = '';
       target.appendChild(renderError(err.message || 'request failed'));
     } finally {
+      stopStageTimers();
       btn.disabled = false;
       btn.querySelector('.btn__label').textContent = 'research';
     }
