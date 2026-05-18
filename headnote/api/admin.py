@@ -244,6 +244,9 @@ def admin_backfill_facts(
 def admin_import_corpus(
     url: str = Query(..., description="HTTPS URL pointing at a kanoon_cache.sqlite file"),
     authorization: Optional[str] = Header(default=None),
+    source_auth_token: Optional[str] = Query(default=None,
+        description="Optional bearer token sent as Authorization header when fetching `url`. "
+                    "Use for private HuggingFace dataset downloads."),
     expected_min_size_mb: int = Query(default=10, ge=1,
         description="Sanity check: refuse if download is smaller than this (probably an error page)"),
     expected_min_rows: int = Query(default=100, ge=1,
@@ -301,7 +304,10 @@ def admin_import_corpus(
     try:
         # Stream download. urllib's default chunk size is fine; we use a
         # 1MB buffer to minimise syscall overhead.
-        req = _urlreq.Request(url, headers={"User-Agent": "Headnote-Importer/1.0"})
+        req_headers = {"User-Agent": "Headnote-Importer/1.0"}
+        if source_auth_token:
+            req_headers["Authorization"] = f"Bearer {source_auth_token}"
+        req = _urlreq.Request(url, headers=req_headers)
         with _urlreq.urlopen(req, timeout=300) as resp, open(tmp_path, "wb") as out:
             while True:
                 chunk = resp.read(1024 * 1024)
