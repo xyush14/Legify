@@ -240,6 +240,29 @@ def api_config():
     }
 
 
+@app.get("/api/debug/auth", summary="OAuth configuration diagnostics (dev only)")
+def debug_auth():
+    """Returns diagnostic information about OAuth setup. This helps identify
+    misconfiguration between Google Cloud, Supabase, and the app.
+
+    Only call this if you're debugging auth issues.
+    """
+    return {
+        "supabase_configured": bool(config.SUPABASE_URL and config.SUPABASE_ANON_KEY),
+        "supabase_url": config.SUPABASE_URL or "(not set)",
+        "supabase_url_valid": bool(config.SUPABASE_URL and "supabase.co" in config.SUPABASE_URL),
+        "expected_redirect_uri": "https://<your-supabase-project>.supabase.co/auth/v1/callback",
+        "app_origin_note": "The frontend will send redirectTo: window.location.origin + '/app'",
+        "debug_instructions": [
+            "1. Open browser DevTools (F12)",
+            "2. Go to Console tab",
+            "3. Click 'Continue with Google'",
+            "4. Look for [auth] prefixed logs",
+            "5. Share the full console output to debug",
+        ]
+    }
+
+
 @app.get("/api/health", summary="Liveness check + config summary")
 def health():
     # Add HF corpus stats so we can confirm the import landed without
