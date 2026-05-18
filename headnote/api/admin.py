@@ -239,6 +239,169 @@ def admin_backfill_facts(
         conn.close()
 
 
+@router.post("/import_corpus_from_url",
+             summary="Download a SQLite corpus from a URL onto the Railway Volume")
+def admin_import_corpus(
+    url: str = Query(..., description="HTTPS URL pointing at a kanoon_cache.sqlite file"),
+    authorization: Optional[str] = Header(default=None),
+    expected_min_size_mb: int = Query(default=10, ge=1,
+        description="Sanity check: refuse if download is smaller than this (probably an error page)"),
+    expected_min_rows: int = Query(default=100, ge=1,
+        description="Sanity check: refuse to swap if downloaded DB has < this many hf_judgments rows"),
+):
+    """Download a remote SQLite file (typically a kanoon_cache.sqlite full of
+    harvested IL-TUR rows) and atomically swap it into the path the app
+    reads from (config.KANOON_CACHE_PATH).
+
+    The endpoint is HTTP-only because Railway Hobby doesn't expose a shell
+    for `scp` or `railway run`. Stream the file, write to a tempfile, then
+    rename — so a half-download never corrupts the live DB.
+
+    Authentication: `Authorization: Bearer <ADMIN_TOKEN>`.
+
+    Sanity gates:
+      - Refuses URLs that don't look like SQLite (header magic check).
+      - Refuses downloads smaller than `expected_min_size_mb` (1.3 GB of
+        IL-TUR shouldn't shrink to a 5KB error page).
+      - Refuses to swap if the downloaded DB has fewer than
+        `expected_min_rows` rows in hf_judgments.
+
+    curl example:
+
+        curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \\
+             "https://headnote.up.railway.app/admin/import_corpus_from_url?url=https://example.com/kanoon_cache.sqlite"
+
+    Use a public URL (HuggingFace dataset, GitHub release, S3, R2).
+    The file is downloaded by Railway's egress so the URL must be
+    reachable from the Railway data center.
+    """
+    _require_admin(authorization)
+
+    import os as _os
+    import shutil as _shutil
+    import sqlite3 as _sqlite3
+    import tempfile as _tempfile
+    import time as _time
+    import urllib.request as _urlreq
+    from headnote.config import KANOON_CACHE_PATH as _DB_PATH
+
+    db_path = config.KANOON_CACHE_PATH
+    target_dir = _os.path.dirname(str(db_path)) or "."
+    _os.makedirs(target_dir, exist_ok=True)
+
+    # Write to a tempfile in the SAME directory as the target so the final
+    # os.replace is atomic (cross-filesystem moves can't be atomic).
+    fd, tmp_path = _tempfile.mkstemp(prefix="kanoon_cache_inbound_", suffix=".sqlite",
+                                     dir=target_dir)
+    _os.close(fd)
+
+    t_start = _time.monotonic()
+    bytes_downloaded = 0
+
+    try:
+        # Stream download. urllib's default chunk size is fine; we use a
+        # 1MB buffer to minimise syscall overhead.
+        req = _urlreq.Request(url, headers={"User-Agent": "Headnote-Importer/1.0"})
+        with _urlreq.urlopen(req, timeout=300) as resp, open(tmp_path, "wb") as out:
+            while True:
+                chunk = resp.read(1024 * 1024)
+                if not chunk:
+                    break
+                out.write(chunk)
+                bytes_downloaded += len(chunk)
+
+        size_mb = bytes_downloaded / (1024 * 1024)
+        if size_mb < expected_min_size_mb:
+            return {
+                "ok": False,
+                "error": f"Downloaded only {size_mb:.2f} MB; expected >= {expected_min_size_mb} MB. "
+                         f"URL probably returned an error page or wrong file.",
+                "size_mb": round(size_mb, 2),
+            }
+
+        # SQLite magic number check: every SQLite file begins with the
+        # ASCII string "SQLite format 3\000". Catches HTML / JSON / plain
+        # text downloaded by mistake.
+        with open(tmp_path, "rb") as f:
+            magic = f.read(16)
+        if magic != b"SQLite format 3\x00":
+            return {
+                "ok": False,
+                "error": "Downloaded file is not a SQLite database (magic header mismatch).",
+                "size_mb": round(size_mb, 2),
+                "magic_bytes": magic.hex(),
+            }
+
+        # Open the downloaded DB and verify it has rows. We DON'T trust
+        # the URL host; the operator owns this gate.
+        try:
+            inbound = _sqlite3.connect(tmp_path, timeout=15)
+            inbound_rows = inbound.execute(
+                "SELECT COUNT(*) FROM hf_judgments"
+            ).fetchone()[0]
+            inbound.close()
+        except _sqlite3.OperationalError as e:
+            return {
+                "ok": False,
+                "error": f"Downloaded SQLite has no hf_judgments table: {e}",
+                "size_mb": round(size_mb, 2),
+            }
+
+        if inbound_rows < expected_min_rows:
+            return {
+                "ok": False,
+                "error": f"Downloaded DB has only {inbound_rows} hf_judgments rows; "
+                         f"expected >= {expected_min_rows}.",
+                "inbound_rows": inbound_rows,
+            }
+
+        # Backup the existing DB (if any) before the swap. We rename rather
+        # than delete so the operator can roll back manually.
+        backup_path = str(db_path) + ".bak"
+        if _os.path.exists(str(db_path)):
+            try:
+                _shutil.move(str(db_path), backup_path)
+                backed_up = True
+            except OSError as e:
+                # If we can't move, the original might be locked by SQLite
+                # connections. Best-effort: try a copy + truncate.
+                _shutil.copyfile(str(db_path), backup_path)
+                backed_up = True
+        else:
+            backed_up = False
+
+        # Atomic move into place. os.replace is atomic on POSIX when both
+        # paths are on the same filesystem (we ensured this with mkstemp
+        # dir=target_dir above).
+        _os.replace(tmp_path, str(db_path))
+
+        elapsed = _time.monotonic() - t_start
+        return {
+            "ok": True,
+            "url": url,
+            "db_path": str(db_path),
+            "size_mb": round(size_mb, 2),
+            "inbound_rows": inbound_rows,
+            "elapsed_seconds": round(elapsed, 1),
+            "throughput_mb_per_sec": round(size_mb / elapsed, 2) if elapsed > 0 else None,
+            "backed_up": backed_up,
+            "backup_path": backup_path if backed_up else None,
+            "next_step": "Hit /api/health to confirm hf_corpus.total matches inbound_rows.",
+        }
+    except Exception as e:
+        # Cleanup tempfile on any error
+        if _os.path.exists(tmp_path):
+            try:
+                _os.remove(tmp_path)
+            except OSError:
+                pass
+        return {
+            "ok": False,
+            "error": f"Import failed: {type(e).__name__}: {e}",
+            "bytes_downloaded": bytes_downloaded,
+        }
+
+
 @router.get("/cost-dashboard", summary="HTML dashboard rendering telemetry charts",
             include_in_schema=False)
 def admin_cost_dashboard():

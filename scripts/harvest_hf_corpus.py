@@ -82,22 +82,34 @@ HF_REPO = "Exploration-Lab/IL-TUR"
 # Keep the script open/closed — adding a subset means adding one entry.
 _SUBSETS = {
     "cjpe": {
-        "hf_config": "CJPE",
+        "hf_config": "cjpe",
         "court": "supreme_court",
         "language": "en",
         "description": "Court Judgment Prediction & Explanation: 34K SC judgments",
     },
     "summ": {
-        "hf_config": "SUMM",
+        "hf_config": "summ",
         "court": "supreme_court_or_hc",
         "language": "en",
         "description": "Expert-summarised: 7.1K SC + HC judgments w/ gold summaries",
     },
     "bail": {
-        "hf_config": "BAIL",
+        "hf_config": "bail",
         "court": "district_court",
         "language": "hi",
         "description": "Bail applications (Hindi): 176K district court orders",
+    },
+    "lsi": {
+        "hf_config": "lsi",
+        "court": "supreme_court_or_hc",
+        "language": "en",
+        "description": "Legal Statute Identification: 66K judgments mapped to statutes",
+    },
+    "pcr": {
+        "hf_config": "pcr",
+        "court": "supreme_court_or_hc",
+        "language": "en",
+        "description": "Prior Case Retrieval: ~8K judgments with citation graph",
     },
 }
 
@@ -223,11 +235,18 @@ def import_subset(
     if limit:
         print(f"    LIMIT={limit:,} rows (capped for testing)")
 
+    # IL-TUR moved its named configs ('CJPE', 'SUMM', etc.) off the legacy
+    # `revision='script'` branch onto the default main revision. Try the
+    # default first; fall back to `revision='script'` for older snapshots.
     try:
-        ds = load_dataset(HF_REPO, cfg["hf_config"], revision="script")
+        ds = load_dataset(HF_REPO, cfg["hf_config"])
     except Exception as e:
-        print(f"    ERROR loading dataset: {e}")
-        return 0
+        print(f"    Default revision failed ({e}); trying revision='script' fallback")
+        try:
+            ds = load_dataset(HF_REPO, cfg["hf_config"], revision="script")
+        except Exception as e2:
+            print(f"    ERROR loading dataset: {e2}")
+            return 0
 
     inserted = 0
     skipped_empty = 0
