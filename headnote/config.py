@@ -148,6 +148,13 @@ ENABLE_OPUS_ESCALATION = os.environ.get(
 # Bearer token for /admin/* routes. Unset means admin endpoints return 503.
 ADMIN_TOKEN: Optional[str] = os.environ.get("ADMIN_TOKEN")
 
+# ----------------------------------------------------------------- Supabase auth
+# SUPABASE_URL and SUPABASE_ANON_KEY are the public project credentials.
+# These are intentionally public — the anon key only has RLS-constrained access.
+# Set them in Railway/local .env. Without them auth is skipped (dev mode).
+SUPABASE_URL: Optional[str] = os.environ.get("SUPABASE_URL")
+SUPABASE_ANON_KEY: Optional[str] = os.environ.get("SUPABASE_ANON_KEY")
+
 
 # ----------------------------------------------------------------- pricing meter
 

@@ -11,6 +11,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
+  <!-- Supabase JS (auth) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+
   <link rel="stylesheet" href="/static/style.css?v=20260518a" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23ffffff'/%3E%3Ccircle cx='50' cy='50' r='12' fill='%23121212'/%3E%3C/svg%3E" />
 </head>
@@ -252,6 +255,74 @@
   <!-- Toasts -->
   <div id="toasts" class="toasts" aria-live="polite"></div>
 
+  <!-- ============ AUTH OVERLAY ============ -->
+  <div id="auth-overlay" class="auth-overlay" role="dialog" aria-modal="true" aria-label="Sign in to Headnote">
+
+    <!-- Login modal -->
+    <div id="login-modal" class="auth-modal">
+      <div class="auth-modal__brand">
+        <span class="brand__dot" aria-hidden="true"></span>
+        <span class="brand__name">headnote</span>
+      </div>
+      <h1 class="auth-modal__title">AI research for Indian criminal advocates</h1>
+      <p class="auth-modal__sub">Verified citations · Hidden authorities · BNS-mapped</p>
+
+      <button type="button" class="btn-google" id="google-signin-btn" onclick="signInWithGoogle()">
+        <svg class="btn-google__icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+        </svg>
+        <span class="btn-google__label">Continue with Google</span>
+      </button>
+
+      <p id="auth-error" class="auth-modal__error" style="display:none"></p>
+      <p class="auth-modal__note">By signing in you agree to our terms of service</p>
+    </div>
+
+    <!-- Onboarding modal (shown after first sign-in) -->
+    <div id="onboarding-modal" class="auth-modal" style="display:none">
+      <div class="auth-modal__brand">
+        <span class="brand__dot" aria-hidden="true"></span>
+        <span class="brand__name">headnote</span>
+      </div>
+      <h1 class="auth-modal__title">Almost there</h1>
+      <p class="auth-modal__sub">A few details to set up your account</p>
+
+      <div class="auth-form">
+        <div class="auth-form__field">
+          <label class="auth-form__label" for="onboard-name">Full name <span class="auth-form__required">*</span></label>
+          <input type="text" id="onboard-name" class="auth-form__input" placeholder="Advocate Ramesh Sharma" autocomplete="name" />
+        </div>
+
+        <div class="auth-form__field">
+          <label class="auth-form__label" for="onboard-phone">Phone number <span class="auth-form__required">*</span></label>
+          <div class="auth-form__phone-wrap">
+            <span class="auth-form__prefix">+91</span>
+            <input type="tel" id="onboard-phone" class="auth-form__input auth-form__input--phone"
+                   placeholder="98765 43210" maxlength="10" inputmode="numeric" autocomplete="tel-national" />
+          </div>
+        </div>
+
+        <div class="auth-form__field">
+          <label class="auth-form__label" for="onboard-referral">
+            Referral code <span class="auth-form__optional">(optional)</span>
+          </label>
+          <input type="text" id="onboard-referral" class="auth-form__input"
+                 placeholder="e.g. ADVO2025" autocomplete="off" />
+        </div>
+
+        <button type="button" class="btn btn--primary btn--full" id="onboard-submit-btn" onclick="submitOnboarding()">
+          Get started →
+        </button>
+      </div>
+    </div>
+
+  </div>
+  <!-- ============ END AUTH OVERLAY ============ -->
+
+  <script src="/static/auth.js?v=20260518a" defer></script>
   <script src="/static/app.js?v=20260518a" defer></script>
 </body>
 </html>

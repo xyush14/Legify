@@ -1123,3 +1123,158 @@ button { font-family: inherit; }
   .composer__row { flex-direction: column; align-items: flex-start; }
   .composer__actions { width: 100%; justify-content: space-between; }
 }
+
+
+/* =============================================================================
+   Auth overlay — login + onboarding modals
+   ============================================================================= */
+
+.auth-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(12, 12, 10, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.auth-overlay.is-visible {
+  opacity: 1; pointer-events: all;
+}
+
+.auth-modal {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 40px 36px 32px;
+  width: 100%; max-width: 400px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.14);
+  display: flex; flex-direction: column; align-items: center; gap: 0;
+  text-align: center;
+}
+
+.auth-modal__brand {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 24px;
+}
+/* reuse existing .brand__dot and .brand__name from sidebar */
+.auth-modal__brand .brand__dot {
+  width: 10px; height: 10px;
+  background: var(--ink); border-radius: 50%;
+  flex-shrink: 0;
+}
+.auth-modal__brand .brand__name {
+  font-size: var(--t-md); font-weight: 600; letter-spacing: -0.02em;
+}
+
+.auth-modal__title {
+  font-size: var(--t-xl); font-weight: 700; letter-spacing: -0.03em;
+  line-height: 1.2; color: var(--ink);
+  margin-bottom: 8px;
+}
+.auth-modal__sub {
+  font-size: var(--t-sm); color: var(--ink-3);
+  margin-bottom: 28px; line-height: 1.5;
+}
+.auth-modal__note {
+  font-size: 11px; color: var(--ink-3);
+  margin-top: 16px; line-height: 1.5;
+}
+.auth-modal__error {
+  font-size: var(--t-sm); color: var(--bad);
+  background: #fff5f5; border: 1px solid #fed7d7;
+  border-radius: var(--radius); padding: 8px 12px;
+  margin-top: 12px; width: 100%; text-align: left;
+}
+
+/* Google sign-in button */
+.btn-google {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  width: 100%;
+  padding: 11px 20px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--t-md); font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.btn-google:hover {
+  border-color: var(--ink-3);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+.btn-google:active { background: var(--soft); }
+.btn-google:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-google__icon { width: 20px; height: 20px; flex-shrink: 0; }
+
+/* Onboarding form */
+.auth-form {
+  width: 100%; display: flex; flex-direction: column; gap: 16px;
+  margin-top: 4px; text-align: left;
+}
+.auth-form__field {
+  display: flex; flex-direction: column; gap: 6px;
+}
+.auth-form__label {
+  font-size: var(--t-sm); font-weight: 500; color: var(--ink-2);
+}
+.auth-form__required { color: var(--bad); }
+.auth-form__optional { font-weight: 400; color: var(--ink-3); }
+
+.auth-form__input {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-family: inherit; font-size: var(--t-md); color: var(--ink);
+  background: var(--surface);
+  transition: border-color 0.15s, box-shadow 0.15s;
+  outline: none;
+}
+.auth-form__input:focus {
+  border-color: var(--ink-3);
+  box-shadow: 0 0 0 3px rgba(0,0,0,0.06);
+}
+.auth-form__input--error {
+  border-color: var(--bad) !important;
+  box-shadow: 0 0 0 3px rgba(155,44,44,0.1) !important;
+}
+.auth-form__input::placeholder { color: var(--ink-3); }
+
+.auth-form__phone-wrap {
+  display: flex; align-items: center;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  background: var(--surface);
+}
+.auth-form__phone-wrap:focus-within {
+  border-color: var(--ink-3);
+  box-shadow: 0 0 0 3px rgba(0,0,0,0.06);
+}
+.auth-form__prefix {
+  padding: 9px 10px 9px 12px;
+  font-size: var(--t-sm); color: var(--ink-3); font-weight: 500;
+  border-right: 1px solid var(--line);
+  background: var(--soft);
+  flex-shrink: 0;
+}
+.auth-form__input--phone {
+  border: none !important; box-shadow: none !important;
+  border-radius: 0 !important;
+  padding-left: 10px;
+}
+.auth-form__input--phone:focus { box-shadow: none !important; }
+
+.auth-field-error {
+  font-size: 11px; color: var(--bad); margin-top: 2px;
+}
+
+/* Full-width btn variant for onboarding submit */
+.btn--full { width: 100%; justify-content: center; }
+
+@media (max-width: 480px) {
+  .auth-modal { padding: 28px 20px 24px; margin: 16px; }
+  .auth-modal__title { font-size: var(--t-lg); }
+}

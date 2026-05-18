@@ -843,6 +843,8 @@
     updateModeDisplay();
     setMode('hidden');
     setStyle('practitioner');
+    // Kick off Google auth + onboarding check (no-op if Supabase not configured)
+    if (typeof initAuth === 'function') initAuth();
   }
 
   if (document.readyState === 'loading') {

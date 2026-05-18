@@ -226,6 +226,20 @@ def app_index():
     return FileResponse(config.STATIC_DIR / "index.html")
 
 
+@app.get("/api/config", summary="Public frontend configuration (non-secret)")
+def api_config():
+    """Returns the public Supabase credentials so auth.js can initialise the
+    Supabase client without hardcoding keys in static files.
+
+    The anon key is intentionally public — it is constrained by Supabase RLS
+    policies and is safe to expose in the browser.
+    """
+    return {
+        "supabase_url":      config.SUPABASE_URL or "",
+        "supabase_anon_key": config.SUPABASE_ANON_KEY or "",
+    }
+
+
 @app.get("/api/health", summary="Liveness check + config summary")
 def health():
     # Add HF corpus stats so we can confirm the import landed without
