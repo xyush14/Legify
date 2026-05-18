@@ -49,7 +49,9 @@ async function initAuth() {
 
   // React to sign-in / sign-out events (Google OAuth redirect comes through here)
   _sb.auth.onAuthStateChange(async (_event, session) => {
+    console.log('[auth] Auth state changed. Event:', _event, 'Session:', session);
     if (session?.user) {
+      console.log('[auth] User logged in:', JSON.stringify(session.user, null, 2));
       currentUser = session.user;
       const done = await _isOnboardingDone(session.user.id);
       if (done) {
@@ -65,7 +67,9 @@ async function initAuth() {
 
   // Initial session check (returning user)
   const { data: { session } } = await _sb.auth.getSession();
+  console.log('[auth] Initial session check. Session:', session);
   if (session?.user) {
+    console.log('[auth] Returning user found:', JSON.stringify(session.user, null, 2));
     currentUser = session.user;
     const done = await _isOnboardingDone(session.user.id);
     if (done) {
@@ -97,21 +101,32 @@ async function signOut() {
 async function signInWithGoogle() {
   if (!_sb) return;
   _setGoogleBtnLoading(true);
-  const { error } = await _sb.auth.signInWithOAuth({
-    provider: 'google',
-    options: { redirectTo: window.location.origin + '/app' },
-  });
-  if (error) {
+  try {
+    const redirectUrl = window.location.origin + '/app';
+    console.log('[auth] Starting Google OAuth, redirect to:', redirectUrl);
+    const { error } = await _sb.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: redirectUrl },
+    });
+    if (error) {
+      console.error('[auth] OAuth error:', error);
+      _setGoogleBtnLoading(false);
+      _showAuthError('Sign-in failed: ' + error.message);
+    }
+    // On success, the page redirects; loading state persists until then.
+  } catch (e) {
+    console.error('[auth] OAuth exception:', e);
     _setGoogleBtnLoading(false);
-    _showAuthError('Sign-in failed: ' + error.message);
+    _showAuthError('Sign-in error: ' + e.message);
   }
-  // On success, the page redirects; loading state persists until then.
 }
 
 async function submitOnboarding() {
   const name    = document.getElementById('onboard-name')?.value?.trim();
   const rawPhone = document.getElementById('onboard-phone')?.value?.replace(/\D/g, '');
   const referral = document.getElementById('onboard-referral')?.value?.trim();
+
+  console.log('[auth] Onboarding submit. Name:', name, 'Phone:', rawPhone, 'Referral:', referral);
 
   if (!name) return _markFieldError('onboard-name', 'Please enter your name');
   if (!rawPhone || rawPhone.length !== 10) {
@@ -124,9 +139,12 @@ async function submitOnboarding() {
   btn.innerHTML = '<span>Saving…</span>';
 
   try {
+    console.log('[auth] Saving onboarding to database...');
     await _saveOnboarding(name, '+91' + rawPhone, referral || null);
+    console.log('[auth] Onboarding saved. Revealing app.');
     _revealApp();
   } catch (e) {
+    console.error('[auth] Onboarding save failed:', e);
     btn.disabled = false;
     btn.innerHTML = orig;
     _showAuthError('Could not save profile: ' + e.message);
@@ -179,11 +197,24 @@ function _showOnboardingModal(user) {
   if (onboard) onboard.style.display = '';
 
   // Pre-fill name + greeting from Google profile
-  const googleName = (
+  // Try multiple possible field locations for the name
+  let googleName = (
     user?.user_metadata?.full_name ||
     user?.user_metadata?.name ||
+    user?.identities?.[0]?.identity_data?.full_name ||
+    user?.identities?.[0]?.identity_data?.name ||
     ''
   ).trim();
+
+  console.log('[auth] Attempting name extraction. user_metadata:', user?.user_metadata);
+  console.log('[auth] Google name extracted:', googleName);
+
+  // Fallback: use email name if no Google name found
+  if (!googleName && user?.email) {
+    googleName = user.email.split('@')[0];
+    console.log('[auth] Using email-based fallback name:', googleName);
+  }
+
   const firstName = googleName.split(' ')[0] || '';
   const greet = document.getElementById('onboard-greeting');
   if (greet && firstName) {
