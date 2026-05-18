@@ -2,68 +2,97 @@
  * Headnote — Auth module
  * Google OAuth via Supabase + onboarding flow (name, phone, referral).
  *
- * Initialised by initAuth() called from app.js on load.
- * If Supabase is not configured (no env vars set), auth is skipped silently —
- * useful during local dev before Supabase is wired up.
+ * Flow
+ * ----
+ * 1. Overlay is visible by default in HTML (CSS hides .shell until body.auth-ready).
+ *    This prevents a flash of the app before we know if the user is signed in.
+ * 2. initAuth() runs on boot:
+ *    - If Supabase isn't configured → reveal app (dev mode).
+ *    - If session exists + onboarding done → reveal app.
+ *    - If session exists but onboarding missing → show onboarding modal.
+ *    - If no session → keep login modal visible.
+ * 3. After successful auth + onboarding → body.auth-ready added, overlay fades out.
  */
 
 /* ------------------------------------------------------------------ state */
 
-let _sb = null;          // Supabase client
-let currentUser = null;  // currently signed-in user object (or null)
+let _sb = null;
+let currentUser = null;
 
 /* ------------------------------------------------------------------ boot */
 
 async function initAuth() {
-  // Fetch public config from backend (supabase_url + anon key are public — safe to expose)
+  // Fetch public Supabase config from backend
   let cfg = {};
   try {
     cfg = await fetch('/api/config').then(r => r.json());
-  } catch (_) { /* backend unreachable during first load — skip */ }
+  } catch (_) { /* network blip — fall through */ }
 
   if (!cfg.supabase_url || !cfg.supabase_anon_key) {
     console.log('[auth] Supabase not configured — auth skipped (dev mode)');
+    _revealApp();
+    return;
+  }
+
+  // Wait for the Supabase CDN script to load (it has defer; runs before this
+  // but during a hard reload it can momentarily not be on window yet).
+  if (!window.supabase || !window.supabase.createClient) {
+    await _waitFor(() => window.supabase && window.supabase.createClient, 3000);
+  }
+  if (!window.supabase) {
+    console.error('[auth] Supabase CDN failed to load');
+    _showAuthError('Could not load auth. Please refresh.');
     return;
   }
 
   _sb = window.supabase.createClient(cfg.supabase_url, cfg.supabase_anon_key);
 
-  // React to sign-in / sign-out
+  // React to sign-in / sign-out events (Google OAuth redirect comes through here)
   _sb.auth.onAuthStateChange(async (_event, session) => {
     if (session?.user) {
       currentUser = session.user;
-      _hideLoginModal();
       const done = await _isOnboardingDone(session.user.id);
-      if (!done) _showOnboardingModal(session.user);
+      if (done) {
+        _revealApp();
+      } else {
+        _showOnboardingModal(session.user);
+      }
     } else {
       currentUser = null;
       _showLoginModal();
     }
   });
 
-  // Check existing session (page reload / returning user)
+  // Initial session check (returning user)
   const { data: { session } } = await _sb.auth.getSession();
-  if (!session) {
-    _showLoginModal();
+  if (session?.user) {
+    currentUser = session.user;
+    const done = await _isOnboardingDone(session.user.id);
+    if (done) {
+      _revealApp();
+    } else {
+      _showOnboardingModal(session.user);
+    }
   }
+  // else: login modal already visible (default state)
 }
 
 /* ------------------------------------------------------------------ public helpers */
 
-/** Returns the Supabase JWT for the current session (use in API calls). */
+/** Get the current Supabase JWT (use as Bearer in protected API calls). */
 async function getAuthToken() {
   if (!_sb) return null;
   const { data: { session } } = await _sb.auth.getSession();
   return session?.access_token || null;
 }
 
-/** Sign out and return to login modal. */
 async function signOut() {
   if (!_sb) return;
   await _sb.auth.signOut();
+  // onAuthStateChange will trigger login modal
 }
 
-/* ------------------------------------------------------------------ modal actions (called from HTML onclick) */
+/* ------------------------------------------------------------------ click handlers (called from HTML) */
 
 async function signInWithGoogle() {
   if (!_sb) return;
@@ -74,9 +103,9 @@ async function signInWithGoogle() {
   });
   if (error) {
     _setGoogleBtnLoading(false);
-    _showAuthError('Sign in failed: ' + error.message);
+    _showAuthError('Sign-in failed: ' + error.message);
   }
-  // On success the page redirects — loading state stays until redirect
+  // On success, the page redirects; loading state persists until then.
 }
 
 async function submitOnboarding() {
@@ -84,20 +113,22 @@ async function submitOnboarding() {
   const rawPhone = document.getElementById('onboard-phone')?.value?.replace(/\D/g, '');
   const referral = document.getElementById('onboard-referral')?.value?.trim();
 
-  // Validate
-  if (!name) return _markFieldError('onboard-name', 'Name is required');
-  if (!rawPhone || rawPhone.length !== 10) return _markFieldError('onboard-phone', 'Enter a valid 10-digit number');
+  if (!name) return _markFieldError('onboard-name', 'Please enter your name');
+  if (!rawPhone || rawPhone.length !== 10) {
+    return _markFieldError('onboard-phone', 'Enter a valid 10-digit number');
+  }
 
   const btn = document.getElementById('onboard-submit-btn');
+  const orig = btn.innerHTML;
   btn.disabled = true;
-  btn.textContent = 'Saving…';
+  btn.innerHTML = '<span>Saving…</span>';
 
   try {
     await _saveOnboarding(name, '+91' + rawPhone, referral || null);
-    _hideOnboardingModal();
+    _revealApp();
   } catch (e) {
     btn.disabled = false;
-    btn.textContent = 'Get started →';
+    btn.innerHTML = orig;
     _showAuthError('Could not save profile: ' + e.message);
   }
 }
@@ -130,50 +161,59 @@ async function _saveOnboarding(name, phone, referralCode) {
   if (error) throw error;
 }
 
-/* ------------------------------------------------------------------ modal UI helpers */
+/* ------------------------------------------------------------------ overlay state machine */
 
 function _showLoginModal() {
-  const overlay = document.getElementById('auth-overlay');
   const login   = document.getElementById('login-modal');
   const onboard = document.getElementById('onboarding-modal');
-  if (!overlay) return;
-  overlay.classList.add('is-visible');
-  login.style.display   = '';
-  onboard.style.display = 'none';
-}
-
-function _hideLoginModal() {
-  // Only hide if onboarding isn't about to show
-  const onboard = document.getElementById('onboarding-modal');
-  if (onboard?.style.display === '') return; // onboarding is showing
-  document.getElementById('auth-overlay')?.classList.remove('is-visible');
+  if (login)   login.style.display   = '';
+  if (onboard) onboard.style.display = 'none';
+  document.getElementById('auth-overlay')?.classList.remove('is-hidden');
+  document.body.classList.remove('auth-ready');
 }
 
 function _showOnboardingModal(user) {
-  const overlay = document.getElementById('auth-overlay');
   const login   = document.getElementById('login-modal');
   const onboard = document.getElementById('onboarding-modal');
-  if (!overlay) return;
+  if (login)   login.style.display   = 'none';
+  if (onboard) onboard.style.display = '';
 
-  // Pre-fill name from Google profile if available
-  const googleName = user?.user_metadata?.full_name || user?.user_metadata?.name || '';
+  // Pre-fill name + greeting from Google profile
+  const googleName = (
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    ''
+  ).trim();
+  const firstName = googleName.split(' ')[0] || '';
+  const greet = document.getElementById('onboard-greeting');
+  if (greet && firstName) {
+    greet.innerHTML = `, <span class="auth-welcome-name">${_escapeHtml(firstName)}</span>`;
+  }
   const nameInput = document.getElementById('onboard-name');
-  if (nameInput && googleName) nameInput.value = googleName;
+  if (nameInput && googleName && !nameInput.value) nameInput.value = googleName;
 
-  overlay.classList.add('is-visible');
-  login.style.display   = 'none';
-  onboard.style.display = '';
+  document.getElementById('auth-overlay')?.classList.remove('is-hidden');
+  document.body.classList.remove('auth-ready');
 }
 
-function _hideOnboardingModal() {
-  document.getElementById('auth-overlay')?.classList.remove('is-visible');
+/** Hide overlay and unlock app shell. */
+function _revealApp() {
+  document.body.classList.add('auth-ready');
+  document.getElementById('auth-overlay')?.classList.add('is-hidden');
+  // Remove the overlay from the DOM after the fade so it can't trap focus
+  setTimeout(() => {
+    document.getElementById('auth-overlay')?.remove();
+  }, 350);
 }
+
+/* ------------------------------------------------------------------ UI helpers */
 
 function _setGoogleBtnLoading(loading) {
   const btn = document.getElementById('google-signin-btn');
   if (!btn) return;
   btn.disabled = loading;
-  btn.querySelector('.btn-google__label').textContent = loading ? 'Signing in…' : 'Continue with Google';
+  const label = btn.querySelector('.btn-google__label');
+  if (label) label.textContent = loading ? 'Signing in…' : 'Continue with Google';
 }
 
 function _showAuthError(msg) {
@@ -186,7 +226,6 @@ function _markFieldError(fieldId, msg) {
   if (!el) return;
   el.classList.add('auth-form__input--error');
   el.focus();
-  // Show inline error below field
   let err = el.parentElement.querySelector('.auth-field-error');
   if (!err) {
     err = document.createElement('span');
@@ -198,4 +237,21 @@ function _markFieldError(fieldId, msg) {
     el.classList.remove('auth-form__input--error');
     err.textContent = '';
   }, { once: true });
+}
+
+function _escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+function _waitFor(cond, timeoutMs) {
+  return new Promise(resolve => {
+    const start = Date.now();
+    const check = () => {
+      if (cond()) return resolve(true);
+      if (Date.now() - start > timeoutMs) return resolve(false);
+      setTimeout(check, 50);
+    };
+    check();
+  });
 }
