@@ -848,16 +848,49 @@ def api_browse_search(
             "note": "Indian Kanoon search is offline (token not set). Showing curated matches.",
         }
 
-    # Build IK formInput from filters
+    # Build IK formInput from filters.
+    #
+    # IK's per-HC doctypes are single tokens (no spaces). We map common
+    # human-typed values to the canonical token here, so a stale-cache UI
+    # sending "madhya pradesh" still works.
+    _HC_ALIASES = {
+        "supreme court": "supremecourt", "sc": "supremecourt",
+        "all high courts": "highcourts", "hc": "highcourts", "high court": "highcourts", "high courts": "highcourts",
+        "allahabad": "allahabad", "allahabad hc": "allahabad", "allahabad high court": "allahabad",
+        "andhra": "andhra", "andhra pradesh": "andhra", "andhra hc": "andhra", "andhra pradesh high court": "andhra",
+        "bombay": "bombay", "bombay hc": "bombay", "bombay high court": "bombay",
+        "calcutta": "kolkata", "kolkata": "kolkata", "calcutta hc": "kolkata", "calcutta high court": "kolkata",
+        "chhattisgarh": "chattisgarh", "chattisgarh": "chattisgarh", "chhattisgarh high court": "chattisgarh",
+        "delhi": "delhi", "delhi hc": "delhi", "delhi high court": "delhi",
+        "gauhati": "gauhati", "guwahati": "gauhati", "gauhati high court": "gauhati",
+        "gujarat": "gujarat", "gujarat hc": "gujarat", "gujarat high court": "gujarat",
+        "himachal": "himachal_pradesh", "himachal pradesh": "himachal_pradesh", "himachal pradesh high court": "himachal_pradesh",
+        "jammu": "jammu", "j&k": "jammu", "jammu and kashmir": "jammu", "jk": "jammu",
+        "jharkhand": "jharkhand", "jharkhand high court": "jharkhand",
+        "karnataka": "karnataka", "karnataka hc": "karnataka", "karnataka high court": "karnataka",
+        "kerala": "kerala", "kerala hc": "kerala", "kerala high court": "kerala",
+        "madhya pradesh": "madhyapradesh", "madhyapradesh": "madhyapradesh",
+        "mp": "madhyapradesh", "mp hc": "madhyapradesh", "madhya pradesh high court": "madhyapradesh",
+        "madras": "chennai", "chennai": "chennai", "tamil nadu": "chennai",
+        "madras hc": "chennai", "madras high court": "chennai",
+        "manipur": "manipur", "manipur high court": "manipur",
+        "meghalaya": "meghalaya", "meghalaya high court": "meghalaya",
+        "orissa": "orissa", "odisha": "orissa", "orissa high court": "orissa",
+        "patna": "patna", "bihar": "patna", "patna high court": "patna",
+        "punjab": "punjab", "punjab and haryana": "punjab", "punjab & haryana": "punjab",
+        "p&h": "punjab", "punjab haryana": "punjab", "punjab and haryana high court": "punjab",
+        "rajasthan": "rajasthan", "rajasthan hc": "rajasthan", "rajasthan high court": "rajasthan",
+        "sikkim": "sikkim", "sikkim high court": "sikkim",
+        "telangana": "telangana", "telangana hc": "telangana", "telangana high court": "telangana",
+        "tripura": "tripura", "tripura high court": "tripura",
+        "uttarakhand": "uttaranchal", "uttaranchal": "uttaranchal", "uttarakhand high court": "uttaranchal",
+    }
+
     filters: list[str] = []
     if court:
         c = court.lower().strip()
-        if c in ("supremecourt", "sc", "supreme court"):
-            filters.append("doctypes:supremecourt")
-        elif c in ("highcourts", "hc", "high court", "high courts"):
-            filters.append("doctypes:highcourts")
-        else:
-            filters.append(f"doctypes:{c}")
+        token = _HC_ALIASES.get(c, c)   # fall through with whatever the user sent
+        filters.append(f"doctypes:{token}")
     else:
         filters.append("doctypes:supremecourt,highcourts")
     if year_from:
