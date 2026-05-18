@@ -237,6 +237,22 @@ def app_index():
     return FileResponse(config.STATIC_DIR / "index.html")
 
 
+@app.get("/drafter", include_in_schema=False)
+@app.get("/drafter/", include_in_schema=False)
+def drafter_standalone():
+    """Standalone §138 NI Act complaint drafter prototype.
+
+    Intentionally served as an isolated single-file SPA — no auth wrapper,
+    no main-app shell — so it can be shared with reviewers (lawyers,
+    advocates) for usability testing without leaking the rest of the
+    product surface. The drafter HTML is self-contained: inline CSS, inline
+    JS, only external dependency is Google Fonts.
+
+    See HEADNOTE_DRAFTING_HANDOFF.md for the full design spec.
+    """
+    return FileResponse(config.STATIC_DIR / "drafter.html")
+
+
 @app.get("/api/config", summary="Public frontend configuration (non-secret)")
 def api_config():
     """Returns the public Supabase credentials so auth.js can initialise the

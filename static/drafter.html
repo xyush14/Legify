@@ -1,0 +1,1436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Headnote · §138 Story Drafter v3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Noto+Serif+Devanagari:wght@400;500;600&family=Noto+Sans+Devanagari:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ink: #1a1a1a; --ink-soft: #4a4a4a; --ink-faint: #8a8a8a;
+    --paper: #faf9f6; --surface: #ffffff;
+    --line: #e6e3dc; --line-soft: #f0ede6;
+    --accent: #b8390e; --accent-soft: #f4ddd2;
+    --gold: #b8830e; --gold-soft: #fff6e0;
+    --ok: #3a6b3a; --ok-soft: #e8f0e8;
+    --shadow-card: 0 1px 2px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04);
+    --shadow-sticky: 0 -1px 12px rgba(0,0,0,0.06);
+    --radius: 14px; --radius-sm: 10px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Fraunces', Georgia, serif; background: var(--paper); color: var(--ink); -webkit-font-smoothing: antialiased; overscroll-behavior-y: none; }
+  body.lang-hi { font-family: 'Noto Sans Devanagari', sans-serif; }
+
+  .app { max-width: 480px; margin: 0 auto; min-height: 100vh; min-height: 100dvh; background: var(--paper); display: flex; flex-direction: column; position: relative; }
+
+  /* TOP BAR */
+  .topbar { padding: 14px 18px 12px; background: var(--surface); border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 12px; position: sticky; top: 0; z-index: 10; }
+  .topbar-brand { font-size: 11px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); font-family: 'JetBrains Mono', monospace; }
+  .topbar-brand strong { color: var(--ink); font-weight: 500; display: block; font-size: 14px; font-family: 'Fraunces', serif; letter-spacing: 0; text-transform: none; margin-top: 2px; }
+  body.lang-hi .topbar-brand strong { font-family: 'Noto Serif Devanagari', serif; font-size: 15px; }
+  .lang-toggle { display: inline-flex; background: var(--paper); border: 1px solid var(--line); border-radius: 100px; padding: 3px; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 500; }
+  .lang-toggle button { border: none; background: transparent; padding: 6px 11px; border-radius: 100px; color: var(--ink-faint); cursor: pointer; transition: all 0.18s ease; font-family: inherit; font-size: inherit; font-weight: inherit; }
+  .lang-toggle button.active { background: var(--ink); color: var(--paper); }
+
+  /* PROGRESS RAIL */
+  .rail { padding: 12px 18px 0; display: flex; align-items: center; gap: 12px; }
+  .rail-dots { flex: 1; display: flex; gap: 4px; }
+  .rail-dot { flex: 1; height: 3px; background: var(--line); border-radius: 2px; transition: background 0.3s ease; }
+  .rail-dot.done { background: var(--ok); }
+  .rail-dot.active { background: var(--ink); }
+  .rail-label { font-size: 10px; font-family: 'JetBrains Mono', monospace; color: var(--ink-faint); letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; }
+
+  /* SCREENS */
+  .screen { display: none; flex: 1; flex-direction: column; }
+  .screen.active { display: flex; }
+  .stage { flex: 1; padding: 14px 18px 130px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+
+  /* OPENING */
+  .opening { padding: 28px 22px 130px; display: flex; flex-direction: column; flex: 1; }
+  .opening-eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); margin-bottom: 14px; }
+  .opening-title { font-size: 30px; font-weight: 500; line-height: 1.12; letter-spacing: -0.02em; margin: 0 0 14px; }
+  body.lang-hi .opening-title { font-size: 26px; font-family: 'Noto Serif Devanagari', serif; line-height: 1.28; letter-spacing: 0; }
+  .opening-desc { font-size: 15px; line-height: 1.6; color: var(--ink-soft); margin: 0 0 26px; font-style: italic; max-width: 36ch; }
+  body.lang-hi .opening-desc { font-style: normal; font-family: 'Noto Sans Devanagari', sans-serif; }
+  .story-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .story-tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 14px 14px; cursor: pointer; transition: all 0.2s ease; min-height: 110px; display: flex; flex-direction: column; justify-content: space-between; text-align: left; font-family: inherit; }
+  .story-tile:active { transform: scale(0.98); }
+  .story-tile.ready { border-color: var(--ink); }
+  .story-tile.soon { opacity: 0.55; cursor: default; }
+  .story-tile-icon { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; color: var(--ink-soft); margin-bottom: 10px; }
+  .story-tile.ready .story-tile-icon { color: var(--accent); }
+  .story-tile-title { font-size: 14px; font-weight: 500; line-height: 1.25; color: var(--ink); margin-bottom: 4px; }
+  body.lang-hi .story-tile-title { font-family: 'Noto Sans Devanagari', sans-serif; font-size: 13.5px; }
+  .story-tile-sub { font-size: 11px; color: var(--ink-faint); font-family: 'JetBrains Mono', monospace; letter-spacing: 0.04em; text-transform: uppercase; }
+  .story-tile.soon .story-tile-sub { color: var(--gold); }
+  .opening-foot { margin-top: auto; padding-top: 28px; font-size: 10.5px; color: var(--ink-faint); font-family: 'JetBrains Mono', monospace; letter-spacing: 0.05em; text-align: center; }
+
+  /* SECTION CARD */
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px 20px 18px; margin-top: 10px; box-shadow: var(--shadow-card); animation: cardIn 0.32s cubic-bezier(0.2, 0.7, 0.2, 1); }
+  @keyframes cardIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .card-eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.16em; color: var(--ink-faint); text-transform: uppercase; margin-bottom: 8px; }
+  .card-title { font-size: 22px; font-weight: 500; line-height: 1.18; letter-spacing: -0.01em; margin: 0 0 6px; }
+  body.lang-hi .card-title { font-family: 'Noto Serif Devanagari', serif; font-size: 20px; }
+  .card-sub { font-size: 13px; color: var(--ink-faint); margin: 0 0 18px; font-style: italic; line-height: 1.5; }
+  body.lang-hi .card-sub { font-style: normal; font-family: 'Noto Sans Devanagari', sans-serif; }
+
+  /* SUB-GROUP within a card */
+  .group { margin-top: 18px; padding-top: 16px; border-top: 1px dashed var(--line); }
+  .group:first-of-type { margin-top: 0; padding-top: 0; border-top: none; }
+  .group-label { font-size: 11.5px; font-weight: 500; color: var(--ink-soft); margin-bottom: 10px; letter-spacing: 0.03em; text-transform: uppercase; font-family: 'JetBrains Mono', monospace; }
+
+  /* INPUTS */
+  .field { margin-bottom: 12px; }
+  .field:last-child { margin-bottom: 0; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .field label { display: block; font-size: 11.5px; font-weight: 500; color: var(--ink-soft); margin-bottom: 6px; letter-spacing: 0.02em; }
+  body.lang-hi .field label { font-family: 'Noto Sans Devanagari', sans-serif; }
+  .field label .hint { color: var(--ink-faint); font-weight: 400; margin-left: 6px; font-style: italic; font-size: 11px; }
+  body.lang-hi .field label .hint { font-style: normal; }
+  input[type="text"], input[type="number"], input[type="date"], input[type="tel"], textarea, select { width: 100%; border: 1px solid var(--line); background: var(--paper); padding: 12px 13px; border-radius: var(--radius-sm); font-size: 16px; font-family: inherit; color: var(--ink); transition: all 0.15s ease; outline: none; -webkit-appearance: none; appearance: none; }
+  body.lang-hi input, body.lang-hi textarea { font-family: 'Noto Sans Devanagari', sans-serif; }
+  input:focus, textarea:focus, select:focus { border-color: var(--ink); background: var(--surface); }
+  input.auto, input.scanned { background: var(--gold-soft); border-color: #e8d99a; }
+  textarea { min-height: 76px; resize: vertical; line-height: 1.45; }
+  select { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' stroke='%231a1a1a' stroke-width='1.5' fill='none' stroke-linecap='round'/></svg>"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; }
+
+  /* CHOICES */
+  .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .choices.col4 { grid-template-columns: 1fr 1fr; }
+  @media (min-width: 380px) { .choices.col4 { grid-template-columns: 1fr 1fr 1fr 1fr; } }
+  .choice { border: 1px solid var(--line); background: var(--paper); border-radius: var(--radius-sm); padding: 11px 10px; cursor: pointer; transition: all 0.15s ease; text-align: center; font-size: 13px; font-weight: 500; color: var(--ink); font-family: inherit; }
+  body.lang-hi .choice { font-family: 'Noto Sans Devanagari', sans-serif; }
+  .choice:active { transform: scale(0.98); }
+  .choice.selected { border-color: var(--ink); background: var(--ink); color: var(--paper); }
+
+  /* SCAN PROMPT */
+  .scan { padding: 13px 14px; background: linear-gradient(135deg, #fffaf2 0%, #fff5e8 100%); border: 1px dashed #d9c7a0; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 12px; cursor: pointer; transition: all 0.18s ease; margin-bottom: 16px; }
+  .scan:active { transform: scale(0.99); }
+  .scan-icon { width: 34px; height: 34px; background: var(--ink); color: var(--paper); border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .scan-text { flex: 1; }
+  .scan-text strong { display: block; font-size: 13px; font-weight: 500; }
+  body.lang-hi .scan-text strong { font-family: 'Noto Sans Devanagari', sans-serif; }
+  .scan-text span { display: block; font-size: 11.5px; color: var(--ink-faint); margin-top: 2px; font-style: italic; line-height: 1.35; }
+  body.lang-hi .scan-text span { font-style: normal; font-family: 'Noto Sans Devanagari', sans-serif; }
+  .scan-status { display: none; background: var(--ok); color: white; font-size: 10px; padding: 3px 8px; border-radius: 100px; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.05em; }
+  .scan.scanned { background: linear-gradient(135deg, #f0f7f0 0%, #e6f0e6 100%); border-color: #a8c8a8; border-style: solid; }
+  .scan.scanned .scan-status { display: inline-block; }
+  .scan.scanning .scan-icon { animation: pulse 1.1s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+  /* TIMELINE */
+  .timeline { margin: 0; padding: 14px 14px 8px; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-sm); }
+  .tl-row { display: grid; grid-template-columns: 14px 1fr; gap: 12px; padding: 4px 0 12px; position: relative; }
+  .tl-row:not(:last-child)::after { content: ''; position: absolute; left: 6px; top: 16px; bottom: 0; width: 2px; background: var(--line); }
+  .tl-bullet { width: 14px; height: 14px; border-radius: 50%; background: var(--surface); border: 2px solid var(--ink-faint); margin-top: 4px; z-index: 1; }
+  .tl-row.filled .tl-bullet { background: var(--ink); border-color: var(--ink); }
+  .tl-content { display: flex; flex-direction: column; gap: 4px; }
+  .tl-label { font-size: 11.5px; color: var(--ink-soft); font-weight: 500; }
+  body.lang-hi .tl-label { font-family: 'Noto Sans Devanagari', sans-serif; }
+  .tl-input { border: 1px solid var(--line); background: var(--surface); padding: 9px 11px; border-radius: 7px; font-size: 14px; font-family: inherit; outline: none; }
+  .tl-input:focus { border-color: var(--ink); }
+  .tl-input.auto { background: var(--gold-soft); border-color: #e8d99a; }
+  .tl-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .tl-auto-tag { display: inline-block; color: var(--gold); font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 0.08em; margin-left: 6px; font-weight: 500; }
+
+  /* CONDITIONAL REVEAL */
+  .reveal { margin-top: 10px; }
+  .reveal[hidden] { display: none; }
+
+  /* PREVIEW PILL + DRAWER */
+  .preview-tab { position: fixed; bottom: 78px; right: 14px; background: var(--ink); color: var(--paper); padding: 9px 13px; border-radius: 100px; font-size: 11.5px; font-weight: 500; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.05em; cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,0.18); z-index: 30; display: none; align-items: center; gap: 6px; border: none; }
+  .preview-tab.show { display: inline-flex; }
+  .preview-tab:active { transform: scale(0.97); }
+  .preview-dot { width: 6px; height: 6px; background: var(--ok-soft); border-radius: 50%; animation: tabPulse 2s ease-in-out infinite; }
+  @keyframes tabPulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+
+  .drawer-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 40; display: none; opacity: 0; transition: opacity 0.25s ease; }
+  .drawer-backdrop.show { display: block; opacity: 1; }
+  .drawer { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%) translateY(100%); width: 100%; max-width: 480px; background: var(--paper); border-radius: 18px 18px 0 0; z-index: 50; max-height: 82vh; display: flex; flex-direction: column; transition: transform 0.3s cubic-bezier(0.3, 0.7, 0.2, 1); box-shadow: 0 -10px 30px rgba(0,0,0,0.16); }
+  .drawer.show { transform: translateX(-50%) translateY(0); }
+  .drawer-handle { padding: 10px; display: flex; justify-content: center; }
+  .drawer-handle span { width: 36px; height: 4px; background: var(--line); border-radius: 2px; }
+  .drawer-head { padding: 0 22px 14px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: flex-end; }
+  .drawer-title { font-size: 18px; font-weight: 500; margin: 0 0 4px; }
+  .drawer-meta { font-size: 10.5px; color: var(--ink-faint); font-family: 'JetBrains Mono', monospace; letter-spacing: 0.04em; }
+  .drawer-body { padding: 18px 22px 30px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .doc-preview { font-family: 'Fraunces', serif; font-size: 13.5px; line-height: 1.7; color: var(--ink); white-space: pre-wrap; }
+  body.lang-hi .doc-preview { font-family: 'Noto Serif Devanagari', serif; font-size: 13.5px; }
+  .doc-preview .doc-head { text-align: center; font-weight: 600; margin-bottom: 14px; font-size: 14px; }
+  .doc-preview u { text-decoration: underline; }
+  .doc-preview .placeholder { background: #fff6e0; color: #9d720c; padding: 1px 6px; border-radius: 3px; font-style: italic; }
+  body.lang-hi .doc-preview .placeholder { font-style: normal; }
+  .doc-preview .xlit { background: #fffbef; padding: 0 2px; border-bottom: 1px dotted #d4b864; }
+
+  /* BOTTOM NAV */
+  .nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; background: var(--surface); border-top: 1px solid var(--line); padding: 12px 18px calc(12px + env(safe-area-inset-bottom)); display: flex; gap: 10px; box-shadow: var(--shadow-sticky); z-index: 20; }
+  .btn { flex: 1; border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 14px 16px; border-radius: var(--radius-sm); font-size: 15px; font-weight: 500; font-family: inherit; cursor: pointer; transition: all 0.15s ease; }
+  body.lang-hi .btn { font-family: 'Noto Sans Devanagari', sans-serif; }
+  .btn:active { transform: scale(0.98); }
+  .btn.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .btn.back { flex: 0 0 auto; padding-left: 18px; padding-right: 18px; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* REVIEW */
+  .review-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px 20px; box-shadow: var(--shadow-card); margin-bottom: 14px; }
+  .review-head { font-size: 22px; font-weight: 500; margin: 0 0 6px; letter-spacing: -0.01em; }
+  body.lang-hi .review-head { font-family: 'Noto Serif Devanagari', serif; font-size: 20px; }
+  .review-sub { font-size: 13px; color: var(--ink-faint); font-style: italic; margin: 0 0 16px; }
+  body.lang-hi .review-sub { font-style: normal; font-family: 'Noto Sans Devanagari', sans-serif; }
+  .badge-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+  .badge { font-size: 10.5px; font-family: 'JetBrains Mono', monospace; padding: 4px 9px; background: var(--paper); border: 1px solid var(--line); border-radius: 100px; color: var(--ink-soft); letter-spacing: 0.04em; }
+  .badge.ok { background: var(--ok-soft); color: var(--ok); border-color: #c4dcc4; }
+  .badge.gold { background: var(--gold-soft); color: var(--gold); border-color: #e8d99a; }
+  .review-preview { font-family: 'Fraunces', serif; font-size: 13.5px; line-height: 1.7; color: var(--ink); background: #fffefb; border: 1px solid var(--line); padding: 22px 20px; border-radius: var(--radius-sm); max-height: 380px; overflow-y: auto; margin: 4px 0 14px; white-space: pre-wrap; }
+  body.lang-hi .review-preview { font-family: 'Noto Serif Devanagari', serif; }
+  .review-preview .doc-head { text-align: center; font-weight: 600; margin-bottom: 14px; font-size: 14px; }
+  .review-preview u { text-decoration: underline; }
+  .review-preview .xlit { background: #fffbef; padding: 0 2px; border-bottom: 1px dotted #d4b864; }
+  .verify-strip { background: var(--ok-soft); border: 1px solid #c4dcc4; border-radius: var(--radius-sm); padding: 12px 14px; display: flex; align-items: flex-start; gap: 10px; font-size: 12.5px; color: var(--ok); line-height: 1.45; }
+  .verify-strip svg { flex-shrink: 0; margin-top: 1px; }
+
+  /* TOAST */
+  .toast { position: fixed; left: 50%; transform: translateX(-50%) translateY(80px); bottom: 100px; background: var(--ink); color: var(--paper); padding: 10px 16px; border-radius: 100px; font-size: 12.5px; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.03em; box-shadow: 0 8px 24px rgba(0,0,0,0.2); z-index: 60; opacity: 0; transition: all 0.3s ease; max-width: 90%; text-align: center; }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+  input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  input[type="number"] { -moz-appearance: textfield; }
+
+  @media (max-width: 380px) {
+    .opening-title { font-size: 26px; }
+    .card-title { font-size: 20px; }
+    .field-row { grid-template-columns: 1fr; }
+    .story-tile { min-height: 100px; padding: 14px 12px 12px; }
+    .tl-pair { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div class="topbar-brand">
+      Headnote · Drafter
+      <strong data-en="§138 NI Act · Story Drafter" data-hi="धारा 138 · कथा प्रारूप">§138 NI Act · Story Drafter</strong>
+    </div>
+    <div class="lang-toggle">
+      <button id="lang-en" class="active">EN</button>
+      <button id="lang-hi">हिं</button>
+    </div>
+  </div>
+
+  <!-- OPENING -->
+  <div class="screen active" id="screen-opening">
+    <div class="opening">
+      <div class="opening-eyebrow" data-en="The first question" data-hi="पहला प्रश्न">The first question</div>
+      <h1 class="opening-title" data-en="What is the story behind this cheque?" data-hi="इस चेक के पीछे की कहानी क्या है?">What is the story behind this cheque?</h1>
+      <p class="opening-desc" data-en="Every cheque bounce has a story. The legal narrative changes with each one. Pick the closest fit — we'll only ask what matters for that story." data-hi="हर चेक बाउंस के पीछे एक अलग कहानी होती है। हर कहानी के लिए वैधानिक भाषा बदलती है। सही विकल्प चुनें — हम केवल उसी से जुड़े प्रश्न पूछेंगे।">Every cheque bounce has a story. The legal narrative changes with each one. Pick the closest fit — we'll only ask what matters for that story.</p>
+      <div class="story-grid" id="story-grid"></div>
+      <div class="opening-foot" data-en="6 STORIES · 2 READY · MORE COMING" data-hi="6 कथाएँ · 2 तैयार · अन्य शीघ्र">6 STORIES · 2 READY · MORE COMING</div>
+    </div>
+  </div>
+
+  <!-- WIZARD -->
+  <div class="screen" id="screen-conv">
+    <div class="rail">
+      <div class="rail-dots" id="rail-dots"></div>
+      <div class="rail-label" id="rail-label">Section 1</div>
+    </div>
+    <div class="stage" id="stage"></div>
+    <button class="preview-tab" id="preview-tab">
+      <span class="preview-dot"></span>
+      <span data-en="PREVIEW DRAFT" data-hi="प्रारूप देखें">PREVIEW DRAFT</span>
+    </button>
+    <div class="nav">
+      <button class="btn back" id="btn-back" data-en="Back" data-hi="वापस">Back</button>
+      <button class="btn primary" id="btn-next" data-en="Continue" data-hi="आगे">Continue</button>
+    </div>
+  </div>
+
+  <!-- REVIEW -->
+  <div class="screen" id="screen-review">
+    <div class="stage">
+      <div class="review-card">
+        <h2 class="review-head" data-en="Your complaint, ready to file." data-hi="आपका परिवाद, दाखिल करने के लिए तैयार।">Your complaint, ready to file.</h2>
+        <p class="review-sub" data-en="Native drafting in both languages. Names are auto-transliterated based on draft language." data-hi="दोनों भाषाओं में मूल प्रारूप। नाम भाषा के अनुसार स्वतः लिप्यंतरित।">Native drafting in both languages. Names are auto-transliterated based on draft language.</p>
+        <div class="badge-row">
+          <span class="badge ok" id="badge-fields">15 fields</span>
+          <span class="badge gold" id="badge-story">Friendly Cash Loan</span>
+          <span class="badge">₹0.00</span>
+          <span class="badge" data-en="DOCX" data-hi="DOCX">DOCX</span>
+        </div>
+        <div class="review-preview" id="review-preview"></div>
+        <div class="verify-strip">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+          <span data-en="Zero AI hallucination risk. Template-generated, with phonetic transliteration of names. Review highlighted names for spelling." data-hi="कोई AI त्रुटि का जोखिम नहीं। नाम स्वतः लिप्यंतरित — रेखांकित नामों की वर्तनी जाँचें।">Zero AI hallucination risk. Template-generated, with phonetic transliteration of names. Review highlighted names for spelling.</span>
+        </div>
+      </div>
+    </div>
+    <div class="nav">
+      <button class="btn back" id="btn-edit" data-en="Edit" data-hi="संपादित">Edit</button>
+      <button class="btn primary" id="btn-download" data-en="Download .docx" data-hi="वर्ड फ़ाइल">Download .docx</button>
+    </div>
+  </div>
+
+</div>
+
+<div class="drawer-backdrop" id="drawer-back"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-handle"><span></span></div>
+  <div class="drawer-head">
+    <div>
+      <h3 class="drawer-title" data-en="Draft so far" data-hi="अब तक का प्रारूप">Draft so far</h3>
+      <div class="drawer-meta">
+        <span data-en="Highlighted parts will fill as you continue" data-hi="आगे बढ़ने पर रेखांकित भाग भर जाएँगे">Highlighted parts will fill as you continue</span>
+      </div>
+    </div>
+  </div>
+  <div class="drawer-body">
+    <div class="doc-preview" id="drawer-preview"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// =================================================================
+// TRANSLITERATION (English ↔ Devanagari)
+// Dictionary-first, phonetic fallback.
+// =================================================================
+
+const HI_DICT = {
+  // First names
+  'priyanshu': 'प्रियंशु', 'abhishek': 'अभिषेक', 'rajesh': 'राजेश', 'dheeraj': 'धीरज',
+  'shyam': 'श्याम', 'ayush': 'आयुष', 'amit': 'अमित', 'sunil': 'सुनील', 'anil': 'अनिल',
+  'mukesh': 'मुकेश', 'suresh': 'सुरेश', 'ramesh': 'रमेश', 'mahesh': 'महेश',
+  'rakesh': 'राकेश', 'dinesh': 'दिनेश', 'naresh': 'नरेश', 'rohit': 'रोहित',
+  'mohit': 'मोहित', 'vishal': 'विशाल', 'vikash': 'विकास', 'vikas': 'विकास',
+  'manoj': 'मनोज', 'sanjay': 'संजय', 'ajay': 'अजय', 'vijay': 'विजय', 'jay': 'जय',
+  'arjun': 'अर्जुन', 'krishna': 'कृष्ण', 'ram': 'राम', 'gopal': 'गोपाल',
+  'mohan': 'मोहन', 'sohan': 'सोहन', 'ashok': 'अशोक', 'pankaj': 'पंकज',
+  'deepak': 'दीपक', 'rahul': 'राहुल', 'sachin': 'सचिन', 'gaurav': 'गौरव',
+  'siddharth': 'सिद्धार्थ', 'aditya': 'आदित्य', 'akash': 'आकाश', 'arun': 'अरुण',
+  'varun': 'वरुण', 'tarun': 'तरुण', 'karan': 'करन', 'kabir': 'कबीर',
+  'piyush': 'पीयूष', 'harsh': 'हर्ष', 'yash': 'यश', 'shivam': 'शिवम',
+  'anita': 'अनीता', 'sunita': 'सुनीता', 'kavita': 'कविता', 'pooja': 'पूजा',
+  'priya': 'प्रिया', 'priyanka': 'प्रियंका', 'neha': 'नेहा', 'rekha': 'रेखा',
+  'meena': 'मीना', 'reena': 'रीना', 'seema': 'सीमा', 'asha': 'आशा',
+  'usha': 'उषा', 'sushma': 'सुषमा', 'lata': 'लता', 'radha': 'राधा',
+  'sita': 'सीता', 'gita': 'गीता', 'kalpana': 'कल्पना', 'shobha': 'शोभा',
+  // Surnames
+  'sharma': 'शर्मा', 'verma': 'वर्मा', 'gupta': 'गुप्ता', 'singh': 'सिंह',
+  'kumar': 'कुमार', 'kumari': 'कुमारी', 'agarwal': 'अग्रवाल', 'agrawal': 'अग्रवाल',
+  'mishra': 'मिश्रा', 'tiwari': 'तिवारी', 'chaurasiya': 'चौरसिया', 'chaurasia': 'चौरसिया',
+  'pandey': 'पाण्डेय', 'tripathi': 'त्रिपाठी', 'dubey': 'दुबे', 'jha': 'झा',
+  'yadav': 'यादव', 'patel': 'पटेल', 'shah': 'शाह', 'mehta': 'मेहता',
+  'joshi': 'जोशी', 'desai': 'देसाई', 'rao': 'राव', 'reddy': 'रेड्डी',
+  'iyer': 'अय्यर', 'menon': 'मेनन', 'nair': 'नायर', 'pillai': 'पिल्लई',
+  'kapoor': 'कपूर', 'khanna': 'खन्ना', 'malhotra': 'मल्होत्रा', 'chopra': 'चोपड़ा',
+  'thakur': 'ठाकुर', 'rajput': 'राजपूत', 'gurjar': 'गुर्जर', 'jat': 'जाट',
+  'gaur': 'गौड़', 'kushwaha': 'कुशवाहा', 'saxena': 'सक्सेना', 'srivastava': 'श्रीवास्तव',
+  // Address words
+  'shri': 'श्री', 'shree': 'श्री', 'smt': 'श्रीमती', 'colony': 'कॉलोनी', 'colaney': 'कॉलोनी',
+  'nagar': 'नगर', 'road': 'रोड', 'street': 'स्ट्रीट', 'gali': 'गली',
+  'mohalla': 'मोहल्ला', 'ward': 'वार्ड', 'block': 'ब्लॉक', 'sector': 'सेक्टर',
+  'phase': 'फेज़', 'mandir': 'मंदिर', 'masjid': 'मस्जिद', 'school': 'स्कूल',
+  'town': 'टाउन', 'model': 'मॉडल', 'park': 'पार्क', 'hospital': 'हॉस्पिटल',
+  'collector': 'कलेक्टर', 'office': 'कार्यालय', 'station': 'स्टेशन',
+  'distt': 'जिला', 'district': 'जिला', 'tehsil': 'तहसील', 'state': 'राज्य',
+  // Cities
+  'gwalior': 'ग्वालियर', 'bhopal': 'भोपाल', 'indore': 'इंदौर', 'jabalpur': 'जबलपुर',
+  'ujjain': 'उज्जैन', 'sagar': 'सागर', 'rewa': 'रीवा', 'satna': 'सतना',
+  'dabra': 'डबरा', 'morena': 'मुरैना', 'bhind': 'भिंड', 'shivpuri': 'शिवपुरी',
+  'guna': 'गुना', 'ashoknagar': 'अशोकनगर', 'datia': 'दतिया',
+  'delhi': 'दिल्ली', 'mumbai': 'मुंबई', 'kolkata': 'कोलकाता', 'chennai': 'चेन्नई',
+  'lucknow': 'लखनऊ', 'kanpur': 'कानपुर', 'jaipur': 'जयपुर', 'patna': 'पटना',
+  // Business / legal
+  'private': 'प्राइवेट', 'limited': 'लिमिटेड', 'ltd': 'लिमिटेड', 'pvt': 'प्रा.',
+  'enterprises': 'एंटरप्राइजेज़', 'traders': 'ट्रेडर्स', 'industries': 'इंडस्ट्रीज़',
+  'service': 'नौकरी', 'business': 'व्यापार', 'trader': 'व्यापारी',
+  'advocate': 'अधिवक्ता', 'lawyer': 'अधिवक्ता',
+  // Banks
+  'sbi': 'एसबीआई', 'state': 'स्टेट', 'bank': 'बैंक', 'india': 'इंडिया',
+  'uco': 'यूको', 'pnb': 'पीएनबी', 'icici': 'आईसीआईसीआई', 'hdfc': 'एचडीएफसी',
+  'axis': 'एक्सिस', 'kotak': 'कोटक', 'yes': 'यस', 'idfc': 'आईडीएफसी',
+  'patel': 'पटेल', 'branch': 'शाखा',
+  // Common conjunctions
+  'and': 'और', 'or': 'या', 'of': 'का', 'the': '', 'at': 'में', 'in': 'में',
+  'near': 'के पास', 'opposite': 'के सामने', 'behind': 'के पीछे'
+};
+
+// Reverse dictionary for HI → EN
+const EN_DICT = {};
+Object.entries(HI_DICT).forEach(([en, hi]) => { if (hi && !EN_DICT[hi]) EN_DICT[hi] = en.charAt(0).toUpperCase() + en.slice(1); });
+
+// Phonetic mappings — used as fallback
+const CONS_MULTI = {
+  'shri': 'श्री', 'shr': 'श्र', 'chh': 'छ', 'jny': 'ज्ञ',
+  'kh': 'ख', 'gh': 'घ', 'ch': 'च', 'jh': 'झ',
+  'th': 'थ', 'dh': 'ध', 'ph': 'फ', 'bh': 'भ', 'sh': 'श'
+};
+const CONS_SINGLE = {
+  'k': 'क', 'g': 'ग', 'c': 'क', 'j': 'ज', 't': 'त', 'd': 'द',
+  'n': 'न', 'p': 'प', 'b': 'ब', 'm': 'म', 'y': 'य', 'r': 'र',
+  'l': 'ल', 'v': 'व', 'w': 'व', 's': 'स', 'h': 'ह', 'z': 'ज़',
+  'f': 'फ़', 'q': 'क', 'x': 'क्स'
+};
+const VOWEL_MULTI = ['aa', 'ee', 'ii', 'oo', 'uu', 'ai', 'au'];
+const VOWEL_INDEP = { 'aa': 'आ', 'ee': 'ई', 'ii': 'ई', 'oo': 'ऊ', 'uu': 'ऊ', 'ai': 'ऐ', 'au': 'औ', 'a': 'अ', 'e': 'ए', 'i': 'इ', 'o': 'ओ', 'u': 'उ' };
+const VOWEL_MATRA = { 'aa': 'ा', 'ee': 'ी', 'ii': 'ी', 'oo': 'ू', 'uu': 'ू', 'ai': 'ै', 'au': 'ौ', 'a': '', 'e': 'े', 'i': 'ि', 'o': 'ो', 'u': 'ु' };
+const SIBILANTS = ['s', 'sh'];
+
+function phoneticToHi(word) {
+  word = word.toLowerCase();
+  let result = '';
+  let i = 0;
+  let lastWasConsonant = false;
+
+  while (i < word.length) {
+    const isLast = (i === word.length - 1);
+    let matched = false;
+
+    // Anusvara rule: 'n' or 'm' followed by a consonant becomes ं on previous vowel
+    if ((word[i] === 'n' || word[i] === 'm') && !lastWasConsonant && i > 0 && i < word.length - 1) {
+      const nextChar = word[i + 1];
+      const nextTwo = word.slice(i + 1, i + 3);
+      const followedByConsonant = (CONS_SINGLE[nextChar] || CONS_MULTI[nextTwo] || CONS_MULTI[nextChar + word[i + 2]]);
+      const followedByVowel = ['a', 'e', 'i', 'o', 'u'].includes(nextChar);
+      if (followedByConsonant && !followedByVowel) {
+        result += 'ं';
+        i++;
+        lastWasConsonant = false;
+        continue;
+      }
+    }
+
+    // Try multi-char consonants (longest first)
+    const multiKeys = Object.keys(CONS_MULTI).sort((a, b) => b.length - a.length);
+    for (const key of multiKeys) {
+      if (word.slice(i, i + key.length) === key) {
+        if (lastWasConsonant) result += '्';
+        result += CONS_MULTI[key];
+        i += key.length;
+        lastWasConsonant = true;
+        matched = true;
+        break;
+      }
+    }
+    if (matched) continue;
+
+    // Try multi-char vowels
+    for (const v of VOWEL_MULTI) {
+      if (word.slice(i, i + v.length) === v) {
+        if (lastWasConsonant) result += VOWEL_MATRA[v];
+        else result += VOWEL_INDEP[v];
+        i += v.length;
+        lastWasConsonant = false;
+        matched = true;
+        break;
+      }
+    }
+    if (matched) continue;
+
+    // Single consonant
+    if (CONS_SINGLE[word[i]]) {
+      if (lastWasConsonant) result += '्';
+      result += CONS_SINGLE[word[i]];
+      i++;
+      lastWasConsonant = true;
+      continue;
+    }
+
+    // Single vowel — with end-of-word rule: trailing 'a' becomes long ा
+    if (VOWEL_INDEP[word[i]]) {
+      let v = word[i];
+      // Heuristic: if 'a' is at the end of a multi-char word AND last was consonant, treat as long aa
+      if (v === 'a' && isLast && lastWasConsonant && word.length > 2) {
+        v = 'aa';
+      }
+      if (lastWasConsonant) result += VOWEL_MATRA[v];
+      else result += VOWEL_INDEP[v];
+      i++;
+      lastWasConsonant = false;
+      continue;
+    }
+
+    // Numbers and punctuation passthrough
+    result += word[i];
+    i++;
+  }
+
+  return result;
+}
+
+function enToHi(text) {
+  if (!text || typeof text !== 'string') return text;
+  // Already Devanagari? Don't touch.
+  if (/[\u0900-\u097F]/.test(text)) return text;
+  // Split by whitespace and punctuation, preserve them
+  return text.split(/(\s+|[,.;:()\-\/])/g).map(token => {
+    if (!token) return '';
+    if (/^\s+$/.test(token) || /^[,.;:()\-\/]+$/.test(token)) return token;
+    if (/^\d+$/.test(token)) return token;
+    const lower = token.toLowerCase();
+    if (HI_DICT[lower] !== undefined) return HI_DICT[lower];
+    return phoneticToHi(token);
+  }).join('');
+}
+
+// HI → EN (simpler, mostly 1-to-1)
+const HI_TO_EN_MAP = {
+  'अ': 'a', 'आ': 'aa', 'इ': 'i', 'ई': 'ee', 'उ': 'u', 'ऊ': 'oo', 'ऋ': 'ri',
+  'ए': 'e', 'ऐ': 'ai', 'ओ': 'o', 'औ': 'au',
+  'क': 'k', 'ख': 'kh', 'ग': 'g', 'घ': 'gh', 'ङ': 'ng',
+  'च': 'ch', 'छ': 'chh', 'ज': 'j', 'झ': 'jh', 'ञ': 'ny',
+  'ट': 't', 'ठ': 'th', 'ड': 'd', 'ढ': 'dh', 'ण': 'n',
+  'त': 't', 'थ': 'th', 'द': 'd', 'ध': 'dh', 'न': 'n',
+  'प': 'p', 'फ': 'ph', 'ब': 'b', 'भ': 'bh', 'म': 'm',
+  'य': 'y', 'र': 'r', 'ल': 'l', 'व': 'v', 'श': 'sh', 'ष': 'sh',
+  'स': 's', 'ह': 'h', 'ळ': 'l',
+  'ा': 'a', 'ि': 'i', 'ी': 'ee', 'ु': 'u', 'ू': 'oo', 'े': 'e', 'ै': 'ai', 'ो': 'o', 'ौ': 'au',
+  'ं': 'n', 'ः': 'h', 'ँ': 'n',
+  '्': '',
+  'क़': 'q', 'ज़': 'z', 'फ़': 'f', 'ड़': 'r', 'ढ़': 'rh',
+  '०': '0', '१': '1', '२': '2', '३': '3', '४': '4', '५': '5', '६': '6', '७': '7', '८': '8', '९': '9'
+};
+function hiToEn(text) {
+  if (!text || typeof text !== 'string') return text;
+  if (!/[\u0900-\u097F]/.test(text)) return text;
+  return text.split(/(\s+|[,.;:()\-\/])/g).map(token => {
+    if (!token) return '';
+    if (/^\s+$/.test(token) || /^[,.;:()\-\/]+$/.test(token)) return token;
+    if (EN_DICT[token]) return EN_DICT[token];
+    let out = '';
+    for (const ch of token) {
+      out += (HI_TO_EN_MAP[ch] !== undefined ? HI_TO_EN_MAP[ch] : ch);
+    }
+    // Insert inherent 'a' after consonants where appropriate (heuristic)
+    // For demo simplicity we leave as-is. Capitalize first letter.
+    if (out.length) out = out.charAt(0).toUpperCase() + out.slice(1);
+    return out;
+  }).join('');
+}
+
+// Wrap transliterated text in a span so user can spot it in the preview
+function xlit(text, targetLang) {
+  if (!text) return text;
+  const isDeva = /[\u0900-\u097F]/.test(text);
+  let out;
+  if (targetLang === 'hi') out = isDeva ? text : enToHi(text);
+  else out = isDeva ? hiToEn(text) : text;
+  // Only mark as transliterated if conversion actually happened
+  if (out !== text) return `<span class="xlit">${out}</span>`;
+  return out;
+}
+
+// =================================================================
+// STATE
+// =================================================================
+const state = {
+  lang: 'en',
+  story: null,
+  sectionIndex: 0,
+  answers: {}
+};
+
+// =================================================================
+// STORIES
+// Each story has: questions[] (one per section card), template_en, template_hi.
+// Each section card holds multiple grouped fields.
+// =================================================================
+
+const STORIES = {
+
+  friendly_cash_loan: {
+    label: { en: 'Friendly Cash Loan', hi: 'मित्रवत नकद ऋण' },
+    sub:   { en: 'KNOWN PERSON', hi: 'परिचित व्यक्ति' },
+    ready: true,
+    icon: 'handshake',
+    sections: [
+      { id: 'parties',   eyebrow: { en: 'SECTION 1', hi: 'अनुभाग 1' }, title: { en: 'The parties', hi: 'पक्षकार' }, sub: { en: 'Both sides — names, ages, addresses.', hi: 'दोनों पक्षों के नाम, आयु, पते।' }, type: 'parties' },
+      { id: 'story',     eyebrow: { en: 'SECTION 2', hi: 'अनुभाग 2' }, title: { en: 'The loan story', hi: 'ऋण की कहानी' }, sub: { en: 'Relationship, money lent, mode, witness, partial returns.', hi: 'संबंध, उधार, माध्यम, गवाह, आंशिक वापसी।' }, type: 'friendly_story' },
+      { id: 'cheque',    eyebrow: { en: 'SECTION 3', hi: 'अनुभाग 3' }, title: { en: 'The cheque', hi: 'चेक' }, sub: { en: 'Details from the cheque the accused gave.', hi: 'अभियुक्त द्वारा दिए गए चेक का विवरण।' }, type: 'cheque', scan: true },
+      { id: 'dishonour', eyebrow: { en: 'SECTION 4', hi: 'अनुभाग 4' }, title: { en: 'The dishonour', hi: 'अनादर' }, sub: { en: 'From the bank return memo.', hi: 'बैंक के रिटर्न ज्ञापन से।' }, type: 'dishonour', scan: true },
+      { id: 'notice',    eyebrow: { en: 'SECTION 5', hi: 'अनुभाग 5' }, title: { en: 'The notice timeline', hi: 'नोटिस की समय-रेखा' }, sub: { en: 'Sent → received → 15-day expiry → cause of action.', hi: 'भेजा → प्राप्त → 15 दिन समाप्ति → वादकारण।' }, type: 'notice' },
+      { id: 'court',     eyebrow: { en: 'SECTION 6', hi: 'अनुभाग 6' }, title: { en: 'Court and filing', hi: 'न्यायालय एवं दाखिल' }, sub: { en: 'Final details before generating the draft.', hi: 'प्रारूप तैयार करने से पहले अंतिम विवरण।' }, type: 'court' }
+    ],
+    template_en: friendlyCashLoanEN,
+    template_hi: friendlyCashLoanHI
+  },
+
+  business_goods: {
+    label: { en: 'Goods Supplied / Business', hi: 'व्यापारिक लेन-देन' },
+    sub:   { en: 'INVOICE-BASED', hi: 'इनवॉइस आधारित' },
+    ready: true,
+    icon: 'box',
+    sections: [
+      { id: 'parties',   eyebrow: { en: 'SECTION 1', hi: 'अनुभाग 1' }, title: { en: 'The firms', hi: 'फर्में' }, sub: { en: 'Both businesses — names, proprietors, addresses.', hi: 'दोनों व्यवसाय — नाम, प्रोप्राइटर, पते।' }, type: 'parties_business' },
+      { id: 'business',  eyebrow: { en: 'SECTION 2', hi: 'अनुभाग 2' }, title: { en: 'The business dealing', hi: 'व्यापारिक लेन-देन' }, sub: { en: 'What was supplied, invoice details, course of dealings.', hi: 'क्या आपूर्ति की गई, इनवॉइस, व्यापारिक संबंध।' }, type: 'business_story', scan: true },
+      { id: 'cheque',    eyebrow: { en: 'SECTION 3', hi: 'अनुभाग 3' }, title: { en: 'The cheque', hi: 'चेक' }, sub: { en: 'The cheque issued against the invoice.', hi: 'इनवॉइस के बदले दिया गया चेक।' }, type: 'cheque', scan: true },
+      { id: 'dishonour', eyebrow: { en: 'SECTION 4', hi: 'अनुभाग 4' }, title: { en: 'The dishonour', hi: 'अनादर' }, sub: { en: 'From the bank return memo.', hi: 'बैंक के रिटर्न ज्ञापन से।' }, type: 'dishonour', scan: true },
+      { id: 'notice',    eyebrow: { en: 'SECTION 5', hi: 'अनुभाग 5' }, title: { en: 'The notice timeline', hi: 'नोटिस की समय-रेखा' }, sub: { en: 'Sent → received → 15-day expiry → cause of action.', hi: 'भेजा → प्राप्त → 15 दिन समाप्ति → वादकारण।' }, type: 'notice' },
+      { id: 'court',     eyebrow: { en: 'SECTION 6', hi: 'अनुभाग 6' }, title: { en: 'Court and filing', hi: 'न्यायालय एवं दाखिल' }, sub: { en: 'Final details before generating the draft.', hi: 'प्रारूप तैयार करने से पहले अंतिम विवरण।' }, type: 'court' }
+    ],
+    template_en: businessGoodsEN,
+    template_hi: businessGoodsHI
+  },
+
+  property_dealing: { label: { en: 'Property Dealing', hi: 'संपत्ति लेन-देन' }, sub: { en: 'COMING SOON', hi: 'जल्द' }, ready: false, icon: 'home' },
+  security_cheque:  { label: { en: 'Security Cheque', hi: 'जमानत चेक' },     sub: { en: 'COMING SOON', hi: 'जल्द' }, ready: false, icon: 'shield' },
+  chit_fund:        { label: { en: 'Committee / Chit Fund', hi: 'समिति / चिट फंड' }, sub: { en: 'COMING SOON', hi: 'जल्द' }, ready: false, icon: 'circle' },
+  emi_default:      { label: { en: 'EMI / Default', hi: 'EMI / डिफ़ॉल्ट' }, sub: { en: 'COMING SOON', hi: 'जल्द' }, ready: false, icon: 'calendar' }
+};
+
+const ICONS = {
+  handshake: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 17l-5-5 5-5"/><path d="M13 7l5 5-5 5"/><path d="M6 12h12"/></svg>`,
+  box: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`,
+  home: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-9 9 9"/><path d="M5 10v10h14V10"/></svg>`,
+  shield: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+  circle: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></svg>`,
+  calendar: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
+  camera: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`
+};
+
+// =================================================================
+// HELPERS
+// =================================================================
+function t(obj) { return obj[state.lang]; }
+function ans(key, fb) { return state.answers[key] ?? fb ?? ''; }
+function setAns(key, val) { state.answers[key] = val; updatePreview(); }
+function fmtDate(s) {
+  if (!s) return null;
+  const d = new Date(s);
+  if (isNaN(d)) return s;
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  return `${dd}.${mm}.${d.getFullYear()}`;
+}
+function ph(en, hi) {
+  return `<span class="placeholder">${state.lang === 'hi' ? hi : en}</span>`;
+}
+// Transliterate-and-display: for any user input that may be in the wrong script
+function tx(text, fbEn, fbHi) {
+  if (!text) return ph(fbEn || 'data', fbHi || 'विवरण');
+  return xlit(text, state.lang);
+}
+
+// =================================================================
+// LANGUAGE TOGGLE
+// =================================================================
+function applyLang() {
+  document.body.classList.toggle('lang-hi', state.lang === 'hi');
+  document.querySelectorAll('[data-en]').forEach(el => {
+    const v = el.getAttribute('data-' + state.lang);
+    if (v != null) el.textContent = v;
+  });
+  document.getElementById('lang-en').classList.toggle('active', state.lang === 'en');
+  document.getElementById('lang-hi').classList.toggle('active', state.lang === 'hi');
+  if (document.getElementById('screen-opening').classList.contains('active')) renderStoryGrid();
+  if (document.getElementById('screen-conv').classList.contains('active')) renderSection();
+  if (document.getElementById('screen-review').classList.contains('active')) renderReview();
+  updatePreview();
+}
+document.getElementById('lang-en').addEventListener('click', () => { state.lang = 'en'; applyLang(); showToast(state.lang === 'hi' ? 'अंग्रेज़ी मोड' : 'English mode'); });
+document.getElementById('lang-hi').addEventListener('click', () => { state.lang = 'hi'; applyLang(); showToast('हिंदी मोड · नाम स्वतः लिप्यंतरित होंगे'); });
+
+// =================================================================
+// STORY GRID
+// =================================================================
+function renderStoryGrid() {
+  const grid = document.getElementById('story-grid');
+  grid.innerHTML = '';
+  Object.entries(STORIES).forEach(([id, s]) => {
+    const tile = document.createElement('button');
+    tile.className = 'story-tile ' + (s.ready ? 'ready' : 'soon');
+    tile.innerHTML = `
+      <div>
+        <div class="story-tile-icon">${ICONS[s.icon] || ICONS.handshake}</div>
+        <div class="story-tile-title">${t(s.label)}</div>
+      </div>
+      <div class="story-tile-sub">${t(s.sub)}</div>
+    `;
+    if (s.ready) tile.addEventListener('click', () => startStory(id));
+    grid.appendChild(tile);
+  });
+}
+function startStory(id) {
+  state.story = id;
+  state.sectionIndex = 0;
+  state.answers = {};
+  showScreen('conv');
+  renderSection();
+  document.getElementById('preview-tab').classList.add('show');
+}
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+  document.getElementById('preview-tab').classList.toggle('show', id === 'conv');
+}
+
+// =================================================================
+// SECTION RENDER
+// =================================================================
+function renderSection() {
+  const story = STORIES[state.story];
+  const total = story.sections.length;
+  const sec = story.sections[state.sectionIndex];
+  const stage = document.getElementById('stage');
+  stage.innerHTML = '';
+
+  // rail
+  const dots = document.getElementById('rail-dots');
+  dots.innerHTML = '';
+  for (let i = 0; i < total; i++) {
+    const d = document.createElement('div');
+    d.className = 'rail-dot';
+    if (i < state.sectionIndex) d.classList.add('done');
+    else if (i === state.sectionIndex) d.classList.add('active');
+    dots.appendChild(d);
+  }
+  document.getElementById('rail-label').textContent = `${state.sectionIndex + 1} / ${total}`;
+
+  // card
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `
+    <div class="card-eyebrow">${t(sec.eyebrow)}</div>
+    <h2 class="card-title">${t(sec.title)}</h2>
+    <p class="card-sub">${t(sec.sub)}</p>
+  `;
+
+  // scan button (if applicable)
+  if (sec.scan) card.appendChild(buildScanBlock(sec));
+
+  // body
+  const body = document.createElement('div');
+  renderBody(body, sec);
+  card.appendChild(body);
+  stage.appendChild(card);
+
+  // nav
+  document.getElementById('btn-back').disabled = state.sectionIndex === 0;
+  const nb = document.getElementById('btn-next');
+  nb.textContent = (state.sectionIndex === total - 1)
+    ? (state.lang === 'hi' ? 'प्रारूप तैयार करें' : 'Generate draft')
+    : (state.lang === 'hi' ? 'आगे' : 'Continue');
+
+  updatePreview();
+}
+
+// =================================================================
+// SCAN BLOCK
+// =================================================================
+function buildScanBlock(sec) {
+  const scanned = state.answers['__scanned_' + sec.id];
+  const wrap = document.createElement('div');
+  wrap.className = 'scan' + (scanned ? ' scanned' : '');
+
+  const labels = {
+    cheque:    { en: 'Scan the cheque',      hi: 'चेक स्कैन करें',         hint_en: 'Reads cheque number, date, amount, drawer bank', hint_hi: 'चेक संख्या, तिथि, राशि, बैंक स्वतः भरें' },
+    dishonour: { en: 'Scan the return memo', hi: 'अनादर ज्ञापन स्कैन करें', hint_en: 'Reads memo date, dishonour reason, drawer bank',  hint_hi: 'ज्ञापन तिथि, कारण, बैंक स्वतः भरें' },
+    business_story: { en: 'Scan an invoice', hi: 'इनवॉइस स्कैन करें',       hint_en: 'Reads invoice number, date, amount, supply description', hint_hi: 'इनवॉइस संख्या, तिथि, राशि स्वतः भरें' }
+  };
+  const L = labels[sec.id] || labels.cheque;
+
+  wrap.innerHTML = `
+    <div class="scan-icon">${ICONS.camera}</div>
+    <div class="scan-text">
+      <strong>${state.lang === 'hi' ? L.hi : L.en}</strong>
+      <span>${state.lang === 'hi' ? L.hint_hi : L.hint_en}</span>
+    </div>
+    <span class="scan-status">${state.lang === 'hi' ? 'पूर्ण' : 'DONE'}</span>
+  `;
+  wrap.addEventListener('click', () => simulateScan(sec));
+  return wrap;
+}
+function simulateScan(sec) {
+  const el = document.querySelector('.scan');
+  el.classList.add('scanning');
+  setTimeout(() => {
+    el.classList.remove('scanning');
+    el.classList.add('scanned');
+    state.answers['__scanned_' + sec.id] = true;
+    const fills = sec.id === 'cheque' ? {
+      cheque_number: '559552', cheque_date: '2025-08-05', cheque_amount: '80000', drawer_bank: 'UCO Bank, Dabra Branch'
+    } : sec.id === 'dishonour' ? {
+      depositor_bank: 'State Bank of India, Patel Nagar', dishonour_date: '2025-09-09', dishonour_reason: 'funds_insufficient'
+    } : sec.id === 'business_story' ? {
+      invoice_number: 'INV/2025/142', invoice_date: '2025-06-15', amount_outstanding: '125000', goods_type: 'Industrial steel pipes and fittings'
+    } : {};
+    Object.entries(fills).forEach(([k, v]) => {
+      state.answers[k] = v;
+      state.answers['__scanned_' + k] = true;
+    });
+    showToast(state.lang === 'hi' ? `${Object.keys(fills).length} फ़ील्ड स्वतः भरीं` : `${Object.keys(fills).length} fields auto-filled`);
+    renderSection();
+  }, 1100);
+}
+
+// =================================================================
+// SECTION BODY RENDERERS
+// =================================================================
+function renderBody(body, sec) {
+  switch (sec.type) {
+
+    case 'parties': {
+      body.innerHTML = `
+        <div class="group">
+          <div class="group-label">${state.lang === 'hi' ? 'अभियोगी' : 'Complainant'}</div>
+          <div class="field"><input type="text" data-k="complainant_name" placeholder="${state.lang === 'hi' ? 'पूरा नाम' : 'Full name'}" value="${ans('complainant_name')}" /></div>
+          <div class="field field-row">
+            <input type="text" data-k="complainant_father" placeholder="${state.lang === 'hi' ? 'पिता का नाम' : "Father's name"}" value="${ans('complainant_father')}" />
+            <input type="number" data-k="complainant_age" placeholder="${state.lang === 'hi' ? 'आयु' : 'Age'}" value="${ans('complainant_age')}" />
+          </div>
+          <div class="field"><input type="text" data-k="complainant_occupation" placeholder="${state.lang === 'hi' ? 'व्यवसाय (नौकरी / व्यापार / अन्य)' : 'Occupation'}" value="${ans('complainant_occupation')}" /></div>
+          <div class="field"><textarea data-k="complainant_address" placeholder="${state.lang === 'hi' ? 'पूरा पता' : 'Full address'}">${ans('complainant_address')}</textarea></div>
+        </div>
+        <div class="group">
+          <div class="group-label">${state.lang === 'hi' ? 'अभियुक्त' : 'Accused'}</div>
+          <div class="field"><input type="text" data-k="accused_name" placeholder="${state.lang === 'hi' ? 'पूरा नाम' : 'Full name'}" value="${ans('accused_name')}" /></div>
+          <div class="field field-row">
+            <input type="text" data-k="accused_father" placeholder="${state.lang === 'hi' ? 'पिता का नाम' : "Father's name"}" value="${ans('accused_father')}" />
+            <input type="number" data-k="accused_age" placeholder="${state.lang === 'hi' ? 'आयु' : 'Age'}" value="${ans('accused_age')}" />
+          </div>
+          <div class="field"><input type="text" data-k="accused_occupation" placeholder="${state.lang === 'hi' ? 'व्यवसाय' : 'Occupation'}" value="${ans('accused_occupation')}" /></div>
+          <div class="field"><textarea data-k="accused_address" placeholder="${state.lang === 'hi' ? 'पूरा पता' : 'Full address'}">${ans('accused_address')}</textarea></div>
+        </div>
+      `;
+      bind(body);
+      break;
+    }
+
+    case 'parties_business': {
+      body.innerHTML = `
+        <div class="group">
+          <div class="group-label">${state.lang === 'hi' ? 'अभियोगी फर्म' : 'Complainant firm'}</div>
+          <div class="field"><input type="text" data-k="complainant_name" placeholder="${state.lang === 'hi' ? 'फर्म का नाम' : 'Firm name'}" value="${ans('complainant_name')}" /></div>
+          <div class="field"><input type="text" data-k="complainant_proprietor" placeholder="${state.lang === 'hi' ? 'प्रोप्राइटर / पार्टनर का नाम' : 'Proprietor / partner name'}" value="${ans('complainant_proprietor')}" /></div>
+          <div class="field field-row">
+            <input type="text" data-k="complainant_gstin" placeholder="GSTIN" value="${ans('complainant_gstin')}" />
+            <input type="tel" data-k="complainant_phone" placeholder="${state.lang === 'hi' ? 'फ़ोन' : 'Phone'}" value="${ans('complainant_phone')}" />
+          </div>
+          <div class="field"><textarea data-k="complainant_address" placeholder="${state.lang === 'hi' ? 'पंजीकृत व्यापारिक पता' : 'Registered business address'}">${ans('complainant_address')}</textarea></div>
+        </div>
+        <div class="group">
+          <div class="group-label">${state.lang === 'hi' ? 'अभियुक्त फर्म' : 'Accused firm'}</div>
+          <div class="field"><input type="text" data-k="accused_name" placeholder="${state.lang === 'hi' ? 'फर्म / व्यक्ति का नाम' : 'Firm / individual name'}" value="${ans('accused_name')}" /></div>
+          <div class="field"><input type="text" data-k="accused_proprietor" placeholder="${state.lang === 'hi' ? 'प्रोप्राइटर / पार्टनर' : 'Proprietor / partner'}" value="${ans('accused_proprietor')}" /></div>
+          <div class="field"><textarea data-k="accused_address" placeholder="${state.lang === 'hi' ? 'अभियुक्त का व्यापारिक पता' : "Accused's business address"}">${ans('accused_address')}</textarea></div>
+        </div>
+      `;
+      bind(body);
+      break;
+    }
+
+    case 'friendly_story': {
+      body.innerHTML = `
+        <div class="group">
+          <div class="group-label">${state.lang === 'hi' ? 'संबंध' : 'How they know each other'}</div>
+          <div class="choices col4">
+            ${['friends','neighbours','relatives','colleagues'].map(v => `
+              <button class="choice ${ans('relationship')===v?'selected':''}" data-choice="relationship" data-v="${v}">
+                ${state.lang === 'hi' ? ({friends:'मित्र',neighbours:'पड़ोसी',relatives:'रिश्तेदार',colleagues:'सहकर्मी'}[v]) : ({friends:'Friends',neighbours:'Neighbours',relatives:'Relatives',colleagues:'Colleagues'}[v])}
+              </button>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="group">
+          <div class="group-label">${state.lang === 'hi' ? 'ऋण का विवरण' : 'When and how much'}</div>
+          <div class="timeline">
+            <div class="tl-row ${ans('loan_date_1') ? 'filled' : ''}">
+              <div class="tl-bullet"></div>
+              <div class="tl-content">
+                <div class="tl-label">${state.lang === 'hi' ? 'पहली बार' : 'First loan'}</div>
+                <div class="tl-pair">
+                  <input type="date" class="tl-input" data-k="loan_date_1" value="${ans('loan_date_1')}" />
+                  <input type="number" class="tl-input" data-k="loan_amount_1" placeholder="₹" value="${ans('loan_amount_1')}" />
+                </div>
+              </div>
+            </div>
+            <div class="tl-row ${ans('loan_date_2') ? 'filled' : ''}">
+              <div class="tl-bullet"></div>
+              <div class="tl-content">
+                <div class="tl-label">${state.lang === 'hi' ? 'दूसरी बार (वैकल्पिक)' : 'Second loan (optional)'}</div>
+                <div class="tl-pair">
+                  <input type="date" class="tl-input" data-k="loan_date_2" value="${ans('loan_date_2')}" />
+                  <input type="number" class="tl-input" data-k="loan_amount_2" placeholder="₹" value="${ans('loan_amount_2')}" />
+                </div>
+              </div>
+            </div>
+            <div class="tl-row ${ans('repay_by') ? 'filled' : ''}">
+              <div class="tl-bullet"></div>
+              <div class="tl-content">
+                <div class="tl-label">${state.lang === 'hi' ? 'वापसी का वायदा' : 'Promised to repay by'}</div>
+                <input type="text" class="tl-input" data-k="repay_by" placeholder="${state.lang === 'hi' ? 'जैसे: अगस्त 2025' : 'e.g. August 2025'}" value="${ans('repay_by')}" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="group">
+          <div class="group-label">${state.lang === 'hi' ? 'पैसा कैसे दिया गया' : 'How the money was given'}</div>
+          <div class="choices col4">
+            ${['cash','transfer','upi','mixed'].map(v => `
+              <button class="choice ${ans('mode')===v?'selected':''}" data-choice="mode" data-v="${v}">
+                ${state.lang === 'hi' ? ({cash:'नगद',transfer:'बैंक',upi:'UPI',mixed:'मिश्रित'}[v]) : ({cash:'Cash',transfer:'Bank',upi:'UPI',mixed:'Mixed'}[v])}
+              </button>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="group">
+          <div class="group-label">${state.lang === 'hi' ? 'क्या कोई गवाह था?' : 'Was there a witness?'}</div>
+          <div class="choices">
+            <button class="choice ${ans('has_witness')==='yes'?'selected':''}" data-choice="has_witness" data-v="yes">${state.lang === 'hi' ? 'हाँ' : 'Yes'}</button>
+            <button class="choice ${ans('has_witness')==='no'?'selected':''}" data-choice="has_witness" data-v="no">${state.lang === 'hi' ? 'नहीं' : 'No'}</button>
+          </div>
+          <div class="reveal" id="witness-extra" ${ans('has_witness') === 'yes' ? '' : 'hidden'}>
+            <div class="field"><input type="text" data-k="witness_name" placeholder="${state.lang === 'hi' ? 'गवाह का नाम' : 'Witness name'}" value="${ans('witness_name')}" /></div>
+            <div class="field"><input type="text" data-k="witness_relation" placeholder="${state.lang === 'hi' ? 'संबंध (वैकल्पिक)' : 'Relation (optional)'}" value="${ans('witness_relation')}" /></div>
+          </div>
+        </div>
+
+        <div class="group">
+          <div class="group-label">${state.lang === 'hi' ? 'क्या कुछ राशि वापस की गई?' : 'Was any amount returned?'}</div>
+          <div class="choices">
+            <button class="choice ${ans('has_partial_return')==='yes'?'selected':''}" data-choice="has_partial_return" data-v="yes">${state.lang === 'hi' ? 'हाँ' : 'Yes'}</button>
+            <button class="choice ${ans('has_partial_return')==='no'?'selected':''}" data-choice="has_partial_return" data-v="no">${state.lang === 'hi' ? 'नहीं' : 'No'}</button>
+          </div>
+          <div class="reveal" id="return-extra" ${ans('has_partial_return') === 'yes' ? '' : 'hidden'}>
+            <div class="field field-row">
+              <div>
+                <label>${state.lang === 'hi' ? 'लौटाई गई' : 'Returned'}</label>
+                <input type="number" data-k="amount_returned" placeholder="₹" value="${ans('amount_returned')}" />
+              </div>
+              <div>
+                <label>${state.lang === 'hi' ? 'बकाया' : 'Outstanding'}<span class="hint">${state.lang === 'hi' ? 'स्वतः' : 'auto'}</span></label>
+                <input type="number" class="auto" data-k="amount_outstanding" placeholder="₹" value="${ans('amount_outstanding')}" />
+              </div>
+            </div>
+          </div>
+          <div class="reveal" id="full-extra" ${ans('has_partial_return') === 'no' ? '' : 'hidden'}>
+            <div class="field"><label>${state.lang === 'hi' ? 'बकाया राशि' : 'Outstanding amount'}</label><input type="number" data-k="amount_outstanding" placeholder="₹" value="${ans('amount_outstanding')}" /></div>
+          </div>
+        </div>
+      `;
+      bindChoices(body, () => {
+        const w = ans('has_witness'), p = ans('has_partial_return');
+        const we = document.getElementById('witness-extra');
+        if (we) we.hidden = (w !== 'yes');
+        const re = document.getElementById('return-extra');
+        const fe = document.getElementById('full-extra');
+        if (re) re.hidden = (p !== 'yes');
+        if (fe) fe.hidden = (p !== 'no');
+        if (p === 'no') { setAns('amount_returned', '0'); recomputeOutstanding(); }
+      });
+      bind(body, (key) => {
+        if (['loan_amount_1','loan_amount_2','amount_returned'].includes(key)) recomputeOutstanding();
+      });
+      break;
+    }
+
+    case 'business_story': {
+      body.innerHTML = `
+        <div class="group">
+          <div class="group-label">${state.lang === 'hi' ? 'आपूर्ति का विवरण' : 'What was supplied'}</div>
+          <div class="field"><textarea data-k="goods_type" placeholder="${state.lang === 'hi' ? 'जैसे: इलेक्ट्रॉनिक उपकरण, स्टील पाइप, परामर्श सेवा' : 'e.g. electronic equipment, steel pipes, consulting services'}">${ans('goods_type')}</textarea></div>
+          <div class="field field-row">
+            <div><label>${state.lang === 'hi' ? 'अवधि' : 'Supply period'}</label><input type="text" data-k="supply_period" placeholder="${state.lang === 'hi' ? 'जैसे: जनवरी–जून 2025' : 'e.g. Jan–June 2025'}" value="${ans('supply_period')}" /></div>
+            <div><label>${state.lang === 'hi' ? 'कुल मूल्य' : 'Total value'}</label><input type="number" data-k="goods_value" placeholder="₹" value="${ans('goods_value')}" /></div>
+          </div>
+        </div>
+        <div class="group">
+          <div class="group-label">${state.lang === 'hi' ? 'इनवॉइस' : 'Invoice'}</div>
+          <div class="field field-row">
+            <div><label>${state.lang === 'hi' ? 'इनवॉइस संख्या' : 'Invoice no.'}</label><input type="text" data-k="invoice_number" placeholder="INV/2025/..." value="${ans('invoice_number')}" /></div>
+            <div><label>${state.lang === 'hi' ? 'इनवॉइस तिथि' : 'Invoice date'}</label><input type="date" data-k="invoice_date" value="${ans('invoice_date')}" /></div>
+          </div>
+          <div class="field"><label>${state.lang === 'hi' ? 'बकाया राशि' : 'Outstanding amount'}</label><input type="number" data-k="amount_outstanding" placeholder="₹" value="${ans('amount_outstanding')}" /></div>
+          <div class="field"><label>${state.lang === 'hi' ? 'भुगतान की शर्तें' : 'Payment terms'}</label><input type="text" data-k="payment_terms" placeholder="${state.lang === 'hi' ? 'जैसे: 30 दिन में भुगतान' : 'e.g. payment within 30 days'}" value="${ans('payment_terms')}" /></div>
+        </div>
+        <div class="group">
+          <div class="group-label">${state.lang === 'hi' ? 'पहले से व्यापारिक संबंध?' : 'Previous course of dealings?'}</div>
+          <div class="choices">
+            <button class="choice ${ans('has_previous_dealings')==='yes'?'selected':''}" data-choice="has_previous_dealings" data-v="yes">${state.lang === 'hi' ? 'हाँ' : 'Yes'}</button>
+            <button class="choice ${ans('has_previous_dealings')==='no'?'selected':''}" data-choice="has_previous_dealings" data-v="no">${state.lang === 'hi' ? 'नहीं, पहली बार' : 'No, first time'}</button>
+          </div>
+          <div class="reveal" id="prev-extra" ${ans('has_previous_dealings') === 'yes' ? '' : 'hidden'}>
+            <div class="field"><input type="text" data-k="dealing_since" placeholder="${state.lang === 'hi' ? 'जैसे: 2022 से' : 'e.g. since 2022'}" value="${ans('dealing_since')}" /></div>
+          </div>
+        </div>
+      `;
+      bindChoices(body, () => {
+        const p = ans('has_previous_dealings');
+        const el = document.getElementById('prev-extra');
+        if (el) el.hidden = (p !== 'yes');
+      });
+      bind(body);
+      break;
+    }
+
+    case 'cheque': {
+      body.innerHTML = `
+        <div class="field"><label>${state.lang === 'hi' ? 'चेक संख्या' : 'Cheque number'}</label><input type="text" data-k="cheque_number" class="${state.answers['__scanned_cheque_number']?'scanned':''}" placeholder="559552" value="${ans('cheque_number')}" /></div>
+        <div class="field field-row">
+          <div><label>${state.lang === 'hi' ? 'चेक तिथि' : 'Cheque date'}</label><input type="date" data-k="cheque_date" class="${state.answers['__scanned_cheque_date']?'scanned':''}" value="${ans('cheque_date')}" /></div>
+          <div><label>${state.lang === 'hi' ? 'राशि' : 'Amount'}</label><input type="number" data-k="cheque_amount" class="${state.answers['__scanned_cheque_amount']?'scanned':''}" placeholder="₹" value="${ans('cheque_amount')}" /></div>
+        </div>
+        <div class="field"><label>${state.lang === 'hi' ? 'ड्रॉवर का बैंक एवं शाखा' : 'Drawer bank & branch'}</label><input type="text" data-k="drawer_bank" class="${state.answers['__scanned_drawer_bank']?'scanned':''}" placeholder="${state.lang === 'hi' ? 'जैसे: यूको बैंक, डबरा शाखा' : 'e.g. UCO Bank, Dabra Branch'}" value="${ans('drawer_bank')}" /></div>
+      `;
+      bind(body);
+      break;
+    }
+
+    case 'dishonour': {
+      body.innerHTML = `
+        <div class="field"><label>${state.lang === 'hi' ? 'आपका बैंक एवं शाखा' : 'Your bank & branch'}</label><input type="text" data-k="depositor_bank" class="${state.answers['__scanned_depositor_bank']?'scanned':''}" placeholder="${state.lang === 'hi' ? 'जैसे: SBI, पटेल नगर' : 'e.g. SBI, Patel Nagar'}" value="${ans('depositor_bank')}" /></div>
+        <div class="field"><label>${state.lang === 'hi' ? 'अनादर ज्ञापन तिथि' : 'Bank memo date'}</label><input type="date" data-k="dishonour_date" class="${state.answers['__scanned_dishonour_date']?'scanned':''}" value="${ans('dishonour_date')}" /></div>
+        <div class="field">
+          <label>${state.lang === 'hi' ? 'अनादर का कारण' : 'Reason for dishonour'}</label>
+          <select data-k="dishonour_reason" class="${state.answers['__scanned_dishonour_reason']?'scanned':''}">
+            <option value="">${state.lang === 'hi' ? '— चुनें —' : '— select —'}</option>
+            <option value="funds_insufficient" ${ans('dishonour_reason')==='funds_insufficient'?'selected':''}>${state.lang === 'hi' ? 'निधि अपर्याप्त (Funds Insufficient)' : 'Funds Insufficient'}</option>
+            <option value="exceeds_arrangement" ${ans('dishonour_reason')==='exceeds_arrangement'?'selected':''}>${state.lang === 'hi' ? 'सीमा से अधिक' : 'Exceeds Arrangement'}</option>
+            <option value="payment_stopped" ${ans('dishonour_reason')==='payment_stopped'?'selected':''}>${state.lang === 'hi' ? 'भुगतान रोका गया' : 'Payment Stopped by Drawer'}</option>
+            <option value="account_closed" ${ans('dishonour_reason')==='account_closed'?'selected':''}>${state.lang === 'hi' ? 'खाता बंद' : 'Account Closed'}</option>
+          </select>
+        </div>
+      `;
+      bind(body);
+      break;
+    }
+
+    case 'notice': {
+      body.innerHTML = `
+        <div class="timeline">
+          <div class="tl-row ${ans('notice_date') ? 'filled' : ''}">
+            <div class="tl-bullet"></div>
+            <div class="tl-content">
+              <div class="tl-label">${state.lang === 'hi' ? 'नोटिस भेजा गया' : 'Notice sent on'}</div>
+              <input type="date" class="tl-input" data-k="notice_date" value="${ans('notice_date')}" />
+            </div>
+          </div>
+          <div class="tl-row ${ans('notice_received') ? 'filled' : ''}">
+            <div class="tl-bullet"></div>
+            <div class="tl-content">
+              <div class="tl-label">${state.lang === 'hi' ? 'अभियुक्त को प्राप्त' : 'Received by accused'}</div>
+              <input type="date" class="tl-input" data-k="notice_received" value="${ans('notice_received')}" />
+            </div>
+          </div>
+          <div class="tl-row ${ans('notice_expiry') ? 'filled' : ''}">
+            <div class="tl-bullet"></div>
+            <div class="tl-content">
+              <div class="tl-label">${state.lang === 'hi' ? '15 दिन समाप्ति' : '15-day expiry'}<span class="tl-auto-tag">${state.lang === 'hi' ? 'स्वतः' : 'AUTO'}</span></div>
+              <input type="date" class="tl-input auto" data-k="notice_expiry" value="${ans('notice_expiry')}" />
+            </div>
+          </div>
+          <div class="tl-row ${ans('cause_of_action_date') ? 'filled' : ''}">
+            <div class="tl-bullet"></div>
+            <div class="tl-content">
+              <div class="tl-label">${state.lang === 'hi' ? 'वादकारण उत्पन्न' : 'Cause of action arose'}<span class="tl-auto-tag">${state.lang === 'hi' ? 'स्वतः' : 'AUTO'}</span></div>
+              <input type="date" class="tl-input auto" data-k="cause_of_action_date" value="${ans('cause_of_action_date')}" />
+            </div>
+          </div>
+        </div>
+      `;
+      bind(body, (key) => { if (key === 'notice_received') autoNotice(); });
+      break;
+    }
+
+    case 'court': {
+      body.innerHTML = `
+        <div class="field"><label>${state.lang === 'hi' ? 'न्यायालय' : 'Court'}</label><input type="text" data-k="court_name" placeholder="${state.lang === 'hi' ? 'जैसे: न्यायिक दण्डाधिकारी प्रथम श्रेणी, ग्वालियर' : 'e.g. JMFC, Gwalior'}" value="${ans('court_name')}" /></div>
+        <div class="field"><label>${state.lang === 'hi' ? 'क्षेत्राधिकार का आधार' : 'Jurisdiction basis'}</label><input type="text" data-k="jurisdiction_reason" placeholder="${state.lang === 'hi' ? 'जैसे: अभियोगी का बैंक ग्वालियर में' : 'e.g. complainant bank in Gwalior'}" value="${ans('jurisdiction_reason')}" /></div>
+        <div class="field field-row">
+          <div><label>${state.lang === 'hi' ? 'दाखिल तिथि' : 'Filing date'}</label><input type="date" data-k="filing_date" value="${ans('filing_date')}" /></div>
+          <div><label>${state.lang === 'hi' ? 'स्थान' : 'Place'}</label><input type="text" data-k="filing_place" placeholder="${state.lang === 'hi' ? 'ग्वालियर' : 'Gwalior'}" value="${ans('filing_place')}" /></div>
+        </div>
+      `;
+      bind(body);
+      break;
+    }
+  }
+}
+
+function bind(scope, cb) {
+  scope.querySelectorAll('[data-k]').forEach(el => {
+    el.addEventListener('input', e => {
+      const k = e.target.getAttribute('data-k');
+      setAns(k, e.target.value);
+      e.target.classList.remove('auto');
+      e.target.classList.remove('scanned');
+      delete state.answers['__scanned_' + k];
+      if (cb) cb(k);
+    });
+    el.addEventListener('change', e => {
+      const k = e.target.getAttribute('data-k');
+      setAns(k, e.target.value);
+      if (cb) cb(k);
+    });
+  });
+}
+function bindChoices(scope, cb) {
+  scope.querySelectorAll('[data-choice]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const k = btn.getAttribute('data-choice');
+      const v = btn.getAttribute('data-v');
+      setAns(k, v);
+      scope.querySelectorAll(`[data-choice="${k}"]`).forEach(x => x.classList.remove('selected'));
+      btn.classList.add('selected');
+      if (cb) cb();
+    });
+  });
+}
+
+// =================================================================
+// AUTO COMPUTATIONS
+// =================================================================
+function recomputeOutstanding() {
+  const a1 = parseFloat(ans('loan_amount_1') || 0);
+  const a2 = parseFloat(ans('loan_amount_2') || 0);
+  const ret = parseFloat(ans('amount_returned') || 0);
+  const out = a1 + a2 - ret;
+  if (out > 0 && (a1 || a2)) {
+    setAns('amount_outstanding', String(out));
+    document.querySelectorAll('input[data-k="amount_outstanding"]').forEach(el => { el.value = out; el.classList.add('auto'); });
+  }
+}
+function autoNotice() {
+  const d = ans('notice_received');
+  if (!d) return;
+  const dt = new Date(d);
+  const exp = new Date(dt); exp.setDate(dt.getDate() + 15);
+  const cause = new Date(exp); cause.setDate(exp.getDate() + 1);
+  const eStr = exp.toISOString().slice(0, 10);
+  const cStr = cause.toISOString().slice(0, 10);
+  setAns('notice_expiry', eStr);
+  setAns('cause_of_action_date', cStr);
+  document.querySelectorAll('input[data-k="notice_expiry"]').forEach(el => { el.value = eStr; el.classList.add('auto'); });
+  document.querySelectorAll('input[data-k="cause_of_action_date"]').forEach(el => { el.value = cStr; el.classList.add('auto'); });
+}
+
+// =================================================================
+// NATIVE TEMPLATES — Friendly Cash Loan
+// =================================================================
+function friendlyCashLoanEN(a) {
+  const REL = { friends:'on friendly terms', neighbours:'as neighbours', relatives:'as relatives', colleagues:'as colleagues' };
+  const MODE = { cash:'in cash', transfer:'through bank transfer', upi:'through UPI transfer', mixed:'partly in cash and partly through bank transfer' };
+  const REASON = { funds_insufficient:'"Funds Insufficient"', exceeds_arrangement:'"Exceeds Arrangement"', payment_stopped:'"Payment Stopped by Drawer"', account_closed:'"Account Closed"' };
+  const rel = REL[a.relationship] || ph('relationship','संबंध');
+  const mode = MODE[a.mode] || 'in cash';
+  const reason = REASON[a.dishonour_reason] || ph('reason','कारण');
+  const witnessLine = a.has_witness === 'yes' && a.witness_name
+    ? ` The said transaction took place in the presence of <b>${tx(a.witness_name)}</b>${a.witness_relation ? ` (${tx(a.witness_relation)})` : ''}, who is a witness to the loan.` : '';
+  const secondLoan = a.loan_date_2 && a.loan_amount_2 ? ` and ₹${a.loan_amount_2}/- on <b>${fmtDate(a.loan_date_2)}</b>` : '';
+  const partial = a.has_partial_return === 'yes' && a.amount_returned
+    ? `Out of the said amount, ₹${a.amount_returned}/- was returned by the accused, and the remaining ₹${a.amount_outstanding || ph('outstanding','बकाया')}/- `
+    : `The said amount of ₹${a.amount_outstanding || ph('outstanding','बकाया')}/- `;
+
+  return `
+<div class="doc-head">IN THE COURT OF ${(tx(a.court_name) || ph('court','न्यायालय')).toUpperCase()}</div>
+
+<b>Complaint No. ____ / 2025</b>
+
+<b>${tx(a.complainant_name) || ph('Complainant','नाम')}</b> S/o ${tx(a.complainant_father) || ph('father','पिता')}, aged ${a.complainant_age || '__'} years, occupation ${tx(a.complainant_occupation) || ph('occupation','व्यवसाय')}, R/o ${tx(a.complainant_address) || ph('address','पता')}.   <b>........ Complainant</b>
+
+<b>Versus</b>
+
+<b>${tx(a.accused_name) || ph('Accused','नाम')}</b> S/o ${tx(a.accused_father) || ph('father','पिता')}, aged ${a.accused_age || '__'} years, occupation ${tx(a.accused_occupation) || ph('occupation','व्यवसाय')}, R/o ${tx(a.accused_address) || ph('address','पता')}.   <b>........ Accused</b>
+
+<u>Complaint under Section 138 of the Negotiable Instruments Act, 1881</u>
+
+<b>Sir,</b>
+
+The complainant most respectfully submits as under:—
+
+<b>1.</b> That the complainant and the accused are known to each other ${rel}. The accused had borrowed ₹${a.loan_amount_1 || ph('amount','राशि')}/- on <b>${fmtDate(a.loan_date_1) || ph('date','तिथि')}</b>${secondLoan} from the complainant ${mode} for his domestic and personal requirements. ${partial}was promised to be repaid by <b>${a.repay_by || ph('date','तिथि')}</b>.${witnessLine}
+
+<b>2.</b> That upon repeated demands by the complainant for repayment of the said sum, the accused, in discharge of his legal liability, issued cheque bearing No. <b>${a.cheque_number || ph('cheque no','चेक नं')}</b> dated <b>${fmtDate(a.cheque_date) || ph('date','तिथि')}</b> drawn on <b>${tx(a.drawer_bank) || ph('bank','बैंक')}</b> for ₹${a.cheque_amount || ph('amount','राशि')}/-, duly signed in his own hand, assuring the complainant that the cheque would be honoured on presentation.
+
+<b>3.</b> That the complainant presented the said cheque for collection through his bank account at <b>${tx(a.depositor_bank) || ph('bank','बैंक')}</b>. The said cheque was returned unpaid vide bank memo dated <b>${fmtDate(a.dishonour_date) || ph('date','तिथि')}</b> with the reason ${reason}.
+
+<b>4.</b> That upon receipt of the returned cheque, the complainant, through his counsel, issued a legal notice dated <b>${fmtDate(a.notice_date) || ph('date','तिथि')}</b> to the accused at his residential address, demanding payment of the cheque amount within fifteen days of receipt of the notice.
+
+<b>5.</b> That the said notice was duly received by the accused on <b>${fmtDate(a.notice_received) || ph('date','तिथि')}</b>, and the statutory period of fifteen days expired on <b>${fmtDate(a.notice_expiry) || ph('auto','स्वतः')}</b>. Despite the receipt of the said notice, the accused has neither replied nor made payment of the cheque amount.
+
+<b>6.</b> That the cause of action thus arose on <b>${fmtDate(a.cause_of_action_date) || ph('auto','स्वतः')}</b> and continues to subsist till date.
+
+<b>7.</b> That the accused issued the said cheque with the knowledge that there were insufficient funds in his account, and with the dishonest intention of causing wrongful loss to the complainant and wrongful gain to himself. The act of the accused falls within the offence punishable under Section 138 of the Negotiable Instruments Act, 1881.
+
+<b>8.</b> That the complainant's bank account is situated at <b>${tx(a.jurisdiction_reason) || ph('jurisdiction','क्षेत्राधिकार')}</b>, by reason of which this Hon'ble Court has the territorial jurisdiction to try the present complaint.
+
+<b>PRAYER:</b> It is therefore most respectfully prayed that this Hon'ble Court may be pleased to take cognizance of the offence under Section 138 of the Negotiable Instruments Act, 1881, summon the accused, try him in accordance with law, and punish him with the maximum sentence prescribed. The accused may further be directed to pay compensation of twice the cheque amount, i.e., ₹${a.cheque_amount ? (parseFloat(a.cheque_amount) * 2) : ph('2x','दुगुनी')}/-, to the complainant.
+
+Date: ${fmtDate(a.filing_date) || ph('date','तिथि')}
+Place: ${tx(a.filing_place) || ph('place','स्थान')}                                                <i>${tx(a.complainant_name) || 'Complainant'}</i>
+
+<u>List of Evidence</u>
+
+1. Complainant's own testimony.
+2. Bank officer of the complainant's bank.
+3. Bank officer of the accused's bank.
+4. Postal department officer.${a.has_witness === 'yes' && a.witness_name ? `\n5. ${tx(a.witness_name)}, witness to the loan transaction.` : ''}
+${a.has_witness === 'yes' && a.witness_name ? '6.' : '5.'} Such other witnesses as may be permitted during trial.
+`;
+}
+
+function friendlyCashLoanHI(a) {
+  const REL = { friends:'मित्रवत संबंध', neighbours:'पड़ोसी का संबंध', relatives:'रिश्तेदारी का संबंध', colleagues:'सहकर्मियों का संबंध' };
+  const MODE = { cash:'नगद', transfer:'बैंक स्थानांतरण के माध्यम से', upi:'यूपीआई के माध्यम से', mixed:'आंशिक रूप से नगद एवं आंशिक रूप से बैंक स्थानांतरण के माध्यम से' };
+  const REASON = { funds_insufficient:'निधि अपर्याप्त (Funds Insufficient)', exceeds_arrangement:'सीमा से अधिक', payment_stopped:'भुगतान रोका गया', account_closed:'खाता बंद' };
+  const rel = REL[a.relationship] || ph('संबंध','relationship');
+  const mode = MODE[a.mode] || 'नगद';
+  const reason = REASON[a.dishonour_reason] || ph('कारण','reason');
+  const witnessLine = a.has_witness === 'yes' && a.witness_name
+    ? ` उक्त लेन-देन <b>${tx(a.witness_name)}</b>${a.witness_relation ? ` (${tx(a.witness_relation)})` : ''} की उपस्थिति में हुआ, जो उक्त ऋण के साक्षी हैं।` : '';
+  const secondLoan = a.loan_date_2 && a.loan_amount_2 ? ` एवं दिनांक <b>${fmtDate(a.loan_date_2)}</b> को ${a.loan_amount_2}/- रु.` : '';
+  const partial = a.has_partial_return === 'yes' && a.amount_returned
+    ? `जिसमें से ${a.amount_returned}/- रु. अभियुक्त द्वारा अभियोगी को वापस कर दिये गये तथा शेष ${a.amount_outstanding || ph('बकाया','outstanding')}/- रु. `
+    : `उक्त ${a.amount_outstanding || ph('बकाया','outstanding')}/- रु. `;
+
+  return `
+<div class="doc-head">न्यायालय माननीय ${tx(a.court_name) || ph('न्यायालय','court')}</div>
+
+<b>प्रकरण क्रमांक ____ / 2025</b>          <i>परिवाद पत्र</i>
+
+<b>${tx(a.complainant_name) || ph('नाम','name')}</b> पुत्र ${tx(a.complainant_father) || ph('पिता','father')}, आयु ${a.complainant_age || '__'} वर्ष, व्यवसाय—${tx(a.complainant_occupation) || ph('व्यवसाय','occupation')}, निवासी ${tx(a.complainant_address) || ph('पता','address')}।   <b>........ अभियोगी</b>
+
+<b>विरुद्ध</b>
+
+<b>${tx(a.accused_name) || ph('नाम','name')}</b> पुत्र ${tx(a.accused_father) || ph('पिता','father')}, आयु ${a.accused_age || '__'} वर्ष, व्यवसाय—${tx(a.accused_occupation) || ph('व्यवसाय','occupation')}, निवासी ${tx(a.accused_address) || ph('पता','address')}।   <b>........ अभियुक्त</b>
+
+<u>अभियोग पत्र अंतर्गत धारा 138 निगोशियेबल इंस्ट्रूमेंट एक्ट</u>
+
+<b>महोदय,</b>
+
+अभियोगी की ओर से अभियोग पत्र निम्न प्रकार प्रस्तुत है:—
+
+<b>1.</b> यह कि, अभियोगी एवं अभियुक्त के मध्य ${rel} है। अभियुक्त ने अभियोगी से दिनांक <b>${fmtDate(a.loan_date_1) || ph('तिथि','date')}</b> को ${a.loan_amount_1 || ph('राशि','amount')}/- रु.${secondLoan} अपनी घरेलू एवं व्यक्तिगत आवश्यकता हेतु ${mode} उधार लिये थे। ${partial}<b>${a.repay_by || ph('तिथि','date')}</b> तक वापस किये जाने का वायदा किया गया था।${witnessLine}
+
+<b>2.</b> यह कि, अभियुक्त से अभियोगी द्वारा उक्त राशि की वापसी हेतु बार-बार माँग किये जाने पर, अभियुक्त ने अपने विधिक दायित्व के निर्वहन में अभियोगी को एक चेक <b>${tx(a.drawer_bank) || ph('बैंक','bank')}</b> का चेक क्रमांक <b>${a.cheque_number || ph('चेक','cheque')}</b> दिनांकित <b>${fmtDate(a.cheque_date) || ph('तिथि','date')}</b> राशि <b>${a.cheque_amount || ph('राशि','amount')}/- रुपये</b> का प्रदान किया, तथा स्वहस्ताक्षरित चेक देते समय अभियोगी को यह विश्वास दिलाया कि उक्त चेक बैंक में प्रस्तुत किये जाने पर उसका भुगतान प्राप्त हो जायेगा।
+
+<b>3.</b> यह कि, अभियोगी ने उक्त चेक को भुगतान हेतु अपने बैंक <b>${tx(a.depositor_bank) || ph('बैंक','bank')}</b> के अपने खाते में प्रस्तुत किया, जो उक्त बैंक के ज्ञापन दिनांक <b>${fmtDate(a.dishonour_date) || ph('तिथि','date')}</b> के माध्यम से बिना भुगतान के अभियोगी को वापस प्रदान किया गया तथा भुगतान न किये जाने का कारण <b>"${reason}"</b> होना बताया गया।
+
+<b>4.</b> यह कि, उक्त चेक बिना भुगतान के वापस प्राप्त होने पर अभियोगी ने अपने अभिभाषक के माध्यम से दिनांक <b>${fmtDate(a.notice_date) || ph('तिथि','date')}</b> को एक नोटिस अभियुक्त के निवास के पते पर इस आशय का भेजा कि नोटिस प्राप्ति के 15 दिवस के अंदर चेक में वर्णित राशि का भुगतान अभियोगी को करें।
+
+<b>5.</b> यह कि, अभियुक्त को उक्त नोटिस दिनांक <b>${fmtDate(a.notice_received) || ph('तिथि','date')}</b> को प्राप्त हो गया एवं वैधानिक 15 दिवस की अवधि दिनांक <b>${fmtDate(a.notice_expiry) || ph('स्वतः','auto')}</b> को समाप्त हो चुकी है। नोटिस प्राप्त करने के बावजूद अभियुक्त ने न तो उत्तर दिया और न ही चेक की राशि का भुगतान किया।
+
+<b>6.</b> यह कि, इस प्रकार वादकारण दिनांक <b>${fmtDate(a.cause_of_action_date) || ph('स्वतः','auto')}</b> से उत्पन्न होकर आज दिनांक तक निरंतर जारी है।
+
+<b>7.</b> यह कि, अभियुक्त को यह ज्ञात था कि उसके खाते में पर्याप्त निधि नहीं है, फिर भी अभियोगी को अवैध हानि पहुँचाने तथा स्वयं को अवैध लाभ प्राप्त करने के दुर्भावनापूर्ण उद्देश्य से उसने उक्त चेक अभियोगी को दिया। अभियुक्त का उक्त कृत्य निगोशियेबल इंस्ट्रूमेंट एक्ट की धारा 138 के तहत अपराध की श्रेणी में आता है।
+
+<b>8.</b> यह कि, अभियोगी का बैंक खाता <b>${tx(a.jurisdiction_reason) || ph('क्षेत्राधिकार','jurisdiction')}</b> में होने के कारण श्रीमान् न्यायालय को विचारण क्षेत्राधिकार प्राप्त है।
+
+<b>प्रार्थना:</b> अतः सादर निवेदन है कि अभियुक्त के विरुद्ध धारा 138 निगोशियेबल इंस्ट्रूमेंट एक्ट के तहत अपराध का संज्ञान लेकर अभियुक्त को तलब कर, बाद विचारण, सख्त से सख्त दण्ड से दण्डित किये जाने का निर्णय पारित करने की कृपा करें, तथा चेक की राशि से दुगुनी राशि अर्थात् ${a.cheque_amount ? (parseFloat(a.cheque_amount) * 2) : ph('दुगुनी','2x')}/- रु. क्षतिपूर्ति के रूप में अभियोगी को दिलाये जाने का आदेश प्रदान करने की कृपा करें।
+
+दिनांक: ${fmtDate(a.filing_date) || ph('तिथि','date')}
+स्थान: ${tx(a.filing_place) || ph('स्थान','place')}                                                <i>${tx(a.complainant_name) || 'अभियोगी'}</i>
+
+<u>साक्ष्य सूची</u>
+
+1. अभियोगी स्वयं कथन करेगा।
+2. अभियोगी की बैंक से संबंधित अधिकारी।
+3. अभियुक्त की बैंक से संबंधित अधिकारी।
+4. डाक विभाग से संबंधित अधिकारी।${a.has_witness === 'yes' && a.witness_name ? `\n5. ${tx(a.witness_name)}, ऋण लेन-देन के साक्षी।` : ''}
+${a.has_witness === 'yes' && a.witness_name ? '6.' : '5.'} अन्य साक्षी प्रकरण के विचारण के दौरान श्रीमान् न्यायालय की अनुमति से प्रस्तुत किये जावेंगे।
+`;
+}
+
+// =================================================================
+// NATIVE TEMPLATES — Business Goods
+// =================================================================
+function businessGoodsEN(a) {
+  const REASON = { funds_insufficient:'"Funds Insufficient"', exceeds_arrangement:'"Exceeds Arrangement"', payment_stopped:'"Payment Stopped by Drawer"', account_closed:'"Account Closed"' };
+  const reason = REASON[a.dishonour_reason] || ph('reason','कारण');
+  const prev = a.has_previous_dealings === 'yes' && a.dealing_since
+    ? `The complainant firm and the accused firm have been engaged in a regular course of commercial dealings ${a.dealing_since}, in the ordinary course of business.`
+    : `The complainant firm and the accused firm entered into a commercial transaction wherein the complainant supplied goods/services to the accused on credit.`;
+
+  return `
+<div class="doc-head">IN THE COURT OF ${(tx(a.court_name) || ph('court','न्यायालय')).toUpperCase()}</div>
+
+<b>Complaint No. ____ / 2025</b>
+
+<b>${tx(a.complainant_name) || ph('Firm','फर्म')}</b>${a.complainant_proprietor ? `, through its proprietor/partner ${tx(a.complainant_proprietor)}` : ''}${a.complainant_gstin ? `, GSTIN ${a.complainant_gstin}` : ''}, having its registered place of business at ${tx(a.complainant_address) || ph('address','पता')}.   <b>........ Complainant</b>
+
+<b>Versus</b>
+
+<b>${tx(a.accused_name) || ph('Accused firm','अभियुक्त फर्म')}</b>${a.accused_proprietor ? `, through its proprietor/partner ${tx(a.accused_proprietor)}` : ''}, having its place of business at ${tx(a.accused_address) || ph('address','पता')}.   <b>........ Accused</b>
+
+<u>Complaint under Section 138 of the Negotiable Instruments Act, 1881</u>
+
+<b>Sir,</b>
+
+The complainant most respectfully submits as under:—
+
+<b>1.</b> ${prev}
+
+<b>2.</b> That during the period <b>${a.supply_period || ph('period','अवधि')}</b>, the complainant supplied <b>${tx(a.goods_type) || ph('goods/services','सामान/सेवा')}</b> to the accused, of a total value of ₹${a.goods_value || ph('value','मूल्य')}/-, on credit basis, in the regular course of business.
+
+<b>3.</b> That in respect of the said supply, the complainant raised invoice bearing No. <b>${a.invoice_number || ph('invoice no','इनवॉइस नं')}</b> dated <b>${fmtDate(a.invoice_date) || ph('date','तिथि')}</b> for a sum of ₹${a.amount_outstanding || ph('amount','राशि')}/-, payable as per agreed terms (<b>${a.payment_terms || ph('terms','शर्तें')}</b>). The said invoice was duly received and acknowledged by the accused without dispute.
+
+<b>4.</b> That in discharge of his legal liability arising under the said invoice, the accused issued cheque bearing No. <b>${a.cheque_number || ph('cheque no','चेक नं')}</b> dated <b>${fmtDate(a.cheque_date) || ph('date','तिथि')}</b> drawn on <b>${tx(a.drawer_bank) || ph('bank','बैंक')}</b> for ₹${a.cheque_amount || ph('amount','राशि')}/-, duly signed, assuring the complainant that the same would be honoured on presentation.
+
+<b>5.</b> That the complainant presented the said cheque for collection through its current account at <b>${tx(a.depositor_bank) || ph('bank','बैंक')}</b>. The said cheque was returned unpaid vide bank memo dated <b>${fmtDate(a.dishonour_date) || ph('date','तिथि')}</b> with the reason ${reason}.
+
+<b>6.</b> That upon receipt of the returned cheque, the complainant, through its counsel, issued a statutory legal notice dated <b>${fmtDate(a.notice_date) || ph('date','तिथि')}</b> to the accused at its place of business, demanding payment within fifteen days of receipt.
+
+<b>7.</b> That the said notice was duly received by the accused on <b>${fmtDate(a.notice_received) || ph('date','तिथि')}</b>. The statutory period of fifteen days expired on <b>${fmtDate(a.notice_expiry) || ph('auto','स्वतः')}</b>, and despite receipt, the accused has neither replied nor made any payment.
+
+<b>8.</b> That the cause of action thus arose on <b>${fmtDate(a.cause_of_action_date) || ph('auto','स्वतः')}</b> and continues to subsist. The accused's act constitutes an offence punishable under Section 138 of the Negotiable Instruments Act, 1881.
+
+<b>9.</b> That this Hon'ble Court has the territorial jurisdiction to try the present complaint by reason of ${tx(a.jurisdiction_reason) || ph('jurisdiction','क्षेत्राधिकार')}.
+
+<b>PRAYER:</b> It is therefore most respectfully prayed that this Hon'ble Court may be pleased to take cognizance of the offence under Section 138 of the Negotiable Instruments Act, 1881, summon the accused, try and punish him, and direct payment of compensation of twice the cheque amount, i.e., ₹${a.cheque_amount ? (parseFloat(a.cheque_amount) * 2) : ph('2x','दुगुनी')}/-, to the complainant.
+
+Date: ${fmtDate(a.filing_date) || ph('date','तिथि')}
+Place: ${tx(a.filing_place) || ph('place','स्थान')}                                                <i>For ${tx(a.complainant_name) || 'Complainant'}</i>
+
+<u>List of Evidence</u>
+
+1. Authorised representative of the complainant firm.
+2. Bank officer of the complainant's bank.
+3. Bank officer of the accused's bank.
+4. Postal department officer.
+5. Invoice No. ${a.invoice_number || '___'} dated ${fmtDate(a.invoice_date) || '___'}, and supporting books of account.
+6. Such other witnesses and documents as may be permitted during trial.
+`;
+}
+
+function businessGoodsHI(a) {
+  const REASON = { funds_insufficient:'निधि अपर्याप्त (Funds Insufficient)', exceeds_arrangement:'सीमा से अधिक', payment_stopped:'भुगतान रोका गया', account_closed:'खाता बंद' };
+  const reason = REASON[a.dishonour_reason] || ph('कारण','reason');
+  const prev = a.has_previous_dealings === 'yes' && a.dealing_since
+    ? `अभियोगी फर्म एवं अभियुक्त फर्म के मध्य ${a.dealing_since} से व्यापारिक लेन-देन का नियमित संबंध है, जो सामान्य व्यापारिक क्रम में चलता आ रहा है।`
+    : `अभियोगी फर्म एवं अभियुक्त फर्म के बीच एक व्यापारिक लेन-देन हुआ, जिसके अंतर्गत अभियोगी ने अभियुक्त को उधारी पर सामान/सेवा की आपूर्ति की।`;
+
+  return `
+<div class="doc-head">न्यायालय माननीय ${tx(a.court_name) || ph('न्यायालय','court')}</div>
+
+<b>प्रकरण क्रमांक ____ / 2025</b>          <i>परिवाद पत्र</i>
+
+<b>${tx(a.complainant_name) || ph('फर्म','firm')}</b>${a.complainant_proprietor ? `, द्वारा प्रोप्राइटर/पार्टनर ${tx(a.complainant_proprietor)}` : ''}${a.complainant_gstin ? `, GSTIN ${a.complainant_gstin}` : ''}, पंजीकृत व्यापारिक पता ${tx(a.complainant_address) || ph('पता','address')}।   <b>........ अभियोगी</b>
+
+<b>विरुद्ध</b>
+
+<b>${tx(a.accused_name) || ph('अभियुक्त फर्म','accused firm')}</b>${a.accused_proprietor ? `, द्वारा प्रोप्राइटर/पार्टनर ${tx(a.accused_proprietor)}` : ''}, व्यापारिक पता ${tx(a.accused_address) || ph('पता','address')}।   <b>........ अभियुक्त</b>
+
+<u>अभियोग पत्र अंतर्गत धारा 138 निगोशियेबल इंस्ट्रूमेंट एक्ट</u>
+
+<b>महोदय,</b>
+
+अभियोगी की ओर से अभियोग पत्र निम्न प्रकार प्रस्तुत है:—
+
+<b>1.</b> यह कि, ${prev}
+
+<b>2.</b> यह कि, अवधि <b>${a.supply_period || ph('अवधि','period')}</b> के दौरान, अभियोगी ने अभियुक्त को कुल ${a.goods_value || ph('मूल्य','value')}/- रु. मूल्य की <b>${tx(a.goods_type) || ph('सामान/सेवा','goods')}</b> उधारी पर, सामान्य व्यापारिक क्रम में आपूर्ति की।
+
+<b>3.</b> यह कि, उक्त आपूर्ति के संदर्भ में, अभियोगी ने इनवॉइस क्रमांक <b>${a.invoice_number || ph('इनवॉइस','invoice')}</b> दिनांकित <b>${fmtDate(a.invoice_date) || ph('तिथि','date')}</b> राशि ${a.amount_outstanding || ph('राशि','amount')}/- रु. की निकाली, जिसका भुगतान तय शर्तों (<b>${a.payment_terms || ph('शर्तें','terms')}</b>) के अनुसार किया जाना था। उक्त इनवॉइस अभियुक्त द्वारा प्राप्त की गई एवं बिना किसी विवाद के स्वीकार की गई।
+
+<b>4.</b> यह कि, उक्त इनवॉइस के अंतर्गत उत्पन्न अपने विधिक दायित्व के निर्वहन हेतु, अभियुक्त ने अभियोगी को एक चेक <b>${tx(a.drawer_bank) || ph('बैंक','bank')}</b> का चेक क्रमांक <b>${a.cheque_number || ph('चेक','cheque')}</b> दिनांकित <b>${fmtDate(a.cheque_date) || ph('तिथि','date')}</b> राशि <b>${a.cheque_amount || ph('राशि','amount')}/- रुपये</b> का प्रदान किया, स्वहस्ताक्षरित, इस आश्वासन के साथ कि उक्त चेक बैंक में प्रस्तुत किये जाने पर उसका भुगतान प्राप्त हो जायेगा।
+
+<b>5.</b> यह कि, अभियोगी ने उक्त चेक भुगतान हेतु अपने बैंक <b>${tx(a.depositor_bank) || ph('बैंक','bank')}</b> के अपने चालू खाते में प्रस्तुत किया, जो बैंक के ज्ञापन दिनांक <b>${fmtDate(a.dishonour_date) || ph('तिथि','date')}</b> के माध्यम से बिना भुगतान के वापस प्रदान किया गया, तथा कारण <b>"${reason}"</b> होना बताया गया।
+
+<b>6.</b> यह कि, उक्त चेक बिना भुगतान के वापस प्राप्त होने पर, अभियोगी ने अपने अभिभाषक के माध्यम से दिनांक <b>${fmtDate(a.notice_date) || ph('तिथि','date')}</b> को अभियुक्त के व्यापारिक पते पर वैधानिक नोटिस भेजा, जिसमें 15 दिवस के भीतर भुगतान की माँग की गई।
+
+<b>7.</b> यह कि, उक्त नोटिस अभियुक्त को दिनांक <b>${fmtDate(a.notice_received) || ph('तिथि','date')}</b> को प्राप्त हो गया एवं वैधानिक 15 दिवस की अवधि दिनांक <b>${fmtDate(a.notice_expiry) || ph('स्वतः','auto')}</b> को समाप्त हो चुकी है। नोटिस प्राप्त करने के बावजूद अभियुक्त ने न तो उत्तर दिया और न ही भुगतान किया।
+
+<b>8.</b> यह कि, इस प्रकार वादकारण दिनांक <b>${fmtDate(a.cause_of_action_date) || ph('स्वतः','auto')}</b> से उत्पन्न होकर आज दिनांक तक निरंतर जारी है। अभियुक्त का उक्त कृत्य निगोशियेबल इंस्ट्रूमेंट एक्ट की धारा 138 के तहत अपराध की श्रेणी में आता है।
+
+<b>9.</b> यह कि, ${tx(a.jurisdiction_reason) || ph('क्षेत्राधिकार','jurisdiction')} के कारण श्रीमान् न्यायालय को इस परिवाद के विचारण का क्षेत्राधिकार प्राप्त है।
+
+<b>प्रार्थना:</b> अतः सादर निवेदन है कि अभियुक्त के विरुद्ध धारा 138 निगोशियेबल इंस्ट्रूमेंट एक्ट के तहत अपराध का संज्ञान लेकर अभियुक्त को तलब कर, बाद विचारण, सख्त से सख्त दण्ड से दण्डित किये जाने का निर्णय पारित करने की कृपा करें, तथा चेक की राशि से दुगुनी राशि अर्थात् ${a.cheque_amount ? (parseFloat(a.cheque_amount) * 2) : ph('दुगुनी','2x')}/- रु. क्षतिपूर्ति के रूप में अभियोगी को दिलाये जाने का आदेश प्रदान करने की कृपा करें।
+
+दिनांक: ${fmtDate(a.filing_date) || ph('तिथि','date')}
+स्थान: ${tx(a.filing_place) || ph('स्थान','place')}                                                <i>कृते ${tx(a.complainant_name) || 'अभियोगी'}</i>
+
+<u>साक्ष्य सूची</u>
+
+1. अभियोगी फर्म का अधिकृत प्रतिनिधि कथन करेगा।
+2. अभियोगी की बैंक से संबंधित अधिकारी।
+3. अभियुक्त की बैंक से संबंधित अधिकारी।
+4. डाक विभाग से संबंधित अधिकारी।
+5. इनवॉइस क्रमांक ${a.invoice_number || '___'} दिनांकित ${fmtDate(a.invoice_date) || '___'}, एवं संबंधित बही-खाते।
+6. अन्य साक्षी एवं दस्तावेज़ प्रकरण के विचारण के दौरान श्रीमान् न्यायालय की अनुमति से प्रस्तुत किये जावेंगे।
+`;
+}
+
+// =================================================================
+// PREVIEW & REVIEW
+// =================================================================
+function renderDraft() {
+  if (!state.story || !STORIES[state.story].sections) return '';
+  const story = STORIES[state.story];
+  const fn = state.lang === 'hi' ? story.template_hi : story.template_en;
+  return fn(state.answers);
+}
+function updatePreview() {
+  const el = document.getElementById('drawer-preview');
+  if (el) el.innerHTML = renderDraft();
+}
+function renderReview() {
+  document.getElementById('review-preview').innerHTML = renderDraft();
+  const filled = Object.keys(state.answers).filter(k => !k.startsWith('__') && state.answers[k]).length;
+  document.getElementById('badge-fields').textContent = state.lang === 'hi' ? `${filled} फ़ील्ड` : `${filled} fields`;
+  document.getElementById('badge-story').textContent = t(STORIES[state.story].label);
+}
+
+// =================================================================
+// DRAWER
+// =================================================================
+const drawer = document.getElementById('drawer');
+const backdrop = document.getElementById('drawer-back');
+document.getElementById('preview-tab').addEventListener('click', () => {
+  updatePreview();
+  drawer.classList.add('show');
+  backdrop.classList.add('show');
+});
+backdrop.addEventListener('click', () => {
+  drawer.classList.remove('show');
+  backdrop.classList.remove('show');
+});
+
+// =================================================================
+// NAV
+// =================================================================
+document.getElementById('btn-back').addEventListener('click', () => {
+  if (state.sectionIndex > 0) { state.sectionIndex--; renderSection(); }
+  else { showScreen('opening'); renderStoryGrid(); }
+});
+document.getElementById('btn-next').addEventListener('click', () => {
+  const total = STORIES[state.story].sections.length;
+  if (state.sectionIndex < total - 1) { state.sectionIndex++; renderSection(); }
+  else { showScreen('review'); renderReview(); }
+});
+document.getElementById('btn-edit').addEventListener('click', () => { showScreen('conv'); renderSection(); });
+document.getElementById('btn-download').addEventListener('click', () => {
+  alert(state.lang === 'hi'
+    ? 'इस प्रोटोटाइप में डाउनलोड बंद है। प्रोडक्शन में docx जनरेशन सर्वर-साइड होगा।'
+    : 'Download is disabled in this prototype. Production: server-side python-docx.');
+});
+
+// =================================================================
+// TOAST
+// =================================================================
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+// =================================================================
+// INIT
+// =================================================================
+renderStoryGrid();
+applyLang();
+</script>
+</body>
+</html>
