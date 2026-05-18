@@ -23,13 +23,15 @@ switch to FTS5 — see _ENABLE_FTS comment at bottom of file.
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterator, Optional
+from typing import Iterator, Optional, Any
 
 from headnote.config import KANOON_CACHE_PATH
+from headnote.retrieval.fact_extractor import extract_facts, score_overlap
 
 
 # ----------------------------------------------------------------- DTO
@@ -47,6 +49,9 @@ class HFJudgment:
     district: Optional[str]
     language: str          # "en" | "hi"
     word_count: int
+    facts: dict[str, Any] = field(default_factory=dict)
+    fact_score: float = 0.0
+    fact_breakdown: dict[str, float] = field(default_factory=dict)
 
     @property
     def preview(self) -> str:
@@ -68,7 +73,25 @@ def _conn(db_path: Path | str = KANOON_CACHE_PATH) -> Iterator[sqlite3.Connectio
         c.close()
 
 
-def _row_to_judgment(row: tuple) -> HFJudgment:
+def _row_to_judgment(
+    row: tuple,
+    *,
+    fact_score: float = 0.0,
+    fact_breakdown: Optional[dict[str, float]] = None,
+) -> HFJudgment:
+    """Materialise a SQL row into HFJudgment.
+
+    Row layout MUST match _SELECT_COLS order. The optional facts_json
+    column (index 10) is parsed into a dict; missing/malformed values
+    yield an empty dict.
+    """
+    facts: dict[str, Any] = {}
+    if len(row) >= 11 and row[10]:
+        try:
+            facts = json.loads(row[10]) or {}
+        except (json.JSONDecodeError, TypeError):
+            facts = {}
+
     return HFJudgment(
         doc_id=row[0],
         source=row[1],
@@ -80,12 +103,15 @@ def _row_to_judgment(row: tuple) -> HFJudgment:
         district=row[7],
         language=row[8],
         word_count=row[9],
+        facts=facts,
+        fact_score=fact_score,
+        fact_breakdown=fact_breakdown or {},
     )
 
 
 _SELECT_COLS = (
     "doc_id, source, court, title, text, summary, "
-    "label, district, language, word_count"
+    "label, district, language, word_count, facts_json"
 )
 
 
@@ -94,8 +120,9 @@ _SELECT_COLS = (
 def corpus_stats(db_path: Path | str = KANOON_CACHE_PATH) -> dict:
     """Lightweight stats for /api/health and the admin dashboard.
 
-    Returns total rows, per-source counts, and DB size. Cheap (single
-    aggregate query) so safe to call on every health-check.
+    Returns total rows, per-source counts, fact backfill progress, and DB
+    size. Cheap (single aggregate query) so safe to call on every health-
+    check.
     """
     try:
         with _conn(db_path) as c:
@@ -106,9 +133,18 @@ def corpus_stats(db_path: Path | str = KANOON_CACHE_PATH) -> dict:
                 GROUP BY source, language
                 ORDER BY source, language
             """).fetchall()
+            # Backfill progress: how many rows have facts_json populated.
+            # Wrap in try because facts_json column may not yet exist on
+            # very old DBs that haven't been migrated.
+            try:
+                facts_populated = c.execute(
+                    "SELECT COUNT(*) FROM hf_judgments WHERE facts_json IS NOT NULL AND facts_json != ''"
+                ).fetchone()[0]
+            except sqlite3.OperationalError:
+                facts_populated = None
     except sqlite3.OperationalError:
         # Table doesn't exist yet (harvest not run)
-        return {"total": 0, "by_source": [], "configured": False}
+        return {"total": 0, "by_source": [], "configured": False, "facts_populated": 0}
 
     return {
         "total": total,
@@ -117,6 +153,11 @@ def corpus_stats(db_path: Path | str = KANOON_CACHE_PATH) -> dict:
             for s, lang, n in by_source
         ],
         "configured": total > 0,
+        "facts_populated": facts_populated,
+        "facts_pct": (
+            round(100.0 * facts_populated / total, 1)
+            if facts_populated is not None and total else 0
+        ),
     }
 
 
@@ -136,55 +177,65 @@ def get_by_id(
 def search(
     query_terms: list[str],
     *,
+    situation: Optional[str] = None,
     language: str = "en",
     source_filter: Optional[list[str]] = None,
     label_filter: Optional[list[str]] = None,
     district_filter: Optional[str] = None,
     limit: int = 20,
+    candidate_pool: int = 200,
     db_path: Path | str = KANOON_CACHE_PATH,
 ) -> list[HFJudgment]:
-    """Keyword search over the HF corpus.
+    """Fact-aware search over the HF corpus.
 
-    Multi-term OR over title + text. Each term contributes one LIKE per
-    indexed text column; SQLite picks an index where it can. Results are
-    sorted by a simple match-count heuristic: rows that contain more of
-    the query terms come first, ties broken by word_count desc (longer
-    judgment ≈ more material to reason about).
+    Two-stage pipeline:
+      1. **Candidate pool** — SQLite LIKE-match on query terms pulls a
+         wide pool (default 200) of remotely relevant judgments. This is
+         what the old search returned — fast, recall-oriented, no
+         precision.
+      2. **Fact rescore** — for each candidate, parse its pre-extracted
+         `facts_json` and score the overlap with the facts extracted from
+         `situation`. Cases that share statute / stage / minor-victim /
+         outcome rank far above bare keyword hits.
+
+    The fact rescore is where the quality comes from. A POCSO query
+    against a corpus full of 'POCSO' keyword hits returns the cases that
+    ALSO share fact-pattern dimensions (minor victim, consent doctrine,
+    bail stage), not just any case that mentions POCSO once.
+
+    Backward compatibility
+    ----------------------
+    Existing callers passing only `query_terms` still work — they get the
+    same keyword-match ranking they had before. To unlock fact-vector
+    scoring, pass `situation` (the raw query text).
 
     Parameters
     ----------
     query_terms : list[str]
-        Already-distilled tokens from the situation. Pass the same output
-        your existing prefilter uses — this function does NOT do query
-        understanding (statute extraction, stopwords) on its own.
+        Distilled tokens from the situation, used for SQLite LIKE filtering.
+        Same input you'd give the curated-corpus prefilter.
+    situation : str | None
+        The raw lawyer query. When provided, we extract facts from it and
+        rescore candidates by fact overlap. Big quality jump.
     language : str
-        'en' for CJPE/SUMM (English SC + HC), 'hi' for BAIL (Hindi
-        district court). Mixing in one query rarely helps so we require
-        an explicit choice.
-    source_filter : list[str] | None
-        Restrict to specific IL-TUR subsets, e.g. ['cjpe', 'summ'] to
-        skip district-court bail apps.
-    label_filter : list[str] | None
-        e.g. ['granted', 'accepted'] to pull only successful outcomes —
-        useful when the lawyer is searching for favourable precedents.
-    district_filter : str | None
-        BAIL only. Match a single district (case-insensitive contains).
+        'en' for CJPE/SUMM, 'hi' for BAIL.
+    source_filter, label_filter, district_filter
+        Same semantics as before.
     limit : int
-        Max rows returned. Default 20 is intentionally generous — the
-        Sonnet reranker downstream will pick the best 3-5.
-
-    Returns
-    -------
-    list[HFJudgment]
-        Materialised rows, ranked by term-match heuristic. Empty list if
-        no terms, table missing, or no matches.
+        Max rows in the final ranked output.
+    candidate_pool : int
+        How many cases to pull from SQL before fact rescoring. 200 is a
+        good default — wide enough that the fact rescorer has something
+        to discriminate from, narrow enough that rescoring 200 dicts
+        stays sub-50 ms.
     """
+    # --- Stage 1: candidate pool via keyword LIKE ---------------------------
+
     if not query_terms:
         return []
 
     # Cap query terms — beyond ~6 the LIKE explosion costs more than the
-    # extra recall is worth. Already-prefiltered terms are sorted by
-    # importance, so taking the first N is fine.
+    # extra recall is worth.
     terms = [t.strip() for t in query_terms if t and t.strip()][:6]
     if not terms:
         return []
@@ -206,9 +257,6 @@ def search(
         where_parts.append("LOWER(district) LIKE ?")
         params.append(f"%{district_filter.lower()}%")
 
-    # OR over (text LIKE term OR title LIKE term) for each term.
-    # We also score: SUM of CASE-WHEN(LIKE) — gives us a match-count
-    # ranking without needing FTS5.
     or_clauses = []
     score_clauses = []
     for term in terms:
@@ -221,14 +269,13 @@ def search(
 
     score_sql = " + ".join(score_clauses) if score_clauses else "0"
 
-    # Score params come FIRST because SQLite binds parameters left-to-right
-    # across the full statement, and the score expression appears in the
-    # SELECT clause which is parsed before the WHERE clause.
     score_params: list = []
     for term in terms:
         wildcard = f"%{term}%"
         score_params.extend([wildcard, wildcard])
 
+    # Pull candidate_pool rows, not just `limit`. Stage 2 rescore picks
+    # the top `limit` from this wider pool.
     sql = f"""
         SELECT {_SELECT_COLS},
                ({score_sql}) AS match_score
@@ -237,7 +284,7 @@ def search(
         ORDER BY match_score DESC, word_count DESC
         LIMIT ?
     """
-    full_params = score_params + params + [limit]
+    full_params = score_params + params + [candidate_pool]
 
     try:
         with _conn(db_path) as c:
@@ -246,8 +293,56 @@ def search(
         # Table missing — harvest not run yet
         return []
 
-    # Drop the match_score column when materialising
-    return [_row_to_judgment(row[:10]) for row in rows]
+    if not rows:
+        return []
+
+    # --- Stage 2: fact-vector rescore ---------------------------------------
+
+    # If no situation provided, just return keyword-ranked results (legacy mode).
+    if not situation or not situation.strip():
+        return [_row_to_judgment(row[:11]) for row in rows[:limit]]
+
+    query_facts = extract_facts(situation)
+
+    # If the extractor pulled nothing usable from the query, fall back to
+    # keyword ranking — better to return rough matches than nothing.
+    if not query_facts:
+        return [_row_to_judgment(row[:11]) for row in rows[:limit]]
+
+    # Rescore every candidate. Keyword keyword-rank is a soft tiebreaker
+    # so cases with zero fact overlap but heavy keyword presence still
+    # have an ordering (and a chance to surface if the fact scorer found
+    # nothing).
+    scored: list[tuple[float, dict[str, float], int, tuple]] = []
+    for row in rows:
+        case_facts = {}
+        if len(row) >= 11 and row[10]:
+            try:
+                case_facts = json.loads(row[10]) or {}
+            except (json.JSONDecodeError, TypeError):
+                case_facts = {}
+
+        fact_score, breakdown = score_overlap(query_facts, case_facts)
+        keyword_score = int(row[-1]) if row[-1] is not None else 0
+        # Use keyword_score as ~10% tiebreaker (small constant so it can't
+        # outrank a real fact match). Word count gives a final stable
+        # ordering for cases that tie on both signals.
+        composite = fact_score + 0.1 * keyword_score
+        scored.append((composite, breakdown, keyword_score, row))
+
+    # Sort: composite DESC, then word_count DESC
+    scored.sort(key=lambda x: (-x[0], -x[3][9]))
+
+    out: list[HFJudgment] = []
+    for composite, breakdown, kw_score, row in scored[:limit]:
+        out.append(
+            _row_to_judgment(
+                row[:11],
+                fact_score=round(composite, 2),
+                fact_breakdown=breakdown,
+            )
+        )
+    return out
 
 
 # _ENABLE_FTS:

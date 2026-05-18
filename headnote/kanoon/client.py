@@ -271,6 +271,7 @@ class KanoonClient:
                     language     TEXT NOT NULL DEFAULT 'en',
                     word_count   INTEGER NOT NULL DEFAULT 0,
                     raw_metadata TEXT,                  -- JSON: split name + any extra fields
+                    facts_json   TEXT,                  -- JSON: extracted facts (statutes, stage, etc.) — see headnote.retrieval.fact_extractor
                     imported_at  TEXT NOT NULL          -- UTC ISO
                 );
                 CREATE INDEX IF NOT EXISTS idx_hf_source   ON hf_judgments(source);
@@ -279,6 +280,14 @@ class KanoonClient:
                 CREATE INDEX IF NOT EXISTS idx_hf_language ON hf_judgments(language);
                 CREATE INDEX IF NOT EXISTS idx_hf_label    ON hf_judgments(label);
             """)
+            # facts_json was added after the initial schema shipped. ALTER TABLE
+            # is idempotent only via PRAGMA-check — try the add and swallow the
+            # "duplicate column" error from existing DBs.
+            try:
+                c.execute("ALTER TABLE hf_judgments ADD COLUMN facts_json TEXT")
+            except sqlite3.OperationalError as e:
+                if "duplicate column name" not in str(e).lower():
+                    raise
             c.commit()
 
     # --- request plumbing

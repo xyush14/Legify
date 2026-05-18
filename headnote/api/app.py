@@ -332,8 +332,11 @@ def api_hf_search(
     # lower, drop very short tokens. Caller can also pass quoted phrases.
     tokens = [t for t in q.lower().split() if len(t) > 2]
 
+    # Pass the raw query as `situation` so search() can extract facts and
+    # rescore candidates by fact-vector overlap (the big quality lever).
     results = search(
         tokens,
+        situation=q,
         language=language,
         source_filter=[s.strip() for s in source.split(",")] if source else None,
         label_filter=[l.strip() for l in label.split(",")] if label else None,
@@ -341,12 +344,20 @@ def api_hf_search(
         limit=min(max(limit, 1), 100),
     )
 
+    # Surface the extracted query facts so a tester can see exactly what
+    # the regex pulled out — invaluable when tuning extractor patterns.
+    from headnote.retrieval.fact_extractor import extract_facts as _xf
+    query_facts = _xf(q)
+
     return {
         "ok": True,
         "query": q,
         "tokens_used": tokens,
+        "query_facts": query_facts,
         "count": len(results),
         "total_in_corpus": stats["total"],
+        "facts_populated": stats.get("facts_populated"),
+        "facts_pct": stats.get("facts_pct"),
         "results": [
             {
                 "doc_id": r.doc_id,
@@ -359,6 +370,9 @@ def api_hf_search(
                 "language": r.language,
                 "word_count": r.word_count,
                 "has_summary": bool(r.summary),
+                "fact_score": r.fact_score,
+                "fact_breakdown": r.fact_breakdown,
+                "facts": r.facts,
             }
             for r in results
         ],

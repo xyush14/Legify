@@ -72,6 +72,7 @@ except ImportError:
         return it
 
 from headnote.config import KANOON_CACHE_PATH
+from headnote.retrieval.fact_extractor import extract_facts
 
 
 # IL-TUR is hosted under a single repo with config-named subsets.
@@ -179,6 +180,7 @@ def _open_db(db_path: Path) -> sqlite3.Connection:
             language     TEXT NOT NULL DEFAULT 'en',
             word_count   INTEGER NOT NULL DEFAULT 0,
             raw_metadata TEXT,
+            facts_json   TEXT,
             imported_at  TEXT NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_hf_source   ON hf_judgments(source);
@@ -187,6 +189,15 @@ def _open_db(db_path: Path) -> sqlite3.Connection:
         CREATE INDEX IF NOT EXISTS idx_hf_language ON hf_judgments(language);
         CREATE INDEX IF NOT EXISTS idx_hf_label    ON hf_judgments(label);
     """)
+    # facts_json was added after the initial schema shipped. ALTER TABLE is
+    # idempotent only via column-existence check — try the add and swallow
+    # the "duplicate column" error from existing DBs that already have it.
+    try:
+        conn.execute("ALTER TABLE hf_judgments ADD COLUMN facts_json TEXT")
+        conn.commit()
+    except sqlite3.OperationalError as e:
+        if "duplicate column name" not in str(e).lower():
+            raise
     return conn
 
 
@@ -261,10 +272,29 @@ def import_subset(
                     **extras,
                 }, ensure_ascii=False, default=str)[:5000]   # cap blob
 
+                # Extract facts at ingest time. We feed (summary + title + text)
+                # into the extractor — summary first because it's denser. Cap
+                # the body at 20K chars to bound regex cost; the most salient
+                # facts (statutes, parties, stage, outcome) almost always
+                # appear in the opening + closing of a judgment, not the
+                # middle. ~1-3 ms per doc at this cap.
+                fact_input = ""
+                if summary:
+                    fact_input += summary + "\n\n"
+                if title:
+                    fact_input += title + "\n\n"
+                fact_input += text[:20000]
+                try:
+                    facts = extract_facts(fact_input)
+                    facts_json = json.dumps(facts, ensure_ascii=False) if facts else None
+                except Exception:
+                    # Never let a single bad row kill the whole import
+                    facts_json = None
+
                 batch.append((
                     doc_id, subset, cfg["court"], title, text, summary,
                     label, district, cfg["language"], len(text.split()),
-                    raw_meta, now,
+                    raw_meta, facts_json, now,
                 ))
 
                 if len(batch) >= batch_size:
@@ -299,8 +329,8 @@ def _flush_batch(conn: sqlite3.Connection, batch: list[tuple]) -> tuple[int, int
     conn.executemany("""
         INSERT OR IGNORE INTO hf_judgments
         (doc_id, source, court, title, text, summary, label, district,
-         language, word_count, raw_metadata, imported_at)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+         language, word_count, raw_metadata, facts_json, imported_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
     """, batch)
     conn.commit()
     after = conn.execute("SELECT COUNT(*) FROM hf_judgments").fetchone()[0]
