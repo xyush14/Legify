@@ -119,6 +119,25 @@ def admin_backfill_facts(
     t_start = _time.monotonic()
     conn = _sqlite3.connect(_DB_PATH, timeout=30)
     try:
+        # First, confirm the hf_judgments table exists at all. If the
+        # harvest hasn't run on this Railway deploy (or the volume was
+        # reset), bail with a clear error instead of a raw SQLite trace.
+        table_exists = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='hf_judgments'"
+        ).fetchone()
+        if not table_exists:
+            return {
+                "ok": False,
+                "error": "hf_judgments table missing — corpus has not been imported on this deploy.",
+                "db_path": str(_DB_PATH),
+                "hint": (
+                    "Either the Railway Volume is empty (fresh mount, or got reset on a redeploy), "
+                    "or KANOON_CACHE_PATH is pointing at a different file than the one the harvest "
+                    "wrote to. Check /api/health → hf_corpus.total to confirm. "
+                    "To harvest from scratch: see scripts/HARVEST_README.md."
+                ),
+            }
+
         # Make sure facts_json column exists before we try to use it
         try:
             conn.execute("ALTER TABLE hf_judgments ADD COLUMN facts_json TEXT")
