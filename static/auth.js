@@ -22,6 +22,12 @@ let currentUser = null;
 /* ------------------------------------------------------------------ boot */
 
 async function initAuth() {
+  // -- Surface OAuth errors that come back as ?error= or #error= in the URL --
+  // Supabase returns errors in the hash (#error_code=...) on OAuth flows and
+  // in the query string (?error=...) on PKCE flows. We catch both and show
+  // them to the user instead of letting them fail silently.
+  _surfaceOAuthErrorFromUrl();
+
   // Fetch public Supabase config from backend
   let cfg = {};
   try {
@@ -102,12 +108,25 @@ async function signInWithGoogle() {
   if (!_sb) return;
   _setGoogleBtnLoading(true);
   try {
+    // Use the current origin + /app as the post-auth redirect.
+    // Note: this URL MUST be in Supabase Dashboard -> Authentication -> URL Configuration -> Redirect URLs
+    // allowlist. If it isn't, Supabase silently falls back to the "Site URL" setting
+    // (default localhost:3000) and the OAuth flow lands on a broken page.
     const redirectUrl = window.location.origin + '/app';
-    console.log('[auth] Starting Google OAuth, redirect to:', redirectUrl);
-    const { error } = await _sb.auth.signInWithOAuth({
+    console.log('[auth] Starting Google OAuth.');
+    console.log('[auth] redirectTo:', redirectUrl);
+    console.log('[auth] If this lands on localhost or anywhere unexpected,');
+    console.log('[auth]   add this URL to Supabase Dashboard -> Authentication -> URL Configuration -> Redirect URLs');
+
+    const { data, error } = await _sb.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: redirectUrl },
+      options: {
+        redirectTo: redirectUrl,
+        // Force consent + offline access so we always get a fresh refresh token + complete profile.
+        queryParams: { access_type: 'offline', prompt: 'consent' },
+      },
     });
+    console.log('[auth] signInWithOAuth returned:', { data, error });
     if (error) {
       console.error('[auth] OAuth error:', error);
       _setGoogleBtnLoading(false);
@@ -273,6 +292,53 @@ function _markFieldError(fieldId, msg) {
 function _escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c =>
     ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+/**
+ * Pull OAuth errors out of the URL (?error=... or #error_code=...) and
+ * surface them as a readable message on the login modal. This is what
+ * makes the bad_oauth_state / redirect_uri_mismatch failure visible
+ * instead of leaving the user staring at a blank app.
+ */
+function _surfaceOAuthErrorFromUrl() {
+  try {
+    const hash = (window.location.hash || '').replace(/^#/, '');
+    const hashParams = new URLSearchParams(hash);
+    const queryParams = new URLSearchParams(window.location.search || '');
+
+    const errorCode = hashParams.get('error_code') || queryParams.get('error_code') || queryParams.get('error');
+    const errorDesc =
+      hashParams.get('error_description') ||
+      queryParams.get('error_description') ||
+      hashParams.get('error') ||
+      '';
+
+    if (!errorCode && !errorDesc) return;
+
+    const pretty = decodeURIComponent((errorDesc || errorCode || '').replace(/\+/g, ' '));
+    console.error('[auth] OAuth landed with error:', { errorCode, errorDesc: pretty });
+
+    // Show the login modal with the error visible
+    const login   = document.getElementById('login-modal');
+    const onboard = document.getElementById('onboarding-modal');
+    if (login)   login.style.display   = '';
+    if (onboard) onboard.style.display = 'none';
+    document.getElementById('auth-overlay')?.classList.remove('is-hidden');
+    document.body.classList.remove('auth-ready');
+
+    let hint = '';
+    if (/bad_oauth_state|state.*not.*found|state.*expired/i.test(errorCode + ' ' + pretty)) {
+      hint = ' (Supabase redirected to the wrong domain. The Site URL or Redirect URLs allowlist in Supabase Dashboard must include this app\'s URL.)';
+    }
+    _showAuthError('Sign-in failed: ' + pretty + hint);
+
+    // Clean the URL so a refresh doesn't re-trigger the message
+    if (window.history && window.history.replaceState) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  } catch (e) {
+    console.error('[auth] _surfaceOAuthErrorFromUrl failed:', e);
+  }
 }
 
 function _waitFor(cond, timeoutMs) {
