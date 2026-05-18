@@ -1,0 +1,11 @@
+# Dependencies for scripts/harvest_hf_corpus.py — NOT included in the
+# production Docker image. The harvest is a one-time bulk import; the
+# `datasets` library pulls in pyarrow and fsspec (~200MB) which we don't
+# want shipping with every Railway redeploy.
+#
+# Run locally OR as a Railway one-off command:
+#   pip install -r requirements-harvest.txt
+#   python scripts/harvest_hf_corpus.py --subsets cjpe summ
+
+datasets>=2.14
+tqdm>=4.66

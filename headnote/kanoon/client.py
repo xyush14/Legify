@@ -249,6 +249,35 @@ class KanoonClient:
                     cost_inr    REAL NOT NULL
                 );
                 CREATE INDEX IF NOT EXISTS idx_spend_day_local ON ik_spend(day_local);
+
+                -- HuggingFace IL-TUR imported corpus. Populated by
+                -- scripts/harvest_hf_corpus.py; queried by
+                -- headnote/retrieval/hf_corpus.py. Lives in the same SQLite
+                -- file as the IK cache so a single Railway Volume covers both.
+                --
+                -- doc_id format: "hf:<source>:<original_id>" (e.g. "hf:cjpe:115651329").
+                -- The "hf:" prefix is what the retrieval layer keys on to know
+                -- this isn't an IK case (which uses "ik:<tid>").
+                CREATE TABLE IF NOT EXISTS hf_judgments (
+                    rowid        INTEGER PRIMARY KEY AUTOINCREMENT,
+                    doc_id       TEXT NOT NULL UNIQUE,
+                    source       TEXT NOT NULL,        -- cjpe / summ / bail / pcr / lsi
+                    court        TEXT,                  -- supreme_court / high_court / district_court
+                    title        TEXT,                  -- synthesised from first line of judgment
+                    text         TEXT NOT NULL,         -- full judgment text
+                    summary      TEXT,                  -- gold summary if present (SUMM subset)
+                    label        TEXT,                  -- granted/rejected/accepted for CJPE & BAIL
+                    district     TEXT,                  -- district court for BAIL subset
+                    language     TEXT NOT NULL DEFAULT 'en',
+                    word_count   INTEGER NOT NULL DEFAULT 0,
+                    raw_metadata TEXT,                  -- JSON: split name + any extra fields
+                    imported_at  TEXT NOT NULL          -- UTC ISO
+                );
+                CREATE INDEX IF NOT EXISTS idx_hf_source   ON hf_judgments(source);
+                CREATE INDEX IF NOT EXISTS idx_hf_court    ON hf_judgments(court);
+                CREATE INDEX IF NOT EXISTS idx_hf_district ON hf_judgments(district);
+                CREATE INDEX IF NOT EXISTS idx_hf_language ON hf_judgments(language);
+                CREATE INDEX IF NOT EXISTS idx_hf_label    ON hf_judgments(label);
             """)
             c.commit()
 

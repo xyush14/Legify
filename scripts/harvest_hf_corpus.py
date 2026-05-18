@@ -1,0 +1,385 @@
+#!/usr/bin/env python3
+"""Harvest the IL-TUR Indian legal corpus from HuggingFace into local SQLite.
+
+This is a ONE-TIME (or rare cron) bulk import. Downloads ~50K-250K Indian
+judgments from the IL-TUR benchmark — Supreme Court (CJPE), expert-summarised
+judgments (SUMM), and district-court bail applications (BAIL) — and stores
+them in the same SQLite file as the IK cache so a single Railway Volume
+covers both.
+
+USAGE
+-----
+Setup (one-time):
+    pip install -r requirements-harvest.txt
+
+Run a small test import (1000 rows per subset):
+    python scripts/harvest_hf_corpus.py --subsets cjpe summ --limit 1000
+
+Full import (CJPE 34K + SUMM 7K = ~41K English SC judgments, ~1.3GB):
+    python scripts/harvest_hf_corpus.py --subsets cjpe summ
+
+Full import including Hindi bail apps (adds 176K, total ~2.3GB):
+    python scripts/harvest_hf_corpus.py --subsets cjpe summ bail
+
+Target a specific DB path (e.g. local dev vs Railway Volume):
+    python scripts/harvest_hf_corpus.py --db /data/kanoon_cache.sqlite
+
+DEPLOYMENT NOTES
+----------------
+- Railway Hobby Volume sizing: minimum 2GB for CJPE+SUMM, 3GB for everything.
+- The first run downloads ~1.6GB from HuggingFace; subsequent runs use the
+  HF datasets cache.
+- INSERT OR IGNORE on doc_id makes re-running idempotent — you can interrupt
+  and resume without dupes.
+- Hindi (BAIL) is stored with language='hi'; query separately or together
+  via the language filter.
+
+SCHEMA
+------
+The `hf_judgments` table is defined in headnote/kanoon/client.py
+(_init_cache). This script just populates it.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sqlite3
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Optional
+
+# Ensure repo root on sys.path so `from headnote.config import ...` works
+# regardless of CWD.
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+try:
+    from datasets import load_dataset
+except ImportError:
+    sys.exit(
+        "ERROR: `datasets` not installed.\n"
+        "Run: pip install -r requirements-harvest.txt"
+    )
+
+try:
+    from tqdm import tqdm
+except ImportError:
+    # tqdm is nice-to-have; fall back to no progress bar if missing.
+    def tqdm(it, **_kwargs):
+        return it
+
+from headnote.config import KANOON_CACHE_PATH
+
+
+# IL-TUR is hosted under a single repo with config-named subsets.
+HF_REPO = "Exploration-Lab/IL-TUR"
+
+# Per-subset config: HF config name + how to materialise the row.
+# Keep the script open/closed — adding a subset means adding one entry.
+_SUBSETS = {
+    "cjpe": {
+        "hf_config": "CJPE",
+        "court": "supreme_court",
+        "language": "en",
+        "description": "Court Judgment Prediction & Explanation: 34K SC judgments",
+    },
+    "summ": {
+        "hf_config": "SUMM",
+        "court": "supreme_court_or_hc",
+        "language": "en",
+        "description": "Expert-summarised: 7.1K SC + HC judgments w/ gold summaries",
+    },
+    "bail": {
+        "hf_config": "BAIL",
+        "court": "district_court",
+        "language": "hi",
+        "description": "Bail applications (Hindi): 176K district court orders",
+    },
+}
+
+
+# ----------------------------------------------------------------- helpers
+
+def _synthesize_title(text: str, doc_id: Any) -> str:
+    """Use the first non-empty line of the judgment as the title.
+
+    Indian judgments almost always begin with the court name, case caption,
+    and parties on the first few lines — close enough for a title. Falls
+    back to the doc_id if the text is unusable.
+    """
+    if not text:
+        return f"Judgment {doc_id}"
+    for line in text.split("\n")[:5]:
+        cleaned = line.strip()
+        if cleaned and len(cleaned) > 10:
+            if len(cleaned) > 200:
+                cleaned = cleaned[:200].rsplit(" ", 1)[0] + "…"
+            return cleaned
+    return f"Judgment {doc_id}"
+
+
+def _coerce_text(value: Any) -> str:
+    """Different IL-TUR subsets store text as either a string, a list of
+    sentences, or a dict-of-sections. Flatten everything to a single string."""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        return "\n".join(str(x) for x in value if x)
+    if isinstance(value, dict):
+        parts = []
+        for section, content in value.items():
+            parts.append(f"=== {section.replace('-', ' ').title()} ===")
+            parts.append(_coerce_text(content))
+        return "\n".join(parts)
+    return str(value)
+
+
+def _label_for(subset: str, raw_label: Any) -> Optional[str]:
+    """Normalise the binary label across subsets."""
+    if raw_label is None:
+        return None
+    try:
+        as_int = int(raw_label)
+    except (ValueError, TypeError):
+        return str(raw_label)
+    if subset == "cjpe":
+        return "accepted" if as_int == 1 else "rejected"
+    if subset == "bail":
+        return "granted" if as_int == 1 else "rejected"
+    return str(as_int)
+
+
+# ----------------------------------------------------------------- core
+
+def _open_db(db_path: Path) -> sqlite3.Connection:
+    """Open the DB and ensure the schema is present.
+
+    Even though headnote.kanoon.client._init_cache normally creates the
+    table at app startup, this script may run before the app has ever
+    touched the DB (e.g. fresh Railway Volume). So we mirror the DDL here.
+    """
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(db_path, timeout=30)
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS hf_judgments (
+            rowid        INTEGER PRIMARY KEY AUTOINCREMENT,
+            doc_id       TEXT NOT NULL UNIQUE,
+            source       TEXT NOT NULL,
+            court        TEXT,
+            title        TEXT,
+            text         TEXT NOT NULL,
+            summary      TEXT,
+            label        TEXT,
+            district     TEXT,
+            language     TEXT NOT NULL DEFAULT 'en',
+            word_count   INTEGER NOT NULL DEFAULT 0,
+            raw_metadata TEXT,
+            imported_at  TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_hf_source   ON hf_judgments(source);
+        CREATE INDEX IF NOT EXISTS idx_hf_court    ON hf_judgments(court);
+        CREATE INDEX IF NOT EXISTS idx_hf_district ON hf_judgments(district);
+        CREATE INDEX IF NOT EXISTS idx_hf_language ON hf_judgments(language);
+        CREATE INDEX IF NOT EXISTS idx_hf_label    ON hf_judgments(label);
+    """)
+    return conn
+
+
+def import_subset(
+    subset: str,
+    db_path: Path,
+    limit: Optional[int] = None,
+    batch_size: int = 500,
+) -> int:
+    """Stream the given IL-TUR subset into hf_judgments. Returns inserted count.
+
+    Streams rather than loads the full split into memory — important for
+    BAIL (176K rows). Commits in batches of `batch_size` so an interrupted
+    run still leaves the DB in a queryable state.
+    """
+    if subset not in _SUBSETS:
+        raise ValueError(f"Unknown subset {subset!r}. Choices: {list(_SUBSETS)}")
+
+    cfg = _SUBSETS[subset]
+    print(f"\n=== Importing IL-TUR / {cfg['hf_config']} ===")
+    print(f"    {cfg['description']}")
+    print(f"    court={cfg['court']} language={cfg['language']}")
+    if limit:
+        print(f"    LIMIT={limit:,} rows (capped for testing)")
+
+    try:
+        ds = load_dataset(HF_REPO, cfg["hf_config"], revision="script")
+    except Exception as e:
+        print(f"    ERROR loading dataset: {e}")
+        return 0
+
+    inserted = 0
+    skipped_empty = 0
+    skipped_dup = 0
+    batch = []
+    now = datetime.now(timezone.utc).isoformat()
+
+    conn = _open_db(db_path)
+    try:
+        # IL-TUR has multiple splits (train/dev/test). Import all — we don't
+        # care about ML eval semantics, just the corpus.
+        for split_name in ds:
+            split = ds[split_name]
+            iterator = tqdm(split, desc=f"  {cfg['hf_config']}/{split_name}", unit="docs")
+            for row in iterator:
+                if limit and inserted >= limit:
+                    break
+
+                row_id = row.get("id", "")
+                doc_id = f"hf:{subset}:{row_id}"
+
+                text = _coerce_text(row.get("text") or row.get("document"))
+                if not text or len(text) < 100:
+                    skipped_empty += 1
+                    continue
+
+                summary = _coerce_text(row.get("summary")) if "summary" in row else None
+                title = _synthesize_title(text, row_id)
+                label = _label_for(subset, row.get("label"))
+                district = row.get("district") if subset == "bail" else None
+
+                # Strip the heavy fields from raw_metadata — we already have
+                # text/summary/label/district as columns. Keep only the
+                # things we'd want to debug later (split, any extra fields).
+                extras = {
+                    k: v for k, v in row.items()
+                    if k not in {"text", "document", "summary", "label", "id", "district"}
+                }
+                raw_meta = json.dumps({
+                    "split": split_name,
+                    "original_id": row_id,
+                    **extras,
+                }, ensure_ascii=False, default=str)[:5000]   # cap blob
+
+                batch.append((
+                    doc_id, subset, cfg["court"], title, text, summary,
+                    label, district, cfg["language"], len(text.split()),
+                    raw_meta, now,
+                ))
+
+                if len(batch) >= batch_size:
+                    n_new, n_dup = _flush_batch(conn, batch)
+                    inserted += n_new
+                    skipped_dup += n_dup
+                    batch = []
+
+            if limit and inserted >= limit:
+                break
+
+        # Flush remainder
+        if batch:
+            n_new, n_dup = _flush_batch(conn, batch)
+            inserted += n_new
+            skipped_dup += n_dup
+
+    finally:
+        conn.commit()
+        conn.close()
+
+    print(
+        f"    inserted={inserted:,}  duplicates={skipped_dup:,}  "
+        f"empty/skipped={skipped_empty:,}"
+    )
+    return inserted
+
+
+def _flush_batch(conn: sqlite3.Connection, batch: list[tuple]) -> tuple[int, int]:
+    """Insert a batch with INSERT OR IGNORE; return (new_rows, duplicates)."""
+    before = conn.execute("SELECT COUNT(*) FROM hf_judgments").fetchone()[0]
+    conn.executemany("""
+        INSERT OR IGNORE INTO hf_judgments
+        (doc_id, source, court, title, text, summary, label, district,
+         language, word_count, raw_metadata, imported_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+    """, batch)
+    conn.commit()
+    after = conn.execute("SELECT COUNT(*) FROM hf_judgments").fetchone()[0]
+    new_rows = after - before
+    dup = len(batch) - new_rows
+    return new_rows, dup
+
+
+# ----------------------------------------------------------------- main
+
+def _print_summary(db_path: Path) -> None:
+    """Final summary after all imports complete."""
+    with sqlite3.connect(db_path) as c:
+        total = c.execute("SELECT COUNT(*) FROM hf_judgments").fetchone()[0]
+        by_source = c.execute("""
+            SELECT source, language, COUNT(*), SUM(word_count)
+            FROM hf_judgments GROUP BY source, language
+            ORDER BY source, language
+        """).fetchall()
+
+    size_mb = db_path.stat().st_size / (1024 * 1024)
+    print("\n" + "=" * 60)
+    print(f"  HARVEST COMPLETE — {total:,} judgments stored")
+    print("=" * 60)
+    for source, lang, n, words in by_source:
+        avg_words = int(words / n) if n else 0
+        print(f"    {source:6} {lang:3}  {n:>8,} docs  avg {avg_words:>6,} words")
+    print(f"\n  DB: {db_path}  ({size_mb:,.1f} MB)")
+    print()
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description=__doc__.split("\n\n")[0],
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--subsets",
+        nargs="+",
+        default=["cjpe", "summ"],
+        choices=list(_SUBSETS),
+        help="Which IL-TUR subsets to import (default: cjpe summ)",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Cap rows per subset (for testing). Omit for full import.",
+    )
+    parser.add_argument(
+        "--db",
+        default=str(KANOON_CACHE_PATH),
+        help=f"Target SQLite path (default: {KANOON_CACHE_PATH})",
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=500,
+        help="Commit batch size (default: 500)",
+    )
+    args = parser.parse_args()
+
+    db_path = Path(args.db)
+    print(f"Target DB: {db_path}")
+    print(f"Subsets:   {', '.join(args.subsets)}")
+
+    for subset in args.subsets:
+        try:
+            import_subset(subset, db_path, limit=args.limit, batch_size=args.batch_size)
+        except KeyboardInterrupt:
+            print("\n  Interrupted. Partial data is committed; re-run to resume.")
+            break
+        except Exception as e:
+            print(f"\n  FAILED on subset {subset}: {e}")
+            continue
+
+    _print_summary(db_path)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

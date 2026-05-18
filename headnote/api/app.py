@@ -228,7 +228,14 @@ def app_index():
 
 @app.get("/api/health", summary="Liveness check + config summary")
 def health():
-    return {"ok": True, **config.summary()}
+    # Add HF corpus stats so we can confirm the import landed without
+    # querying the DB directly.
+    try:
+        from headnote.retrieval.hf_corpus import corpus_stats
+        hf = corpus_stats()
+    except Exception:
+        hf = {"total": 0, "configured": False}
+    return {"ok": True, **config.summary(), "hf_corpus": hf}
 
 
 @app.get("/api/spend", summary="Current Indian Kanoon API cost ledger")
@@ -253,6 +260,98 @@ def api_corpus():
             }
             for c in cases
         ],
+    }
+
+
+@app.get("/api/hf_search", summary="Search the HuggingFace IL-TUR local corpus")
+def api_hf_search(
+    q: str,
+    language: str = "en",
+    source: Optional[str] = None,       # comma-separated: "cjpe,summ"
+    label: Optional[str] = None,        # comma-separated: "accepted,granted"
+    district: Optional[str] = None,
+    limit: int = 20,
+):
+    """Keyword search over the local HF corpus populated by
+    scripts/harvest_hf_corpus.py. Intended for testing the import + as a
+    fallback retrieval source separate from IK API and the 42 curated cases.
+
+    Returns title + preview only (not full text) to keep responses small.
+    Hit /api/hf_doc/<doc_id> for full text.
+    """
+    from headnote.retrieval.hf_corpus import search, corpus_stats
+
+    stats = corpus_stats()
+    if not stats["configured"]:
+        return {
+            "ok": False,
+            "error": "HF corpus not imported yet.",
+            "hint": "Run: pip install -r requirements-harvest.txt && "
+                    "python scripts/harvest_hf_corpus.py --subsets cjpe summ",
+            "results": [],
+        }
+
+    # Same tokenisation we'd use for IK prefilter: split on whitespace,
+    # lower, drop very short tokens. Caller can also pass quoted phrases.
+    tokens = [t for t in q.lower().split() if len(t) > 2]
+
+    results = search(
+        tokens,
+        language=language,
+        source_filter=[s.strip() for s in source.split(",")] if source else None,
+        label_filter=[l.strip() for l in label.split(",")] if label else None,
+        district_filter=district,
+        limit=min(max(limit, 1), 100),
+    )
+
+    return {
+        "ok": True,
+        "query": q,
+        "tokens_used": tokens,
+        "count": len(results),
+        "total_in_corpus": stats["total"],
+        "results": [
+            {
+                "doc_id": r.doc_id,
+                "source": r.source,
+                "court": r.court,
+                "title": r.title,
+                "preview": r.preview,
+                "label": r.label,
+                "district": r.district,
+                "language": r.language,
+                "word_count": r.word_count,
+                "has_summary": bool(r.summary),
+            }
+            for r in results
+        ],
+    }
+
+
+@app.get("/api/hf_doc/{doc_id:path}", summary="Fetch one HF corpus judgment by doc_id")
+def api_hf_doc(doc_id: str):
+    """Returns the full text + summary (if any) for a single HF judgment.
+
+    doc_id format: "hf:<source>:<original_id>" — e.g. "hf:cjpe:115651329".
+    Path converter `:path` allows the colons through unmodified.
+    """
+    from headnote.retrieval.hf_corpus import get_by_id
+
+    judgment = get_by_id(doc_id)
+    if not judgment:
+        raise HTTPException(status_code=404, detail=f"No HF judgment with doc_id={doc_id!r}")
+
+    return {
+        "doc_id": judgment.doc_id,
+        "source": judgment.source,
+        "court": judgment.court,
+        "title": judgment.title,
+        "text": judgment.text,
+        "summary": judgment.summary,
+        "label": judgment.label,
+        "district": judgment.district,
+        "language": judgment.language,
+        "word_count": judgment.word_count,
     }
 
 
