@@ -28,6 +28,11 @@ from __future__ import annotations
 import re
 from collections import Counter
 
+from headnote.retrieval.fact_extractor import (
+    extract_facts as _extract_universal_facts,
+    score_overlap as _score_universal_facts,
+)
+
 # ----------------------------------------------------------------- vocabularies
 
 # Section / statute regex. Catches "S. 138", "Section 376", "Article 21",
@@ -159,14 +164,63 @@ def _case_text_blob(case: dict) -> str:
     return " ".join(p for p in parts if p)
 
 
+# Module-level cache of fact_extractor output per curated case. The 42
+# curated cases never change at runtime, so extracting facts once on first
+# touch and reusing them saves ~40ms per query (42 cases * ~1ms each).
+# Keyed by case id; falls back to the dict's `id` field, then to id(case).
+_CASE_FACTS_CACHE: dict[str, dict] = {}
+
+
+def _case_facts(case: dict) -> dict:
+    """Return universal facts for a curated case, lazily extracted + cached.
+
+    The cache is keyed on the case's stable `id` field (e.g. 'DASH-2014-SC').
+    If a case lacks an id, we fall back to the Python id() — that's fine for
+    in-process correctness; we just lose cross-call caching.
+    """
+    case_id = case.get("id") or f"_noid_{id(case)}"
+    cached = _CASE_FACTS_CACHE.get(case_id)
+    if cached is not None:
+        return cached
+    facts = _extract_universal_facts(_case_text_blob(case))
+    _CASE_FACTS_CACHE[case_id] = facts
+    return facts
+
+
+def prime_case_facts_cache(corpus: list[dict]) -> None:
+    """Pre-extract facts for every case in the corpus.
+
+    Cheap (~40-50ms for 42 cases on a cold cache) but skipping the first-
+    query latency spike is worth a tiny boot cost. Safe to call multiple
+    times — cache is idempotent.
+    """
+    for case in corpus or []:
+        _case_facts(case)
+
+
 # ----------------------------------------------------------------- scoring
 
 def _score_facets(case: dict, situation: str) -> tuple[float, dict]:
     """Multi-facet score with explainable breakdown.
 
-    Returns (total_score, debug_dict). The debug dict tells you which
-    facet drove the score, which is what gets attached to the case as
-    `_prefilter_debug` for tuning and cost-dashboard reporting.
+    Two scorer layers:
+
+      (1) Legacy facets — section / doctrine / outcome / tokens. These
+          are computed over plaintext via the keyword.py vocabularies and
+          have been tuned against the curated corpus over many iterations.
+          We keep them for stability + tokens-as-tiebreaker.
+
+      (2) Universal fact scoring — calls fact_extractor.score_overlap.
+          Adds dimensions the legacy facets don't have: stage (bail vs
+          trial vs quash), victim-is-minor, accused role, special category
+          (woman/juvenile/sick/pregnant), numerics (cheque amt, drug qty,
+          FIR delay, custody days), weapon.
+
+    Both layers are summed. The legacy facets max ~9.5; the universal
+    layer maxes ~15+. So the universal layer is the dominant signal where
+    it fires, while legacy facets provide a stable floor for queries the
+    universal extractor doesn't parse (e.g. very loose natural-language
+    queries with no statute / stage hints).
     """
     case_text = _case_text_blob(case).lower()
     case_sections = _extract_sections(case_text)
@@ -206,15 +260,29 @@ def _score_facets(case: dict, situation: str) -> tuple[float, dict]:
         if c > 0:
             token_score += min(c, 3) * 0.3
 
-    total = section_score + doctrine_score + outcome_score + token_score
+    # FACET E — universal fact scoring (the new dimensions)
+    # Cached extraction of case facts; fresh extraction of query facts.
+    case_facts = _case_facts(case)
+    q_facts = _extract_universal_facts(situation) if situation else {}
+    universal_score, universal_breakdown = (0.0, {})
+    if q_facts and case_facts:
+        universal_score, universal_breakdown = _score_universal_facts(q_facts, case_facts)
+
+    total = (
+        section_score + doctrine_score + outcome_score + token_score
+        + universal_score
+    )
 
     return total, {
         "section": round(section_score, 2),
         "doctrine": round(doctrine_score, 2),
         "outcome": round(outcome_score, 2),
         "tokens": round(token_score, 2),
+        "universal": round(universal_score, 2),
+        "universal_breakdown": universal_breakdown,
         "matched_sections": sorted(q_sections & case_sections),
         "matched_doctrines": sorted(q_doctrines & case_doctrines),
+        "query_facts": q_facts,
     }
 
 

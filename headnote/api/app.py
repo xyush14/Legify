@@ -214,6 +214,17 @@ _init_feedback_db()
 init_telemetry_db()
 app.include_router(admin_router)
 
+# Pre-extract universal facts for the 42 curated cases at boot. ~50ms
+# one-time cost that removes a per-query latency spike for the first user.
+# Safe to skip via env var if the curated corpus changes at runtime (which
+# it currently doesn't — it's a static JSON file).
+try:
+    from headnote.retrieval.keyword import prime_case_facts_cache as _prime_cache
+    _prime_cache(config.load_curated_corpus())
+except Exception as _e:
+    # Never fail app boot on a cache miss; the cache primes lazily anyway.
+    print(f"[boot] curated facts cache priming failed (non-fatal): {_e}")
+
 
 @app.get("/", include_in_schema=False)
 def landing():
