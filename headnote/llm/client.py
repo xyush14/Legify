@@ -18,11 +18,13 @@ from headnote import config
 # Use Bedrock when AWS credentials are present (free with AWS credits).
 _USE_BEDROCK = bool(os.environ.get("AWS_ACCESS_KEY_ID"))
 
-# Internal model name → Bedrock cross-region inference ID (us-east-1).
+# Internal model name → Bedrock cross-region inference profile ID (us-east-1).
+# Override any of these in Railway env vars without a code deploy:
+#   BEDROCK_HAIKU_ID, BEDROCK_SONNET_ID, BEDROCK_OPUS_ID
 _BEDROCK_IDS: dict[str, str] = {
-    "claude-haiku-4-5":  "anthropic.claude-3-5-haiku-20241022-v1:0",
-    "claude-sonnet-4-6": "anthropic.claude-3-5-sonnet-20241022-v2:0",
-    "claude-opus-4-6":   "anthropic.claude-3-opus-20240229-v1:0",
+    "claude-haiku-4-5":  os.environ.get("BEDROCK_HAIKU_ID",  "us.anthropic.claude-3-5-haiku-20241022-v1:0"),
+    "claude-sonnet-4-6": os.environ.get("BEDROCK_SONNET_ID", "us.anthropic.claude-3-7-sonnet-20250219-v1:0"),
+    "claude-opus-4-6":   os.environ.get("BEDROCK_OPUS_ID",   "us.anthropic.claude-3-7-sonnet-20250219-v1:0"),
 }
 
 
