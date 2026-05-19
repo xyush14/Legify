@@ -214,6 +214,15 @@ _init_feedback_db()
 init_telemetry_db()
 app.include_router(admin_router)
 
+# Drafting engine (10 document types, story-first). Per-type templates
+# ship one at a time; the API surface lives here from v0 so the FE can
+# integrate against `/api/draft/*` while individual templates are ported.
+from headnote.drafter.api import router as _drafter_router
+from headnote.drafter.storage import init_drafts_db as _init_drafts_db
+
+app.include_router(_drafter_router)
+_init_drafts_db()
+
 # Pre-extract universal facts for the 42 curated cases at boot. ~50ms
 # one-time cost that removes a per-query latency spike for the first user.
 # Safe to skip via env var if the curated corpus changes at runtime (which

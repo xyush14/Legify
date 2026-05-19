@@ -1,0 +1,153 @@
+"""
+FastAPI routes for the drafting engine.
+
+Mounted under /api/draft/* by the main app. Auth model is light for v0:
+- Anonymous drafts allowed (user_id=null) — useful while we build the
+  Supabase bearer-validation middleware. Production should require a
+  valid Supabase JWT on every write.
+- Drafts are NOT user-scoped on read in v0 (anyone with the draft_id can
+  read it). Treat draft_ids as capability tokens until we wire ACL.
+
+This file is small on purpose. Heavy logic (template rendering,
+transliteration, OCR) lives in sibling modules and is called from here.
+"""
+
+from __future__ import annotations
+
+from typing import Optional
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
+
+from headnote.drafter import storage, stories
+
+
+router = APIRouter(prefix="/api/draft", tags=["drafter"])
+
+
+# ----------------------------------------------------------- request models
+
+class StartDraftBody(BaseModel):
+    story_id: str = Field(..., description="One of stories.STORIES keys, e.g. 'friendly_cash_loan'")
+    lang: str = Field("en", description="'en' or 'hi'")
+    user_id: Optional[str] = Field(None, description="Supabase user.id; null = anon")
+    title: Optional[str] = Field(None, description="Short label for the FE drafts list")
+    answers: Optional[dict] = Field(None, description="Optional initial answers")
+
+
+class UpdateDraftBody(BaseModel):
+    answers: Optional[dict] = None
+    lang: Optional[str] = None
+    title: Optional[str] = None
+
+
+# ----------------------------------------------------------- routes
+
+@router.get("/stories", summary="List all draft story types (for FE tile grid)")
+def list_stories(lang: str = "en"):
+    return {"stories": stories.list_stories(lang=lang)}
+
+
+@router.get("/story/{story_id}", summary="Detailed schema for one story (sections + readiness)")
+def get_story_schema(story_id: str):
+    s = stories.get_story(story_id)
+    if s is None:
+        raise HTTPException(status_code=404, detail=f"unknown story_id={story_id!r}")
+    return {
+        "id": s.id,
+        "label": s.label,
+        "sub": s.sub,
+        "icon": s.icon,
+        "ready": s.ready,
+        "template_version": s.template_version,
+        "sections": [
+            {
+                "id": sec.id,
+                "eyebrow": sec.eyebrow,
+                "title": sec.title,
+                "sub": sec.sub,
+                "type": sec.type,
+                "scan": sec.scan,
+            }
+            for sec in s.sections
+        ],
+    }
+
+
+@router.post("/start", summary="Begin a new draft (creates a drafts row)")
+def start_draft(body: StartDraftBody):
+    s = stories.get_story(body.story_id)
+    if s is None:
+        raise HTTPException(status_code=404, detail=f"unknown story_id={body.story_id!r}")
+    # v0: we allow start even on not-ready stories so the FE can save
+    # progress before the template module is finalised. The /render endpoint
+    # will still return a 'coming soon' message until ready=True.
+    draft = storage.create_draft(
+        story_id=body.story_id,
+        template_version=s.template_version,
+        user_id=body.user_id,
+        lang=body.lang,
+        answers=body.answers,
+        title=body.title,
+    )
+    return draft.to_dict()
+
+
+@router.get("/{draft_id}", summary="Get one draft by id")
+def get_draft(draft_id: str):
+    d = storage.get_draft(draft_id)
+    if d is None:
+        raise HTTPException(status_code=404, detail=f"no draft with id={draft_id!r}")
+    return d.to_dict()
+
+
+@router.patch("/{draft_id}", summary="Partial update: answers / lang / title")
+def update_draft(draft_id: str, body: UpdateDraftBody):
+    d = storage.update_draft(
+        draft_id,
+        answers=body.answers,
+        lang=body.lang,
+        title=body.title,
+    )
+    if d is None:
+        raise HTTPException(status_code=404, detail=f"no draft with id={draft_id!r}")
+    return d.to_dict()
+
+
+@router.delete("/{draft_id}", summary="Delete a draft")
+def delete_draft(draft_id: str):
+    deleted = storage.delete_draft(draft_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"no draft with id={draft_id!r}")
+    return {"deleted": True, "id": draft_id}
+
+
+@router.get("/{draft_id}/render", summary="Render the draft to HTML for preview")
+def render_draft(draft_id: str, lang: Optional[str] = None):
+    """Returns rendered HTML. `lang` query param overrides the draft's
+    stored lang — handy for letting the lawyer toggle EN/HI in the preview
+    without persisting the change."""
+    d = storage.get_draft(draft_id)
+    if d is None:
+        raise HTTPException(status_code=404, detail=f"no draft with id={draft_id!r}")
+    use_lang = lang if lang in ("en", "hi") else d.lang
+    html = stories.render_story(d.story_id, use_lang, d.answers)
+    return {
+        "id": d.id,
+        "story_id": d.story_id,
+        "lang": use_lang,
+        "template_version": d.template_version,
+        "html": html,
+    }
+
+
+@router.get("/", summary="List recent drafts (for the FE drafts panel)")
+def list_drafts(user_id: Optional[str] = None, limit: int = 20):
+    """List by user_id (or NULL for anonymous). Recent-first.
+
+    Note v0 limitation: any caller can list any user's drafts. Wire
+    Supabase bearer validation before exposing this in production —
+    enforce `user_id == authenticated_user.id`.
+    """
+    drafts = storage.list_drafts(user_id=user_id, limit=limit)
+    return {"count": len(drafts), "drafts": [d.to_dict() for d in drafts]}
