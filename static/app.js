@@ -671,9 +671,7 @@
     const isHindi = /[ऀ-ॿ]/.test(input);
     const stages = intent === 'situation' ? [
       ...(isHindi ? ['translating hindi → english'] : []),
-      'understanding your query',
-      'fetching relevant judgments',
-      'ranking candidates',
+      'searching 42k case corpus',
       'analysing with claude',
       'verifying citations',
     ] : intent === 'headnote' ? [
@@ -689,12 +687,14 @@
     stagePanel = renderStagesPanel(stages);
     target.appendChild(stagePanel);
 
-    // Pacing: situation pipeline now includes Haiku refine + prerank + Sonnet +
-    // IK doc fetches. Total latency is 20-35s on IK path, ~15s on curated path.
-    // Variable delays per stage better mirror where the actual seconds go.
+    // Pacing now matches the new pipeline (shallow refine + parallel IK fetches):
+    //   - corpus search: <5s (HF + semantic + curated; IK only if pool thin)
+    //   - claude analysis: ~10-15s
+    //   - verification: <1s
+    // 'verifying citations' never advances via timer — replaced when results arrive.
     const situationDelays = isHindi
-      ? [3000, 6000, 11000, 17000, 25000]   // extra 3s for translation stage
-      : [4000,  9000, 14000, 22000];         // 4 timers for 5 stages (last never fires)
+      ? [3500, 8000, 18000]   // translate done at 3.5s, search done at 8s, claude active until results
+      : [5000, 16000];        // search done at 5s, claude active until results
     const defaultDelays = stages.slice(0, -1).map((_, i) => 4500 * (i + 1));
     const stageDelays = intent === 'situation' ? situationDelays : defaultDelays;
     const timers = stageDelays.map((delay, i) =>

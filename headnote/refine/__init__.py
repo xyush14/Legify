@@ -12,8 +12,9 @@ Public API:
 from headnote.refine.canonicalize import (
     RefinedQuery,
     refine_query,
+    shallow_refine,
     canonicalize,
 )
 from headnote.refine.normalize import normalize
 
-__all__ = ["RefinedQuery", "refine_query", "canonicalize", "normalize"]
+__all__ = ["RefinedQuery", "refine_query", "shallow_refine", "canonicalize", "normalize"]

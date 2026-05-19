@@ -89,24 +89,22 @@ except Exception as _emb_err:
 DEFAULT_SEARCH_FILTERS = "doctypes:supremecourt,highcourts"
 
 # Per-call caps. Tune in main.py once we have real usage data.
-DEFAULT_TOP_CASES = 3           # 5→3: smaller output volume keeps Sonnet under 25s budget
+DEFAULT_TOP_CASES = 5           # back to 5: lawyers want options; HF corpus carries the load
 DEFAULT_CANDIDATE_POOL = 25     # candidates to collect before hidden_authorities reranking
 DEFAULT_TOP_PARAGRAPHS_PER_CASE = 2   # 4→2: shorter Phase 2 prompts, faster generation
-# IK doc-fetch caps. On Railway/Pro (5-min request budget) these can be
-# higher; on Render free (18s budget) keep them tight. Override via env:
-#   MAX_IK_FETCHES, MAX_IK_FETCHES_HIDDEN.
+# IK doc-fetch caps. With parallel fetches (ThreadPoolExecutor), the
+# serial-wait penalty no longer scales linearly — bumping from 4 → 6
+# costs ~1 extra second total, not 6.
 import os as _os
 DEFAULT_MAX_NEW_FETCHES = int(_os.environ.get("MAX_IK_FETCHES", "4"))
-DEFAULT_MAX_NEW_FETCHES_HIDDEN = int(_os.environ.get("MAX_IK_FETCHES_HIDDEN", "4"))
-# Lowered from 8 → 4: 8 fetches * 0.6s throttle = 4.8s of pure serial
-# wait time, on top of IK API round-trip latency (~1-2s each). Cutting
-# to 4 saves 4-8s on cold-cache queries with no measurable hit to
-# Hidden Authorities quality — the reranker already gets enough
-# candidates from curated + semantic + IK search results to discriminate.
+DEFAULT_MAX_NEW_FETCHES_HIDDEN = int(_os.environ.get("MAX_IK_FETCHES_HIDDEN", "6"))
+DEFAULT_IK_FETCH_PARALLELISM = int(_os.environ.get("IK_FETCH_PARALLELISM", "4"))
 
-# Cost-saving for mixed mode: don't burn ₹0.50 on an IK search if curated+semantic
-# already filled at least this many slots. Ignored for hidden/famous modes.
-DEFAULT_SKIP_IK_SEARCH_IF_CASES_AT_LEAST = 3
+# Skip the paid IK live search when free local sources (HF corpus 42K +
+# semantic cache + curated 42) have already filled the pool with enough
+# substantive cases. Counts ONLY ik-semantic + hf + curated; the IK live
+# branch hasn't run yet at this check.
+DEFAULT_SKIP_IK_SEARCH_IF_CASES_AT_LEAST = int(_os.environ.get("SKIP_IK_IF_CASES", "5"))
 
 # Structural priors for paragraph ranking. Higher = more likely to carry the ratio.
 STRUCTURE_PRIOR: dict[str, float] = {
@@ -633,7 +631,7 @@ def retrieve_for_situation(
                     tokens,
                     situation=situation,
                     language="en",
-                    limit=8,            # leave room for curated + semantic + IK
+                    limit=15,           # 8 → 15: HF carries the load now; let it fill the pool
                 )
                 meta.notes.append(f"hf_corpus surfaced {len(hf_hits)} cases")
                 for j in hf_hits:
@@ -705,17 +703,27 @@ def retrieve_for_situation(
         except Exception as e:
             meta.notes.append(f"hf_corpus search failed: {e}")
 
-    # 3. IK live search (paid) — ALWAYS run regardless of mode.
+    # 3. IK live search (paid) — conditional on the free local pool size.
     #
-    # Previously, mixed mode skipped IK once curated+semantic returned a
-    # threshold count of cases. In practice, the 42 curated cases match
-    # 3+ keywords for almost every criminal query, so IK never ran and
-    # the result pool was always 100% famous landmarks. The product can't
-    # claim "Hidden Authorities" if the IK retrieval doesn't fire.
+    # The free local pool is: curated (42 vetted) + semantic (cached IK
+    # paragraphs) + HF corpus (42K Supreme Court + gold-summary judgments).
+    # If they collectively returned >= SKIP_IK_IF_CASES cases, the user
+    # already has a strong, diverse pool — IK live adds latency (8-15s
+    # of doc fetches) without proportional quality gain.
     #
-    # Cost: ₹0.50 per search (cached 30 days), so the same query in the
-    # next 30 days is free. Worth it.
-    run_ik_search = True
+    # `hidden` and `famous` modes still ALWAYS run IK so the reranker
+    # has fresh non-curated candidates to surface.
+    non_curated_count = sum(1 for c in cases if c.source != "curated")
+    if mode in ("hidden", "famous"):
+        run_ik_search = True
+    elif non_curated_count >= skip_ik_search_if_cases_at_least:
+        run_ik_search = False
+        meta.notes.append(
+            f"skipped IK live search — free pool already has "
+            f"{non_curated_count} non-curated cases (>= {skip_ik_search_if_cases_at_least})"
+        )
+    else:
+        run_ik_search = True
 
     if run_ik_search:
         form_input = _build_search_input(situation, extra_filters=search_filters)
@@ -761,32 +769,67 @@ def retrieve_for_situation(
             DEFAULT_MAX_NEW_FETCHES_HIDDEN if mode in ("hidden", "famous") else max_new_fetches
         )
 
-        fetched_new = 0
-        for score, hit in ranked:
-            if len(cases) >= candidate_pool:
-                break
-            if fetched_new >= effective_max_fetches:
-                meta.notes.append(
-                    f"hit max_new_fetches={effective_max_fetches} (mode={mode}); "
-                    "stopping. Cache will warm over time."
-                )
-                break
+        # PARALLEL IK doc fetches. Each fetch is an HTTP round-trip to
+        # indiankanoon.org (~1-3s); doing them sequentially is the single
+        # biggest source of latency on cold-cache queries. Bounded
+        # ThreadPoolExecutor caps concurrent connections so we don't
+        # hammer IK or exhaust connection pools.
+        to_attempt = ranked[:effective_max_fetches]
+
+        def _fetch_one(item):
+            score, hit = item
             try:
                 was_cached = _doc_was_cached(client, hit.tid)
                 doc = client.get_doc(hit.tid)
-                if was_cached:
-                    meta.cache_hits += 1
-                else:
-                    meta.ik_fetch_calls += 1
-                    fetched_new += 1
+                return (score, hit, doc, was_cached, None)
             except KanoonBudgetExceeded as e:
-                meta.notes.append(f"IK budget exhausted mid-fetch: {e}")
-                break
+                return (score, hit, None, False, ("budget", e))
             except KanoonNotFound:
-                continue
+                return (score, hit, None, False, ("notfound", None))
             except KanoonError as e:
-                meta.notes.append(f"IK fetch failed for tid={hit.tid}: {e}")
+                return (score, hit, None, False, ("error", e))
+            except Exception as e:
+                return (score, hit, None, False, ("error", e))
+
+        from concurrent.futures import ThreadPoolExecutor
+
+        fetch_results: list = []
+        if to_attempt:
+            workers = max(1, min(DEFAULT_IK_FETCH_PARALLELISM, len(to_attempt)))
+            with ThreadPoolExecutor(max_workers=workers) as pool:
+                # Submit all and collect in original order so the reranker
+                # sees a stable sequence (parallelism doesn't change the
+                # eventual order — just compresses wall-clock time).
+                futures = [pool.submit(_fetch_one, item) for item in to_attempt]
+                for fut in futures:
+                    try:
+                        fetch_results.append(fut.result(timeout=25))
+                    except Exception as e:
+                        meta.notes.append(f"IK parallel fetch error: {e}")
+
+        # Sequential post-processing (parse + embed + add to cases). The
+        # parsing is CPU-bound but cheap (~10-50ms each); no need to
+        # parallelise that too.
+        budget_exhausted = False
+        for score, hit, doc, was_cached, err in fetch_results:
+            if budget_exhausted:
+                break
+            if len(cases) >= candidate_pool:
+                break
+            if err is not None:
+                kind, exc = err
+                if kind == "budget":
+                    meta.notes.append(f"IK budget exhausted mid-fetch: {exc}")
+                    budget_exhausted = True
+                    break
+                if kind == "notfound":
+                    continue
+                meta.notes.append(f"IK fetch failed for tid={hit.tid}: {exc}")
                 continue
+            if was_cached:
+                meta.cache_hits += 1
+            else:
+                meta.ik_fetch_calls += 1
 
             parsed = parse_judgment(
                 doc.doc_html, tid=hit.tid,

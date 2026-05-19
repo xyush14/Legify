@@ -225,6 +225,21 @@ def refine_query(raw: str) -> RefinedQuery:
     return canonicalize(norm)
 
 
+def shallow_refine(raw: str) -> RefinedQuery:
+    """Fast path: regex normalize only, NO Haiku call (saves 3-5s).
+
+    Sonnet's situation prompt is already strong at query understanding,
+    so the structured envelope adds latency without changing the answer
+    quality in measurable ways. Use this when latency matters more than
+    the extra structure (i.e., the user-facing /api/situation path).
+
+    The V2 user prompt still works with this — canonical_question is the
+    normalized text, and the other facets default to safe empty values.
+    """
+    norm = normalize(raw)
+    return _fallback(norm)
+
+
 # ---------------------------------------------------------------- helpers
 
 def _parse_json_safe(raw: str) -> dict:

@@ -41,7 +41,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from headnote import __version__, config
-from headnote.refine import refine_query
+from headnote.refine import refine_query, shallow_refine
 from headnote.ranking import prerank_candidates
 from headnote.api.models import (
     SituationRequest, DigestRequest, HeadnoteRequest,
@@ -546,13 +546,14 @@ def _api_situation_impl(req: SituationRequest, _record):
     working_situation = translation_info["english_query"]
     _stage("02_translate", _t)
 
-    # Stage 1: query refinement (normalize + Haiku canonical question).
-    # Produces a structured envelope: canonical_question, statutes, stage,
-    # doctrines, intent_type, expected_answer_shape, ranking_hint.
-    # Used by retrieval (search terms) AND by the LLM (envelope feeds into
-    # the V2 user prompt for grounded reasoning).
+    # Stage 1: shallow query refinement (regex normalize only, NO Haiku).
+    # Trade-off chosen: saves ~3-5s. Sonnet's V2 prompt already handles
+    # query understanding well, and retrieval doesn't actually use the
+    # Haiku-produced facets (it works off raw situation text). The deep
+    # `refine_query()` is preserved for future use if we wire facets
+    # into retrieval properly.
     _t = time.time()
-    refined = refine_query(working_situation)
+    refined = shallow_refine(working_situation)
     _stage("02b_refine", _t)
 
     ik_meta_extra: dict = {}
