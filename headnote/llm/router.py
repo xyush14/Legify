@@ -39,6 +39,71 @@ from typing import Any, Literal, NamedTuple, Optional
 
 from headnote import config
 from headnote.llm.client import call_claude_cached
+from headnote.llm.gemini import call_gemini as _call_gemini, _is_configured as _gemini_configured
+
+
+# Anthropic error types we treat as "try Gemini next." Imported lazily so a
+# stale anthropic SDK doesn't blow up module load. Network errors covered
+# explicitly via APIConnectionError; rate-limit / overloaded covered via
+# RateLimitError + APIStatusError.
+def _is_anthropic_transient_error(err: Exception) -> bool:
+    """True iff `err` is the kind of Anthropic failure where Gemini fallback
+    is the right move. Anything else (auth, schema, bad request) bubbles up
+    unchanged."""
+    try:
+        from anthropic import (
+            RateLimitError, APIConnectionError, APIStatusError, InternalServerError,
+        )
+    except ImportError:
+        return False
+    if isinstance(err, (RateLimitError, APIConnectionError, InternalServerError)):
+        return True
+    if isinstance(err, APIStatusError):
+        status = getattr(err, "status_code", None)
+        return status is not None and (status == 429 or 500 <= status < 600)
+    return False
+
+
+def _call_claude_with_gemini_fallback(
+    system_prompt: str,
+    user_prompt: str,
+    *,
+    model: str,
+    cache: bool,
+    enable_thinking: bool,
+    thinking_budget: int,
+):
+    """Single point where Anthropic is called. On transient failure
+    (rate-limit / overloaded / connection blip), retry once with Gemini.
+
+    The fallback path:
+      - Loses extended thinking (Gemini doesn't have it).
+      - Loses prompt caching (Gemini's caching API is different).
+      - Returns a usage dict marked with fallback_provider='gemini' so
+        the cost meter doesn't accidentally bill Anthropic prices.
+    """
+    try:
+        return call_claude_cached(
+            system_prompt, user_prompt,
+            model=model, cache=cache,
+            enable_thinking=enable_thinking,
+            thinking_budget=thinking_budget,
+        )
+    except Exception as e:
+        if not _is_anthropic_transient_error(e):
+            raise
+        if not _gemini_configured():
+            log.error(
+                "Anthropic transient error (%s) but Gemini fallback "
+                "not configured — set GEMINI_API_KEY + install google-genai",
+                type(e).__name__,
+            )
+            raise
+        log.warning(
+            "Anthropic transient error (%s); falling back to Gemini",
+            type(e).__name__,
+        )
+        return _call_gemini(system_prompt, user_prompt, model="")
 
 
 log = logging.getLogger(__name__)
@@ -330,7 +395,7 @@ def route_call(
     log.info("route_call task=%s model=%s force=%s thinking=%s",
              task_type, model, force_model, enable_thinking)
 
-    raw, usage = call_claude_cached(
+    raw, usage = _call_claude_with_gemini_fallback(
         system_prompt,
         augmented_user_prompt,
         model=model,
@@ -366,11 +431,13 @@ def route_call(
         "route_call task=%s: Sonnet confidence=%s < %s, upgrading to Opus",
         task_type, confidence, CONFIDENCE_RETRY_THRESHOLD,
     )
-    raw_opus, usage_opus = call_claude_cached(
+    raw_opus, usage_opus = _call_claude_with_gemini_fallback(
         system_prompt,
         augmented_user_prompt,
         model=OPUS_MODEL,
         cache=use_cache,
+        enable_thinking=False,
+        thinking_budget=0,
     )
     second_cost = calculate_cost_paise(usage_opus, OPUS_MODEL)
     opus_response, opus_confidence = parse_and_strip_confidence(raw_opus)

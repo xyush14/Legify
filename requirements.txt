@@ -9,6 +9,14 @@ anthropic>=0.39
 pydantic>=2.6
 python-dotenv>=1.0
 
+# Gemini fallback for Anthropic rate-limit / overload. The wrapper in
+# headnote/llm/router.py catches anthropic.RateLimitError + 5xx + connection
+# errors and retries the same call via Gemini 2.0 Flash (free tier).
+# Optional: without GEMINI_API_KEY set the wrapper is a no-op and any
+# Anthropic error bubbles up unchanged — identical to the pre-fallback
+# behaviour, so this doesn't break existing deploys.
+google-genai>=0.3
+
 # ---- IK API client + HTML parsing
 requests>=2.31
 beautifulsoup4>=4.12
