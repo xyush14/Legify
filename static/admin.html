@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Headnote</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Inter", sans-serif; background: #fdfcf9; color: #0c0c0a; }
+  .shell { max-width: 1200px; margin: 0 auto; padding: 24px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: #5d5b54; font-size: 13px; margin: 0 0 24px; }
+
+  .panel { background: #fff; border: 1px solid rgba(12,12,10,0.08); border-radius: 10px; padding: 18px; margin-bottom: 18px; }
+  .panel h2 { margin: 0 0 14px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.06em; color: #5d5b54; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid rgba(12,12,10,0.05); }
+  th { font-weight: 600; color: #5d5b54; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+  tr:hover td { background: rgba(0,0,0,0.02); }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .badge--demo { background: #f0eee5; color: #5d5b54; }
+  .badge--weekly { background: #eaf3df; color: #4a6e26; }
+  .badge--monthly { background: #d8e6f5; color: #1f4878; }
+  .badge--yearly { background: #f5e8d4; color: #7d5a1a; }
+
+  .auth-gate { padding: 60px 20px; text-align: center; }
+  .auth-gate input { padding: 10px 14px; border: 1px solid #ccc; border-radius: 6px; width: 320px; font-size: 14px; }
+  .auth-gate button { padding: 10px 18px; background: #0c0c0a; color: #fdfcf9; border: none; border-radius: 6px; margin-left: 8px; cursor: pointer; }
+  .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .stat { padding: 14px; background: rgba(0,0,0,0.02); border-radius: 8px; }
+  .stat-val { font-size: 22px; font-weight: 700; }
+  .stat-lbl { font-size: 11px; color: #5d5b54; text-transform: uppercase; letter-spacing: 0.06em; }
+  .actions button { padding: 4px 10px; font-size: 11px; border: 1px solid #ccc; background: #fff; border-radius: 4px; cursor: pointer; margin-right: 4px; }
+  .actions button:hover { background: #f5f5f0; }
+  .toolbar { display: flex; justify-content: space-between; margin-bottom: 12px; }
+  .toolbar select, .toolbar input { padding: 6px 10px; font-size: 12px; border: 1px solid #ccc; border-radius: 6px; }
+</style>
+</head>
+<body>
+
+<div id="auth-gate" class="auth-gate">
+  <h1>Admin access</h1>
+  <p class="sub">Paste the ADMIN_TOKEN to continue.</p>
+  <input id="tok" type="password" placeholder="ADMIN_TOKEN" />
+  <button onclick="saveToken()">Continue</button>
+</div>
+
+<div id="dashboard" style="display:none">
+  <div class="shell">
+    <h1>Headnote Admin</h1>
+    <p class="sub">User management, usage monitoring, manual plan grants.</p>
+
+    <div class="panel">
+      <h2>Usage — last 7 days</h2>
+      <div id="usage-stats" class="stat-grid"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Users</h2>
+      <div class="toolbar">
+        <div>
+          <select id="filter-plan" onchange="loadUsers()">
+            <option value="">All plans</option>
+            <option value="demo">Demo</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+            <option value="yearly">Yearly</option>
+          </select>
+        </div>
+        <div>
+          <button onclick="signOut()">Sign out</button>
+        </div>
+      </div>
+      <table id="users-table">
+        <thead>
+          <tr>
+            <th>User ID</th>
+            <th>Plan</th>
+            <th>Status</th>
+            <th>Period end</th>
+            <th>Weekly used</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="panel">
+      <h2>Top spenders (last 7 days)</h2>
+      <table id="top-users">
+        <thead><tr><th>User ID</th><th>Cost (₹)</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  const TOKEN_KEY = 'headnote.admin.token';
+  let TOKEN = localStorage.getItem(TOKEN_KEY) || '';
+
+  if (TOKEN) {
+    document.getElementById('auth-gate').style.display = 'none';
+    document.getElementById('dashboard').style.display = '';
+    boot();
+  }
+
+  function saveToken() {
+    TOKEN = document.getElementById('tok').value.trim();
+    if (!TOKEN) return;
+    localStorage.setItem(TOKEN_KEY, TOKEN);
+    document.getElementById('auth-gate').style.display = 'none';
+    document.getElementById('dashboard').style.display = '';
+    boot();
+  }
+
+  function signOut() {
+    localStorage.removeItem(TOKEN_KEY);
+    location.reload();
+  }
+
+  async function api(path, opts={}) {
+    const r = await fetch(path, {
+      ...opts,
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + TOKEN, ...(opts.headers || {}) },
+    });
+    if (r.status === 401 || r.status === 403) {
+      localStorage.removeItem(TOKEN_KEY);
+      alert('Auth failed: ' + r.status);
+      location.reload();
+      return null;
+    }
+    return r.json();
+  }
+
+  async function boot() {
+    await loadUsage();
+    await loadUsers();
+  }
+
+  async function loadUsage() {
+    const data = await api('/admin/v2/usage?days=7');
+    if (!data) return;
+    const stats = document.getElementById('usage-stats');
+    stats.innerHTML = `
+      <div class="stat"><div class="stat-val">${data.total_calls || 0}</div><div class="stat-lbl">API calls</div></div>
+      <div class="stat"><div class="stat-val">₹${data.total_cost_inr || 0}</div><div class="stat-lbl">Cost incurred</div></div>
+      <div class="stat"><div class="stat-val">${(data.by_feature.deep_search||{}).calls || 0}</div><div class="stat-lbl">Deep searches</div></div>
+      <div class="stat"><div class="stat-val">${(data.by_feature.draft||{}).calls || 0}</div><div class="stat-lbl">Drafts</div></div>
+    `;
+    const top = document.querySelector('#top-users tbody');
+    top.innerHTML = (data.top_users || []).map(u =>
+      `<tr><td><code>${u.user_id.slice(0,8)}…</code></td><td>₹${(u.cost_paise/100).toFixed(2)}</td></tr>`
+    ).join('');
+  }
+
+  async function loadUsers() {
+    const plan = document.getElementById('filter-plan').value;
+    const path = '/admin/v2/users?limit=200' + (plan ? `&plan=${plan}` : '');
+    const data = await api(path);
+    if (!data) return;
+    const tbody = document.querySelector('#users-table tbody');
+    tbody.innerHTML = (data.users || []).map(u => `
+      <tr>
+        <td><code>${u.user_id.slice(0,8)}…</code></td>
+        <td><span class="badge badge--${u.plan}">${u.plan}</span></td>
+        <td>${u.status}</td>
+        <td>${u.period_end ? u.period_end.slice(0,10) : '—'}</td>
+        <td>${u.weekly_trial_used ? '✓' : '—'}</td>
+        <td class="actions">
+          <button onclick="grantPlan('${u.user_id}','monthly')">→ Monthly</button>
+          <button onclick="grantPlan('${u.user_id}','yearly')">→ Yearly</button>
+          <button onclick="cancelUser('${u.user_id}')">Cancel</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  async function grantPlan(userId, plan) {
+    if (!confirm(`Grant ${plan} plan to ${userId.slice(0,8)}…?`)) return;
+    const r = await api(`/admin/v2/users/${userId}/grant`, {
+      method: 'POST',
+      body: JSON.stringify({ plan, note: 'manual grant via admin UI' }),
+    });
+    if (r && r.ok) { alert('Done.'); loadUsers(); }
+    else alert('Failed: ' + JSON.stringify(r));
+  }
+
+  async function cancelUser(userId) {
+    if (!confirm(`Cancel subscription for ${userId.slice(0,8)}…?`)) return;
+    const r = await api(`/admin/v2/users/${userId}/cancel`, { method: 'POST' });
+    if (r && r.ok) { alert('Cancelled.'); loadUsers(); }
+    else alert('Failed.');
+  }
+</script>
+</body>
+</html>

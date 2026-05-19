@@ -56,6 +56,7 @@
 
   // -------------------------------------------------------------- API
   function friendlyError(status, errText) {
+    if (status === 401) return 'sign in to continue.';
     if (status === 502 || status === 504) {
       return 'request took too long. opus + the full corpus can exceed the request budget on the free tier. try without deep mode, or narrow your query.';
     }
@@ -65,25 +66,54 @@
     return errText || `HTTP ${status}`;
   }
 
+  // Pull the Supabase access token from auth.js (which exposes window.headnoteAuth).
+  // Returns {} if no session — server will 401 on gated endpoints.
+  async function authHeaders() {
+    if (window.headnoteAuth && typeof window.headnoteAuth.getAccessToken === 'function') {
+      try {
+        const token = await window.headnoteAuth.getAccessToken();
+        if (token) return { 'Authorization': `Bearer ${token}` };
+      } catch (e) { /* fall through */ }
+    }
+    return {};
+  }
+
+  // Detect quota/lock 402 responses and surface the upgrade modal.
+  // Returns true if it handled the response (caller should bail out).
+  function handleEntitlementError(status, data) {
+    if (status !== 402) return false;
+    const d = (data && data.detail) || {};
+    if (window.showUpgradeModal) {
+      window.showUpgradeModal(d);
+    } else {
+      toast(d.message || 'upgrade required.', 'error', 5000);
+    }
+    return true;
+  }
+
   async function post(path, body) {
     let r;
     try {
-      r = await fetch(path, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
+      const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
+      r = await fetch(path, { method: 'POST', headers, body: JSON.stringify(body) });
     } catch (e) {
       throw new Error(friendlyError(0, e.message));
     }
     const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(friendlyError(r.status, data.error));
+    if (handleEntitlementError(r.status, data)) {
+      throw new Error((data.detail && data.detail.message) || 'upgrade required');
+    }
+    if (!r.ok) throw new Error(friendlyError(r.status, data.error || (data.detail && data.detail.message)));
     return data;
   }
   async function getJson(path) {
-    const r = await fetch(path);
+    const headers = await authHeaders();
+    const r = await fetch(path, { headers });
     const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+    if (handleEntitlementError(r.status, data)) {
+      throw new Error((data.detail && data.detail.message) || 'upgrade required');
+    }
+    if (!r.ok) throw new Error(data.error || (data.detail && data.detail.message) || `HTTP ${r.status}`);
     return data;
   }
 
@@ -905,7 +935,110 @@
     setStyle('practitioner');
     // Kick off Google auth + onboarding check (no-op if Supabase not configured)
     if (typeof initAuth === 'function') initAuth();
+
+    // Load user state (plan + usage) after auth resolves. We poll briefly
+    // because initAuth is async and we don't want to race with the JWT.
+    setTimeout(loadUserState, 1500);
   }
+
+  // ------------------------------------------------------------- /api/me state
+  let userState = null;
+
+  async function loadUserState() {
+    if (!window.headnoteAuth) return;
+    try {
+      const token = await window.headnoteAuth.getAccessToken();
+      if (!token) return;  // not signed in yet
+      const r = await fetch('/api/me', { headers: { 'Authorization': `Bearer ${token}` } });
+      if (!r.ok) return;
+      userState = await r.json();
+      renderPlanBadge();
+      renderUsageBar();
+    } catch (e) { /* silent */ }
+  }
+
+  function renderPlanBadge() {
+    if (!userState) return;
+    let el = document.getElementById('plan-badge');
+    const sub = userState.subscription || {};
+    const label = sub.display_name || 'Demo';
+    if (!el) {
+      const sidebar = document.querySelector('.sidebar') || document.body;
+      el = ce('div', { attrs: { id: 'plan-badge' }, cls: 'plan-badge' });
+      sidebar.appendChild(el);
+    }
+    el.innerHTML = `<span class="plan-badge__label">${esc(label)}</span>
+                    <a href="/pricing" class="plan-badge__upgrade">upgrade →</a>`;
+    if (sub.plan === 'yearly') el.querySelector('.plan-badge__upgrade').style.display = 'none';
+  }
+
+  function renderUsageBar() {
+    if (!userState) return;
+    const limits = userState.limits || {};
+    const ds = limits.deep_search || {};
+    const dr = limits.draft || {};
+    let el = document.getElementById('usage-bar');
+    if (!el) {
+      const sidebar = document.querySelector('.sidebar') || document.body;
+      el = ce('div', { attrs: { id: 'usage-bar' }, cls: 'usage-bar' });
+      sidebar.appendChild(el);
+    }
+    const fmt = (m) => {
+      if (m.limit == null) return `${m.used || 0} used`;
+      return `${m.used || 0} / ${m.limit}`;
+    };
+    el.innerHTML = `
+      <div class="usage-row"><span>Deep search</span><span>${fmt(ds)}</span></div>
+      <div class="usage-row"><span>Drafts</span><span>${fmt(dr)}</span></div>
+    `;
+  }
+
+  // ------------------------------------------------------------- upgrade modal
+  window.showUpgradeModal = function (detail) {
+    detail = detail || {};
+    const code = detail.code || 'quota_exceeded';
+    const feature = detail.feature || 'this feature';
+    const currentPlan = detail.plan || 'Demo';
+    const upgradeTo = detail.upgrade_to || 'monthly';
+    const message = detail.message || 'Upgrade to continue.';
+
+    // Build the modal once, reuse it after
+    let modal = document.getElementById('upgrade-modal');
+    if (!modal) {
+      modal = ce('div', { attrs: { id: 'upgrade-modal', role: 'dialog', 'aria-modal': 'true' }, cls: 'upgrade-modal' });
+      modal.innerHTML = `
+        <div class="upgrade-modal__backdrop" data-close="1"></div>
+        <div class="upgrade-modal__card">
+          <button class="upgrade-modal__close" data-close="1" aria-label="Close">×</button>
+          <div class="upgrade-modal__icon">⚡</div>
+          <h2 class="upgrade-modal__title"></h2>
+          <p class="upgrade-modal__msg"></p>
+          <div class="upgrade-modal__plan"></div>
+          <a class="upgrade-modal__cta" href="/pricing">See all plans →</a>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      modal.addEventListener('click', (e) => {
+        if (e.target.dataset.close) modal.classList.remove('is-open');
+      });
+    }
+    const title = code === 'feature_locked'
+      ? 'Unlock this feature'
+      : `You've hit your limit`;
+    const planCopy = ({
+      weekly:  { name: 'Weekly Trial', price: '₹120', tag: '7-day trial' },
+      monthly: { name: 'Monthly',     price: '₹499/mo', tag: 'Most popular' },
+      yearly:  { name: 'Yearly',       price: '₹4,999/yr', tag: 'Best value' },
+    })[upgradeTo] || { name: 'Pro', price: '', tag: '' };
+
+    modal.querySelector('.upgrade-modal__title').textContent = title;
+    modal.querySelector('.upgrade-modal__msg').textContent = message;
+    modal.querySelector('.upgrade-modal__plan').innerHTML = `
+      <div class="upgrade-modal__plan-name">${esc(planCopy.name)} <span>${esc(planCopy.tag)}</span></div>
+      <div class="upgrade-modal__plan-price">${esc(planCopy.price)}</div>
+    `;
+    modal.classList.add('is-open');
+  };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot);

@@ -62,6 +62,13 @@ from headnote.verify import (
 )
 from headnote.api.telemetry import init_telemetry_db, record_query
 from headnote.api.admin import router as admin_router
+from headnote.entitlements import (
+    get_current_user,
+    check_and_record,
+    require_feature,
+    CurrentUser,
+)
+from fastapi import Depends
 
 
 # ----- Helpers shared by /api/situation and /api/browse -----
@@ -495,7 +502,10 @@ def api_hf_doc(doc_id: str):
 
 
 @app.post("/api/situation", summary="Situation -> relevant precedents")
-def api_situation(req: SituationRequest):
+def api_situation(
+    req: SituationRequest,
+    user: CurrentUser = Depends(get_current_user),
+):
     """Returns 3-5 most relevant cases for the lawyer's situation.
 
     Two retrieval paths depending on USE_IK_RETRIEVAL:
@@ -503,7 +513,14 @@ def api_situation(req: SituationRequest):
       - IK+curated:    hybrid retrieval (curated + semantic + IK live),
                        three-check verification, one regen retry on failure,
                        verification status surfaced in meta.
+
+    Gated: deep_search feature. Counts against the user's quota; 402 if exhausted.
     """
+    with check_and_record(user.id, "deep_search", endpoint="situation") as _record:
+        return _api_situation_impl(req, _record)
+
+
+def _api_situation_impl(req: SituationRequest, _record):
     # Per-stage wall-clock timing. Logged at the end of the function so
     # Railway logs show exactly where the seconds went on a slow query.
     # This is the difference between "blindly tweaking the pipeline" and
@@ -742,6 +759,8 @@ def api_situation(req: SituationRequest):
         + " ".join(f"{k}={v}s" for k, v in _stage_t.items())
     )
 
+    _record(cost_paise=int(meta.get("cost_paise", 0) or 0), model=meta.get("model"))
+
     return {
         "result": parsed,
         "raw": raw,
@@ -751,7 +770,16 @@ def api_situation(req: SituationRequest):
 
 
 @app.post("/api/digest", summary="Topic -> research digest")
-def api_digest(req: DigestRequest):
+def api_digest(
+    req: DigestRequest,
+    user: CurrentUser = Depends(get_current_user),
+):
+    """Gated: deep_search feature."""
+    with check_and_record(user.id, "deep_search", endpoint="digest") as _record:
+        return _api_digest_impl(req, _record)
+
+
+def _api_digest_impl(req: DigestRequest, _record):
     sys_prompt = build_digest_system_prompt(_filtered_corpus_json(req.topic, top_k=18))
     user_prompt = DIGEST_USER_TEMPLATE.format(topic=req.topic)
     if req.deep_mode:
@@ -789,6 +817,8 @@ def api_digest(req: DigestRequest):
         confidence=route_result.confidence_score,
     )
 
+    _record(cost_paise=int(route_result.cost_paise or 0), model=primary_model)
+
     return {
         "result": parsed,
         "raw": route_result.response,
@@ -797,7 +827,16 @@ def api_digest(req: DigestRequest):
 
 
 @app.post("/api/headnote", summary="Judgment text -> Cri.L.J. headnote(s)")
-def api_headnote(req: HeadnoteRequest):
+def api_headnote(
+    req: HeadnoteRequest,
+    user: CurrentUser = Depends(get_current_user),
+):
+    """Gated: deep_search feature."""
+    with check_and_record(user.id, "deep_search", endpoint="headnote") as _record:
+        return _api_headnote_impl(req, _record)
+
+
+def _api_headnote_impl(req: HeadnoteRequest, _record):
     """Two-stage pipeline for headnote generation:
 
       1. Opus generates the headnotes from the full judgment text.
@@ -931,6 +970,7 @@ def api_headnote(req: HeadnoteRequest):
         latency_ms=int(elapsed * 1000),
         confidence=opus_result.confidence_score,
     )
+    _record(cost_paise=int(total_paise or 0), model=opus_result.model_name)
     return {
         "result": parsed,
         "raw": opus_result.response,
@@ -939,7 +979,19 @@ def api_headnote(req: HeadnoteRequest):
 
 
 @app.post("/api/translate", summary="Translate English JSON result to Hindi")
-def api_translate(req: TranslateRequest):
+def api_translate(
+    req: TranslateRequest,
+    user: CurrentUser = Depends(get_current_user),
+):
+    """Translate to Hindi. Gated: hindi_export feature (Monthly+ only).
+
+    Demo and Weekly users get FeatureLocked → 402 with upgrade hint.
+    """
+    require_feature(user.id, "hindi_export")
+    return _api_translate_impl(req)
+
+
+def _api_translate_impl(req: TranslateRequest):
     """Translate prose fields via Haiku 4.5 with a citation verifier.
 
     Primary path: Haiku 4.5 via the model router. Each translatable field

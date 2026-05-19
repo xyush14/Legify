@@ -16,10 +16,15 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from headnote.drafter import storage, stories
+from headnote.entitlements import (
+    CurrentUser,
+    check_and_record,
+    get_current_user,
+)
 
 
 router = APIRouter(prefix="/api/draft", tags=["drafter"])
@@ -75,22 +80,33 @@ def get_story_schema(story_id: str):
 
 
 @router.post("/start", summary="Begin a new draft (creates a drafts row)")
-def start_draft(body: StartDraftBody):
+def start_draft(
+    body: StartDraftBody,
+    user: CurrentUser = Depends(get_current_user),
+):
+    """Gated: `draft` feature. Counts against quota; 402 if exhausted.
+
+    `body.user_id` is ignored — the authenticated user is used instead so
+    drafts can never be created under another user's id.
+    """
     s = stories.get_story(body.story_id)
     if s is None:
         raise HTTPException(status_code=404, detail=f"unknown story_id={body.story_id!r}")
-    # v0: we allow start even on not-ready stories so the FE can save
-    # progress before the template module is finalised. The /render endpoint
-    # will still return a 'coming soon' message until ready=True.
-    draft = storage.create_draft(
-        story_id=body.story_id,
-        template_version=s.template_version,
-        user_id=body.user_id,
-        lang=body.lang,
-        answers=body.answers,
-        title=body.title,
-    )
-    return draft.to_dict()
+
+    with check_and_record(user.id, "draft", endpoint="draft_start") as _record:
+        # v0: we allow start even on not-ready stories so the FE can save
+        # progress before the template module is finalised. The /render endpoint
+        # will still return a 'coming soon' message until ready=True.
+        draft = storage.create_draft(
+            story_id=body.story_id,
+            template_version=s.template_version,
+            user_id=user.id,
+            lang=body.lang,
+            answers=body.answers,
+            title=body.title,
+        )
+        _record(cost_paise=0, model=None)  # drafts are templated, no LLM cost yet
+        return draft.to_dict()
 
 
 @router.get("/{draft_id}", summary="Get one draft by id")
@@ -142,12 +158,10 @@ def render_draft(draft_id: str, lang: Optional[str] = None):
 
 
 @router.get("/", summary="List recent drafts (for the FE drafts panel)")
-def list_drafts(user_id: Optional[str] = None, limit: int = 20):
-    """List by user_id (or NULL for anonymous). Recent-first.
-
-    Note v0 limitation: any caller can list any user's drafts. Wire
-    Supabase bearer validation before exposing this in production —
-    enforce `user_id == authenticated_user.id`.
-    """
-    drafts = storage.list_drafts(user_id=user_id, limit=limit)
+def list_drafts(
+    limit: int = 20,
+    user: CurrentUser = Depends(get_current_user),
+):
+    """List drafts owned by the authenticated user. Recent-first."""
+    drafts = storage.list_drafts(user_id=user.id, limit=limit)
     return {"count": len(drafts), "drafts": [d.to_dict() for d in drafts]}

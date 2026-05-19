@@ -1673,3 +1673,143 @@ body:not(.auth-ready) .shell { display: none !important; }
   .auth-modal__title { font-size: 22px; }
   .auth-modal__sub { font-size: 13px; }
 }
+
+/* ============================================================================
+ * Entitlements UI — plan badge, usage bar, upgrade modal
+ * ========================================================================== */
+
+/* Plan badge in sidebar */
+.plan-badge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  margin: 12px 8px 4px;
+  background: #0c0c0a;
+  color: #fdfcf9;
+  border-radius: 10px;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+.plan-badge__label {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.plan-badge__upgrade {
+  color: #d9c89e;
+  text-decoration: none;
+  font-weight: 500;
+}
+.plan-badge__upgrade:hover { color: #fff; }
+
+/* Usage bar (compact, shows quota burndown) */
+.usage-bar {
+  margin: 0 8px 12px;
+  padding: 8px 12px;
+  background: rgba(0,0,0,0.03);
+  border-radius: 8px;
+  font-size: 11px;
+  color: #5d5b54;
+}
+.usage-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+}
+.usage-row span:last-child {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: #0c0c0a;
+}
+
+/* Upgrade modal — used when API returns 402 */
+.upgrade-modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+.upgrade-modal.is-open { display: flex; }
+.upgrade-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(12,12,10,0.5);
+  backdrop-filter: blur(4px);
+  cursor: pointer;
+}
+.upgrade-modal__card {
+  position: relative;
+  width: min(90vw, 440px);
+  background: #fdfcf9;
+  border-radius: 16px;
+  padding: 36px 32px 28px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  text-align: center;
+}
+.upgrade-modal__close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  background: none;
+  border: none;
+  font-size: 28px;
+  color: #918d80;
+  cursor: pointer;
+  line-height: 1;
+}
+.upgrade-modal__close:hover { color: #0c0c0a; }
+.upgrade-modal__icon { font-size: 36px; margin-bottom: 12px; }
+.upgrade-modal__title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #0c0c0a;
+  margin: 0 0 8px;
+}
+.upgrade-modal__msg {
+  font-size: 14px;
+  color: #5d5b54;
+  margin: 0 0 20px;
+  line-height: 1.5;
+}
+.upgrade-modal__plan {
+  background: rgba(0,0,0,0.04);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+.upgrade-modal__plan-name {
+  font-size: 13px;
+  color: #5d5b54;
+  margin-bottom: 6px;
+}
+.upgrade-modal__plan-name span {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 7px;
+  background: #0c0c0a;
+  color: #fdfcf9;
+  border-radius: 4px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.upgrade-modal__plan-price {
+  font-size: 22px;
+  font-weight: 700;
+  color: #0c0c0a;
+}
+.upgrade-modal__cta {
+  display: inline-block;
+  padding: 12px 24px;
+  background: #0c0c0a;
+  color: #fdfcf9;
+  text-decoration: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.upgrade-modal__cta:hover { background: #1f1f1c; }

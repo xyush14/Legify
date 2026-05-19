@@ -239,8 +239,12 @@ window.headnoteAuthDebug = function () {
 /** Get the current Supabase JWT (use as Bearer in protected API calls). */
 async function getAuthToken() {
   if (!_sb) return null;
-  const { data: { session } } = await _sb.auth.getSession();
-  return session?.access_token || null;
+  try {
+    const { data: { session } } = await _sb.auth.getSession();
+    return session?.access_token || null;
+  } catch (e) {
+    return null;
+  }
 }
 
 async function signOut() {
@@ -248,6 +252,17 @@ async function signOut() {
   await _sb.auth.signOut();
   // onAuthStateChange will trigger login modal
 }
+
+/* ------------------------------------------------------------------ public API
+ * Exposed on window.headnoteAuth so app.js / pricing page / admin page
+ * can grab the access token to attach to API calls. Keep this small and
+ * stable — every fetch in the app depends on it.
+ */
+window.headnoteAuth = {
+  getAccessToken: getAuthToken,
+  getUser:        () => currentUser,
+  signOut:        signOut,
+};
 
 /* ------------------------------------------------------------------ click handlers (called from HTML) */
 
