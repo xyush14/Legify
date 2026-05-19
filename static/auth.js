@@ -254,6 +254,49 @@ function _revealApp() {
   setTimeout(() => {
     document.getElementById('auth-overlay')?.remove();
   }, 350);
+  // Populate the sidebar user card if we know who's signed in.
+  _renderSidebarUser(currentUser);
+}
+
+/** Populate the sidebar footer with the signed-in user's name + avatar. */
+function _renderSidebarUser(user) {
+  const card = document.getElementById('sidebar-user');
+  if (!card) return;
+  if (!user) {
+    card.hidden = true;
+    return;
+  }
+  // Name: prefer the onboarded profile if we already have it via
+  // user_metadata, otherwise fall back to the Google full name, then to
+  // the email local-part.
+  const name = (
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    user?.identities?.[0]?.identity_data?.full_name ||
+    (user?.email ? user.email.split('@')[0] : '')
+  ).trim();
+
+  const nameEl = document.getElementById('sidebar-user-name');
+  if (nameEl) nameEl.textContent = name || 'Signed in';
+
+  // Avatar: Google profile picture if available, otherwise the first
+  // letter of the name as a coloured initial.
+  const avatarUrl = (
+    user?.user_metadata?.avatar_url ||
+    user?.user_metadata?.picture ||
+    user?.identities?.[0]?.identity_data?.avatar_url ||
+    ''
+  );
+  const avatarEl = document.getElementById('sidebar-user-avatar');
+  if (avatarEl) {
+    if (avatarUrl) {
+      avatarEl.innerHTML = `<img src="${avatarUrl}" alt="" referrerpolicy="no-referrer" />`;
+    } else {
+      const initial = (name || 'U').trim().charAt(0).toUpperCase();
+      avatarEl.textContent = initial;
+    }
+  }
+  card.hidden = false;
 }
 
 /* ------------------------------------------------------------------ UI helpers */

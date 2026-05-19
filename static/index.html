@@ -14,7 +14,7 @@
   <!-- Supabase JS (auth) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
 
-  <link rel="stylesheet" href="/static/style.css?v=20260519a" />
+  <link rel="stylesheet" href="/static/style.css?v=20260519b" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23ffffff'/%3E%3Ccircle cx='50' cy='50' r='12' fill='%23121212'/%3E%3C/svg%3E" />
 </head>
 
@@ -61,6 +61,19 @@
       </div>
 
       <div class="sidebar__footer">
+        <!--
+          Signed-in user card. Populated by auth.js _renderSidebarUser()
+          once a Supabase session exists. Stays hidden when in dev mode
+          (no Supabase configured) so the sidebar doesn't look broken.
+        -->
+        <div id="sidebar-user" class="sidebar-user" hidden>
+          <div class="sidebar-user__avatar" id="sidebar-user-avatar" aria-hidden="true">·</div>
+          <div class="sidebar-user__meta">
+            <div class="sidebar-user__name" id="sidebar-user-name">—</div>
+            <button type="button" class="sidebar-user__signout mono"
+                    id="sidebar-signout-btn" onclick="signOut()">sign out</button>
+          </div>
+        </div>
         <a class="footer-link" href="/admin/cost-dashboard" target="_blank" rel="noopener">cost dashboard ↗</a>
       </div>
     </aside>
@@ -87,46 +100,14 @@
               aria-label="research query"></textarea>
 
             <div class="composer__row">
-              <div class="composer__chips" role="group" aria-label="ranking mode">
-                <span class="chip-label mono">mode</span>
-                <button type="button" class="chip is-active" data-mode="hidden">hidden</button>
-                <button type="button" class="chip" data-mode="famous">famous</button>
-                <button type="button" class="chip" data-mode="mixed">mixed</button>
-
-                <span class="chip-divider" aria-hidden="true"></span>
-
-                <span class="chip-label mono">style</span>
-                <button type="button" class="chip is-active" data-style="practitioner">practitioner</button>
-                <button type="button" class="chip" data-style="journal">cri.l.j.</button>
-
-                <span class="chip-divider" aria-hidden="true"></span>
-
-                <input
-                  id="jurisdiction-input"
-                  class="chip-input mono"
-                  type="text"
-                  list="court-list"
-                  placeholder="jurisdiction (optional)"
-                  autocomplete="off"
-                  spellcheck="false"
-                  aria-label="jurisdiction" />
-                <datalist id="court-list">
-                  <option value="Supreme Court">
-                  <option value="Bombay High Court">
-                  <option value="Delhi High Court">
-                  <option value="Madras High Court">
-                  <option value="Calcutta High Court">
-                  <option value="Allahabad High Court">
-                  <option value="Karnataka High Court">
-                  <option value="Kerala High Court">
-                  <option value="Madhya Pradesh High Court">
-                  <option value="Punjab and Haryana High Court">
-                  <option value="Rajasthan High Court">
-                  <option value="Gujarat High Court">
-                  <option value="Telangana High Court">
-                  <option value="Andhra Pradesh High Court">
-                </datalist>
-              </div>
+              <!--
+                Mode / Style / Jurisdiction chips removed in v0.4: too much
+                ceremony for the first interaction. Defaults applied in JS
+                (mode=hidden, style=practitioner, jurisdiction=null). When
+                we know which power-user controls matter we'll bring back
+                just those, in a collapsed "advanced" drawer.
+              -->
+              <div class="composer__chips" role="group" aria-label="research controls"></div>
 
               <div class="composer__actions">
                 <label class="toggle" title="Premium: skip Sonnet, go straight to Opus">
@@ -340,7 +321,7 @@
   </div>
   <!-- ============ END AUTH OVERLAY ============ -->
 
-  <script src="/static/auth.js?v=20260519a" defer></script>
-  <script src="/static/app.js?v=20260519a" defer></script>
+  <script src="/static/auth.js?v=20260519b" defer></script>
+  <script src="/static/app.js?v=20260519b" defer></script>
 </body>
 </html>

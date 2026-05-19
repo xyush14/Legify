@@ -670,7 +670,9 @@
     target.appendChild(renderLoadingCards(intent === 'headnote' ? 2 : 3));
 
     pushHistory(input);
-    state.jurisdiction = $('#jurisdiction-input').value.trim();
+    // Jurisdiction input was removed from the composer in v0.4; keep this
+    // null-safe so the field is simply blank when the chip isn't rendered.
+    state.jurisdiction = $('#jurisdiction-input')?.value?.trim() || '';
     state.deepMode = $('#deep-mode').checked;
 
     // For situation mode, fire decomposition in parallel — non-blocking.
