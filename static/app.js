@@ -818,6 +818,17 @@
       b.addEventListener('click', () => switchView(b.dataset.view));
     });
 
+    // Drafting tiles — each one is "coming soon" for now; tap shows a
+    // brief toast so the user knows it registered + their feedback is
+    // wanted. We deliberately don't navigate anywhere: every flow ships
+    // independently and we don't want a half-built flow leaking out.
+    $$('.draft-tile').forEach(tile => {
+      tile.addEventListener('click', () => {
+        const name = tile.querySelector('.draft-tile__name')?.textContent?.trim() || 'this draft';
+        toast(`"${name}" — coming soon. We're building each flow deeply.`, 'info', 3000);
+      });
+    });
+
     // Mode + style chips
     $$('.composer__chips .chip[data-mode]').forEach(c => {
       c.addEventListener('click', () => setMode(c.dataset.mode));
