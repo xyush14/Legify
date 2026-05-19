@@ -324,6 +324,22 @@ def drafter_standalone():
     return FileResponse(config.STATIC_DIR / "drafter.html")
 
 
+@app.get("/draft/bail", include_in_schema=False)
+@app.get("/draft/bail/", include_in_schema=False)
+def draft_bail_application():
+    """Bail Application drafter — live split-pane UI with FIR-photo OCR.
+
+    Form on the left, court-Hindi document rendering live on the right.
+    Camera/file upload at top hits /api/draft/ocr-fir which uses Claude
+    vision (via Bedrock) to extract structured FIR fields and auto-fill
+    60% of the form in 4-8 seconds.
+
+    Output: print-perfect Hindi PDF for filing at MP/UP/Bihar/Rajasthan
+    courts. English render falls back for HC English benches.
+    """
+    return FileResponse(config.STATIC_DIR / "draft-bail.html")
+
+
 @app.get("/api/config", summary="Public frontend configuration (non-secret)")
 def api_config():
     """Returns the public Supabase credentials so auth.js can initialise the

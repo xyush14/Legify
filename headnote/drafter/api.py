@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
 from headnote.drafter import storage, stories
@@ -165,3 +165,48 @@ def list_drafts(
     """List drafts owned by the authenticated user. Recent-first."""
     drafts = storage.list_drafts(user_id=user.id, limit=limit)
     return {"count": len(drafts), "drafts": [d.to_dict() for d in drafts]}
+
+
+# ----------------------------------------------------------- OCR
+
+@router.post("/ocr-fir", summary="OCR a photographed/scanned FIR → structured fields")
+async def ocr_fir(
+    file: UploadFile = File(...),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """Claude vision reads the FIR (Hindi or English, printed or handwritten)
+    and returns the structured fields needed to pre-fill a bail application.
+
+    Supported: JPEG, PNG, WebP, GIF, PDF (single-page best, multi-page OK).
+    Max file size: ~20 MB (Anthropic's limit on vision payloads).
+
+    Gated: draft feature (counts against quota; 402 if exhausted).
+    """
+    from headnote.drafter.ocr import ocr_fir_image
+
+    if not file.content_type:
+        raise HTTPException(status_code=400, detail="file content_type required")
+    if file.content_type not in {
+        "image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf",
+    }:
+        raise HTTPException(
+            status_code=400,
+            detail=f"unsupported file type {file.content_type!r}; use JPEG, PNG, WebP, GIF, or PDF",
+        )
+
+    image_bytes = await file.read()
+    if len(image_bytes) == 0:
+        raise HTTPException(status_code=400, detail="empty file")
+    if len(image_bytes) > 20 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="file too large; max 20 MB")
+
+    with check_and_record(user.id, "draft", endpoint="ocr_fir") as _record:
+        try:
+            parsed = ocr_fir_image(image_bytes, media_type=file.content_type)
+        except ValueError as e:
+            raise HTTPException(status_code=502, detail=f"OCR failed: {e}")
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"OCR error: {e}")
+
+        _record(cost_paise=300, model="claude-sonnet-4-6-vision")  # rough estimate
+        return {"ok": True, "extracted": parsed}

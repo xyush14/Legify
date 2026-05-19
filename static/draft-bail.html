@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bail Application Drafter — Headnote</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+  :root {
+    --bg: #fdfcf9;
+    --panel: #ffffff;
+    --ink: #0c0c0a;
+    --muted: #6b6960;
+    --line: rgba(12, 12, 10, 0.08);
+    --line-strong: rgba(12, 12, 10, 0.18);
+    --accent: #0c0c0a;
+    --good: #4a7c2e;
+    --warn: #b07b1c;
+    --bad: #b04a3a;
+    --soft: #f5f3ec;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+
+  /* ---------- top bar ---------- */
+  .topbar { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 10; }
+  .topbar__left { display: flex; align-items: center; gap: 14px; }
+  .topbar__back { color: var(--muted); text-decoration: none; font-size: 14px; }
+  .topbar__back:hover { color: var(--ink); }
+  .topbar__title { font-size: 15px; font-weight: 600; }
+  .topbar__sub { font-size: 12px; color: var(--muted); }
+  .topbar__right { display: flex; gap: 8px; align-items: center; }
+  .savestate { font-size: 12px; color: var(--muted); margin-right: 8px; }
+  .btn { padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid var(--line-strong); background: var(--panel); color: var(--ink); transition: all 0.12s; display: inline-flex; align-items: center; gap: 6px; }
+  .btn:hover { background: var(--soft); }
+  .btn--primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .btn--primary:hover { background: #1c1c1a; }
+  .btn--icon { padding: 8px 10px; }
+
+  /* ---------- main layout: split-pane ---------- */
+  .split { display: grid; grid-template-columns: 460px 1fr; height: calc(100vh - 56px); }
+  @media (max-width: 1100px) { .split { grid-template-columns: 380px 1fr; } }
+  @media (max-width: 880px) { .split { grid-template-columns: 1fr; height: auto; } .form-pane { max-height: 50vh; } }
+
+  /* LEFT: form */
+  .form-pane { overflow-y: auto; padding: 20px 22px 60px; border-right: 1px solid var(--line); background: var(--panel); }
+  .section { margin-bottom: 24px; padding: 16px 16px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+  .section__eyebrow { font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+  .section__title { font-size: 14px; font-weight: 600; margin: 0 0 12px; display: flex; justify-content: space-between; align-items: center; }
+  .section__title-actions { display: flex; gap: 6px; }
+  .section__title-btn { font-size: 11px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--line-strong); background: var(--panel); cursor: pointer; color: var(--ink); }
+  .section__title-btn:hover { background: var(--soft); }
+
+  .field { display: flex; flex-direction: column; margin-bottom: 10px; }
+  .field label { font-size: 11px; color: var(--muted); margin-bottom: 4px; font-weight: 500; }
+  .field input, .field select, .field textarea {
+    font-family: inherit; font-size: 13px; padding: 8px 10px; border: 1px solid var(--line-strong);
+    border-radius: 6px; background: var(--panel); color: var(--ink); outline: none; transition: border 0.12s;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--ink); }
+  .field textarea { resize: vertical; min-height: 80px; font-family: 'Noto Sans Devanagari', 'Inter', sans-serif; line-height: 1.5; }
+  .field--row { flex-direction: row; gap: 10px; }
+  .field--row > .field { flex: 1; }
+  .field__hint { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+  .checkboxes { display: flex; flex-direction: column; gap: 6px; }
+  .checkboxes label { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; padding: 4px 0; }
+  .checkboxes input[type="checkbox"] { margin: 0; }
+
+  .table-rows { display: flex; flex-direction: column; gap: 8px; }
+  .trow { padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); position: relative; }
+  .trow__del { position: absolute; top: 6px; right: 6px; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 2px 6px; }
+  .trow__del:hover { color: var(--bad); }
+  .trow__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .trow input, .trow select { font-size: 12px; padding: 5px 8px; }
+  .trow__add { background: var(--soft); border: 1px dashed var(--line-strong); border-radius: 8px; padding: 8px; cursor: pointer; text-align: center; font-size: 12px; color: var(--muted); }
+  .trow__add:hover { background: var(--bg); color: var(--ink); }
+
+  /* RIGHT: live document */
+  .doc-pane { overflow-y: auto; background: #e8e6df; padding: 30px 16px 60px; }
+  .doc-page {
+    background: #fff;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 50px 60px;
+    min-height: 80vh;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06);
+    border-radius: 4px;
+    font-family: 'Noto Sans Devanagari', 'Inter', sans-serif;
+    line-height: 1.65;
+    color: #0c0c0a;
+  }
+
+  /* Document styles (mirrors templates/bail_application.py output) */
+  .bail-doc { font-size: 14px; }
+  .bail-doc--hi { font-family: 'Noto Sans Devanagari', sans-serif; }
+  .bail-doc .bd-header { text-align: center; margin-bottom: 18px; }
+  .bail-doc .bd-side { text-align: right; font-size: 13px; margin-bottom: 4px; }
+  .bail-doc .bd-court { font-size: 18px; font-weight: 700; text-decoration: underline; margin: 4px 0 10px; }
+  .bail-doc .bd-caseno { font-size: 13px; }
+  .bail-doc .bd-parties { margin: 22px 0 12px; }
+  .bail-doc .bd-party { display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-start; }
+  .bail-doc .bd-party-label { min-width: 80px; }
+  .bail-doc .bd-party-dots { color: var(--muted); }
+  .bail-doc .bd-party-detail { flex: 1; }
+  .bail-doc .bd-versus { text-align: center; font-weight: 600; margin: 4px 0; }
+  .bail-doc .bd-app-title { text-align: center; text-decoration: underline; font-size: 15px; font-weight: 700; margin: 18px 0; }
+  .bail-doc .bd-table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 12.5px; }
+  .bail-doc .bd-table th, .bail-doc .bd-table td { border: 1px solid #000; padding: 5px 7px; text-align: left; vertical-align: top; }
+  .bail-doc .bd-table th { background: #f5f3ec; font-weight: 600; }
+  .bail-doc .bd-prelude { margin: 14px 0 6px; }
+  .bail-doc .bd-paras { padding-left: 26px; }
+  .bail-doc .bd-paras > li { margin-bottom: 10px; text-align: justify; }
+  .bail-doc .bd-subparas { padding-left: 22px; margin: 6px 0; counter-reset: subpara; list-style: none; }
+  .bail-doc .bd-subparas > li { counter-increment: subpara; position: relative; margin-bottom: 8px; text-align: justify; }
+  .bail-doc .bd-subparas > li:before { content: counters(subpara, "."); position: absolute; left: -22px; font-weight: 500; }
+  .bail-doc .bd-section-label { font-weight: 600; text-decoration: underline; margin: 6px 0; }
+  .bail-doc .bd-prayer { margin: 20px 0; }
+  .bail-doc .bd-prayer h3 { text-align: center; text-decoration: underline; margin: 8px 0; font-size: 15px; }
+  .bail-doc .bd-prayer p { text-align: justify; padding-left: 30px; }
+  .bail-doc .bd-sig { display: flex; justify-content: space-between; margin-top: 30px; font-size: 13px; }
+  .bail-doc .bd-sig-right { text-align: center; }
+  .bail-doc .bd-sig-name { margin-top: 4px; }
+  .bail-doc .bd-sig-advocate { margin-top: 12px; }
+  .bail-doc .bd-sig-advname { font-weight: 500; margin-top: 14px; }
+  .bail-doc .ph { color: #b4afa3; font-style: italic; }
+  .bail-doc .bd-table .ph { font-style: italic; color: #b4afa3; }
+
+  /* OCR drop zone */
+  .ocr-zone { border: 2px dashed var(--line-strong); border-radius: 10px; padding: 16px; text-align: center; cursor: pointer; background: var(--panel); transition: all 0.15s; }
+  .ocr-zone:hover { border-color: var(--ink); background: var(--soft); }
+  .ocr-zone--busy { pointer-events: none; opacity: 0.7; }
+  .ocr-zone__icon { font-size: 28px; margin-bottom: 6px; }
+  .ocr-zone__title { font-weight: 600; font-size: 13px; margin-bottom: 2px; }
+  .ocr-zone__sub { font-size: 11px; color: var(--muted); }
+  .ocr-zone input { display: none; }
+
+  /* Smart suggestions panel */
+  .hint-card { background: var(--soft); border-left: 3px solid var(--good); padding: 10px 12px; border-radius: 6px; margin: 8px 0; font-size: 12.5px; }
+  .hint-card--warn { border-left-color: var(--warn); }
+  .hint-card__title { font-weight: 600; font-size: 12px; margin-bottom: 4px; }
+  .hint-card__body { color: var(--muted); }
+  .hint-card__action { margin-top: 6px; font-size: 11px; padding: 4px 8px; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--panel); cursor: pointer; }
+
+  /* toast */
+  .toast { position: fixed; top: 70px; right: 24px; background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 8px; font-size: 13px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+  .toast--show { opacity: 1; }
+  .toast--err { background: var(--bad); }
+  .toast--ok { background: var(--good); }
+
+  /* print/PDF: hide form when printing */
+  @media print { .topbar, .form-pane { display: none; } .split { grid-template-columns: 1fr; } .doc-pane { background: #fff; padding: 0; } .doc-page { box-shadow: none; padding: 0; } }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar__left">
+    <a href="/app" class="topbar__back">←</a>
+    <div>
+      <div class="topbar__title">ज़मानत आवेदन / Bail Application</div>
+      <div class="topbar__sub" id="topbar-sub">draft auto-saves · live preview on the right</div>
+    </div>
+  </div>
+  <div class="topbar__right">
+    <span class="savestate" id="savestate"></span>
+    <button class="btn" id="btn-lang">हिन्दी</button>
+    <button class="btn" id="btn-pdf">⬇ PDF</button>
+    <button class="btn" id="btn-print">🖨 Print</button>
+    <button class="btn btn--primary" id="btn-share">📱 WhatsApp</button>
+  </div>
+</div>
+
+<div class="split">
+  <!-- LEFT: form -->
+  <div class="form-pane" id="form-pane">
+
+    <!-- OCR -->
+    <div class="section">
+      <div class="section__eyebrow">SHORTCUT</div>
+      <h3 class="section__title">FIR का फोटो अपलोड करें</h3>
+      <label class="ocr-zone" id="ocr-zone">
+        <input type="file" id="ocr-file" accept="image/*,application/pdf">
+        <div class="ocr-zone__icon">📷</div>
+        <div class="ocr-zone__title" id="ocr-title">Tap to take a photo or upload</div>
+        <div class="ocr-zone__sub" id="ocr-sub">JPEG, PNG, or PDF · AI extracts FIR no, sections, accused, narrative</div>
+      </label>
+      <div id="ocr-result"></div>
+    </div>
+
+    <!-- 1. Court & Application Type -->
+    <div class="section">
+      <div class="section__eyebrow">SECTION 1</div>
+      <h3 class="section__title">न्यायालय एवं आवेदन का प्रकार</h3>
+      <div class="field">
+        <label>न्यायालय (Court)</label>
+        <input type="text" data-field="court_name" placeholder="माननीय उच्च न्यायालय मध्यप्रदेश खण्डपीठ, ग्वालियर">
+      </div>
+      <div class="field field--row">
+        <div class="field">
+          <label>केस संख्या / Case No.</label>
+          <input type="text" data-field="case_number" placeholder="......">
+        </div>
+        <div class="field">
+          <label>वर्ष / Year</label>
+          <input type="text" data-field="case_year" placeholder="2025">
+        </div>
+      </div>
+      <div class="field field--row">
+        <div class="field">
+          <label>धारा (Bail Section)</label>
+          <select data-field="bail_section">
+            <option value="439">439 CrPC (Sessions/HC — regular)</option>
+            <option value="437">437 CrPC (Magistrate — regular)</option>
+            <option value="438">438 CrPC (Anticipatory)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>कौनसा आवेदन</label>
+          <select data-field="application_number">
+            <option value="1">First (प्रथम)</option>
+            <option value="2">Second (द्वितीय)</option>
+            <option value="3">Third (तृतीय)</option>
+            <option value="4">Fourth (चतुर्थ)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Applicant -->
+    <div class="section">
+      <div class="section__eyebrow">SECTION 2</div>
+      <h3 class="section__title">आवेदक (Applicant)</h3>
+      <div class="field field--row">
+        <div class="field">
+          <label>नाम / Name</label>
+          <input type="text" data-field="applicant_name" placeholder="अनिल मोर्य">
+        </div>
+        <div class="field">
+          <label>पिता / Father</label>
+          <input type="text" data-field="applicant_father" placeholder="श्री रामजी दास मोर्य">
+        </div>
+      </div>
+      <div class="field field--row">
+        <div class="field">
+          <label>आयु / Age</label>
+          <input type="text" data-field="applicant_age" placeholder="47">
+        </div>
+        <div class="field">
+          <label>व्यवसाय / Occupation</label>
+          <input type="text" data-field="applicant_occupation" placeholder="दुकानदारी">
+        </div>
+      </div>
+      <div class="field">
+        <label>पता / Address</label>
+        <input type="text" data-field="applicant_address" placeholder="गोला का मंदिर">
+      </div>
+      <div class="field field--row">
+        <div class="field">
+          <label>जिला / District</label>
+          <input type="text" data-field="district" placeholder="ग्वालियर">
+        </div>
+        <div class="field">
+          <label>राज्य / State</label>
+          <input type="text" data-field="state_name" placeholder="मध्य प्रदेश" value="मध्य प्रदेश">
+        </div>
+      </div>
+      <div class="field" id="field-current-jail">
+        <label>वर्तमान कारागार / Current Jail</label>
+        <input type="text" data-field="current_jail" placeholder="केन्द्रीय कारागार ग्वालियर">
+      </div>
+    </div>
+
+    <!-- 3. Crime -->
+    <div class="section">
+      <div class="section__eyebrow">SECTION 3</div>
+      <h3 class="section__title">अपराध (The Crime / FIR)</h3>
+      <div class="field field--row">
+        <div class="field">
+          <label>FIR क्रमांक</label>
+          <input type="text" data-field="fir_number" placeholder="95/2016">
+        </div>
+        <div class="field">
+          <label>FIR दिनांक</label>
+          <input type="text" data-field="fir_date" placeholder="DD.MM.YYYY">
+        </div>
+      </div>
+      <div class="field">
+        <label>पुलिस थाना / Police Station</label>
+        <input type="text" data-field="police_station" placeholder="गोला का मंदिर">
+      </div>
+      <div class="field">
+        <label>धाराएं / Sections (comma-separated)</label>
+        <input type="text" data-field="sections_str" placeholder="302 IPC, 147 IPC, 25 Arms Act">
+        <div class="field__hint">e.g., "302 IPC, 396 IPC, 25 Arms Act, 13 Dacoity Act"</div>
+      </div>
+      <div class="field" id="field-arrest-date">
+        <label>गिरफ्तारी दिनांक / Arrest Date</label>
+        <input type="text" data-field="arrest_date" placeholder="DD.MM.YYYY">
+        <div class="field__hint" id="custody-hint"></div>
+      </div>
+    </div>
+
+    <!-- 4. Trial Court (only for HC successive) -->
+    <div class="section" id="section-trial-court">
+      <div class="section__eyebrow">SECTION 4</div>
+      <h3 class="section__title">विचारण न्यायालय (Trial Court Below)</h3>
+      <div class="field field--row">
+        <div class="field">
+          <label>सत्र / Sessions Case No.</label>
+          <input type="text" data-field="trial_case_no" placeholder="27/2016">
+        </div>
+        <div class="field">
+          <label>न्यायाधीश का नाम</label>
+          <input type="text" data-field="trial_judge" placeholder="श्री सुदीप कुमार श्रीवास्तव">
+        </div>
+      </div>
+      <div class="field">
+        <label>न्यायालय का नाम</label>
+        <input type="text" data-field="trial_court" placeholder="द्वितीय अपर सत्र न्यायाधीश एवं विशेष न्यायाधीश (डकैती)">
+      </div>
+    </div>
+
+    <!-- 5. Prior Bail History -->
+    <div class="section" id="section-prior-bail">
+      <div class="section__eyebrow">SECTION 5</div>
+      <h3 class="section__title">
+        पूर्व जमानत आवेदन
+        <div class="section__title-actions">
+          <button class="section__title-btn" onclick="addPriorBail()">+ Add</button>
+        </div>
+      </h3>
+      <div class="table-rows" id="prior-bail-rows"></div>
+    </div>
+
+    <!-- 6. Co-accused (parity) -->
+    <div class="section">
+      <div class="section__eyebrow">SECTION 6 · PARITY GROUND</div>
+      <h3 class="section__title">
+        सहअभियुक्तगण के जमानत आवेदन
+        <div class="section__title-actions">
+          <button class="section__title-btn" onclick="addCoAccused()">+ Add</button>
+        </div>
+      </h3>
+      <div class="table-rows" id="co-accused-rows"></div>
+    </div>
+
+    <!-- 7. Facts -->
+    <div class="section">
+      <div class="section__eyebrow">SECTION 7</div>
+      <h3 class="section__title">प्रकरण के संक्षिप्त तथ्य (Brief Facts)</h3>
+      <div class="field">
+        <label>FIR के अनुसार तथ्य (Para 5.1)</label>
+        <textarea data-field="facts_narrative" rows="6" placeholder="मैं, मेरा लड़का मंगल सिंह और शंकर सिंह एक प्रोग्राम में पैदल पैदल घर से जा रहे थे... [Upload FIR photo above to auto-fill]"></textarea>
+      </div>
+      <div class="field">
+        <label>निरस्तीकरण इतिहास (Cancellation history, if any — Para 5.3)</label>
+        <textarea data-field="cancellation_history" rows="3" placeholder="यहकि, फरियादी पक्ष द्वारा आवेदक की जमानत निरस्ती हेतु ... (optional)"></textarea>
+      </div>
+      <div class="field">
+        <label>अधीनस्थ न्यायालय का इतिहास (Para 5.4)</label>
+        <textarea data-field="lower_court_history" rows="2" placeholder="(optional — auto-filled for successive applications)"></textarea>
+      </div>
+    </div>
+
+    <!-- 8. Grounds -->
+    <div class="section">
+      <div class="section__eyebrow">SECTION 8</div>
+      <h3 class="section__title">आधार (Grounds)</h3>
+      <div class="checkboxes">
+        <label><input type="checkbox" data-ground="innocence" checked> आवेदक निर्दोष है, झूठा फंसाया गया है</label>
+        <label><input type="checkbox" data-ground="long_custody"> लंबी न्यायिक निरोध (Long custody)</label>
+        <label><input type="checkbox" data-ground="trial_delay"> ट्रायल में विलंब (Trial delay)</label>
+        <label><input type="checkbox" data-ground="parity"> सहअभियुक्त को जमानत मिल चुकी (Parity)</label>
+        <label><input type="checkbox" data-ground="local_resident" checked> स्थायी निवासी, फरार होने की संभावना नहीं</label>
+        <label><input type="checkbox" data-ground="no_prior_record"> कोई पूर्व आपराधिक इतिहास नहीं</label>
+        <label><input type="checkbox" data-ground="sole_breadwinner"> परिवार का एकमात्र कमाने वाला</label>
+      </div>
+      <div class="field field--row" id="field-witness-math">
+        <div class="field">
+          <label>कुल साक्षी (Total prosecution witnesses)</label>
+          <input type="number" data-field="witnesses_total" placeholder="31">
+        </div>
+        <div class="field">
+          <label>कथन हो चुके (Witnesses examined)</label>
+          <input type="number" data-field="witnesses_examined" placeholder="7">
+        </div>
+      </div>
+      <div class="field">
+        <label>चिकित्सीय आधार (Medical ground — describe)</label>
+        <input type="text" data-field="grounds_medical" placeholder="e.g., गंभीर हृदय रोग से ग्रस्त है">
+      </div>
+      <div class="field">
+        <label>अन्य आधार (Custom ground)</label>
+        <textarea data-field="custom_ground_1" rows="2" placeholder="Add a custom ground in Hindi or English"></textarea>
+      </div>
+    </div>
+
+    <!-- 9. Filing -->
+    <div class="section">
+      <div class="section__eyebrow">SECTION 9</div>
+      <h3 class="section__title">हस्ताक्षर (Filing Details)</h3>
+      <div class="field field--row">
+        <div class="field">
+          <label>स्थान / Place</label>
+          <input type="text" data-field="place" placeholder="ग्वालियर">
+        </div>
+        <div class="field">
+          <label>दिनांक / Date</label>
+          <input type="text" data-field="filing_date" placeholder="DD.MM.YYYY">
+        </div>
+      </div>
+      <div class="field">
+        <label>अभिभाषक का नाम / Advocate Name</label>
+        <input type="text" data-field="advocate_name" placeholder="वीरेन्द्र सिंह पाल">
+      </div>
+    </div>
+
+    <!-- Smart suggestions -->
+    <div class="section">
+      <div class="section__eyebrow">SMART SUGGESTIONS</div>
+      <h3 class="section__title">सुझाव</h3>
+      <div id="hints"></div>
+    </div>
+
+  </div><!-- /.form-pane -->
+
+  <!-- RIGHT: live document -->
+  <div class="doc-pane">
+    <div class="doc-page" id="doc-page">
+      <!-- live render goes here -->
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/static/auth.js"></script>
+<script>
+// =========================================================================
+// State
+// =========================================================================
+const state = {
+  lang: 'hi',
+  answers: {
+    state_name: 'मध्य प्रदेश',
+    application_number: '1',
+    bail_section: '439',
+    prior_bail_history: [],
+    co_accused: [],
+    grounds: { innocence: true, local_resident: true },
+    custom_grounds: [],
+    filing_date: new Date().toLocaleDateString('en-GB').replace(/\//g, '.'),
+  },
+  draftId: null,
+  saveTimer: null,
+};
+
+// Restore last-used defaults
+function loadDefaults() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('headnote.bail.defaults') || '{}');
+    ['court_name', 'district', 'state_name', 'police_station', 'advocate_name', 'place', 'current_jail'].forEach(k => {
+      if (saved[k] && !state.answers[k]) state.answers[k] = saved[k];
+    });
+  } catch (e) {}
+}
+
+function persistDefaults() {
+  const keep = {};
+  ['court_name', 'district', 'state_name', 'police_station', 'advocate_name', 'place', 'current_jail'].forEach(k => {
+    if (state.answers[k]) keep[k] = state.answers[k];
+  });
+  localStorage.setItem('headnote.bail.defaults', JSON.stringify(keep));
+}
+
+// =========================================================================
+// Hindi rendering — JS mirror of templates/bail_application.py render_hi()
+// =========================================================================
+const HINDI_ORDINAL = ["", "प्रथम", "द्वितीय", "तृतीय", "चतुर्थ", "पंचम"];
+
+function esc(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+function ph(s, placeholder) {
+  if (s && String(s).trim()) return esc(s);
+  return `<span class="ph">${placeholder || '............'}</span>`;
+}
+
+function custodyDays(dateStr) {
+  if (!dateStr) return null;
+  const m = dateStr.trim().match(/^(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{4})$/);
+  let d;
+  if (m) {
+    d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+  } else {
+    const iso = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (iso) d = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+  }
+  if (!d || isNaN(d)) return null;
+  return Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function custodyHi(days) {
+  const nh = { 1: 'एक', 2: 'दो', 3: 'तीन', 4: 'चार', 5: 'पाँच', 6: 'छह', 7: 'सात', 8: 'आठ', 9: 'नौ', 10: 'दस', 11: 'ग्यारह', 12: 'बारह' };
+  if (days >= 730) {
+    const y = Math.floor(days / 365);
+    return `लगभग ${nh[y] || y} वर्ष से अधिक`;
+  }
+  if (days >= 365) return 'लगभग एक वर्ष से अधिक';
+  if (days >= 180) { const m = Math.floor(days/30); return `लगभग ${nh[m] || m} माह से अधिक`; }
+  if (days >= 30)  { const m = Math.floor(days/30); return `लगभग ${nh[m] || m} माह`; }
+  return `${days} दिन`;
+}
+
+function renderHi(a) {
+  const appNum = parseInt(a.application_number) || 1;
+  const appNumHi = HINDI_ORDINAL[appNum] || `${appNum}वाँ`;
+  const isSuccessive = appNum >= 2;
+  const bailSection = a.bail_section || '439';
+  const isAnticipatory = bailSection === '438';
+  const sectionTitle = {
+    '437': 'धारा 437 दण्ड प्रकिया संहिता',
+    '438': 'धारा 438 दण्ड प्रकिया संहिता',
+    '439': 'धारा 439 दण्ड प्रकिया संहिता',
+  }[bailSection];
+
+  const sideLabel = isAnticipatory ? 'आवेदक की ओर से' : 'बंदी की ओर से';
+  const courtName = a.court_name || 'माननीय उच्च न्यायालय मध्यप्रदेश खण्डपीठ, ग्वालियर';
+  const caseNo = a.case_number || '';
+  const caseYear = a.case_year || new Date().getFullYear();
+  const stateName = a.state_name || 'मध्य प्रदेश';
+  const district = a.district || '';
+
+  const sections = (a.sections_str || '').split(',').map(s => s.trim()).filter(Boolean);
+  const sectionsList = a.sections || sections;
+
+  const priorBail = a.prior_bail_history || [];
+  const coAccused = a.co_accused || [];
+  const grounds = a.grounds || {};
+  const arrestDate = a.arrest_date;
+  const cust = custodyDays(arrestDate);
+
+  let html = '<div class="bail-doc bail-doc--hi">';
+
+  // Header
+  html += `<div class="bd-header">
+    <div class="bd-side">${esc(sideLabel)}</div>
+    <h1 class="bd-court">${esc(courtName)}</h1>
+    <div class="bd-caseno">विविध आपराधिक प्रकरण क्रमांक ${ph(caseNo, '.........')} / ${esc(caseYear)}</div>
+  </div>`;
+
+  // Parties
+  html += `<div class="bd-parties">
+    <div class="bd-party">
+      <span class="bd-party-label">आवेदक</span>
+      <span class="bd-party-dots">.............</span>
+      <div class="bd-party-detail">
+        ${ph(a.applicant_name, 'नाम')} पुत्र श्री ${ph(a.applicant_father, 'पिता का नाम')},
+        आयु— ${ph(a.applicant_age, '..')} वर्ष,
+        व्यवसाय— ${ph(a.applicant_occupation, 'व्यवसाय')},
+        निवासी— ${ph(a.applicant_address, 'पता')},
+        जिला ${ph(district, 'जिला')} ${esc(stateName)}
+      </div>
+    </div>
+    <div class="bd-versus">विरूद्ध</div>
+    <div class="bd-party">
+      <span class="bd-party-label">अनावेदक</span>
+      <span class="bd-party-dots">.............</span>
+      <div class="bd-party-detail">
+        ${esc(stateName)} राज्य द्वारा पुलिस थाना ${ph(a.police_station, 'थाना')}
+        जिला ${ph(district, 'जिला')} ${esc(stateName)}
+      </div>
+    </div>
+  </div>`;
+
+  // App title
+  html += `<h2 class="bd-app-title">${esc(appNumHi)} आवेदन पत्र अन्तर्गत ${esc(sectionTitle)}</h2>`;
+
+  // Prior bail summary table (always show)
+  html += renderPriorBailSummary(priorBail);
+
+  // Crime + trial court table
+  html += renderCrimeTable({
+    fir_number: a.fir_number, ps_name: a.police_station, district,
+    sections: sectionsList, arrest_date: arrestDate,
+    trial_case_no: a.trial_case_no, trial_judge: a.trial_judge,
+    trial_court: a.trial_court, trial_location: a.trial_location || district,
+  });
+
+  html += '<p class="bd-prelude">आवेदक की ओर से आवेदन पत्र निम्न प्रकार प्रस्तुत है:—</p>';
+
+  // Numbered paragraphs
+  html += '<ol class="bd-paras">';
+
+  // Para 1
+  if (isSuccessive) {
+    html += `<li><p>यहकि, आवेदक का माननीय न्यायालय के समक्ष ${esc(sectionTitle)} के तहत यह ${esc(appNumHi)} आवेदन पत्र है, इसके पूर्व ${esc(sectionTitle)} के जो आवेदन निरस्त हुये थे उनके विवरण निम्नानुसार हैं :—</p>`;
+    html += renderPriorBailDetail(priorBail);
+    html += '</li>';
+  } else {
+    html += `<li><p>यहकि, आवेदक का माननीय न्यायालय के समक्ष ${esc(sectionTitle)} के तहत यह प्रथम आवेदन पत्र है।</p></li>`;
+  }
+
+  // Para 2
+  html += '<li><p>यहकि, आवेदक की ओर से समान प्रकृति का अन्य कोई आवेदन पत्र माननीय न्यायालय के समक्ष अथवा माननीय उच्चतम न्यायालय के समक्ष प्रस्तुत नहीं किया गया, न ही निरस्त हुआ और न ही वर्तमान में विचाराधीन है।</p></li>';
+
+  // Para 3 — co-accused
+  if (coAccused.length) {
+    html += '<li><p>यहकि, प्रकरण में सहअभियुक्तगण के जमानत आवेदन का विवरण प्रार्थी की जानकारी के अनुसार निम्नानुसार है :—</p>';
+    html += renderCoAccusedTable(coAccused);
+    html += '</li>';
+  }
+
+  // Para 4 — annexures (successive)
+  if (isSuccessive) {
+    let annexCount = 0;
+    priorBail.forEach(p => {
+      if (!p.outcome) return;
+      annexCount += 1;
+      const label = { 'sc': 'माननीय उच्चतम न्यायालय', 'hc': 'माननीय उच्च न्यायालय', 'lower': 'अधीनस्थ न्यायालय' }[p.court_level || 'hc'];
+      html += `<li><p>यहकि, ${label} के आदेश दिनांक ${esc(p.disposal_date || '...')} की प्रमाणित प्रतिलिपि माननीय न्यायालय के अवलोकनार्थ प्रस्तुत की जा रही है, जिसे एनेक्जर ए/${annexCount} से चिन्हित किया गया है।</p></li>`;
+    });
+  }
+
+  // Para 5 — facts
+  html += '<li class="bd-facts-block"><p class="bd-section-label">प्रकरण के संक्षिप्त तथ्य :—</p><ol class="bd-subparas">';
+  if (a.facts_narrative) {
+    html += `<li><p>यहकि, अभियोजन का मामला संक्षेप में इस प्रकार है कि ${esc(a.facts_narrative)}</p></li>`;
+  } else {
+    html += '<li><p class="ph">[FIR की तथ्यात्मक स्थिति यहाँ लिखें — या FIR का फोटो ऊपर अपलोड करें और AI से भरवायें]</p></li>';
+  }
+  if (a.fir_number || arrestDate) {
+    const secStr = sectionsList.length ? sectionsList.map(esc).join(', ') : '...............';
+    const arrestStr = arrestDate ? `दिनांक ${esc(arrestDate)} को` : 'दिनांक ......... को';
+    html += `<li><p>यहकि, उक्त रिपोर्ट पर से पुलिस थाना ${ph(a.police_station, 'थाना')} पर अपराध क्रं. ${ph(a.fir_number, '..../....')} अन्तर्गत ${secStr} के तहत आवेदक के विरुद्ध अपराध पंजीबद्ध किया गया जिसमें आवेदक को ${arrestStr} गिरफ्तार किया गया तथा पुलिस द्वारा अभियोग पत्र प्रस्तुत कर दिया गया।</p></li>`;
+  }
+  if (a.cancellation_history) {
+    html += `<li><p>यहकि, ${esc(a.cancellation_history)}</p></li>`;
+  }
+  if (isSuccessive && a.lower_court_history) {
+    html += `<li><p>यहकि, ${esc(a.lower_court_history)}</p></li>`;
+  } else if (isSuccessive) {
+    html += '<li><p>यहकि, आवेदक ने अधीनस्थ न्यायालय के समक्ष एक आवेदन अन्तर्गत धारा 439 दण्ड प्रकिया संहिता के तहत प्रस्तुत किया, जो अधीनस्थ न्यायालय द्वारा निरस्त किया गया।</p></li>';
+  }
+  html += '</ol></li>';
+
+  // Para 6 — grounds
+  html += '<li class="bd-grounds-block"><p class="bd-section-label">आधार :—</p><ol class="bd-subparas">';
+
+  if (grounds.innocence) {
+    html += '<li><p>यहकि, आवेदक ने कोई अपराध नहीं किया है, आवेदक को इस प्रकरण में फरियादी पक्ष द्वारा झूठा फंसाया गया है, उसका उक्त अपराध से प्रत्यक्ष अथवा अप्रत्यक्ष रूप से कोई संबंध नहीं है।</p></li>';
+  }
+  if (grounds.long_custody && cust) {
+    html += `<li><p>यहकि, आवेदक दिनांक ${esc(arrestDate)} से न्यायिक निरोध में है तथा आवेदक को निरोध में रहते हुये ${custodyHi(cust)} का समय हो चुका है।</p></li>`;
+  }
+  if (grounds.trial_delay && a.witnesses_total && a.witnesses_examined !== undefined && a.witnesses_examined !== '') {
+    const nh = { 1: 'एक', 2: 'दो', 3: 'तीन', 4: 'चार', 5: 'पाँच', 6: 'छह', 7: 'सात', 8: 'आठ', 9: 'नौ', 10: 'दस' };
+    const tot = nh[a.witnesses_total] || a.witnesses_total;
+    const ex = nh[a.witnesses_examined] || a.witnesses_examined;
+    html += `<li><p>यहकि, अभियोजन की ओर से ${tot} साक्षियों की सूची विचारण न्यायालय के समक्ष प्रस्तुत की गई है जिसमें से सिर्फ ${ex} साक्षियों के कथन हुये हैं, षेष साक्षियों के कथन होने में काफी विलंब की संभावना है।</p></li>`;
+  }
+  const hasCoAccusedBail = coAccused.some(c => {
+    const o = (c.outcome || '').toLowerCase();
+    return o.includes('allowed') || o.includes('granted') || c.outcome === 'स्वीकार';
+  });
+  if (grounds.parity && hasCoAccusedBail) {
+    html += '<li><p>यहकि, प्रकरण में आवेदक के साथ अभियुक्त बनाये गये सहअभियुक्तगण को माननीय न्यायालय द्वारा जमानत का लाभ प्रदान किया जा चुका है। समानता के सिद्धान्त (parity) के आधार पर आवेदक भी जमानत का अधिकारी है।</p></li>';
+  }
+  if (grounds.local_resident) {
+    html += `<li><p>यहकि, आवेदक जिला ${ph(district, 'जिला')} ${esc(stateName)} का स्थायी निवासी होकर आवेदक के कहीं भागकर जाने अथवा अभियोजन साक्ष्य को प्रभावित करने की कोई संभावना नहीं है।</p></li>`;
+  }
+  if (a.grounds_medical) {
+    html += `<li><p>यहकि, आवेदक ${esc(a.grounds_medical)}</p></li>`;
+  }
+  if (grounds.sole_breadwinner) {
+    html += '<li><p>यहकि, आवेदक अपने परिवार का एकमात्र कमाने वाला सदस्य है तथा उसके निरोध से उसके आश्रित परिवार पर गंभीर आर्थिक संकट उत्पन्न हो गया है।</p></li>';
+  }
+  if (grounds.no_prior_record) {
+    html += '<li><p>यहकि, आवेदक का कोई पूर्व आपराधिक इतिहास नहीं है तथा आवेदक प्रथम बार आरोपी बनाया गया है।</p></li>';
+  }
+  if (a.custom_ground_1 && a.custom_ground_1.trim()) {
+    html += `<li><p>यहकि, ${esc(a.custom_ground_1)}</p></li>`;
+  }
+  html += '</ol></li>';
+
+  // Para 7
+  html += '<li><p>यहकि, आवेदक के विरुद्ध लम्बित प्रकरण के अंतिम निराकरण में काफी विलंब की सम्भावना है।</p></li>';
+  // Para 9
+  html += '<li><p>यहकि, आवेदक माननीय न्यायालय के आदेश के पालन में अपनी जमानत एवं मुचलका प्रस्तुत करने हेतु तैयार है तथा माननीय न्यायालय द्वारा निर्देशित समस्त शर्तों का पालन करने हेतु तैयार है।</p></li>';
+
+  html += '</ol>';
+
+  // Prayer
+  html += '<div class="bd-prayer"><h3>प्रार्थना</h3>';
+  if (isAnticipatory) {
+    html += '<p>अतः माननीय न्यायालय से विनम्र प्रार्थना है कि आवेदक की ओर से प्रस्तुत आवेदन पत्र स्वीकार किया जाकर आवेदक की गिरफ्तारी की स्थिति में उचित प्रतिभूति पर अग्रिम जमानत पर रिहा किये जाने हेतु आदेश पारित करने की कृपा करें।</p>';
+  } else {
+    html += '<p>अतः माननीय न्यायालय से विनम्र प्रार्थना है कि आवेदक की ओर से प्रस्तुत आवेदन पत्र स्वीकार किया जाकर आवेदक को उचित प्रतिभूति पर रिहा किये जाने हेतु आदेश पारित करने की कृपा करें।</p>';
+  }
+  html += '</div>';
+
+  // Signature
+  html += `<div class="bd-sig">
+    <div>
+      <div>स्थान: ${ph(a.place, 'स्थान')}</div>
+      <div>दिनांक: ${ph(a.filing_date, '...........')}</div>
+    </div>
+    <div class="bd-sig-right">
+      <div>प्रार्थी</div>
+      <div class="bd-sig-name">${ph(a.applicant_name, 'आवेदक का नाम')} (आवेदक)</div>
+      <div class="bd-sig-advocate">द्वारा अभिभाषक</div>
+      <div class="bd-sig-advname">(${ph(a.advocate_name, 'अभिभाषक का नाम')})</div>
+    </div>
+  </div>`;
+
+  html += '</div>';
+  return html;
+}
+
+function renderPriorBailSummary(priorBail) {
+  const byLevel = {};
+  (priorBail || []).forEach(p => { byLevel[p.court_level] = p; });
+  const cell = (p, k) => (p && p[k]) ? esc(p[k]) : 'निल';
+  return `<table class="bd-table">
+    <tr><th rowspan="2">क्या जमानत आवेदन पत्र न्यायालय के समक्ष विचाराधीन है या निराकृत है। <br><small>(यदि हाँ तो उसका विवरण)</small></th>
+        <th colspan="3">जमानत आवेदन पत्र का विवरण</th></tr>
+    <tr><th>नम्बर</th><th>आदेश दिनांक</th><th>परिणाम</th></tr>
+    <tr><td>माननीय उच्चतम न्यायालय</td><td>${cell(byLevel.sc, 'case_no')}</td><td>${cell(byLevel.sc, 'disposal_date')}</td><td>${cell(byLevel.sc, 'outcome')}</td></tr>
+    <tr><td>माननीय उच्च न्यायालय</td><td>${cell(byLevel.hc, 'case_no')}</td><td>${cell(byLevel.hc, 'disposal_date')}</td><td>${cell(byLevel.hc, 'outcome')}</td></tr>
+    <tr><td>माननीय अधीनस्थ न्यायालय</td><td>${cell(byLevel.lower, 'case_no')}</td><td>${cell(byLevel.lower, 'disposal_date')}</td><td>${cell(byLevel.lower, 'outcome')}</td></tr>
+  </table>`;
+}
+
+function renderCrimeTable(d) {
+  const secStr = (d.sections && d.sections.length) ? d.sections.join(', ') : '...............';
+  return `<table class="bd-table">
+    <tr><th>अपराध संबंधी विवरण</th><th>विचाराधीन आदेश का विवरण</th></tr>
+    <tr><td>
+      अपराध क्रमांक ${ph(d.fir_number, '..../....')}<br>
+      पुलिस थाना— ${ph(d.ps_name, 'थाना')}<br>
+      जिला ${ph(d.district, 'जिला')}<br>
+      अन्तर्गत धारा ${esc(secStr)}<br>
+      गिरफ्तारी दिनांक — ${ph(d.arrest_date, '...........')}
+    </td><td>
+      विशेष सत्रवाद कं. ${ph(d.trial_case_no, '..../....')}<br>
+      न्यायाधीश का नाम— श्री ${ph(d.trial_judge, 'न्यायाधीश')}<br>
+      न्यायालय का नाम— ${ph(d.trial_court, 'न्यायालय')}<br>
+      स्थान— ${ph(d.trial_location, 'स्थान')}
+    </td></tr>
+  </table>`;
+}
+
+function renderPriorBailDetail(priorBail) {
+  let html = '<table class="bd-table"><tr><th>क्र.</th><th>केस नं./दिनांक</th><th>पक्षकार</th><th>निचली अदालत केस नं.</th><th>थाना</th><th>स्थिति</th><th>आदेश दिनांक</th><th>परिणाम</th><th>न्यायाधीश</th></tr>';
+  if (!priorBail.length) {
+    html += '<tr><td colspan="9" style="text-align:center;color:#888">(कोई पूर्व आवेदन नहीं)</td></tr>';
+  } else {
+    priorBail.forEach((p, i) => {
+      html += `<tr><td>${i + 1}</td><td>${esc(p.case_no || '')}<br><small>${esc(p.filing_date || '')}</small></td><td>${esc(p.parties || '')}</td><td>${esc(p.lower_case_no || '')}</td><td>${esc(p.police_station || '')}</td><td>${esc(p.status || 'Disposed')}</td><td>${esc(p.disposal_date || '')}</td><td>${esc(p.outcome || '')}</td><td>${esc(p.justice || '')}</td></tr>`;
+    });
+  }
+  return html + '</table>';
+}
+
+function renderCoAccusedTable(coAccused) {
+  let html = '<table class="bd-table"><tr><th>क्र.</th><th>केस नं./दिनांक</th><th>पक्षकार</th><th>निचली अदालत</th><th>थाना</th><th>स्थिति</th><th>क्रम</th><th>दिनांक</th><th>परिणाम</th><th>न्यायाधीश</th></tr>';
+  coAccused.forEach((p, i) => {
+    html += `<tr><td>${i + 1}</td><td>${esc(p.case_no || '')}<br><small>${esc(p.filing_date || '')}</small></td><td>${esc(p.parties || '')}</td><td>${esc(p.lower_case_no || '')}</td><td>${esc(p.police_station || '')}</td><td>${esc(p.status || 'Disposed')}</td><td>${esc(p.bail_number || '')}</td><td>${esc(p.disposal_date || '')}</td><td>${esc(p.outcome || '')}</td><td>${esc(p.justice || '')}</td></tr>`;
+  });
+  return html + '</table>';
+}
+
+// =========================================================================
+// Form bindings
+// =========================================================================
+function bindInputs() {
+  document.querySelectorAll('[data-field]').forEach(input => {
+    const field = input.dataset.field;
+    if (state.answers[field] !== undefined) {
+      input.value = state.answers[field];
+    }
+    input.addEventListener('input', (e) => {
+      state.answers[field] = e.target.value;
+      onChange();
+    });
+  });
+
+  document.querySelectorAll('[data-ground]').forEach(cb => {
+    const g = cb.dataset.ground;
+    cb.checked = state.answers.grounds && state.answers.grounds[g];
+    cb.addEventListener('change', (e) => {
+      state.answers.grounds = state.answers.grounds || {};
+      state.answers.grounds[g] = e.target.checked;
+      onChange();
+    });
+  });
+}
+
+function syncUIToState() {
+  document.querySelectorAll('[data-field]').forEach(input => {
+    const v = state.answers[input.dataset.field];
+    if (v !== undefined && v !== null) input.value = v;
+  });
+  document.querySelectorAll('[data-ground]').forEach(cb => {
+    cb.checked = !!(state.answers.grounds && state.answers.grounds[cb.dataset.ground]);
+  });
+  renderPriorBailRows();
+  renderCoAccusedRows();
+}
+
+// =========================================================================
+// Repeating tables
+// =========================================================================
+function addPriorBail() {
+  state.answers.prior_bail_history = state.answers.prior_bail_history || [];
+  state.answers.prior_bail_history.push({
+    court_level: 'hc', case_no: '', disposal_date: '', outcome: 'अस्वीकार',
+  });
+  renderPriorBailRows();
+  onChange();
+}
+
+function delPriorBail(i) {
+  state.answers.prior_bail_history.splice(i, 1);
+  renderPriorBailRows();
+  onChange();
+}
+
+function renderPriorBailRows() {
+  const rows = state.answers.prior_bail_history || [];
+  const container = document.getElementById('prior-bail-rows');
+  container.innerHTML = rows.map((r, i) => `
+    <div class="trow">
+      <button class="trow__del" onclick="delPriorBail(${i})">×</button>
+      <div class="trow__grid">
+        <select onchange="state.answers.prior_bail_history[${i}].court_level = this.value; onChange()">
+          <option value="sc" ${r.court_level === 'sc' ? 'selected' : ''}>उच्चतम न्यायालय</option>
+          <option value="hc" ${r.court_level === 'hc' ? 'selected' : ''}>उच्च न्यायालय</option>
+          <option value="lower" ${r.court_level === 'lower' ? 'selected' : ''}>अधीनस्थ न्यायालय</option>
+        </select>
+        <input type="text" placeholder="केस नं." value="${esc(r.case_no || '')}" oninput="state.answers.prior_bail_history[${i}].case_no = this.value; onChange()">
+        <input type="text" placeholder="आदेश दिनांक" value="${esc(r.disposal_date || '')}" oninput="state.answers.prior_bail_history[${i}].disposal_date = this.value; onChange()">
+        <select onchange="state.answers.prior_bail_history[${i}].outcome = this.value; onChange()">
+          <option value="अस्वीकार" ${r.outcome === 'अस्वीकार' ? 'selected' : ''}>अस्वीकार (Rejected)</option>
+          <option value="निरस्त" ${r.outcome === 'निरस्त' ? 'selected' : ''}>निरस्त (Dismissed)</option>
+          <option value="वापस" ${r.outcome === 'वापस' ? 'selected' : ''}>वापस (Withdrawn)</option>
+        </select>
+      </div>
+    </div>
+  `).join('') || '<div class="trow__add" onclick="addPriorBail()">+ Add a prior bail application</div>';
+}
+
+function addCoAccused() {
+  state.answers.co_accused = state.answers.co_accused || [];
+  state.answers.co_accused.push({
+    parties: '', case_no: '', filing_date: '', outcome: 'Disposed',
+  });
+  renderCoAccusedRows();
+  onChange();
+}
+
+function delCoAccused(i) {
+  state.answers.co_accused.splice(i, 1);
+  renderCoAccusedRows();
+  onChange();
+}
+
+function renderCoAccusedRows() {
+  const rows = state.answers.co_accused || [];
+  const container = document.getElementById('co-accused-rows');
+  container.innerHTML = rows.map((r, i) => `
+    <div class="trow">
+      <button class="trow__del" onclick="delCoAccused(${i})">×</button>
+      <div class="trow__grid">
+        <input type="text" placeholder="पक्षकार (e.g. Suresh Vs State of MP)" value="${esc(r.parties || '')}" oninput="state.answers.co_accused[${i}].parties = this.value; onChange()">
+        <input type="text" placeholder="केस नं. (MCRC ...)" value="${esc(r.case_no || '')}" oninput="state.answers.co_accused[${i}].case_no = this.value; onChange()">
+        <input type="text" placeholder="दिनांक" value="${esc(r.disposal_date || '')}" oninput="state.answers.co_accused[${i}].disposal_date = this.value; onChange()">
+        <select onchange="state.answers.co_accused[${i}].outcome = this.value; onChange()">
+          <option value="Case Allowed-Ord" ${r.outcome === 'Case Allowed-Ord' ? 'selected' : ''}>Allowed (जमानत मिली)</option>
+          <option value="Dismissed-Ord" ${r.outcome === 'Dismissed-Ord' ? 'selected' : ''}>Dismissed</option>
+          <option value="Disposed off-Ord" ${r.outcome === 'Disposed off-Ord' ? 'selected' : ''}>Disposed off</option>
+        </select>
+      </div>
+    </div>
+  `).join('') || '<div class="trow__add" onclick="addCoAccused()">+ Add a co-accused bail entry</div>';
+}
+
+// =========================================================================
+// Smart suggestions
+// =========================================================================
+function renderHints() {
+  const hints = [];
+  const a = state.answers;
+  const cust = custodyDays(a.arrest_date);
+
+  if (cust && cust > 365 && !(a.grounds && a.grounds.long_custody)) {
+    hints.push({
+      kind: 'good',
+      title: `Add LONG CUSTODY ground (${cust} days = ${Math.floor(cust/365)} years)`,
+      body: 'Custody over 1 year is a strong ground — Article 21 + speedy trial.',
+      action: () => { a.grounds = a.grounds || {}; a.grounds.long_custody = true; syncUIToState(); onChange(); },
+    });
+  }
+
+  if ((a.co_accused || []).some(c => (c.outcome || '').includes('Allowed')) && !(a.grounds && a.grounds.parity)) {
+    hints.push({
+      kind: 'good',
+      title: 'Add PARITY ground',
+      body: 'A co-accused has been granted bail — invoke parity.',
+      action: () => { a.grounds = a.grounds || {}; a.grounds.parity = true; syncUIToState(); onChange(); },
+    });
+  }
+
+  if (a.witnesses_total && a.witnesses_examined !== undefined && Number(a.witnesses_total) > Number(a.witnesses_examined) && !(a.grounds && a.grounds.trial_delay)) {
+    hints.push({
+      kind: 'good',
+      title: 'Add TRIAL DELAY ground',
+      body: `Only ${a.witnesses_examined} of ${a.witnesses_total} prosecution witnesses examined.`,
+      action: () => { a.grounds = a.grounds || {}; a.grounds.trial_delay = true; syncUIToState(); onChange(); },
+    });
+  }
+
+  const appNum = parseInt(a.application_number) || 1;
+  if (appNum >= 2 && !a.cancellation_history && !a.lower_court_history) {
+    hints.push({
+      kind: 'warn',
+      title: `${HINDI_ORDINAL[appNum]} application — articulate CHANGED CIRCUMSTANCES`,
+      body: 'SC in Kalyan Chandra Sarkar held successive bail must show new facts. Fill the cancellation_history or lower_court_history field with what has changed since the last rejection.',
+    });
+  }
+
+  if (!a.applicant_name || !a.fir_number) {
+    hints.push({
+      kind: 'warn',
+      title: 'Try the FIR photo shortcut',
+      body: 'Upload an FIR photo — Claude vision will fill the applicant, FIR no, sections, and Para 5.1 narrative automatically.',
+    });
+  }
+
+  document.getElementById('hints').innerHTML = hints.length ? hints.map(h => `
+    <div class="hint-card ${h.kind === 'warn' ? 'hint-card--warn' : ''}">
+      <div class="hint-card__title">${esc(h.title)}</div>
+      <div class="hint-card__body">${esc(h.body)}</div>
+      ${h.action ? `<button class="hint-card__action" onclick="(${h.action.toString()})()">+ Apply</button>` : ''}
+    </div>
+  `).join('') : '<div style="font-size:12px;color:var(--muted)">No suggestions yet — keep filling.</div>';
+}
+
+// =========================================================================
+// Auto-save + render loop
+// =========================================================================
+function onChange() {
+  // Re-render document
+  document.getElementById('doc-page').innerHTML = renderHi(state.answers);
+
+  // Update custody hint
+  const cust = custodyDays(state.answers.arrest_date);
+  const ch = document.getElementById('custody-hint');
+  if (ch) ch.textContent = cust ? `Custody: ${cust} days (${(cust/365).toFixed(1)} years)` : '';
+
+  // Hide trial-court section for anticipatory or 1st application
+  const showTrial = state.answers.bail_section === '439' && parseInt(state.answers.application_number) >= 2;
+  document.getElementById('section-trial-court').style.display = showTrial ? '' : 'none';
+
+  // Hide prior-bail section for 1st application
+  const showPrior = parseInt(state.answers.application_number) >= 2;
+  document.getElementById('section-prior-bail').style.display = showPrior ? '' : 'none';
+
+  // Hide jail section for anticipatory
+  document.getElementById('field-current-jail').style.display = state.answers.bail_section === '438' ? 'none' : '';
+  document.getElementById('field-arrest-date').style.display = state.answers.bail_section === '438' ? 'none' : '';
+
+  // Suggestions
+  renderHints();
+
+  // Persist defaults + save
+  persistDefaults();
+  scheduleSave();
+}
+
+function scheduleSave() {
+  if (state.saveTimer) clearTimeout(state.saveTimer);
+  document.getElementById('savestate').textContent = 'saving…';
+  state.saveTimer = setTimeout(saveDraft, 1500);
+}
+
+async function authHeaders() {
+  if (window.headnoteAuth && typeof window.headnoteAuth.getAccessToken === 'function') {
+    try {
+      const token = await window.headnoteAuth.getAccessToken();
+      if (token) return { 'Authorization': `Bearer ${token}` };
+    } catch (e) {}
+  }
+  return {};
+}
+
+async function saveDraft() {
+  try {
+    const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
+    if (!state.draftId) {
+      const r = await fetch('/api/draft/start', {
+        method: 'POST', headers,
+        body: JSON.stringify({
+          story_id: 'bail_application', lang: state.lang,
+          answers: state.answers,
+          title: state.answers.applicant_name ? `Bail App — ${state.answers.applicant_name}` : 'Bail Application',
+        }),
+      });
+      if (r.ok) {
+        const d = await r.json();
+        state.draftId = d.id;
+        // Update URL without reload
+        history.replaceState(null, '', `/draft/bail?id=${d.id}`);
+      } else if (r.status === 401) {
+        document.getElementById('savestate').textContent = 'sign in to save';
+        return;
+      }
+    } else {
+      await fetch(`/api/draft/${state.draftId}`, {
+        method: 'PATCH', headers,
+        body: JSON.stringify({
+          answers: state.answers, lang: state.lang,
+          title: state.answers.applicant_name ? `Bail App — ${state.answers.applicant_name}` : 'Bail Application',
+        }),
+      });
+    }
+    const now = new Date();
+    document.getElementById('savestate').textContent = `saved · ${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;
+  } catch (e) {
+    document.getElementById('savestate').textContent = 'save failed';
+  }
+}
+
+// =========================================================================
+// OCR
+// =========================================================================
+document.getElementById('ocr-file').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const zone = document.getElementById('ocr-zone');
+  const title = document.getElementById('ocr-title');
+  const sub = document.getElementById('ocr-sub');
+  zone.classList.add('ocr-zone--busy');
+  title.textContent = 'Reading FIR with Claude vision…';
+  sub.textContent = 'this takes 4-8 seconds';
+
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    const headers = await authHeaders();
+    const r = await fetch('/api/draft/ocr-fir', { method: 'POST', headers, body: fd });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.detail || err.error || `HTTP ${r.status}`);
+    }
+    const data = await r.json();
+    applyOcrResult(data.extracted);
+    title.textContent = `✓ FIR extracted (confidence: ${data.extracted.confidence || 'unknown'})`;
+    sub.textContent = 'fields auto-filled — review and edit as needed';
+    toast(`Auto-filled ${countFilled(data.extracted)} fields from FIR`, 'ok');
+  } catch (err) {
+    title.textContent = '✗ OCR failed';
+    sub.textContent = err.message || 'try a clearer photo';
+    toast('OCR failed: ' + (err.message || 'unknown error'), 'err');
+  } finally {
+    zone.classList.remove('ocr-zone--busy');
+    e.target.value = '';
+  }
+});
+
+function countFilled(o) {
+  return Object.values(o || {}).filter(v => v && (typeof v !== 'object' || (Array.isArray(v) && v.length))).length;
+}
+
+function applyOcrResult(o) {
+  if (!o) return;
+  if (o.fir_number) state.answers.fir_number = o.fir_number;
+  if (o.fir_date) state.answers.fir_date = o.fir_date;
+  if (o.police_station) state.answers.police_station = o.police_station;
+  if (o.district) state.answers.district = o.district;
+  if (o.state) state.answers.state_name = o.state;
+  if (o.sections && o.sections.length) state.answers.sections_str = o.sections.join(', ');
+  if (o.arrest_date) state.answers.arrest_date = o.arrest_date;
+  if (o.narrative) state.answers.facts_narrative = o.narrative;
+  // Co-accused — auto-populate from accused list (minus the main applicant if matched)
+  if (o.accused_names && o.accused_names.length) {
+    state.answers.co_accused = state.answers.co_accused || [];
+    o.accused_names.forEach(name => {
+      // Skip if it matches the applicant
+      if (state.answers.applicant_name && name.includes(state.answers.applicant_name)) return;
+      // Skip if already in list
+      if (state.answers.co_accused.some(c => (c.parties || '').includes(name))) return;
+      state.answers.co_accused.push({
+        parties: `${name} Vs State of ${state.answers.state_name || 'MP'}`,
+        case_no: '',
+        outcome: 'Disposed',
+      });
+    });
+  }
+  syncUIToState();
+  onChange();
+}
+
+// =========================================================================
+// PDF / Print / Share
+// =========================================================================
+document.getElementById('btn-pdf').addEventListener('click', () => {
+  const el = document.getElementById('doc-page').cloneNode(true);
+  // Wrap in a container with explicit width for clean PDF
+  const wrap = document.createElement('div');
+  wrap.style.padding = '40px';
+  wrap.appendChild(el);
+  const filename = `bail-application-${state.answers.applicant_name || 'draft'}-${new Date().toISOString().slice(0,10)}.pdf`;
+  const opt = {
+    margin: [10, 12, 14, 12],
+    filename,
+    image: { type: 'jpeg', quality: 0.95 },
+    html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+  };
+  toast('Generating PDF…', 'ok');
+  html2pdf().set(opt).from(wrap).save();
+});
+
+document.getElementById('btn-print').addEventListener('click', () => window.print());
+
+document.getElementById('btn-share').addEventListener('click', () => {
+  const txt = `Bail Application - ${state.answers.applicant_name || 'Draft'} - ${state.answers.court_name || 'MP HC Gwalior'} - prepared via Headnote`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(txt)}`, '_blank');
+  toast('Download PDF first, then attach in WhatsApp', 'ok');
+});
+
+document.getElementById('btn-lang').addEventListener('click', (e) => {
+  state.lang = state.lang === 'hi' ? 'en' : 'hi';
+  e.target.textContent = state.lang === 'hi' ? 'हिन्दी' : 'English';
+  // English render not built yet — show notice
+  if (state.lang === 'en') {
+    document.getElementById('doc-page').innerHTML = '<p style="text-align:center;color:#888;padding:40px">English render coming soon. Hindi is the primary template for MP/UP/Bihar courts.</p>';
+  } else {
+    onChange();
+  }
+});
+
+// =========================================================================
+// Toast
+// =========================================================================
+function toast(msg, kind) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast toast--show toast--' + (kind || 'ok');
+  setTimeout(() => t.classList.remove('toast--show'), 2400);
+}
+
+// =========================================================================
+// Load existing draft if ?id= in URL
+// =========================================================================
+async function maybeLoadExisting() {
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get('id');
+  if (!id) return;
+  try {
+    const headers = await authHeaders();
+    const r = await fetch(`/api/draft/${id}`, { headers });
+    if (!r.ok) return;
+    const d = await r.json();
+    state.draftId = d.id;
+    if (d.answers) Object.assign(state.answers, d.answers);
+    syncUIToState();
+  } catch (e) {}
+}
+
+// =========================================================================
+// Boot
+// =========================================================================
+(async function init() {
+  loadDefaults();
+  await maybeLoadExisting();
+  bindInputs();
+  onChange();
+})();
+</script>
+</body>
+</html>

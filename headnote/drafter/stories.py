@@ -135,8 +135,14 @@ STORIES: dict[str, Story] = {
     "bail_application": Story(
         id="bail_application",
         label={"en": "Bail Application", "hi": "ज़मानत आवेदन"},
-        sub={"en": "Regular · anticipatory", "hi": "नियमित · अग्रिम"},
-        icon="lock", ready=False),
+        sub={"en": "S.437 / S.438 / S.439 CrPC · live preview · FIR OCR",
+             "hi": "धारा 437 / 438 / 439 दण्ड प्रकिया · लाइव पूर्वावलोकन · FIR स्कैन"},
+        icon="lock",
+        sections=[],  # custom UI lives at /draft/bail (not the generic 6-card flow)
+        render_en=_lazy_template("bail_application", "render_en"),
+        render_hi=_lazy_template("bail_application", "render_hi"),
+        template_version=1,
+        ready=True),
     "affidavit": Story(
         id="affidavit",
         label={"en": "Affidavit", "hi": "शपथपत्र"},
