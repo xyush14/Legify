@@ -609,6 +609,102 @@ def retrieve_for_situation(
         except Exception as e:
             meta.notes.append(f"semantic search failed: {e}")
 
+    # 2.5. HF corpus search (free, ~50-200ms over 42K Supreme Court +
+    # gold-summary judgments). Lives between semantic and live-IK because
+    # it's:
+    #   - free: no IK API spend
+    #   - local: just SQLite
+    #   - precise: fact-vector scoring on the imported facts_json column
+    # The Hidden Authorities reranker downstream still has the final say;
+    # HF results compete with curated + semantic + IK on the same scale.
+    hf_case_ids: set[str] = set()
+    if len(cases) < candidate_pool:
+        try:
+            from headnote.retrieval.hf_corpus import search as _hf_search
+
+            # Tokenise the situation the same way /api/hf_search does, so
+            # SQL LIKE matches the same candidate pool we test with via
+            # the dev endpoint. The fact-vector rescorer inside _hf_search
+            # then surfaces cases that share statute / stage / minor-victim
+            # / outcome dimensions, not just keyword hits.
+            tokens = [t for t in situation.lower().split() if len(t) > 2][:10]
+            if tokens:
+                hf_hits = _hf_search(
+                    tokens,
+                    situation=situation,
+                    language="en",
+                    limit=8,            # leave room for curated + semantic + IK
+                )
+                meta.notes.append(f"hf_corpus surfaced {len(hf_hits)} cases")
+                for j in hf_hits:
+                    if j.doc_id in curated_case_ids or j.doc_id in semantic_case_ids:
+                        continue
+                    if len(cases) >= candidate_pool:
+                        break
+
+                    # Synthesise paragraph objects from the raw judgment
+                    # text. HF rows are flat plaintext (no IK paragraph
+                    # ids), so we split on blank lines, filter very short
+                    # / junk lines, and assign p_<idx> ids. The downstream
+                    # verifier only needs (case_id, para_id, text) so this
+                    # is enough.
+                    para_objs: list = []
+                    para_strs = [
+                        p.strip()
+                        for p in (j.text or "").split("\n\n")
+                        if 60 <= len(p.strip()) <= 4000
+                    ]
+                    # Score paragraphs by keyword overlap with the
+                    # situation; take top top_paragraphs_per_case.
+                    needles = [t for t in tokens if len(t) > 3]
+                    def _para_score(s: str) -> int:
+                        sl = s.lower()
+                        return sum(1 for t in needles if t in sl)
+                    scored_paras = sorted(
+                        enumerate(para_strs),
+                        key=lambda kv: -_para_score(kv[1]),
+                    )[:top_paragraphs_per_case]
+                    # If no needle hits, just take the first paragraphs —
+                    # better than empty evidence which would auto-drop
+                    # this case at the verification stage.
+                    if not scored_paras and para_strs:
+                        scored_paras = list(enumerate(para_strs[:top_paragraphs_per_case]))
+
+                    for idx, text in scored_paras:
+                        para_id = f"hfp_{idx}"
+                        para_objs.append(Paragraph(
+                            id=para_id, num=idx + 1,
+                            structure="other", text=text,
+                        ))
+                        evidence.append(EvidenceParagraph(
+                            case_id=j.doc_id, para_id=para_id,
+                            para_num=idx + 1, text=text,
+                        ))
+
+                    # Court level → readable label
+                    court_label = {
+                        "supreme_court": "Supreme Court",
+                        "supreme_court_or_hc": "Supreme Court / High Court",
+                        "high_court": "High Court",
+                    }.get(j.court or "", j.court or "")
+
+                    cases.append(CaseSummary(
+                        case_id=j.doc_id,
+                        title=j.title or j.doc_id,
+                        court=court_label,
+                        year="",                       # IL-TUR lacks a clean year column
+                        citation="",                   # ditto — to be enriched later
+                        bench="",
+                        source="hf",
+                        numcitedby=0,                  # HF doesn't expose this
+                        relevance_score=round(j.fact_score, 2),
+                        paragraphs=para_objs,
+                        statutes=(j.facts or {}).get("statutes", []),
+                    ))
+                    hf_case_ids.add(j.doc_id)
+        except Exception as e:
+            meta.notes.append(f"hf_corpus search failed: {e}")
+
     # 3. IK live search (paid) — ALWAYS run regardless of mode.
     #
     # Previously, mixed mode skipped IK once curated+semantic returned a
@@ -900,14 +996,18 @@ def result_to_prompt_corpus_json(
             "year": cs.year,
             "bench": cs.bench,
             "statutes": cs.statutes,
-            "bns_mapping": [],   # not curated for IK entries
+            "bns_mapping": [],   # not curated for IK / HF entries
             "topics": [],
             "facts": facts_text,
             "issues": issues_list,
             "holding": holding_text,
             "key_paras": key_paras_text,
             "subsequent_treatment": "",
-            "_source": "ik",
+            # Preserve the actual source ('ik' / 'ik-semantic' / 'hf') so
+            # the UI can label the badge correctly. HF entries carry the
+            # 'hf' source so the front-end can show 'IL-TUR' instead of
+            # 'Indian Kanoon'.
+            "_source": cs.source or "ik",
             "_numcitedby": cs.numcitedby,
             # Cap each paragraph at ~700 chars so a heavy judgment doesn't
             # blow the prompt budget — Opus latency scales with input size
