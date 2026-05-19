@@ -96,8 +96,13 @@ DEFAULT_TOP_PARAGRAPHS_PER_CASE = 2   # 4→2: shorter Phase 2 prompts, faster g
 # higher; on Render free (18s budget) keep them tight. Override via env:
 #   MAX_IK_FETCHES, MAX_IK_FETCHES_HIDDEN.
 import os as _os
-DEFAULT_MAX_NEW_FETCHES = int(_os.environ.get("MAX_IK_FETCHES", "8"))
-DEFAULT_MAX_NEW_FETCHES_HIDDEN = int(_os.environ.get("MAX_IK_FETCHES_HIDDEN", "8"))
+DEFAULT_MAX_NEW_FETCHES = int(_os.environ.get("MAX_IK_FETCHES", "4"))
+DEFAULT_MAX_NEW_FETCHES_HIDDEN = int(_os.environ.get("MAX_IK_FETCHES_HIDDEN", "4"))
+# Lowered from 8 → 4: 8 fetches * 0.6s throttle = 4.8s of pure serial
+# wait time, on top of IK API round-trip latency (~1-2s each). Cutting
+# to 4 saves 4-8s on cold-cache queries with no measurable hit to
+# Hidden Authorities quality — the reranker already gets enough
+# candidates from curated + semantic + IK search results to discriminate.
 
 # Cost-saving for mixed mode: don't burn ₹0.50 on an IK search if curated+semantic
 # already filled at least this many slots. Ignored for hidden/famous modes.

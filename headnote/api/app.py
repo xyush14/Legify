@@ -226,6 +226,36 @@ except Exception as _e:
     print(f"[boot] curated facts cache priming failed (non-fatal): {_e}")
 
 
+# Warm the fastembed model at boot. Loading BAAI/bge-small-en-v1.5 takes
+# 5-15s the first time (cold container, model download or disk read).
+# Without this warm-up the FIRST /api/situation request after a deploy
+# pays that 15s latency hit on top of everything else — the user sees
+# a 30-50s wait and assumes the app is broken. We do this in a thread
+# so it doesn't block uvicorn from accepting connections; if the user
+# arrives before warm-up finishes they pay the latency once and then
+# every subsequent request is fast.
+def _warm_embedding_model():
+    import threading
+
+    def _warm():
+        try:
+            import time as _time
+            t0 = _time.time()
+            from headnote.retrieval.embeddings import EmbeddingIndex
+            idx = EmbeddingIndex()
+            # Touch the model so fastembed downloads + loads the ONNX file.
+            # We don't actually embed anything; _get_model() handles the load.
+            idx._get_model()
+            print(f"[boot] embedding model warmed in {_time.time()-t0:.1f}s")
+        except Exception as e:
+            print(f"[boot] embedding warm-up failed (non-fatal): {e}")
+
+    threading.Thread(target=_warm, name="warm-embeddings", daemon=True).start()
+
+
+_warm_embedding_model()
+
+
 @app.get("/", include_in_schema=False)
 def landing():
     return FileResponse(config.STATIC_DIR / "landing.html")
@@ -443,14 +473,27 @@ def api_situation(req: SituationRequest):
                        three-check verification, one regen retry on failure,
                        verification status surfaced in meta.
     """
+    # Per-stage wall-clock timing. Logged at the end of the function so
+    # Railway logs show exactly where the seconds went on a slow query.
+    # This is the difference between "blindly tweaking the pipeline" and
+    # "lower max_new_fetches because IK fetches actually took 12s."
+    _stage_t: dict[str, float] = {}
+    _t_total = time.time()
+    def _stage(name: str, since: float) -> None:
+        _stage_t[name] = round(time.time() - since, 2)
+
+    _t = time.time()
     client = _get_kanoon_client()
     curated = config.load_curated_corpus()
+    _stage("01_setup", _t)
 
     # Hindi pre-translation: if the lawyer wrote in Devanagari, translate
     # to English via Haiku BEFORE retrieval and generation run. The
     # original Hindi is preserved in the response so the UI can show both.
+    _t = time.time()
     translation_info = maybe_translate(req.situation)
     working_situation = translation_info["english_query"]
+    _stage("02_translate", _t)
 
     ik_meta_extra: dict = {}
     verification_report: Optional[dict] = None
@@ -461,6 +504,7 @@ def api_situation(req: SituationRequest):
         from headnote.kanoon.retrieval import (
             retrieve_for_situation, result_to_prompt_corpus_json, IK_PROMPT_ADDENDUM,
         )
+        _t = time.time()
         ret = retrieve_for_situation(
             working_situation,
             client=client,
@@ -468,6 +512,7 @@ def api_situation(req: SituationRequest):
             mode=req.mode,
             jurisdiction=req.jurisdiction,
         )
+        _stage("03_retrieve", _t)
         retrieval_cases = list(ret.cases)
         evidence = ret.evidence
         curated_lookup = {c["id"]: c for c in curated}
@@ -532,7 +577,9 @@ def api_situation(req: SituationRequest):
         "enable_thinking": config.ENABLE_THINKING,
         "thinking_budget": config.THINKING_BUDGET_TOKENS,
     }
+    _t = time.time()
     route_result = route_call("situation", payload, force_model=force_model_choice)
+    _stage("04_llm_primary", _t)
     elapsed = time.time() - t0
     raw = route_result.response
     total_paise = route_result.cost_paise
@@ -591,7 +638,9 @@ def api_situation(req: SituationRequest):
     regen_attempted = False
     regen_helped = False
     if evidence:
+        _t = time.time()
         report = verify_situation_response(parsed, evidence)
+        _stage("05_verify", _t)
         if not report.is_clean():
             # Drop only the cases that actually failed verification
             failed_ids = {f.case_id for f in report.findings if not f.is_clean()}
@@ -651,6 +700,15 @@ def api_situation(req: SituationRequest):
         latency_ms=int(elapsed * 1000),
         confidence=route_result.confidence_score,
         success=verification_report is None or verification_report.get("clean", True),
+    )
+
+    _stage("99_total", _t_total)
+    meta["stage_timings_seconds"] = _stage_t
+    # Surfaced to Railway logs so we can see per-stage breakdown without
+    # digging into the JSON response. Format: "stage=Xs ..."
+    print(
+        "[situation-timing] "
+        + " ".join(f"{k}={v}s" for k, v in _stage_t.items())
     )
 
     return {
