@@ -22,9 +22,9 @@ _USE_BEDROCK = bool(os.environ.get("AWS_ACCESS_KEY_ID"))
 # Override any of these in Railway env vars without a code deploy:
 #   BEDROCK_HAIKU_ID, BEDROCK_SONNET_ID, BEDROCK_OPUS_ID
 _BEDROCK_IDS: dict[str, str] = {
-    "claude-haiku-4-5":  os.environ.get("BEDROCK_HAIKU_ID",  "us.anthropic.claude-3-5-haiku-20241022-v1:0"),
-    "claude-sonnet-4-6": os.environ.get("BEDROCK_SONNET_ID", "us.anthropic.claude-3-7-sonnet-20250219-v1:0"),
-    "claude-opus-4-6":   os.environ.get("BEDROCK_OPUS_ID",   "us.anthropic.claude-3-7-sonnet-20250219-v1:0"),
+    "claude-haiku-4-5":  os.environ.get("BEDROCK_HAIKU_ID",  "anthropic.claude-haiku-4-5"),
+    "claude-sonnet-4-6": os.environ.get("BEDROCK_SONNET_ID", "anthropic.claude-sonnet-4-6"),
+    "claude-opus-4-6":   os.environ.get("BEDROCK_OPUS_ID",   "anthropic.claude-opus-4-6"),
 }
 
 
