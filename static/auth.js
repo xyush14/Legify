@@ -104,13 +104,33 @@ async function initAuth() {
     _showAuthError('Your browser is blocking storage. Disable private/incognito mode or allow cookies for this site.');
   }
 
-  // React to sign-in / sign-out events (Google OAuth redirect comes through here)
+  // React to sign-in / sign-out events. This handler fires with the
+  // INITIAL_SESSION event right after createClient, so it does the same
+  // job as the manual getSession() below — but Supabase delivers the
+  // session here without the extra round-trip that getSession() is
+  // taking 5+ seconds on. Either path can reveal the app.
   _sb.auth.onAuthStateChange(async (_event, session) => {
-    console.log('[auth] Auth state changed. Event:', _event, 'Session:', session);
+    console.log('[auth] Auth state changed. Event:', _event,
+                'has session:', !!session, 'user:', session?.user?.email);
     if (session?.user) {
-      console.log('[auth] User logged in:', JSON.stringify(session.user, null, 2));
       currentUser = session.user;
-      const done = await _isOnboardingDone(session.user.id);
+      // CRITICAL: the user_profiles row fetch can hang for 5-10s on
+      // a cold Supabase region or under RLS-policy load. Without a
+      // timeout here, the user sees the loading state until forever.
+      // Fail-OPEN: better to flash the onboarding modal once than
+      // trap a signed-in user.
+      let done = false;
+      try {
+        done = await _withTimeout(
+          _isOnboardingDone(session.user.id),
+          4000,
+          'isOnboardingDone(onAuthStateChange)',
+        );
+      } catch (e) {
+        console.error('[auth] onboarding check timed out — assuming done:', e.message);
+        done = true;
+      }
+      _cancelWatchdog();
       if (done) {
         _revealApp();
       } else {
@@ -118,6 +138,7 @@ async function initAuth() {
       }
     } else {
       currentUser = null;
+      _cancelWatchdog();
       _showLoginModal();
     }
   });
@@ -139,43 +160,17 @@ async function initAuth() {
     console.error('[auth] localStorage dump failed:', e);
   }
 
-  // Initial session check — wrapped in a hard 5s timeout. Supabase's
-  // getSession() should be near-instant (reads localStorage) but if it
-  // tries to refresh an expired token via the network it can hang.
-  let session = null;
-  try {
-    const result = await _withTimeout(_sb.auth.getSession(), 5000, 'getSession');
-    if (result?.error) {
-      console.error('[auth] getSession() returned error:', result.error);
-    }
-    session = result?.data?.session || null;
-    console.log('[auth] Initial session check. Session present:', !!session);
-  } catch (e) {
-    console.error('[auth] getSession() failed or timed out:', e);
-  }
-
-  _cancelWatchdog();
-
-  if (session?.user) {
-    console.log('[auth] Returning user found:', session.user.email || session.user.id);
-    currentUser = session.user;
-    // Onboarding check is also wrapped in a timeout so a slow Supabase
-    // row fetch doesn't trap the user.
-    let done = false;
-    try {
-      done = await _withTimeout(_isOnboardingDone(session.user.id), 5000, 'isOnboardingDone');
-    } catch (e) {
-      console.error('[auth] onboarding check failed/timed out, assuming done:', e);
-      done = true;   // fail-open: better to show the app than block on the profile check
-    }
-    if (done) {
-      _revealApp();
-    } else {
-      _showOnboardingModal(session.user);
-    }
-  } else {
-    _showLoginModal();
-  }
+  // Note: we deliberately do NOT also call getSession() here.
+  // onAuthStateChange above fires with INITIAL_SESSION + the stored
+  // session right after createClient, so it covers the page-load case
+  // already. Adding a second getSession() call here was both redundant
+  // AND the actual culprit for the 'checking sign-in…' freeze — that
+  // call was timing out at 5s while the onAuthStateChange handler had
+  // already successfully fetched the session.
+  //
+  // The watchdog at the top of initAuth is still the safety net: if
+  // onAuthStateChange somehow doesn't fire within 8s, the user gets
+  // the login modal back instead of staying stuck.
 }
 
 // ----- helpers used by initAuth -----
