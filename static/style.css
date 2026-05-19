@@ -1313,6 +1313,19 @@ button { font-family: inherit; }
   border-radius: 4px;
 }
 
+/* "Try now" / live tile — slightly emphasised so the one tile that
+   actually works visually pops out of the wall of "soon" placeholders. */
+.draft-tile--live { border-color: var(--ink-2, #4a4a4a); }
+.draft-tile--live:hover {
+  border-color: var(--ink, #1a1a1a);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.draft-tile__badge--live {
+  color: var(--paper, #fff);
+  background: var(--ink, #1a1a1a);
+  border-color: var(--ink, #1a1a1a);
+}
+
 .draft-footer {
   padding: 20px 4px;
   border-top: 1px dashed var(--line);

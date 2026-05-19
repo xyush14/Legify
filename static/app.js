@@ -818,13 +818,18 @@
       b.addEventListener('click', () => switchView(b.dataset.view));
     });
 
-    // Drafting tiles — each one is "coming soon" for now; tap shows a
-    // brief toast so the user knows it registered + their feedback is
-    // wanted. We deliberately don't navigate anywhere: every flow ships
-    // independently and we don't want a half-built flow leaking out.
+    // Drafting tiles — "soon" tiles show a wait-list toast; "live" tiles
+    // (marked with data-href) navigate to the working drafter. Live tiles
+    // open in the SAME tab so the back button returns to the drafting
+    // home naturally; on mobile this is the right behaviour.
     $$('.draft-tile').forEach(tile => {
       tile.addEventListener('click', () => {
         const name = tile.querySelector('.draft-tile__name')?.textContent?.trim() || 'this draft';
+        const href = tile.dataset.href;
+        if (href) {
+          window.location.href = href;
+          return;
+        }
         toast(`"${name}" — coming soon. We're building each flow deeply.`, 'info', 3000);
       });
     });
