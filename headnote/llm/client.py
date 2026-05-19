@@ -6,6 +6,7 @@ headnote.config so they can be tuned without editing this module.
 from __future__ import annotations
 
 import json
+import os
 from typing import Any, Tuple
 
 from anthropic import Anthropic
@@ -14,10 +15,28 @@ from fastapi import HTTPException
 from headnote import config
 
 
-def get_client() -> Anthropic:
-    """Construct an Anthropic client from the configured key. Raises a 500
-    HTTPException at request time if the key is missing — avoids crashing
-    the whole app on startup when only some endpoints need Claude."""
+# Use Bedrock when AWS credentials are present (free with AWS credits).
+_USE_BEDROCK = bool(os.environ.get("AWS_ACCESS_KEY_ID"))
+
+# Internal model name → Bedrock cross-region inference ID (us-east-1).
+_BEDROCK_IDS: dict[str, str] = {
+    "claude-haiku-4-5":  "anthropic.claude-3-5-haiku-20241022-v1:0",
+    "claude-sonnet-4-6": "anthropic.claude-3-5-sonnet-20241022-v2:0",
+    "claude-opus-4-6":   "anthropic.claude-3-opus-20240229-v1:0",
+}
+
+
+def _to_bedrock_id(model: str) -> str:
+    return _BEDROCK_IDS.get(model, model)
+
+
+def get_client():
+    """Return AnthropicBedrock when AWS creds are present, else direct Anthropic."""
+    if _USE_BEDROCK:
+        from anthropic import AnthropicBedrock
+        return AnthropicBedrock(
+            aws_region=os.environ.get("AWS_REGION", "us-east-1"),
+        )
     if not config.ANTHROPIC_API_KEY:
         raise HTTPException(
             status_code=500,
@@ -60,6 +79,9 @@ def call_claude_cached(
     requirement).
     """
     model = model or config.DEFAULT_MODEL
+    if _USE_BEDROCK:
+        model = _to_bedrock_id(model)
+        enable_thinking = False  # older Bedrock model IDs don't support extended thinking
     max_tokens = max_tokens or config.MAX_TOKENS
     client = get_client()
     if cache:
