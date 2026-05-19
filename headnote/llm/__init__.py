@@ -3,6 +3,8 @@
 from .prompts import (
     build_situation_system_prompt,
     SITUATION_USER_TEMPLATE,
+    SITUATION_USER_TEMPLATE_V2,
+    build_situation_user_v2,
     HEADNOTE_SYSTEM_PROMPT,
     HEADNOTE_USER_TEMPLATE,
     HEADNOTE_VERIFY_SYSTEM_PROMPT,
@@ -34,6 +36,8 @@ from .router import (
 __all__ = [
     "build_situation_system_prompt",
     "SITUATION_USER_TEMPLATE",
+    "SITUATION_USER_TEMPLATE_V2",
+    "build_situation_user_v2",
     "HEADNOTE_SYSTEM_PROMPT",
     "HEADNOTE_USER_TEMPLATE",
     "HEADNOTE_VERIFY_SYSTEM_PROMPT",
