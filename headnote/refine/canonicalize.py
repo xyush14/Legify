@@ -226,18 +226,81 @@ def refine_query(raw: str) -> RefinedQuery:
 
 
 def shallow_refine(raw: str) -> RefinedQuery:
-    """Fast path: regex normalize only, NO Haiku call (saves 3-5s).
+    """Fast path: regex normalize + lightweight intent detection, NO Haiku call.
 
     Sonnet's situation prompt is already strong at query understanding,
-    so the structured envelope adds latency without changing the answer
-    quality in measurable ways. Use this when latency matters more than
-    the extra structure (i.e., the user-facing /api/situation path).
+    but the V2 prompt has a CRITICAL branch on intent_type — for
+    procedural/doctrinal questions, it tells Sonnet to weight DOCTRINAL
+    over FACT_ARCHETYPE (otherwise good procedural cases get dropped
+    because they don't share fact patterns).
 
-    The V2 user prompt still works with this — canonical_question is the
-    normalized text, and the other facets default to safe empty values.
+    So we keep the regex normalize (instant) + a tiny rule-based intent
+    classifier (also instant) — enough to flip the right V2 switch
+    without spending 3-5s on a Haiku call.
+
+    Trade-off vs full refine_query():
+      - No structured statute extraction (Sonnet does it from raw)
+      - No doctrines_at_issue list (Sonnet figures it out)
+      - DOES set intent_type correctly → V2 prompt's procedural branch fires
     """
     norm = normalize(raw)
-    return _fallback(norm)
+    rq = _fallback(norm)
+    rq.intent_type = _detect_intent(norm.normalized)
+    rq.stage = _detect_stage(norm.normalized)
+    return rq
+
+
+# --- lightweight intent + stage classifiers ----------------------------
+
+_PROCEDURAL_NEEDLES = (
+    "limitation period", "limitation days", "time limit", "time-limit",
+    "deadline", "within how many days", "what is the period",
+    "filing period", "appeal period", "jurisdiction of", "which court",
+    "maintainability of",
+)
+_DOCTRINAL_NEEDLES = (
+    "doctrine of", "principle of", "ratio of", "elements of",
+    "ingredients of", "what constitutes",
+)
+_DRAFTING_NEEDLES = (
+    "draft a", "draft an", "write a complaint", "prepare an application",
+    "format of",
+)
+_JUDGMENT_SUMMARY_NEEDLES = (
+    "summarize this judgment", "key holdings of", "headnote for",
+)
+
+
+def _detect_intent(text: str) -> str:
+    t = (text or "").lower()
+    if any(n in t for n in _DRAFTING_NEEDLES):
+        return "drafting_request"
+    if any(n in t for n in _JUDGMENT_SUMMARY_NEEDLES):
+        return "judgment_summary"
+    if any(n in t for n in _PROCEDURAL_NEEDLES):
+        return "procedural_law_question"
+    if any(n in t for n in _DOCTRINAL_NEEDLES):
+        return "doctrinal_inquiry"
+    return "factual_matter"
+
+
+_STAGE_PATTERNS = {
+    "anticipatory_bail": ("anticipatory bail", "section 438", "section 482 bnss"),
+    "bail":             ("bail application", "regular bail", "section 437", "section 439", "section 480 bnss"),
+    "appeal":           ("appeal against", "filing an appeal", "section 372", "section 374"),
+    "revision":         ("revision against", "revision under section 397", "revisional jurisdiction"),
+    "quash":            ("quash the fir", "quashing of fir", "section 482 crpc", "section 528 bnss"),
+    "discharge":        ("discharge under section 227", "discharge application"),
+    "writ":             ("writ petition", "habeas corpus", "article 226", "article 32"),
+}
+
+
+def _detect_stage(text: str) -> Optional[str]:
+    t = (text or "").lower()
+    for stage, needles in _STAGE_PATTERNS.items():
+        if any(n in t for n in needles):
+            return stage
+    return None
 
 
 # ---------------------------------------------------------------- helpers
