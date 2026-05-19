@@ -22,12 +22,17 @@ let currentUser = null;
 /* ------------------------------------------------------------------ boot */
 
 async function initAuth() {
+  // Loud opening banner so the user can scroll past unrelated console
+  // noise (Supabase, fastembed warnings, etc) to find auth output.
+  console.log('%c[auth] === Headnote auth init ===', 'background:#000;color:#fff;padding:2px 6px');
+  console.log('[auth] page url:', window.location.href);
+  console.log('[auth] hash:', window.location.hash || '(empty)');
+  console.log('[auth] search:', window.location.search || '(empty)');
+
   // -- Hard timeout safety net --
-  // If anything in this function hangs for more than 8 seconds (network
-  // blip on /api/config, getSession() never resolving, Supabase CDN
-  // refusing to load), we MUST show the login modal so the user can
-  // at least try to sign in instead of staring at "checking sign-in…"
-  // forever. The reveal/login-modal code paths cancel this timer.
+  // If anything in this function hangs for more than 8 seconds, force
+  // the login modal so the user can at least retry instead of staring
+  // at "checking sign-in…" forever.
   const _watchdog = setTimeout(() => {
     console.error('[auth] initAuth watchdog fired — forcing login modal after 8s');
     _showLoginModal();
@@ -197,6 +202,44 @@ function _withTimeout(promise, timeoutMs, label) {
 }
 
 /* ------------------------------------------------------------------ public helpers */
+
+/** Diagnostic — call from DevTools console to see exactly what state
+ *  auth is in. Returns a string + dumps to console.
+ *
+ *      headnoteAuthDebug()
+ */
+window.headnoteAuthDebug = function () {
+  const out = ['=== Headnote auth state ==='];
+  out.push('href: ' + window.location.href);
+  out.push('hash: ' + (window.location.hash || '(empty)'));
+  out.push('search: ' + (window.location.search || '(empty)'));
+  out.push('_sb client present: ' + !!_sb);
+  out.push('currentUser: ' + (currentUser ? currentUser.email || currentUser.id : 'null'));
+  try {
+    const all = Object.keys(window.localStorage || {});
+    const sbKeys = all.filter(k => k.startsWith('sb-') || k.includes('supabase'));
+    out.push('localStorage all keys count: ' + all.length);
+    out.push('localStorage sb-* keys: ' + JSON.stringify(sbKeys));
+    sbKeys.forEach(k => {
+      const v = window.localStorage.getItem(k);
+      out.push(`  ${k} (${(v || '').length} chars): ${(v || '').slice(0, 200)}…`);
+    });
+  } catch (e) {
+    out.push('localStorage error: ' + e.message);
+  }
+  if (_sb) {
+    _sb.auth.getSession().then(({ data, error }) => {
+      console.log('[auth-debug] getSession returned:', {
+        hasSession: !!data?.session,
+        userId: data?.session?.user?.id,
+        error: error?.message,
+      });
+    }).catch(e => console.error('[auth-debug] getSession threw:', e));
+  }
+  const msg = out.join('\n');
+  console.log(msg);
+  return msg;
+};
 
 /** Get the current Supabase JWT (use as Bearer in protected API calls). */
 async function getAuthToken() {
