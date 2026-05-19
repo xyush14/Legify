@@ -237,6 +237,96 @@ INSTRUCTIONS:
 """
 
 
+# Enhanced user template that includes the Stage 1 refined query envelope
+# AND Stage 3 pre-rank scores. Used when the pipeline runs through refine +
+# prerank (the new path). Falls back to the basic template above if the
+# envelope is missing.
+SITUATION_USER_TEMPLATE_V2 = """LAWYER'S SITUATION (RAW — verbatim from the lawyer):
+{raw_situation}
+
+REFINED QUERY ENVELOPE (produced by upstream parser — TRUST these facets):
+  Canonical question:    {canonical_question}
+  Intent type:           {intent_type}
+  Primary statute:       {primary_statute}
+  Secondary statutes:    {secondary_statutes}
+  Stage:                 {stage}
+  Appeal subtype:        {appeal_subtype}
+  Doctrines at issue:    {doctrines}
+  Factual archetype:     {factual_archetype}
+  Lawyer role:           {lawyer_role}
+  Court level:           {court_level}
+  Expected answer shape: {expected_answer}
+  Ranking hint:          {ranking_hint}
+
+PRE-RANK CONTEXT (Haiku already scored each candidate; use as a prior, not gospel):
+{prerank_summary}
+
+INSTRUCTIONS:
+- Style requested: {style}
+- Use the REFINED ENVELOPE as your decomposition — you don't need to re-extract statutes/stage/doctrines, they're given.
+- Read the RAW situation too, to catch nuance the envelope may have missed.
+- Score every corpus case on the four dimensions. Drop any case scoring 0 on fact-archetype match.
+- For PROCEDURAL/DOCTRINAL questions (intent_type=procedural_law_question or doctrinal_inquiry), weight DOCTRINAL_MATCH higher than FACT_ARCHETYPE_MATCH — score fact_archetype neutral (1-2) for all candidates rather than dropping cases on it.
+- Return top 3–5 by total score, with relevance_scores populated per case.
+- Each "relevance_explanation" MUST name the specific element of the matter that this case addresses — quote the canonical question or a doctrine from the envelope, not a generic summary.
+- Populate internal_reasoning with your decomposition and scoring rationale.
+- Return JSON conforming to the schema. No prose outside JSON. No markdown fences.
+"""
+
+
+def build_situation_user_v2(
+    *,
+    raw_situation: str,
+    refined: dict,
+    prerank_scores: list[dict],
+    style: str,
+) -> str:
+    """Compose the V2 user prompt from a RefinedQuery dict + prerank scores.
+
+    `refined` is RefinedQuery.to_dict() output.
+    `prerank_scores` is a list of dicts from prerank PrerankScore.to_dict().
+    """
+    if not refined:
+        # Caller hasn't refined; fall back to V1.
+        return SITUATION_USER_TEMPLATE.format(situation=raw_situation, style=style)
+
+    prerank_lines = []
+    for s in prerank_scores[:15]:  # cap to keep token budget sane
+        dims = s.get("dimensions") or {}
+        prerank_lines.append(
+            f"  - {s.get('id', '?')}: total={s.get('weighted_total', 0):.1f} "
+            f"(stat={dims.get('statute', '-')} stg={dims.get('stage', '-')} "
+            f"doct={dims.get('doctrinal', '-')} facts={dims.get('facts', '-')} "
+            f"auth={dims.get('authority', '-')}) — {s.get('one_line_reason', '')[:80]}"
+        )
+    prerank_summary = "\n".join(prerank_lines) if prerank_lines else "  (no prerank scores available)"
+
+    expected = refined.get("expected_answer_shape") or {}
+    expected_str = (
+        f"{expected.get('type', '?')} "
+        f"with components={expected.get('components', [])}"
+        if expected else "(unspecified)"
+    )
+
+    return SITUATION_USER_TEMPLATE_V2.format(
+        raw_situation      = raw_situation,
+        canonical_question = refined.get("canonical_question") or "(same as raw)",
+        intent_type        = refined.get("intent_type") or "factual_matter",
+        primary_statute    = refined.get("primary_statute") or "(none)",
+        secondary_statutes = ", ".join(refined.get("secondary_statutes") or []) or "(none)",
+        stage              = refined.get("stage") or "(unspecified)",
+        appeal_subtype     = refined.get("appeal_subtype") or "(n/a)",
+        doctrines          = ", ".join(refined.get("doctrines_at_issue") or []) or "(none)",
+        factual_archetype  = refined.get("factual_archetype") or "(none — procedural/doctrinal question)",
+        lawyer_role        = refined.get("lawyer_role") or "unspecified",
+        court_level        = refined.get("court_level") or "(unspecified)",
+        expected_answer    = expected_str,
+        ranking_hint       = refined.get("ranking_hint") or "(none)",
+        prerank_summary    = prerank_summary,
+        style              = style,
+    )
+
+
 # =====================================================================
 # 1b. TWO-PHASE PIPELINE PROMPTS (preferred path; see situation_pipeline.py)
 # =====================================================================

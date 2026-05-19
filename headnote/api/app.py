@@ -41,12 +41,15 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from headnote import __version__, config
+from headnote.refine import refine_query
+from headnote.ranking import prerank_candidates
 from headnote.api.models import (
     SituationRequest, DigestRequest, HeadnoteRequest,
     TranslateRequest, FeedbackRequest,
 )
 from headnote.llm import (
     build_situation_system_prompt, SITUATION_USER_TEMPLATE,
+    build_situation_user_v2,
     build_digest_system_prompt, DIGEST_USER_TEMPLATE,
     HEADNOTE_SYSTEM_PROMPT, HEADNOTE_USER_TEMPLATE,
     HEADNOTE_VERIFY_SYSTEM_PROMPT, HEADNOTE_VERIFY_USER_TEMPLATE,
@@ -543,7 +546,17 @@ def _api_situation_impl(req: SituationRequest, _record):
     working_situation = translation_info["english_query"]
     _stage("02_translate", _t)
 
+    # Stage 1: query refinement (normalize + Haiku canonical question).
+    # Produces a structured envelope: canonical_question, statutes, stage,
+    # doctrines, intent_type, expected_answer_shape, ranking_hint.
+    # Used by retrieval (search terms) AND by the LLM (envelope feeds into
+    # the V2 user prompt for grounded reasoning).
+    _t = time.time()
+    refined = refine_query(working_situation)
+    _stage("02b_refine", _t)
+
     ik_meta_extra: dict = {}
+    prerank_scores: list = []
     verification_report: Optional[dict] = None
     evidence: list = []
     retrieval_cases: list = []
@@ -583,10 +596,34 @@ def _api_situation_impl(req: SituationRequest, _record):
             ],
         }
     else:
-        sys_prompt = build_situation_system_prompt(
-            req.style, _filtered_corpus_json(working_situation),
+        # Curated-only path: prefilter the 42-case corpus → prerank with Haiku →
+        # build the corpus JSON from the pruned list.
+        from headnote.retrieval.keyword import strip_debug_fields as _strip_debug
+        _t = time.time()
+        candidate_pool = prefilter_cases(
+            config.load_curated_corpus(), working_situation,
+            top_k=config.PREFILTER_TOP_K,
         )
-        ik_meta_extra = {"retrieval_path": "curated-only"}
+        # Stage 3 pre-rank — Haiku scores the curated candidates on the 5-dim
+        # rubric BEFORE Sonnet sees them. Drops poor matches, keeps top 10.
+        _t_pre = time.time()
+        pruned, prerank_scores_objs, prerank_cost = prerank_candidates(
+            refined, candidate_pool, top_n=10,
+        )
+        prerank_scores = [s.to_dict() for s in prerank_scores_objs]
+        _stage("03b_prerank", _t_pre)
+        # If prerank kept nothing (everything below threshold), fall back to
+        # the raw prefilter result rather than sending Sonnet an empty pool.
+        pool_for_llm = pruned if pruned else candidate_pool[:10]
+        corpus_json = json.dumps(_strip_debug(pool_for_llm), ensure_ascii=False)
+        sys_prompt = build_situation_system_prompt(req.style, corpus_json)
+        ik_meta_extra = {
+            "retrieval_path":   "curated-only",
+            "candidate_pool":   len(candidate_pool),
+            "prerank_kept":     len(pruned),
+            "prerank_dropped":  len(candidate_pool) - len(pruned),
+            "prerank_cost_paise": prerank_cost,
+        }
 
     t0 = time.time()
     # ---------- Single-call generation (predictable latency) ----------
@@ -605,8 +642,14 @@ def _api_situation_impl(req: SituationRequest, _record):
     #      the corpus moves into the user prompt. After the first call,
     #      every subsequent call hits Anthropic's prompt cache for ~90%
     #      of system-prompt input cost.
-    user_prompt = SITUATION_USER_TEMPLATE.format(
-        situation=working_situation, style=req.style,
+    # V2 user prompt — feeds the refined query envelope + prerank scores
+    # to the LLM. This is the symmetry layer: Sonnet sees the SAME structured
+    # view of the question that retrieval and prerank used.
+    user_prompt = build_situation_user_v2(
+        raw_situation  = working_situation,
+        refined        = refined.to_dict(),
+        prerank_scores = prerank_scores,
+        style          = req.style,
     )
     # Model selection is env-var driven so the same code runs on Render
     # free (set SITUATION_MODEL=haiku) AND Railway / Pro (SITUATION_MODEL
@@ -721,6 +764,30 @@ def _api_situation_impl(req: SituationRequest, _record):
         meta["verification"] = verification_report
         meta["verification_regen_attempted"] = regen_attempted
         meta["verification_regen_helped"] = regen_helped
+
+    # Surface Stage 1 (query refinement) for transparency. The FE can show
+    # "we understood your question as: ..." which builds trust + helps the
+    # lawyer correct misinterpretations early.
+    meta["refined_query"] = {
+        "canonical_question":   refined.canonical_question,
+        "intent_type":          refined.intent_type,
+        "primary_statute":      refined.primary_statute,
+        "secondary_statutes":   refined.secondary_statutes,
+        "stage":                refined.stage,
+        "doctrines_at_issue":   refined.doctrines_at_issue,
+        "expected_answer_shape": refined.expected_answer_shape,
+        "ranking_hint":         refined.ranking_hint,
+        "cost_paise":           refined.cost_paise,
+        "elapsed_ms":           refined.elapsed_ms,
+    }
+    if prerank_scores:
+        meta["prerank_scores"] = prerank_scores
+    meta["total_cost_paise"] = (
+        total_paise
+        + translation_info.get("translation_cost_paise", 0)
+        + refined.cost_paise
+        + ik_meta_extra.get("prerank_cost_paise", 0)
+    )
 
     # Enrich each returned case with kanoon_doc_id, kanoon_url, fame_indicator.
     # Build a quick lookup from retrieval-time metadata (numcitedby, source).
