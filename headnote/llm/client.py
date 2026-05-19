@@ -93,11 +93,20 @@ def call_claude_cached(
     else:
         system = system_prompt
 
+    # Per-model timeouts prevent indefinite hangs on cold Bedrock starts.
+    if "haiku" in model.lower():
+        _timeout = 35.0
+    elif "sonnet" in model.lower():
+        _timeout = 90.0
+    else:
+        _timeout = 150.0
+
     create_kwargs = dict(
         model=model,
         max_tokens=max_tokens,
         system=system,
         messages=[{"role": "user", "content": user_prompt}],
+        timeout=_timeout,
     )
 
     if enable_thinking and "haiku" not in model.lower():

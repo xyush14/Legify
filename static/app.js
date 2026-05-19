@@ -671,10 +671,10 @@
     const isHindi = /[ऀ-ॿ]/.test(input);
     const stages = intent === 'situation' ? [
       ...(isHindi ? ['translating hindi → english'] : []),
-      'distilling query into sub-queries',
-      'fetching judgments from indian kanoon',
-      'reading + ranking candidates',
-      'generating headnotes',
+      'understanding your query',
+      'fetching relevant judgments',
+      'ranking candidates',
+      'analysing with claude',
       'verifying citations',
     ] : intent === 'headnote' ? [
       'reading the judgment',
@@ -689,11 +689,16 @@
     stagePanel = renderStagesPanel(stages);
     target.appendChild(stagePanel);
 
-    // Pace the stage advances on a timer. They're approximate, but they
-    // give the lawyer a sense of forward motion instead of a blank stare.
-    const paceMs = intent === 'situation' ? 3500 : 4500;
-    const timers = stages.slice(0, -1).map((_, i) =>
-      setTimeout(() => advanceStage(stagePanel, i, true), paceMs * (i + 1))
+    // Pacing: situation pipeline now includes Haiku refine + prerank + Sonnet +
+    // IK doc fetches. Total latency is 20-35s on IK path, ~15s on curated path.
+    // Variable delays per stage better mirror where the actual seconds go.
+    const situationDelays = isHindi
+      ? [3000, 6000, 11000, 17000, 25000]   // extra 3s for translation stage
+      : [4000,  9000, 14000, 22000];         // 4 timers for 5 stages (last never fires)
+    const defaultDelays = stages.slice(0, -1).map((_, i) => 4500 * (i + 1));
+    const stageDelays = intent === 'situation' ? situationDelays : defaultDelays;
+    const timers = stageDelays.map((delay, i) =>
+      setTimeout(() => advanceStage(stagePanel, i, true), delay)
     );
     const stopStageTimers = () => timers.forEach(clearTimeout);
 
@@ -711,16 +716,31 @@
       decompPromise = post('/api/decompose', { query: input }).catch(() => null);
     }
 
+    // Abort after 90s so the user gets a clear message instead of an endless spinner.
+    const abortCtrl = new AbortController();
+    const abortTimer = setTimeout(() => abortCtrl.abort(), 90000);
+
     try {
       let resp;
       if (intent === 'situation') {
-        resp = await post('/api/situation', {
-          situation: input,
-          style: state.style,
-          deep_mode: state.deepMode,
-          mode: state.mode,
-          jurisdiction: state.jurisdiction || null,
+        const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
+        const raw = await fetch('/api/situation', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            situation: input,
+            style: state.style,
+            deep_mode: state.deepMode,
+            mode: state.mode,
+            jurisdiction: state.jurisdiction || null,
+          }),
+          signal: abortCtrl.signal,
         });
+        clearTimeout(abortTimer);
+        const data = await raw.json().catch(() => ({}));
+        if (handleEntitlementError(raw.status, data)) throw new Error((data.detail && data.detail.message) || 'upgrade required');
+        if (!raw.ok) throw new Error(friendlyError(raw.status, data.error || (data.detail && data.detail.message)));
+        resp = data;
       } else if (intent === 'digest') {
         resp = await post('/api/digest', { topic: input, deep_mode: state.deepMode });
       } else {
@@ -745,9 +765,14 @@
       };
       renderResearchResult();
     } catch (err) {
+      clearTimeout(abortTimer);
       target.innerHTML = '';
-      target.appendChild(renderError(err.message || 'request failed'));
+      const msg = err.name === 'AbortError'
+        ? 'query took over 90 seconds — the IK pipeline had too many uncached documents. try a more specific statute reference, or try again.'
+        : (err.message || 'request failed');
+      target.appendChild(renderError(msg));
     } finally {
+      clearTimeout(abortTimer);
       stopStageTimers();
       btn.disabled = false;
       btn.querySelector('.btn__label').textContent = 'research';
