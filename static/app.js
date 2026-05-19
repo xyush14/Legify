@@ -829,6 +829,48 @@
       });
     });
 
+    // Drafting search — filter tiles by name + statute-hint substring.
+    // Lightweight (no fuzzy match yet), runs on every keyup. At 10 tiles
+    // this is instant; revisit if the list grows past ~40 tiles.
+    const searchInput = document.getElementById('draft-search-input');
+    const searchClear = document.getElementById('draft-search-clear');
+    const draftEmpty = document.getElementById('draft-empty');
+    const draftGrid = document.getElementById('draft-grid');
+
+    function applyDraftFilter(q) {
+      const needle = (q || '').toLowerCase().trim();
+      let visible = 0;
+      $$('.draft-tile').forEach(tile => {
+        const name = (tile.querySelector('.draft-tile__name')?.textContent || '').toLowerCase();
+        const sub  = (tile.querySelector('.draft-tile__sub')?.textContent  || '').toLowerCase();
+        const matches = !needle || name.includes(needle) || sub.includes(needle);
+        tile.dataset.hidden = matches ? 'false' : 'true';
+        if (matches) visible++;
+      });
+      if (draftEmpty) draftEmpty.hidden = visible !== 0;
+      if (draftGrid)  draftGrid.hidden = visible === 0;
+      if (searchClear) searchClear.hidden = !needle;
+    }
+
+    if (searchInput) {
+      searchInput.addEventListener('input', e => applyDraftFilter(e.target.value));
+      // Escape clears (faster than reaching for the × button)
+      searchInput.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && searchInput.value) {
+          searchInput.value = '';
+          applyDraftFilter('');
+          e.preventDefault();
+        }
+      });
+    }
+    if (searchClear) {
+      searchClear.addEventListener('click', () => {
+        searchInput.value = '';
+        applyDraftFilter('');
+        searchInput.focus();
+      });
+    }
+
     // Mode + style chips
     $$('.composer__chips .chip[data-mode]').forEach(c => {
       c.addEventListener('click', () => setMode(c.dataset.mode));

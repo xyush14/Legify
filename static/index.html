@@ -14,7 +14,7 @@
   <!-- Supabase JS (auth) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
 
-  <link rel="stylesheet" href="/static/style.css?v=20260519c" />
+  <link rel="stylesheet" href="/static/style.css?v=20260519d" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23ffffff'/%3E%3Ccircle cx='50' cy='50' r='12' fill='%23121212'/%3E%3C/svg%3E" />
 </head>
 
@@ -238,7 +238,25 @@
             </p>
           </div>
 
-          <div class="draft-grid" role="list">
+          <div class="draft-search">
+            <svg class="draft-search__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/>
+            </svg>
+            <input
+              type="text"
+              id="draft-search-input"
+              class="draft-search__input"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="search drafts — e.g. ant bail, vakalat, 138 notice" />
+            <button type="button" class="draft-search__clear" id="draft-search-clear" aria-label="clear search" hidden>×</button>
+          </div>
+
+          <div class="draft-empty mono" id="draft-empty" hidden>
+            no draft type matches that search. try fewer words.
+          </div>
+
+          <div class="draft-grid" role="list" id="draft-grid">
 
             <button type="button" class="draft-tile" data-draft="cheque-notice" role="listitem">
               <svg class="draft-tile__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -456,7 +474,7 @@
   </div>
   <!-- ============ END AUTH OVERLAY ============ -->
 
-  <script src="/static/auth.js?v=20260519c" defer></script>
-  <script src="/static/app.js?v=20260519c" defer></script>
+  <script src="/static/auth.js?v=20260519d" defer></script>
+  <script src="/static/app.js?v=20260519d" defer></script>
 </body>
 </html>

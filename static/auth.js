@@ -51,7 +51,36 @@ async function initAuth() {
     return;
   }
 
-  _sb = window.supabase.createClient(cfg.supabase_url, cfg.supabase_anon_key);
+  // Be explicit about auth persistence — defaults should be these values
+  // but pinning them here means a Supabase JS upgrade can't accidentally
+  // change behaviour without us noticing. Without persistSession+storage,
+  // a page refresh logs the user out (no localStorage write on OAuth
+  // success). Some browser privacy modes also disable storage by default;
+  // we explicitly point at localStorage so a setup mismatch surfaces in
+  // the console rather than silently dropping the session.
+  _sb = window.supabase.createClient(cfg.supabase_url, cfg.supabase_anon_key, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      storage: (typeof window !== 'undefined' && window.localStorage) || undefined,
+      // NOTE: deliberately leaving storageKey at the Supabase default
+      // (sb-<project-ref>-auth-token) so existing signed-in users don't
+      // get logged out by a key rename. If we ever need to namespace,
+      // do it with a one-time migration that reads the old key first.
+    },
+  });
+
+  // Diagnostic: confirm storage is writable so a private-mode browser
+  // surfaces loudly rather than silently looking signed-out on refresh.
+  try {
+    const testKey = '__headnote_storage_test__';
+    window.localStorage.setItem(testKey, '1');
+    window.localStorage.removeItem(testKey);
+  } catch (e) {
+    console.error('[auth] localStorage not writable — sessions will not persist:', e);
+    _showAuthError('Your browser is blocking storage. Disable private/incognito mode or allow cookies for this site.');
+  }
 
   // React to sign-in / sign-out events (Google OAuth redirect comes through here)
   _sb.auth.onAuthStateChange(async (_event, session) => {

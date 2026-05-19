@@ -1183,12 +1183,70 @@ button { font-family: inherit; }
   line-height: 1.55;
 }
 
+/* Inline search above the grid — filters tiles by name + statute hint.
+   Position: relative so the clear-button absolute-anchors inside. */
+.draft-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.draft-search__icon {
+  position: absolute;
+  left: 14px;
+  width: 16px; height: 16px;
+  color: var(--ink-3);
+  pointer-events: none;
+}
+.draft-search__input {
+  width: 100%;
+  padding: 12px 38px 12px 38px;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--surface, #fff);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.draft-search__input::placeholder { color: var(--ink-3); }
+.draft-search__input:focus {
+  outline: none;
+  border-color: var(--ink-2);
+  box-shadow: 0 0 0 3px var(--line-soft, #f4f1ea);
+}
+.draft-search__clear {
+  position: absolute;
+  right: 8px;
+  width: 24px; height: 24px;
+  background: none;
+  border: none;
+  color: var(--ink-3);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.draft-search__clear:hover { color: var(--ink); background: var(--line-soft, #f4f1ea); }
+
+.draft-empty {
+  padding: 28px 0;
+  text-align: center;
+  color: var(--ink-3);
+  font-size: 12px;
+}
+
 .draft-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 12px;
   margin-bottom: 32px;
 }
+
+/* Tile hidden by search filter (no display:none — keeps a11y order
+   easier to debug). Visibility:hidden + position:absolute would break
+   the grid; we just omit them from grid layout. */
+.draft-tile[data-hidden="true"] { display: none; }
 
 .draft-tile {
   position: relative;
