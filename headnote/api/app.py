@@ -223,6 +223,13 @@ from headnote.drafter.storage import init_drafts_db as _init_drafts_db
 app.include_router(_drafter_router)
 _init_drafts_db()
 
+# Subscription / entitlements: /api/me, /api/plans, /admin/v2/*
+from headnote.api.me import router as _me_router
+from headnote.api.admin_v2 import router as _admin_v2_router
+
+app.include_router(_me_router)
+app.include_router(_admin_v2_router)
+
 # Pre-extract universal facts for the 42 curated cases at boot. ~50ms
 # one-time cost that removes a per-query latency spike for the first user.
 # Safe to skip via env var if the curated corpus changes at runtime (which
@@ -274,6 +281,21 @@ def landing():
 @app.get("/app/", include_in_schema=False)
 def app_index():
     return FileResponse(config.STATIC_DIR / "index.html")
+
+
+@app.get("/pricing", include_in_schema=False)
+@app.get("/pricing/", include_in_schema=False)
+def pricing_page():
+    """Public pricing page — shows the four tiers + a CTA per plan."""
+    return FileResponse(config.STATIC_DIR / "pricing.html")
+
+
+@app.get("/admin", include_in_schema=False)
+@app.get("/admin/", include_in_schema=False)
+def admin_panel():
+    """Admin panel SPA. Access controlled by JWT (admin_users table) or
+    ADMIN_TOKEN bearer; the HTML shell itself is inert without auth."""
+    return FileResponse(config.STATIC_DIR / "admin.html")
 
 
 @app.get("/drafter", include_in_schema=False)

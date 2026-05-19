@@ -149,11 +149,20 @@ ENABLE_OPUS_ESCALATION = os.environ.get(
 ADMIN_TOKEN: Optional[str] = os.environ.get("ADMIN_TOKEN")
 
 # ----------------------------------------------------------------- Supabase auth
-# SUPABASE_URL and SUPABASE_ANON_KEY are the public project credentials.
-# These are intentionally public — the anon key only has RLS-constrained access.
-# Set them in Railway/local .env. Without them auth is skipped (dev mode).
+# Public credentials (sent to the browser via /api/config).
 SUPABASE_URL: Optional[str] = os.environ.get("SUPABASE_URL")
 SUPABASE_ANON_KEY: Optional[str] = os.environ.get("SUPABASE_ANON_KEY")
+
+# Server-only secrets (NEVER expose to browser):
+#   SUPABASE_JWT_SECRET     : HS256 secret used to verify Supabase JWTs locally.
+#                             Dashboard → Settings → API → JWT Settings → JWT Secret.
+#                             Without this, JWTs are decoded without signature
+#                             verification (dev fallback; logs a warning).
+#   SUPABASE_SERVICE_ROLE_KEY: lets the backend bypass RLS to read/write
+#                             subscriptions / usage_meters / usage_events.
+#                             Dashboard → Settings → API → service_role secret.
+SUPABASE_JWT_SECRET: Optional[str] = os.environ.get("SUPABASE_JWT_SECRET")
+SUPABASE_SERVICE_ROLE_KEY: Optional[str] = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 
 
 # ----------------------------------------------------------------- pricing meter
