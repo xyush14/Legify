@@ -22,32 +22,49 @@ let currentUser = null;
 /* ------------------------------------------------------------------ boot */
 
 async function initAuth() {
+  // -- Hard timeout safety net --
+  // If anything in this function hangs for more than 8 seconds (network
+  // blip on /api/config, getSession() never resolving, Supabase CDN
+  // refusing to load), we MUST show the login modal so the user can
+  // at least try to sign in instead of staring at "checking sign-in…"
+  // forever. The reveal/login-modal code paths cancel this timer.
+  const _watchdog = setTimeout(() => {
+    console.error('[auth] initAuth watchdog fired — forcing login modal after 8s');
+    _showLoginModal();
+    _showAuthError('Sign-in check is taking longer than expected. You can sign in again.');
+  }, 8000);
+
+  function _cancelWatchdog() { clearTimeout(_watchdog); }
+
   // -- Surface OAuth errors that come back as ?error= or #error= in the URL --
-  // Supabase returns errors in the hash (#error_code=...) on OAuth flows and
-  // in the query string (?error=...) on PKCE flows. We catch both and show
-  // them to the user instead of letting them fail silently.
   _surfaceOAuthErrorFromUrl();
 
-  // Fetch public Supabase config from backend
+  // Fetch public Supabase config from backend — with explicit timeout so
+  // a flaky network doesn't keep the page in 'checking' forever.
   let cfg = {};
   try {
-    cfg = await fetch('/api/config').then(r => r.json());
-  } catch (_) { /* network blip — fall through */ }
+    cfg = await _fetchWithTimeout('/api/config', 5000);
+  } catch (e) {
+    console.error('[auth] /api/config fetch failed:', e);
+  }
 
   if (!cfg.supabase_url || !cfg.supabase_anon_key) {
     console.log('[auth] Supabase not configured — auth skipped (dev mode)');
+    _cancelWatchdog();
     _revealApp();
     return;
   }
 
-  // Wait for the Supabase CDN script to load (it has defer; runs before this
-  // but during a hard reload it can momentarily not be on window yet).
+  // Wait for the Supabase CDN script to load (defer-loaded; usually ready
+  // by the time we get here but be defensive).
   if (!window.supabase || !window.supabase.createClient) {
     await _waitFor(() => window.supabase && window.supabase.createClient, 3000);
   }
   if (!window.supabase) {
     console.error('[auth] Supabase CDN failed to load');
-    _showAuthError('Could not load auth. Please refresh.');
+    _cancelWatchdog();
+    _showLoginModal();   // at least show the login UI; user can refresh
+    _showAuthError('Auth library failed to load. Please refresh the page.');
     return;
   }
 
@@ -117,35 +134,66 @@ async function initAuth() {
     console.error('[auth] localStorage dump failed:', e);
   }
 
-  // Initial session check (returning user)
+  // Initial session check — wrapped in a hard 5s timeout. Supabase's
+  // getSession() should be near-instant (reads localStorage) but if it
+  // tries to refresh an expired token via the network it can hang.
   let session = null;
   try {
-    const { data, error } = await _sb.auth.getSession();
-    if (error) {
-      console.error('[auth] getSession() returned error:', error);
+    const result = await _withTimeout(_sb.auth.getSession(), 5000, 'getSession');
+    if (result?.error) {
+      console.error('[auth] getSession() returned error:', result.error);
     }
-    session = data?.session || null;
+    session = result?.data?.session || null;
     console.log('[auth] Initial session check. Session present:', !!session);
   } catch (e) {
-    console.error('[auth] getSession() threw:', e);
+    console.error('[auth] getSession() failed or timed out:', e);
   }
+
+  _cancelWatchdog();
 
   if (session?.user) {
     console.log('[auth] Returning user found:', session.user.email || session.user.id);
     currentUser = session.user;
-    const done = await _isOnboardingDone(session.user.id);
+    // Onboarding check is also wrapped in a timeout so a slow Supabase
+    // row fetch doesn't trap the user.
+    let done = false;
+    try {
+      done = await _withTimeout(_isOnboardingDone(session.user.id), 5000, 'isOnboardingDone');
+    } catch (e) {
+      console.error('[auth] onboarding check failed/timed out, assuming done:', e);
+      done = true;   // fail-open: better to show the app than block on the profile check
+    }
     if (done) {
       _revealApp();
     } else {
       _showOnboardingModal(session.user);
     }
   } else {
-    // No session detected — show the login modal explicitly. Previously
-    // we relied on the modal being visible 'by default' but if the
-    // onAuthStateChange handler already fired with null between
-    // createClient and here, the state could be unclear. Be explicit.
     _showLoginModal();
   }
+}
+
+// ----- helpers used by initAuth -----
+
+async function _fetchWithTimeout(url, timeoutMs) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const r = await fetch(url, { signal: ctrl.signal });
+    return await r.json();
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+function _withTimeout(promise, timeoutMs, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(
+      () => reject(new Error(`${label} timed out after ${timeoutMs}ms`)),
+      timeoutMs,
+    )),
+  ]);
 }
 
 /* ------------------------------------------------------------------ public helpers */
