@@ -1413,6 +1413,33 @@ body:not(.auth-ready) .shell { display: none !important; }
   pointer-events: none;
 }
 
+/* Loading state shown for the ~50-300ms while auth.js decides whether
+   to reveal the app or show the login modal. Prevents the flash-of-
+   login-modal on every refresh for already-signed-in users. */
+.auth-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  color: var(--ink-2);
+}
+.auth-loading__dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--ink);
+  animation: auth-loading-pulse 1.2s ease-in-out infinite;
+}
+.auth-loading__text {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+@keyframes auth-loading-pulse {
+  0%, 100% { opacity: 0.25; transform: scale(0.9); }
+  50%      { opacity: 0.9;  transform: scale(1.15); }
+}
+
 .auth-modal {
   position: relative;
   background: var(--surface);

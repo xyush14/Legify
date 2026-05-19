@@ -46,21 +46,67 @@ from headnote.llm.gemini import call_gemini as _call_gemini, _is_configured as _
 # stale anthropic SDK doesn't blow up module load. Network errors covered
 # explicitly via APIConnectionError; rate-limit / overloaded covered via
 # RateLimitError + APIStatusError.
+# Substrings in an Anthropic error message that mean "out of credits /
+# billing" rather than "your request is broken." A BadRequestError (HTTP
+# 400) for these reasons SHOULD trigger Gemini fallback — the request
+# itself was valid, the account just can't pay.
+_BILLING_NEEDLES = (
+    "credit balance is too low",
+    "insufficient credits",
+    "billing",
+    "out of credits",
+    "credit balance",
+    "your account does not have",     # forward-compatible
+    "purchase credits",
+)
+
+
 def _is_anthropic_transient_error(err: Exception) -> bool:
     """True iff `err` is the kind of Anthropic failure where Gemini fallback
-    is the right move. Anything else (auth, schema, bad request) bubbles up
-    unchanged."""
+    is the right move. Anything else (auth, schema, bad request that's
+    actually our bug) bubbles up unchanged.
+
+    Catches:
+      - RateLimitError (429)
+      - APIConnectionError (network blip)
+      - InternalServerError (5xx)
+      - APIStatusError where status is 429 OR 5xx
+      - BadRequestError (400) where the message mentions billing / credits
+        — this is the 'Your credit balance is too low' case. Real schema
+        errors don't mention credit/billing so this filter is safe.
+    """
     try:
         from anthropic import (
-            RateLimitError, APIConnectionError, APIStatusError, InternalServerError,
+            RateLimitError, APIConnectionError, APIStatusError,
+            InternalServerError, BadRequestError,
         )
     except ImportError:
         return False
+
     if isinstance(err, (RateLimitError, APIConnectionError, InternalServerError)):
         return True
+
+    if isinstance(err, BadRequestError):
+        # 400s for billing-related reasons get the fallback; 400s for
+        # actual bad requests (wrong model, broken schema) bubble up so
+        # the bug is visible.
+        msg = (str(err) or "").lower()
+        if any(needle in msg for needle in _BILLING_NEEDLES):
+            return True
+        return False
+
     if isinstance(err, APIStatusError):
         status = getattr(err, "status_code", None)
-        return status is not None and (status == 429 or 500 <= status < 600)
+        if status == 429 or (status is not None and 500 <= status < 600):
+            return True
+        # Sometimes generic APIStatusError is raised with status_code=400
+        # carrying a billing message — same logic as above.
+        if status == 400:
+            msg = (str(err) or "").lower()
+            if any(needle in msg for needle in _BILLING_NEEDLES):
+                return True
+        return False
+
     return False
 
 

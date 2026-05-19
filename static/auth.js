@@ -100,11 +100,38 @@ async function initAuth() {
     }
   });
 
+  // Diagnostic: dump everything we know about the Supabase auth state
+  // at this point. If sessions are being lost on refresh, the answer is
+  // usually visible right here: either localStorage is empty (storage
+  // not being written on OAuth success) or getSession() throws (cookies
+  // disabled, SDK mismatch).
+  try {
+    const allKeys = Object.keys(window.localStorage || {});
+    const sbKeys = allKeys.filter(k => k.startsWith('sb-') || k.includes('supabase'));
+    console.log('[auth] localStorage sb-* keys:', sbKeys);
+    sbKeys.forEach(k => {
+      const v = window.localStorage.getItem(k);
+      console.log(`[auth]   ${k}: ${(v || '').slice(0, 120)}...`);
+    });
+  } catch (e) {
+    console.error('[auth] localStorage dump failed:', e);
+  }
+
   // Initial session check (returning user)
-  const { data: { session } } = await _sb.auth.getSession();
-  console.log('[auth] Initial session check. Session:', session);
+  let session = null;
+  try {
+    const { data, error } = await _sb.auth.getSession();
+    if (error) {
+      console.error('[auth] getSession() returned error:', error);
+    }
+    session = data?.session || null;
+    console.log('[auth] Initial session check. Session present:', !!session);
+  } catch (e) {
+    console.error('[auth] getSession() threw:', e);
+  }
+
   if (session?.user) {
-    console.log('[auth] Returning user found:', JSON.stringify(session.user, null, 2));
+    console.log('[auth] Returning user found:', session.user.email || session.user.id);
     currentUser = session.user;
     const done = await _isOnboardingDone(session.user.id);
     if (done) {
@@ -112,8 +139,13 @@ async function initAuth() {
     } else {
       _showOnboardingModal(session.user);
     }
+  } else {
+    // No session detected — show the login modal explicitly. Previously
+    // we relied on the modal being visible 'by default' but if the
+    // onAuthStateChange handler already fired with null between
+    // createClient and here, the state could be unclear. Be explicit.
+    _showLoginModal();
   }
-  // else: login modal already visible (default state)
 }
 
 /* ------------------------------------------------------------------ public helpers */
@@ -232,8 +264,10 @@ async function _saveOnboarding(name, phone, referralCode) {
 function _showLoginModal() {
   const login   = document.getElementById('login-modal');
   const onboard = document.getElementById('onboarding-modal');
+  const loading = document.getElementById('auth-loading');
   if (login)   login.style.display   = '';
   if (onboard) onboard.style.display = 'none';
+  if (loading) loading.style.display = 'none';
   document.getElementById('auth-overlay')?.classList.remove('is-hidden');
   document.body.classList.remove('auth-ready');
 }
@@ -241,8 +275,10 @@ function _showLoginModal() {
 function _showOnboardingModal(user) {
   const login   = document.getElementById('login-modal');
   const onboard = document.getElementById('onboarding-modal');
+  const loading = document.getElementById('auth-loading');
   if (login)   login.style.display   = 'none';
   if (onboard) onboard.style.display = '';
+  if (loading) loading.style.display = 'none';
 
   // Pre-fill name + greeting from Google profile
   // Try multiple possible field locations for the name
