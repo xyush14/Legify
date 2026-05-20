@@ -14,7 +14,9 @@ transliteration, OCR) lives in sibling modules and is called from here.
 
 from __future__ import annotations
 
-from typing import Optional
+import json
+import re
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
@@ -44,6 +46,11 @@ class UpdateDraftBody(BaseModel):
     answers: Optional[dict] = None
     lang: Optional[str] = None
     title: Optional[str] = None
+
+
+class TranslateFieldsBody(BaseModel):
+    fields: dict = Field(..., description="Dict of prose field key→value to translate")
+    target: Literal["hi", "en"] = Field("hi", description="Target language")
 
 
 # ----------------------------------------------------------- routes
@@ -165,6 +172,81 @@ def list_drafts(
     """List drafts owned by the authenticated user. Recent-first."""
     drafts = storage.list_drafts(user_id=user.id, limit=limit)
     return {"count": len(drafts), "drafts": [d.to_dict() for d in drafts]}
+
+
+# ----------------------------------------------------------- field translation
+
+@router.post("/translate-fields", summary="Translate bail-form prose fields EN↔HI")
+async def translate_fields(
+    body: TranslateFieldsBody,
+    user: CurrentUser = Depends(get_current_user),
+):
+    """Translate the prose fields of a bail application form in either direction.
+
+    Only non-empty string values are translated. Proper nouns (names, case
+    numbers, dates, statute refs) are preserved by the prompt instruction.
+    Uses Haiku 4.5 — typically 1-2 seconds for a typical bail form.
+
+    Gated: draft feature (same quota as draft_start).
+    """
+    from headnote.llm.client import call_claude_cached
+
+    # Filter to non-empty string values only
+    to_translate = {k: v for k, v in (body.fields or {}).items()
+                    if isinstance(v, str) and v.strip()}
+    if not to_translate:
+        return {"translated": {}, "skipped": True}
+
+    target_name = "Hindi (Devanagari script)" if body.target == "hi" else "English"
+    fields_json = json.dumps(to_translate, ensure_ascii=False, indent=2)
+
+    system = (
+        "You are a bilingual legal translator for Indian courts. "
+        "Translate prose accurately using standard legal terminology. "
+        "PRESERVE without change: proper names of people, places, case numbers, "
+        "FIR numbers, dates, statute references (IPC, CrPC, BNS, etc.), "
+        "police station names, court names, and district names."
+    )
+    prompt = (
+        f"Translate all values in the JSON below to {target_name}. "
+        "Return ONLY a valid JSON object with the same keys.\n\n"
+        f"{fields_json}"
+    )
+
+    with check_and_record(user.id, "draft", endpoint="translate_fields") as _record:
+        try:
+            raw, usage = call_claude_cached(
+                system_prompt=system,
+                user_prompt=prompt,
+                model="claude-haiku-4-5",
+                max_tokens=3000,
+                cache=False,
+            )
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Translation failed: {e}")
+
+        # Strip fences if model wrapped output
+        text = raw.strip()
+        if text.startswith("```"):
+            text = re.sub(r"^```(?:json)?\s*", "", text)
+            text = re.sub(r"\s*```$", "", text.strip())
+
+        try:
+            translated = json.loads(text)
+        except json.JSONDecodeError:
+            m = re.search(r"\{.*\}", text, re.DOTALL)
+            if m:
+                try:
+                    translated = json.loads(m.group(0))
+                except json.JSONDecodeError:
+                    translated = to_translate  # fallback: return originals unchanged
+            else:
+                translated = to_translate
+
+        from headnote.llm.client import estimate_cost_usd
+        cost_paise = int(estimate_cost_usd(usage) * 8400 * 100)
+        _record(cost_paise=cost_paise, model="claude-haiku-4-5")
+        return {"translated": translated}
 
 
 # ----------------------------------------------------------- OCR

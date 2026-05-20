@@ -6,6 +6,7 @@ headnote.config so they can be tuned without editing this module.
 from __future__ import annotations
 
 import json
+import logging
 import os
 from typing import Any, Tuple
 
@@ -14,6 +15,7 @@ from fastapi import HTTPException
 
 from headnote import config
 
+log = logging.getLogger(__name__)
 
 # Use Bedrock when AWS credentials are present (free with AWS credits).
 _USE_BEDROCK = bool(os.environ.get("AWS_ACCESS_KEY_ID"))
@@ -30,6 +32,24 @@ _BEDROCK_IDS: dict[str, str] = {
 
 def _to_bedrock_id(model: str) -> str:
     return _BEDROCK_IDS.get(model, model)
+
+
+def _to_canonical_model(bedrock_id: str) -> str:
+    """Reverse-map a Bedrock model ID back to the canonical internal name."""
+    reverse = {v: k for k, v in _BEDROCK_IDS.items()}
+    return reverse.get(bedrock_id, config.DEFAULT_MODEL)
+
+
+def _is_bedrock_payment_error(exc: Exception) -> bool:
+    s = str(exc)
+    return any(k in s for k in (
+        "INVALID_PAYMENT_INSTRUMENT",
+        "payment_instrument",
+        "valid payment",
+        "PermissionDenied",
+        "subscription",
+        "Marketplace subscription",
+    )) or "403" in s
 
 
 def get_client():
@@ -119,7 +139,23 @@ def call_claude_cached(
         }
         create_kwargs["temperature"] = 1.0   # Required by API when thinking is on
 
-    resp = client.messages.create(**create_kwargs)
+    try:
+        resp = client.messages.create(**create_kwargs)
+    except Exception as exc:
+        # Bedrock payment / subscription error → transparent fallback to direct API.
+        # This happens when AWS Marketplace billing isn't confirmed yet.
+        if _USE_BEDROCK and _is_bedrock_payment_error(exc):
+            if not config.ANTHROPIC_API_KEY:
+                raise  # no fallback available
+            log.warning(
+                "Bedrock payment error — falling back to direct Anthropic API "
+                "(model=%s): %s", create_kwargs.get("model"), str(exc)[:200]
+            )
+            fallback_client = Anthropic(api_key=config.ANTHROPIC_API_KEY)
+            create_kwargs["model"] = _to_canonical_model(create_kwargs["model"])
+            resp = fallback_client.messages.create(**create_kwargs)
+        else:
+            raise
     usage = resp.usage
     usage_dict = {
         "model": model,

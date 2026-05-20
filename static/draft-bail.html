@@ -1390,18 +1390,60 @@ document.getElementById('btn-share').addEventListener('click', () => {
   toast('Download PDF first, then attach in WhatsApp', 'ok');
 });
 
-document.getElementById('lang-en').addEventListener('click', () => {
-  state.lang = 'en';
+// Fields that contain translatable prose (not names, dates, codes, or numbers).
+const TRANSLATABLE_FORM_FIELDS = [
+  'facts_narrative', 'cancellation_history', 'lower_court_history',
+  'custom_ground_1', 'grounds_medical',
+];
+
+async function switchLang(newLang) {
+  if (state.lang === newLang) return;
+  const prevLang = state.lang;
+  state.lang = newLang;
+
+  // Collect non-empty prose fields to translate
+  const toTranslate = {};
+  TRANSLATABLE_FORM_FIELDS.forEach(k => {
+    const v = state.answers[k];
+    if (v && String(v).trim()) toTranslate[k] = v;
+  });
+
+  if (Object.keys(toTranslate).length > 0) {
+    const isHi = newLang === 'hi';
+    toast(isHi ? 'फ़ील्ड अनुवाद हो रहे हैं…' : 'Translating fields…', 'ok');
+    try {
+      const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
+      const r = await fetch('/api/draft/translate-fields', {
+        method: 'POST', headers,
+        body: JSON.stringify({ fields: toTranslate, target: newLang }),
+      });
+      if (r.ok) {
+        const data = await r.json();
+        if (data.translated && !data.skipped) {
+          Object.entries(data.translated).forEach(([k, v]) => {
+            if (v) state.answers[k] = v;
+          });
+          // Re-bind inputs so the translated values appear in the form
+          document.querySelectorAll('[data-field]').forEach(input => {
+            const v = state.answers[input.dataset.field];
+            if (v !== undefined) input.value = v;
+          });
+          const n = Object.keys(data.translated).length;
+          toast(isHi ? `${n} फ़ील्ड अनुवादित` : `${n} fields translated`, 'ok');
+        }
+      }
+    } catch (e) {
+      // Silent fail — just switch the UI without translating content
+      toast(prevLang === 'hi' ? 'अनुवाद विफल — UI बदली' : 'Translation failed — UI switched', 'err');
+    }
+  }
+
   applyLang();
   onChange();
-  toast('English mode', 'ok');
-});
-document.getElementById('lang-hi').addEventListener('click', () => {
-  state.lang = 'hi';
-  applyLang();
-  onChange();
-  toast('हिंदी मोड', 'ok');
-});
+}
+
+document.getElementById('lang-en').addEventListener('click', () => switchLang('en'));
+document.getElementById('lang-hi').addEventListener('click', () => switchLang('hi'));
 
 // =========================================================================
 // Toast
