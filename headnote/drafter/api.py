@@ -197,19 +197,35 @@ async def translate_fields(
     if not to_translate:
         return {"translated": {}, "skipped": True}
 
-    target_name = "Hindi (Devanagari script)" if body.target == "hi" else "English"
+    target_name = "Hindi (Devanagari script)" if body.target == "hi" else "English (Roman script)"
     fields_json = json.dumps(to_translate, ensure_ascii=False, indent=2)
 
     system = (
-        "You are a bilingual legal translator for Indian courts. "
-        "Translate prose accurately using standard legal terminology. "
-        "PRESERVE without change: proper names of people, places, case numbers, "
-        "FIR numbers, dates, statute references (IPC, CrPC, BNS, etc.), "
-        "police station names, court names, and district names."
+        "You are a bilingual converter for Indian bail-application form fields. "
+        "Your job: for each value in the given JSON, OUTPUT THE SAME CONTENT in the "
+        "target script/language. Use these rules per field:\n"
+        "• Person names (applicant_name, applicant_father, advocate_name, "
+        "trial_judge): TRANSLITERATE phonetically to the target script. "
+        "E.g., 'Anil Morya' → 'अनिल मोर्य'; 'श्री राम सिंह' → 'Shri Ram Singh'.\n"
+        "• Place names, addresses, district, state, police station, jail names: "
+        "TRANSLITERATE to the target script (use the conventional Indian-English "
+        "spelling for places, e.g. 'Gwalior' ↔ 'ग्वालियर', 'Madhya Pradesh' ↔ "
+        "'मध्य प्रदेश').\n"
+        "• Court names + judge titles: TRANSLATE using standard Indian legal "
+        "vocabulary (e.g. 'MP High Court Gwalior Bench' ↔ "
+        "'माननीय उच्च न्यायालय मध्यप्रदेश खण्डपीठ, ग्वालियर'; "
+        "'2nd Additional Sessions Judge' ↔ 'द्वितीय अपर सत्र न्यायाधीश').\n"
+        "• Occupation: TRANSLATE ('Shopkeeper' ↔ 'दुकानदारी').\n"
+        "• Long prose (facts_narrative, cancellation_history, lower_court_history, "
+        "custom_ground_1, grounds_medical): TRANSLATE naturally using formal legal "
+        "Hindi/English. Keep statute refs (IPC, CrPC, BNS, §138, S.302 etc.), "
+        "FIR/case numbers, and dates unchanged within the prose.\n"
+        "Always return ONLY a JSON object with the same keys as input. No prose, "
+        "no markdown fences, no commentary."
     )
     prompt = (
-        f"Translate all values in the JSON below to {target_name}. "
-        "Return ONLY a valid JSON object with the same keys.\n\n"
+        f"Convert every value below to {target_name}. Apply the per-field rules "
+        "from the system prompt. Return ONLY the JSON object.\n\n"
         f"{fields_json}"
     )
 

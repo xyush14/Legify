@@ -1390,8 +1390,20 @@ document.getElementById('btn-share').addEventListener('click', () => {
   toast('Download PDF first, then attach in WhatsApp', 'ok');
 });
 
-// Fields that contain translatable prose (not names, dates, codes, or numbers).
+// Fields that switch script/language between EN and HI.
+// - Person names → transliterated (Anil Morya ↔ अनिल मोर्य)
+// - Place / court / occupation / address → translated/transliterated
+// - Prose narrative + grounds → translated
+// Fields explicitly NOT in this list: dates, FIR/case/year numbers,
+// statute references (sections_str), bail_section, application_number.
 const TRANSLATABLE_FORM_FIELDS = [
+  // person names — transliterate
+  'applicant_name', 'applicant_father', 'advocate_name', 'trial_judge',
+  // places / institutions — transliterate or translate
+  'applicant_address', 'applicant_occupation',
+  'district', 'state_name', 'place',
+  'court_name', 'police_station', 'current_jail', 'trial_court',
+  // prose blocks — translate
   'facts_narrative', 'cancellation_history', 'lower_court_history',
   'custom_ground_1', 'grounds_medical',
 ];
