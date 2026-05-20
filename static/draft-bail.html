@@ -128,6 +128,8 @@
   .bail-doc .bd-sig-advname { font-weight: 500; margin-top: 14px; }
   .bail-doc .ph { color: #b4afa3; font-style: italic; }
   .bail-doc .bd-table .ph { font-style: italic; color: #b4afa3; }
+  /* Auto-transliterated names/places — subtle highlight so lawyer can verify spelling */
+  .bail-doc .xlit { background: #fffbef; padding: 0 2px; border-bottom: 1px dotted #d4b864; }
 
   /* OCR drop zone */
   .ocr-zone { border: 2px dashed var(--line-strong); border-radius: 10px; padding: 16px; text-align: center; cursor: pointer; background: var(--panel); transition: all 0.15s; }
@@ -512,6 +514,194 @@ function persistDefaults() {
 }
 
 // =========================================================================
+// TRANSLITERATION (English ↔ Devanagari) — same system as §138 drafter.
+// Dictionary-first (common Indian names + places), phonetic fallback.
+// Lets renderHi/renderEn show names in the correct script on-the-fly,
+// regardless of what script the lawyer typed in the form field.
+// =========================================================================
+const HI_DICT = {
+  // First names
+  'priyanshu':'प्रियंशु','abhishek':'अभिषेक','rajesh':'राजेश','dheeraj':'धीरज',
+  'shyam':'श्याम','ayush':'आयुष','amit':'अमित','sunil':'सुनील','anil':'अनिल',
+  'mukesh':'मुकेश','suresh':'सुरेश','ramesh':'रमेश','mahesh':'महेश',
+  'rakesh':'राकेश','dinesh':'दिनेश','naresh':'नरेश','rohit':'रोहित',
+  'mohit':'मोहित','vishal':'विशाल','vikash':'विकास','vikas':'विकास',
+  'manoj':'मनोज','sanjay':'संजय','ajay':'अजय','vijay':'विजय','jay':'जय',
+  'arjun':'अर्जुन','krishna':'कृष्ण','ram':'राम','gopal':'गोपाल',
+  'mohan':'मोहन','sohan':'सोहन','ashok':'अशोक','pankaj':'पंकज',
+  'deepak':'दीपक','rahul':'राहुल','sachin':'सचिन','gaurav':'गौरव',
+  'siddharth':'सिद्धार्थ','aditya':'आदित्य','akash':'आकाश','arun':'अरुण',
+  'varun':'वरुण','tarun':'तरुण','karan':'करन','kabir':'कबीर',
+  'piyush':'पीयूष','harsh':'हर्ष','yash':'यश','shivam':'शिवम',
+  'anita':'अनीता','sunita':'सुनीता','kavita':'कविता','pooja':'पूजा',
+  'priya':'प्रिया','priyanka':'प्रियंका','neha':'नेहा','rekha':'रेखा',
+  'meena':'मीना','reena':'रीना','seema':'सीमा','asha':'आशा',
+  'usha':'उषा','sushma':'सुषमा','lata':'लता','radha':'राधा',
+  'sita':'सीता','gita':'गीता','kalpana':'कल्पना','shobha':'शोभा',
+  'mangal':'मंगल','shankar':'शंकर','ramji':'रामजी','das':'दास',
+  'morya':'मोर्य','virendra':'वीरेन्द्र','sudeep':'सुदीप',
+  // Surnames
+  'sharma':'शर्मा','verma':'वर्मा','gupta':'गुप्ता','singh':'सिंह',
+  'kumar':'कुमार','kumari':'कुमारी','agarwal':'अग्रवाल','agrawal':'अग्रवाल',
+  'mishra':'मिश्रा','tiwari':'तिवारी','chaurasiya':'चौरसिया','chaurasia':'चौरसिया',
+  'pandey':'पाण्डेय','tripathi':'त्रिपाठी','dubey':'दुबे','jha':'झा',
+  'yadav':'यादव','patel':'पटेल','shah':'शाह','mehta':'मेहता',
+  'joshi':'जोशी','desai':'देसाई','rao':'राव','reddy':'रेड्डी',
+  'iyer':'अय्यर','menon':'मेनन','nair':'नायर','pillai':'पिल्लई',
+  'kapoor':'कपूर','khanna':'खन्ना','malhotra':'मल्होत्रा','chopra':'चोपड़ा',
+  'thakur':'ठाकुर','rajput':'राजपूत','gurjar':'गुर्जर','jat':'जाट',
+  'gaur':'गौड़','kushwaha':'कुशवाहा','saxena':'सक्सेना','srivastava':'श्रीवास्तव',
+  'pal':'पाल',
+  // Address words
+  'shri':'श्री','shree':'श्री','smt':'श्रीमती','colony':'कॉलोनी',
+  'nagar':'नगर','road':'रोड','street':'स्ट्रीट','gali':'गली',
+  'mohalla':'मोहल्ला','ward':'वार्ड','block':'ब्लॉक','sector':'सेक्टर',
+  'phase':'फेज़','mandir':'मंदिर','masjid':'मस्जिद','school':'स्कूल',
+  'town':'टाउन','model':'मॉडल','park':'पार्क','hospital':'हॉस्पिटल',
+  'collector':'कलेक्टर','office':'कार्यालय','station':'स्टेशन',
+  'distt':'जिला','district':'जिला','tehsil':'तहसील',
+  // Cities + states
+  'gwalior':'ग्वालियर','bhopal':'भोपाल','indore':'इंदौर','jabalpur':'जबलपुर',
+  'ujjain':'उज्जैन','sagar':'सागर','rewa':'रीवा','satna':'सतना',
+  'dabra':'डबरा','morena':'मुरैना','bhind':'भिंड','shivpuri':'शिवपुरी',
+  'guna':'गुना','ashoknagar':'अशोकनगर','datia':'दतिया',
+  'delhi':'दिल्ली','mumbai':'मुंबई','kolkata':'कोलकाता','chennai':'चेन्नई',
+  'lucknow':'लखनऊ','kanpur':'कानपुर','jaipur':'जयपुर','patna':'पटना',
+  'madhya':'मध्य','pradesh':'प्रदेश','uttar':'उत्तर','bihar':'बिहार',
+  'rajasthan':'राजस्थान','maharashtra':'महाराष्ट्र','gujarat':'गुजरात',
+  // Courts / law
+  'high':'उच्च','court':'न्यायालय','sessions':'सत्र','additional':'अपर',
+  'central':'केन्द्रीय','jail':'कारागार','prison':'कारागार','bench':'खण्डपीठ',
+  'advocate':'अधिवक्ता','lawyer':'अधिवक्ता','judge':'न्यायाधीश',
+  'police':'पुलिस','thana':'थाना',
+  // Occupations
+  'shopkeeper':'दुकानदार','farmer':'किसान','driver':'चालक','teacher':'शिक्षक',
+  'student':'छात्र','labourer':'मज़दूर','businessman':'व्यवसायी',
+  'service':'नौकरी','business':'व्यापार','trader':'व्यापारी',
+  // Common conjunctions
+  'and':'और','or':'या','of':'का','the':'','at':'में','in':'में',
+  'near':'के पास','opposite':'के सामने','behind':'के पीछे',
+  'son':'पुत्र','wife':'पत्नी','father':'पिता','mother':'माता',
+};
+// Reverse dict for HI → EN
+const EN_DICT = {};
+Object.entries(HI_DICT).forEach(([en, hi]) => { if (hi && !EN_DICT[hi]) EN_DICT[hi] = en.charAt(0).toUpperCase() + en.slice(1); });
+
+const CONS_MULTI = {
+  'shri':'श्री','shr':'श्र','chh':'छ','jny':'ज्ञ',
+  'kh':'ख','gh':'घ','ch':'च','jh':'झ',
+  'th':'थ','dh':'ध','ph':'फ','bh':'भ','sh':'श',
+};
+const CONS_SINGLE = {
+  'k':'क','g':'ग','c':'क','j':'ज','t':'त','d':'द',
+  'n':'न','p':'प','b':'ब','m':'म','y':'य','r':'र',
+  'l':'ल','v':'व','w':'व','s':'स','h':'ह','z':'ज़',
+  'f':'फ़','q':'क','x':'क्स',
+};
+const VOWEL_MULTI = ['aa','ee','ii','oo','uu','ai','au'];
+const VOWEL_INDEP = { 'aa':'आ','ee':'ई','ii':'ई','oo':'ऊ','uu':'ऊ','ai':'ऐ','au':'औ','a':'अ','e':'ए','i':'इ','o':'ओ','u':'उ' };
+const VOWEL_MATRA = { 'aa':'ा','ee':'ी','ii':'ी','oo':'ू','uu':'ू','ai':'ै','au':'ौ','a':'','e':'े','i':'ि','o':'ो','u':'ु' };
+
+function phoneticToHi(word) {
+  word = word.toLowerCase();
+  let result = '', i = 0, lastWasConsonant = false;
+  while (i < word.length) {
+    const isLast = (i === word.length - 1);
+    let matched = false;
+    // anusvara: n/m before a consonant → ं on prev vowel
+    if ((word[i] === 'n' || word[i] === 'm') && !lastWasConsonant && i > 0 && i < word.length - 1) {
+      const nc = word[i + 1], nt = word.slice(i + 1, i + 3);
+      const followedByCons = (CONS_SINGLE[nc] || CONS_MULTI[nt] || CONS_MULTI[nc + word[i + 2]]);
+      const followedByVow = ['a','e','i','o','u'].includes(nc);
+      if (followedByCons && !followedByVow) { result += 'ं'; i++; lastWasConsonant = false; continue; }
+    }
+    // multi-char consonants (longest first)
+    const multiKeys = Object.keys(CONS_MULTI).sort((a,b) => b.length - a.length);
+    for (const key of multiKeys) {
+      if (word.slice(i, i + key.length) === key) {
+        if (lastWasConsonant) result += '्';
+        result += CONS_MULTI[key]; i += key.length; lastWasConsonant = true; matched = true; break;
+      }
+    }
+    if (matched) continue;
+    for (const v of VOWEL_MULTI) {
+      if (word.slice(i, i + v.length) === v) {
+        if (lastWasConsonant) result += VOWEL_MATRA[v];
+        else result += VOWEL_INDEP[v];
+        i += v.length; lastWasConsonant = false; matched = true; break;
+      }
+    }
+    if (matched) continue;
+    if (CONS_SINGLE[word[i]]) {
+      if (lastWasConsonant) result += '्';
+      result += CONS_SINGLE[word[i]]; i++; lastWasConsonant = true; continue;
+    }
+    if (VOWEL_INDEP[word[i]]) {
+      let v = word[i];
+      if (v === 'a' && isLast && lastWasConsonant && word.length > 2) v = 'aa';
+      if (lastWasConsonant) result += VOWEL_MATRA[v]; else result += VOWEL_INDEP[v];
+      i++; lastWasConsonant = false; continue;
+    }
+    result += word[i]; i++;
+  }
+  return result;
+}
+
+function enToHi(text) {
+  if (!text || typeof text !== 'string') return text;
+  if (/[ऀ-ॿ]/.test(text)) return text;
+  return text.split(/(\s+|[,.;:()\-\/])/g).map(token => {
+    if (!token) return '';
+    if (/^\s+$/.test(token) || /^[,.;:()\-\/]+$/.test(token)) return token;
+    if (/^\d+$/.test(token)) return token;
+    const lower = token.toLowerCase();
+    if (HI_DICT[lower] !== undefined) return HI_DICT[lower];
+    return phoneticToHi(token);
+  }).join('');
+}
+
+const HI_TO_EN_MAP = {
+  'अ':'a','आ':'aa','इ':'i','ई':'ee','उ':'u','ऊ':'oo','ऋ':'ri',
+  'ए':'e','ऐ':'ai','ओ':'o','औ':'au',
+  'क':'k','ख':'kh','ग':'g','घ':'gh','ङ':'ng',
+  'च':'ch','छ':'chh','ज':'j','झ':'jh','ञ':'ny',
+  'ट':'t','ठ':'th','ड':'d','ढ':'dh','ण':'n',
+  'त':'t','थ':'th','द':'d','ध':'dh','न':'n',
+  'प':'p','फ':'ph','ब':'b','भ':'bh','म':'m',
+  'य':'y','र':'r','ल':'l','व':'v','श':'sh','ष':'sh',
+  'स':'s','ह':'h','ळ':'l',
+  'ा':'a','ि':'i','ी':'ee','ु':'u','ू':'oo','े':'e','ै':'ai','ो':'o','ौ':'au',
+  'ं':'n','ः':'h','ँ':'n','्':'',
+  'क़':'q','ज़':'z','फ़':'f','ड़':'r','ढ़':'rh',
+  '०':'0','१':'1','२':'2','३':'3','४':'4','५':'5','६':'6','७':'7','८':'8','९':'9',
+};
+function hiToEn(text) {
+  if (!text || typeof text !== 'string') return text;
+  if (!/[ऀ-ॿ]/.test(text)) return text;
+  return text.split(/(\s+|[,.;:()\-\/])/g).map(token => {
+    if (!token) return '';
+    if (/^\s+$/.test(token) || /^[,.;:()\-\/]+$/.test(token)) return token;
+    if (EN_DICT[token]) return EN_DICT[token];
+    let out = '';
+    for (const ch of token) out += (HI_TO_EN_MAP[ch] !== undefined ? HI_TO_EN_MAP[ch] : ch);
+    if (out.length) out = out.charAt(0).toUpperCase() + out.slice(1);
+    return out;
+  }).join('');
+}
+
+// xlit returns either plain text (if no conversion happened) or HTML span
+// (so the lawyer can spot auto-transliterated tokens and verify spelling).
+function xlit(text, targetLang) {
+  if (!text) return text;
+  const isDeva = /[ऀ-ॿ]/.test(text);
+  let out;
+  if (targetLang === 'hi') out = isDeva ? text : enToHi(text);
+  else out = isDeva ? hiToEn(text) : text;
+  if (out !== text) return `<span class="xlit">${out}</span>`;
+  return out;
+}
+
+// =========================================================================
 // Hindi rendering — JS mirror of templates/bail_application.py render_hi()
 // =========================================================================
 const HINDI_ORDINAL = ["", "प्रथम", "द्वितीय", "तृतीय", "चतुर्थ", "पंचम"];
@@ -520,6 +710,14 @@ function esc(s) {
   if (s === null || s === undefined) return '';
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
+
+// Transliterating placeholder: name/place fields appear in the document's
+// script regardless of what script the lawyer typed. Empty → grey placeholder.
+function xph(value, placeholder, lang) {
+  if (value && String(value).trim()) return xlit(value, lang);
+  return `<span class="ph">${placeholder || '............'}</span>`;
+}
+
 function ph(s, placeholder) {
   if (s && String(s).trim()) return esc(s);
   return `<span class="ph">${placeholder || '............'}</span>`;
@@ -584,7 +782,7 @@ function renderHi(a) {
   // Header
   html += `<div class="bd-header">
     <div class="bd-side">${esc(sideLabel)}</div>
-    <h1 class="bd-court">${esc(courtName)}</h1>
+    <h1 class="bd-court">${xlit(courtName, 'hi')}</h1>
     <div class="bd-caseno">विविध आपराधिक प्रकरण क्रमांक ${ph(caseNo, '.........')} / ${esc(caseYear)}</div>
   </div>`;
 
@@ -594,11 +792,11 @@ function renderHi(a) {
       <span class="bd-party-label">आवेदक</span>
       <span class="bd-party-dots">.............</span>
       <div class="bd-party-detail">
-        ${ph(a.applicant_name, 'नाम')} पुत्र श्री ${ph(a.applicant_father, 'पिता का नाम')},
+        ${xph(a.applicant_name, 'नाम', 'hi')} पुत्र श्री ${xph(a.applicant_father, 'पिता का नाम', 'hi')},
         आयु— ${ph(a.applicant_age, '..')} वर्ष,
-        व्यवसाय— ${ph(a.applicant_occupation, 'व्यवसाय')},
-        निवासी— ${ph(a.applicant_address, 'पता')},
-        जिला ${ph(district, 'जिला')} ${esc(stateName)}
+        व्यवसाय— ${xph(a.applicant_occupation, 'व्यवसाय', 'hi')},
+        निवासी— ${xph(a.applicant_address, 'पता', 'hi')},
+        जिला ${xph(district, 'जिला', 'hi')} ${xlit(stateName, 'hi')}
       </div>
     </div>
     <div class="bd-versus">विरूद्ध</div>
@@ -606,8 +804,8 @@ function renderHi(a) {
       <span class="bd-party-label">अनावेदक</span>
       <span class="bd-party-dots">.............</span>
       <div class="bd-party-detail">
-        ${esc(stateName)} राज्य द्वारा पुलिस थाना ${ph(a.police_station, 'थाना')}
-        जिला ${ph(district, 'जिला')} ${esc(stateName)}
+        ${xlit(stateName, 'hi')} राज्य द्वारा पुलिस थाना ${xph(a.police_station, 'थाना', 'hi')}
+        जिला ${xph(district, 'जिला', 'hi')} ${xlit(stateName, 'hi')}
       </div>
     </div>
   </div>`;
@@ -671,7 +869,7 @@ function renderHi(a) {
   if (a.fir_number || arrestDate) {
     const secStr = sectionsList.length ? sectionsList.map(esc).join(', ') : '...............';
     const arrestStr = arrestDate ? `दिनांक ${esc(arrestDate)} को` : 'दिनांक ......... को';
-    html += `<li><p>यहकि, उक्त रिपोर्ट पर से पुलिस थाना ${ph(a.police_station, 'थाना')} पर अपराध क्रं. ${ph(a.fir_number, '..../....')} अन्तर्गत ${secStr} के तहत आवेदक के विरुद्ध अपराध पंजीबद्ध किया गया जिसमें आवेदक को ${arrestStr} गिरफ्तार किया गया तथा पुलिस द्वारा अभियोग पत्र प्रस्तुत कर दिया गया।</p></li>`;
+    html += `<li><p>यहकि, उक्त रिपोर्ट पर से पुलिस थाना ${xph(a.police_station, 'थाना', 'hi')} पर अपराध क्रं. ${ph(a.fir_number, '..../....')} अन्तर्गत ${secStr} के तहत आवेदक के विरुद्ध अपराध पंजीबद्ध किया गया जिसमें आवेदक को ${arrestStr} गिरफ्तार किया गया तथा पुलिस द्वारा अभियोग पत्र प्रस्तुत कर दिया गया।</p></li>`;
   }
   if (a.cancellation_history) {
     html += `<li><p>यहकि, ${esc(a.cancellation_history)}</p></li>`;
@@ -706,7 +904,7 @@ function renderHi(a) {
     html += '<li><p>यहकि, प्रकरण में आवेदक के साथ अभियुक्त बनाये गये सहअभियुक्तगण को माननीय न्यायालय द्वारा जमानत का लाभ प्रदान किया जा चुका है। समानता के सिद्धान्त (parity) के आधार पर आवेदक भी जमानत का अधिकारी है।</p></li>';
   }
   if (grounds.local_resident) {
-    html += `<li><p>यहकि, आवेदक जिला ${ph(district, 'जिला')} ${esc(stateName)} का स्थायी निवासी होकर आवेदक के कहीं भागकर जाने अथवा अभियोजन साक्ष्य को प्रभावित करने की कोई संभावना नहीं है।</p></li>`;
+    html += `<li><p>यहकि, आवेदक जिला ${xph(district, 'जिला', 'hi')} ${xlit(stateName, 'hi')} का स्थायी निवासी होकर आवेदक के कहीं भागकर जाने अथवा अभियोजन साक्ष्य को प्रभावित करने की कोई संभावना नहीं है।</p></li>`;
   }
   if (a.grounds_medical) {
     html += `<li><p>यहकि, आवेदक ${esc(a.grounds_medical)}</p></li>`;
@@ -741,14 +939,14 @@ function renderHi(a) {
   // Signature
   html += `<div class="bd-sig">
     <div>
-      <div>स्थान: ${ph(a.place, 'स्थान')}</div>
+      <div>स्थान: ${xph(a.place, 'स्थान', 'hi')}</div>
       <div>दिनांक: ${ph(a.filing_date, '...........')}</div>
     </div>
     <div class="bd-sig-right">
       <div>प्रार्थी</div>
-      <div class="bd-sig-name">${ph(a.applicant_name, 'आवेदक का नाम')} (आवेदक)</div>
+      <div class="bd-sig-name">${xph(a.applicant_name, 'आवेदक का नाम', 'hi')} (आवेदक)</div>
       <div class="bd-sig-advocate">द्वारा अभिभाषक</div>
-      <div class="bd-sig-advname">(${ph(a.advocate_name, 'अभिभाषक का नाम')})</div>
+      <div class="bd-sig-advname">(${xph(a.advocate_name, 'अभिभाषक का नाम', 'hi')})</div>
     </div>
   </div>`;
 
@@ -772,19 +970,20 @@ function renderPriorBailSummary(priorBail) {
 
 function renderCrimeTable(d) {
   const secStr = (d.sections && d.sections.length) ? d.sections.join(', ') : '...............';
+  const lang = state.lang === 'en' ? 'en' : 'hi';
   return `<table class="bd-table">
-    <tr><th>अपराध संबंधी विवरण</th><th>विचाराधीन आदेश का विवरण</th></tr>
+    <tr><th>${lang === 'hi' ? 'अपराध संबंधी विवरण' : 'Crime Details'}</th><th>${lang === 'hi' ? 'विचाराधीन आदेश का विवरण' : 'Trial Court Details'}</th></tr>
     <tr><td>
-      अपराध क्रमांक ${ph(d.fir_number, '..../....')}<br>
-      पुलिस थाना— ${ph(d.ps_name, 'थाना')}<br>
-      जिला ${ph(d.district, 'जिला')}<br>
-      अन्तर्गत धारा ${esc(secStr)}<br>
-      गिरफ्तारी दिनांक — ${ph(d.arrest_date, '...........')}
+      ${lang === 'hi' ? 'अपराध क्रमांक' : 'FIR No.'} ${ph(d.fir_number, '..../....')}<br>
+      ${lang === 'hi' ? 'पुलिस थाना—' : 'P.S.—'} ${xph(d.ps_name, lang === 'hi' ? 'थाना' : 'PS', lang)}<br>
+      ${lang === 'hi' ? 'जिला' : 'District'} ${xph(d.district, lang === 'hi' ? 'जिला' : 'District', lang)}<br>
+      ${lang === 'hi' ? 'अन्तर्गत धारा' : 'Under Sections'} ${esc(secStr)}<br>
+      ${lang === 'hi' ? 'गिरफ्तारी दिनांक —' : 'Arrest Date —'} ${ph(d.arrest_date, '...........')}
     </td><td>
-      विशेष सत्रवाद कं. ${ph(d.trial_case_no, '..../....')}<br>
-      न्यायाधीश का नाम— श्री ${ph(d.trial_judge, 'न्यायाधीश')}<br>
-      न्यायालय का नाम— ${ph(d.trial_court, 'न्यायालय')}<br>
-      स्थान— ${ph(d.trial_location, 'स्थान')}
+      ${lang === 'hi' ? 'विशेष सत्रवाद कं.' : 'Sessions Case No.'} ${ph(d.trial_case_no, '..../....')}<br>
+      ${lang === 'hi' ? 'न्यायाधीश का नाम— श्री' : 'Judge—'} ${xph(d.trial_judge, lang === 'hi' ? 'न्यायाधीश' : 'Judge', lang)}<br>
+      ${lang === 'hi' ? 'न्यायालय का नाम—' : 'Court—'} ${xph(d.trial_court, lang === 'hi' ? 'न्यायालय' : 'Court', lang)}<br>
+      ${lang === 'hi' ? 'स्थान—' : 'Location—'} ${xph(d.trial_location, lang === 'hi' ? 'स्थान' : 'Location', lang)}
     </td></tr>
   </table>`;
 }
@@ -990,12 +1189,13 @@ function renderEn(a) {
   const grounds = a.grounds || {};
   const cust = custodyDays(a.arrest_date);
 
-  const ph_en = (v, fb) => (v && String(v).trim()) ? esc(v) : `<span class="ph">${fb}</span>`;
+  // Use the same xph helper but force lang='en' so Devanagari → Roman.
+  const ph_en = (v, fb) => (v && String(v).trim()) ? xlit(v, 'en') : `<span class="ph">${fb}</span>`;
 
   let html = '<div class="bail-doc">';
   html += `<div class="bd-header">
     <div class="bd-side">${isAnticipatory ? 'On behalf of Applicant' : 'On behalf of Detenu'}</div>
-    <h1 class="bd-court">${esc(courtName)}</h1>
+    <h1 class="bd-court">${xlit(courtName, 'en')}</h1>
     <div class="bd-caseno">Misc. Criminal Case No. ${ph_en(a.case_number, '_____')} / ${esc(a.case_year || new Date().getFullYear())}</div>
   </div>`;
 
@@ -1005,17 +1205,17 @@ function renderEn(a) {
       <span class="bd-party-dots">.............</span>
       <div class="bd-party-detail">
         ${ph_en(a.applicant_name, '[Name]')} s/o ${ph_en(a.applicant_father, '[Father]')},
-        Age— ${ph_en(a.applicant_age, '__')} years,
+        Age— ${ph(a.applicant_age, '__')} years,
         Occupation— ${ph_en(a.applicant_occupation, '[Occupation]')},
         R/o— ${ph_en(a.applicant_address, '[Address]')},
-        District ${ph_en(district, '[District]')} (${esc(stateName)})
+        District ${ph_en(district, '[District]')} (${xlit(stateName, 'en')})
       </div>
     </div>
     <div class="bd-versus">VERSUS</div>
     <div class="bd-party">
       <span class="bd-party-label">Respondent</span>
       <span class="bd-party-dots">.............</span>
-      <div class="bd-party-detail">State of ${esc(stateName)} through P.S. ${ph_en(a.police_station, '[Police Station]')}, District ${ph_en(district, '[District]')}</div>
+      <div class="bd-party-detail">State of ${xlit(stateName, 'en')} through P.S. ${ph_en(a.police_station, '[Police Station]')}, District ${ph_en(district, '[District]')}</div>
     </div>
   </div>`;
 
@@ -1082,7 +1282,7 @@ function renderEn(a) {
   }
   if (a.fir_number || a.arrest_date) {
     const arrestStr = a.arrest_date ? `on ${esc(a.arrest_date)}` : 'on ___________';
-    html += `<li><p>That FIR No. ${ph_en(a.fir_number,'__/__')} was registered at P.S. ${ph_en(a.police_station,'[PS]')} under Sections ${esc(secStr)} and the applicant was arrested ${arrestStr} and a charge-sheet has been filed.</p></li>`;
+    html += `<li><p>That FIR No. ${ph(a.fir_number,'__/__')} was registered at P.S. ${ph_en(a.police_station,'[PS]')} under Sections ${esc(secStr)} and the applicant was arrested ${arrestStr} and a charge-sheet has been filed.</p></li>`;
   }
   if (a.cancellation_history) html += `<li><p>That ${esc(a.cancellation_history)}</p></li>`;
   if (isSuccessive && a.lower_court_history) html += `<li><p>That ${esc(a.lower_court_history)}</p></li>`;
@@ -1097,7 +1297,7 @@ function renderEn(a) {
   }
   const hasCoAccusedBail = coAccused.some(c => (c.outcome||'').toLowerCase().includes('allowed') || (c.outcome||'').toLowerCase().includes('granted'));
   if (grounds.parity && hasCoAccusedBail) html += `<li><p>That the co-accused in this matter have already been granted bail by this Hon'ble Court. On the principle of parity, the applicant is also entitled to the same relief.</p></li>`;
-  if (grounds.local_resident) html += `<li><p>That the applicant is a permanent resident of District ${ph_en(district,'[District]')}, ${esc(stateName)} and there is no possibility of his absconding or tampering with prosecution evidence.</p></li>`;
+  if (grounds.local_resident) html += `<li><p>That the applicant is a permanent resident of District ${ph_en(district,'[District]')}, ${xlit(stateName, 'en')} and there is no possibility of his absconding or tampering with prosecution evidence.</p></li>`;
   if (a.grounds_medical) html += `<li><p>That the applicant ${esc(a.grounds_medical)} and requires proper medical attention which is not available in jail.</p></li>`;
   if (grounds.sole_breadwinner) html += `<li><p>That the applicant is the sole breadwinner of his family and his continued detention has caused serious economic hardship to his dependants.</p></li>`;
   if (grounds.no_prior_record) html += `<li><p>That the applicant has no previous criminal antecedents and is being tried for the first time.</p></li>`;
