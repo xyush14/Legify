@@ -716,9 +716,11 @@
       decompPromise = post('/api/decompose', { query: input }).catch(() => null);
     }
 
-    // Abort after 90s so the user gets a clear message instead of an endless spinner.
+    // Abort after 3 min so the user gets a clear message instead of an endless spinner.
+    // Sonnet w/ extended thinking + IK doc fetch + verification can legitimately
+    // take 30-90s on uncached queries; 90s was too tight and aborted real work.
     const abortCtrl = new AbortController();
-    const abortTimer = setTimeout(() => abortCtrl.abort(), 90000);
+    const abortTimer = setTimeout(() => abortCtrl.abort(), 180000);
 
     try {
       let resp;
@@ -768,7 +770,7 @@
       clearTimeout(abortTimer);
       target.innerHTML = '';
       const msg = err.name === 'AbortError'
-        ? 'query took over 90 seconds — the IK pipeline had too many uncached documents. try a more specific statute reference, or try again.'
+        ? 'query took over 3 minutes — try a more specific statute reference (e.g. "S.302 IPC self-defence" instead of "murder"), or just retry — the next attempt will hit the prompt cache and be ~3× faster.'
         : (err.message || 'request failed');
       target.appendChild(renderError(msg));
     } finally {

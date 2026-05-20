@@ -96,15 +96,20 @@ DEFAULT_TOP_PARAGRAPHS_PER_CASE = 2   # 4→2: shorter Phase 2 prompts, faster g
 # serial-wait penalty no longer scales linearly — bumping from 4 → 6
 # costs ~1 extra second total, not 6.
 import os as _os
-DEFAULT_MAX_NEW_FETCHES = int(_os.environ.get("MAX_IK_FETCHES", "4"))
-DEFAULT_MAX_NEW_FETCHES_HIDDEN = int(_os.environ.get("MAX_IK_FETCHES_HIDDEN", "6"))
+DEFAULT_MAX_NEW_FETCHES = int(_os.environ.get("MAX_IK_FETCHES", "3"))
+DEFAULT_MAX_NEW_FETCHES_HIDDEN = int(_os.environ.get("MAX_IK_FETCHES_HIDDEN", "4"))
+# 6 → 4 parallel: stays under IK's rate limit while keeping latency low.
 DEFAULT_IK_FETCH_PARALLELISM = int(_os.environ.get("IK_FETCH_PARALLELISM", "4"))
 
 # Skip the paid IK live search when free local sources (HF corpus 42K +
 # semantic cache + curated 42) have already filled the pool with enough
 # substantive cases. Counts ONLY ik-semantic + hf + curated; the IK live
 # branch hasn't run yet at this check.
-DEFAULT_SKIP_IK_SEARCH_IF_CASES_AT_LEAST = int(_os.environ.get("SKIP_IK_IF_CASES", "5"))
+# Lowered 5 → 3: IK live fetches were the dominant tail-latency source
+# (each uncached doc = 2-8s, 4 fetches = 8-30s). The HF 42K corpus
+# delivers good cases for most queries; only fall back to IK live when
+# we have <3 substantive matches.
+DEFAULT_SKIP_IK_SEARCH_IF_CASES_AT_LEAST = int(_os.environ.get("SKIP_IK_IF_CASES", "3"))
 
 # Structural priors for paragraph ranking. Higher = more likely to carry the ratio.
 STRUCTURE_PRIOR: dict[str, float] = {

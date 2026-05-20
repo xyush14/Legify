@@ -130,13 +130,16 @@ def call_claude_cached(
     else:
         system = system_prompt
 
-    # Per-model timeouts prevent indefinite hangs on cold Bedrock starts.
+    # Per-model timeouts prevent indefinite hangs but allow real-world latency.
+    # Sonnet with 3500 thinking tokens + IK doc fetches + heavy system prompt
+    # legitimately runs 30-90s on cold cache; 150s gives headroom for the
+    # 99th-percentile case while still failing fast on genuine hangs.
     if "haiku" in model.lower():
-        _timeout = 35.0
+        _timeout = 45.0
     elif "sonnet" in model.lower():
-        _timeout = 90.0
-    else:
         _timeout = 150.0
+    else:
+        _timeout = 180.0
 
     create_kwargs = dict(
         model=model,

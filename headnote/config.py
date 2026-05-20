@@ -137,11 +137,12 @@ elif _thinking_env in {"1", "true", "yes"}:
     ENABLE_THINKING = True
 else:
     ENABLE_THINKING = True   # default ON for quality
-# 5000 (up from 3000) — gives Sonnet enough scratch space to replace what
-# Opus brought to four-dimension scoring + multi-case synthesis. Sonnet
-# with 5000 thinking tokens beats Sonnet@3000 on benchmark queries while
-# still costing ~₹3 less per query than Opus.
-THINKING_BUDGET_TOKENS = int(os.environ.get("THINKING_BUDGET_TOKENS", "5000"))
+# 3500 — sweet spot between quality and latency. 3000 was the original
+# default; 5000 added quality at the cost of ~10s extra latency per query
+# which pushed real queries past the frontend 90s abort. 3500 gives Sonnet
+# enough scratch space to replace Opus on four-dimension scoring while
+# keeping p95 latency under 90s.
+THINKING_BUDGET_TOKENS = int(os.environ.get("THINKING_BUDGET_TOKENS", "3500"))
 
 PREFILTER_TOP_K = int(os.environ.get("PREFILTER_TOP_K", "20"))   # 12→20: wider pool for the LLM to discriminate from
 
