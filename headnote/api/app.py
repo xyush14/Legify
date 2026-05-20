@@ -1393,17 +1393,23 @@ async def all_exception_handler(request: Request, exc: Exception):
     # lawyers don't see "429 RESOURCE_EXHAUSTED" or "credit balance is too low".
     msg = str(exc)
     lower = msg.lower()
+    # AWS Bedrock — Marketplace payment instrument not on file (very common
+    # on Indian AWS accounts that have credits but no card linked).
+    if "invalid_payment_instrument" in lower or "marketplace subscription" in lower or "valid payment instrument" in lower:
+        return JSONResponse(status_code=503, content={
+            "error": "AWS Bedrock isn't ready yet — go to AWS Console → Billing → Payment methods and add a card (credits will be used first, no charge). Then AWS Console → Bedrock → Model access → subscribe to Claude Sonnet + Haiku."
+        })
     if "rate_limit" in lower or "ratelimit" in lower or "429" in msg or "rate limit" in lower:
         return JSONResponse(status_code=503, content={
             "error": "The AI service is busy — please retry in 10-15 seconds. (Anthropic rate limit hit.)"
         })
     if "credit balance" in lower or "insufficient credit" in lower or "out of credits" in lower:
         return JSONResponse(status_code=503, content={
-            "error": "Server billing needs attention — please contact support. (Anthropic credits exhausted.)"
+            "error": "Anthropic API has no balance and Bedrock isn't set up — see admin to enable AWS Bedrock or add Anthropic credits."
         })
-    if "resource_exhausted" in lower or "gemini" in lower or "google" in lower:
+    if "resource_exhausted" in lower or ("gemini" in lower and "quota" in lower):
         return JSONResponse(status_code=503, content={
-            "error": "Fallback model quota exceeded. Please retry in 30 seconds."
+            "error": "Fallback model quota exceeded. Set USE_BEDROCK=true and configure AWS Bedrock to use AWS credits instead."
         })
     if "model identifier" in lower or "model not found" in lower:
         return JSONResponse(status_code=500, content={
