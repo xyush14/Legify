@@ -994,7 +994,7 @@
     }
     el.innerHTML = `<span class="plan-badge__label">${esc(label)}</span>
                     <a href="/pricing" class="plan-badge__upgrade">upgrade →</a>`;
-    if (sub.plan === 'yearly') el.querySelector('.plan-badge__upgrade').style.display = 'none';
+    if (sub.plan === 'yearly' || sub.plan === 'founder') el.querySelector('.plan-badge__upgrade').style.display = 'none';
   }
 
   function renderUsageBar() {

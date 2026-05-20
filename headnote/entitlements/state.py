@@ -64,7 +64,10 @@ def _available_upgrades(current: str, weekly_used: bool) -> list[str]:
     """Which paid plans can this user buy right now?
 
     Weekly is suppressed if already used. Current plan + lower plans are excluded.
+    Founder accounts never need to upgrade.
     """
+    if current == "founder":
+        return []
     ladder = ["demo", "weekly", "monthly", "yearly"]
     try:
         idx = ladder.index(current)

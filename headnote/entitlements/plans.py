@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 
-PlanName = Literal["demo", "weekly", "monthly", "yearly"]
+PlanName = Literal["demo", "weekly", "monthly", "yearly", "founder"]
 Period = Literal["lifetime", "day", "week", "month", "year"]
 
 
@@ -151,11 +151,39 @@ YEARLY = Plan(
 )
 
 
+# Internal-only plan for founder accounts. NOT shown on the pricing page,
+# NOT sellable. Granted via the FOUNDER_EMAILS whitelist in config.py.
+# Every limit is None (no metering enforced), every feature unlocked,
+# duration_days deliberately set to 100 years so /api/me never expires.
+FOUNDER = Plan(
+    name="founder",
+    display_name="Founder",
+    price_inr=0,
+    duration_days=36500,
+    limits=[
+        PlanLimit("deep_search",   None, "year"),
+        PlanLimit("draft",         None, "year"),
+        PlanLimit("judgment_read", None, "year"),
+        PlanLimit("export_pdf",    None, "year"),
+        PlanLimit("hindi_export",  None, "year"),
+    ],
+    features={
+        "export_pdf":        True,
+        "hindi_export":      True,
+        "history":           "unlimited",
+        "support":           "whatsapp",
+        "custom_letterhead": True,
+        "priority_queue":    True,
+    },
+)
+
+
 PLANS: dict[str, Plan] = {
     "demo":    DEMO,
     "weekly":  WEEKLY,
     "monthly": MONTHLY,
     "yearly":  YEARLY,
+    "founder": FOUNDER,
 }
 
 

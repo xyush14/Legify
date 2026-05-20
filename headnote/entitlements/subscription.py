@@ -13,11 +13,32 @@ import logging
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
+from headnote import config
 from headnote.entitlements import _supabase
+from headnote.entitlements.auth import current_user_email
 from headnote.entitlements.plans import PLANS, get_plan
 
 
 log = logging.getLogger(__name__)
+
+
+def _founder_sub(user_id: str) -> dict:
+    """Synthetic founder subscription — never persisted, never expires.
+    Returned in place of the DB row when the request's email is in
+    config.FOUNDER_EMAILS."""
+    now = datetime.now(timezone.utc)
+    far_future = now + timedelta(days=PLANS["founder"].duration_days)
+    return {
+        "user_id": user_id,
+        "plan": "founder",
+        "status": "active",
+        "period_start": now.isoformat(),
+        "period_end": far_future.isoformat(),
+        "payment_provider": "founder_grant",
+        "payment_ref": None,
+        "weekly_trial_used": False,
+        "cancelled_at": None,
+    }
 
 
 def get_active_subscription(user_id: str) -> dict | None:
@@ -26,7 +47,15 @@ def get_active_subscription(user_id: str) -> dict | None:
 
     If no row exists at all (first call, trigger hasn't fired yet), creates
     a Demo row idempotently.
+
+    Founder bypass: if the request's authenticated email (set by auth.py via
+    contextvar) is in config.FOUNDER_EMAILS, returns a synthetic founder sub
+    without touching the DB. Side effect: founder usage is NOT metered.
     """
+    email = current_user_email.get()
+    if email and email in config.FOUNDER_EMAILS:
+        return _founder_sub(user_id)
+
     rows = _supabase.select(
         "subscriptions",
         params={"user_id": f"eq.{user_id}", "select": "*", "limit": "1"},

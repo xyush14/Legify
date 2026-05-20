@@ -25,6 +25,7 @@ app keeps working with a loud warning in logs.
 
 from __future__ import annotations
 
+import contextvars
 import logging
 import os
 from dataclasses import dataclass
@@ -36,6 +37,14 @@ from fastapi import Header, HTTPException, status
 
 
 log = logging.getLogger(__name__)
+
+
+# Per-request context: lets downstream modules (subscription, gates) see the
+# authenticated user's email without threading it through every signature.
+# Set by get_current_user / optional_user after the JWT decode succeeds.
+current_user_email: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+    "current_user_email", default=None,
+)
 
 
 SUPABASE_URL          = os.environ.get("SUPABASE_URL", "").rstrip("/")
@@ -196,7 +205,10 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     claims = _decode_token(token)
-    return _user_from_claims(claims)
+    user = _user_from_claims(claims)
+    # Expose email to downstream modules (e.g. founder bypass in subscription).
+    current_user_email.set((user.email or "").lower() if user.email else None)
+    return user
 
 
 def optional_user(
@@ -208,9 +220,12 @@ def optional_user(
     """
     token = _extract_bearer(authorization)
     if not token:
+        current_user_email.set(None)
         return None
     try:
         claims = _decode_token(token)
-        return _user_from_claims(claims)
+        user = _user_from_claims(claims)
+        current_user_email.set((user.email or "").lower() if user.email else None)
+        return user
     except HTTPException:
         return None
