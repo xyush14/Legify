@@ -153,6 +153,16 @@
 
   /* print/PDF: hide form when printing */
   @media print { .topbar, .form-pane { display: none; } .split { grid-template-columns: 1fr; } .doc-pane { background: #fff; padding: 0; } .doc-page { box-shadow: none; padding: 0; } }
+
+  /* Language toggle pill (same as §138 drafter) */
+  .lang-toggle { display: inline-flex; background: var(--bg); border: 1px solid var(--line-strong); border-radius: 100px; padding: 3px; font-size: 11px; font-weight: 600; }
+  .lang-toggle button { border: none; background: transparent; padding: 5px 10px; border-radius: 100px; color: var(--muted); cursor: pointer; transition: all 0.18s ease; font-family: inherit; font-size: inherit; font-weight: inherit; }
+  .lang-toggle button.active { background: var(--ink); color: var(--bg); }
+  /* Devanagari font mode */
+  body.lang-hi { font-family: 'Noto Sans Devanagari', 'Inter', sans-serif; }
+  body.lang-hi .field label, body.lang-hi .section__eyebrow, body.lang-hi .section__title { font-family: 'Noto Sans Devanagari', sans-serif; }
+  body.lang-hi .field input, body.lang-hi .field select, body.lang-hi .field textarea, body.lang-hi .trow input, body.lang-hi .trow select { font-family: 'Noto Sans Devanagari', 'Inter', sans-serif; }
+  body.lang-hi .checkboxes label, body.lang-hi .btn, body.lang-hi .topbar__title, body.lang-hi .topbar__sub { font-family: 'Noto Sans Devanagari', sans-serif; }
 </style>
 </head>
 <body>
@@ -167,9 +177,12 @@
   </div>
   <div class="topbar__right">
     <span class="savestate" id="savestate"></span>
-    <button class="btn" id="btn-lang">हिन्दी</button>
+    <div class="lang-toggle" role="group" aria-label="language">
+      <button id="lang-en">EN</button>
+      <button id="lang-hi" class="active">हिं</button>
+    </div>
     <button class="btn" id="btn-pdf">⬇ PDF</button>
-    <button class="btn" id="btn-print">🖨 Print</button>
+    <button class="btn" id="btn-print" data-en="🖨 Print" data-hi="🖨 प्रिंट">🖨 प्रिंट</button>
     <button class="btn btn--primary" id="btn-share">📱 WhatsApp</button>
   </div>
 </div>
@@ -180,38 +193,41 @@
 
     <!-- OCR -->
     <div class="section">
-      <div class="section__eyebrow">SHORTCUT</div>
-      <h3 class="section__title">FIR का फोटो अपलोड करें</h3>
+      <div class="section__eyebrow" data-en="SHORTCUT" data-hi="शॉर्टकट">शॉर्टकट</div>
+      <h3 class="section__title" data-en="Upload FIR Photo" data-hi="FIR का फोटो अपलोड करें">FIR का फोटो अपलोड करें</h3>
       <label class="ocr-zone" id="ocr-zone">
         <input type="file" id="ocr-file" accept="image/*,application/pdf">
         <div class="ocr-zone__icon">📷</div>
-        <div class="ocr-zone__title" id="ocr-title">Tap to take a photo or upload</div>
-        <div class="ocr-zone__sub" id="ocr-sub">JPEG, PNG, or PDF · AI extracts FIR no, sections, accused, narrative</div>
+        <div class="ocr-zone__title" id="ocr-title" data-en="Tap to take a photo or upload" data-hi="FIR की फोटो खींचें या अपलोड करें">FIR की फोटो खींचें या अपलोड करें</div>
+        <div class="ocr-zone__sub" id="ocr-sub" data-en="JPEG, PNG, or PDF · AI extracts FIR no, sections, accused, narrative" data-hi="JPEG, PNG, या PDF · AI स्वतः FIR क्रमांक, धाराएं, अभियुक्त, तथ्य निकालेगा">JPEG, PNG, या PDF · AI स्वतः FIR क्रमांक, धाराएं, अभियुक्त, तथ्य निकालेगा</div>
       </label>
       <div id="ocr-result"></div>
     </div>
 
     <!-- 1. Court & Application Type -->
     <div class="section">
-      <div class="section__eyebrow">SECTION 1</div>
-      <h3 class="section__title">न्यायालय एवं आवेदन का प्रकार</h3>
+      <div class="section__eyebrow" data-en="SECTION 1" data-hi="अनुभाग 1">अनुभाग 1</div>
+      <h3 class="section__title" data-en="Court &amp; Application Type" data-hi="न्यायालय एवं आवेदन का प्रकार">न्यायालय एवं आवेदन का प्रकार</h3>
       <div class="field">
-        <label>न्यायालय (Court)</label>
-        <input type="text" data-field="court_name" placeholder="माननीय उच्च न्यायालय मध्यप्रदेश खण्डपीठ, ग्वालियर">
+        <label data-en="Court" data-hi="न्यायालय">न्यायालय</label>
+        <input type="text" data-field="court_name"
+          data-ph-en="MP High Court Gwalior Bench"
+          data-ph-hi="माननीय उच्च न्यायालय मध्यप्रदेश खण्डपीठ, ग्वालियर"
+          placeholder="माननीय उच्च न्यायालय मध्यप्रदेश खण्डपीठ, ग्वालियर">
       </div>
       <div class="field field--row">
         <div class="field">
-          <label>केस संख्या / Case No.</label>
-          <input type="text" data-field="case_number" placeholder="......">
+          <label data-en="Case No." data-hi="केस संख्या">केस संख्या</label>
+          <input type="text" data-field="case_number" data-ph-en="......" data-ph-hi="......" placeholder="......">
         </div>
         <div class="field">
-          <label>वर्ष / Year</label>
-          <input type="text" data-field="case_year" placeholder="2025">
+          <label data-en="Year" data-hi="वर्ष">वर्ष</label>
+          <input type="text" data-field="case_year" data-ph-en="2025" data-ph-hi="2025" placeholder="2025">
         </div>
       </div>
       <div class="field field--row">
         <div class="field">
-          <label>धारा (Bail Section)</label>
+          <label data-en="Bail Section" data-hi="धारा">धारा</label>
           <select data-field="bail_section">
             <option value="439">439 CrPC (Sessions/HC — regular)</option>
             <option value="437">437 CrPC (Magistrate — regular)</option>
@@ -219,7 +235,7 @@
           </select>
         </div>
         <div class="field">
-          <label>कौनसा आवेदन</label>
+          <label data-en="Application No." data-hi="कौनसा आवेदन">कौनसा आवेदन</label>
           <select data-field="application_number">
             <option value="1">First (प्रथम)</option>
             <option value="2">Second (द्वितीय)</option>
@@ -232,105 +248,105 @@
 
     <!-- 2. Applicant -->
     <div class="section">
-      <div class="section__eyebrow">SECTION 2</div>
-      <h3 class="section__title">आवेदक (Applicant)</h3>
+      <div class="section__eyebrow" data-en="SECTION 2" data-hi="अनुभाग 2">अनुभाग 2</div>
+      <h3 class="section__title" data-en="Applicant" data-hi="आवेदक">आवेदक</h3>
       <div class="field field--row">
         <div class="field">
-          <label>नाम / Name</label>
-          <input type="text" data-field="applicant_name" placeholder="अनिल मोर्य">
+          <label data-en="Name" data-hi="नाम">नाम</label>
+          <input type="text" data-field="applicant_name" data-ph-en="Anil Morya" data-ph-hi="अनिल मोर्य" placeholder="अनिल मोर्य">
         </div>
         <div class="field">
-          <label>पिता / Father</label>
-          <input type="text" data-field="applicant_father" placeholder="श्री रामजी दास मोर्य">
+          <label data-en="Father's Name" data-hi="पिता">पिता</label>
+          <input type="text" data-field="applicant_father" data-ph-en="Sri Ramji Das Morya" data-ph-hi="श्री रामजी दास मोर्य" placeholder="श्री रामजी दास मोर्य">
         </div>
       </div>
       <div class="field field--row">
         <div class="field">
-          <label>आयु / Age</label>
-          <input type="text" data-field="applicant_age" placeholder="47">
+          <label data-en="Age" data-hi="आयु">आयु</label>
+          <input type="text" data-field="applicant_age" data-ph-en="47" data-ph-hi="47" placeholder="47">
         </div>
         <div class="field">
-          <label>व्यवसाय / Occupation</label>
-          <input type="text" data-field="applicant_occupation" placeholder="दुकानदारी">
+          <label data-en="Occupation" data-hi="व्यवसाय">व्यवसाय</label>
+          <input type="text" data-field="applicant_occupation" data-ph-en="Shopkeeper" data-ph-hi="दुकानदारी" placeholder="दुकानदारी">
         </div>
       </div>
       <div class="field">
-        <label>पता / Address</label>
-        <input type="text" data-field="applicant_address" placeholder="गोला का मंदिर">
+        <label data-en="Address" data-hi="पता">पता</label>
+        <input type="text" data-field="applicant_address" data-ph-en="Gola Ka Mandir" data-ph-hi="गोला का मंदिर" placeholder="गोला का मंदिर">
       </div>
       <div class="field field--row">
         <div class="field">
-          <label>जिला / District</label>
-          <input type="text" data-field="district" placeholder="ग्वालियर">
+          <label data-en="District" data-hi="जिला">जिला</label>
+          <input type="text" data-field="district" data-ph-en="Gwalior" data-ph-hi="ग्वालियर" placeholder="ग्वालियर">
         </div>
         <div class="field">
-          <label>राज्य / State</label>
-          <input type="text" data-field="state_name" placeholder="मध्य प्रदेश" value="मध्य प्रदेश">
+          <label data-en="State" data-hi="राज्य">राज्य</label>
+          <input type="text" data-field="state_name" data-ph-en="Madhya Pradesh" data-ph-hi="मध्य प्रदेश" placeholder="मध्य प्रदेश" value="मध्य प्रदेश">
         </div>
       </div>
       <div class="field" id="field-current-jail">
-        <label>वर्तमान कारागार / Current Jail</label>
-        <input type="text" data-field="current_jail" placeholder="केन्द्रीय कारागार ग्वालियर">
+        <label data-en="Current Jail" data-hi="वर्तमान कारागार">वर्तमान कारागार</label>
+        <input type="text" data-field="current_jail" data-ph-en="Central Jail Gwalior" data-ph-hi="केन्द्रीय कारागार ग्वालियर" placeholder="केन्द्रीय कारागार ग्वालियर">
       </div>
     </div>
 
     <!-- 3. Crime -->
     <div class="section">
-      <div class="section__eyebrow">SECTION 3</div>
-      <h3 class="section__title">अपराध (The Crime / FIR)</h3>
+      <div class="section__eyebrow" data-en="SECTION 3" data-hi="अनुभाग 3">अनुभाग 3</div>
+      <h3 class="section__title" data-en="The Crime / FIR" data-hi="अपराध (FIR)">अपराध (FIR)</h3>
       <div class="field field--row">
         <div class="field">
-          <label>FIR क्रमांक</label>
-          <input type="text" data-field="fir_number" placeholder="95/2016">
+          <label data-en="FIR Number" data-hi="FIR क्रमांक">FIR क्रमांक</label>
+          <input type="text" data-field="fir_number" data-ph-en="95/2016" data-ph-hi="95/2016" placeholder="95/2016">
         </div>
         <div class="field">
-          <label>FIR दिनांक</label>
-          <input type="text" data-field="fir_date" placeholder="DD.MM.YYYY">
+          <label data-en="FIR Date" data-hi="FIR दिनांक">FIR दिनांक</label>
+          <input type="text" data-field="fir_date" data-ph-en="DD.MM.YYYY" data-ph-hi="DD.MM.YYYY" placeholder="DD.MM.YYYY">
         </div>
       </div>
       <div class="field">
-        <label>पुलिस थाना / Police Station</label>
-        <input type="text" data-field="police_station" placeholder="गोला का मंदिर">
+        <label data-en="Police Station" data-hi="पुलिस थाना">पुलिस थाना</label>
+        <input type="text" data-field="police_station" data-ph-en="Gola Ka Mandir" data-ph-hi="गोला का मंदिर" placeholder="गोला का मंदिर">
       </div>
       <div class="field">
-        <label>धाराएं / Sections (comma-separated)</label>
-        <input type="text" data-field="sections_str" placeholder="302 IPC, 147 IPC, 25 Arms Act">
-        <div class="field__hint">e.g., "302 IPC, 396 IPC, 25 Arms Act, 13 Dacoity Act"</div>
+        <label data-en="Sections (comma-separated)" data-hi="धाराएं (अल्पविराम से अलग)">धाराएं (अल्पविराम से अलग)</label>
+        <input type="text" data-field="sections_str" data-ph-en="302 IPC, 147 IPC, 25 Arms Act" data-ph-hi="302 IPC, 147 IPC, 25 Arms Act" placeholder="302 IPC, 147 IPC, 25 Arms Act">
+        <div class="field__hint" data-en='e.g. "302 IPC, 396 IPC, 25 Arms Act"' data-hi='जैसे: "302 IPC, 396 IPC, 25 Arms Act"'>जैसे: "302 IPC, 396 IPC, 25 Arms Act"</div>
       </div>
       <div class="field" id="field-arrest-date">
-        <label>गिरफ्तारी दिनांक / Arrest Date</label>
-        <input type="text" data-field="arrest_date" placeholder="DD.MM.YYYY">
+        <label data-en="Arrest Date" data-hi="गिरफ्तारी दिनांक">गिरफ्तारी दिनांक</label>
+        <input type="text" data-field="arrest_date" data-ph-en="DD.MM.YYYY" data-ph-hi="DD.MM.YYYY" placeholder="DD.MM.YYYY">
         <div class="field__hint" id="custody-hint"></div>
       </div>
     </div>
 
     <!-- 4. Trial Court (only for HC successive) -->
     <div class="section" id="section-trial-court">
-      <div class="section__eyebrow">SECTION 4</div>
-      <h3 class="section__title">विचारण न्यायालय (Trial Court Below)</h3>
+      <div class="section__eyebrow" data-en="SECTION 4" data-hi="अनुभाग 4">अनुभाग 4</div>
+      <h3 class="section__title" data-en="Trial Court Below" data-hi="विचारण न्यायालय">विचारण न्यायालय</h3>
       <div class="field field--row">
         <div class="field">
-          <label>सत्र / Sessions Case No.</label>
-          <input type="text" data-field="trial_case_no" placeholder="27/2016">
+          <label data-en="Sessions Case No." data-hi="सत्र केस नं.">सत्र केस नं.</label>
+          <input type="text" data-field="trial_case_no" data-ph-en="27/2016" data-ph-hi="27/2016" placeholder="27/2016">
         </div>
         <div class="field">
-          <label>न्यायाधीश का नाम</label>
-          <input type="text" data-field="trial_judge" placeholder="श्री सुदीप कुमार श्रीवास्तव">
+          <label data-en="Judge's Name" data-hi="न्यायाधीश का नाम">न्यायाधीश का नाम</label>
+          <input type="text" data-field="trial_judge" data-ph-en="Sri Sudeep Kumar Srivastava" data-ph-hi="श्री सुदीप कुमार श्रीवास्तव" placeholder="श्री सुदीप कुमार श्रीवास्तव">
         </div>
       </div>
       <div class="field">
-        <label>न्यायालय का नाम</label>
-        <input type="text" data-field="trial_court" placeholder="द्वितीय अपर सत्र न्यायाधीश एवं विशेष न्यायाधीश (डकैती)">
+        <label data-en="Court Name" data-hi="न्यायालय का नाम">न्यायालय का नाम</label>
+        <input type="text" data-field="trial_court" data-ph-en="2nd Additional Sessions Judge (Dacoity)" data-ph-hi="द्वितीय अपर सत्र न्यायाधीश एवं विशेष न्यायाधीश (डकैती)" placeholder="द्वितीय अपर सत्र न्यायाधीश एवं विशेष न्यायाधीश (डकैती)">
       </div>
     </div>
 
     <!-- 5. Prior Bail History -->
     <div class="section" id="section-prior-bail">
-      <div class="section__eyebrow">SECTION 5</div>
+      <div class="section__eyebrow" data-en="SECTION 5" data-hi="अनुभाग 5">अनुभाग 5</div>
       <h3 class="section__title">
-        पूर्व जमानत आवेदन
+        <span data-en="Prior Bail Applications" data-hi="पूर्व जमानत आवेदन">पूर्व जमानत आवेदन</span>
         <div class="section__title-actions">
-          <button class="section__title-btn" onclick="addPriorBail()">+ Add</button>
+          <button class="section__title-btn" onclick="addPriorBail()" data-en="+ Add" data-hi="+ जोड़ें">+ जोड़ें</button>
         </div>
       </h3>
       <div class="table-rows" id="prior-bail-rows"></div>
@@ -338,11 +354,11 @@
 
     <!-- 6. Co-accused (parity) -->
     <div class="section">
-      <div class="section__eyebrow">SECTION 6 · PARITY GROUND</div>
+      <div class="section__eyebrow" data-en="SECTION 6 · PARITY" data-hi="अनुभाग 6 · समानता आधार">अनुभाग 6 · समानता आधार</div>
       <h3 class="section__title">
-        सहअभियुक्तगण के जमानत आवेदन
+        <span data-en="Co-accused Bail Applications" data-hi="सहअभियुक्तगण के जमानत आवेदन">सहअभियुक्तगण के जमानत आवेदन</span>
         <div class="section__title-actions">
-          <button class="section__title-btn" onclick="addCoAccused()">+ Add</button>
+          <button class="section__title-btn" onclick="addCoAccused()" data-en="+ Add" data-hi="+ जोड़ें">+ जोड़ें</button>
         </div>
       </h3>
       <div class="table-rows" id="co-accused-rows"></div>
@@ -350,79 +366,97 @@
 
     <!-- 7. Facts -->
     <div class="section">
-      <div class="section__eyebrow">SECTION 7</div>
-      <h3 class="section__title">प्रकरण के संक्षिप्त तथ्य (Brief Facts)</h3>
+      <div class="section__eyebrow" data-en="SECTION 7" data-hi="अनुभाग 7">अनुभाग 7</div>
+      <h3 class="section__title" data-en="Brief Facts" data-hi="प्रकरण के संक्षिप्त तथ्य">प्रकरण के संक्षिप्त तथ्य</h3>
       <div class="field">
-        <label>FIR के अनुसार तथ्य (Para 5.1)</label>
-        <textarea data-field="facts_narrative" rows="6" placeholder="मैं, मेरा लड़का मंगल सिंह और शंकर सिंह एक प्रोग्राम में पैदल पैदल घर से जा रहे थे... [Upload FIR photo above to auto-fill]"></textarea>
+        <label data-en="FIR narrative (Para 5.1)" data-hi="FIR के अनुसार तथ्य (Para 5.1)">FIR के अनुसार तथ्य (Para 5.1)</label>
+        <textarea data-field="facts_narrative" rows="6"
+          data-ph-en="The complainant's FIR narrative... [Upload FIR photo above to auto-fill]"
+          data-ph-hi="मैं, मेरा लड़का मंगल सिंह और शंकर सिंह एक प्रोग्राम में पैदल पैदल घर से जा रहे थे... [ऊपर FIR फोटो अपलोड करें]"
+          placeholder="मैं, मेरा लड़का मंगल सिंह और शंकर सिंह एक प्रोग्राम में पैदल पैदल घर से जा रहे थे... [ऊपर FIR फोटो अपलोड करें]"></textarea>
       </div>
       <div class="field">
-        <label>निरस्तीकरण इतिहास (Cancellation history, if any — Para 5.3)</label>
-        <textarea data-field="cancellation_history" rows="3" placeholder="यहकि, फरियादी पक्ष द्वारा आवेदक की जमानत निरस्ती हेतु ... (optional)"></textarea>
+        <label data-en="Cancellation history, if any (Para 5.3)" data-hi="निरस्तीकरण इतिहास (Para 5.3)">निरस्तीकरण इतिहास (Para 5.3)</label>
+        <textarea data-field="cancellation_history" rows="3"
+          data-ph-en="(optional) The complainant filed an application for cancellation of bail..."
+          data-ph-hi="यहकि, फरियादी पक्ष द्वारा आवेदक की जमानत निरस्ती हेतु ... (वैकल्पिक)"
+          placeholder="यहकि, फरियादी पक्ष द्वारा आवेदक की जमानत निरस्ती हेतु ... (वैकल्पिक)"></textarea>
       </div>
       <div class="field">
-        <label>अधीनस्थ न्यायालय का इतिहास (Para 5.4)</label>
-        <textarea data-field="lower_court_history" rows="2" placeholder="(optional — auto-filled for successive applications)"></textarea>
+        <label data-en="Lower court history (Para 5.4)" data-hi="अधीनस्थ न्यायालय का इतिहास (Para 5.4)">अधीनस्थ न्यायालय का इतिहास (Para 5.4)</label>
+        <textarea data-field="lower_court_history" rows="2"
+          data-ph-en="(optional — auto-filled for successive applications)"
+          data-ph-hi="(वैकल्पिक — द्वितीय/तृतीय आवेदन हेतु स्वतः भरेगा)"
+          placeholder="(वैकल्पिक — द्वितीय/तृतीय आवेदन हेतु स्वतः भरेगा)"></textarea>
       </div>
     </div>
 
     <!-- 8. Grounds -->
     <div class="section">
-      <div class="section__eyebrow">SECTION 8</div>
-      <h3 class="section__title">आधार (Grounds)</h3>
+      <div class="section__eyebrow" data-en="SECTION 8" data-hi="अनुभाग 8">अनुभाग 8</div>
+      <h3 class="section__title" data-en="Grounds" data-hi="आधार">आधार</h3>
       <div class="checkboxes">
-        <label><input type="checkbox" data-ground="innocence" checked> आवेदक निर्दोष है, झूठा फंसाया गया है</label>
-        <label><input type="checkbox" data-ground="long_custody"> लंबी न्यायिक निरोध (Long custody)</label>
-        <label><input type="checkbox" data-ground="trial_delay"> ट्रायल में विलंब (Trial delay)</label>
-        <label><input type="checkbox" data-ground="parity"> सहअभियुक्त को जमानत मिल चुकी (Parity)</label>
-        <label><input type="checkbox" data-ground="local_resident" checked> स्थायी निवासी, फरार होने की संभावना नहीं</label>
-        <label><input type="checkbox" data-ground="no_prior_record"> कोई पूर्व आपराधिक इतिहास नहीं</label>
-        <label><input type="checkbox" data-ground="sole_breadwinner"> परिवार का एकमात्र कमाने वाला</label>
+        <label><input type="checkbox" data-ground="innocence" checked> <span data-en="Applicant is innocent, falsely implicated" data-hi="आवेदक निर्दोष है, झूठा फंसाया गया है">आवेदक निर्दोष है, झूठा फंसाया गया है</span></label>
+        <label><input type="checkbox" data-ground="long_custody"> <span data-en="Long custody (Article 21)" data-hi="लंबी न्यायिक निरोध (Long custody)">लंबी न्यायिक निरोध (Long custody)</span></label>
+        <label><input type="checkbox" data-ground="trial_delay"> <span data-en="Trial delay — witnesses pending" data-hi="ट्रायल में विलंब (Trial delay)">ट्रायल में विलंब (Trial delay)</span></label>
+        <label><input type="checkbox" data-ground="parity"> <span data-en="Parity — co-accused granted bail" data-hi="सहअभियुक्त को जमानत मिल चुकी (Parity)">सहअभियुक्त को जमानत मिल चुकी (Parity)</span></label>
+        <label><input type="checkbox" data-ground="local_resident" checked> <span data-en="Local resident, no flight risk" data-hi="स्थायी निवासी, फरार होने की संभावना नहीं">स्थायी निवासी, फरार होने की संभावना नहीं</span></label>
+        <label><input type="checkbox" data-ground="no_prior_record"> <span data-en="No prior criminal record" data-hi="कोई पूर्व आपराधिक इतिहास नहीं">कोई पूर्व आपराधिक इतिहास नहीं</span></label>
+        <label><input type="checkbox" data-ground="sole_breadwinner"> <span data-en="Sole breadwinner of family" data-hi="परिवार का एकमात्र कमाने वाला">परिवार का एकमात्र कमाने वाला</span></label>
       </div>
       <div class="field field--row" id="field-witness-math">
         <div class="field">
-          <label>कुल साक्षी (Total prosecution witnesses)</label>
-          <input type="number" data-field="witnesses_total" placeholder="31">
+          <label data-en="Total prosecution witnesses" data-hi="कुल साक्षी">कुल साक्षी</label>
+          <input type="number" data-field="witnesses_total" data-ph-en="31" data-ph-hi="31" placeholder="31">
         </div>
         <div class="field">
-          <label>कथन हो चुके (Witnesses examined)</label>
-          <input type="number" data-field="witnesses_examined" placeholder="7">
+          <label data-en="Witnesses examined so far" data-hi="कथन हो चुके">कथन हो चुके</label>
+          <input type="number" data-field="witnesses_examined" data-ph-en="7" data-ph-hi="7" placeholder="7">
         </div>
       </div>
       <div class="field">
-        <label>चिकित्सीय आधार (Medical ground — describe)</label>
-        <input type="text" data-field="grounds_medical" placeholder="e.g., गंभीर हृदय रोग से ग्रस्त है">
+        <label data-en="Medical ground (describe)" data-hi="चिकित्सीय आधार">चिकित्सीय आधार</label>
+        <input type="text" data-field="grounds_medical"
+          data-ph-en="e.g., suffers from serious cardiac ailment"
+          data-ph-hi="जैसे: गंभीर हृदय रोग से ग्रस्त है"
+          placeholder="जैसे: गंभीर हृदय रोग से ग्रस्त है">
       </div>
       <div class="field">
-        <label>अन्य आधार (Custom ground)</label>
-        <textarea data-field="custom_ground_1" rows="2" placeholder="Add a custom ground in Hindi or English"></textarea>
+        <label data-en="Custom ground" data-hi="अन्य आधार">अन्य आधार</label>
+        <textarea data-field="custom_ground_1" rows="2"
+          data-ph-en="Add a custom ground in English"
+          data-ph-hi="हिंदी या अंग्रेज़ी में अन्य आधार लिखें"
+          placeholder="हिंदी या अंग्रेज़ी में अन्य आधार लिखें"></textarea>
       </div>
     </div>
 
     <!-- 9. Filing -->
     <div class="section">
-      <div class="section__eyebrow">SECTION 9</div>
-      <h3 class="section__title">हस्ताक्षर (Filing Details)</h3>
+      <div class="section__eyebrow" data-en="SECTION 9" data-hi="अनुभाग 9">अनुभाग 9</div>
+      <h3 class="section__title" data-en="Filing Details" data-hi="हस्ताक्षर">हस्ताक्षर</h3>
       <div class="field field--row">
         <div class="field">
-          <label>स्थान / Place</label>
-          <input type="text" data-field="place" placeholder="ग्वालियर">
+          <label data-en="Place" data-hi="स्थान">स्थान</label>
+          <input type="text" data-field="place" data-ph-en="Gwalior" data-ph-hi="ग्वालियर" placeholder="ग्वालियर">
         </div>
         <div class="field">
-          <label>दिनांक / Date</label>
-          <input type="text" data-field="filing_date" placeholder="DD.MM.YYYY">
+          <label data-en="Date" data-hi="दिनांक">दिनांक</label>
+          <input type="text" data-field="filing_date" data-ph-en="DD.MM.YYYY" data-ph-hi="DD.MM.YYYY" placeholder="DD.MM.YYYY">
         </div>
       </div>
       <div class="field">
-        <label>अभिभाषक का नाम / Advocate Name</label>
-        <input type="text" data-field="advocate_name" placeholder="वीरेन्द्र सिंह पाल">
+        <label data-en="Advocate Name" data-hi="अभिभाषक का नाम">अभिभाषक का नाम</label>
+        <input type="text" data-field="advocate_name"
+          data-ph-en="Virendra Singh Pal"
+          data-ph-hi="वीरेन्द्र सिंह पाल"
+          placeholder="वीरेन्द्र सिंह पाल">
       </div>
     </div>
 
     <!-- Smart suggestions -->
     <div class="section">
-      <div class="section__eyebrow">SMART SUGGESTIONS</div>
-      <h3 class="section__title">सुझाव</h3>
+      <div class="section__eyebrow" data-en="SMART SUGGESTIONS" data-hi="स्मार्ट सुझाव">स्मार्ट सुझाव</div>
+      <h3 class="section__title" data-en="Suggestions" data-hi="सुझाव">सुझाव</h3>
       <div id="hints"></div>
     </div>
 
@@ -833,26 +867,38 @@ function delPriorBail(i) {
 
 function renderPriorBailRows() {
   const rows = state.answers.prior_bail_history || [];
+  const isHi = state.lang === 'hi';
   const container = document.getElementById('prior-bail-rows');
+  const L = {
+    sc:    isHi ? 'उच्चतम न्यायालय'  : 'Supreme Court',
+    hc:    isHi ? 'उच्च न्यायालय'     : 'High Court',
+    lower: isHi ? 'अधीनस्थ न्यायालय' : 'Lower Court',
+    caseNo:  isHi ? 'केस नं.'      : 'Case No.',
+    date:    isHi ? 'आदेश दिनांक'  : 'Order Date',
+    rej:     isHi ? 'अस्वीकार (Rejected)'  : 'Rejected',
+    dis:     isHi ? 'निरस्त (Dismissed)'   : 'Dismissed',
+    with:    isHi ? 'वापस (Withdrawn)'     : 'Withdrawn',
+    add:     isHi ? '+ पूर्व जमानत जोड़ें' : '+ Add prior bail',
+  };
   container.innerHTML = rows.map((r, i) => `
     <div class="trow">
       <button class="trow__del" onclick="delPriorBail(${i})">×</button>
       <div class="trow__grid">
         <select onchange="state.answers.prior_bail_history[${i}].court_level = this.value; onChange()">
-          <option value="sc" ${r.court_level === 'sc' ? 'selected' : ''}>उच्चतम न्यायालय</option>
-          <option value="hc" ${r.court_level === 'hc' ? 'selected' : ''}>उच्च न्यायालय</option>
-          <option value="lower" ${r.court_level === 'lower' ? 'selected' : ''}>अधीनस्थ न्यायालय</option>
+          <option value="sc"    ${r.court_level === 'sc'    ? 'selected' : ''}>${L.sc}</option>
+          <option value="hc"    ${r.court_level === 'hc'    ? 'selected' : ''}>${L.hc}</option>
+          <option value="lower" ${r.court_level === 'lower' ? 'selected' : ''}>${L.lower}</option>
         </select>
-        <input type="text" placeholder="केस नं." value="${esc(r.case_no || '')}" oninput="state.answers.prior_bail_history[${i}].case_no = this.value; onChange()">
-        <input type="text" placeholder="आदेश दिनांक" value="${esc(r.disposal_date || '')}" oninput="state.answers.prior_bail_history[${i}].disposal_date = this.value; onChange()">
+        <input type="text" placeholder="${L.caseNo}" value="${esc(r.case_no || '')}" oninput="state.answers.prior_bail_history[${i}].case_no = this.value; onChange()">
+        <input type="text" placeholder="${L.date}" value="${esc(r.disposal_date || '')}" oninput="state.answers.prior_bail_history[${i}].disposal_date = this.value; onChange()">
         <select onchange="state.answers.prior_bail_history[${i}].outcome = this.value; onChange()">
-          <option value="अस्वीकार" ${r.outcome === 'अस्वीकार' ? 'selected' : ''}>अस्वीकार (Rejected)</option>
-          <option value="निरस्त" ${r.outcome === 'निरस्त' ? 'selected' : ''}>निरस्त (Dismissed)</option>
-          <option value="वापस" ${r.outcome === 'वापस' ? 'selected' : ''}>वापस (Withdrawn)</option>
+          <option value="अस्वीकार" ${r.outcome === 'अस्वीकार' ? 'selected' : ''}>${L.rej}</option>
+          <option value="निरस्त"   ${r.outcome === 'निरस्त'   ? 'selected' : ''}>${L.dis}</option>
+          <option value="वापस"     ${r.outcome === 'वापस'     ? 'selected' : ''}>${L.with}</option>
         </select>
       </div>
     </div>
-  `).join('') || '<div class="trow__add" onclick="addPriorBail()">+ Add a prior bail application</div>';
+  `).join('') || `<div class="trow__add" onclick="addPriorBail()">${L.add}</div>`;
 }
 
 function addCoAccused() {
@@ -872,22 +918,219 @@ function delCoAccused(i) {
 
 function renderCoAccusedRows() {
   const rows = state.answers.co_accused || [];
+  const isHi = state.lang === 'hi';
   const container = document.getElementById('co-accused-rows');
+  const L = {
+    parties: isHi ? 'पक्षकार (जैसे: सुरेश बनाम मप्र)' : 'Parties (e.g. Suresh vs State of MP)',
+    caseNo:  isHi ? 'केस नं. (MCRC ...)' : 'Case No. (MCRC ...)',
+    date:    isHi ? 'दिनांक' : 'Date',
+    allowed: isHi ? 'Allowed (जमानत मिली)' : 'Allowed (Bail Granted)',
+    dismiss: isHi ? 'Dismissed' : 'Dismissed',
+    dispose: isHi ? 'Disposed off' : 'Disposed off',
+    add:     isHi ? '+ सहअभियुक्त जोड़ें' : '+ Add co-accused entry',
+  };
   container.innerHTML = rows.map((r, i) => `
     <div class="trow">
       <button class="trow__del" onclick="delCoAccused(${i})">×</button>
       <div class="trow__grid">
-        <input type="text" placeholder="पक्षकार (e.g. Suresh Vs State of MP)" value="${esc(r.parties || '')}" oninput="state.answers.co_accused[${i}].parties = this.value; onChange()">
-        <input type="text" placeholder="केस नं. (MCRC ...)" value="${esc(r.case_no || '')}" oninput="state.answers.co_accused[${i}].case_no = this.value; onChange()">
-        <input type="text" placeholder="दिनांक" value="${esc(r.disposal_date || '')}" oninput="state.answers.co_accused[${i}].disposal_date = this.value; onChange()">
+        <input type="text" placeholder="${L.parties}" value="${esc(r.parties || '')}" oninput="state.answers.co_accused[${i}].parties = this.value; onChange()">
+        <input type="text" placeholder="${L.caseNo}" value="${esc(r.case_no || '')}" oninput="state.answers.co_accused[${i}].case_no = this.value; onChange()">
+        <input type="text" placeholder="${L.date}" value="${esc(r.disposal_date || '')}" oninput="state.answers.co_accused[${i}].disposal_date = this.value; onChange()">
         <select onchange="state.answers.co_accused[${i}].outcome = this.value; onChange()">
-          <option value="Case Allowed-Ord" ${r.outcome === 'Case Allowed-Ord' ? 'selected' : ''}>Allowed (जमानत मिली)</option>
-          <option value="Dismissed-Ord" ${r.outcome === 'Dismissed-Ord' ? 'selected' : ''}>Dismissed</option>
-          <option value="Disposed off-Ord" ${r.outcome === 'Disposed off-Ord' ? 'selected' : ''}>Disposed off</option>
+          <option value="Case Allowed-Ord" ${r.outcome === 'Case Allowed-Ord' ? 'selected' : ''}>${L.allowed}</option>
+          <option value="Dismissed-Ord"   ${r.outcome === 'Dismissed-Ord'   ? 'selected' : ''}>${L.dismiss}</option>
+          <option value="Disposed off-Ord" ${r.outcome === 'Disposed off-Ord' ? 'selected' : ''}>${L.dispose}</option>
         </select>
       </div>
     </div>
-  `).join('') || '<div class="trow__add" onclick="addCoAccused()">+ Add a co-accused bail entry</div>';
+  `).join('') || `<div class="trow__add" onclick="addCoAccused()">${L.add}</div>`;
+}
+
+// =========================================================================
+// Language system — same pattern as §138 drafter.html
+// =========================================================================
+function applyLang() {
+  const isHi = state.lang === 'hi';
+  document.body.classList.toggle('lang-hi', isHi);
+  // Swap text on all [data-en] elements
+  document.querySelectorAll('[data-en]').forEach(el => {
+    const val = el.getAttribute('data-' + state.lang) || el.getAttribute('data-en');
+    if (val !== null) el.textContent = val;
+  });
+  // Swap placeholders on all [data-ph-en] inputs/textareas
+  document.querySelectorAll('[data-ph-en]').forEach(el => {
+    const val = el.getAttribute('data-ph-' + state.lang) || el.getAttribute('data-ph-en');
+    if (val !== null) el.placeholder = val;
+  });
+  // Pill active state
+  document.getElementById('lang-en').classList.toggle('active', !isHi);
+  document.getElementById('lang-hi').classList.toggle('active', isHi);
+  // Rebuild dynamic rows (they render lang-aware labels)
+  renderPriorBailRows();
+  renderCoAccusedRows();
+}
+
+// =========================================================================
+// English document renderer
+// =========================================================================
+function renderEn(a) {
+  const appNum = parseInt(a.application_number) || 1;
+  const ordinal = ['', 'FIRST', 'SECOND', 'THIRD', 'FOURTH', 'FIFTH'][appNum] || `${appNum}th`;
+  const isSuccessive = appNum >= 2;
+  const bailSection = a.bail_section || '439';
+  const isAnticipatory = bailSection === '438';
+  const sectionTitle = { '437': 'Section 437 CrPC', '438': 'Section 438 CrPC', '439': 'Section 439 CrPC' }[bailSection];
+  const courtName = a.court_name || 'IN THE HIGH COURT OF MADHYA PRADESH, GWALIOR BENCH';
+  const stateName = a.state_name || 'Madhya Pradesh';
+  const district = a.district || '';
+  const sections = (a.sections_str || '').split(',').map(s => s.trim()).filter(Boolean);
+  const sectionsList = a.sections || sections;
+  const priorBail = a.prior_bail_history || [];
+  const coAccused = a.co_accused || [];
+  const grounds = a.grounds || {};
+  const cust = custodyDays(a.arrest_date);
+
+  const ph_en = (v, fb) => (v && String(v).trim()) ? esc(v) : `<span class="ph">${fb}</span>`;
+
+  let html = '<div class="bail-doc">';
+  html += `<div class="bd-header">
+    <div class="bd-side">${isAnticipatory ? 'On behalf of Applicant' : 'On behalf of Detenu'}</div>
+    <h1 class="bd-court">${esc(courtName)}</h1>
+    <div class="bd-caseno">Misc. Criminal Case No. ${ph_en(a.case_number, '_____')} / ${esc(a.case_year || new Date().getFullYear())}</div>
+  </div>`;
+
+  html += `<div class="bd-parties">
+    <div class="bd-party">
+      <span class="bd-party-label">Applicant</span>
+      <span class="bd-party-dots">.............</span>
+      <div class="bd-party-detail">
+        ${ph_en(a.applicant_name, '[Name]')} s/o ${ph_en(a.applicant_father, '[Father]')},
+        Age— ${ph_en(a.applicant_age, '__')} years,
+        Occupation— ${ph_en(a.applicant_occupation, '[Occupation]')},
+        R/o— ${ph_en(a.applicant_address, '[Address]')},
+        District ${ph_en(district, '[District]')} (${esc(stateName)})
+      </div>
+    </div>
+    <div class="bd-versus">VERSUS</div>
+    <div class="bd-party">
+      <span class="bd-party-label">Respondent</span>
+      <span class="bd-party-dots">.............</span>
+      <div class="bd-party-detail">State of ${esc(stateName)} through P.S. ${ph_en(a.police_station, '[Police Station]')}, District ${ph_en(district, '[District]')}</div>
+    </div>
+  </div>`;
+
+  html += `<h2 class="bd-app-title">APPLICATION UNDER ${esc(sectionTitle)} — ${ordinal} APPLICATION</h2>`;
+
+  // Prior bail summary table in English
+  const byLevel = {};
+  priorBail.forEach(p => { byLevel[p.court_level] = p; });
+  const cell = (p, k) => (p && p[k]) ? esc(p[k]) : 'Nil';
+  html += `<table class="bd-table">
+    <tr><th rowspan="2">Whether any bail application is pending or has been disposed of?<br><small>(If yes, give details)</small></th>
+        <th colspan="3">Bail Application Details</th></tr>
+    <tr><th>Number</th><th>Order Date</th><th>Outcome</th></tr>
+    <tr><td>Supreme Court of India</td><td>${cell(byLevel.sc,'case_no')}</td><td>${cell(byLevel.sc,'disposal_date')}</td><td>${cell(byLevel.sc,'outcome')}</td></tr>
+    <tr><td>High Court</td><td>${cell(byLevel.hc,'case_no')}</td><td>${cell(byLevel.hc,'disposal_date')}</td><td>${cell(byLevel.hc,'outcome')}</td></tr>
+    <tr><td>Lower Court</td><td>${cell(byLevel.lower,'case_no')}</td><td>${cell(byLevel.lower,'disposal_date')}</td><td>${cell(byLevel.lower,'outcome')}</td></tr>
+  </table>`;
+
+  // Crime table
+  const secStr = sectionsList.length ? sectionsList.join(', ') : '_______';
+  html += `<table class="bd-table">
+    <tr><th>Crime Details</th><th>Trial Court Details</th></tr>
+    <tr><td>
+      FIR No. ${ph_en(a.fir_number, '__/__')}<br>
+      P.S.— ${ph_en(a.police_station, '[PS]')}<br>
+      District ${ph_en(district, '[District]')}<br>
+      Under Sections: ${esc(secStr)}<br>
+      Arrest Date: ${ph_en(a.arrest_date, '___________')}
+    </td><td>
+      Sessions Case No. ${ph_en(a.trial_case_no, '__/__')}<br>
+      Judge— ${ph_en(a.trial_judge, '[Judge]')}<br>
+      Court— ${ph_en(a.trial_court, '[Court Name]')}<br>
+      Location— ${ph_en(district, '[District]')}
+    </td></tr>
+  </table>`;
+
+  html += '<p class="bd-prelude">The applicant most respectfully submits as under:—</p>';
+  html += '<ol class="bd-paras">';
+
+  if (isSuccessive) {
+    html += `<li><p>That this is the ${ordinal} bail application of the applicant before this Hon'ble Court under ${esc(sectionTitle)}. The particulars of earlier applications that were dismissed/rejected are as follows:—</p>`;
+    let t = '<table class="bd-table"><tr><th>Sr.</th><th>Case No./Date</th><th>Parties</th><th>Lower Court No.</th><th>P.S.</th><th>Status</th><th>Order Date</th><th>Outcome</th><th>Judge</th></tr>';
+    if (!priorBail.length) { t += '<tr><td colspan="9" style="text-align:center;color:#888">(None)</td></tr>'; }
+    else { priorBail.forEach((p,i) => { t += `<tr><td>${i+1}</td><td>${esc(p.case_no||'')}</td><td>${esc(p.parties||'')}</td><td>${esc(p.lower_case_no||'')}</td><td>${esc(p.police_station||'')}</td><td>${esc(p.status||'Disposed')}</td><td>${esc(p.disposal_date||'')}</td><td>${esc(p.outcome||'')}</td><td>${esc(p.justice||'')}</td></tr>`; }); }
+    html += t + '</table></li>';
+  } else {
+    html += `<li><p>That this is the FIRST bail application of the applicant before this Hon'ble Court under ${esc(sectionTitle)}.</p></li>`;
+  }
+
+  html += `<li><p>That no similar application is pending or has been dismissed before this Hon'ble Court or the Hon'ble Supreme Court of India.</p></li>`;
+
+  if (coAccused.length) {
+    html += `<li><p>That the particulars of bail applications of co-accused, to the best knowledge of the applicant, are as follows:—</p>`;
+    let t = '<table class="bd-table"><tr><th>Sr.</th><th>Case No.</th><th>Parties</th><th>Lower Court</th><th>P.S.</th><th>Status</th><th>Bail No.</th><th>Date</th><th>Outcome</th><th>Judge</th></tr>';
+    coAccused.forEach((p,i) => { t += `<tr><td>${i+1}</td><td>${esc(p.case_no||'')}</td><td>${esc(p.parties||'')}</td><td>${esc(p.lower_case_no||'')}</td><td>${esc(p.police_station||'')}</td><td>${esc(p.status||'Disposed')}</td><td>${esc(p.bail_number||'')}</td><td>${esc(p.disposal_date||'')}</td><td>${esc(p.outcome||'')}</td><td>${esc(p.justice||'')}</td></tr>`; });
+    html += t + '</table></li>';
+  }
+
+  html += '<li class="bd-facts-block"><p class="bd-section-label">BRIEF FACTS OF THE CASE:—</p><ol class="bd-subparas">';
+  if (a.facts_narrative) {
+    html += `<li><p>That as per the prosecution case, ${esc(a.facts_narrative)}</p></li>`;
+  } else {
+    html += '<li><p class="ph">[Upload FIR photo above — Claude vision will fill this automatically]</p></li>';
+  }
+  if (a.fir_number || a.arrest_date) {
+    const arrestStr = a.arrest_date ? `on ${esc(a.arrest_date)}` : 'on ___________';
+    html += `<li><p>That FIR No. ${ph_en(a.fir_number,'__/__')} was registered at P.S. ${ph_en(a.police_station,'[PS]')} under Sections ${esc(secStr)} and the applicant was arrested ${arrestStr} and a charge-sheet has been filed.</p></li>`;
+  }
+  if (a.cancellation_history) html += `<li><p>That ${esc(a.cancellation_history)}</p></li>`;
+  if (isSuccessive && a.lower_court_history) html += `<li><p>That ${esc(a.lower_court_history)}</p></li>`;
+  else if (isSuccessive) html += `<li><p>That the applicant had filed a bail application before the lower court under Section 439 CrPC, which was dismissed.</p></li>`;
+  html += '</ol></li>';
+
+  html += '<li class="bd-grounds-block"><p class="bd-section-label">GROUNDS:—</p><ol class="bd-subparas">';
+  if (grounds.innocence) html += `<li><p>That the applicant has not committed any offence and has been falsely implicated in this case by the complainant party. The applicant has no direct or indirect connection with the alleged offence.</p></li>`;
+  if (grounds.long_custody && cust) html += `<li><p>That the applicant has been in judicial custody since ${esc(a.arrest_date)} and has undergone custody for approximately ${Math.floor(cust/365)} year(s) and ${Math.floor((cust%365)/30)} month(s), which is a violation of his fundamental right to speedy trial under Article 21 of the Constitution.</p></li>`;
+  if (grounds.trial_delay && a.witnesses_total && a.witnesses_examined !== undefined) {
+    html += `<li><p>That the prosecution has filed a list of ${esc(a.witnesses_total)} witnesses before the trial court, out of which only ${esc(a.witnesses_examined)} have been examined. The completion of trial is likely to take considerable further time.</p></li>`;
+  }
+  const hasCoAccusedBail = coAccused.some(c => (c.outcome||'').toLowerCase().includes('allowed') || (c.outcome||'').toLowerCase().includes('granted'));
+  if (grounds.parity && hasCoAccusedBail) html += `<li><p>That the co-accused in this matter have already been granted bail by this Hon'ble Court. On the principle of parity, the applicant is also entitled to the same relief.</p></li>`;
+  if (grounds.local_resident) html += `<li><p>That the applicant is a permanent resident of District ${ph_en(district,'[District]')}, ${esc(stateName)} and there is no possibility of his absconding or tampering with prosecution evidence.</p></li>`;
+  if (a.grounds_medical) html += `<li><p>That the applicant ${esc(a.grounds_medical)} and requires proper medical attention which is not available in jail.</p></li>`;
+  if (grounds.sole_breadwinner) html += `<li><p>That the applicant is the sole breadwinner of his family and his continued detention has caused serious economic hardship to his dependants.</p></li>`;
+  if (grounds.no_prior_record) html += `<li><p>That the applicant has no previous criminal antecedents and is being tried for the first time.</p></li>`;
+  if (a.custom_ground_1 && a.custom_ground_1.trim()) html += `<li><p>That ${esc(a.custom_ground_1)}</p></li>`;
+  html += '</ol></li>';
+
+  html += `<li><p>That the final disposal of the case pending against the applicant is likely to take considerable time.</p></li>`;
+  html += `<li><p>That the applicant is ready and willing to furnish surety and bail bond as directed by this Hon'ble Court and undertakes to comply with all conditions imposed.</p></li>`;
+  html += '</ol>';
+
+  html += '<div class="bd-prayer"><h3>PRAYER</h3>';
+  if (isAnticipatory) {
+    html += `<p>It is therefore most respectfully prayed that this Hon'ble Court may be pleased to accept the present application and direct the release of the applicant on anticipatory bail on such terms and conditions as this Hon'ble Court may deem fit and proper, in the interest of justice.</p>`;
+  } else {
+    html += `<p>It is therefore most respectfully prayed that this Hon'ble Court may be pleased to accept the present application and direct the release of the applicant on bail on such terms and conditions as this Hon'ble Court may deem fit and proper, in the interest of justice.</p>`;
+  }
+  html += '</div>';
+
+  html += `<div class="bd-sig">
+    <div>
+      <div>Place: ${ph_en(a.place,'_______')}</div>
+      <div>Date: ${ph_en(a.filing_date,'___________')}</div>
+    </div>
+    <div class="bd-sig-right">
+      <div>Applicant</div>
+      <div class="bd-sig-name">${ph_en(a.applicant_name,'[Applicant Name]')}</div>
+      <div class="bd-sig-advocate">Through Advocate</div>
+      <div class="bd-sig-advname">(${ph_en(a.advocate_name,'[Advocate Name]')})</div>
+    </div>
+  </div>`;
+
+  html += '</div>';
+  return html;
 }
 
 // =========================================================================
@@ -896,13 +1139,14 @@ function renderCoAccusedRows() {
 function renderHints() {
   const hints = [];
   const a = state.answers;
+  const isHi = state.lang === 'hi';
   const cust = custodyDays(a.arrest_date);
 
   if (cust && cust > 365 && !(a.grounds && a.grounds.long_custody)) {
     hints.push({
       kind: 'good',
-      title: `Add LONG CUSTODY ground (${cust} days = ${Math.floor(cust/365)} years)`,
-      body: 'Custody over 1 year is a strong ground — Article 21 + speedy trial.',
+      title: isHi ? `लंबी निरोध का आधार जोड़ें (${cust} दिन = ${Math.floor(cust/365)} वर्ष)` : `Add LONG CUSTODY ground (${cust} days = ${Math.floor(cust/365)} yrs)`,
+      body: isHi ? 'एक वर्ष से अधिक निरोध अनुच्छेद 21 के तहत मजबूत आधार है।' : 'Custody over 1 year is a strong ground — Article 21 + speedy trial.',
       action: () => { a.grounds = a.grounds || {}; a.grounds.long_custody = true; syncUIToState(); onChange(); },
     });
   }
@@ -910,8 +1154,8 @@ function renderHints() {
   if ((a.co_accused || []).some(c => (c.outcome || '').includes('Allowed')) && !(a.grounds && a.grounds.parity)) {
     hints.push({
       kind: 'good',
-      title: 'Add PARITY ground',
-      body: 'A co-accused has been granted bail — invoke parity.',
+      title: isHi ? 'समानता (Parity) का आधार जोड़ें' : 'Add PARITY ground',
+      body: isHi ? 'सहअभियुक्त को जमानत मिल चुकी — समानता के सिद्धान्त से आवेदक भी अधिकारी है।' : 'A co-accused has been granted bail — invoke parity.',
       action: () => { a.grounds = a.grounds || {}; a.grounds.parity = true; syncUIToState(); onChange(); },
     });
   }
@@ -919,8 +1163,8 @@ function renderHints() {
   if (a.witnesses_total && a.witnesses_examined !== undefined && Number(a.witnesses_total) > Number(a.witnesses_examined) && !(a.grounds && a.grounds.trial_delay)) {
     hints.push({
       kind: 'good',
-      title: 'Add TRIAL DELAY ground',
-      body: `Only ${a.witnesses_examined} of ${a.witnesses_total} prosecution witnesses examined.`,
+      title: isHi ? 'ट्रायल विलंब का आधार जोड़ें' : 'Add TRIAL DELAY ground',
+      body: isHi ? `${a.witnesses_total} में से केवल ${a.witnesses_examined} साक्षियों के कथन हुए।` : `Only ${a.witnesses_examined} of ${a.witnesses_total} prosecution witnesses examined.`,
       action: () => { a.grounds = a.grounds || {}; a.grounds.trial_delay = true; syncUIToState(); onChange(); },
     });
   }
@@ -929,24 +1173,27 @@ function renderHints() {
   if (appNum >= 2 && !a.cancellation_history && !a.lower_court_history) {
     hints.push({
       kind: 'warn',
-      title: `${HINDI_ORDINAL[appNum]} application — articulate CHANGED CIRCUMSTANCES`,
-      body: 'SC in Kalyan Chandra Sarkar held successive bail must show new facts. Fill the cancellation_history or lower_court_history field with what has changed since the last rejection.',
+      title: isHi ? `${HINDI_ORDINAL[appNum]} आवेदन — नए तथ्य अनिवार्य` : `${['','1st','2nd','3rd','4th'][appNum]||appNum+'th'} application — articulate CHANGED CIRCUMSTANCES`,
+      body: isHi ? 'SC ने Kalyan Chandra Sarkar में माना: द्वितीय/तृतीय आवेदन में नई परिस्थितियाँ दिखानी होंगी। अनुभाग 7 में निरस्तीकरण/अधीनस्थ न्यायालय का इतिहास भरें।'
+                 : 'SC in Kalyan Chandra Sarkar: successive bail must show changed circumstances. Fill Section 7 — cancellation history or lower court history.',
     });
   }
 
   if (!a.applicant_name || !a.fir_number) {
     hints.push({
       kind: 'warn',
-      title: 'Try the FIR photo shortcut',
-      body: 'Upload an FIR photo — Claude vision will fill the applicant, FIR no, sections, and Para 5.1 narrative automatically.',
+      title: isHi ? 'FIR फोटो शॉर्टकट आज़माएं' : 'Try the FIR photo shortcut',
+      body: isHi ? 'FIR की फोटो अपलोड करें — Claude vision स्वतः आवेदक, FIR क्रमांक, धाराएं, तथ्य भर देगा।'
+                 : 'Upload an FIR photo — Claude vision fills applicant, FIR no, sections, and Para 5.1 narrative automatically.',
     });
   }
 
+  const applyLabel = isHi ? '+ लागू करें' : '+ Apply';
   document.getElementById('hints').innerHTML = hints.length ? hints.map(h => `
     <div class="hint-card ${h.kind === 'warn' ? 'hint-card--warn' : ''}">
       <div class="hint-card__title">${esc(h.title)}</div>
       <div class="hint-card__body">${esc(h.body)}</div>
-      ${h.action ? `<button class="hint-card__action" onclick="(${h.action.toString()})()">+ Apply</button>` : ''}
+      ${h.action ? `<button class="hint-card__action" onclick="(${h.action.toString()})()">${applyLabel}</button>` : ''}
     </div>
   `).join('') : '<div style="font-size:12px;color:var(--muted)">No suggestions yet — keep filling.</div>';
 }
@@ -955,13 +1202,18 @@ function renderHints() {
 // Auto-save + render loop
 // =========================================================================
 function onChange() {
-  // Re-render document
-  document.getElementById('doc-page').innerHTML = renderHi(state.answers);
+  // Re-render document in selected language
+  document.getElementById('doc-page').innerHTML =
+    state.lang === 'en' ? renderEn(state.answers) : renderHi(state.answers);
 
   // Update custody hint
   const cust = custodyDays(state.answers.arrest_date);
   const ch = document.getElementById('custody-hint');
-  if (ch) ch.textContent = cust ? `Custody: ${cust} days (${(cust/365).toFixed(1)} years)` : '';
+  if (ch) ch.textContent = cust
+    ? (state.lang === 'hi'
+        ? `निरोध: ${cust} दिन (${(cust/365).toFixed(1)} वर्ष)`
+        : `Custody: ${cust} days (${(cust/365).toFixed(1)} years)`)
+    : '';
 
   // Hide trial-court section for anticipatory or 1st application
   const showTrial = state.answers.bail_section === '439' && parseInt(state.answers.application_number) >= 2;
@@ -1045,9 +1297,10 @@ document.getElementById('ocr-file').addEventListener('change', async (e) => {
   const zone = document.getElementById('ocr-zone');
   const title = document.getElementById('ocr-title');
   const sub = document.getElementById('ocr-sub');
+  const isHi = state.lang === 'hi';
   zone.classList.add('ocr-zone--busy');
-  title.textContent = 'Reading FIR with Claude vision…';
-  sub.textContent = 'this takes 4-8 seconds';
+  title.textContent = isHi ? 'Claude vision से FIR पढ़ी जा रही है…' : 'Reading FIR with Claude vision…';
+  sub.textContent   = isHi ? '4-8 सेकंड लगेंगे' : 'this takes 4-8 seconds';
 
   try {
     const fd = new FormData();
@@ -1060,12 +1313,13 @@ document.getElementById('ocr-file').addEventListener('change', async (e) => {
     }
     const data = await r.json();
     applyOcrResult(data.extracted);
-    title.textContent = `✓ FIR extracted (confidence: ${data.extracted.confidence || 'unknown'})`;
-    sub.textContent = 'fields auto-filled — review and edit as needed';
-    toast(`Auto-filled ${countFilled(data.extracted)} fields from FIR`, 'ok');
+    const conf = data.extracted.confidence || 'unknown';
+    title.textContent = isHi ? `✓ FIR पढ़ी गई (विश्वसनीयता: ${conf})` : `✓ FIR extracted (confidence: ${conf})`;
+    sub.textContent   = isHi ? 'फ़ील्ड स्वतः भरी गईं — जाँचें और संपादित करें' : 'fields auto-filled — review and edit as needed';
+    toast(isHi ? `${countFilled(data.extracted)} फ़ील्ड स्वतः भरीं` : `Auto-filled ${countFilled(data.extracted)} fields from FIR`, 'ok');
   } catch (err) {
-    title.textContent = '✗ OCR failed';
-    sub.textContent = err.message || 'try a clearer photo';
+    title.textContent = isHi ? '✗ OCR विफल' : '✗ OCR failed';
+    sub.textContent   = isHi ? (err.message || 'स्पष्ट फोटो लें और पुनः प्रयास करें') : (err.message || 'try a clearer photo');
     toast('OCR failed: ' + (err.message || 'unknown error'), 'err');
   } finally {
     zone.classList.remove('ocr-zone--busy');
@@ -1136,15 +1390,17 @@ document.getElementById('btn-share').addEventListener('click', () => {
   toast('Download PDF first, then attach in WhatsApp', 'ok');
 });
 
-document.getElementById('btn-lang').addEventListener('click', (e) => {
-  state.lang = state.lang === 'hi' ? 'en' : 'hi';
-  e.target.textContent = state.lang === 'hi' ? 'हिन्दी' : 'English';
-  // English render not built yet — show notice
-  if (state.lang === 'en') {
-    document.getElementById('doc-page').innerHTML = '<p style="text-align:center;color:#888;padding:40px">English render coming soon. Hindi is the primary template for MP/UP/Bihar courts.</p>';
-  } else {
-    onChange();
-  }
+document.getElementById('lang-en').addEventListener('click', () => {
+  state.lang = 'en';
+  applyLang();
+  onChange();
+  toast('English mode', 'ok');
+});
+document.getElementById('lang-hi').addEventListener('click', () => {
+  state.lang = 'hi';
+  applyLang();
+  onChange();
+  toast('हिंदी मोड', 'ok');
 });
 
 // =========================================================================
@@ -1182,6 +1438,7 @@ async function maybeLoadExisting() {
   loadDefaults();
   await maybeLoadExisting();
   bindInputs();
+  applyLang();
   onChange();
 })();
 </script>
