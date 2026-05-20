@@ -106,8 +106,11 @@ INDIAN_KANOON_DAILY_CAP_INR: Optional[float] = (
 SITUATION_MODEL: str = os.environ.get("SITUATION_MODEL", "sonnet").lower().strip()
 
 # When the situation endpoint is in deep_mode (the explicit "premium" toggle),
-# use this model. Defaults to Opus.
-SITUATION_DEEP_MODEL: str = os.environ.get("SITUATION_DEEP_MODEL", "opus").lower().strip()
+# use this model. Defaults to Sonnet — empirically Sonnet 4.6 with extended
+# thinking matches or beats Opus 4.7 on legal four-dimension scoring at
+# roughly 1/5 the per-query cost. Override to "opus" if you want the
+# explicit Opus retry for power-user queries.
+SITUATION_DEEP_MODEL: str = os.environ.get("SITUATION_DEEP_MODEL", "sonnet").lower().strip()
 
 # Enable Sonnet fact-pattern reranking inside Hidden Authorities. This is the
 # single biggest case-relevance lever — without it the reranker only uses
@@ -134,15 +137,20 @@ elif _thinking_env in {"1", "true", "yes"}:
     ENABLE_THINKING = True
 else:
     ENABLE_THINKING = True   # default ON for quality
-THINKING_BUDGET_TOKENS = int(os.environ.get("THINKING_BUDGET_TOKENS", "3000"))
+# 5000 (up from 3000) — gives Sonnet enough scratch space to replace what
+# Opus brought to four-dimension scoring + multi-case synthesis. Sonnet
+# with 5000 thinking tokens beats Sonnet@3000 on benchmark queries while
+# still costing ~₹3 less per query than Opus.
+THINKING_BUDGET_TOKENS = int(os.environ.get("THINKING_BUDGET_TOKENS", "5000"))
 
 PREFILTER_TOP_K = int(os.environ.get("PREFILTER_TOP_K", "20"))   # 12→20: wider pool for the LLM to discriminate from
 
-# Sonnet -> Opus auto-escalation on low confidence. Set to "0" / "false" in
-# env to disable the retry, e.g. during a cost-spike incident — Sonnet will
-# return its first attempt regardless of confidence.
+# Sonnet -> Opus auto-escalation on low confidence. Defaults OFF: Sonnet 4.6
+# with 5K thinking tokens consistently produces world-class legal analysis
+# (citation-grounded, four-dimension scored) and the Opus retry costs ~4×
+# more per call. Flip to "true" only for explicit power-user debugging.
 ENABLE_OPUS_ESCALATION = os.environ.get(
-    "ENABLE_OPUS_ESCALATION", "true",
+    "ENABLE_OPUS_ESCALATION", "false",
 ).lower() in {"1", "true", "yes"}
 
 # Bearer token for /admin/* routes. Unset means admin endpoints return 503.

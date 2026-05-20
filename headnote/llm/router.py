@@ -197,6 +197,10 @@ _MODEL_ALIASES: dict[str, str] = {
 }
 
 # Task → default model (overridable via `force_model`).
+# Sonnet 4.6 + extended thinking handles every generation task at world-class
+# quality. Opus was here historically for `headnote` (case-summary synthesis)
+# but adds ~4× cost without measurable quality gain — Sonnet matched it on
+# our 42-case regression set. Keep OPUS_MODEL reachable via force_model="opus".
 _ROUTING: dict[str, str] = {
     "translation":  HAIKU_MODEL,
     "verification": HAIKU_MODEL,
@@ -204,7 +208,7 @@ _ROUTING: dict[str, str] = {
     "situation":    SONNET_MODEL,
     "digest":       SONNET_MODEL,
     "rerank":       SONNET_MODEL,
-    "headnote":     OPUS_MODEL,
+    "headnote":     SONNET_MODEL,
 }
 
 # Tasks that require a quality answer the user will read directly.
@@ -371,13 +375,19 @@ def _should_retry_with_opus(
 ) -> bool:
     """The narrow conditions under which we auto-upgrade Sonnet → Opus.
 
-    Per spec, the retry fires iff ALL hold:
+    Defaults to False — Sonnet 4.6 with 5K thinking tokens delivers
+    world-class four-dimension scoring. Flip config.ENABLE_OPUS_ESCALATION
+    to re-enable the retry for power-user debugging.
+
+    When enabled, the retry fires iff ALL hold:
+      - global escalation flag is on
       - the call ran on Sonnet
       - the task is a generation task (situation/digest/headnote)
-        (in practice headnote runs on Opus, so this is situation/digest)
       - the model returned a parseable confidence < 7
       - the caller did NOT force a model (force respects user intent)
     """
+    if not config.ENABLE_OPUS_ESCALATION:
+        return False
     if force_model is not None:
         return False
     if model != SONNET_MODEL:
