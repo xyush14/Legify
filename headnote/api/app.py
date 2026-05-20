@@ -882,7 +882,7 @@ def _api_digest_impl(req: DigestRequest, _record):
     elapsed = time.time() - t0
     primary_model = route_result.model_name
     escalated = (
-        route_result.model_name == "claude-opus-4-6"
+        route_result.model_name == "claude-opus-4-7"
         and not req.deep_mode
         and config.ENABLE_OPUS_ESCALATION
     )

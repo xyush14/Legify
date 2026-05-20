@@ -17,16 +17,22 @@ from headnote import config
 
 log = logging.getLogger(__name__)
 
-# Use Bedrock when AWS credentials are present (free with AWS credits).
-_USE_BEDROCK = bool(os.environ.get("AWS_ACCESS_KEY_ID"))
+# Use Bedrock only when BOTH AWS credentials AND an explicit opt-in are set.
+# This prevents accidental Bedrock activation when AWS keys are present for
+# other services (S3, etc.) but no Marketplace subscription is configured.
+# To enable Bedrock, set USE_BEDROCK=true in addition to AWS_ACCESS_KEY_ID.
+_USE_BEDROCK = (
+    bool(os.environ.get("AWS_ACCESS_KEY_ID"))
+    and os.environ.get("USE_BEDROCK", "").lower() in {"1", "true", "yes"}
+)
 
-# Internal model name → Bedrock cross-region inference profile ID (us-east-1).
-# Override any of these in Railway env vars without a code deploy:
+# Internal model name → Bedrock cross-region inference profile ID.
+# Override in Railway env vars without a code deploy:
 #   BEDROCK_HAIKU_ID, BEDROCK_SONNET_ID, BEDROCK_OPUS_ID
 _BEDROCK_IDS: dict[str, str] = {
     "claude-haiku-4-5":  os.environ.get("BEDROCK_HAIKU_ID",  "us.anthropic.claude-haiku-4-5"),
     "claude-sonnet-4-6": os.environ.get("BEDROCK_SONNET_ID", "us.anthropic.claude-sonnet-4-6"),
-    "claude-opus-4-6":   os.environ.get("BEDROCK_OPUS_ID",   "us.anthropic.claude-opus-4-6"),
+    "claude-opus-4-7":   os.environ.get("BEDROCK_OPUS_ID",   "us.anthropic.claude-opus-4-7"),
 }
 
 
@@ -40,16 +46,27 @@ def _to_canonical_model(bedrock_id: str) -> str:
     return reverse.get(bedrock_id, config.DEFAULT_MODEL)
 
 
-def _is_bedrock_payment_error(exc: Exception) -> bool:
+def _is_bedrock_recoverable_error(exc: Exception) -> bool:
+    """Errors where falling back to direct Anthropic API is the right move:
+    - 403 payment / Marketplace subscription issues
+    - 400 invalid model identifier (Bedrock model IDs change/expire)
+    - PermissionDenied / AccessDenied on the IAM role
+    """
     s = str(exc)
     return any(k in s for k in (
         "INVALID_PAYMENT_INSTRUMENT",
         "payment_instrument",
         "valid payment",
         "PermissionDenied",
+        "AccessDeniedException",
         "subscription",
         "Marketplace subscription",
-    )) or "403" in s
+        "provided model identifier is invalid",
+        "model identifier",
+        "ValidationException",
+        "model not found",
+        "Could not find model",
+    )) or any(code in s for code in ("403 ", "404 ", "400 - {'message'"))
 
 
 def get_client():
@@ -142,17 +159,19 @@ def call_claude_cached(
     try:
         resp = client.messages.create(**create_kwargs)
     except Exception as exc:
-        # Bedrock payment / subscription error → transparent fallback to direct API.
-        # This happens when AWS Marketplace billing isn't confirmed yet.
-        if _USE_BEDROCK and _is_bedrock_payment_error(exc):
+        # Bedrock failure (payment / invalid model / IAM) → transparent fallback
+        # to direct Anthropic API. Covers the common Railway misconfigurations.
+        if _USE_BEDROCK and _is_bedrock_recoverable_error(exc):
             if not config.ANTHROPIC_API_KEY:
                 raise  # no fallback available
+            canonical = _to_canonical_model(create_kwargs["model"])
             log.warning(
-                "Bedrock payment error — falling back to direct Anthropic API "
-                "(model=%s): %s", create_kwargs.get("model"), str(exc)[:200]
+                "Bedrock error — falling back to direct Anthropic API "
+                "(bedrock_model=%s → anthropic_model=%s): %s",
+                create_kwargs.get("model"), canonical, str(exc)[:250]
             )
             fallback_client = Anthropic(api_key=config.ANTHROPIC_API_KEY)
-            create_kwargs["model"] = _to_canonical_model(create_kwargs["model"])
+            create_kwargs["model"] = canonical
             resp = fallback_client.messages.create(**create_kwargs)
         else:
             raise

@@ -67,7 +67,7 @@ FEEDBACK_DB = _writable_path(
 # ----------------------------------------------------------------- LLM / Claude
 
 ANTHROPIC_API_KEY: Optional[str] = os.environ.get("ANTHROPIC_API_KEY")
-DEFAULT_MODEL = os.environ.get("MODEL", "claude-opus-4-6")
+DEFAULT_MODEL = os.environ.get("MODEL", "claude-sonnet-4-6")
 MAX_TOKENS = int(os.environ.get("MAX_TOKENS", "4000"))   # 2500→4000: room for relevance_explanations + internal_reasoning
 
 

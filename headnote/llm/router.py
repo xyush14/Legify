@@ -188,7 +188,7 @@ class RouteResult(NamedTuple):
 # Short, stable model IDs (match `config.DEFAULT_MODEL` convention).
 HAIKU_MODEL = "claude-haiku-4-5"
 SONNET_MODEL = "claude-sonnet-4-6"
-OPUS_MODEL = "claude-opus-4-6"
+OPUS_MODEL = "claude-opus-4-7"  # 4-6 never shipped; current Opus is 4-7
 
 _MODEL_ALIASES: dict[str, str] = {
     "haiku":  HAIKU_MODEL,
