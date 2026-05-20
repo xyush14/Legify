@@ -1389,7 +1389,27 @@ def api_browse_doc(tid: int):
 async def all_exception_handler(request: Request, exc: Exception):
     if isinstance(exc, HTTPException):
         return JSONResponse(status_code=exc.status_code, content={"error": exc.detail})
-    return JSONResponse(status_code=500, content={"error": str(exc)})
+    # Translate raw LLM-provider errors into actionable user messages so
+    # lawyers don't see "429 RESOURCE_EXHAUSTED" or "credit balance is too low".
+    msg = str(exc)
+    lower = msg.lower()
+    if "rate_limit" in lower or "ratelimit" in lower or "429" in msg or "rate limit" in lower:
+        return JSONResponse(status_code=503, content={
+            "error": "The AI service is busy — please retry in 10-15 seconds. (Anthropic rate limit hit.)"
+        })
+    if "credit balance" in lower or "insufficient credit" in lower or "out of credits" in lower:
+        return JSONResponse(status_code=503, content={
+            "error": "Server billing needs attention — please contact support. (Anthropic credits exhausted.)"
+        })
+    if "resource_exhausted" in lower or "gemini" in lower or "google" in lower:
+        return JSONResponse(status_code=503, content={
+            "error": "Fallback model quota exceeded. Please retry in 30 seconds."
+        })
+    if "model identifier" in lower or "model not found" in lower:
+        return JSONResponse(status_code=500, content={
+            "error": "AI model config issue — admin notified. Try again in a moment."
+        })
+    return JSONResponse(status_code=500, content={"error": msg})
 
 
 # Mount static last so /api/* takes priority

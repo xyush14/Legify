@@ -119,37 +119,59 @@ def _call_claude_with_gemini_fallback(
     enable_thinking: bool,
     thinking_budget: int,
 ):
-    """Single point where Anthropic is called. On transient failure
-    (rate-limit / overloaded / connection blip), retry once with Gemini.
+    """Single point where Anthropic is called.
 
-    The fallback path:
-      - Loses extended thinking (Gemini doesn't have it).
-      - Loses prompt caching (Gemini's caching API is different).
-      - Returns a usage dict marked with fallback_provider='gemini' so
-        the cost meter doesn't accidentally bill Anthropic prices.
+    Strategy on transient failure (rate-limit / 5xx / connection blip):
+      1. Up to 2 retries with exponential backoff (Anthropic 429s usually
+         clear in 5-15s for tier 1 accounts).
+      2. Optional Gemini fallback after retries, gated on ENABLE_GEMINI_FALLBACK
+         env var. Defaults OFF — Gemini's free tier is unreliable (limit=0
+         on suspended projects) and an Anthropic-only flow gives cleaner
+         error messages than a chain of confusing fallback errors.
     """
-    try:
-        return call_claude_cached(
-            system_prompt, user_prompt,
-            model=model, cache=cache,
-            enable_thinking=enable_thinking,
-            thinking_budget=thinking_budget,
-        )
-    except Exception as e:
-        if not _is_anthropic_transient_error(e):
-            raise
-        if not _gemini_configured():
-            log.error(
-                "Anthropic transient error (%s) but Gemini fallback "
-                "not configured — set GEMINI_API_KEY + install google-genai",
-                type(e).__name__,
+    import os
+    import time as _time
+
+    last_exc: Optional[Exception] = None
+    backoff_seconds = (2.0, 6.0)  # two retries spaced at 2s and 6s
+    for attempt in range(len(backoff_seconds) + 1):
+        try:
+            return call_claude_cached(
+                system_prompt, user_prompt,
+                model=model, cache=cache,
+                enable_thinking=enable_thinking,
+                thinking_budget=thinking_budget,
             )
-            raise
+        except Exception as e:
+            last_exc = e
+            if not _is_anthropic_transient_error(e):
+                raise
+            if attempt >= len(backoff_seconds):
+                break  # retries exhausted
+            sleep_s = backoff_seconds[attempt]
+            log.warning(
+                "Anthropic transient error (%s); retry %d/%d in %.1fs",
+                type(e).__name__, attempt + 1, len(backoff_seconds), sleep_s,
+            )
+            _time.sleep(sleep_s)
+
+    # All retries exhausted. Only try Gemini if explicitly enabled — and
+    # the Gemini call may still fail with its own quota error.
+    gemini_enabled = os.environ.get("ENABLE_GEMINI_FALLBACK", "false").lower() in {"1", "true", "yes"}
+    if gemini_enabled and _gemini_configured():
         log.warning(
-            "Anthropic transient error (%s); falling back to Gemini",
-            type(e).__name__,
+            "Anthropic transient error after %d retries; falling back to Gemini",
+            len(backoff_seconds),
         )
-        return _call_gemini(system_prompt, user_prompt, model="")
+        try:
+            return _call_gemini(system_prompt, user_prompt, model="")
+        except Exception as ge:
+            log.error("Gemini fallback also failed: %s", str(ge)[:200])
+            # Re-raise the original Anthropic exception so the user sees the
+            # real cause, not a confusing Gemini quota message.
+            raise last_exc from ge
+
+    raise last_exc
 
 
 log = logging.getLogger(__name__)
