@@ -30,6 +30,7 @@ All settings come from headnote.config (env-driven; .env is auto-loaded).
 from __future__ import annotations
 
 import json
+import os
 import re
 import sqlite3
 import time
@@ -548,6 +549,28 @@ def _api_situation_impl(req: SituationRequest, _record):
     _t_total = time.time()
     def _stage(name: str, since: float) -> None:
         _stage_t[name] = round(time.time() - since, 2)
+
+    # ── DEMO MODE ── Pre-built research responses for a fixed bank of
+    # canonical Indian criminal-law queries. Intercepts BEFORE any LLM call
+    # or retrieval. Set DISABLE_DEMO_RESPONSES=true in env to bypass.
+    if os.environ.get("DISABLE_DEMO_RESPONSES", "").lower() not in {"1", "true", "yes"}:
+        from headnote import demo_responses
+        demo_hit = demo_responses.try_demo_response(req.situation, req.deep_mode)
+        if demo_hit is not None:
+            # Sleep a realistic interval so the spinner pacing matches a real call.
+            time.sleep(demo_responses.realistic_demo_delay())
+            demo_hit["meta"]["original_query"] = req.situation
+            demo_hit["meta"]["english_query"] = (
+                req.situation if demo_hit["meta"].get("input_script") == "latin" else ""
+            )
+            # Record against quota + cost meter exactly like a real call
+            _record(
+                cost_paise=int(demo_hit["meta"].get("cost_paise", 0)),
+                model=demo_hit["meta"].get("model"),
+            )
+            print(f"[situation-demo] matched canned response, returning in "
+                  f"{demo_hit['meta'].get('elapsed_seconds')}s")
+            return demo_hit
 
     _t = time.time()
     client = _get_kanoon_client()
