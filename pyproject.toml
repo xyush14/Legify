@@ -32,6 +32,9 @@ classifiers = [
 dependencies = [
     "fastapi>=0.110",
     "uvicorn[standard]>=0.27",
+    # python-multipart is required by FastAPI for UploadFile/File parsing
+    # (used by /api/draft/ocr-fir for FIR photo uploads).
+    "python-multipart>=0.0.9",
     "anthropic>=0.39",
     "pydantic>=2.6",
     "python-dotenv>=1.0",
