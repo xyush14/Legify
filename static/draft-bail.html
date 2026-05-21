@@ -44,47 +44,93 @@
   .split { display: grid; grid-template-columns: 460px 1fr; height: calc(100vh - 56px); }
   @media (max-width: 1100px) { .split { grid-template-columns: 380px 1fr; } }
 
-  /* Mobile pane switcher — shown only on phones */
-  .pane-tabs { display: none; }
+  /* Preview sheet handle — visible only on mobile (acts as the always-on
+     button that toggles the floating preview between collapsed / half / full). */
+  .preview-handle { display: none; }
 
   @media (max-width: 880px) {
+    /* Form takes full width; preview becomes a floating bottom sheet */
     .split {
       display: block;
       height: auto;
-      padding-top: 44px;          /* room for the sticky pane-tabs */
+      padding-bottom: 64px;  /* room for the collapsed sheet */
     }
-    .pane-tabs {
-      display: flex;
-      position: fixed;
-      top: 56px; left: 0; right: 0;
-      z-index: 9;
-      background: var(--panel);
-      border-bottom: 1px solid var(--line);
-      padding: 0;
-    }
-    .pane-tabs button {
-      flex: 1;
-      background: transparent; border: none;
-      padding: 12px 8px;
-      font-family: inherit; font-size: 13px; font-weight: 600;
-      color: var(--muted); cursor: pointer;
-      border-bottom: 2px solid transparent;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .pane-tabs button.is-active {
-      color: var(--ink);
-      border-bottom-color: var(--ink);
-    }
-    body.lang-hi .pane-tabs button { font-family: 'Noto Sans Devanagari', sans-serif; }
-
-    .form-pane, .doc-pane {
+    .form-pane {
+      display: block;
       max-height: none;
-      padding-left: 14px; padding-right: 14px;
+      padding: 16px 14px 80px;
+      border-right: none;
     }
-    .form-pane { display: block; }
-    .doc-pane { display: none; }
-    .split[data-pane="preview"] .form-pane { display: none; }
-    .split[data-pane="preview"] .doc-pane { display: block; }
+
+    /* Floating preview sheet — fixed to bottom, 3 states via JS */
+    .doc-pane {
+      position: fixed;
+      left: 0; right: 0; bottom: 0;
+      height: 56px;                          /* collapsed default */
+      max-height: 100vh;
+      z-index: 70;
+      background: var(--panel);
+      border-top: 1px solid var(--line-strong);
+      box-shadow: 0 -3px 16px rgba(0,0,0,0.12);
+      transition: height 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow: hidden;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .doc-pane[data-state="half"] { height: 56vh; }
+    .doc-pane[data-state="full"] { height: 90vh; }
+
+    /* Always-visible header bar with grip + label + chevron */
+    .preview-handle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      height: 56px;
+      min-height: 56px;
+      width: 100%;
+      background: var(--panel);
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--ink);
+      -webkit-tap-highlight-color: transparent;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .preview-handle__grip {
+      position: absolute;
+      top: 6px; left: 50%;
+      transform: translateX(-50%);
+      width: 36px; height: 4px;
+      background: var(--line-strong);
+      border-radius: 2px;
+    }
+    .preview-handle__label { display: flex; align-items: center; gap: 6px; }
+    .preview-handle__pages { color: var(--muted); font-weight: 500; font-size: 12px; }
+    .preview-handle__chevron {
+      font-size: 11px;
+      color: var(--muted);
+      transition: transform 0.22s ease;
+    }
+    .doc-pane[data-state="half"] .preview-handle__chevron,
+    .doc-pane[data-state="full"] .preview-handle__chevron { transform: rotate(180deg); }
+    body.lang-hi .preview-handle { font-family: 'Noto Sans Devanagari', sans-serif; }
+
+    /* The actual document scrolls inside the sheet body */
+    .doc-pane .doc-page {
+      flex: 1;
+      overflow-y: auto;
+      margin: 0;
+      padding: 24px 20px 60px;
+      transform: none;
+      max-width: none;
+      box-shadow: none;
+      border-radius: 0;
+    }
 
     /* Condensed topbar — title only, hide subtitle and label text */
     .topbar { padding: 10px 12px; }
@@ -94,8 +140,6 @@
     .topbar__right .btn { padding: 6px 8px; font-size: 12px; }
     .topbar__right .btn .btn-label-long { display: none; }
   }
-
-  @media (max-width: 880px) { .form-pane { max-height: none; } }
 
   /* LEFT: form */
   .form-pane { overflow-y: auto; padding: 20px 22px 60px; border-right: 1px solid var(--line); background: var(--panel); }
@@ -317,13 +361,7 @@
   </div>
 </div>
 
-<!-- Mobile-only pane switcher (Form / Preview) -->
-<div class="pane-tabs" id="pane-tabs" role="tablist" aria-label="Form or preview">
-  <button type="button" id="pane-tab-form" class="is-active" role="tab" aria-selected="true" data-en="✎ Form" data-hi="✎ फ़ॉर्म">✎ फ़ॉर्म</button>
-  <button type="button" id="pane-tab-preview" role="tab" aria-selected="false" data-en="📄 Preview" data-hi="📄 प्रीव्यू">📄 प्रीव्यू</button>
-</div>
-
-<div class="split" id="split" data-pane="form">
+<div class="split" id="split">
   <!-- LEFT: form -->
   <div class="form-pane" id="form-pane">
 
@@ -603,8 +641,18 @@
 
   </div><!-- /.form-pane -->
 
-  <!-- RIGHT: live document -->
-  <div class="doc-pane">
+  <!-- RIGHT: live document — mobile shows as a floating bottom sheet -->
+  <div class="doc-pane" id="doc-pane-wrap" data-state="collapsed">
+    <!-- Sheet handle: visible only on mobile, taps cycle collapsed → half → full -->
+    <button type="button" class="preview-handle" id="preview-handle" aria-expanded="false">
+      <span class="preview-handle__grip" aria-hidden="true"></span>
+      <span class="preview-handle__label">
+        <span aria-hidden="true">📄</span>
+        <span id="preview-handle-label" data-en="Preview" data-hi="प्रीव्यू">प्रीव्यू</span>
+        <span class="preview-handle__pages" id="preview-handle-pages"></span>
+      </span>
+      <span class="preview-handle__chevron" aria-hidden="true">▲</span>
+    </button>
     <div class="doc-page" id="doc-page">
       <!-- live render goes here -->
     </div>
@@ -1544,6 +1592,8 @@ function onChange() {
   // Re-render document in selected language
   document.getElementById('doc-page').innerHTML =
     state.lang === 'en' ? renderEn(state.answers) : renderHi(state.answers);
+  // Update the page-count badge on the mobile preview handle
+  if (typeof updatePreviewPageCount === 'function') updatePreviewPageCount();
 
   // Update custody hint
   const cust = custodyDays(state.answers.arrest_date);
@@ -2233,25 +2283,56 @@ document.getElementById('lang-en').addEventListener('click', () => switchLang('e
 document.getElementById('lang-hi').addEventListener('click', () => switchLang('hi'));
 
 // =========================================================================
-// Mobile pane switcher (Form ↔ Preview tabs).
-// On screens > 880px the form + preview show side-by-side and the tabs
-// are hidden via CSS — this JS is a no-op on desktop.
+// Mobile preview sheet — three-state pull-up (collapsed / half / full).
+// On desktop (>880px) the preview is a static right pane and this is inert.
 // =========================================================================
-function switchPane(which) {
-  const split = document.getElementById('split');
-  if (!split) return;
-  split.dataset.pane = which;
-  const formTab    = document.getElementById('pane-tab-form');
-  const previewTab = document.getElementById('pane-tab-preview');
-  if (formTab)    formTab.classList.toggle('is-active', which === 'form');
-  if (previewTab) previewTab.classList.toggle('is-active', which === 'preview');
-  if (formTab)    formTab.setAttribute('aria-selected',    which === 'form');
-  if (previewTab) previewTab.setAttribute('aria-selected', which === 'preview');
-  // Scroll to top of the active pane
-  window.scrollTo({ top: 0, behavior: 'instant' });
+const PREVIEW_STATES = ['collapsed', 'half', 'full'];
+
+function cyclePreviewSheet() {
+  const wrap = document.getElementById('doc-pane-wrap');
+  if (!wrap) return;
+  const cur = wrap.dataset.state || 'collapsed';
+  const next = PREVIEW_STATES[(PREVIEW_STATES.indexOf(cur) + 1) % PREVIEW_STATES.length];
+  setPreviewSheet(next);
 }
-document.getElementById('pane-tab-form')?.addEventListener('click', () => switchPane('form'));
-document.getElementById('pane-tab-preview')?.addEventListener('click', () => switchPane('preview'));
+function setPreviewSheet(s) {
+  const wrap = document.getElementById('doc-pane-wrap');
+  if (!wrap) return;
+  wrap.dataset.state = s;
+  const handle = document.getElementById('preview-handle');
+  if (handle) handle.setAttribute('aria-expanded', s !== 'collapsed');
+  // When opening, scroll the preview body to the top
+  if (s !== 'collapsed') {
+    const body = wrap.querySelector('.doc-page');
+    if (body) body.scrollTop = 0;
+  }
+}
+document.getElementById('preview-handle')?.addEventListener('click', cyclePreviewSheet);
+
+// Tap anywhere outside the sheet while it's open → collapse it (form-first UX)
+document.addEventListener('click', (e) => {
+  const wrap = document.getElementById('doc-pane-wrap');
+  if (!wrap) return;
+  if (wrap.dataset.state === 'collapsed') return;
+  if (wrap.contains(e.target)) return;
+  // Only collapse on mobile (≤880px) — on desktop the pane is static
+  if (window.matchMedia('(max-width: 880px)').matches) {
+    setPreviewSheet('collapsed');
+  }
+});
+
+// Update the page-count badge on the handle whenever the preview re-renders
+function updatePreviewPageCount() {
+  const handle = document.getElementById('preview-handle-pages');
+  if (!handle) return;
+  // Rough estimate: 1 A4 page ≈ 800 pixels of rendered content height
+  const docPage = document.getElementById('doc-page');
+  if (!docPage) return;
+  const pages = Math.max(1, Math.ceil(docPage.scrollHeight / 800));
+  handle.textContent = pages > 1
+    ? (state.lang === 'hi' ? ` · ${pages} पन्ने` : ` · ${pages} pages`)
+    : '';
+}
 
 // =========================================================================
 // Toast

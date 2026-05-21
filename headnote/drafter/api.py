@@ -116,6 +116,16 @@ def start_draft(
         return draft.to_dict()
 
 
+# Note: this route must be declared BEFORE `/{draft_id}` so FastAPI's path
+# matcher doesn't treat 'templates' as a draft id.
+@router.get("/templates", summary="List Smart-Drafter document types")
+def list_compose_templates():
+    """Returns metadata for every template the conversational drafter
+    knows about — used by the FE picker."""
+    from headnote.drafter.compose import list_templates_slim
+    return {"templates": list_templates_slim()}
+
+
 @router.get("/{draft_id}", summary="Get one draft by id")
 def get_draft(draft_id: str):
     d = storage.get_draft(draft_id)
@@ -420,3 +430,54 @@ async def transcribe(
         # the cost meter shows non-zero activity. Free in practice.
         _record(cost_paise=100, model="whisper-large-v3-turbo")
         return {"ok": True, "text": text, "language": lang}
+
+
+# ----------------------------------------------------------- Smart Drafter
+# Conversational AI drafter: lawyer describes the matter (voice or text),
+# AI conductor asks contextual follow-ups, then generates the full document.
+# See headnote/drafter/compose.py for the conductor logic + template registry.
+
+class ComposeBody(BaseModel):
+    doc_type:     str
+    conversation: list[dict] = Field(default_factory=list, description="Prior chat turns")
+    collected:    dict       = Field(default_factory=dict, description="Fields filled so far")
+    user_message: Optional[str] = Field(None, description="Latest user utterance (text or voice transcript)")
+    lang:         Literal["hi", "en"] = "hi"
+    force_draft:  bool = Field(False, description="Skip remaining questions and generate now")
+
+
+@router.post("/compose", summary="Conversational AI drafter — ask questions or generate document")
+def compose(
+    body: ComposeBody,
+    user: CurrentUser = Depends(get_current_user),
+):
+    """One step of the conversational drafter.
+
+    Lawyer either gives the latest answer (`user_message`) or hits
+    "Draft Now" (`force_draft=True`). The conductor either returns the
+    next question to ask or the generated document.
+    """
+    from headnote.drafter.compose import conductor_step
+
+    if not body.doc_type:
+        raise HTTPException(status_code=400, detail="doc_type required")
+
+    with check_and_record(user.id, "draft", endpoint="compose") as _record:
+        try:
+            result = conductor_step(
+                doc_type=body.doc_type,
+                conversation=body.conversation,
+                collected=body.collected,
+                user_message=body.user_message,
+                lang=body.lang,
+                force_draft=body.force_draft,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"compose failed: {e}")
+
+        # Cost estimate: asking = ~haiku (50p), generating = ~sonnet (600p)
+        cost = 600 if result.get("status") == "ready" else 50
+        _record(cost_paise=cost, model="sonnet+haiku-compose")
+        return result

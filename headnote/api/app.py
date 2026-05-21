@@ -341,6 +341,21 @@ def draft_bail_application():
     return FileResponse(config.STATIC_DIR / "draft-bail.html")
 
 
+@app.get("/draft/smart", include_in_schema=False)
+@app.get("/draft/smart/", include_in_schema=False)
+def draft_smart():
+    """Smart Drafter — conversational AI document composer.
+
+    Lawyer picks a template (Vakalatnama, Anticipatory Bail, Quashing
+    Petition, Writ, …) or describes the matter in plain language, the
+    conductor (Claude Haiku) asks contextual follow-ups one at a time, and
+    Sonnet generates the full document at the end. Voice input on every
+    chat turn. Live preview pane (pull-up sheet on mobile) renders the
+    document as it materialises.
+    """
+    return FileResponse(config.STATIC_DIR / "draft-smart.html")
+
+
 @app.get("/api/config", summary="Public frontend configuration (non-secret)")
 def api_config():
     """Returns the public Supabase credentials so auth.js can initialise the
