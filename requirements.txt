@@ -27,6 +27,11 @@ httpx>=0.27
 # behaviour, so this doesn't break existing deploys.
 google-genai>=0.3
 
+# Groq is the primary OCR vision backend (free tier, llama-4-scout) for
+# FIR photo extraction in /api/draft/ocr-fir. Requires GROQ_API_KEY in env.
+# Without the key the OCR endpoint falls back to Anthropic Sonnet vision.
+groq>=1.0
+
 # ---- IK API client + HTML parsing
 requests>=2.31
 beautifulsoup4>=4.12
