@@ -200,6 +200,64 @@
   .ocr-cta button { flex: 1; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--panel); font-size: 12px; font-weight: 600; cursor: pointer; }
   .ocr-cta button.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
   .ocr-cta button:disabled { opacity: 0.4; cursor: not-allowed; }
+  /* =========================================================================
+     Voice input — mic button placed in the bottom-right of long-text fields.
+     Tap to start recording (browser-native SpeechRecognition or MediaRecorder
+     fallback). Tap again to stop. Transcription appends to the textarea.
+     ========================================================================= */
+  .voice-field { position: relative; }
+  .voice-mic {
+    position: absolute;
+    right: 6px; bottom: 6px;
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: var(--panel);
+    border: 1px solid var(--line-strong);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+    z-index: 2;
+    padding: 0;
+  }
+  .voice-mic:hover { background: var(--soft); }
+  .voice-mic svg { width: 16px; height: 16px; color: var(--ink); }
+  /* Recording — pulsing red dot. Two animations stacked for the breathing effect. */
+  .voice-mic--rec {
+    background: var(--bad, #c0392b);
+    border-color: var(--bad, #c0392b);
+    animation: voice-pulse 1.4s ease-in-out infinite;
+  }
+  .voice-mic--rec svg { color: #fff; }
+  @keyframes voice-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(192, 57, 43, 0.45); }
+    50%      { box-shadow: 0 0 0 8px rgba(192, 57, 43, 0); }
+  }
+  /* Processing — server transcription in flight */
+  .voice-mic--proc {
+    background: var(--warn, #c9923a);
+    border-color: var(--warn, #c9923a);
+  }
+  .voice-mic--proc svg { color: #fff; animation: voice-spin 1s linear infinite; }
+  @keyframes voice-spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+  /* Tiny "listening" hint that appears above the field */
+  .voice-hint {
+    position: absolute;
+    right: 42px; bottom: 10px;
+    font-size: 10.5px;
+    color: var(--muted);
+    background: var(--panel);
+    padding: 2px 6px;
+    border-radius: 4px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.18s ease;
+    white-space: nowrap;
+  }
+  .voice-field.is-recording .voice-hint { opacity: 1; }
+  /* Bump the right padding of textareas so the mic doesn't overlap text */
+  .voice-field textarea, .voice-field input { padding-right: 44px; }
+
   /* Accused chooser shown when FIR has >1 accused */
   .accused-picker { background: var(--soft); border: 1px solid var(--line-strong); border-radius: 8px; padding: 10px 12px; margin-top: 10px; }
   .accused-picker__title { font-weight: 600; font-size: 12px; margin-bottom: 6px; }
@@ -1570,8 +1628,227 @@ async function saveDraft() {
 }
 
 // =========================================================================
-// OCR
+// Voice input — per-field mic button (Web Speech API primary, Groq Whisper
+// fallback). Designed so a lawyer can dictate long Hindi prose into any
+// long-text field instead of typing on a phone keyboard.
+//
+// Two backends, picked automatically:
+//   1. window.SpeechRecognition / webkitSpeechRecognition — built-in,
+//      free, real-time (Chrome / Edge / Safari incl. mobile). On iOS the
+//      audio NEVER leaves the device.
+//   2. MediaRecorder → /api/draft/transcribe (Groq Whisper) — used when
+//      SpeechRecognition is missing (Firefox, some webviews). One round
+//      trip on stop; ~2-3s latency for 30s of audio.
+//
+// Privacy: no audio is stored — server-side mode discards bytes after STT
+// completes; on-device mode never sends audio off the phone at all.
 // =========================================================================
+const VOICE_HAS_NATIVE = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+const VOICE_HAS_RECORDER = !!(window.MediaRecorder && navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+
+const _voiceState = new WeakMap(); // textarea → { mode, recognition?, recorder?, stream?, chunks?, btn, hint }
+
+function _voiceLangCode() {
+  return state.lang === 'en' ? 'en-IN' : 'hi-IN';
+}
+function _whisperLang() {
+  return state.lang === 'en' ? 'en' : 'hi';
+}
+
+function _appendToField(field, text) {
+  if (!text) return;
+  const cur = (field.value || '').trim();
+  const sep = cur && !cur.match(/[\s।.,?!\-]$/) ? ' ' : '';
+  field.value = cur + sep + text;
+  // Trigger input/change so onChange() picks up the update
+  field.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function _voiceStartNative(field, ctx) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const rec = new SR();
+  rec.lang = _voiceLangCode();
+  rec.continuous = true;
+  rec.interimResults = false;     // commit final results only
+  rec.maxAlternatives = 1;
+  rec.onresult = (e) => {
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) {
+        const t = (e.results[i][0].transcript || '').trim();
+        if (t) _appendToField(field, t);
+      }
+    }
+  };
+  rec.onerror = (e) => {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      toast(state.lang === 'hi' ? 'माइक की अनुमति दें' : 'Allow microphone access', 'err');
+    } else if (e.error === 'no-speech') {
+      // benign — user didn't speak yet; keep listening
+      return;
+    } else {
+      toast('voice error: ' + e.error, 'err');
+    }
+    _voiceStop(field);
+  };
+  rec.onend = () => {
+    // Auto-restart if still in recording state (Chrome stops after ~1 min silence)
+    const ctx2 = _voiceState.get(field);
+    if (ctx2 && ctx2.active) {
+      try { rec.start(); } catch (_) { _voiceStop(field); }
+    }
+  };
+  ctx.recognition = rec;
+  rec.start();
+}
+
+async function _voiceStartRecorder(field, ctx) {
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    toast(state.lang === 'hi' ? 'माइक की अनुमति दें' : 'Allow microphone access', 'err');
+    _voiceStop(field);
+    return;
+  }
+  ctx.stream = stream;
+  const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg']
+    .find(m => MediaRecorder.isTypeSupported(m)) || '';
+  const recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+  ctx.recorder = recorder;
+  ctx.chunks = [];
+  recorder.ondataavailable = (e) => { if (e.data && e.data.size) ctx.chunks.push(e.data); };
+  recorder.onstop = async () => {
+    stream.getTracks().forEach(t => t.stop());
+    const blob = new Blob(ctx.chunks, { type: recorder.mimeType || 'audio/webm' });
+    if (!blob.size) return;
+    // Show processing state
+    ctx.btn.classList.remove('voice-mic--rec');
+    ctx.btn.classList.add('voice-mic--proc');
+    try {
+      const fd = new FormData();
+      fd.append('file', blob, 'voice.webm');
+      const headers = await authHeaders();
+      const r = await fetch('/api/draft/transcribe?language=' + _whisperLang(), {
+        method: 'POST', headers, body: fd,
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP ${r.status}`);
+      }
+      const data = await r.json();
+      if (data.text) _appendToField(field, data.text);
+    } catch (e) {
+      toast('transcription failed: ' + (e.message || 'unknown'), 'err');
+    } finally {
+      ctx.btn.classList.remove('voice-mic--proc');
+    }
+  };
+  recorder.start();
+}
+
+function _voiceStop(field) {
+  const ctx = _voiceState.get(field);
+  if (!ctx) return;
+  ctx.active = false;
+  ctx.wrap.classList.remove('is-recording');
+  ctx.btn.classList.remove('voice-mic--rec');
+  ctx.btn.setAttribute('aria-pressed', 'false');
+  if (ctx.recognition) {
+    try { ctx.recognition.stop(); } catch (_) {}
+    ctx.recognition = null;
+  }
+  if (ctx.recorder && ctx.recorder.state !== 'inactive') {
+    try { ctx.recorder.stop(); } catch (_) {}
+  }
+}
+
+function _voiceStart(field) {
+  const ctx = _voiceState.get(field);
+  if (!ctx) return;
+  ctx.active = true;
+  ctx.wrap.classList.add('is-recording');
+  ctx.btn.classList.add('voice-mic--rec');
+  ctx.btn.setAttribute('aria-pressed', 'true');
+  if (VOICE_HAS_NATIVE) {
+    _voiceStartNative(field, ctx);
+  } else if (VOICE_HAS_RECORDER) {
+    _voiceStartRecorder(field, ctx);
+  } else {
+    toast('voice input not supported in this browser', 'err');
+    _voiceStop(field);
+  }
+}
+
+function _voiceToggle(field) {
+  const ctx = _voiceState.get(field);
+  if (!ctx) return;
+  if (ctx.active) _voiceStop(field);
+  else _voiceStart(field);
+}
+
+function attachVoice(fieldId) {
+  const field = document.getElementById(fieldId) ||
+                document.querySelector(`[data-field="${fieldId}"]`);
+  if (!field) return;
+  if (_voiceState.has(field)) return;        // idempotent
+  if (!VOICE_HAS_NATIVE && !VOICE_HAS_RECORDER) return;  // no browser support
+
+  // Wrap the field so we can absolute-position the mic next to it
+  const wrap = document.createElement('div');
+  wrap.className = 'voice-field';
+  field.parentNode.insertBefore(wrap, field);
+  wrap.appendChild(field);
+
+  // Hint label ("बोलिए…" / "listening…")
+  const hint = document.createElement('div');
+  hint.className = 'voice-hint';
+  hint.textContent = state.lang === 'hi' ? 'सुन रहा हूँ…' : 'listening…';
+  wrap.appendChild(hint);
+
+  // The mic button
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'voice-mic';
+  btn.setAttribute('aria-label', state.lang === 'hi' ? 'आवाज़ से लिखें' : 'Dictate with voice');
+  btn.setAttribute('aria-pressed', 'false');
+  btn.innerHTML = `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+      <line x1="12" y1="19" x2="12" y2="23"/>
+      <line x1="8" y1="23" x2="16" y2="23"/>
+    </svg>`;
+  wrap.appendChild(btn);
+
+  _voiceState.set(field, { active: false, btn, hint, wrap, recognition: null, recorder: null, stream: null, chunks: [] });
+  btn.addEventListener('click', (e) => { e.preventDefault(); _voiceToggle(field); });
+  // Update hint when language toggles
+  document.addEventListener('headnote-lang-change', () => {
+    hint.textContent = state.lang === 'hi' ? 'सुन रहा हूँ…' : 'listening…';
+    btn.setAttribute('aria-label', state.lang === 'hi' ? 'आवाज़ से लिखें' : 'Dictate with voice');
+    // If a recording is in flight, restart with the new lang so the
+    // recognizer doesn't continue with the wrong language model.
+    const ctx = _voiceState.get(field);
+    if (ctx && ctx.active && ctx.recognition) {
+      try { ctx.recognition.stop(); } catch (_) {}
+      setTimeout(() => { if (_voiceState.get(field).active) _voiceStartNative(field, ctx); }, 80);
+    }
+  });
+}
+
+// Wire mic to every long-text field where voice provides the biggest
+// win. Each call is a no-op if the browser can't do voice at all.
+function wireVoiceFields() {
+  [
+    'facts_narrative',
+    'cancellation_history',
+    'lower_court_history',
+    'custom_ground_1',
+    'grounds_medical',
+    'applicant_address',
+  ].forEach(attachVoice);
+}
+
 // =========================================================================
 // OCR — multi-page FIR upload
 // FIRs in the standard NCRB I.I.F.-I format span 3-5 pages. We collect all
@@ -1948,6 +2225,8 @@ async function switchLang(newLang) {
 
   applyLang();
   onChange();
+  // Let voice input + any other subscribers know the language flipped
+  document.dispatchEvent(new CustomEvent('headnote-lang-change', { detail: { lang: newLang } }));
 }
 
 document.getElementById('lang-en').addEventListener('click', () => switchLang('en'));
@@ -2011,6 +2290,8 @@ async function maybeLoadExisting() {
   bindInputs();
   applyLang();
   onChange();
+  // Wire mic icons onto long-text fields. No-op if browser can't do voice.
+  wireVoiceFields();
 })();
 </script>
 </body>

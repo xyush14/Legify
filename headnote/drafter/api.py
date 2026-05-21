@@ -334,3 +334,89 @@ async def ocr_fir(
         # Cost scales roughly with page count. 300p per page is conservative.
         _record(cost_paise=300 * len(pages), model="claude-sonnet-4-6-vision")
         return {"ok": True, "page_count": len(pages), "extracted": parsed}
+
+
+# ----------------------------------------------------------- Voice transcription
+
+# Audio formats Whisper accepts. Web's MediaRecorder typically produces
+# audio/webm on Chrome/Firefox and audio/mp4 on Safari — both supported.
+_AUDIO_ALLOWED_MIME = {
+    "audio/webm", "audio/ogg", "audio/wav", "audio/x-wav",
+    "audio/mp4", "audio/m4a", "audio/mpeg", "audio/mp3",
+    "audio/flac",
+}
+_AUDIO_MAX_BYTES = 25 * 1024 * 1024  # Whisper's hard cap is 25 MB
+
+
+@router.post("/transcribe", summary="Transcribe voice dictation → text (Groq Whisper)")
+async def transcribe(
+    file: UploadFile = File(...),
+    language: str = "hi",  # 'hi' | 'en' | 'mr' | 'ta' | 'te' | 'bn' | ...
+    user: CurrentUser = Depends(get_current_user),
+):
+    """Server-side speech-to-text via Groq's hosted Whisper.
+
+    Used as the fallback path when the browser's built-in SpeechRecognition
+    isn't available (Firefox mobile, some embedded webviews). The primary
+    voice path is the Web Speech API on the client — free, real-time, and
+    avoids round-trips.
+
+    Whisper handles Hindi + code-mixed Hinglish natively. We pass `language`
+    as a hint to lower latency and improve accuracy.
+
+    Audio is NEVER persisted on disk — read into memory, sent to Groq,
+    discarded. Compliant with our "voice data not retained" privacy claim.
+
+    Gated as a 'draft' feature (counts toward quota).
+    """
+    import os
+    if not os.environ.get("GROQ_API_KEY"):
+        raise HTTPException(
+            status_code=503,
+            detail="Voice transcription requires GROQ_API_KEY on the server.",
+        )
+
+    mt = (file.content_type or "").lower()
+    # Browsers often send 'audio/webm;codecs=opus' — strip the codecs suffix.
+    base_mt = mt.split(";")[0].strip()
+    if base_mt not in _AUDIO_ALLOWED_MIME:
+        raise HTTPException(
+            status_code=400,
+            detail=f"unsupported audio type {mt!r}; use webm, mp4/m4a, wav, ogg, mp3 or flac",
+        )
+
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="empty audio file")
+    if len(data) > _AUDIO_MAX_BYTES:
+        raise HTTPException(status_code=400, detail="audio too large; max 25 MB")
+
+    # Normalise language to ISO-639-1 (Whisper's expected format)
+    lang = (language or "").lower().strip()[:2] or "hi"
+
+    with check_and_record(user.id, "draft", endpoint="transcribe") as _record:
+        try:
+            from groq import Groq
+            client = Groq(api_key=os.environ["GROQ_API_KEY"])
+            # Pick a filename + media type Whisper will accept. The SDK
+            # expects (filename, bytes, mime_type) tuple.
+            ext = {
+                "audio/webm": "webm", "audio/ogg": "ogg", "audio/wav": "wav",
+                "audio/x-wav": "wav", "audio/mp4": "m4a", "audio/m4a": "m4a",
+                "audio/mpeg": "mp3", "audio/mp3": "mp3", "audio/flac": "flac",
+            }.get(base_mt, "webm")
+            resp = client.audio.transcriptions.create(
+                file=(f"audio.{ext}", data, base_mt),
+                model=os.environ.get("GROQ_STT_MODEL", "whisper-large-v3-turbo"),
+                language=lang,
+                response_format="json",
+                temperature=0.0,
+            )
+            text = (resp.text or "").strip()
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Transcription failed: {e}")
+
+        # Whisper free tier. Roughly 100p per call as a rough estimate so
+        # the cost meter shows non-zero activity. Free in practice.
+        _record(cost_paise=100, model="whisper-large-v3-turbo")
+        return {"ok": True, "text": text, "language": lang}
