@@ -20,6 +20,17 @@ let _sb = null;
 let currentUser = null;
 const _authChangeListeners = [];
 
+// Promise that resolves the moment the auth flow has determined session
+// state — either we have a signed-in user, or we definitively don't.
+// Pages that depend on auth (the drafter pages, etc.) MUST await this
+// before firing any protected API call. Without this gate, the page
+// races initAuth() and fires the first /api/* fetch with no Bearer
+// header, gets a 401, and bounces the user to /app even though they
+// were already signed in. Bug seen in the wild during a live demo.
+let _readyResolve = null;
+const _readyPromise = new Promise((resolve) => { _readyResolve = resolve; });
+function _markReady() { try { _readyResolve(); } catch {} }
+
 /* ------------------------------------------------------------------ boot */
 
 async function initAuth() {
@@ -38,6 +49,7 @@ async function initAuth() {
     console.error('[auth] initAuth watchdog fired — forcing login modal after 8s');
     _showLoginModal();
     _showAuthError('Sign-in check is taking longer than expected. You can sign in again.');
+    _markReady();  // unblock anyone awaiting ready() — they'll see no user
   }, 8000);
 
   function _cancelWatchdog() { clearTimeout(_watchdog); }
@@ -57,6 +69,7 @@ async function initAuth() {
   if (!cfg.supabase_url || !cfg.supabase_anon_key) {
     console.log('[auth] Supabase not configured — auth skipped (dev mode)');
     _cancelWatchdog();
+    _markReady();
     _revealApp();
     return;
   }
@@ -69,6 +82,7 @@ async function initAuth() {
   if (!window.supabase) {
     console.error('[auth] Supabase CDN failed to load');
     _cancelWatchdog();
+    _markReady();
     _showLoginModal();   // at least show the login UI; user can refresh
     _showAuthError('Auth library failed to load. Please refresh the page.');
     return;
@@ -113,6 +127,9 @@ async function initAuth() {
   _sb.auth.onAuthStateChange(async (_event, session) => {
     console.log('[auth] Auth state changed. Event:', _event,
                 'has session:', !!session, 'user:', session?.user?.email);
+    // First time the auth state is known (signed-in OR signed-out),
+    // unblock anyone awaiting headnoteAuth.ready().
+    _markReady();
     const prevUserId = currentUser?.id || null;
     if (session?.user) {
       currentUser = session.user;
@@ -246,8 +263,20 @@ window.headnoteAuthDebug = function () {
   return msg;
 };
 
-/** Get the current Supabase JWT (use as Bearer in protected API calls). */
+/** Get the current Supabase JWT (use as Bearer in protected API calls).
+ *
+ * Awaits the ready() gate so callers get a real answer even if they fire
+ * before initAuth has finished. Without this wait, every page that loads
+ * auth.js but doesn't call initAuth itself (drafter pages, etc.) would
+ * race the init and return null on the first call — bouncing signed-in
+ * users to the login modal.
+ */
 async function getAuthToken() {
+  // Cap the wait so a broken init never hangs a fetch indefinitely.
+  await Promise.race([
+    _readyPromise,
+    new Promise((resolve) => setTimeout(resolve, 6000)),
+  ]);
   if (!_sb) return null;
   try {
     const { data: { session } } = await _sb.auth.getSession();
@@ -272,6 +301,13 @@ window.headnoteAuth = {
   getAccessToken: getAuthToken,
   getUser:        () => currentUser,
   userId:         () => currentUser?.id || null,
+  // ready() resolves when the auth state is known (signed-in or not).
+  // Pages should await this before firing protected API calls. Caps at 6s
+  // so a broken init never blocks the page forever.
+  ready: () => Promise.race([
+    _readyPromise,
+    new Promise((resolve) => setTimeout(resolve, 6000)),
+  ]),
   signOut:        signOut,
   // Subscribe to sign-in / sign-out / user-switch events.
   // Callback receives the new user object (or null when signed out).
@@ -287,6 +323,29 @@ window.headnoteAuth = {
     };
   },
 };
+
+/* ------------------------------------------------------------------ auto-init
+ * Self-bootstrap on every page that loads auth.js. Previously only app.js
+ * called initAuth() — so drafter pages (/draft/template/*, /draft/smart,
+ * /draft/bail) loaded auth.js but never initialized the Supabase client.
+ * That meant getAccessToken() returned null on those pages, every API call
+ * got a 401, and signed-in users were bounced to /app in a loop. Now this
+ * IIFE fires the init the moment the script is parsed, idempotently. */
+(function _bootAuth() {
+  // Guard against double-init if a page (like /app) also calls initAuth().
+  if (window.__headnote_auth_booted) return;
+  window.__headnote_auth_booted = true;
+  // Defer one microtask so the rest of the file finishes binding listeners
+  // and so page-level inline scripts can attach onAuthChange handlers first.
+  Promise.resolve().then(() => {
+    try {
+      initAuth();
+    } catch (e) {
+      console.error('[auth] auto-init failed:', e);
+      _markReady();   // unblock pending fetches with a clean "no session" state
+    }
+  });
+})();
 
 /* ------------------------------------------------------------------ click handlers (called from HTML) */
 

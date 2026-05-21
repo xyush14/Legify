@@ -1640,11 +1640,19 @@ async function authHeaders() {
   return {};
 }
 
-// Centralised 401 handler. Replaces raw "Missing Bearer token" leak with
-// a clean toast + redirect to /app where the login modal lives.
-function handleAuthError(status) {
+// 401 handler — awaits auth ready before bouncing, so signed-in users
+// don't get redirected during the auth-init race.
+async function handleAuthError(status) {
   if (status !== 401) return false;
+  if (window.headnoteAuth && window.headnoteAuth.ready) {
+    try { await window.headnoteAuth.ready(); } catch {}
+  }
+  const uid = window.headnoteAuth && window.headnoteAuth.userId && window.headnoteAuth.userId();
   const isHi = state.lang === 'hi';
+  if (uid) {
+    toast(isHi ? 'सर्वर समस्या — पुनः प्रयास करें' : 'Server hiccup — try again', 'err', 3000);
+    return true;
+  }
   toast(isHi ? 'कृपया साइन-इन करें' : 'Please sign in to continue', 'warn');
   setTimeout(() => {
     try { localStorage.setItem('headnote.returnTo', window.location.pathname); } catch {}
@@ -1794,7 +1802,7 @@ async function _voiceStartRecorder(field, ctx) {
       const r = await fetch('/api/draft/transcribe?language=' + _whisperLang(), {
         method: 'POST', headers, body: fd,
       });
-      if (handleAuthError(r.status)) return;
+      if (await handleAuthError(r.status)) return;
       if (!r.ok) {
         const err = await r.json().catch(() => ({}));
         throw new Error(err.detail || `HTTP ${r.status}`);
@@ -1998,7 +2006,7 @@ async function runOcr() {
     ocrState.files.forEach(f => fd.append('files', f));
     const headers = await authHeaders();
     const r = await fetch('/api/draft/ocr-fir', { method: 'POST', headers, body: fd });
-    if (handleAuthError(r.status)) return;
+    if (await handleAuthError(r.status)) return;
     if (!r.ok) {
       const err = await r.json().catch(() => ({}));
       throw new Error(err.detail || err.error || `HTTP ${r.status}`);

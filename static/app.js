@@ -1138,8 +1138,13 @@
     updateModeDisplay();
     setMode('hidden');
     setStyle('practitioner');
-    // Kick off Google auth + onboarding check (no-op if Supabase not configured)
-    if (typeof initAuth === 'function') initAuth();
+    // Auth auto-inits on every page that loads auth.js (see the IIFE at
+    // the bottom of static/auth.js). This call is kept as a no-op safety
+    // net for old browser caches that haven't picked up the new auth.js yet.
+    if (typeof initAuth === 'function' && !window.__headnote_auth_booted) {
+      window.__headnote_auth_booted = true;
+      initAuth();
+    }
 
     // Re-render any per-user UI (history list, drafts, chat threads)
     // whenever the user signs in / out / switches accounts. Until this
