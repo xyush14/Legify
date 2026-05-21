@@ -116,14 +116,27 @@ def start_draft(
         return draft.to_dict()
 
 
-# Note: this route must be declared BEFORE `/{draft_id}` so FastAPI's path
-# matcher doesn't treat 'templates' as a draft id.
+# Note: these routes must be declared BEFORE `/{draft_id}` so FastAPI's
+# path matcher doesn't treat 'templates' / 'template-schema' as a draft id.
 @router.get("/templates", summary="List Smart-Drafter document types")
 def list_compose_templates():
     """Returns metadata for every template the conversational drafter
     knows about — used by the FE picker."""
     from headnote.drafter.compose import list_templates_slim
     return {"templates": list_templates_slim()}
+
+
+@router.get("/template-schema/{doc_type}", summary="Full schema for one template (fields + format spec)")
+def get_template_schema(doc_type: str):
+    """Returns the complete field schema for one template. Used by the
+    universal template-drafter page to auto-render the form."""
+    from headnote.drafter.compose import get_template
+    tpl = get_template(doc_type)
+    if not tpl:
+        raise HTTPException(status_code=404, detail=f"no template '{doc_type}'")
+    # Strip the LLM-only `format_spec` — frontend doesn't need it
+    slim = {k: v for k, v in tpl.items() if k != "format_spec"}
+    return {"template": slim}
 
 
 @router.get("/{draft_id}", summary="Get one draft by id")
@@ -195,11 +208,12 @@ async def translate_fields(
 
     Only non-empty string values are translated. Proper nouns (names, case
     numbers, dates, statute refs) are preserved by the prompt instruction.
-    Uses Haiku 4.5 — typically 1-2 seconds for a typical bail form.
+
+    Backend: Groq Llama-3.3-70b (free tier) primary, Anthropic Haiku fallback.
 
     Gated: draft feature (same quota as draft_start).
     """
-    from headnote.llm.client import call_claude_cached
+    from headnote.drafter.compose import _llm_call
 
     # Filter to non-empty string values only
     to_translate = {k: v for k, v in (body.fields or {}).items()
@@ -241,13 +255,7 @@ async def translate_fields(
 
     with check_and_record(user.id, "draft", endpoint="translate_fields") as _record:
         try:
-            raw, usage = call_claude_cached(
-                system_prompt=system,
-                user_prompt=prompt,
-                model="claude-haiku-4-5",
-                max_tokens=3000,
-                cache=False,
-            )
+            raw = _llm_call(system, prompt, max_tokens=3000, model="quality")
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"Translation failed: {e}")
 
@@ -269,9 +277,8 @@ async def translate_fields(
             else:
                 translated = to_translate
 
-        from headnote.llm.client import estimate_cost_usd
-        cost_paise = int(estimate_cost_usd(usage) * 8400 * 100)
-        _record(cost_paise=cost_paise, model="claude-haiku-4-5")
+        cost_paise = 50  # Groq free tier; flat estimate for the cost meter
+        _record(cost_paise=cost_paise, model="llama-3.3-70b-versatile")
         return {"translated": translated}
 
 
@@ -481,3 +488,37 @@ def compose(
         cost = 600 if result.get("status") == "ready" else 50
         _record(cost_paise=cost, model="sonnet+haiku-compose")
         return result
+
+
+class RenderTemplateBody(BaseModel):
+    doc_type: str
+    fields:   dict = Field(default_factory=dict)
+    lang:     Literal["hi", "en"] = "hi"
+
+
+@router.post("/render-template", summary="Render a complete document from filled template fields")
+def render_template(
+    body: RenderTemplateBody,
+    user: CurrentUser = Depends(get_current_user),
+):
+    """One-shot document generation from a fully (or partially) filled
+    template. Used by the universal template-drafter page on the lawyer's
+    "Generate" press — same machinery as Smart Drafter's final step but
+    without the conversational interview.
+
+    Empty fields are passed through as [BLANK] placeholders so the lawyer
+    can see the document take shape progressively.
+    """
+    from headnote.drafter.compose import get_template, _generate_document
+
+    template = get_template(body.doc_type)
+    if not template:
+        raise HTTPException(status_code=400, detail=f"unknown doc_type '{body.doc_type}'")
+
+    with check_and_record(user.id, "draft", endpoint="render_template") as _record:
+        try:
+            doc = _generate_document(template, body.fields or {}, body.lang)
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"render failed: {e}")
+        _record(cost_paise=600, model="llama-3.3-70b-versatile")
+        return {"ok": True, "document": doc}

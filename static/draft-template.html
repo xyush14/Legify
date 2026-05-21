@@ -1,0 +1,618 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Template Drafter — Headnote</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #faf8f3;
+    --panel: #ffffff;
+    --soft: #f6f4ee;
+    --line: #e8e6df;
+    --line-strong: #d4d0c4;
+    --ink: #1a1814;
+    --muted: #847e6f;
+    --good: #2e7d32;
+    --bad: #c0392b;
+    --warn: #c9923a;
+    --radius: 8px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 0; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--ink); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  body.lang-hi { font-family: 'Noto Sans Devanagari', 'Inter', sans-serif; }
+
+  /* Topbar */
+  .topbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; background: var(--panel); border-bottom: 1px solid var(--line); padding: 12px 20px; }
+  .topbar__left { display: flex; align-items: center; gap: 14px; min-width: 0; flex: 1; }
+  .topbar__back { color: var(--muted); text-decoration: none; font-size: 16px; padding: 4px 8px; border-radius: 6px; flex-shrink: 0; }
+  .topbar__back:hover { color: var(--ink); background: var(--soft); }
+  .topbar__title { font-weight: 600; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topbar__sub { font-size: 12px; color: var(--muted); }
+  .topbar__right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .lang-toggle { display: inline-flex; background: var(--bg); border: 1px solid var(--line-strong); border-radius: 100px; padding: 3px; font-size: 11px; font-weight: 600; }
+  .lang-toggle button { border: none; background: transparent; padding: 5px 10px; border-radius: 100px; color: var(--muted); cursor: pointer; transition: all 0.18s ease; font-family: inherit; font-size: inherit; font-weight: inherit; }
+  .lang-toggle button.active { background: var(--ink); color: var(--bg); }
+  .btn { padding: 6px 12px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--panel); cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 500; transition: all 0.15s; }
+  .btn:hover { background: var(--soft); }
+  .btn--primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .btn--primary:hover { background: #000; }
+  .btn--primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Layout */
+  .split { display: grid; grid-template-columns: 460px 1fr; height: calc(100vh - 56px); }
+  @media (max-width: 1100px) { .split { grid-template-columns: 380px 1fr; } }
+  .form-pane { overflow-y: auto; padding: 20px 22px 100px; border-right: 1px solid var(--line); background: var(--panel); }
+  .doc-pane { overflow-y: auto; background: #e8e6df; padding: 30px 16px 60px; display: flex; flex-direction: column; }
+
+  /* Form fields */
+  .section { margin-bottom: 24px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+  .section:last-child { border-bottom: none; }
+  .section__title { font-weight: 600; font-size: 13px; margin: 0 0 12px; letter-spacing: -0.01em; }
+  .section__sub { font-size: 11px; color: var(--muted); margin: -8px 0 14px; }
+  .field { margin-bottom: 12px; position: relative; }
+  .field--row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .field--row .field { margin-bottom: 0; }
+  .field label { display: block; font-size: 11px; font-weight: 500; margin-bottom: 4px; color: var(--ink); letter-spacing: 0.01em; }
+  .field input, .field textarea, .field select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    font-family: inherit;
+    font-size: 13px;
+    background: var(--bg);
+    outline: none;
+  }
+  .field textarea { resize: vertical; min-height: 64px; line-height: 1.4; }
+  .field input:focus, .field textarea:focus, .field select:focus { border-color: var(--ink); }
+  .field__hint { font-size: 10.5px; color: var(--muted); margin-top: 3px; line-height: 1.3; }
+  .field-required { color: var(--bad); margin-left: 2px; }
+  body.lang-hi .field input, body.lang-hi .field textarea, body.lang-hi .field select, body.lang-hi .field label { font-family: 'Noto Sans Devanagari', 'Inter', sans-serif; }
+
+  /* Voice mic on long-text fields */
+  .voice-field { position: relative; }
+  .voice-mic {
+    position: absolute; right: 6px; bottom: 6px;
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--panel); border: 1px solid var(--line-strong);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    z-index: 2; padding: 0;
+  }
+  .voice-mic:hover { background: var(--soft); }
+  .voice-mic svg { width: 15px; height: 15px; color: var(--ink); }
+  .voice-mic--rec { background: var(--bad); border-color: var(--bad); animation: voice-pulse 1.4s ease-in-out infinite; }
+  .voice-mic--rec svg { color: #fff; }
+  @keyframes voice-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(192, 57, 43, 0.45); }
+    50%      { box-shadow: 0 0 0 8px rgba(192, 57, 43, 0); }
+  }
+  .voice-field textarea, .voice-field input { padding-right: 40px; }
+
+  /* Generate CTA — sticky bottom of form pane */
+  .gen-cta {
+    position: sticky; bottom: 0;
+    margin: 20px -22px -100px;
+    padding: 14px 22px 18px;
+    background: var(--panel);
+    border-top: 1px solid var(--line);
+    display: flex; gap: 8px; align-items: center;
+  }
+  .gen-cta button { flex: 1; padding: 11px; font-size: 13px; font-weight: 600; }
+  .gen-status { font-size: 11px; color: var(--muted); }
+
+  /* Document preview */
+  .doc-page {
+    background: #fff;
+    padding: 50px 48px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    border-radius: 4px;
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 13px;
+    line-height: 1.7;
+    color: #222;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    max-width: 720px;
+    width: 100%;
+    margin: 0 auto;
+  }
+  body.lang-hi .doc-page { font-family: 'Noto Sans Devanagari', serif; }
+  .doc-empty {
+    margin: auto; text-align: center; color: var(--muted); font-size: 13px;
+    max-width: 280px; padding: 60px 20px;
+  }
+  .doc-empty__icon { font-size: 36px; margin-bottom: 10px; }
+
+  /* Preview generating shimmer */
+  .doc-pane.is-generating .doc-page { opacity: 0.55; transition: opacity 0.25s; }
+  .gen-spinner {
+    display: inline-block; width: 12px; height: 12px;
+    border: 2px solid var(--line-strong); border-top-color: var(--ink);
+    border-radius: 50%; animation: gen-spin 0.7s linear infinite;
+    vertical-align: middle; margin-right: 6px;
+  }
+  @keyframes gen-spin { from {transform: rotate(0)} to {transform: rotate(360deg)} }
+
+  /* Toast */
+  .toast { position: fixed; top: 70px; right: 20px; background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 8px; font-size: 13px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+  .toast--show { opacity: 1; }
+  .toast--err { background: var(--bad); }
+  .toast--warn { background: var(--warn); }
+
+  /* Mobile: pull-up preview sheet */
+  .preview-handle { display: none; }
+  @media (max-width: 880px) {
+    .split { display: block; height: auto; padding-bottom: 64px; }
+    .form-pane { padding: 16px 14px 100px; border-right: none; }
+    .gen-cta { margin: 16px -14px -100px; padding: 12px 14px 16px; }
+    .doc-pane {
+      position: fixed; left: 0; right: 0; bottom: 0;
+      height: 56px; max-height: 100vh; z-index: 70;
+      background: var(--panel); border-top: 1px solid var(--line-strong);
+      box-shadow: 0 -3px 16px rgba(0,0,0,0.12);
+      transition: height 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow: hidden; padding: 0;
+    }
+    .doc-pane[data-state="half"] { height: 56vh; }
+    .doc-pane[data-state="full"] { height: 90vh; }
+    .preview-handle {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px; height: 56px; min-height: 56px;
+      background: var(--panel); border: none; cursor: pointer;
+      font-family: inherit; font-weight: 600; font-size: 13px; color: var(--ink);
+      position: relative; -webkit-tap-highlight-color: transparent;
+      flex-shrink: 0;
+    }
+    .preview-handle__grip {
+      position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+      width: 36px; height: 4px; background: var(--line-strong); border-radius: 2px;
+    }
+    .preview-handle__chevron { font-size: 11px; color: var(--muted); transition: transform 0.22s ease; }
+    .doc-pane[data-state="half"] .preview-handle__chevron,
+    .doc-pane[data-state="full"] .preview-handle__chevron { transform: rotate(180deg); }
+    .doc-pane > .doc-page, .doc-pane > .doc-empty { display: none; }
+    .doc-pane[data-state="half"] > .doc-page,
+    .doc-pane[data-state="full"] > .doc-page,
+    .doc-pane[data-state="half"] > .doc-empty,
+    .doc-pane[data-state="full"] > .doc-empty { display: block; flex: 1; overflow-y: auto; }
+    .doc-page { padding: 24px 18px; box-shadow: none; border-radius: 0; max-width: none; }
+    body.lang-hi .preview-handle { font-family: 'Noto Sans Devanagari', sans-serif; }
+    .topbar { padding: 10px 12px; }
+    .topbar__sub { display: none; }
+    .topbar__title { font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar__left">
+    <a href="/app" class="topbar__back" aria-label="Back">←</a>
+    <div>
+      <div class="topbar__title" id="template-title">Loading template…</div>
+      <div class="topbar__sub" id="template-sub"></div>
+    </div>
+  </div>
+  <div class="topbar__right">
+    <div class="lang-toggle" role="group" aria-label="language">
+      <button id="lang-en">EN</button>
+      <button id="lang-hi" class="active">हिं</button>
+    </div>
+    <button class="btn" id="btn-pdf" title="Download PDF">⬇ PDF</button>
+  </div>
+</div>
+
+<div class="split">
+  <!-- LEFT: form (auto-generated from template schema) -->
+  <div class="form-pane">
+    <div id="form-container"></div>
+    <div class="gen-cta">
+      <button class="btn btn--primary" id="btn-generate">
+        <span id="gen-label" data-en="✨ Generate Document" data-hi="✨ दस्तावेज़ बनाएं">✨ दस्तावेज़ बनाएं</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- RIGHT: live document — pull-up sheet on mobile -->
+  <div class="doc-pane" id="doc-pane" data-state="collapsed">
+    <button type="button" class="preview-handle" id="preview-handle" aria-expanded="false">
+      <span class="preview-handle__grip" aria-hidden="true"></span>
+      <span><span aria-hidden="true">📄</span> <span data-en="Preview" data-hi="प्रीव्यू">प्रीव्यू</span></span>
+      <span class="preview-handle__chevron" aria-hidden="true">▲</span>
+    </button>
+    <div class="doc-empty" id="doc-empty">
+      <div class="doc-empty__icon">📄</div>
+      <div data-en="Fill the form and tap Generate to draft the document." data-hi="फॉर्म भरें और 'दस्तावेज़ बनाएं' दबाएं।">फॉर्म भरें और 'दस्तावेज़ बनाएं' दबाएं।</div>
+    </div>
+    <div class="doc-page" id="doc-page" style="display:none;"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/static/auth.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script>
+// =========================================================================
+// Universal Template Drafter
+// One page that adapts to any template registered in compose_templates.py.
+// Reads schema from /api/draft/templates, auto-generates form, talks to
+// /api/draft/render-template for the live preview, and uses the existing
+// voice + translate-fields plumbing for language toggles.
+// =========================================================================
+const state = {
+  lang:     'hi',
+  docType:  null,
+  template: null,
+  fields:   {},
+  document: null,
+  generating: false,
+};
+
+// ---- Helpers ----
+function $(s, r) { return (r || document).querySelector(s); }
+function ce(tag, attrs) { const e = document.createElement(tag); if (attrs) Object.assign(e, attrs); return e; }
+function toast(msg, kind) {
+  const t = $('#toast'); t.textContent = msg;
+  t.className = 'toast toast--show toast--' + (kind || 'ok');
+  setTimeout(() => t.classList.remove('toast--show'), 2400);
+}
+async function authHeaders() {
+  if (window.headnoteAuth && window.headnoteAuth.getAccessToken) {
+    try { const tk = await window.headnoteAuth.getAccessToken(); if (tk) return { 'Authorization': `Bearer ${tk}` }; } catch {}
+  }
+  return {};
+}
+function applyLang() {
+  document.body.classList.toggle('lang-hi', state.lang === 'hi');
+  document.querySelectorAll('[data-en]').forEach(el => {
+    const v = state.lang === 'hi' ? el.dataset.hi : el.dataset.en;
+    if (v != null) el.textContent = v;
+  });
+  document.querySelectorAll('[data-ph-en]').forEach(el => {
+    const v = state.lang === 'hi' ? el.dataset.phHi : el.dataset.phEn;
+    if (v != null) el.placeholder = v;
+  });
+  $('#lang-en').classList.toggle('active', state.lang === 'en');
+  $('#lang-hi').classList.toggle('active', state.lang === 'hi');
+  if (state.template) updateTitle();
+}
+function updateTitle() {
+  $('#template-title').textContent = state.lang === 'hi' ? state.template.name_hi : state.template.name_en;
+  $('#template-sub').textContent = state.lang === 'hi'
+    ? 'भरें · प्रीव्यू दाईं ओर'
+    : 'fill the form · live preview on the right';
+}
+
+// ---- Load template from URL ----
+function getTemplateIdFromUrl() {
+  const m = window.location.pathname.match(/\/draft\/template\/([a-z_]+)/i);
+  return m ? m[1] : null;
+}
+
+async function loadTemplate() {
+  const id = getTemplateIdFromUrl();
+  if (!id) { showError('No template ID in URL'); return; }
+  state.docType = id;
+  try {
+    const headers = await authHeaders();
+    // Fetch the full template schema by listing all and finding ours.
+    // (In v2 we'd add GET /api/draft/templates/{id}, but for now this works.)
+    const r = await fetch('/api/draft/templates', { headers });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    const tpl = (data.templates || []).find(t => t.id === id);
+    if (!tpl) { showError(`Template '${id}' not found`); return; }
+    // The slim list lacks full fields; fetch via compose endpoint with empty user_message
+    // to force the server to return the field schema. Easier: use the dummy /compose call.
+    const r2 = await fetch('/api/draft/compose', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify({ doc_type: id, conversation: [], collected: {}, lang: state.lang }),
+    });
+    // We don't actually need /compose; use a dedicated schema endpoint instead.
+    // Fall through and hit /template-schema below.
+    const sR = await fetch(`/api/draft/template-schema/${encodeURIComponent(id)}`, { headers });
+    if (sR.ok) {
+      const sJson = await sR.json();
+      state.template = sJson.template;
+    } else {
+      // Fallback: use slim metadata + hand-built schema (worst case)
+      state.template = tpl;
+      state.template.fields = state.template.fields || [];
+    }
+    updateTitle();
+    renderForm();
+    applyLang();
+    // Restore from localStorage if any
+    restoreFromLocalStorage();
+  } catch (e) {
+    showError('Failed to load template: ' + e.message);
+  }
+}
+
+function showError(msg) {
+  $('#template-title').textContent = 'Error';
+  $('#form-container').innerHTML = `<div style="color:var(--bad);padding:20px;">${msg}</div>`;
+}
+
+// ---- Form rendering ----
+function renderForm() {
+  const container = $('#form-container');
+  container.innerHTML = '';
+  const tpl = state.template;
+  if (!tpl || !tpl.fields) return;
+
+  // Group by simple heuristic: every 4-5 fields = a section
+  const section = ce('div', { className: 'section' });
+  const title = ce('h3', { className: 'section__title' });
+  title.dataset.en = 'Details';
+  title.dataset.hi = 'विवरण';
+  title.textContent = state.lang === 'hi' ? 'विवरण' : 'Details';
+  section.appendChild(title);
+
+  const subtitle = ce('div', { className: 'section__sub' });
+  subtitle.textContent = state.lang === 'hi'
+    ? 'सितारा (★) चिह्नित फ़ील्ड अनिवार्य हैं।'
+    : 'Fields marked ★ are required.';
+  section.appendChild(subtitle);
+
+  tpl.fields.forEach(f => {
+    const wrap = ce('div', { className: 'field' });
+
+    const label = ce('label');
+    label.textContent = state.lang === 'hi' ? f.label_hi : f.label_en;
+    if (f.required) {
+      const star = ce('span', { className: 'field-required', textContent: ' ★' });
+      label.appendChild(star);
+    }
+    label.dataset.en = f.label_en + (f.required ? ' ★' : '');
+    label.dataset.hi = f.label_hi + (f.required ? ' ★' : '');
+    wrap.appendChild(label);
+
+    const isLong = f.type === 'longtext';
+    const fieldEl = isLong
+      ? ce('textarea', { rows: 3 })
+      : ce('input', { type: f.type === 'date' ? 'text' : 'text' });
+    fieldEl.id = `f_${f.key}`;
+    fieldEl.dataset.field = f.key;
+    if (f.hint) {
+      fieldEl.placeholder = state.lang === 'hi' ? (f.hint) : (f.hint);
+    }
+    fieldEl.value = state.fields[f.key] || '';
+    fieldEl.addEventListener('input', () => {
+      state.fields[f.key] = fieldEl.value;
+      saveToLocalStorage();
+    });
+    wrap.appendChild(fieldEl);
+
+    // Wrap long fields with voice mic
+    if (isLong) {
+      const voiceWrap = ce('div', { className: 'voice-field' });
+      fieldEl.parentNode.insertBefore(voiceWrap, fieldEl);
+      voiceWrap.appendChild(fieldEl);
+      attachVoiceMic(fieldEl, voiceWrap);
+    }
+
+    if (f.hint) {
+      const hint = ce('div', { className: 'field__hint', textContent: f.hint });
+      wrap.appendChild(hint);
+    }
+
+    section.appendChild(wrap);
+  });
+
+  container.appendChild(section);
+}
+
+// ---- Voice mic ----
+const HAS_SR = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+function attachVoiceMic(fieldEl, wrap) {
+  if (!HAS_SR) return;
+  const btn = ce('button', { type: 'button', className: 'voice-mic' });
+  btn.setAttribute('aria-label', state.lang === 'hi' ? 'आवाज़ से लिखें' : 'Voice input');
+  btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+    <line x1="12" y1="19" x2="12" y2="23"/>
+    <line x1="8" y1="23" x2="16" y2="23"/>
+  </svg>`;
+  let rec = null;
+  let active = false;
+  btn.addEventListener('click', () => {
+    if (active) { try { rec && rec.stop(); } catch {} return; }
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    rec = new SR();
+    rec.lang = state.lang === 'en' ? 'en-IN' : 'hi-IN';
+    rec.continuous = true;
+    rec.interimResults = false;
+    rec.onresult = (e) => {
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) {
+          const t = e.results[i][0].transcript.trim();
+          const cur = (fieldEl.value || '').trim();
+          fieldEl.value = (cur ? cur + ' ' : '') + t;
+          state.fields[fieldEl.dataset.field] = fieldEl.value;
+          saveToLocalStorage();
+        }
+      }
+    };
+    rec.onerror = (e) => {
+      if (e.error === 'not-allowed') toast(state.lang === 'hi' ? 'माइक की अनुमति दें' : 'Allow mic access', 'err');
+      stopRec();
+    };
+    rec.onend = () => { if (active) { try { rec.start(); } catch { stopRec(); } } };
+    function stopRec() {
+      active = false;
+      btn.classList.remove('voice-mic--rec');
+    }
+    active = true;
+    btn.classList.add('voice-mic--rec');
+    rec.start();
+  });
+  wrap.appendChild(btn);
+}
+
+// ---- LocalStorage persistence ----
+function lsKey() {
+  const uid = (window.headnoteAuth && window.headnoteAuth.userId && window.headnoteAuth.userId()) || 'anon';
+  return `headnote.tpl.${state.docType}.${uid}`;
+}
+function saveToLocalStorage() {
+  try { localStorage.setItem(lsKey(), JSON.stringify({ fields: state.fields, lang: state.lang, document: state.document })); } catch {}
+}
+function restoreFromLocalStorage() {
+  try {
+    const j = JSON.parse(localStorage.getItem(lsKey()) || '{}');
+    if (j.fields) {
+      state.fields = j.fields;
+      Object.entries(state.fields).forEach(([k, v]) => {
+        const el = $(`#f_${k}`); if (el) el.value = v || '';
+      });
+    }
+    if (j.document) {
+      state.document = j.document;
+      renderDocument();
+    }
+  } catch {}
+}
+
+// ---- Generate document ----
+async function generateDocument() {
+  if (state.generating) return;
+  const missing = (state.template.fields || []).filter(f => f.required && !(state.fields[f.key] && String(state.fields[f.key]).trim()));
+  if (missing.length) {
+    toast(state.lang === 'hi'
+      ? `${missing.length} अनिवार्य फ़ील्ड खाली हैं: ${missing.map(f => f.label_hi).slice(0,3).join(', ')}…`
+      : `${missing.length} required fields are empty: ${missing.map(f => f.label_en).slice(0,3).join(', ')}…`, 'warn', 4000);
+    // Don't block — still generate, just warn
+  }
+  state.generating = true;
+  $('#doc-pane').classList.add('is-generating');
+  $('#btn-generate').disabled = true;
+  $('#gen-label').textContent = state.lang === 'hi' ? '⏳ बना रहे हैं…' : '⏳ Generating…';
+
+  // Open the preview sheet on mobile so user sees the result
+  if (window.matchMedia('(max-width: 880px)').matches) {
+    setPreview('half');
+  }
+
+  try {
+    const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
+    const r = await fetch('/api/draft/render-template', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ doc_type: state.docType, fields: state.fields, lang: state.lang }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error((data.detail || `HTTP ${r.status}`));
+    state.document = data.document;
+    renderDocument();
+    saveToLocalStorage();
+    toast(state.lang === 'hi' ? '✓ दस्तावेज़ तैयार है' : '✓ Document ready', 'ok');
+  } catch (e) {
+    toast('Error: ' + e.message, 'err', 4000);
+  } finally {
+    state.generating = false;
+    $('#doc-pane').classList.remove('is-generating');
+    $('#btn-generate').disabled = false;
+    $('#gen-label').textContent = state.lang === 'hi' ? '✨ दस्तावेज़ बनाएं' : '✨ Generate Document';
+  }
+}
+function renderDocument() {
+  $('#doc-empty').style.display = 'none';
+  const page = $('#doc-page');
+  page.style.display = '';
+  page.textContent = state.document || '';
+}
+
+// ---- Mobile preview sheet ----
+const PREV_STATES = ['collapsed', 'half', 'full'];
+function setPreview(s) {
+  $('#doc-pane').dataset.state = s;
+  $('#preview-handle').setAttribute('aria-expanded', s !== 'collapsed');
+}
+$('#preview-handle').addEventListener('click', () => {
+  const cur = $('#doc-pane').dataset.state || 'collapsed';
+  setPreview(PREV_STATES[(PREV_STATES.indexOf(cur) + 1) % PREV_STATES.length]);
+});
+
+// ---- Language toggle (instant, plus translate-fields for prose) ----
+async function setLang(newLang) {
+  if (state.lang === newLang) return;
+  const prev = state.lang;
+  state.lang = newLang;
+  applyLang();
+  renderForm();
+  // Re-populate form values
+  Object.entries(state.fields).forEach(([k, v]) => {
+    const el = $(`#f_${k}`); if (el) el.value = v || '';
+  });
+
+  // Translate prose fields via Groq if any are populated
+  const toTranslate = {};
+  (state.template.fields || []).forEach(f => {
+    if (f.type === 'longtext' || f.type === 'address') {
+      const v = state.fields[f.key];
+      if (v && String(v).trim()) toTranslate[f.key] = v;
+    }
+  });
+  if (Object.keys(toTranslate).length > 0) {
+    toast(state.lang === 'hi' ? 'अनुवाद हो रहा है…' : 'Translating fields…', 'ok');
+    try {
+      const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
+      const r = await fetch('/api/draft/translate-fields', {
+        method: 'POST', headers,
+        body: JSON.stringify({ fields: toTranslate, target: newLang }),
+      });
+      if (r.ok) {
+        const data = await r.json();
+        if (data.translated && !data.skipped) {
+          Object.entries(data.translated).forEach(([k, v]) => {
+            if (v) state.fields[k] = v;
+            const el = $(`#f_${k}`); if (el) el.value = v;
+          });
+          saveToLocalStorage();
+          toast(state.lang === 'hi' ? `${Object.keys(data.translated).length} फ़ील्ड अनुवादित` : `${Object.keys(data.translated).length} fields translated`, 'ok');
+        }
+      } else {
+        const err = await r.json().catch(() => ({}));
+        toast('Translation: ' + (err.detail || 'failed'), 'warn', 3500);
+      }
+    } catch (e) {
+      toast('Translation failed: ' + e.message, 'warn', 3500);
+    }
+  }
+}
+$('#lang-en').addEventListener('click', () => setLang('en'));
+$('#lang-hi').addEventListener('click', () => setLang('hi'));
+
+// ---- Generate button + PDF ----
+$('#btn-generate').addEventListener('click', generateDocument);
+$('#btn-pdf').addEventListener('click', () => {
+  if (!state.document) { toast(state.lang === 'hi' ? 'पहले दस्तावेज़ बनाएं' : 'Generate the document first', 'warn'); return; }
+  const el = $('#doc-page').cloneNode(true);
+  const wrap = document.createElement('div');
+  wrap.style.padding = '40px';
+  wrap.style.fontFamily = state.lang === 'hi' ? "'Noto Sans Devanagari', serif" : "'Times New Roman', serif";
+  wrap.appendChild(el);
+  const filename = `${state.template.name_en.replace(/[^a-z0-9]+/gi, '-')}-${new Date().toISOString().slice(0,10)}.pdf`;
+  const opt = {
+    margin: [12, 14, 14, 14], filename,
+    image: { type: 'jpeg', quality: 0.95 },
+    html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+  };
+  html2pdf().set(opt).from(wrap).save();
+});
+
+// ---- Boot ----
+applyLang();
+loadTemplate();
+</script>
+</body>
+</html>

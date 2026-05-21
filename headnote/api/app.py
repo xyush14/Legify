@@ -341,6 +341,16 @@ def draft_bail_application():
     return FileResponse(config.STATIC_DIR / "draft-bail.html")
 
 
+@app.get("/draft/template/{doc_type}", include_in_schema=False)
+@app.get("/draft/template/{doc_type}/", include_in_schema=False)
+def draft_template_drafter(doc_type: str):
+    """Universal template drafter — one page that auto-renders the form
+    for any template registered in compose_templates.py. Form on the left,
+    live AI-generated preview on the right (pull-up sheet on mobile).
+    """
+    return FileResponse(config.STATIC_DIR / "draft-template.html")
+
+
 @app.get("/draft/smart", include_in_schema=False)
 @app.get("/draft/smart/", include_in_schema=False)
 def draft_smart():
