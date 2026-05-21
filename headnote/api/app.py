@@ -283,6 +283,16 @@ def _warm_embedding_model():
 _warm_embedding_model()
 
 
+@app.get("/auth-test", include_in_schema=False)
+@app.get("/auth-test/", include_in_schema=False)
+def auth_test():
+    """Standalone auth diagnostic page — zero dependencies on auth.js or the
+    app shell. Tests each step of the OAuth flow independently and shows
+    results on-screen. Use when the main app's sign-in is broken and you
+    can't open DevTools (e.g. testing on a phone)."""
+    return FileResponse(config.STATIC_DIR / "auth-test.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
 @app.get("/", include_in_schema=False)
 def landing():
     return FileResponse(config.STATIC_DIR / "landing.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})

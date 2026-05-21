@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Headnote — Auth Diagnostic</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  *{box-sizing:border-box;margin:0}
+  body{font-family:system-ui,-apple-system,sans-serif;background:#0a0a0f;color:#e8e0d4;padding:16px;line-height:1.6}
+  h1{font-size:20px;margin-bottom:12px;color:#c9a96e}
+  .card{background:#16161e;border:1px solid #2a2a35;border-radius:10px;padding:16px;margin-bottom:12px}
+  .card h2{font-size:14px;color:#888;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px}
+  .val{font-size:15px;word-break:break-all;font-family:'SF Mono',Consolas,monospace;color:#e8e0d4}
+  .ok{color:#4ade80}.err{color:#f87171}.warn{color:#fbbf24}
+  button{background:#c9a96e;color:#0a0a0f;border:none;padding:12px 24px;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;width:100%;margin-top:12px}
+  button:active{opacity:0.7}
+  #log{font-family:'SF Mono',Consolas,monospace;font-size:12px;background:#0d0d14;border:1px solid #2a2a35;border-radius:8px;padding:12px;max-height:300px;overflow-y:auto;white-space:pre-wrap;color:#888;margin-top:12px}
+  .step{display:flex;gap:8px;align-items:center;padding:4px 0}
+  .step .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+  .dot.pending{background:#555}.dot.pass{background:#4ade80}.dot.fail{background:#f87171}
+</style>
+</head>
+<body>
+<h1>Auth Diagnostic</h1>
+<p style="color:#888;font-size:13px;margin-bottom:16px">This page tests the full sign-in flow step by step.</p>
+
+<div class="card">
+  <h2>1. Page Load Info</h2>
+  <div class="val" id="url-info"></div>
+</div>
+
+<div class="card">
+  <h2>2. Backend Config</h2>
+  <div class="val" id="config-info">Loading...</div>
+</div>
+
+<div class="card">
+  <h2>3. Supabase Client</h2>
+  <div class="val" id="sb-info">Waiting for config...</div>
+</div>
+
+<div class="card">
+  <h2>4. Auth State</h2>
+  <div class="val" id="auth-info">Waiting for Supabase...</div>
+</div>
+
+<div class="card">
+  <h2>5. Session Details</h2>
+  <div class="val" id="session-info">Waiting...</div>
+</div>
+
+<div class="card">
+  <h2>6. API Token Check</h2>
+  <div class="val" id="api-info">Waiting for session...</div>
+</div>
+
+<button id="signin-btn" disabled>Loading...</button>
+<button id="signout-btn" style="background:#333;color:#e8e0d4;display:none">Sign Out</button>
+
+<div id="log"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+function log(msg) {
+  const el = $('log');
+  const t = new Date().toLocaleTimeString();
+  el.textContent += `[${t}] ${msg}\n`;
+  el.scrollTop = el.scrollHeight;
+}
+
+let _sb = null;
+
+async function run() {
+  // Step 1: Page load info
+  const urlInfo = $('url-info');
+  urlInfo.innerHTML = `
+    <div>Origin: <span class="ok">${window.location.origin}</span></div>
+    <div>Path: ${window.location.pathname}</div>
+    <div>Query: ${window.location.search || '(none)'}</div>
+    <div>Hash: ${window.location.hash ? window.location.hash.substring(0, 80) + '...' : '(none)'}</div>
+    <div>localStorage available: ${(() => { try { localStorage.setItem('_t','1'); localStorage.removeItem('_t'); return '<span class="ok">YES</span>'; } catch(e) { return '<span class="err">NO — ' + e.message + '</span>'; }})()}</div>
+  `;
+  log('Page loaded at ' + window.location.href);
+
+  // Check for OAuth callback params
+  if (window.location.search.includes('code=')) {
+    log('PKCE callback detected! ?code= present in URL');
+    urlInfo.innerHTML += '<div class="ok">PKCE callback code detected in URL</div>';
+  }
+  if (window.location.hash.includes('access_token')) {
+    log('Implicit flow callback detected! #access_token present');
+    urlInfo.innerHTML += '<div class="ok">Implicit flow token detected in URL hash</div>';
+  }
+  if (window.location.search.includes('error') || window.location.hash.includes('error')) {
+    const hp = new URLSearchParams(window.location.hash.replace('#',''));
+    const qp = new URLSearchParams(window.location.search);
+    const errMsg = hp.get('error_description') || qp.get('error_description') || hp.get('error') || qp.get('error') || 'unknown';
+    log('ERROR in callback URL: ' + errMsg);
+    urlInfo.innerHTML += `<div class="err">OAuth ERROR: ${decodeURIComponent(errMsg.replace(/\+/g,' '))}</div>`;
+  }
+
+  // Step 2: Backend config
+  const cfgInfo = $('config-info');
+  let cfg = {};
+  try {
+    const r = await fetch('/api/config');
+    cfg = await r.json();
+    cfgInfo.innerHTML = `
+      <div>Supabase URL: <span class="${cfg.supabase_url ? 'ok' : 'err'}">${cfg.supabase_url || 'NOT SET'}</span></div>
+      <div>Anon Key: <span class="${cfg.supabase_anon_key ? 'ok' : 'err'}">${cfg.supabase_anon_key ? cfg.supabase_anon_key.substring(0, 20) + '...' : 'NOT SET'}</span></div>
+      <div>Code Version: <span class="ok">${cfg.code_version || '(not set)'}</span></div>
+    `;
+    log('Config fetched: supabase_url=' + (cfg.supabase_url || 'EMPTY'));
+  } catch (e) {
+    cfgInfo.innerHTML = `<span class="err">Failed: ${e.message}</span>`;
+    log('Config fetch FAILED: ' + e.message);
+    return;
+  }
+
+  if (!cfg.supabase_url) {
+    cfgInfo.innerHTML += '<div class="warn">No Supabase configured — dev mode</div>';
+    $('signin-btn').textContent = 'No auth in dev mode';
+    return;
+  }
+
+  // Step 3: Create Supabase client
+  const sbInfo = $('sb-info');
+  try {
+    _sb = window.supabase.createClient(cfg.supabase_url, cfg.supabase_anon_key, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        storage: window.localStorage,
+      },
+    });
+    sbInfo.innerHTML = '<span class="ok">Client created successfully</span>';
+    log('Supabase client created');
+
+    // Check localStorage for existing session
+    const allKeys = Object.keys(localStorage);
+    const sbKeys = allKeys.filter(k => k.startsWith('sb-') || k.includes('supabase') || k.includes('pkce') || k.includes('code_verifier'));
+    sbInfo.innerHTML += `<div>Supabase localStorage keys (${sbKeys.length}): ${sbKeys.join(', ') || '(none)'}</div>`;
+    sbKeys.forEach(k => {
+      const v = localStorage.getItem(k);
+      log(`  localStorage[${k}] = ${(v||'').substring(0, 100)}...`);
+    });
+  } catch (e) {
+    sbInfo.innerHTML = `<span class="err">Failed: ${e.message}</span>`;
+    log('Supabase client FAILED: ' + e.message);
+    return;
+  }
+
+  // Step 4: Auth state listener
+  const authInfo = $('auth-info');
+  const sessionInfo = $('session-info');
+  const apiInfo = $('api-info');
+
+  _sb.auth.onAuthStateChange(async (event, session) => {
+    log('onAuthStateChange fired: event=' + event + ' hasSession=' + !!session);
+    authInfo.innerHTML = `
+      <div>Event: <span class="ok">${event}</span></div>
+      <div>Has Session: <span class="${session ? 'ok' : 'err'}">${session ? 'YES' : 'NO'}</span></div>
+      ${session?.user ? `<div>User: <span class="ok">${session.user.email}</span></div>` : ''}
+      ${session?.user ? `<div>ID: ${session.user.id.substring(0, 8)}...</div>` : ''}
+    `;
+
+    if (session) {
+      $('signin-btn').style.display = 'none';
+      $('signout-btn').style.display = '';
+
+      // Step 5: Session details
+      sessionInfo.innerHTML = `
+        <div>Access Token: <span class="ok">${session.access_token.substring(0, 30)}...</span></div>
+        <div>Expires at: ${new Date(session.expires_at * 1000).toLocaleString()}</div>
+        <div>Token type: ${session.token_type}</div>
+        <div>Refresh token: ${session.refresh_token ? session.refresh_token.substring(0, 15) + '...' : 'NONE'}</div>
+      `;
+      log('Session established for: ' + session.user.email);
+
+      // Step 6: Test API call
+      apiInfo.innerHTML = 'Testing /api/auth-verify...';
+      try {
+        const r = await fetch('/api/auth-verify', {
+          headers: { 'Authorization': 'Bearer ' + session.access_token }
+        });
+        const data = await r.json();
+        if (data.ok) {
+          apiInfo.innerHTML = `<span class="ok">Backend verified! User: ${data.email}, ID: ${data.user_id?.substring(0,8)}...</span>`;
+          log('Backend JWT verification: OK — ' + data.email);
+        } else {
+          apiInfo.innerHTML = `<span class="err">Backend REJECTED: ${data.detail}</span>`;
+          log('Backend JWT verification FAILED: ' + data.detail);
+        }
+      } catch (e) {
+        apiInfo.innerHTML = `<span class="err">API call failed: ${e.message}</span>`;
+        log('API call error: ' + e.message);
+      }
+    } else {
+      $('signin-btn').style.display = '';
+      $('signin-btn').disabled = false;
+      $('signin-btn').textContent = 'Sign in with Google';
+      $('signout-btn').style.display = 'none';
+      sessionInfo.innerHTML = '<span class="warn">No session</span>';
+      apiInfo.innerHTML = '<span class="warn">Skipped — no session</span>';
+    }
+  });
+
+  // Also try getSession directly
+  try {
+    const { data, error } = await _sb.auth.getSession();
+    log('getSession: hasSession=' + !!data?.session + ' error=' + (error?.message || 'none'));
+    if (data?.session) {
+      log('getSession found existing session for: ' + data.session.user?.email);
+    }
+  } catch (e) {
+    log('getSession threw: ' + e.message);
+  }
+
+  // Enable sign-in button
+  const btn = $('signin-btn');
+  btn.disabled = false;
+  btn.textContent = 'Sign in with Google';
+  btn.onclick = async () => {
+    btn.disabled = true;
+    btn.textContent = 'Redirecting to Google...';
+    log('Starting Google OAuth...');
+    log('redirectTo: ' + window.location.origin + '/auth-test');
+    const { data, error } = await _sb.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin + '/auth-test',
+        queryParams: { access_type: 'offline', prompt: 'consent' },
+      },
+    });
+    if (error) {
+      log('OAuth error: ' + error.message);
+      btn.disabled = false;
+      btn.textContent = 'Retry Sign In';
+      authInfo.innerHTML = `<span class="err">OAuth failed: ${error.message}</span>`;
+    } else {
+      log('OAuth initiated — browser should redirect now');
+    }
+  };
+
+  $('signout-btn').onclick = async () => {
+    log('Signing out...');
+    await _sb.auth.signOut();
+    log('Signed out');
+    window.location.reload();
+  };
+}
+
+run().catch(e => log('FATAL: ' + e.message));
+</script>
+</body>
+</html>
