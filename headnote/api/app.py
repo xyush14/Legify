@@ -221,6 +221,22 @@ def _is_strictly_better(retry_report, original_report) -> bool:
 
 app = FastAPI(title="Headnote", version=__version__,
               description="Verified AI legal research for Indian criminal advocates.")
+
+
+# ---- HSTS: force HTTPS for every browser that ever touches this domain ----
+# Without HSTS, a browser that lands on http://headnote.in (e.g. user typed
+# it without https://) is in an HTTP origin, which has SEPARATE localStorage
+# from the HTTPS origin. Supabase session stored on HTTPS → invisible on
+# HTTP → every API call returns 401 even though user "signed in". HSTS
+# tells the browser "always use HTTPS for this domain", which prevents the
+# split-origin trap entirely. max-age=1yr; includeSubDomains; preload.
+@app.middleware("http")
+async def _force_https_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+    return response
+
+
 _init_feedback_db()
 init_telemetry_db()
 app.include_router(admin_router)
@@ -391,7 +407,7 @@ def api_config():
     return {
         "supabase_url":      config.SUPABASE_URL or "",
         "supabase_anon_key": config.SUPABASE_ANON_KEY or "",
-        "code_version":      "20260522c",
+        "code_version":      "20260522d",
     }
 
 

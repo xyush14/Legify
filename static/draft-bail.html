@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Force HTTPS — Supabase sessions don't carry between HTTP/HTTPS origins -->
+<script>if(location.protocol==='http:'&&location.hostname!=='localhost'&&!location.hostname.startsWith('127.')){location.replace(location.href.replace(/^http:/,'https:'));}</script>
 <title>Bail Application Drafter — Headnote</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -661,7 +663,7 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="/static/auth.js?v=20260522c"></script>
+<script src="/static/auth.js?v=20260522d"></script>
 <script>
 // =========================================================================
 // State
