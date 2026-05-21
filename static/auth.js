@@ -19,7 +19,7 @@
 // version doesn't match, the browser is running stale JS (old tab, aggressive
 // cache). We force ONE reload to pick up the new code. This prevents the
 // "sign-in loop" and "missing features" bugs caused by cached old files.
-const _CODE_VERSION = '20260522a';
+const _CODE_VERSION = '20260522b';
 
 /* ------------------------------------------------------------------ state */
 
@@ -324,10 +324,39 @@ async function signOut() {
  * can grab the access token to attach to API calls. Keep this small and
  * stable — every fetch in the app depends on it.
  */
+// Inline Google sign-in that returns the user to the CURRENT page after auth.
+// Used by drafter pages so the user doesn't have to navigate to /app first.
+async function signInInline() {
+  // Wait for the Supabase client to be ready (in case the page fires this
+  // before initAuth() finishes).
+  await Promise.race([
+    _readyPromise,
+    new Promise((resolve) => setTimeout(resolve, 6000)),
+  ]);
+  if (!_sb) {
+    console.error('[auth] signInInline: Supabase client not ready');
+    return;
+  }
+  const redirectUrl = window.location.href.split('#')[0].split('?')[0];
+  console.log('[auth] Inline sign-in, redirectTo:', redirectUrl);
+  const { error } = await _sb.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: redirectUrl,
+      queryParams: { access_type: 'offline', prompt: 'consent' },
+    },
+  });
+  if (error) {
+    console.error('[auth] inline OAuth error:', error);
+    alert('Sign-in failed: ' + error.message);
+  }
+}
+
 window.headnoteAuth = {
   getAccessToken: getAuthToken,
   getUser:        () => currentUser,
   userId:         () => currentUser?.id || null,
+  signInInline:   signInInline,
   // ready() resolves when the auth state is known (signed-in or not).
   // Pages should await this before firing protected API calls. Caps at 6s
   // so a broken init never blocks the page forever.
