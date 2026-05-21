@@ -407,7 +407,7 @@ def api_config():
     return {
         "supabase_url":      config.SUPABASE_URL or "",
         "supabase_anon_key": config.SUPABASE_ANON_KEY or "",
-        "code_version":      "20260522d",
+        "code_version":      "20260522e",
     }
 
 
