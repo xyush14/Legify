@@ -1634,6 +1634,25 @@ function scheduleSave() {
   state.saveTimer = setTimeout(saveDraft, 1500);
 }
 
+// Convert any backend error shape (string, array of FastAPI validation
+// errors, generic object) into a readable string. Without this, JS does
+// new Error(obj) → "[object Object]" — useless for users debugging OCR
+// or any other endpoint failure.
+function _extractErrorMessage(err) {
+  if (!err) return '';
+  if (typeof err === 'string') return err;
+  const d = err.detail;
+  if (typeof d === 'string') return d;
+  if (Array.isArray(d)) {
+    // FastAPI 422: [{loc:[...], msg:'...', type:'...'}, ...]
+    return d.map(e => (e && (e.msg || e.message)) || JSON.stringify(e)).join('; ');
+  }
+  if (d && typeof d === 'object') return JSON.stringify(d);
+  if (typeof err.error === 'string') return err.error;
+  if (typeof err.message === 'string') return err.message;
+  try { return JSON.stringify(err); } catch { return String(err); }
+}
+
 async function authHeaders() {
   if (window.headnoteAuth && typeof window.headnoteAuth.getAccessToken === 'function') {
     try {
@@ -2052,7 +2071,8 @@ async function runOcr() {
     if (await handleAuthError(r.status)) return;
     if (!r.ok) {
       const err = await r.json().catch(() => ({}));
-      throw new Error(err.detail || err.error || `HTTP ${r.status}`);
+      console.error('[ocr] server error', r.status, err);
+      throw new Error(_extractErrorMessage(err) || `HTTP ${r.status}`);
     }
     const data = await r.json();
     const conf = (data.extracted && data.extracted.confidence) || 'unknown';
