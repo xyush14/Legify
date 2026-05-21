@@ -446,6 +446,17 @@ function _revealApp() {
   }, 350);
   // Populate the sidebar user card if we know who's signed in.
   _renderSidebarUser(currentUser);
+
+  // If the user was bounced here from /draft/template/... or /draft/smart
+  // by a 401, send them back to where they were now that they're signed in.
+  try {
+    const retTo = window.localStorage.getItem('headnote.returnTo');
+    if (retTo && retTo !== window.location.pathname && retTo.startsWith('/')) {
+      window.localStorage.removeItem('headnote.returnTo');
+      // Small delay so the auth-ready transition completes first
+      setTimeout(() => { window.location.href = retTo; }, 250);
+    }
+  } catch (e) { /* localStorage might be blocked — non-fatal */ }
 }
 
 /** Populate the sidebar footer with the signed-in user's name + avatar. */

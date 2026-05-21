@@ -1640,6 +1640,19 @@ async function authHeaders() {
   return {};
 }
 
+// Centralised 401 handler. Replaces raw "Missing Bearer token" leak with
+// a clean toast + redirect to /app where the login modal lives.
+function handleAuthError(status) {
+  if (status !== 401) return false;
+  const isHi = state.lang === 'hi';
+  toast(isHi ? 'कृपया साइन-इन करें' : 'Please sign in to continue', 'warn');
+  setTimeout(() => {
+    try { localStorage.setItem('headnote.returnTo', window.location.pathname); } catch {}
+    window.location.href = '/app';
+  }, 1500);
+  return true;
+}
+
 async function saveDraft() {
   try {
     const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
@@ -1781,6 +1794,7 @@ async function _voiceStartRecorder(field, ctx) {
       const r = await fetch('/api/draft/transcribe?language=' + _whisperLang(), {
         method: 'POST', headers, body: fd,
       });
+      if (handleAuthError(r.status)) return;
       if (!r.ok) {
         const err = await r.json().catch(() => ({}));
         throw new Error(err.detail || `HTTP ${r.status}`);
@@ -1984,6 +1998,7 @@ async function runOcr() {
     ocrState.files.forEach(f => fd.append('files', f));
     const headers = await authHeaders();
     const r = await fetch('/api/draft/ocr-fir', { method: 'POST', headers, body: fd });
+    if (handleAuthError(r.status)) return;
     if (!r.ok) {
       const err = await r.json().catch(() => ({}));
       throw new Error(err.detail || err.error || `HTTP ${r.status}`);

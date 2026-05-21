@@ -323,6 +323,23 @@ async function authHeaders() {
   return {};
 }
 
+// Centralised 401 handler — if any API returns 401, redirect to /app
+// where the Supabase login modal is wired up. Replaces the raw
+// "Missing Authorization: Bearer <token> header" leak.
+function handleAuthError(status, detail) {
+  if (status !== 401) return false;
+  const msg = state.lang === 'hi'
+    ? 'कृपया साइन-इन करें'
+    : 'Please sign in to continue';
+  toast(msg, 'warn', 1800);
+  setTimeout(() => {
+    // Preserve the current page in localStorage so we can come back after login
+    try { localStorage.setItem('headnote.returnTo', window.location.pathname); } catch {}
+    window.location.href = '/app';
+  }, 1500);
+  return true;
+}
+
 // ---- Language ----
 function applyLang() {
   document.body.classList.toggle('lang-hi', state.lang === 'hi');
@@ -353,6 +370,7 @@ async function loadTemplate() {
   try {
     const headers = await authHeaders();
     const r = await fetch(`/api/draft/template-schema/${encodeURIComponent(id)}`, { headers });
+    if (handleAuthError(r.status)) return;
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
     state.template = data.template;
@@ -601,6 +619,7 @@ async function runExtract(u) {
     state.ocrFiles.forEach(f => fd.append('files', f));
     const headers = await authHeaders();
     const r = await fetch(u.endpoint, { method: 'POST', headers, body: fd });
+    if (handleAuthError(r.status)) return;
     if (!r.ok) {
       const err = await r.json().catch(() => ({}));
       throw new Error(err.detail || `HTTP ${r.status}`);
@@ -700,6 +719,7 @@ async function generateDocument(opts) {
       method: 'POST', headers,
       body: JSON.stringify({ doc_type: state.docType, fields: state.fields, lang: state.lang }),
     });
+    if (handleAuthError(r.status)) return;
     const data = await r.json();
     if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`);
     state.document = data.document;
@@ -858,6 +878,7 @@ async function setLang(newLang) {
         method: 'POST', headers,
         body: JSON.stringify({ fields: toTranslate, target: newLang }),
       });
+      if (handleAuthError(r.status)) return;
       if (r.ok) {
         const data = await r.json();
         if (data.translated && !data.skipped) {

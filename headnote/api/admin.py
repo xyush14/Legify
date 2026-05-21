@@ -272,7 +272,7 @@ def admin_import_corpus(
     curl example:
 
         curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" \\
-             "https://headnote.up.railway.app/admin/import_corpus_from_url?url=https://example.com/kanoon_cache.sqlite"
+             "https://headnote.in/admin/import_corpus_from_url?url=https://example.com/kanoon_cache.sqlite"
 
     Use a public URL (HuggingFace dataset, GitHub release, S3, R2).
     The file is downloaded by Railway's egress so the URL must be
