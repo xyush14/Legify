@@ -32,137 +32,17 @@ log = logging.getLogger(__name__)
 
 
 # ----------------------------------------------------------------- Templates
-#
-# Each entry declares:
-#   id           — stable key used in URLs + API calls
-#   name_en/hi   — display names for the picker
-#   category     — bail | civil | writ | revision | family | misc
-#   tier         — 1 (daily) | 2 (weekly) | 3 (situational)
-#   description  — one-line for the picker tile
-#   fields       — required + optional structured fields the conductor collects
-#   format_spec  — the system prompt for the final generation step
-#   example_prompts — sample lawyer phrasings the picker shows as hints
-#
-# Each `field` is { key, label_en, label_hi, type, required, hint }.
-# type is one of: text | longtext | name | address | date | phone | section_list
+# Template scaffolds live in compose_templates.py so we can add new document
+# types without touching the conductor logic in this file. Re-export the
+# helpers here so existing imports of compose.{TEMPLATES, get_template,
+# list_templates_slim} keep working.
 
-TEMPLATES: dict[str, dict] = {
+from headnote.drafter.compose_templates import (  # noqa: E402
+    TEMPLATES,
+    get_template,
+    list_templates_slim,
+)
 
-    # -------------------------------------------------------------- VAKALATNAMA
-    "vakalatnama": {
-        "id":         "vakalatnama",
-        "name_en":    "Vakalatnama",
-        "name_hi":    "वकालतनामा",
-        "category":   "misc",
-        "tier":       1,
-        "description": "Authorisation for advocate to appear on behalf of the party. Required for every matter.",
-        "fields": [
-            {"key": "court_name",          "label_en": "Court name",                "label_hi": "न्यायालय का नाम",        "type": "text",      "required": True,  "hint": "e.g. 'Court of the Sessions Judge, Gwalior' or 'MP High Court, Gwalior Bench'"},
-            {"key": "case_no",             "label_en": "Case / Crime number",       "label_hi": "केस / अपराध क्रमांक",   "type": "text",      "required": False, "hint": "If a case number is assigned"},
-            {"key": "client_name",         "label_en": "Client (party) name",       "label_hi": "मुवक्किल का नाम",       "type": "name",      "required": True},
-            {"key": "client_father",       "label_en": "Client father's name",      "label_hi": "मुवक्किल के पिता का नाम", "type": "name",      "required": True},
-            {"key": "client_address",      "label_en": "Client address",            "label_hi": "मुवक्किल का पता",         "type": "address",   "required": True},
-            {"key": "party_role",          "label_en": "Party role",                "label_hi": "पक्षकार की भूमिका",        "type": "text",      "required": True,  "hint": "applicant / petitioner / respondent / accused / plaintiff"},
-            {"key": "opposite_party",      "label_en": "Opposite party",            "label_hi": "विपक्षी पक्ष",            "type": "text",      "required": False, "hint": "e.g. 'State of MP' for criminal matters"},
-            {"key": "advocate_name",       "label_en": "Advocate name",             "label_hi": "अधिवक्ता का नाम",         "type": "name",      "required": True},
-            {"key": "advocate_enrollment", "label_en": "Bar Council enrolment no.", "label_hi": "बार काउंसिल पंजीयन क्रमांक","type": "text",      "required": False, "hint": "e.g. 'MP/1234/2018'"},
-            {"key": "advocate_address",    "label_en": "Advocate chamber address",  "label_hi": "अधिवक्ता का पता",          "type": "address",   "required": True},
-            {"key": "place",               "label_en": "Place of execution",        "label_hi": "स्थान",                    "type": "text",      "required": True},
-            {"key": "date",                "label_en": "Date",                      "label_hi": "दिनांक",                    "type": "date",      "required": True},
-        ],
-        "format_spec": (
-            "Generate a standard Indian Vakalatnama on behalf of the client, in the "
-            "language requested. Structure:\n"
-            "  1. Heading: 'VAKALATNAMA' / 'वकालतनामा'\n"
-            "  2. 'IN THE COURT OF …' / 'न्यायालय …' line\n"
-            "  3. Case / Crime no. block (skip if none)\n"
-            "  4. Parties: <Party Role> <Client Name>, s/o <Father>, r/o <Address>\n"
-            "     Vs. <Opposite Party>\n"
-            "  5. Standard appointment + authorisation paragraph (engage to appear, "
-            "     plead, act, file documents, withdraw money, compromise as advised, etc.).\n"
-            "  6. Acceptance line: 'Accepted, <Advocate Name>, Enrollment No. ___'\n"
-            "  7. Signature blocks for client + advocate, with place + date.\n\n"
-            "Use proper court Hindi if lang='hi' (vocabulary: माननीय न्यायालय, "
-            "मुवक्किल, अधिवक्ता, हस्ताक्षर, etc.). Use formal English legal register "
-            "if lang='en'. Do NOT add markdown — return plain text with line breaks."
-        ),
-        "example_prompts": [
-            "मुझे ग्वालियर सेशन कोर्ट के लिए वकालतनामा चाहिए, मेरे मुवक्किल अनिल मोर्य के लिए",
-            "Need a vakalatnama for my client Vivek Sharma in MP HC Gwalior bench",
-        ],
-    },
-
-    # -------------------------------------------------------- ANTICIPATORY BAIL
-    "anticipatory_bail": {
-        "id":         "anticipatory_bail",
-        "name_en":    "Anticipatory Bail (S.482 BNSS / S.438 CrPC)",
-        "name_hi":    "अग्रिम जमानत आवेदन (धारा 482 BNSS / 438 दं.प्र.सं.)",
-        "category":   "bail",
-        "tier":       1,
-        "description": "Pre-arrest bail application before Sessions / High Court.",
-        "fields": [
-            {"key": "court_name",          "label_en": "Court",                       "label_hi": "न्यायालय",                "type": "text",     "required": True,  "hint": "Sessions / HC bench"},
-            {"key": "applicant_name",      "label_en": "Applicant name",              "label_hi": "आवेदक का नाम",            "type": "name",     "required": True},
-            {"key": "applicant_father",    "label_en": "Father's name",               "label_hi": "पिता का नाम",             "type": "name",     "required": True},
-            {"key": "applicant_age",       "label_en": "Age",                         "label_hi": "आयु",                     "type": "text",     "required": False},
-            {"key": "applicant_occupation","label_en": "Occupation",                  "label_hi": "व्यवसाय",                 "type": "text",     "required": False},
-            {"key": "applicant_address",   "label_en": "Address",                     "label_hi": "पता",                     "type": "address",  "required": True},
-            {"key": "district",            "label_en": "District",                    "label_hi": "जिला",                    "type": "text",     "required": True},
-            {"key": "state_name",          "label_en": "State",                       "label_hi": "राज्य",                   "type": "text",     "required": False},
-            {"key": "fir_number",          "label_en": "FIR No.",                     "label_hi": "FIR क्रमांक",             "type": "text",     "required": True},
-            {"key": "fir_date",            "label_en": "FIR date",                    "label_hi": "FIR दिनांक",              "type": "date",     "required": False},
-            {"key": "police_station",      "label_en": "Police Station",              "label_hi": "पुलिस थाना",              "type": "text",     "required": True},
-            {"key": "sections_str",        "label_en": "Sections invoked",            "label_hi": "धाराएं",                  "type": "section_list", "required": True, "hint": "e.g. '420 IPC, 406 IPC, 506 IPC'"},
-            {"key": "apprehension_reason", "label_en": "Reason for apprehension",     "label_hi": "गिरफ्तारी की आशंका का कारण","type": "longtext", "required": True, "hint": "Why the applicant fears arrest"},
-            {"key": "facts_narrative",     "label_en": "Brief facts / defence",       "label_hi": "तथ्य व बचाव",             "type": "longtext", "required": True},
-            {"key": "advocate_name",       "label_en": "Advocate name",               "label_hi": "अधिवक्ता का नाम",          "type": "name",     "required": True},
-            {"key": "place",               "label_en": "Place of filing",             "label_hi": "स्थान",                   "type": "text",     "required": True},
-            {"key": "filing_date",         "label_en": "Filing date",                 "label_hi": "दिनांक",                  "type": "date",     "required": True},
-        ],
-        "format_spec": (
-            "Generate a complete anticipatory bail application under Section 482 of "
-            "the Bharatiya Nagarik Suraksha Sanhita, 2023 (or Section 438 CrPC for "
-            "pre-Jul-2024 cases). Structure:\n"
-            "  - Heading: Court name in formal style\n"
-            "  - 'Application No. ___ of <year>' block (leave blank if none)\n"
-            "  - Parties: Applicant (with full S/o + R/o details) Vs. State of <State>\n"
-            "  - 'APPLICATION UNDER SECTION 482 BNSS, 2023 FOR ANTICIPATORY BAIL'\n"
-            "  - 'The humble applicant most respectfully submits as follows:—'\n"
-            "  - Numbered paragraphs (1 to N) covering: \n"
-            "      1. This is the FIRST anticipatory bail application of the applicant under §482 BNSS in this Honourable Court.\n"
-            "      2. No similar application was filed before this Hon'ble Court or before the Hon'ble Supreme Court of India.\n"
-            "      3. Brief facts as alleged in the FIR.\n"
-            "      4. The applicant has reasonable apprehension of arrest because…\n"
-            "      5. Grounds for granting anticipatory bail (innocence, false implication, no flight risk, cooperation with investigation, etc.).\n"
-            "      6. Applicant undertakes to cooperate with the investigation and abide by such conditions as the Hon'ble Court may impose.\n"
-            "  - PRAYER: 'It is, therefore, most respectfully prayed that this Honourable Court may be pleased to grant anticipatory bail to the applicant in the event of his arrest in connection with FIR No. ___ / ___ registered at P.S. ___ under Sections ___ …'\n"
-            "  - Signature blocks: Applicant + Through Counsel (name)\n"
-            "  - Place + Date at bottom\n\n"
-            "Use formal court Hindi (legal vocab: माननीय न्यायालय, आवेदक, सादर निवेदन, "
-            "अग्रिम जमानत, सहयोग) if lang='hi'. Use formal Indian legal English if "
-            "lang='en'. Return plain text — no markdown fences."
-        ),
-        "example_prompts": [
-            "अग्रिम जमानत चाहिए, मुवक्किल विकेश शर्मा, धारा 420, FIR नंबर 95/2025, थाना मुरार",
-            "Anticipatory bail for Anil Morya, S.420 IPC, FIR 95/2025 PS Murar Gwalior",
-        ],
-    },
-}
-
-
-def list_templates_slim() -> list[dict]:
-    """Slim metadata for the FE picker."""
-    return [
-        {"id": t["id"], "name_en": t["name_en"], "name_hi": t["name_hi"],
-         "category": t.get("category"), "tier": t.get("tier"),
-         "description": t.get("description"),
-         "example_prompts": t.get("example_prompts", [])}
-        for t in TEMPLATES.values()
-    ]
-
-
-def get_template(doc_type: str) -> dict | None:
-    return TEMPLATES.get(doc_type)
 
 
 # ----------------------------------------------------------------- Conductor
