@@ -3,9 +3,13 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Template Drafter — Headnote</title>
+<title>Drafter — Headnote</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+  /* =============================================================================
+     Universal Template Drafter — visually matched to /draft/bail
+     Same palette, same fonts, same section hierarchy, court-paper preview.
+     ============================================================================= */
   :root {
     --bg: #faf8f3;
     --panel: #ffffff;
@@ -13,6 +17,7 @@
     --line: #e8e6df;
     --line-strong: #d4d0c4;
     --ink: #1a1814;
+    --ink-2: #4a4640;
     --muted: #847e6f;
     --good: #2e7d32;
     --bad: #c0392b;
@@ -23,53 +28,54 @@
   body { margin: 0; padding: 0; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--ink); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
   body.lang-hi { font-family: 'Noto Sans Devanagari', 'Inter', sans-serif; }
 
-  /* Topbar */
-  .topbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; background: var(--panel); border-bottom: 1px solid var(--line); padding: 12px 20px; }
-  .topbar__left { display: flex; align-items: center; gap: 14px; min-width: 0; flex: 1; }
-  .topbar__back { color: var(--muted); text-decoration: none; font-size: 16px; padding: 4px 8px; border-radius: 6px; flex-shrink: 0; }
-  .topbar__back:hover { color: var(--ink); background: var(--soft); }
-  .topbar__title { font-weight: 600; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* Topbar — matches bail */
+  .topbar { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 10; }
+  .topbar__left { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  .topbar__back { color: var(--muted); text-decoration: none; font-size: 14px; }
+  .topbar__back:hover { color: var(--ink); }
+  .topbar__title { font-size: 15px; font-weight: 600; }
   .topbar__sub { font-size: 12px; color: var(--muted); }
-  .topbar__right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-  .lang-toggle { display: inline-flex; background: var(--bg); border: 1px solid var(--line-strong); border-radius: 100px; padding: 3px; font-size: 11px; font-weight: 600; }
-  .lang-toggle button { border: none; background: transparent; padding: 5px 10px; border-radius: 100px; color: var(--muted); cursor: pointer; transition: all 0.18s ease; font-family: inherit; font-size: inherit; font-weight: inherit; }
-  .lang-toggle button.active { background: var(--ink); color: var(--bg); }
-  .btn { padding: 6px 12px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--panel); cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 500; transition: all 0.15s; }
+  .topbar__right { display: flex; gap: 8px; align-items: center; }
+  .savestate { font-size: 11px; color: var(--muted); font-family: 'Geist Mono', monospace; }
+  .btn { padding: 6px 12px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--panel); cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 500; color: var(--ink); transition: all 0.15s; white-space: nowrap; }
   .btn:hover { background: var(--soft); }
   .btn--primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
   .btn--primary:hover { background: #000; }
-  .btn--primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .lang-toggle { display: inline-flex; background: var(--bg); border: 1px solid var(--line-strong); border-radius: 100px; padding: 3px; font-size: 11px; font-weight: 600; }
+  .lang-toggle button { border: none; background: transparent; padding: 5px 10px; border-radius: 100px; color: var(--muted); cursor: pointer; transition: all 0.18s ease; font-family: inherit; font-size: inherit; font-weight: inherit; }
+  .lang-toggle button.active { background: var(--ink); color: var(--bg); }
 
-  /* Layout */
+  /* Layout — matches bail */
   .split { display: grid; grid-template-columns: 460px 1fr; height: calc(100vh - 56px); }
   @media (max-width: 1100px) { .split { grid-template-columns: 380px 1fr; } }
-  .form-pane { overflow-y: auto; padding: 20px 22px 100px; border-right: 1px solid var(--line); background: var(--panel); }
-  .doc-pane { overflow-y: auto; background: #e8e6df; padding: 30px 16px 60px; display: flex; flex-direction: column; }
+  .form-pane { overflow-y: auto; padding: 20px 22px 60px; border-right: 1px solid var(--line); background: var(--panel); }
+  .doc-pane { overflow-y: auto; background: #e8e6df; padding: 30px 16px 60px; position: relative; }
 
-  /* Form fields */
-  .section { margin-bottom: 24px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+  /* Section hierarchy — exactly like bail */
+  .section { margin-bottom: 28px; padding-bottom: 22px; border-bottom: 1px solid var(--line); }
   .section:last-child { border-bottom: none; }
-  .section__title { font-weight: 600; font-size: 13px; margin: 0 0 12px; letter-spacing: -0.01em; }
-  .section__sub { font-size: 11px; color: var(--muted); margin: -8px 0 14px; }
+  .section__eyebrow { font-family: 'Geist Mono', monospace; font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+  .section__title { font-size: 16px; font-weight: 600; margin: 0 0 14px; letter-spacing: -0.01em; }
+  body.lang-hi .section__eyebrow { font-family: 'Noto Sans Devanagari', monospace; }
+
+  /* Fields */
   .field { margin-bottom: 12px; position: relative; }
   .field--row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
   .field--row .field { margin-bottom: 0; }
-  .field label { display: block; font-size: 11px; font-weight: 500; margin-bottom: 4px; color: var(--ink); letter-spacing: 0.01em; }
+  .field label { display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px; color: var(--ink); }
   .field input, .field textarea, .field select {
-    width: 100%;
-    padding: 8px 12px;
-    border: 1px solid var(--line-strong);
-    border-radius: var(--radius);
-    font-family: inherit;
-    font-size: 13px;
-    background: var(--bg);
-    outline: none;
+    width: 100%; padding: 9px 12px;
+    border: 1px solid var(--line-strong); border-radius: var(--radius);
+    font-family: inherit; font-size: 13px;
+    background: var(--bg); outline: none;
+    transition: border-color 0.15s;
   }
-  .field textarea { resize: vertical; min-height: 64px; line-height: 1.4; }
-  .field input:focus, .field textarea:focus, .field select:focus { border-color: var(--ink); }
-  .field__hint { font-size: 10.5px; color: var(--muted); margin-top: 3px; line-height: 1.3; }
-  .field-required { color: var(--bad); margin-left: 2px; }
-  body.lang-hi .field input, body.lang-hi .field textarea, body.lang-hi .field select, body.lang-hi .field label { font-family: 'Noto Sans Devanagari', 'Inter', sans-serif; }
+  .field textarea { resize: vertical; min-height: 64px; line-height: 1.5; }
+  .field input:focus, .field textarea:focus, .field select:focus { border-color: var(--ink); background: #fff; }
+  .field__hint { font-size: 11px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+  .req-star { color: var(--bad); margin-left: 2px; font-weight: 700; }
+  body.lang-hi .field input, body.lang-hi .field textarea, body.lang-hi .field label { font-family: 'Noto Sans Devanagari', 'Inter', sans-serif; }
 
   /* Voice mic on long-text fields */
   .voice-field { position: relative; }
@@ -92,51 +98,60 @@
   }
   .voice-field textarea, .voice-field input { padding-right: 40px; }
 
-  /* Generate CTA — sticky bottom of form pane */
-  .gen-cta {
-    position: sticky; bottom: 0;
-    margin: 20px -22px -100px;
-    padding: 14px 22px 18px;
-    background: var(--panel);
-    border-top: 1px solid var(--line);
-    display: flex; gap: 8px; align-items: center;
-  }
-  .gen-cta button { flex: 1; padding: 11px; font-size: 13px; font-weight: 600; }
-  .gen-status { font-size: 11px; color: var(--muted); }
+  /* Upload drop zone (FIR / impugned order / etc.) — matches bail's OCR zone */
+  .ocr-zone { border: 2px dashed var(--line-strong); border-radius: 10px; padding: 16px; text-align: center; cursor: pointer; background: var(--panel); transition: all 0.15s; }
+  .ocr-zone:hover { border-color: var(--ink); background: var(--soft); }
+  .ocr-zone--busy { pointer-events: none; opacity: 0.7; }
+  .ocr-zone__icon { font-size: 28px; margin-bottom: 6px; }
+  .ocr-zone__title { font-weight: 600; font-size: 13px; margin-bottom: 2px; }
+  .ocr-zone__sub { font-size: 11px; color: var(--muted); }
+  .ocr-zone input { display: none; }
+  .ocr-pages { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .ocr-page { position: relative; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; width: 64px; height: 80px; background: var(--soft); }
+  .ocr-page img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ocr-page__num { position: absolute; top: 2px; left: 2px; background: rgba(0,0,0,0.7); color: #fff; font-size: 10px; padding: 1px 4px; border-radius: 3px; line-height: 1; }
+  .ocr-page__rm { position: absolute; top: 2px; right: 2px; background: rgba(0,0,0,0.7); color: #fff; font-size: 11px; width: 16px; height: 16px; border-radius: 50%; border: none; cursor: pointer; padding: 0; line-height: 1; }
+  .ocr-cta { margin-top: 10px; display: flex; gap: 8px; }
+  .ocr-cta button { flex: 1; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--panel); font-size: 12px; font-weight: 600; cursor: pointer; }
+  .ocr-cta button.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 
-  /* Document preview */
+  /* Court-paper document preview — matches bail's bail-doc styling */
   .doc-page {
     background: #fff;
-    padding: 50px 48px;
+    padding: 56px 56px 80px;
     box-shadow: 0 1px 4px rgba(0,0,0,0.08);
     border-radius: 4px;
-    font-family: 'Times New Roman', Times, serif;
-    font-size: 13px;
-    line-height: 1.7;
-    color: #222;
-    white-space: pre-wrap;
-    word-wrap: break-word;
+    font-family: 'Noto Sans Devanagari', 'Times New Roman', Times, serif;
+    font-size: 13.5px;
+    line-height: 1.75;
+    color: #1a1814;
     max-width: 720px;
     width: 100%;
     margin: 0 auto;
+    min-height: 80vh;
   }
-  body.lang-hi .doc-page { font-family: 'Noto Sans Devanagari', serif; }
-  .doc-empty {
-    margin: auto; text-align: center; color: var(--muted); font-size: 13px;
-    max-width: 280px; padding: 60px 20px;
-  }
-  .doc-empty__icon { font-size: 36px; margin-bottom: 10px; }
+  body.lang-en .doc-page { font-family: 'Times New Roman', Times, serif; }
+  /* Parsed elements inside the doc — applied by JS parser */
+  .doc-page .doc-head      { text-align: center; font-weight: 700; font-size: 14.5px; margin: 0 0 14px; letter-spacing: 0.02em; }
+  .doc-page .doc-court     { text-align: center; font-weight: 700; font-size: 14px; text-decoration: underline; margin: 0 0 12px; }
+  .doc-page .doc-case-no   { text-align: center; font-size: 13px; margin: 0 0 16px; }
+  .doc-page .doc-title     { text-align: center; font-weight: 700; font-size: 13px; text-decoration: underline; margin: 18px 0 14px; }
+  .doc-page .doc-vs        { text-align: center; font-weight: 600; font-style: italic; margin: 6px 0; }
+  .doc-page .doc-shewith   { font-weight: 700; margin: 14px 0 10px; font-size: 13px; }
+  .doc-page .doc-para      { margin: 0 0 11px; text-indent: 0; }
+  .doc-page .doc-para-num  { margin: 0 0 11px; padding-left: 24px; text-indent: -24px; }
+  .doc-page .doc-prayer    { font-weight: 700; text-decoration: underline; margin: 20px 0 10px; text-align: center; }
+  .doc-page .doc-verify    { font-weight: 700; text-decoration: underline; margin: 22px 0 8px; }
+  .doc-page .doc-sig       { margin-top: 30px; text-align: right; }
+  .doc-page .doc-pl-date   { display: flex; justify-content: space-between; margin-top: 22px; font-size: 12.5px; }
 
-  /* Preview generating — subtle shimmer + corner indicator */
-  .doc-pane { position: relative; }
-  .doc-pane.is-generating .doc-page { opacity: 0.68; transition: opacity 0.2s; }
+  /* Generating shimmer */
+  .doc-pane.is-generating .doc-page { opacity: 0.7; transition: opacity 0.2s; }
   .regen-indicator {
     position: absolute; top: 14px; right: 18px;
-    display: none;
-    align-items: center; gap: 6px;
+    display: none; align-items: center; gap: 6px;
     padding: 5px 10px;
-    background: var(--ink);
-    color: var(--bg);
+    background: var(--ink); color: var(--bg);
     border-radius: 100px;
     font-size: 11px; font-weight: 600;
     box-shadow: 0 2px 8px rgba(0,0,0,0.12);
@@ -148,31 +163,35 @@
     background: var(--bg); border-radius: 50%;
     animation: regen-pulse 1.2s ease-in-out infinite;
   }
-  @keyframes regen-pulse {
-    0%, 100% { opacity: 0.3; }
-    50%      { opacity: 1; }
+  @keyframes regen-pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+
+  .doc-empty { margin: auto; text-align: center; color: var(--muted); font-size: 13px; max-width: 280px; padding: 60px 20px; }
+  .doc-empty__icon { font-size: 36px; margin-bottom: 10px; }
+
+  /* Sticky bottom CTA */
+  .form-cta {
+    position: sticky; bottom: 0;
+    margin: 22px -22px 0;
+    padding: 14px 22px 16px;
+    background: var(--panel);
+    border-top: 1px solid var(--line);
+    display: flex; gap: 8px;
   }
-  .gen-spinner {
-    display: inline-block; width: 12px; height: 12px;
-    border: 2px solid var(--line-strong); border-top-color: var(--ink);
-    border-radius: 50%; animation: gen-spin 0.7s linear infinite;
-    vertical-align: middle; margin-right: 6px;
-  }
-  @keyframes gen-spin { from {transform: rotate(0)} to {transform: rotate(360deg)} }
-  body.lang-hi .regen-indicator { font-family: 'Noto Sans Devanagari', sans-serif; }
+  .form-cta .btn { flex: 1; padding: 10px; font-size: 13px; font-weight: 600; }
 
   /* Toast */
-  .toast { position: fixed; top: 70px; right: 20px; background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 8px; font-size: 13px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+  .toast { position: fixed; top: 70px; right: 24px; background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 8px; font-size: 13px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
   .toast--show { opacity: 1; }
   .toast--err { background: var(--bad); }
+  .toast--ok { background: var(--good); }
   .toast--warn { background: var(--warn); }
 
-  /* Mobile: pull-up preview sheet */
+  /* Pull-up preview sheet on mobile */
   .preview-handle { display: none; }
   @media (max-width: 880px) {
     .split { display: block; height: auto; padding-bottom: 64px; }
     .form-pane { padding: 16px 14px 100px; border-right: none; }
-    .gen-cta { margin: 16px -14px -100px; padding: 12px 14px 16px; }
+    .form-cta { margin: 16px -14px 0; padding: 12px 14px 14px; }
     .doc-pane {
       position: fixed; left: 0; right: 0; bottom: 0;
       height: 56px; max-height: 100vh; z-index: 70;
@@ -203,45 +222,47 @@
     .doc-pane[data-state="full"] > .doc-page,
     .doc-pane[data-state="half"] > .doc-empty,
     .doc-pane[data-state="full"] > .doc-empty { display: block; flex: 1; overflow-y: auto; }
-    .doc-page { padding: 24px 18px; box-shadow: none; border-radius: 0; max-width: none; }
+    .doc-page { padding: 28px 22px 50px; box-shadow: none; border-radius: 0; max-width: none; min-height: 60vh; }
     body.lang-hi .preview-handle { font-family: 'Noto Sans Devanagari', sans-serif; }
     .topbar { padding: 10px 12px; }
     .topbar__sub { display: none; }
     .topbar__title { font-size: 13px; }
+    .topbar__right .btn .btn-long { display: none; }
   }
 </style>
 </head>
-<body>
+<body class="lang-hi">
 
 <div class="topbar">
   <div class="topbar__left">
     <a href="/app" class="topbar__back" aria-label="Back">←</a>
     <div>
-      <div class="topbar__title" id="template-title">Loading template…</div>
-      <div class="topbar__sub" id="template-sub"></div>
+      <div class="topbar__title" id="template-title">Loading…</div>
+      <div class="topbar__sub" id="template-sub" data-en="draft auto-saves · live preview" data-hi="ड्राफ्ट स्वतः सहेजेगा · लाइव प्रीव्यू">ड्राफ्ट स्वतः सहेजेगा · लाइव प्रीव्यू</div>
     </div>
   </div>
   <div class="topbar__right">
+    <span class="savestate" id="savestate"></span>
     <div class="lang-toggle" role="group" aria-label="language">
       <button id="lang-en">EN</button>
       <button id="lang-hi" class="active">हिं</button>
     </div>
-    <button class="btn" id="btn-pdf" title="Download PDF">⬇ PDF</button>
+    <button class="btn" id="btn-pdf" title="Download PDF">⬇ <span class="btn-long">PDF</span></button>
   </div>
 </div>
 
 <div class="split">
-  <!-- LEFT: form (auto-generated from template schema) -->
-  <div class="form-pane">
-    <div id="form-container"></div>
-    <div class="gen-cta">
+  <!-- LEFT: form -->
+  <div class="form-pane" id="form-pane">
+    <div id="form-container"><!-- sections rendered by JS --></div>
+    <div class="form-cta">
       <button class="btn btn--primary" id="btn-generate">
-        <span id="gen-label" data-en="✨ Generate Document" data-hi="✨ दस्तावेज़ बनाएं">✨ दस्तावेज़ बनाएं</span>
+        <span id="gen-label" data-en="✨ Refresh Draft" data-hi="✨ दस्तावेज़ ताज़ा करें">✨ दस्तावेज़ ताज़ा करें</span>
       </button>
     </div>
   </div>
 
-  <!-- RIGHT: live document — pull-up sheet on mobile -->
+  <!-- RIGHT: court-paper preview (pull-up sheet on mobile) -->
   <div class="doc-pane" id="doc-pane" data-state="collapsed">
     <button type="button" class="preview-handle" id="preview-handle" aria-expanded="false">
       <span class="preview-handle__grip" aria-hidden="true"></span>
@@ -250,11 +271,11 @@
     </button>
     <div class="regen-indicator" id="regen-indicator" aria-live="polite">
       <span class="regen-indicator__dot" aria-hidden="true"></span>
-      <span data-en="updating…" data-hi="अद्यतन हो रहा है…">अद्यतन हो रहा है…</span>
+      <span data-en="drafting…" data-hi="लिखा जा रहा है…">लिखा जा रहा है…</span>
     </div>
     <div class="doc-empty" id="doc-empty">
       <div class="doc-empty__icon">📄</div>
-      <div data-en="Start filling the form — the document writes itself as you type." data-hi="फॉर्म भरना शुरू करें — दस्तावेज़ अपने आप लिखता जाएगा।">फॉर्म भरना शुरू करें — दस्तावेज़ अपने आप लिखता जाएगा।</div>
+      <div data-en="Fill the form — the document writes itself as you type." data-hi="फॉर्म भरें — दस्तावेज़ अपने आप लिखता जाएगा।">फॉर्म भरें — दस्तावेज़ अपने आप लिखता जाएगा।</div>
     </div>
     <div class="doc-page" id="doc-page" style="display:none;"></div>
   </div>
@@ -266,36 +287,34 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
 // =========================================================================
-// Universal Template Drafter
-// One page that adapts to any template registered in compose_templates.py.
-// Reads schema from /api/draft/templates, auto-generates form, talks to
-// /api/draft/render-template for the live preview, and uses the existing
-// voice + translate-fields plumbing for language toggles.
+// Universal Template Drafter — visually matched to /draft/bail.
+// Reads schema from /api/draft/template-schema/<id>, auto-builds bail-style
+// sections, runs debounced live-preview regeneration via Groq, renders the
+// generated document as a court paper. Voice + supporting-doc uploads
+// integrated where the template declares them.
 // =========================================================================
 const state = {
-  lang:     'hi',
+  lang:     document.body.classList.contains('lang-hi') ? 'hi' : 'en',
   docType:  null,
   template: null,
   fields:   {},
   document: null,
   generating: false,
-  // Live preview state — debounced auto-regen on every field change
   _regenTimer:    null,
-  _lastGenFields: null,   // JSON snapshot of fields at last regen — used to skip no-op regens
-  _regenCount:    0,      // total regens fired (for cost monitoring)
+  _lastGenFields: null,
+  _regenCount:    0,
+  ocrFiles:       [],  // staging area for FIR / order photos
 };
+const REGEN_DEBOUNCE_MS = 1500;
+const REGEN_MAX_PER_SESSION = 80;
 
-// Auto-regen settings
-const REGEN_DEBOUNCE_MS = 1500;     // wait this long after last keystroke
-const REGEN_MAX_PER_SESSION = 80;   // safety cap — typical session is 15-25 regens
-
-// ---- Helpers ----
 function $(s, r) { return (r || document).querySelector(s); }
 function ce(tag, attrs) { const e = document.createElement(tag); if (attrs) Object.assign(e, attrs); return e; }
-function toast(msg, kind) {
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
+function toast(msg, kind, ms) {
   const t = $('#toast'); t.textContent = msg;
   t.className = 'toast toast--show toast--' + (kind || 'ok');
-  setTimeout(() => t.classList.remove('toast--show'), 2400);
+  setTimeout(() => t.classList.remove('toast--show'), ms || 2400);
 }
 async function authHeaders() {
   if (window.headnoteAuth && window.headnoteAuth.getAccessToken) {
@@ -303,151 +322,149 @@ async function authHeaders() {
   }
   return {};
 }
+
+// ---- Language ----
 function applyLang() {
   document.body.classList.toggle('lang-hi', state.lang === 'hi');
+  document.body.classList.toggle('lang-en', state.lang === 'en');
   document.querySelectorAll('[data-en]').forEach(el => {
     const v = state.lang === 'hi' ? el.dataset.hi : el.dataset.en;
     if (v != null) el.textContent = v;
   });
-  document.querySelectorAll('[data-ph-en]').forEach(el => {
-    const v = state.lang === 'hi' ? el.dataset.phHi : el.dataset.phEn;
-    if (v != null) el.placeholder = v;
-  });
   $('#lang-en').classList.toggle('active', state.lang === 'en');
   $('#lang-hi').classList.toggle('active', state.lang === 'hi');
   if (state.template) updateTitle();
+  // Re-render document with new lang's parsing
+  if (state.document) renderDocument();
 }
 function updateTitle() {
   $('#template-title').textContent = state.lang === 'hi' ? state.template.name_hi : state.template.name_en;
-  $('#template-sub').textContent = state.lang === 'hi'
-    ? 'भरें · प्रीव्यू दाईं ओर'
-    : 'fill the form · live preview on the right';
 }
 
-// ---- Load template from URL ----
-function getTemplateIdFromUrl() {
+// ---- Load template ----
+function getDocTypeFromUrl() {
   const m = window.location.pathname.match(/\/draft\/template\/([a-z_]+)/i);
   return m ? m[1] : null;
 }
-
 async function loadTemplate() {
-  const id = getTemplateIdFromUrl();
+  const id = getDocTypeFromUrl();
   if (!id) { showError('No template ID in URL'); return; }
   state.docType = id;
   try {
     const headers = await authHeaders();
-    // Fetch the full template schema by listing all and finding ours.
-    // (In v2 we'd add GET /api/draft/templates/{id}, but for now this works.)
-    const r = await fetch('/api/draft/templates', { headers });
+    const r = await fetch(`/api/draft/template-schema/${encodeURIComponent(id)}`, { headers });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
-    const tpl = (data.templates || []).find(t => t.id === id);
-    if (!tpl) { showError(`Template '${id}' not found`); return; }
-    // The slim list lacks full fields; fetch via compose endpoint with empty user_message
-    // to force the server to return the field schema. Easier: use the dummy /compose call.
-    const r2 = await fetch('/api/draft/compose', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...headers },
-      body: JSON.stringify({ doc_type: id, conversation: [], collected: {}, lang: state.lang }),
-    });
-    // We don't actually need /compose; use a dedicated schema endpoint instead.
-    // Fall through and hit /template-schema below.
-    const sR = await fetch(`/api/draft/template-schema/${encodeURIComponent(id)}`, { headers });
-    if (sR.ok) {
-      const sJson = await sR.json();
-      state.template = sJson.template;
-    } else {
-      // Fallback: use slim metadata + hand-built schema (worst case)
-      state.template = tpl;
-      state.template.fields = state.template.fields || [];
-    }
+    state.template = data.template;
     updateTitle();
     renderForm();
     applyLang();
-    // Restore from localStorage if any
     restoreFromLocalStorage();
   } catch (e) {
-    showError('Failed to load template: ' + e.message);
+    showError('Failed to load: ' + e.message);
   }
 }
-
 function showError(msg) {
   $('#template-title').textContent = 'Error';
-  $('#form-container').innerHTML = `<div style="color:var(--bad);padding:20px;">${msg}</div>`;
+  $('#form-container').innerHTML = `<div style="color:var(--bad);padding:20px;">${esc(msg)}</div>`;
 }
 
-// ---- Form rendering ----
+// ---- Section labels (mirrors compose_templates.SECTION_LABELS) ----
+const SECTION_LABELS = {
+  court:      {en: 'Court & Application Type', hi: 'न्यायालय एवं आवेदन का प्रकार'},
+  parties:    {en: 'Parties',                  hi: 'पक्षकार'},
+  client:     {en: 'Client',                   hi: 'मुवक्किल'},
+  applicant:  {en: 'Applicant',                hi: 'आवेदक'},
+  petitioner: {en: 'Petitioner',               hi: 'याचिकाकर्ता'},
+  respondent: {en: 'Respondent',               hi: 'विपक्षी / प्रतिवादी'},
+  advocate:   {en: 'Advocate',                 hi: 'अधिवक्ता'},
+  fir:        {en: 'The Crime / FIR',          hi: 'अपराध (FIR)'},
+  custody:    {en: 'Custody / Investigation',  hi: 'निरोध एवं विवेचना'},
+  matter:     {en: 'Matter Details',           hi: 'मामले का विवरण'},
+  order:      {en: 'Impugned Order',           hi: 'विवादित आदेश'},
+  marriage:   {en: 'Marriage & Family',        hi: 'विवाह एवं परिवार'},
+  income:     {en: 'Income & Maintenance',     hi: 'आय एवं भरण-पोषण'},
+  grounds:    {en: 'Grounds / Reasons',        hi: 'आधार / कारण'},
+  facts:      {en: 'Brief Facts',              hi: 'संक्षिप्त तथ्य'},
+  conviction: {en: 'Conviction Details',       hi: 'दोषसिद्धि विवरण'},
+  mention:    {en: 'Mentioning Details',       hi: 'मेंशन विवरण'},
+  filing:     {en: 'Filing / Signature',       hi: 'हस्ताक्षर'},
+};
+
+// ---- Form rendering — groups fields into bail-style sections ----
 function renderForm() {
   const container = $('#form-container');
   container.innerHTML = '';
   const tpl = state.template;
-  if (!tpl || !tpl.fields) return;
+  if (!tpl) return;
 
-  // Group by simple heuristic: every 4-5 fields = a section
-  const section = ce('div', { className: 'section' });
-  const title = ce('h3', { className: 'section__title' });
-  title.dataset.en = 'Details';
-  title.dataset.hi = 'विवरण';
-  title.textContent = state.lang === 'hi' ? 'विवरण' : 'Details';
-  section.appendChild(title);
+  // Supporting-doc upload zone(s) at the very top, just like bail's FIR shortcut
+  if (Array.isArray(tpl.uploads) && tpl.uploads.length) {
+    tpl.uploads.forEach(u => container.appendChild(renderUploadZone(u)));
+  }
 
-  const subtitle = ce('div', { className: 'section__sub' });
-  subtitle.textContent = state.lang === 'hi'
-    ? 'सितारा (★) चिह्नित फ़ील्ड अनिवार्य हैं।'
-    : 'Fields marked ★ are required.';
-  section.appendChild(subtitle);
-
-  tpl.fields.forEach(f => {
-    const wrap = ce('div', { className: 'field' });
-
-    const label = ce('label');
-    label.textContent = state.lang === 'hi' ? f.label_hi : f.label_en;
-    if (f.required) {
-      const star = ce('span', { className: 'field-required', textContent: ' ★' });
-      label.appendChild(star);
-    }
-    label.dataset.en = f.label_en + (f.required ? ' ★' : '');
-    label.dataset.hi = f.label_hi + (f.required ? ' ★' : '');
-    wrap.appendChild(label);
-
-    const isLong = f.type === 'longtext';
-    const fieldEl = isLong
-      ? ce('textarea', { rows: 3 })
-      : ce('input', { type: 'text' });
-    fieldEl.id = `f_${f.key}`;
-    fieldEl.dataset.field = f.key;
-    // Use a short placeholder (just the label) — the longer hint lives below
-    // the field. Avoids the "placeholder + hint duplicate" UX we had.
-    fieldEl.placeholder = state.lang === 'hi'
-      ? f.label_hi.replace(' ★', '')
-      : f.label_en.replace(' ★', '');
-    fieldEl.value = state.fields[f.key] || '';
-    fieldEl.addEventListener('input', () => {
-      state.fields[f.key] = fieldEl.value;
-      saveToLocalStorage();
-      // LIVE PREVIEW — debounce-regenerate the document so the lawyer
-      // sees the doc forming as they type, same feel as bail drafter.
-      scheduleAutoRegen();
-    });
-    wrap.appendChild(fieldEl);
-
-    // Wrap long fields with voice mic
-    if (isLong) {
-      const voiceWrap = ce('div', { className: 'voice-field' });
-      fieldEl.parentNode.insertBefore(voiceWrap, fieldEl);
-      voiceWrap.appendChild(fieldEl);
-      attachVoiceMic(fieldEl, voiceWrap);
-    }
-
-    if (f.hint) {
-      const hint = ce('div', { className: 'field__hint', textContent: f.hint });
-      wrap.appendChild(hint);
-    }
-
-    section.appendChild(wrap);
+  // Group fields by their declared section, preserving first-occurrence order
+  const sectionOrder = [];
+  const groups = {};
+  (tpl.fields || []).forEach(f => {
+    const s = f.section || 'matter';
+    if (!groups[s]) { groups[s] = []; sectionOrder.push(s); }
+    groups[s].push(f);
   });
 
-  container.appendChild(section);
+  sectionOrder.forEach((sectionId, i) => {
+    const sec = ce('div', { className: 'section' });
+    const eyebrow = ce('div', { className: 'section__eyebrow' });
+    eyebrow.dataset.en = `SECTION ${i + 1}`;
+    eyebrow.dataset.hi = `अनुभाग ${i + 1}`;
+    eyebrow.textContent = state.lang === 'hi' ? `अनुभाग ${i + 1}` : `SECTION ${i + 1}`;
+    const title = ce('h3', { className: 'section__title' });
+    const lab = SECTION_LABELS[sectionId] || {en: sectionId, hi: sectionId};
+    title.dataset.en = lab.en; title.dataset.hi = lab.hi;
+    title.textContent = state.lang === 'hi' ? lab.hi : lab.en;
+    sec.appendChild(eyebrow);
+    sec.appendChild(title);
+
+    groups[sectionId].forEach(f => sec.appendChild(renderField(f)));
+    container.appendChild(sec);
+  });
+}
+
+function renderField(f) {
+  const wrap = ce('div', { className: 'field' });
+  const label = ce('label');
+  const labText = state.lang === 'hi' ? f.label_hi : f.label_en;
+  label.innerHTML = esc(labText) + (f.required ? ' <span class="req-star">★</span>' : '');
+  label.dataset.en = f.label_en + (f.required ? ' ★' : '');
+  label.dataset.hi = f.label_hi + (f.required ? ' ★' : '');
+  wrap.appendChild(label);
+
+  const isLong = f.type === 'longtext' || f.type === 'address';
+  const fieldEl = isLong ? ce('textarea', { rows: 3 }) : ce('input', { type: 'text' });
+  fieldEl.id = `f_${f.key}`;
+  fieldEl.dataset.field = f.key;
+  fieldEl.placeholder = state.lang === 'hi' ? f.label_hi.replace(' ★', '') : f.label_en.replace(' ★', '');
+  fieldEl.value = state.fields[f.key] || '';
+  fieldEl.addEventListener('input', () => {
+    state.fields[f.key] = fieldEl.value;
+    saveToLocalStorage();
+    scheduleAutoRegen();
+  });
+
+  if (isLong) {
+    const voiceWrap = ce('div', { className: 'voice-field' });
+    voiceWrap.appendChild(fieldEl);
+    attachVoiceMic(fieldEl, voiceWrap);
+    wrap.appendChild(voiceWrap);
+  } else {
+    wrap.appendChild(fieldEl);
+  }
+
+  if (f.hint) {
+    const hint = ce('div', { className: 'field__hint', textContent: f.hint });
+    wrap.appendChild(hint);
+  }
+  return wrap;
 }
 
 // ---- Voice mic ----
@@ -462,15 +479,13 @@ function attachVoiceMic(fieldEl, wrap) {
     <line x1="12" y1="19" x2="12" y2="23"/>
     <line x1="8" y1="23" x2="16" y2="23"/>
   </svg>`;
-  let rec = null;
-  let active = false;
+  let rec = null, active = false;
   btn.addEventListener('click', () => {
     if (active) { try { rec && rec.stop(); } catch {} return; }
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     rec = new SR();
     rec.lang = state.lang === 'en' ? 'en-IN' : 'hi-IN';
-    rec.continuous = true;
-    rec.interimResults = false;
+    rec.continuous = true; rec.interimResults = false;
     rec.onresult = (e) => {
       for (let i = e.resultIndex; i < e.results.length; i++) {
         if (e.results[i].isFinal) {
@@ -479,6 +494,7 @@ function attachVoiceMic(fieldEl, wrap) {
           fieldEl.value = (cur ? cur + ' ' : '') + t;
           state.fields[fieldEl.dataset.field] = fieldEl.value;
           saveToLocalStorage();
+          scheduleAutoRegen();
         }
       }
     };
@@ -487,24 +503,164 @@ function attachVoiceMic(fieldEl, wrap) {
       stopRec();
     };
     rec.onend = () => { if (active) { try { rec.start(); } catch { stopRec(); } } };
-    function stopRec() {
-      active = false;
-      btn.classList.remove('voice-mic--rec');
-    }
-    active = true;
-    btn.classList.add('voice-mic--rec');
+    function stopRec() { active = false; btn.classList.remove('voice-mic--rec'); }
+    active = true; btn.classList.add('voice-mic--rec');
     rec.start();
   });
   wrap.appendChild(btn);
 }
 
-// ---- LocalStorage persistence ----
+// ---- Supporting-doc upload zone ----
+function renderUploadZone(u) {
+  const wrap = ce('div', { className: 'section' });
+  const eyebrow = ce('div', { className: 'section__eyebrow' });
+  eyebrow.dataset.en = 'SHORTCUT'; eyebrow.dataset.hi = 'शॉर्टकट';
+  eyebrow.textContent = state.lang === 'hi' ? 'शॉर्टकट' : 'SHORTCUT';
+  const title = ce('h3', { className: 'section__title' });
+  title.dataset.en = u.label_en; title.dataset.hi = u.label_hi;
+  title.textContent = state.lang === 'hi' ? u.label_hi : u.label_en;
+  wrap.appendChild(eyebrow); wrap.appendChild(title);
+
+  const zone = ce('label', { className: 'ocr-zone', id: `oz_${u.id}` });
+  zone.innerHTML = `
+    <input type="file" accept="${u.accept || 'image/*,application/pdf'}" ${u.multiple ? 'multiple' : ''}>
+    <div class="ocr-zone__icon">📷</div>
+    <div class="ocr-zone__title" data-en="${esc(u.label_en)}" data-hi="${esc(u.label_hi)}">${esc(state.lang === 'hi' ? u.label_hi : u.label_en)}</div>
+    <div class="ocr-zone__sub" data-en="${esc(u.sub_en || '')}" data-hi="${esc(u.sub_hi || '')}">${esc(state.lang === 'hi' ? (u.sub_hi || '') : (u.sub_en || ''))}</div>
+  `;
+  wrap.appendChild(zone);
+  const pagesEl = ce('div', { className: 'ocr-pages', id: `op_${u.id}` });
+  wrap.appendChild(pagesEl);
+  const ctaEl = ce('div', { className: 'ocr-cta', style: 'display:none', id: `oc_${u.id}` });
+  ctaEl.innerHTML = `
+    <button type="button" data-action="clear" data-en="Clear" data-hi="हटाएं">${state.lang === 'hi' ? 'हटाएं' : 'Clear'}</button>
+    <button type="button" data-action="extract" class="primary" data-en="✨ Extract with AI" data-hi="✨ AI से निकालें">${state.lang === 'hi' ? '✨ AI से निकालें' : '✨ Extract with AI'}</button>
+  `;
+  wrap.appendChild(ctaEl);
+
+  // File handler
+  zone.querySelector('input').addEventListener('change', (e) => {
+    const newFiles = Array.from(e.target.files || []);
+    const max = u.max_files || 8;
+    state.ocrFiles.push(...newFiles.slice(0, max - state.ocrFiles.length));
+    e.target.value = '';
+    refreshUploadUI(u);
+  });
+
+  ctaEl.querySelector('[data-action="clear"]').addEventListener('click', () => {
+    state.ocrFiles = [];
+    refreshUploadUI(u);
+  });
+
+  if (u.endpoint) {
+    ctaEl.querySelector('[data-action="extract"]').addEventListener('click', () => runExtract(u));
+  } else {
+    // No endpoint (e.g. impugned-order upload — files stored only)
+    ctaEl.querySelector('[data-action="extract"]').textContent = state.lang === 'hi' ? '✓ संलग्न' : '✓ Attached';
+    ctaEl.querySelector('[data-action="extract"]').disabled = true;
+  }
+
+  return wrap;
+}
+
+function refreshUploadUI(u) {
+  const pagesEl = $(`#op_${u.id}`);
+  const ctaEl = $(`#oc_${u.id}`);
+  pagesEl.innerHTML = '';
+  state.ocrFiles.forEach((file, idx) => {
+    const w = ce('div', { className: 'ocr-page', title: file.name });
+    if (file.type.startsWith('image/')) {
+      const img = ce('img'); img.src = URL.createObjectURL(file);
+      w.appendChild(img);
+    } else {
+      w.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:11px;color:var(--muted);">PDF</div>`;
+    }
+    const num = ce('div', { className: 'ocr-page__num', textContent: idx + 1 });
+    w.appendChild(num);
+    const rm = ce('button', { className: 'ocr-page__rm', type: 'button', textContent: '×' });
+    rm.onclick = () => { state.ocrFiles.splice(idx, 1); refreshUploadUI(u); };
+    w.appendChild(rm);
+    pagesEl.appendChild(w);
+  });
+  ctaEl.style.display = state.ocrFiles.length ? 'flex' : 'none';
+}
+
+async function runExtract(u) {
+  if (!state.ocrFiles.length) return;
+  const zone = $(`#oz_${u.id}`);
+  const titleEl = zone.querySelector('.ocr-zone__title');
+  const subEl = zone.querySelector('.ocr-zone__sub');
+  const origT = titleEl.textContent, origS = subEl.textContent;
+  zone.classList.add('ocr-zone--busy');
+  const n = state.ocrFiles.length;
+  titleEl.textContent = state.lang === 'hi' ? `${n} पन्ने पढ़े जा रहे हैं…` : `Reading ${n} page${n > 1 ? 's' : ''}…`;
+  subEl.textContent = state.lang === 'hi' ? '6-12 सेकंड' : 'takes 6-12 seconds';
+
+  try {
+    const fd = new FormData();
+    state.ocrFiles.forEach(f => fd.append('files', f));
+    const headers = await authHeaders();
+    const r = await fetch(u.endpoint, { method: 'POST', headers, body: fd });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${r.status}`);
+    }
+    const data = await r.json();
+    applyExtracted(data.extracted, u);
+    titleEl.textContent = state.lang === 'hi' ? '✓ निकाला गया' : '✓ Extracted';
+    subEl.textContent = state.lang === 'hi' ? 'फ़ील्ड भरी गईं — जाँचें' : 'fields auto-filled — review';
+    toast(state.lang === 'hi' ? 'फ़ील्ड स्वतः भरीं' : 'Fields auto-filled', 'ok');
+  } catch (e) {
+    titleEl.textContent = origT; subEl.textContent = origS;
+    toast('OCR failed: ' + e.message, 'err', 4000);
+  } finally {
+    zone.classList.remove('ocr-zone--busy');
+  }
+}
+
+function applyExtracted(extracted, u) {
+  if (!extracted) return;
+  // Map FIR-OCR fields to our template fields
+  const mapping = {
+    fir_number: extracted.fir_number_full || extracted.fir_number,
+    fir_date: extracted.fir_date,
+    police_station: extracted.police_station,
+    district: extracted.district,
+    state_name: extracted.state,
+    sections_str: Array.isArray(extracted.sections) ? extracted.sections.join(', ') : extracted.sections,
+    facts_narrative: extracted.narrative_hi || extracted.narrative || extracted.narrative_raw,
+    brief_facts_alleged: extracted.narrative_hi || extracted.narrative || extracted.narrative_raw,
+  };
+  // For accused-based templates (anticipatory bail, default bail), populate applicant from accused[0]
+  if (Array.isArray(extracted.accused_details) && extracted.accused_details[0]) {
+    const a = extracted.accused_details[0];
+    mapping.applicant_name = a.name;
+    mapping.applicant_father = a.relative;
+    mapping.applicant_address = a.address;
+    mapping.petitioner_name = a.name;
+    mapping.petitioner_father = a.relative;
+    mapping.petitioner_address = a.address;
+  }
+  let filled = 0;
+  Object.entries(mapping).forEach(([k, v]) => {
+    if (v == null || (typeof v === 'string' && !v.trim())) return;
+    const el = $(`#f_${k}`);
+    if (el) { el.value = v; state.fields[k] = v; filled++; }
+  });
+  saveToLocalStorage();
+  scheduleAutoRegen();
+}
+
+// ---- LocalStorage ----
 function lsKey() {
   const uid = (window.headnoteAuth && window.headnoteAuth.userId && window.headnoteAuth.userId()) || 'anon';
   return `headnote.tpl.${state.docType}.${uid}`;
 }
 function saveToLocalStorage() {
   try { localStorage.setItem(lsKey(), JSON.stringify({ fields: state.fields, lang: state.lang, document: state.document })); } catch {}
+  $('#savestate').textContent = state.lang === 'hi' ? '✓ सहेजा गया' : '✓ saved';
+  clearTimeout(window._ssTimer);
+  window._ssTimer = setTimeout(() => $('#savestate').textContent = '', 1500);
 }
 function restoreFromLocalStorage() {
   try {
@@ -518,94 +674,152 @@ function restoreFromLocalStorage() {
     if (j.document) {
       state.document = j.document;
       renderDocument();
-      // Snapshot so the first auto-regen only fires after a real change
       state._lastGenFields = JSON.stringify(state.fields);
     }
   } catch {}
 }
 
-// ---- Generate document (manual button press OR auto-regen) ----
+// ---- Generate + live preview ----
 async function generateDocument(opts) {
   if (state.generating) return;
   opts = opts || {};
   const silent = !!opts.silent;
-
-  // Manual press → warn on missing required (but still generate, see what happens).
-  // Silent (auto) → quietly skip if no required field has content yet.
   const filled = (state.template.fields || []).filter(f => f.required && state.fields[f.key] && String(state.fields[f.key]).trim());
   if (silent && filled.length === 0) return;
-  if (!silent) {
-    const missing = (state.template.fields || []).filter(f => f.required && !(state.fields[f.key] && String(state.fields[f.key]).trim()));
-    if (missing.length) {
-      toast(state.lang === 'hi'
-        ? `${missing.length} अनिवार्य फ़ील्ड खाली हैं: ${missing.map(f => f.label_hi).slice(0,3).join(', ')}…`
-        : `${missing.length} required fields are empty: ${missing.map(f => f.label_en).slice(0,3).join(', ')}…`, 'warn', 4000);
-    }
-  }
-
   state.generating = true;
   $('#doc-pane').classList.add('is-generating');
   $('#btn-generate').disabled = true;
   if (!silent) {
-    $('#gen-label').textContent = state.lang === 'hi' ? '⏳ बना रहे हैं…' : '⏳ Generating…';
-    // First manual generation on mobile — auto-open the preview sheet
-    if (window.matchMedia('(max-width: 880px)').matches && !state.document) {
-      setPreview('half');
-    }
+    $('#gen-label').textContent = state.lang === 'hi' ? '⏳ बना रहे हैं…' : '⏳ Drafting…';
+    if (window.matchMedia('(max-width: 880px)').matches && !state.document) setPreview('half');
   }
-
-  // Preserve scroll position so the preview doesn't jump on re-render
-  const docPage = $('#doc-page');
-  const prevScroll = docPage ? docPage.scrollTop : 0;
-
+  const prevScroll = $('#doc-page')?.scrollTop || 0;
   try {
     const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
     const r = await fetch('/api/draft/render-template', {
-      method: 'POST',
-      headers,
+      method: 'POST', headers,
       body: JSON.stringify({ doc_type: state.docType, fields: state.fields, lang: state.lang }),
     });
     const data = await r.json();
-    if (!r.ok) throw new Error((data.detail || `HTTP ${r.status}`));
+    if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`);
     state.document = data.document;
     renderDocument();
-    if (docPage) docPage.scrollTop = prevScroll;
+    if ($('#doc-page')) $('#doc-page').scrollTop = prevScroll;
     saveToLocalStorage();
-    // Snapshot what we just sent so debounceRegen can skip no-op calls
     state._lastGenFields = JSON.stringify(state.fields);
-    if (!silent) {
-      toast(state.lang === 'hi' ? '✓ दस्तावेज़ तैयार है' : '✓ Document ready', 'ok');
-    }
   } catch (e) {
     if (!silent) toast('Error: ' + e.message, 'err', 4000);
   } finally {
     state.generating = false;
     $('#doc-pane').classList.remove('is-generating');
     $('#btn-generate').disabled = false;
-    $('#gen-label').textContent = state.lang === 'hi' ? '✨ दस्तावेज़ बनाएं' : '✨ Generate Document';
+    $('#gen-label').textContent = state.lang === 'hi' ? '✨ दस्तावेज़ ताज़ा करें' : '✨ Refresh Draft';
   }
 }
-
-// ---- Live preview: debounced auto-regen ----
-// Fires REGEN_DEBOUNCE_MS after the user stops typing. Skips if:
-//   - no required field has any content yet
-//   - the fields haven't actually changed since the last regen
-//   - we've hit the per-session safety cap
 function scheduleAutoRegen() {
   if (state._regenTimer) clearTimeout(state._regenTimer);
   state._regenTimer = setTimeout(() => {
     if (state._regenCount >= REGEN_MAX_PER_SESSION) return;
     const snap = JSON.stringify(state.fields);
-    if (snap === state._lastGenFields) return;  // nothing changed since last regen
+    if (snap === state._lastGenFields) return;
     state._regenCount++;
     generateDocument({ silent: true });
   }, REGEN_DEBOUNCE_MS);
 }
+
+// ---- Document rendering — parse plain text into court-paper HTML ----
+// Detects common structural elements (court name, case no, title-in-caps,
+// numbered paras, MOST RESPECTFULLY, PRAYER, VERIFICATION) and styles them
+// to feel like a court paper instead of a flat text blob.
 function renderDocument() {
-  $('#doc-empty').style.display = 'none';
+  const empty = $('#doc-empty');
   const page = $('#doc-page');
+  if (!state.document) {
+    empty.style.display = '';
+    page.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
   page.style.display = '';
-  page.textContent = state.document || '';
+  page.innerHTML = parseDocToHtml(state.document);
+  if (window.matchMedia('(max-width: 880px)').matches && $('#doc-pane').dataset.state === 'collapsed') {
+    setPreview('half');
+  }
+}
+
+function parseDocToHtml(text) {
+  const lines = text.replace(/\r\n/g, '\n').split('\n');
+  const out = [];
+  let inPrayerOrVerify = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const line = raw.trim();
+    if (!line) { out.push('<br>'); continue; }
+    const e = esc(line);
+
+    // 1. "IN THE COURT OF …" header
+    if (/^IN\s+THE\s+(HIGH\s+COURT|COURT\s+OF|SUPREME\s+COURT|HON.?BLE)/i.test(line)
+        || /^न्यायालय/.test(line)
+        || /^माननीय\s+(उच्च|उच्चतम|न्यायालय|न्यायाधीश)/.test(line)) {
+      out.push(`<div class="doc-court">${e}</div>`);
+      continue;
+    }
+    // 2. "Case No." line
+    if (/^(Misc(\.|ellaneous)?|Criminal|Civil|Writ|Application|Case|Sessions)[\s\S]*?No[\s.:]/.test(line)
+        || /^(आवेदन|याचिका|प्रकरण|मामला)[\s\S]*?(क्रमांक|सं\.?|नं\.?)/.test(line)) {
+      out.push(`<div class="doc-case-no">${e}</div>`);
+      continue;
+    }
+    // 3. "VERSUS" / "Vs." separator
+    if (/^(VERSUS|Vs\.?|VS\.?|VERSES)$/i.test(line) || /^विरुद्ध$/.test(line) || /^विरूद्ध$/.test(line)) {
+      out.push(`<div class="doc-vs">${e}</div>`);
+      continue;
+    }
+    // 4. "PETITION/APPLICATION/APPEAL UNDER …" — title line, all caps or starts with these
+    if (/^(PETITION|APPLICATION|APPEAL|MEMO|VAKALATNAMA|REPLY|COUNTER)\s+(UNDER|FOR|TO|ON|—)/i.test(line)
+        || /^(आवेदन\s+पत्र|अपील|प्रार्थना\s*पत्र|वकालतनामा|प्रत्यावेदन|मेमो|शपथपत्र)/.test(line)) {
+      out.push(`<div class="doc-title">${e}</div>`);
+      continue;
+    }
+    // 5. "MOST RESPECTFULLY SHEWETH" / "सादर निवेदन है"
+    if (/^(MOST\s+RESPECTFULLY\s+SHEWETH|RESPECTFULLY\s+SUBMITTED|SHEWETH)/i.test(line)
+        || /^(सादर\s+निवेदन|विनम्र\s+निवेदन|निवेदन\s+है)/.test(line)) {
+      out.push(`<div class="doc-shewith">${e}</div>`);
+      continue;
+    }
+    // 6. "PRAYER" / "प्रार्थना"
+    if (/^PRAYER\s*:?$/i.test(line) || /^प्रार्थना\s*:?$/.test(line) || /^अतः\s+प्रार्थना/.test(line)) {
+      out.push(`<div class="doc-prayer">${e}</div>`);
+      inPrayerOrVerify = true;
+      continue;
+    }
+    // 7. "VERIFICATION" / "सत्यापन"
+    if (/^VERIFICATION\s*:?$/i.test(line) || /^सत्यापन\s*:?$/.test(line)) {
+      out.push(`<div class="doc-verify">${e}</div>`);
+      continue;
+    }
+    // 8. Signature blocks — "Through", "Counsel for", "अधिवक्ता"
+    if (/^(Through|Counsel\s+for|Signature\s+of|For\s+the\s+Applicant)/i.test(line)
+        || /^(अधिवक्ता|आवेदक|याचिकाकर्ता)\s*$/.test(line)) {
+      out.push(`<div class="doc-sig">${e}</div>`);
+      continue;
+    }
+    // 9. Numbered paragraphs — "1.", "2.", "1)", "a)", "(a)"
+    const numMatch = line.match(/^\s*(\(?[0-9]+\)?[.\)]|\(?[a-z]\)?[.\)])\s+(.*)$/i);
+    if (numMatch) {
+      out.push(`<div class="doc-para-num">${esc(numMatch[1])} ${esc(numMatch[2])}</div>`);
+      continue;
+    }
+    // 10. Lines in ALL CAPS that aren't already matched → centered head
+    if (line.length > 8 && line === line.toUpperCase() && /[A-Z]{4,}/.test(line)) {
+      out.push(`<div class="doc-head">${e}</div>`);
+      continue;
+    }
+    // Default: plain paragraph
+    out.push(`<div class="doc-para">${e}</div>`);
+  }
+  return out.join('\n');
 }
 
 // ---- Mobile preview sheet ----
@@ -619,28 +833,25 @@ $('#preview-handle').addEventListener('click', () => {
   setPreview(PREV_STATES[(PREV_STATES.indexOf(cur) + 1) % PREV_STATES.length]);
 });
 
-// ---- Language toggle (instant, plus translate-fields for prose) ----
+// ---- Language toggle ----
 async function setLang(newLang) {
   if (state.lang === newLang) return;
-  const prev = state.lang;
   state.lang = newLang;
   applyLang();
   renderForm();
-  // Re-populate form values
   Object.entries(state.fields).forEach(([k, v]) => {
     const el = $(`#f_${k}`); if (el) el.value = v || '';
   });
-
-  // Translate prose fields via Groq if any are populated
+  // Translate prose fields
   const toTranslate = {};
   (state.template.fields || []).forEach(f => {
-    if (f.type === 'longtext' || f.type === 'address') {
+    if (f.type === 'longtext' || f.type === 'address' || f.type === 'name') {
       const v = state.fields[f.key];
       if (v && String(v).trim()) toTranslate[f.key] = v;
     }
   });
   if (Object.keys(toTranslate).length > 0) {
-    toast(state.lang === 'hi' ? 'अनुवाद हो रहा है…' : 'Translating fields…', 'ok');
+    toast(state.lang === 'hi' ? 'फ़ील्ड अनुवाद हो रहे हैं…' : 'Translating fields…', 'ok');
     try {
       const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
       const r = await fetch('/api/draft/translate-fields', {
@@ -655,35 +866,35 @@ async function setLang(newLang) {
             const el = $(`#f_${k}`); if (el) el.value = v;
           });
           saveToLocalStorage();
-          toast(state.lang === 'hi' ? `${Object.keys(data.translated).length} फ़ील्ड अनुवादित` : `${Object.keys(data.translated).length} fields translated`, 'ok');
+          scheduleAutoRegen();
         }
-      } else {
-        const err = await r.json().catch(() => ({}));
-        toast('Translation: ' + (err.detail || 'failed'), 'warn', 3500);
       }
     } catch (e) {
       toast('Translation failed: ' + e.message, 'warn', 3500);
     }
+  } else {
+    scheduleAutoRegen();
   }
 }
 $('#lang-en').addEventListener('click', () => setLang('en'));
 $('#lang-hi').addEventListener('click', () => setLang('hi'));
 
-// ---- Generate button + PDF ----
-$('#btn-generate').addEventListener('click', generateDocument);
+// ---- Generate + PDF ----
+$('#btn-generate').addEventListener('click', () => generateDocument());
 $('#btn-pdf').addEventListener('click', () => {
-  if (!state.document) { toast(state.lang === 'hi' ? 'पहले दस्तावेज़ बनाएं' : 'Generate the document first', 'warn'); return; }
+  if (!state.document) { toast(state.lang === 'hi' ? 'पहले दस्तावेज़ बनाएं' : 'Refresh draft first', 'warn'); return; }
   const el = $('#doc-page').cloneNode(true);
+  el.style.maxWidth = 'none'; el.style.boxShadow = 'none';
   const wrap = document.createElement('div');
   wrap.style.padding = '40px';
-  wrap.style.fontFamily = state.lang === 'hi' ? "'Noto Sans Devanagari', serif" : "'Times New Roman', serif";
   wrap.appendChild(el);
   const filename = `${state.template.name_en.replace(/[^a-z0-9]+/gi, '-')}-${new Date().toISOString().slice(0,10)}.pdf`;
   const opt = {
-    margin: [12, 14, 14, 14], filename,
+    margin: [10, 12, 14, 12], filename,
     image: { type: 'jpeg', quality: 0.95 },
     html2canvas: { scale: 2, useCORS: true, letterRendering: true },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
   };
   html2pdf().set(opt).from(wrap).save();
 });

@@ -3,582 +3,624 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0a0a0f" />
 <title>Smart Drafter — Headnote</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Devanagari:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
+  /* =============================================================================
+     Smart Drafter — premium voice-first experience.
+     Dark immersive theme, center-stage orb, AI greets in large typography,
+     voice-or-type conversational flow, document slides in at the end.
+     Designed to feel like Gemini / ChatGPT Voice — a flagship moment.
+     ============================================================================= */
   :root {
-    --bg: #faf8f3;
-    --panel: #ffffff;
-    --soft: #f6f4ee;
-    --line: #e8e6df;
-    --line-strong: #d4d0c4;
-    --ink: #1a1814;
-    --ink-2: #4a4640;
-    --muted: #847e6f;
-    --accent: #1a1814;
-    --good: #2e7d32;
-    --bad: #c0392b;
-    --warn: #c9923a;
-    --radius: 8px;
+    --bg-0: #0a0a0f;
+    --bg-1: #12121a;
+    --bg-2: #1a1a24;
+    --line: rgba(255, 255, 255, 0.06);
+    --line-strong: rgba(255, 255, 255, 0.14);
+    --ink-0: #fafafa;
+    --ink-1: #e0e0e6;
+    --ink-2: #9a9aa8;
+    --ink-3: #5a5a68;
+    --accent: #c9a96e;       /* warm gold — premium, legal */
+    --accent-glow: rgba(201, 169, 110, 0.5);
+    --user: #f0e8d4;
+    --ai: #e0e0e6;
+    --good: #4caf50;
+    --bad: #e57373;
+    --warn: #ffb74d;
   }
   * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }
   body {
-    margin: 0; padding: 0;
     font-family: 'Inter', sans-serif;
-    background: var(--bg); color: var(--ink);
-    font-size: 14px; line-height: 1.5;
+    background:
+      radial-gradient(ellipse at top, rgba(201, 169, 110, 0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at bottom, rgba(120, 100, 200, 0.05) 0%, transparent 50%),
+      linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 100%);
+    color: var(--ink-0);
+    font-size: 15px;
+    line-height: 1.55;
     -webkit-font-smoothing: antialiased;
+    user-select: none;
   }
   body.lang-hi { font-family: 'Noto Sans Devanagari', 'Inter', sans-serif; }
+  input, textarea { user-select: text; }
 
-  /* ── Topbar ── */
+  /* ── Top bar ── */
   .topbar {
-    position: sticky; top: 0; z-index: 20;
+    position: fixed; top: 0; left: 0; right: 0;
+    height: 56px;
     display: flex; align-items: center; justify-content: space-between;
-    background: var(--panel);
-    border-bottom: 1px solid var(--line);
-    padding: 12px 20px;
+    padding: 0 18px;
+    z-index: 50;
+    background: linear-gradient(180deg, rgba(10,10,15,0.8) 0%, transparent 100%);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
   }
-  .topbar__left  { display: flex; align-items: center; gap: 14px; }
-  .topbar__right { display: flex; align-items: center; gap: 10px; }
-  .topbar__back  { color: var(--muted); text-decoration: none; font-size: 16px; padding: 4px 8px; border-radius: 6px; }
-  .topbar__back:hover { color: var(--ink); background: var(--soft); }
-  .topbar__title { font-weight: 600; font-size: 15px; }
-  .topbar__sub   { font-size: 12px; color: var(--muted); }
+  .topbar__left { display: flex; align-items: center; gap: 12px; }
+  .topbar__back {
+    width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--ink-1); text-decoration: none;
+    border-radius: 50%;
+    transition: background 0.18s;
+  }
+  .topbar__back:hover { background: var(--bg-2); }
+  .topbar__brand {
+    font-size: 13px; font-weight: 600;
+    letter-spacing: 0.05em; text-transform: uppercase;
+    color: var(--ink-2);
+  }
+  .topbar__brand span.accent { color: var(--accent); }
+  .topbar__right { display: flex; align-items: center; gap: 8px; }
   .lang-toggle {
-    display: inline-flex; background: var(--bg); border: 1px solid var(--line-strong);
-    border-radius: 100px; padding: 3px; font-size: 11px; font-weight: 600;
+    display: inline-flex; background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: 100px; padding: 3px;
+    font-size: 11px; font-weight: 600;
   }
   .lang-toggle button {
-    border: none; background: transparent; padding: 5px 10px; border-radius: 100px;
-    color: var(--muted); cursor: pointer; transition: all 0.18s ease;
+    border: none; background: transparent;
+    padding: 5px 10px; border-radius: 100px;
+    color: var(--ink-2); cursor: pointer;
     font-family: inherit; font-size: inherit; font-weight: inherit;
+    transition: all 0.2s;
   }
-  .lang-toggle button.active { background: var(--ink); color: var(--bg); }
+  .lang-toggle button.active {
+    background: var(--ink-0); color: var(--bg-0);
+  }
+  .restart-btn {
+    background: transparent; border: 1px solid var(--line-strong);
+    color: var(--ink-1);
+    padding: 6px 12px; border-radius: 100px;
+    font-family: inherit; font-size: 12px; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .restart-btn:hover { border-color: var(--accent); color: var(--accent); }
 
-  /* ── Layout ── */
-  .split {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    height: calc(100vh - 56px);
-  }
-  @media (max-width: 1100px) { .split { grid-template-columns: 460px 1fr; } }
-
-  /* ── Picker (initial view, before template selected) ── */
-  .picker {
-    padding: 40px 24px;
-    max-width: 760px;
-    margin: 0 auto;
-  }
-  .picker__heading {
-    font-size: 22px; font-weight: 700; margin: 0 0 6px;
-  }
-  .picker__sub {
-    color: var(--muted); margin: 0 0 28px;
-    font-size: 14px;
-  }
-  .picker__grid {
-    display: grid; gap: 12px;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  }
-  .picker__tile {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 16px;
-    cursor: pointer;
-    transition: all 0.15s;
-    text-align: left;
-    font-family: inherit;
+  /* ── Main stage ── */
+  .stage {
     position: relative;
-  }
-  .picker__tile:hover { border-color: var(--ink); transform: translateY(-1px); }
-  .picker__tile-name { font-weight: 600; font-size: 14.5px; margin-bottom: 4px; }
-  .picker__tile-desc { color: var(--muted); font-size: 12px; line-height: 1.4; }
-  .picker__tile-tier {
-    position: absolute; top: 10px; right: 10px;
-    font-size: 9px; font-weight: 700; letter-spacing: 0.5px;
-    color: var(--muted); text-transform: uppercase;
-  }
-
-  /* ── Conversation pane ── */
-  .convo-pane {
-    display: flex; flex-direction: column;
-    border-right: 1px solid var(--line);
-    background: var(--panel);
     height: 100%;
-  }
-  .convo-scroll {
-    flex: 1;
-    overflow-y: auto;
-    padding: 24px;
     display: flex; flex-direction: column;
-    gap: 14px;
+    align-items: center; justify-content: center;
+    padding: 88px 24px 200px;
+    text-align: center;
   }
-  .msg {
-    max-width: 80%;
-    padding: 10px 14px;
-    border-radius: 14px;
-    line-height: 1.5;
-    font-size: 14px;
-    word-wrap: break-word;
-  }
-  .msg--assistant {
-    background: var(--soft);
-    color: var(--ink);
-    border-bottom-left-radius: 4px;
-    align-self: flex-start;
-  }
-  .msg--user {
-    background: var(--ink);
-    color: var(--bg);
-    border-bottom-right-radius: 4px;
-    align-self: flex-end;
-  }
-  .msg__label {
-    font-size: 10px; font-weight: 600; letter-spacing: 0.04em;
-    color: var(--muted); margin-bottom: 3px; text-transform: uppercase;
-  }
-  body.lang-hi .msg { font-family: 'Noto Sans Devanagari', 'Inter', sans-serif; }
 
-  /* ── Composer ── */
-  .composer {
-    border-top: 1px solid var(--line);
-    padding: 14px 16px 18px;
-    background: var(--panel);
+  /* The orb — central voice indicator + visual focal point */
+  .orb-wrap {
     position: relative;
+    width: 220px; height: 220px;
+    margin-bottom: 36px;
+    display: flex; align-items: center; justify-content: center;
   }
-  .composer__row {
-    display: flex; gap: 8px; align-items: flex-end;
+  .orb {
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%,
+      rgba(255, 240, 200, 0.85) 0%,
+      var(--accent) 35%,
+      #8a6f3e 70%,
+      #4a3a1f 100%);
+    box-shadow:
+      0 0 40px rgba(201, 169, 110, 0.4),
+      0 0 80px rgba(201, 169, 110, 0.2),
+      inset 0 -20px 40px rgba(0,0,0,0.3);
+    animation: orb-breathe 4s ease-in-out infinite;
+  }
+  .orb::before, .orb::after {
+    content: '';
+    position: absolute;
+    inset: -20px;
+    border-radius: 50%;
+    border: 1px solid var(--accent-glow);
+    opacity: 0;
+  }
+  .orb::before { animation: orb-ring 3s ease-out infinite; }
+  .orb::after  { animation: orb-ring 3s ease-out 1.5s infinite; }
+  @keyframes orb-breathe {
+    0%, 100% { transform: scale(1); filter: brightness(1); }
+    50%      { transform: scale(1.04); filter: brightness(1.1); }
+  }
+  @keyframes orb-ring {
+    0%   { opacity: 0.6; transform: scale(0.9); }
+    100% { opacity: 0;   transform: scale(1.5); }
+  }
+
+  /* States: listening (faster pulse, louder), thinking (shimmer), speaking (steady glow) */
+  .orb-wrap.is-listening .orb {
+    animation: orb-listen 1.2s ease-in-out infinite;
+    background: radial-gradient(circle at 35% 35%, #ffe0a0 0%, #e57373 40%, #b03040 80%, #5a1a20 100%);
+    box-shadow: 0 0 60px rgba(229, 115, 115, 0.6), 0 0 120px rgba(229, 115, 115, 0.3);
+  }
+  @keyframes orb-listen {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.12); }
+  }
+  .orb-wrap.is-thinking .orb {
+    animation: orb-think 2s linear infinite;
+    background: conic-gradient(from 0deg,
+      var(--accent) 0%, #8a6f3e 25%, var(--accent) 50%, #8a6f3e 75%, var(--accent) 100%);
+  }
+  @keyframes orb-think {
+    0%   { transform: rotate(0); }
+    100% { transform: rotate(360deg); }
+  }
+
+  /* AI text — large, elegant, centered */
+  .ai-text {
+    max-width: 720px;
+    min-height: 64px;
+    font-size: 28px;
+    font-weight: 400;
+    line-height: 1.35;
+    letter-spacing: -0.01em;
+    color: var(--ink-0);
+    margin: 0 0 20px;
+    transition: opacity 0.32s ease;
+  }
+  body.lang-hi .ai-text { font-weight: 500; line-height: 1.45; }
+
+  /* "You said" history bubble */
+  .user-text {
+    max-width: 600px;
+    font-size: 16px;
+    color: var(--ink-2);
+    margin: 0 0 12px;
+    padding: 8px 16px;
+    background: var(--bg-2);
+    border-radius: 100px;
+    line-height: 1.4;
+    transition: opacity 0.32s ease;
+  }
+  .user-text::before {
+    content: '"';
+    margin-right: 4px;
+    color: var(--ink-3);
+  }
+  .user-text::after { content: '"'; margin-left: 4px; color: var(--ink-3); }
+
+  /* Template chips when AI asks "which template" — appear when user starts session */
+  .template-chips {
+    display: flex; gap: 8px;
+    flex-wrap: wrap; justify-content: center;
+    max-width: 800px; margin: 0 0 20px;
+  }
+  .chip {
+    background: var(--bg-2);
+    border: 1px solid var(--line-strong);
+    color: var(--ink-1);
+    padding: 8px 14px;
+    border-radius: 100px;
+    font-family: inherit; font-size: 13px;
+    cursor: pointer;
+    transition: all 0.18s;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
+  .chip__tier { font-size: 9px; color: var(--ink-3); margin-left: 6px; }
+
+  /* Bottom composer — voice + text */
+  .composer {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    padding: 18px 24px 30px;
+    background: linear-gradient(180deg, transparent 0%, var(--bg-0) 30%);
+    z-index: 40;
+    display: flex; align-items: flex-end; justify-content: center;
+    gap: 12px;
+  }
+  .composer__input-wrap {
+    flex: 1; max-width: 560px;
+    position: relative;
   }
   .composer__input {
-    flex: 1; min-height: 44px; max-height: 160px;
-    padding: 10px 14px;
+    width: 100%; min-height: 52px; max-height: 200px;
+    padding: 14px 56px 14px 22px;
+    background: var(--bg-2);
     border: 1px solid var(--line-strong);
-    border-radius: 22px;
-    font-family: inherit; font-size: 14px;
-    background: var(--bg);
-    resize: none;
-    outline: none;
+    border-radius: 26px;
+    color: var(--ink-0);
+    font-family: inherit; font-size: 15px;
+    resize: none; outline: none;
+    transition: border-color 0.18s, background 0.18s;
   }
-  .composer__input:focus { border-color: var(--ink); }
+  .composer__input:focus { border-color: var(--accent); background: var(--bg-1); }
+  .composer__input::placeholder { color: var(--ink-3); }
   body.lang-hi .composer__input { font-family: 'Noto Sans Devanagari', sans-serif; }
-  .composer__btn {
-    width: 40px; height: 40px;
+
+  .composer__send {
+    position: absolute; right: 8px; bottom: 8px;
+    width: 36px; height: 36px;
     border-radius: 50%;
-    border: 1px solid var(--line-strong);
-    background: var(--panel);
-    cursor: pointer;
+    background: var(--accent);
+    color: var(--bg-0);
+    border: none; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
-    transition: all 0.15s;
-    padding: 0;
+    transition: all 0.18s;
   }
-  .composer__btn svg { width: 18px; height: 18px; }
-  .composer__btn:hover { background: var(--soft); }
-  .composer__btn--mic.is-recording {
-    background: var(--bad); border-color: var(--bad);
-    animation: smart-mic-pulse 1.4s ease-in-out infinite;
-  }
-  .composer__btn--mic.is-recording svg { color: #fff; }
-  @keyframes smart-mic-pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(192,57,43,0.45); }
-    50%      { box-shadow: 0 0 0 10px rgba(192,57,43,0); }
-  }
-  .composer__btn--send {
-    background: var(--ink); border-color: var(--ink); color: var(--bg);
-  }
-  .composer__btn--send:hover { background: #000; }
-  .composer__btn--send svg { color: var(--bg); }
-  .composer__btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .composer__send:hover { transform: scale(1.05); box-shadow: 0 0 16px var(--accent-glow); }
+  .composer__send:disabled { opacity: 0.3; cursor: not-allowed; transform: none; box-shadow: none; }
+  .composer__send svg { width: 16px; height: 16px; }
 
-  .composer__hint {
-    margin-top: 8px;
-    font-size: 11px;
-    color: var(--muted);
-    display: flex; gap: 12px; flex-wrap: wrap;
+  .composer__mic {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent) 0%, #8a6f3e 100%);
+    color: var(--bg-0);
+    border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+    box-shadow: 0 0 16px rgba(201, 169, 110, 0.3);
+    flex-shrink: 0;
   }
-  .composer__action-link {
-    background: none; border: none; padding: 0;
-    color: var(--ink); font-weight: 500; cursor: pointer;
-    font-family: inherit; font-size: 11px;
-    border-bottom: 1px dotted var(--line-strong);
+  .composer__mic:hover { transform: scale(1.06); box-shadow: 0 0 24px var(--accent-glow); }
+  .composer__mic svg { width: 24px; height: 24px; }
+  .composer__mic.is-recording {
+    background: linear-gradient(135deg, #e57373 0%, #b03040 100%);
+    animation: mic-pulse 1.2s ease-in-out infinite;
   }
-  .composer__action-link:hover { color: var(--bad); }
+  @keyframes mic-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(229, 115, 115, 0.5); }
+    50%      { box-shadow: 0 0 0 16px rgba(229, 115, 115, 0); }
+  }
 
-  /* ── Preview pane (desktop) + sheet (mobile) ── */
-  .preview-pane {
-    height: 100%;
-    background: #e8e6df;
-    overflow-y: auto;
-    padding: 30px 24px;
+  /* Document overlay — slides up from bottom when AI finishes */
+  .doc-overlay {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    height: 90vh; max-height: 90vh;
+    background: #faf8f3;
+    color: #1a1814;
+    border-top-left-radius: 24px;
+    border-top-right-radius: 24px;
+    transform: translateY(100%);
+    transition: transform 0.5s cubic-bezier(0.32, 0.72, 0, 1);
+    z-index: 60;
+    overflow: hidden;
     display: flex; flex-direction: column;
+    box-shadow: 0 -10px 40px rgba(0,0,0,0.4);
   }
-  .preview-empty {
-    margin: auto; text-align: center; color: var(--muted); font-size: 13px;
-    max-width: 280px;
+  .doc-overlay.is-open { transform: translateY(0); }
+  .doc-overlay__header {
+    flex-shrink: 0;
+    padding: 14px 20px;
+    border-bottom: 1px solid #e8e6df;
+    display: flex; align-items: center; justify-content: space-between;
+    position: relative;
   }
-  .preview-empty__icon { font-size: 36px; margin-bottom: 10px; }
-  .doc-page {
+  .doc-overlay__header::before {
+    content: '';
+    position: absolute; top: 6px; left: 50%;
+    transform: translateX(-50%);
+    width: 36px; height: 4px;
+    background: #d4d0c4; border-radius: 2px;
+  }
+  .doc-overlay__title {
+    font-size: 14px; font-weight: 600;
+    color: #1a1814;
+  }
+  body.lang-hi .doc-overlay__title { font-family: 'Noto Sans Devanagari', sans-serif; }
+  .doc-overlay__actions { display: flex; gap: 8px; }
+  .doc-overlay__btn {
+    background: transparent; border: 1px solid #d4d0c4;
+    color: #1a1814;
+    padding: 6px 12px; border-radius: 6px;
+    font-family: inherit; font-size: 12px; font-weight: 500;
+    cursor: pointer; transition: background 0.15s;
+  }
+  .doc-overlay__btn:hover { background: #f6f4ee; }
+  .doc-overlay__btn--primary {
+    background: #1a1814; color: #faf8f3; border-color: #1a1814;
+  }
+  .doc-overlay__btn--primary:hover { background: #000; }
+  .doc-overlay__body {
+    flex: 1; overflow-y: auto;
+    padding: 24px 20px 60px;
+    background: #e8e6df;
+  }
+  .doc-paper {
     background: #fff;
-    padding: 50px 48px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    max-width: 720px; margin: 0 auto;
+    padding: 48px 52px 64px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     border-radius: 4px;
-    font-family: 'Times New Roman', Times, serif;
-    font-size: 13px;
-    line-height: 1.7;
-    color: #222;
+    font-family: 'Noto Sans Devanagari', 'Times New Roman', serif;
+    font-size: 13.5px;
+    line-height: 1.75;
+    color: #1a1814;
     white-space: pre-wrap;
-    word-wrap: break-word;
-    max-width: 720px;
-    width: 100%;
-    margin: 0 auto;
   }
-  body.lang-hi .doc-page { font-family: 'Noto Sans Devanagari', serif; }
+  body.lang-en .doc-paper { font-family: 'Times New Roman', serif; }
 
-  .preview-handle { display: none; }
-
-  /* ── Mobile responsive ── */
-  @media (max-width: 880px) {
-    .split { display: block; height: auto; padding-bottom: 64px; }
-    .convo-pane { height: calc(100vh - 56px); border-right: none; }
-
-    .preview-pane {
-      position: fixed; left: 0; right: 0; bottom: 0;
-      height: 56px;
-      z-index: 70;
-      background: var(--panel);
-      border-top: 1px solid var(--line-strong);
-      box-shadow: 0 -3px 16px rgba(0,0,0,0.12);
-      padding: 0;
-      transition: height 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-      display: flex; flex-direction: column;
-    }
-    .preview-pane[data-state="half"] { height: 56vh; }
-    .preview-pane[data-state="full"] { height: 90vh; }
-    .preview-handle {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0 16px; height: 56px; min-height: 56px;
-      background: var(--panel); border: none; cursor: pointer;
-      font-family: inherit; font-weight: 600; font-size: 13px; color: var(--ink);
-      position: relative; -webkit-tap-highlight-color: transparent;
-      flex-shrink: 0;
-    }
-    .preview-handle__grip {
-      position: absolute; top: 6px; left: 50%;
-      transform: translateX(-50%);
-      width: 36px; height: 4px;
-      background: var(--line-strong); border-radius: 2px;
-    }
-    .preview-handle__chevron {
-      font-size: 11px; color: var(--muted);
-      transition: transform 0.22s ease;
-    }
-    .preview-pane[data-state="half"] .preview-handle__chevron,
-    .preview-pane[data-state="full"] .preview-handle__chevron { transform: rotate(180deg); }
-
-    .preview-pane > .doc-page,
-    .preview-pane > .preview-empty {
-      display: none;
-    }
-    .preview-pane[data-state="half"] > .doc-page,
-    .preview-pane[data-state="full"] > .doc-page,
-    .preview-pane[data-state="half"] > .preview-empty,
-    .preview-pane[data-state="full"] > .preview-empty {
-      display: block;
-      flex: 1;
-      overflow-y: auto;
-    }
-    .doc-page { padding: 24px 18px; box-shadow: none; border-radius: 0; }
-    body.lang-hi .preview-handle { font-family: 'Noto Sans Devanagari', sans-serif; }
-  }
-
-  /* ── Status / toasts ── */
+  /* Toast */
   .toast {
-    position: fixed; top: 70px; right: 20px;
-    background: var(--ink); color: var(--bg);
-    padding: 10px 16px; border-radius: 8px;
-    font-size: 13px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    z-index: 100; opacity: 0; transition: opacity 0.2s;
-    pointer-events: none;
+    position: fixed; top: 70px; left: 50%; transform: translateX(-50%);
+    background: var(--bg-2); color: var(--ink-0);
+    padding: 10px 18px; border-radius: 100px;
+    font-size: 13px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+    border: 1px solid var(--line-strong);
+    opacity: 0; transition: opacity 0.2s;
+    pointer-events: none; z-index: 100;
   }
   .toast--show { opacity: 1; }
-  .toast--err { background: var(--bad); }
-  .toast--warn { background: var(--warn); }
+  .toast--err { border-color: var(--bad); color: var(--bad); }
 
-  /* ── Thinking indicator ── */
-  .thinking {
-    display: inline-flex; gap: 4px;
-    padding: 10px 14px;
-    background: var(--soft);
-    border-radius: 14px;
-    border-bottom-left-radius: 4px;
-    align-self: flex-start;
-  }
-  .thinking__dot {
-    width: 6px; height: 6px;
-    background: var(--muted);
-    border-radius: 50%;
-    animation: blink 1.4s infinite both;
-  }
-  .thinking__dot:nth-child(2) { animation-delay: 0.2s; }
-  .thinking__dot:nth-child(3) { animation-delay: 0.4s; }
-  @keyframes blink {
-    0%, 80%, 100% { opacity: 0.3; }
-    40% { opacity: 1; }
+  /* Reveal animation on AI text changes */
+  .ai-text.is-changing { opacity: 0; }
+  .user-text.is-changing { opacity: 0; }
+
+  /* Mobile */
+  @media (max-width: 760px) {
+    .ai-text { font-size: 22px; max-width: 100%; }
+    .orb-wrap { width: 170px; height: 170px; margin-bottom: 24px; }
+    .stage { padding: 76px 18px 160px; }
+    .template-chips { gap: 6px; }
+    .chip { padding: 7px 12px; font-size: 12px; }
+    .composer { padding: 12px 14px 20px; gap: 8px; }
+    .composer__input { padding: 12px 48px 12px 18px; font-size: 14px; min-height: 48px; }
+    .composer__mic { width: 48px; height: 48px; }
+    .composer__mic svg { width: 20px; height: 20px; }
   }
 </style>
 </head>
-<body>
+<body class="lang-hi">
 
-<div class="topbar">
+<header class="topbar">
   <div class="topbar__left">
-    <a href="/app" class="topbar__back" aria-label="Back">←</a>
-    <div>
-      <div class="topbar__title" id="topbar-title" data-en="Smart Drafter" data-hi="स्मार्ट ड्राफ्टर">स्मार्ट ड्राफ्टर</div>
-      <div class="topbar__sub" id="topbar-sub" data-en="describe the matter · AI drafts the document" data-hi="मामला बताएं · AI दस्तावेज़ बना देगा">मामला बताएं · AI दस्तावेज़ बना देगा</div>
-    </div>
+    <a href="/app" class="topbar__back" aria-label="Back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+        <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+      </svg>
+    </a>
+    <div class="topbar__brand">Smart <span class="accent">Drafter</span></div>
   </div>
   <div class="topbar__right">
+    <button class="restart-btn" id="btn-restart" data-en="↻ Restart" data-hi="↻ पुनः शुरू">↻ पुनः शुरू</button>
     <div class="lang-toggle" role="group" aria-label="language">
       <button id="lang-en">EN</button>
       <button id="lang-hi" class="active">हिं</button>
     </div>
   </div>
-</div>
+</header>
 
-<!-- Picker view (initial) -->
-<div class="picker" id="picker">
-  <h1 class="picker__heading" id="picker-h" data-en="What do you need to draft?" data-hi="क्या ड्राफ्ट करना है?">क्या ड्राफ्ट करना है?</h1>
-  <p class="picker__sub" id="picker-s" data-en="Pick a template — then describe the matter in your own words. The AI will ask follow-ups and write the document." data-hi="एक टेम्पलेट चुनें — फिर अपने शब्दों में मामला बताएं। AI सवाल पूछेगा और दस्तावेज़ तैयार करेगा।">एक टेम्पलेट चुनें — फिर अपने शब्दों में मामला बताएं। AI सवाल पूछेगा और दस्तावेज़ तैयार करेगा।</p>
-  <div class="picker__grid" id="picker-grid">
-    <!-- Tiles injected by JS -->
-  </div>
-</div>
-
-<!-- Drafter view (after template chosen) — hidden until picker selection -->
-<div class="split" id="drafter" style="display:none;">
-
-  <!-- LEFT: conversation -->
-  <div class="convo-pane">
-    <div class="convo-scroll" id="convo-scroll"></div>
-    <div class="composer">
-      <div class="composer__row">
-        <textarea id="composer-input" class="composer__input" rows="1"
-                  placeholder="अपना जवाब लिखें… (या माइक दबाएं)" data-en-placeholder="Type your answer… (or tap mic)" data-hi-placeholder="अपना जवाब लिखें… (या माइक दबाएं)"></textarea>
-        <button type="button" id="btn-mic" class="composer__btn composer__btn--mic" aria-label="Voice input">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-            <line x1="12" y1="19" x2="12" y2="23"/>
-            <line x1="8" y1="23" x2="16" y2="23"/>
-          </svg>
-        </button>
-        <button type="button" id="btn-send" class="composer__btn composer__btn--send" aria-label="Send">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="22" y1="2" x2="11" y2="13"/>
-            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-          </svg>
-        </button>
-      </div>
-      <div class="composer__hint">
-        <span id="hint-text" data-en="Press mic to dictate · or type and hit ↵" data-hi="माइक दबाकर बोलें · या टाइप करके भेजें">माइक दबाकर बोलें · या टाइप करके भेजें</span>
-        <button class="composer__action-link" id="btn-draft-now" data-en="Draft now (skip remaining)" data-hi="अभी ड्राफ्ट करें">अभी ड्राफ्ट करें</button>
-        <button class="composer__action-link" id="btn-restart" data-en="Restart" data-hi="पुनः शुरू करें">पुनः शुरू करें</button>
-      </div>
-    </div>
+<main class="stage" id="stage">
+  <div class="orb-wrap" id="orb-wrap">
+    <div class="orb"></div>
   </div>
 
-  <!-- RIGHT: live preview (sheet on mobile) -->
-  <div class="preview-pane" id="preview-pane" data-state="collapsed">
-    <button type="button" class="preview-handle" id="preview-handle" aria-expanded="false">
-      <span class="preview-handle__grip" aria-hidden="true"></span>
-      <span><span aria-hidden="true">📄</span> <span data-en="Preview" data-hi="प्रीव्यू">प्रीव्यू</span></span>
-      <span class="preview-handle__chevron" aria-hidden="true">▲</span>
+  <!-- AI says ... -->
+  <div class="ai-text" id="ai-text"></div>
+
+  <!-- Echo what the user just said -->
+  <div class="user-text" id="user-text" style="display:none;"></div>
+
+  <!-- Template chooser chips (only at start) -->
+  <div class="template-chips" id="template-chips" style="display:none;"></div>
+</main>
+
+<div class="composer">
+  <div class="composer__input-wrap">
+    <textarea id="composer-input" class="composer__input" rows="1"
+      placeholder=""
+      data-en-ph="Type your answer… or tap the mic"
+      data-hi-ph="अपना जवाब लिखें… या माइक दबाएं"></textarea>
+    <button type="button" id="btn-send" class="composer__send" aria-label="Send" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13"/>
+        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+      </svg>
     </button>
-    <div class="preview-empty" id="preview-empty">
-      <div class="preview-empty__icon">📄</div>
-      <div data-en="Your document appears here as fields fill in." data-hi="जैसे-जैसे जानकारी मिलेगी, दस्तावेज़ यहाँ दिखेगा।">जैसे-जैसे जानकारी मिलेगी, दस्तावेज़ यहाँ दिखेगा।</div>
-    </div>
-    <div class="doc-page" id="doc-page" style="display:none;"></div>
   </div>
+  <button type="button" id="btn-mic" class="composer__mic" aria-label="Voice input">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+      <line x1="12" y1="19" x2="12" y2="23"/>
+      <line x1="8" y1="23" x2="16" y2="23"/>
+    </svg>
+  </button>
+</div>
 
+<!-- Document overlay — slides up when AI completes the draft -->
+<div class="doc-overlay" id="doc-overlay">
+  <div class="doc-overlay__header">
+    <div class="doc-overlay__title" id="doc-title">Document Ready</div>
+    <div class="doc-overlay__actions">
+      <button class="doc-overlay__btn" id="doc-close" data-en="Close" data-hi="बंद">बंद</button>
+      <button class="doc-overlay__btn doc-overlay__btn--primary" id="doc-pdf" data-en="⬇ PDF" data-hi="⬇ PDF">⬇ PDF</button>
+    </div>
+  </div>
+  <div class="doc-overlay__body">
+    <div class="doc-paper" id="doc-paper"></div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script src="/static/auth.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
+// =========================================================================
+// Smart Drafter — voice-first AI conductor.
+//
+// Lifecycle:
+//   1. Page loads. AI greets: "What would you like to draft today?"
+//   2. Template chips appear under the question (Vakalatnama, Bail, Writ, ...)
+//   3. User either taps a chip OR speaks/types ("anticipatory bail for Anil")
+//   4. AI infers/chosen template → asks contextual follow-ups one by one
+//   5. After each user reply, the orb thinks → next question appears
+//   6. When all required fields are collected (or user says "draft now"),
+//      AI generates the full document → doc-overlay slides up.
+//
+// Visual states of the orb:
+//   - idle:    breathing slow glow
+//   - listening: red, fast pulse
+//   - thinking: spinning conic gradient
+// =========================================================================
+
 const state = {
-  lang: 'hi',
-  docType: null,
-  templates: [],
-  conversation: [],   // [{role:'user'|'assistant', content:'...', field_key?:'...'}]
-  collected: {},
-  document: null,
+  lang:      document.body.classList.contains('lang-hi') ? 'hi' : 'en',
+  docType:   null,         // chosen template id; null until detected
+  templates: [],           // list of available templates
+  conversation: [],        // [{role, content, field_key?}]
+  collected: {},           // structured field values gathered so far
+  document:  null,
+  // UI state
   micActive: false,
   recognition: null,
+  awaitingFirstReply: true, // before this is false we still need to pick a template
 };
 
-// ── Language toggle ──
+// Helpers
+function $(s, r) { return (r || document).querySelector(s); }
 function applyLang() {
   document.body.classList.toggle('lang-hi', state.lang === 'hi');
   document.body.classList.toggle('lang-en', state.lang === 'en');
   document.querySelectorAll('[data-en]').forEach(el => {
-    const t = state.lang === 'hi' ? el.dataset.hi : el.dataset.en;
-    if (t != null) el.textContent = t;
+    const v = state.lang === 'hi' ? el.dataset.hi : el.dataset.en;
+    if (v != null) el.textContent = v;
   });
-  document.querySelectorAll('[data-en-placeholder]').forEach(el => {
-    const t = state.lang === 'hi' ? el.dataset.hiPlaceholder : el.dataset.enPlaceholder;
-    if (t != null) el.placeholder = t;
+  document.querySelectorAll('[data-en-ph]').forEach(el => {
+    const v = state.lang === 'hi' ? el.dataset.hiPh : el.dataset.enPh;
+    if (v != null) el.placeholder = v;
   });
-  document.getElementById('lang-en').classList.toggle('active', state.lang === 'en');
-  document.getElementById('lang-hi').classList.toggle('active', state.lang === 'hi');
+  $('#lang-en').classList.toggle('active', state.lang === 'en');
+  $('#lang-hi').classList.toggle('active', state.lang === 'hi');
 }
-document.getElementById('lang-en').addEventListener('click', () => { state.lang = 'en'; applyLang(); });
-document.getElementById('lang-hi').addEventListener('click', () => { state.lang = 'hi'; applyLang(); });
-
-// ── Toast ──
-function toast(msg, kind) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
+function toast(msg, kind, ms) {
+  const t = $('#toast'); t.textContent = msg;
   t.className = 'toast toast--show toast--' + (kind || 'ok');
-  setTimeout(() => t.classList.remove('toast--show'), 2400);
+  setTimeout(() => t.classList.remove('toast--show'), ms || 2400);
 }
-
-// ── Auth header ──
 async function authHeaders() {
-  if (window.headnoteAuth && typeof window.headnoteAuth.getAccessToken === 'function') {
-    try {
-      const token = await window.headnoteAuth.getAccessToken();
-      if (token) return { 'Authorization': `Bearer ${token}` };
-    } catch (e) {}
+  if (window.headnoteAuth && window.headnoteAuth.getAccessToken) {
+    try { const tk = await window.headnoteAuth.getAccessToken(); if (tk) return { 'Authorization': `Bearer ${tk}` }; } catch {}
   }
   return {};
 }
+function setOrb(stateName) {
+  const w = $('#orb-wrap');
+  w.classList.remove('is-listening', 'is-thinking');
+  if (stateName === 'listening') w.classList.add('is-listening');
+  else if (stateName === 'thinking') w.classList.add('is-thinking');
+}
 
-// ── Load templates ──
+// ---- AI text reveal with fade ----
+function showAiText(text) {
+  const el = $('#ai-text');
+  el.classList.add('is-changing');
+  setTimeout(() => {
+    el.textContent = text;
+    el.classList.remove('is-changing');
+  }, 200);
+}
+function showUserEcho(text) {
+  const el = $('#user-text');
+  el.textContent = text;
+  el.style.display = '';
+  setTimeout(() => el.classList.remove('is-changing'), 50);
+}
+
+// ---- Template inference ----
+// First user message: try to map their words to a template. If clear → set
+// state.docType + start the conductor. If unclear → ask them to pick a chip.
+function inferTemplate(text) {
+  const lower = text.toLowerCase();
+  const TKEYS = [
+    ['anticipatory', 'anticipatory_bail'], ['agrim', 'anticipatory_bail'], ['अग्रिम', 'anticipatory_bail'],
+    ['quash', 'quashing_petition'], ['quashing', 'quashing_petition'], ['निरस्तीकरण', 'quashing_petition'], ['निरस्ती', 'quashing_petition'], ['528', 'quashing_petition'], ['482', 'quashing_petition'],
+    ['writ', 'writ_petition'], ['mandamus', 'writ_petition'], ['habeas', 'writ_petition'], ['certiorari', 'writ_petition'], ['226', 'writ_petition'], ['रिट', 'writ_petition'],
+    ['default bail', 'default_bail'], ['statutory bail', 'default_bail'], ['स्थिर जमानत', 'default_bail'], ['187', 'default_bail'], ['167', 'default_bail'],
+    ['discharge', 'discharge_application'], ['उन्मोचन', 'discharge_application'], ['250', 'discharge_application'], ['258', 'discharge_application'],
+    ['maintenance', 'maintenance'], ['भरण', 'maintenance'], ['पोषण', 'maintenance'], ['144', 'maintenance'], ['125', 'maintenance'],
+    ['revision', 'revision_petition'], ['पुनरीक्षण', 'revision_petition'], ['397', 'revision_petition'], ['438', 'revision_petition'],
+    ['reply to bail', 'reply_to_bail'], ['counter affidavit', 'reply_to_bail'], ['प्रत्यावेदन', 'reply_to_bail'], ['प्रत्युत्तर', 'reply_to_bail'],
+    ['appeal', 'appeal_conviction'], ['conviction', 'appeal_conviction'], ['अपील', 'appeal_conviction'], ['दोषसिद्धि', 'appeal_conviction'], ['374', 'appeal_conviction'], ['415', 'appeal_conviction'], ['419', 'appeal_conviction'],
+    ['mention', 'mention_memo'], ['memo', 'mention_memo'], ['urgent listing', 'mention_memo'], ['मेंशन', 'mention_memo'],
+    ['vakalat', 'vakalatnama'], ['वकालत', 'vakalatnama'],
+    ['bail', 'anticipatory_bail'], ['जमानत', 'anticipatory_bail'],  // last-resort default
+  ];
+  for (const [needle, id] of TKEYS) {
+    if (lower.includes(needle)) return id;
+  }
+  return null;
+}
+
+// ---- Load templates list (for the chip picker) ----
 async function loadTemplates() {
   try {
     const headers = await authHeaders();
     const r = await fetch('/api/draft/templates', { headers });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
     state.templates = data.templates || [];
-    renderPicker();
   } catch (e) {
-    toast('Failed to load templates: ' + e.message, 'err');
+    console.warn('Templates load failed:', e);
+    state.templates = [];
   }
 }
 
-function renderPicker() {
-  const grid = document.getElementById('picker-grid');
-  grid.innerHTML = '';
-  const tierLabel = (t) => t === 1 ? 'tier 1' : t === 2 ? 'tier 2' : '';
-  state.templates.forEach(t => {
-    const btn = document.createElement('button');
-    btn.className = 'picker__tile';
-    btn.type = 'button';
-    btn.innerHTML = `
-      <div class="picker__tile-tier">${tierLabel(t.tier)}</div>
-      <div class="picker__tile-name">${state.lang === 'hi' ? t.name_hi : t.name_en}</div>
-      <div class="picker__tile-desc">${t.description || ''}</div>
-    `;
-    btn.addEventListener('click', () => startDrafter(t.id));
-    grid.appendChild(btn);
+function renderTemplateChips() {
+  const wrap = $('#template-chips');
+  wrap.innerHTML = '';
+  wrap.style.display = 'flex';
+  state.templates.slice(0, 11).forEach(t => {
+    const chip = document.createElement('button');
+    chip.className = 'chip';
+    chip.innerHTML = (state.lang === 'hi' ? t.name_hi : t.name_en) + (t.tier ? `<span class="chip__tier">T${t.tier}</span>` : '');
+    chip.onclick = () => pickTemplate(t.id);
+    wrap.appendChild(chip);
   });
 }
 
-// ── Start drafting flow ──
-async function startDrafter(docType) {
-  state.docType = docType;
-  state.conversation = [];
-  state.collected = {};
-  state.document = null;
-  document.getElementById('picker').style.display = 'none';
-  document.getElementById('drafter').style.display = '';
-
-  // Set title to the template name
-  const tpl = state.templates.find(t => t.id === docType);
+function pickTemplate(id) {
+  state.docType = id;
+  state.awaitingFirstReply = false;
+  $('#template-chips').style.display = 'none';
+  $('#user-text').style.display = 'none';
+  // Find template name for confirmation
+  const tpl = state.templates.find(t => t.id === id);
   if (tpl) {
-    document.getElementById('topbar-title').textContent =
-      state.lang === 'hi' ? tpl.name_hi : tpl.name_en;
+    showAiText(state.lang === 'hi' ? `✓ ${tpl.name_hi}` : `✓ ${tpl.name_en}`);
   }
-
-  // Fire the first conductor step — no user_message → assistant asks
-  // the first question.
-  await stepConductor(null);
-  setTimeout(() => document.getElementById('composer-input').focus(), 50);
+  // Kick off the conductor — fetch the first question
+  setTimeout(() => stepConductor(null), 700);
 }
 
-// ── Conversation rendering ──
-function renderConvo() {
-  const scroll = document.getElementById('convo-scroll');
-  scroll.innerHTML = '';
-  state.conversation.forEach(m => {
-    const el = document.createElement('div');
-    el.className = 'msg msg--' + m.role;
-    el.textContent = m.content;
-    scroll.appendChild(el);
-  });
-  scroll.scrollTop = scroll.scrollHeight;
-}
-
-function showThinking() {
-  const scroll = document.getElementById('convo-scroll');
-  const t = document.createElement('div');
-  t.className = 'thinking';
-  t.id = 'thinking-indicator';
-  t.innerHTML = '<span class="thinking__dot"></span><span class="thinking__dot"></span><span class="thinking__dot"></span>';
-  scroll.appendChild(t);
-  scroll.scrollTop = scroll.scrollHeight;
-}
-function hideThinking() {
-  const t = document.getElementById('thinking-indicator');
-  if (t) t.remove();
-}
-
-// ── Document preview ──
-function renderDocument() {
-  const empty = document.getElementById('preview-empty');
-  const page  = document.getElementById('doc-page');
-  if (state.document) {
-    empty.style.display = 'none';
-    page.style.display = '';
-    page.textContent = state.document;
-    // Auto-open the preview sheet on mobile when doc is ready
-    const pane = document.getElementById('preview-pane');
-    if (window.matchMedia('(max-width: 880px)').matches && pane.dataset.state === 'collapsed') {
-      setPreview('half');
-    }
-  } else {
-    empty.style.display = '';
-    page.style.display = 'none';
-  }
-}
-
-// ── Mobile preview sheet ──
-const PREV_STATES = ['collapsed', 'half', 'full'];
-function setPreview(s) {
-  const pane = document.getElementById('preview-pane');
-  pane.dataset.state = s;
-  document.getElementById('preview-handle').setAttribute('aria-expanded', s !== 'collapsed');
-}
-document.getElementById('preview-handle').addEventListener('click', () => {
-  const cur = document.getElementById('preview-pane').dataset.state || 'collapsed';
-  setPreview(PREV_STATES[(PREV_STATES.indexOf(cur) + 1) % PREV_STATES.length]);
-});
-
-// ── Conductor step ──
+// ---- Conductor — talks to /api/draft/compose ----
 async function stepConductor(userMessage, force = false) {
+  setOrb('thinking');
   if (userMessage) {
+    showUserEcho(userMessage);
     state.conversation.push({ role: 'user', content: userMessage });
-    renderConvo();
+    showAiText(''); // clear question while thinking
   }
-  showThinking();
   try {
     const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
     const r = await fetch('/api/draft/compose', {
-      method: 'POST',
-      headers,
+      method: 'POST', headers,
       body: JSON.stringify({
         doc_type: state.docType,
         conversation: state.conversation,
@@ -589,141 +631,187 @@ async function stepConductor(userMessage, force = false) {
       }),
     });
     const data = await r.json();
-    hideThinking();
-    if (!r.ok) {
-      const detail = (data && data.detail) || `HTTP ${r.status}`;
-      throw new Error(typeof detail === 'string' ? detail : (detail.message || JSON.stringify(detail)));
-    }
+    if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`);
     state.collected = data.collected || state.collected;
+
     if (data.status === 'asking' && data.next_question) {
+      setOrb('idle');
+      showAiText(data.next_question);
       state.conversation.push({
         role: 'assistant',
         content: data.next_question,
         field_key: data.next_field,
       });
-      renderConvo();
     } else if (data.status === 'ready' && data.document) {
+      setOrb('idle');
       state.document = data.document;
-      state.conversation.push({
-        role: 'assistant',
-        content: state.lang === 'hi'
-          ? '✓ दस्तावेज़ तैयार है। दाईं ओर देखें / प्रीव्यू खोलें।'
-          : '✓ Document ready. See preview on the right / open the preview sheet.',
-      });
-      renderConvo();
-      renderDocument();
+      showAiText(state.lang === 'hi'
+        ? '✓ आपका दस्तावेज़ तैयार है। दाईं ओर देखें।'
+        : '✓ Your document is ready. See below.');
+      revealDocument();
     }
   } catch (e) {
-    hideThinking();
+    setOrb('idle');
     toast('Error: ' + e.message, 'err', 4000);
+    showAiText(state.lang === 'hi' ? 'क्षमा करें, पुनः प्रयास करें' : 'Sorry, please try again');
   }
 }
 
-// ── Send button + Enter ──
-async function sendUserMessage() {
-  const input = document.getElementById('composer-input');
+function revealDocument() {
+  $('#doc-paper').textContent = state.document;
+  const tpl = state.templates.find(t => t.id === state.docType);
+  if (tpl) $('#doc-title').textContent = state.lang === 'hi' ? tpl.name_hi : tpl.name_en;
+  $('#doc-overlay').classList.add('is-open');
+}
+$('#doc-close').addEventListener('click', () => $('#doc-overlay').classList.remove('is-open'));
+$('#doc-pdf').addEventListener('click', () => {
+  if (!state.document) return;
+  const el = $('#doc-paper').cloneNode(true);
+  const wrap = document.createElement('div');
+  wrap.style.padding = '40px';
+  wrap.appendChild(el);
+  const tpl = state.templates.find(t => t.id === state.docType);
+  const fn = `${(tpl ? tpl.name_en : 'document').replace(/[^a-z0-9]+/gi, '-')}-${new Date().toISOString().slice(0,10)}.pdf`;
+  html2pdf().set({
+    margin: [10, 12, 14, 12], filename: fn,
+    image: { type: 'jpeg', quality: 0.95 },
+    html2canvas: { scale: 2 },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+  }).from(wrap).save();
+});
+
+// ---- Send user message ----
+async function sendMessage() {
+  const input = $('#composer-input');
   const text = (input.value || '').trim();
   if (!text) return;
   input.value = '';
   input.style.height = 'auto';
-  await stepConductor(text);
+  $('#btn-send').disabled = true;
+  if (state.awaitingFirstReply) {
+    state.awaitingFirstReply = false;
+    $('#template-chips').style.display = 'none';
+    // Try to infer template from text
+    const inferred = inferTemplate(text);
+    if (inferred) {
+      state.docType = inferred;
+      const tpl = state.templates.find(t => t.id === inferred);
+      showUserEcho(text);
+      setOrb('thinking');
+      showAiText('');
+      setTimeout(async () => {
+        const name = tpl ? (state.lang === 'hi' ? tpl.name_hi : tpl.name_en) : inferred;
+        showAiText(state.lang === 'hi' ? `समझ गया — ${name}.` : `Got it — ${name}.`);
+        // Kick off the conductor after a beat
+        setTimeout(() => stepConductor(null), 1000);
+      }, 400);
+    } else {
+      // Couldn't infer — show chips again
+      showAiText(state.lang === 'hi'
+        ? 'किस तरह का दस्तावेज़? नीचे चुनें या स्पष्ट बताएं।'
+        : 'Which kind of document? Pick one below or say it more clearly.');
+      renderTemplateChips();
+      state.awaitingFirstReply = true;
+    }
+  } else {
+    await stepConductor(text);
+  }
 }
-document.getElementById('btn-send').addEventListener('click', sendUserMessage);
-document.getElementById('composer-input').addEventListener('keydown', (e) => {
+$('#btn-send').addEventListener('click', sendMessage);
+$('#composer-input').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
-    sendUserMessage();
+    sendMessage();
   }
 });
-
-// Auto-grow textarea
-document.getElementById('composer-input').addEventListener('input', (e) => {
-  const t = e.target;
-  t.style.height = 'auto';
-  t.style.height = Math.min(160, t.scrollHeight) + 'px';
+$('#composer-input').addEventListener('input', (e) => {
+  $('#btn-send').disabled = !e.target.value.trim();
+  e.target.style.height = 'auto';
+  e.target.style.height = Math.min(200, e.target.scrollHeight) + 'px';
 });
 
-// ── Draft Now / Restart ──
-document.getElementById('btn-draft-now').addEventListener('click', async () => {
-  await stepConductor(null, true);
-});
-document.getElementById('btn-restart').addEventListener('click', () => {
-  if (!confirm(state.lang === 'hi' ? 'पुनः शुरू करें?' : 'Restart?')) return;
-  state.docType = null;
-  state.conversation = [];
-  state.collected = {};
-  state.document = null;
-  document.getElementById('drafter').style.display = 'none';
-  document.getElementById('picker').style.display = '';
-  document.getElementById('topbar-title').textContent =
-    state.lang === 'hi' ? 'स्मार्ट ड्राफ्टर' : 'Smart Drafter';
-});
-
-// ── Voice input (Web Speech API) ──
+// ---- Voice input ----
 const HAS_SR = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
-const HAS_REC = !!(window.MediaRecorder && navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
-
-document.getElementById('btn-mic').addEventListener('click', toggleMic);
-
-function toggleMic() {
-  if (state.micActive) stopMic();
-  else startMic();
-}
-
+$('#btn-mic').addEventListener('click', () => {
+  if (state.micActive) stopMic(); else startMic();
+});
 function startMic() {
-  const btn = document.getElementById('btn-mic');
-  if (HAS_SR) {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const r = new SR();
-    r.lang = state.lang === 'en' ? 'en-IN' : 'hi-IN';
-    r.continuous = false;
-    r.interimResults = true;
-    let finalT = '';
-    r.onresult = (e) => {
-      let interim = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const t = e.results[i][0].transcript;
-        if (e.results[i].isFinal) finalT += t + ' ';
-        else interim += t;
-      }
-      const input = document.getElementById('composer-input');
-      input.value = (finalT + interim).trim();
-    };
-    r.onerror = (e) => {
-      if (e.error === 'not-allowed') toast(state.lang === 'hi' ? 'माइक की अनुमति दें' : 'Allow microphone access', 'err');
-      else toast('Voice error: ' + e.error, 'err');
-      stopMic();
-    };
-    r.onend = () => {
-      if (state.micActive) stopMic();
-    };
-    state.recognition = r;
-    r.start();
-  } else if (HAS_REC) {
-    // Server-side fallback (would need MediaRecorder → /api/draft/transcribe)
-    toast('Voice fallback not yet wired in smart drafter — use Chrome/Safari', 'warn');
-    return;
-  } else {
-    toast('Voice input not supported in this browser', 'err');
-    return;
-  }
+  if (!HAS_SR) { toast(state.lang === 'hi' ? 'इस ब्राउज़र में आवाज़ समर्थित नहीं' : 'Voice not supported here', 'err'); return; }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const r = new SR();
+  r.lang = state.lang === 'en' ? 'en-IN' : 'hi-IN';
+  r.continuous = false; r.interimResults = true;
+  let finalT = '';
+  r.onresult = (e) => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) finalT += t + ' '; else interim += t;
+    }
+    $('#composer-input').value = (finalT + interim).trim();
+    $('#btn-send').disabled = !$('#composer-input').value.trim();
+  };
+  r.onerror = (e) => {
+    if (e.error === 'not-allowed') toast(state.lang === 'hi' ? 'माइक की अनुमति दें' : 'Allow mic access', 'err');
+    stopMic();
+  };
+  r.onend = () => {
+    stopMic();
+    // Auto-send if user spoke something
+    if ($('#composer-input').value.trim()) {
+      setTimeout(sendMessage, 400);
+    }
+  };
+  state.recognition = r;
   state.micActive = true;
-  btn.classList.add('is-recording');
+  $('#btn-mic').classList.add('is-recording');
+  setOrb('listening');
+  r.start();
 }
-
 function stopMic() {
-  const btn = document.getElementById('btn-mic');
   state.micActive = false;
-  btn.classList.remove('is-recording');
+  $('#btn-mic').classList.remove('is-recording');
+  setOrb('idle');
   if (state.recognition) {
-    try { state.recognition.stop(); } catch (e) {}
+    try { state.recognition.stop(); } catch {}
     state.recognition = null;
   }
 }
 
-// ── Boot ──
-applyLang();
-loadTemplates();
+// ---- Restart ----
+$('#btn-restart').addEventListener('click', () => {
+  if (!confirm(state.lang === 'hi' ? 'पुनः शुरू करें? सब कुछ खो जाएगा।' : 'Restart? Everything will be lost.')) return;
+  state.docType = null;
+  state.conversation = [];
+  state.collected = {};
+  state.document = null;
+  state.awaitingFirstReply = true;
+  $('#doc-overlay').classList.remove('is-open');
+  $('#user-text').style.display = 'none';
+  $('#composer-input').value = '';
+  $('#btn-send').disabled = true;
+  greetAndShowChips();
+});
+
+// ---- Language toggle ----
+$('#lang-en').addEventListener('click', () => { state.lang = 'en'; applyLang(); if (state.awaitingFirstReply) greetAndShowChips(); });
+$('#lang-hi').addEventListener('click', () => { state.lang = 'hi'; applyLang(); if (state.awaitingFirstReply) greetAndShowChips(); });
+
+// ---- Initial greeting ----
+function greetAndShowChips() {
+  const greeting = state.lang === 'hi'
+    ? 'आज क्या ड्राफ्ट करना है?'
+    : 'What would you like to draft today?';
+  showAiText(greeting);
+  renderTemplateChips();
+}
+
+// ---- Boot ----
+(async function init() {
+  applyLang();
+  await loadTemplates();
+  greetAndShowChips();
+})();
 </script>
 </body>
 </html>
