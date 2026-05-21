@@ -294,7 +294,7 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="/static/auth.js"></script>
+<script src="/static/auth.js?v=20260521e"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
 // =========================================================================
@@ -334,32 +334,40 @@ async function authHeaders() {
   return {};
 }
 
-// Centralised 401 handler. Only redirects to /app if auth is confirmed
-// signed-out. Before this guard, a 401 during the auth-init race would
-// boot signed-in users to the login page in an infinite loop.
+// 401 handler — NEVER redirects. The previous version bounced to /app
+// which created an infinite loop during the demo (page → 401 → /app →
+// returnTo → same page → 401 → …). Now we just surface a toast and let
+// the user stay on the page. If they're not signed in, they'll see the
+// gentle nudge in the topbar (added in this commit) with a sign-in link.
 async function handleAuthError(status, detail) {
   if (status !== 401) return false;
-  // Wait for auth to settle — might already be signed in but mid-init.
   if (window.headnoteAuth && window.headnoteAuth.ready) {
     try { await window.headnoteAuth.ready(); } catch {}
   }
   const uid = window.headnoteAuth && window.headnoteAuth.userId && window.headnoteAuth.userId();
   if (uid) {
-    // We ARE signed in — the server-side 401 is a transient (expired
-    // token / clock skew / network). Surface a soft error and let the
-    // user retry instead of bouncing them.
-    toast(state.lang === 'hi' ? 'सर्वर से संपर्क समस्या — पुनः प्रयास करें' : 'Server hiccup — try again', 'warn', 3000);
-    return true;
+    toast(state.lang === 'hi' ? 'सर्वर समस्या — पुनः प्रयास करें' : 'Server hiccup — try again', 'warn', 2500);
+  } else {
+    showSignInBanner();
   }
-  const msg = state.lang === 'hi'
-    ? 'कृपया साइन-इन करें'
-    : 'Please sign in to continue';
-  toast(msg, 'warn', 1800);
-  setTimeout(() => {
-    try { localStorage.setItem('headnote.returnTo', window.location.pathname); } catch {}
-    window.location.href = '/app';
-  }, 1500);
   return true;
+}
+
+// Show a small persistent banner with a sign-in link. Better than a
+// toast because it doesn't auto-dismiss while the lawyer is still on
+// the page.
+function showSignInBanner() {
+  if (document.getElementById('signin-banner')) return;
+  const b = document.createElement('div');
+  b.id = 'signin-banner';
+  b.style.cssText = 'position:fixed;top:64px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:13px;z-index:200;box-shadow:0 4px 16px rgba(0,0,0,0.18);display:flex;gap:10px;align-items:center;';
+  const isHi = state.lang === 'hi';
+  b.innerHTML = `
+    <span>${isHi ? 'AI सुविधाओं के लिए साइन-इन करें' : 'Sign in to use AI features'}</span>
+    <a href="/app" style="background:var(--bg);color:var(--ink);padding:4px 10px;border-radius:6px;text-decoration:none;font-weight:600;">${isHi ? 'साइन-इन' : 'Sign in'}</a>
+    <button onclick="this.parentElement.remove()" style="background:transparent;border:none;color:var(--bg);font-size:16px;cursor:pointer;">×</button>
+  `;
+  document.body.appendChild(b);
 }
 
 // ---- Language ----

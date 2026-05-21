@@ -459,7 +459,7 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="/static/auth.js"></script>
+<script src="/static/auth.js?v=20260521e"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
 // =========================================================================
@@ -521,27 +521,20 @@ async function authHeaders() {
   return {};
 }
 
-// 401 handler — only bounces user when auth is *confirmed* signed-out.
-// During the auth-init race, a 401 can come back even though the user is
-// signed in; in that case we surface a soft error and let them retry.
+// 401 handler — NEVER redirects (the redirect was creating an infinite
+// loop). Shows a soft message and lets the user stay.
 async function handleAuthError(status) {
   if (status !== 401) return false;
   if (window.headnoteAuth && window.headnoteAuth.ready) {
     try { await window.headnoteAuth.ready(); } catch {}
   }
+  setOrb('idle');
   const uid = window.headnoteAuth && window.headnoteAuth.userId && window.headnoteAuth.userId();
   if (uid) {
-    toast(state.lang === 'hi' ? 'सर्वर समस्या — पुनः प्रयास करें' : 'Server hiccup — try again', 'err', 3000);
-    setOrb('idle');
-    return true;
+    toast(state.lang === 'hi' ? 'सर्वर समस्या — पुनः प्रयास करें' : 'Server hiccup — try again', 'err', 2500);
+  } else {
+    showAiText(state.lang === 'hi' ? 'AI सुविधाओं के लिए साइन-इन करें — /app पर जाएं' : 'Sign in at /app to use AI features');
   }
-  const msg = state.lang === 'hi' ? 'कृपया साइन-इन करें' : 'Please sign in to continue';
-  showAiText(msg);
-  setOrb('idle');
-  setTimeout(() => {
-    try { localStorage.setItem('headnote.returnTo', window.location.pathname); } catch {}
-    window.location.href = '/app';
-  }, 1800);
   return true;
 }
 function setOrb(stateName) {

@@ -661,7 +661,7 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="/static/auth.js"></script>
+<script src="/static/auth.js?v=20260521e"></script>
 <script>
 // =========================================================================
 // State
@@ -1640,8 +1640,7 @@ async function authHeaders() {
   return {};
 }
 
-// 401 handler — awaits auth ready before bouncing, so signed-in users
-// don't get redirected during the auth-init race.
+// 401 handler — NEVER redirects (loops were a real bug). Soft toast only.
 async function handleAuthError(status) {
   if (status !== 401) return false;
   if (window.headnoteAuth && window.headnoteAuth.ready) {
@@ -1650,14 +1649,10 @@ async function handleAuthError(status) {
   const uid = window.headnoteAuth && window.headnoteAuth.userId && window.headnoteAuth.userId();
   const isHi = state.lang === 'hi';
   if (uid) {
-    toast(isHi ? 'सर्वर समस्या — पुनः प्रयास करें' : 'Server hiccup — try again', 'err', 3000);
-    return true;
+    toast(isHi ? 'सर्वर समस्या — पुनः प्रयास करें' : 'Server hiccup — try again', 'err', 2500);
+  } else {
+    toast(isHi ? 'AI सुविधाओं के लिए साइन-इन करें — /app' : 'Sign in at /app to use AI features', 'warn', 4000);
   }
-  toast(isHi ? 'कृपया साइन-इन करें' : 'Please sign in to continue', 'warn');
-  setTimeout(() => {
-    try { localStorage.setItem('headnote.returnTo', window.location.pathname); } catch {}
-    window.location.href = '/app';
-  }, 1500);
   return true;
 }
 

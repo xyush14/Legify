@@ -285,20 +285,20 @@ _warm_embedding_model()
 
 @app.get("/", include_in_schema=False)
 def landing():
-    return FileResponse(config.STATIC_DIR / "landing.html")
+    return FileResponse(config.STATIC_DIR / "landing.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
 @app.get("/app", include_in_schema=False)
 @app.get("/app/", include_in_schema=False)
 def app_index():
-    return FileResponse(config.STATIC_DIR / "index.html")
+    return FileResponse(config.STATIC_DIR / "index.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
 @app.get("/pricing", include_in_schema=False)
 @app.get("/pricing/", include_in_schema=False)
 def pricing_page():
     """Public pricing page — shows the four tiers + a CTA per plan."""
-    return FileResponse(config.STATIC_DIR / "pricing.html")
+    return FileResponse(config.STATIC_DIR / "pricing.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
 @app.get("/admin", include_in_schema=False)
@@ -306,7 +306,7 @@ def pricing_page():
 def admin_panel():
     """Admin panel SPA. Access controlled by JWT (admin_users table) or
     ADMIN_TOKEN bearer; the HTML shell itself is inert without auth."""
-    return FileResponse(config.STATIC_DIR / "admin.html")
+    return FileResponse(config.STATIC_DIR / "admin.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
 @app.get("/drafter", include_in_schema=False)
@@ -322,7 +322,7 @@ def drafter_standalone():
 
     See HEADNOTE_DRAFTING_HANDOFF.md for the full design spec.
     """
-    return FileResponse(config.STATIC_DIR / "drafter.html")
+    return FileResponse(config.STATIC_DIR / "drafter.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
 @app.get("/draft/bail", include_in_schema=False)
@@ -338,7 +338,7 @@ def draft_bail_application():
     Output: print-perfect Hindi PDF for filing at MP/UP/Bihar/Rajasthan
     courts. English render falls back for HC English benches.
     """
-    return FileResponse(config.STATIC_DIR / "draft-bail.html")
+    return FileResponse(config.STATIC_DIR / "draft-bail.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
 @app.get("/draft/template/{doc_type}", include_in_schema=False)
@@ -348,7 +348,7 @@ def draft_template_drafter(doc_type: str):
     for any template registered in compose_templates.py. Form on the left,
     live AI-generated preview on the right (pull-up sheet on mobile).
     """
-    return FileResponse(config.STATIC_DIR / "draft-template.html")
+    return FileResponse(config.STATIC_DIR / "draft-template.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
 @app.get("/draft/smart", include_in_schema=False)
@@ -363,7 +363,7 @@ def draft_smart():
     chat turn. Live preview pane (pull-up sheet on mobile) renders the
     document as it materialises.
     """
-    return FileResponse(config.STATIC_DIR / "draft-smart.html")
+    return FileResponse(config.STATIC_DIR / "draft-smart.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
 @app.get("/api/config", summary="Public frontend configuration (non-secret)")
@@ -1466,5 +1466,22 @@ async def all_exception_handler(request: Request, exc: Exception):
     return JSONResponse(status_code=500, content={"error": msg})
 
 
-# Mount static last so /api/* takes priority
-app.mount("/static", StaticFiles(directory=config.STATIC_DIR), name="static")
+# Mount static last so /api/* takes priority.
+# Wrap with a middleware-ish subclass to attach `Cache-Control: no-cache`
+# on every static response. Why: during the active dev phase we ship new
+# auth.js / drafter JS multiple times a day; without this, browsers hang
+# onto the old version and users see broken behavior (sign-in loops,
+# missing buttons) until they hard-refresh. Once the codebase stabilises
+# this can be relaxed to `max-age=300, must-revalidate`.
+class _NoCacheStaticFiles(StaticFiles):
+    async def get_response(self, path, scope):
+        resp = await super().get_response(path, scope)
+        try:
+            resp.headers["Cache-Control"] = "no-cache, must-revalidate, max-age=0"
+            resp.headers["Pragma"] = "no-cache"
+        except Exception:
+            pass
+        return resp
+
+
+app.mount("/static", _NoCacheStaticFiles(directory=config.STATIC_DIR), name="static")
