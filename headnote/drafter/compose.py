@@ -311,6 +311,12 @@ def _generate_document(template: dict, collected: dict, lang: str) -> str:
         f"You are a senior Indian criminal lawyer drafting a "
         f"{template['name_en']}. {lang_clause}\n\n"
         f"FORMAT SPEC:\n{template['format_spec']}\n\n"
+        "CRITICAL RULE — BLANK FIELDS:\n"
+        "If a field's value is '[BLANK]' or empty, you MUST NOT invent a "
+        "value. Use an underline placeholder (e.g. '_________________' for "
+        "names, '____/____' for case numbers, '__.__.____' for dates) so "
+        "the lawyer can fill it in later by hand. Never substitute fake "
+        "names, addresses, dates, or sections.\n\n"
         "Return the document as PLAIN TEXT. Use double newlines between "
         "paragraphs. No markdown fences. No commentary."
     )
@@ -320,7 +326,9 @@ def _generate_document(template: dict, collected: dict, lang: str) -> str:
     )
     user = (
         f"Use these collected field values:\n\n{fields_dump}\n\n"
-        f"Generate the complete {template['name_en']} now."
+        f"Generate the complete {template['name_en']} now. "
+        f"Remember — any [BLANK] value MUST be rendered as an underline "
+        f"placeholder, never invented."
     )
 
     text = _llm_call(sys, user, max_tokens=4000, model="quality")

@@ -490,6 +490,89 @@ def compose(
         return result
 
 
+class PolishTextBody(BaseModel):
+    text:           str
+    field_key:      Optional[str] = None
+    field_label:    Optional[str] = None
+    doc_type:       Optional[str] = None
+    lang:           Literal["hi", "en"] = "hi"
+    style:          Literal["formal", "neutral", "concise"] = "formal"
+
+
+@router.post("/polish-text", summary="Polish free-form lawyer input into formal legal prose")
+def polish_text(
+    body: PolishTextBody,
+    user: CurrentUser = Depends(get_current_user),
+):
+    """Take a lawyer's quick-and-dirty story / notes and refine into the
+    formal language a court draft expects. Preserves facts, dates, names,
+    statute references unchanged — only fixes grammar, formality, and flow.
+    """
+    from headnote.drafter.compose import _llm_call, get_template
+
+    text = (body.text or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="text is empty")
+
+    doc_ctx = ""
+    if body.doc_type:
+        tpl = get_template(body.doc_type)
+        if tpl:
+            doc_ctx = f" The text is intended for a {tpl['name_en']} ({tpl['name_hi']}) being drafted."
+    field_ctx = ""
+    if body.field_label:
+        field_ctx = f" Specifically, it goes into the '{body.field_label}' field."
+
+    if body.lang == "hi":
+        sys = (
+            "You are a senior Indian advocate. Polish the lawyer's raw text "
+            "into formal court Hindi (Devanagari) suitable for a legal "
+            "document.{ctx}{field}\n\n"
+            "RULES:\n"
+            "- Preserve ALL facts, names, dates, statute references, FIR/case "
+            "  numbers, addresses verbatim.\n"
+            "- Use formal court-Hindi register (माननीय, सादर निवेदन, यह कि, "
+            "  आवेदक, अधिवक्ता).\n"
+            "- Fix grammar, spelling, and flow.\n"
+            "- Remove filler words ('um', 'so', 'basically') and 'मतलब', 'यानी'.\n"
+            "- Keep length similar — don't pad or shrink dramatically.\n"
+            "- Output PURE Devanagari — no Latin letters mixed in.\n"
+            "- Return ONLY the polished text. No preamble, no explanation, "
+            "  no markdown fences."
+        ).format(ctx=doc_ctx, field=field_ctx)
+    else:
+        sys = (
+            "You are a senior Indian advocate. Polish the lawyer's raw text "
+            "into formal Indian legal English suitable for a court document."
+            "{ctx}{field}\n\n"
+            "RULES:\n"
+            "- Preserve ALL facts, names, dates, statute references, FIR/case "
+            "  numbers, addresses verbatim.\n"
+            "- Use formal Indian legal English register ('It is most "
+            "  respectfully submitted', 'humbly states', 'the applicant').\n"
+            "- Fix grammar, spelling, and flow.\n"
+            "- Remove filler words and casual phrasing.\n"
+            "- Keep length similar — don't pad or shrink dramatically.\n"
+            "- Return ONLY the polished text. No preamble, no markdown fences."
+        ).format(ctx=doc_ctx, field=field_ctx)
+
+    user_prompt = f"Polish this text:\n\n{text}"
+
+    with check_and_record(user.id, "draft", endpoint="polish_text") as _record:
+        try:
+            polished = _llm_call(sys, user_prompt, max_tokens=1200, model="fast")
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"polish failed: {e}")
+
+        polished = polished.strip()
+        # Strip code fences if model wrapped output
+        if polished.startswith("```"):
+            polished = re.sub(r"^```(?:[a-z]+)?\s*", "", polished)
+            polished = re.sub(r"\s*```$", "", polished)
+        _record(cost_paise=80, model="llama-3.1-8b-instant")
+        return {"ok": True, "polished": polished, "original_length": len(text), "polished_length": len(polished)}
+
+
 class RenderTemplateBody(BaseModel):
     doc_type: str
     fields:   dict = Field(default_factory=dict)

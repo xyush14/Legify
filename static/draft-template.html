@@ -77,10 +77,10 @@
   .req-star { color: var(--bad); margin-left: 2px; font-weight: 700; }
   body.lang-hi .field input, body.lang-hi .field textarea, body.lang-hi .field label { font-family: 'Noto Sans Devanagari', 'Inter', sans-serif; }
 
-  /* Voice mic on long-text fields */
+  /* Voice mic + Polish button on long-text fields */
   .voice-field { position: relative; }
-  .voice-mic {
-    position: absolute; right: 6px; bottom: 6px;
+  .voice-mic, .polish-btn {
+    position: absolute;
     width: 30px; height: 30px; border-radius: 50%;
     background: var(--panel); border: 1px solid var(--line-strong);
     display: flex; align-items: center; justify-content: center;
@@ -88,15 +88,26 @@
     -webkit-tap-highlight-color: transparent;
     z-index: 2; padding: 0;
   }
-  .voice-mic:hover { background: var(--soft); }
-  .voice-mic svg { width: 15px; height: 15px; color: var(--ink); }
+  .voice-mic { right: 6px; bottom: 6px; }
+  .polish-btn { right: 42px; bottom: 6px; }
+  .voice-mic:hover, .polish-btn:hover { background: var(--soft); }
+  .voice-mic svg, .polish-btn svg { width: 15px; height: 15px; color: var(--ink); }
+  .polish-btn { font-size: 14px; line-height: 1; color: var(--ink); }
+  .polish-btn--busy {
+    background: var(--ink); border-color: var(--ink); color: var(--bg);
+    animation: polish-pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes polish-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(26, 24, 20, 0.35); }
+    50%      { box-shadow: 0 0 0 6px rgba(26, 24, 20, 0); }
+  }
   .voice-mic--rec { background: var(--bad); border-color: var(--bad); animation: voice-pulse 1.4s ease-in-out infinite; }
   .voice-mic--rec svg { color: #fff; }
   @keyframes voice-pulse {
     0%, 100% { box-shadow: 0 0 0 0 rgba(192, 57, 43, 0.45); }
     50%      { box-shadow: 0 0 0 8px rgba(192, 57, 43, 0); }
   }
-  .voice-field textarea, .voice-field input { padding-right: 40px; }
+  .voice-field textarea, .voice-field input { padding-right: 76px; }
 
   /* Upload drop zone (FIR / impugned order / etc.) — matches bail's OCR zone */
   .ocr-zone { border: 2px dashed var(--line-strong); border-radius: 10px; padding: 16px; text-align: center; cursor: pointer; background: var(--panel); transition: all 0.15s; }
@@ -377,7 +388,12 @@ async function loadTemplate() {
     updateTitle();
     renderForm();
     applyLang();
-    restoreFromLocalStorage();
+    const hadDraft = restoreFromLocalStorage();
+    if (!hadDraft) {
+      // No saved draft — fire one quiet initial render so the lawyer sees
+      // the document skeleton with [BLANK] placeholders, like bail.
+      maybeRenderInitial();
+    }
   } catch (e) {
     showError('Failed to load: ' + e.message);
   }
@@ -472,6 +488,7 @@ function renderField(f) {
   if (isLong) {
     const voiceWrap = ce('div', { className: 'voice-field' });
     voiceWrap.appendChild(fieldEl);
+    attachPolishBtn(fieldEl, voiceWrap, f);
     attachVoiceMic(fieldEl, voiceWrap);
     wrap.appendChild(voiceWrap);
   } else {
@@ -483,6 +500,60 @@ function renderField(f) {
     wrap.appendChild(hint);
   }
   return wrap;
+}
+
+// ---- ✨ Polish button — refines free-form text into formal legal prose ----
+// Sits next to the voice mic on every long-text field. One tap → server-side
+// LLM cleans up grammar, removes filler ("मतलब", "um"), bumps register to
+// court-Hindi or formal Indian-English. Lawyer keeps editing right after.
+function attachPolishBtn(fieldEl, wrap, f) {
+  const btn = ce('button', { type: 'button', className: 'polish-btn' });
+  btn.setAttribute('aria-label', state.lang === 'hi' ? 'AI से ठीक करें' : 'Polish with AI');
+  btn.setAttribute('title',     state.lang === 'hi' ? 'AI से ठीक करें (व्याकरण, औपचारिकता)' : 'Polish with AI (grammar, formality)');
+  btn.textContent = '✨';
+  btn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    const text = (fieldEl.value || '').trim();
+    if (!text || text.length < 12) {
+      toast(state.lang === 'hi' ? 'कम से कम कुछ लिखें फिर पॉलिश करें' : 'Type something first, then polish', 'warn');
+      return;
+    }
+    btn.classList.add('polish-btn--busy');
+    btn.disabled = true;
+    btn.textContent = '⋯';
+    try {
+      const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
+      const r = await fetch('/api/draft/polish-text', {
+        method: 'POST', headers,
+        body: JSON.stringify({
+          text,
+          field_key:   f.key,
+          field_label: state.lang === 'hi' ? f.label_hi : f.label_en,
+          doc_type:    state.docType,
+          lang:        state.lang,
+        }),
+      });
+      if (handleAuthError(r.status)) return;
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`);
+      if (data.polished && data.polished !== text) {
+        fieldEl.value = data.polished;
+        state.fields[f.key] = data.polished;
+        saveToLocalStorage();
+        scheduleAutoRegen();
+        toast(state.lang === 'hi' ? '✓ AI ने ठीक कर दिया' : '✓ Polished with AI', 'ok');
+      } else {
+        toast(state.lang === 'hi' ? 'पहले से ठीक है' : 'Looks already polished', 'ok');
+      }
+    } catch (err) {
+      toast('Polish failed: ' + err.message, 'err', 4000);
+    } finally {
+      btn.classList.remove('polish-btn--busy');
+      btn.disabled = false;
+      btn.textContent = '✨';
+    }
+  });
+  wrap.appendChild(btn);
 }
 
 // ---- Voice mic ----
@@ -694,8 +765,21 @@ function restoreFromLocalStorage() {
       state.document = j.document;
       renderDocument();
       state._lastGenFields = JSON.stringify(state.fields);
+      return true;  // had a saved doc — caller skips initial render
     }
   } catch {}
+  return false;
+}
+
+// First-render-on-page-load — gives the lawyer the document skeleton
+// (with [BLANK] placeholders for unfilled fields) immediately, matching
+// the bail drafter's "live preview always visible" feel. Just ONE LLM
+// call per session opening — typing then updates via debounced auto-regen.
+async function maybeRenderInitial() {
+  if (state.document) return;            // localStorage had a draft
+  if (!state.template) return;
+  // Pass `initial: true` so the silent-skip-when-empty guard is bypassed
+  await generateDocument({ silent: true, initial: true });
 }
 
 // ---- Generate + live preview ----
@@ -703,8 +787,9 @@ async function generateDocument(opts) {
   if (state.generating) return;
   opts = opts || {};
   const silent = !!opts.silent;
+  const initial = !!opts.initial;  // first render on page load — always fires
   const filled = (state.template.fields || []).filter(f => f.required && state.fields[f.key] && String(state.fields[f.key]).trim());
-  if (silent && filled.length === 0) return;
+  if (silent && !initial && filled.length === 0) return;
   state.generating = true;
   $('#doc-pane').classList.add('is-generating');
   $('#btn-generate').disabled = true;
@@ -743,7 +828,9 @@ function scheduleAutoRegen() {
     const snap = JSON.stringify(state.fields);
     if (snap === state._lastGenFields) return;
     state._regenCount++;
-    generateDocument({ silent: true });
+    // Once we have a document, every change should regen (not just required-
+    // field changes). `initial: true` bypasses the empty-form guard.
+    generateDocument({ silent: true, initial: !!state.document });
   }, REGEN_DEBOUNCE_MS);
 }
 
