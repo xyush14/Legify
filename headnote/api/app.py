@@ -373,10 +373,15 @@ def api_config():
 
     The anon key is intentionally public — it is constrained by Supabase RLS
     policies and is safe to expose in the browser.
+
+    code_version: bumped on every deploy so the frontend can detect stale JS
+    running in an old browser tab. If the frontend's baked-in version is older,
+    it force-reloads once to pick up the new code.
     """
     return {
         "supabase_url":      config.SUPABASE_URL or "",
         "supabase_anon_key": config.SUPABASE_ANON_KEY or "",
+        "code_version":      "20260521f",
     }
 
 
@@ -401,6 +406,42 @@ def debug_auth():
             "5. Share the full console output to debug",
         ]
     }
+
+
+@app.get("/api/auth-verify", summary="Verify a JWT and return decoded info")
+def auth_verify(authorization: str | None = Header(default=None)):
+    """Debug endpoint — send a Bearer token and see exactly how the backend
+    interprets it. Returns user_id + email on success, or the exact error
+    if verification fails. Useful for diagnosing 'always 401' issues from
+    a phone browser where DevTools is unavailable."""
+    import traceback as _tb
+    from headnote.entitlements.auth import _extract_bearer, _decode_token, _user_from_claims
+    token = _extract_bearer(authorization)
+    if not token:
+        return {
+            "ok": False,
+            "error": "no_token",
+            "detail": "No 'Authorization: Bearer <token>' header found.",
+            "hint": "Open browser DevTools → Console → run: "
+                    "headnoteAuth.getAccessToken().then(t => console.log(t))",
+        }
+    try:
+        claims = _decode_token(token)
+        user = _user_from_claims(claims)
+        return {
+            "ok": True,
+            "user_id": user.id,
+            "email": user.email,
+            "role": user.role,
+            "exp": claims.get("exp"),
+            "aud": claims.get("aud"),
+            "iss": claims.get("iss"),
+        }
+    except HTTPException as e:
+        return {"ok": False, "error": "jwt_invalid", "detail": e.detail}
+    except Exception as e:
+        return {"ok": False, "error": "unexpected", "detail": str(e),
+                "trace": _tb.format_exc()[-500:]}
 
 
 @app.get("/api/health", summary="Liveness check + config summary")

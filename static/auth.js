@@ -14,6 +14,13 @@
  * 3. After successful auth + onboarding → body.auth-ready added, overlay fades out.
  */
 
+// ---- Version-check auto-reload ----
+// The server returns a `code_version` in /api/config. If this baked-in
+// version doesn't match, the browser is running stale JS (old tab, aggressive
+// cache). We force ONE reload to pick up the new code. This prevents the
+// "sign-in loop" and "missing features" bugs caused by cached old files.
+const _CODE_VERSION = '20260521f';
+
 /* ------------------------------------------------------------------ state */
 
 let _sb = null;
@@ -64,6 +71,23 @@ async function initAuth() {
     cfg = await _fetchWithTimeout('/api/config', 5000);
   } catch (e) {
     console.error('[auth] /api/config fetch failed:', e);
+  }
+
+  // ---- Version-check auto-reload ----
+  // If the server's code_version is newer than what this JS file has baked in,
+  // we're running stale code from an old tab or aggressive browser cache.
+  // Force ONE reload (with cache-bust) so the user gets the latest fixes.
+  // The `_headnote_reloaded` flag prevents an infinite reload loop.
+  if (cfg.code_version && cfg.code_version !== _CODE_VERSION && !sessionStorage.getItem('_headnote_reloaded')) {
+    console.warn('[auth] Stale code detected! Running', _CODE_VERSION, 'but server has', cfg.code_version, '— forcing reload');
+    sessionStorage.setItem('_headnote_reloaded', cfg.code_version);
+    window.location.reload();
+    return;
+  }
+  // Clear the reload flag on successful version match so future deploys
+  // can trigger another reload.
+  if (cfg.code_version === _CODE_VERSION) {
+    try { sessionStorage.removeItem('_headnote_reloaded'); } catch {}
   }
 
   if (!cfg.supabase_url || !cfg.supabase_anon_key) {
