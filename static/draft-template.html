@@ -127,8 +127,31 @@
   }
   .doc-empty__icon { font-size: 36px; margin-bottom: 10px; }
 
-  /* Preview generating shimmer */
-  .doc-pane.is-generating .doc-page { opacity: 0.55; transition: opacity 0.25s; }
+  /* Preview generating — subtle shimmer + corner indicator */
+  .doc-pane { position: relative; }
+  .doc-pane.is-generating .doc-page { opacity: 0.68; transition: opacity 0.2s; }
+  .regen-indicator {
+    position: absolute; top: 14px; right: 18px;
+    display: none;
+    align-items: center; gap: 6px;
+    padding: 5px 10px;
+    background: var(--ink);
+    color: var(--bg);
+    border-radius: 100px;
+    font-size: 11px; font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    z-index: 5;
+  }
+  .doc-pane.is-generating .regen-indicator { display: inline-flex; }
+  .regen-indicator__dot {
+    width: 6px; height: 6px;
+    background: var(--bg); border-radius: 50%;
+    animation: regen-pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes regen-pulse {
+    0%, 100% { opacity: 0.3; }
+    50%      { opacity: 1; }
+  }
   .gen-spinner {
     display: inline-block; width: 12px; height: 12px;
     border: 2px solid var(--line-strong); border-top-color: var(--ink);
@@ -136,6 +159,7 @@
     vertical-align: middle; margin-right: 6px;
   }
   @keyframes gen-spin { from {transform: rotate(0)} to {transform: rotate(360deg)} }
+  body.lang-hi .regen-indicator { font-family: 'Noto Sans Devanagari', sans-serif; }
 
   /* Toast */
   .toast { position: fixed; top: 70px; right: 20px; background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 8px; font-size: 13px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
@@ -224,9 +248,13 @@
       <span><span aria-hidden="true">📄</span> <span data-en="Preview" data-hi="प्रीव्यू">प्रीव्यू</span></span>
       <span class="preview-handle__chevron" aria-hidden="true">▲</span>
     </button>
+    <div class="regen-indicator" id="regen-indicator" aria-live="polite">
+      <span class="regen-indicator__dot" aria-hidden="true"></span>
+      <span data-en="updating…" data-hi="अद्यतन हो रहा है…">अद्यतन हो रहा है…</span>
+    </div>
     <div class="doc-empty" id="doc-empty">
       <div class="doc-empty__icon">📄</div>
-      <div data-en="Fill the form and tap Generate to draft the document." data-hi="फॉर्म भरें और 'दस्तावेज़ बनाएं' दबाएं।">फॉर्म भरें और 'दस्तावेज़ बनाएं' दबाएं।</div>
+      <div data-en="Start filling the form — the document writes itself as you type." data-hi="फॉर्म भरना शुरू करें — दस्तावेज़ अपने आप लिखता जाएगा।">फॉर्म भरना शुरू करें — दस्तावेज़ अपने आप लिखता जाएगा।</div>
     </div>
     <div class="doc-page" id="doc-page" style="display:none;"></div>
   </div>
@@ -251,7 +279,15 @@ const state = {
   fields:   {},
   document: null,
   generating: false,
+  // Live preview state — debounced auto-regen on every field change
+  _regenTimer:    null,
+  _lastGenFields: null,   // JSON snapshot of fields at last regen — used to skip no-op regens
+  _regenCount:    0,      // total regens fired (for cost monitoring)
 };
+
+// Auto-regen settings
+const REGEN_DEBOUNCE_MS = 1500;     // wait this long after last keystroke
+const REGEN_MAX_PER_SESSION = 80;   // safety cap — typical session is 15-25 regens
 
 // ---- Helpers ----
 function $(s, r) { return (r || document).querySelector(s); }
@@ -377,16 +413,21 @@ function renderForm() {
     const isLong = f.type === 'longtext';
     const fieldEl = isLong
       ? ce('textarea', { rows: 3 })
-      : ce('input', { type: f.type === 'date' ? 'text' : 'text' });
+      : ce('input', { type: 'text' });
     fieldEl.id = `f_${f.key}`;
     fieldEl.dataset.field = f.key;
-    if (f.hint) {
-      fieldEl.placeholder = state.lang === 'hi' ? (f.hint) : (f.hint);
-    }
+    // Use a short placeholder (just the label) — the longer hint lives below
+    // the field. Avoids the "placeholder + hint duplicate" UX we had.
+    fieldEl.placeholder = state.lang === 'hi'
+      ? f.label_hi.replace(' ★', '')
+      : f.label_en.replace(' ★', '');
     fieldEl.value = state.fields[f.key] || '';
     fieldEl.addEventListener('input', () => {
       state.fields[f.key] = fieldEl.value;
       saveToLocalStorage();
+      // LIVE PREVIEW — debounce-regenerate the document so the lawyer
+      // sees the doc forming as they type, same feel as bail drafter.
+      scheduleAutoRegen();
     });
     wrap.appendChild(fieldEl);
 
@@ -477,29 +518,45 @@ function restoreFromLocalStorage() {
     if (j.document) {
       state.document = j.document;
       renderDocument();
+      // Snapshot so the first auto-regen only fires after a real change
+      state._lastGenFields = JSON.stringify(state.fields);
     }
   } catch {}
 }
 
-// ---- Generate document ----
-async function generateDocument() {
+// ---- Generate document (manual button press OR auto-regen) ----
+async function generateDocument(opts) {
   if (state.generating) return;
-  const missing = (state.template.fields || []).filter(f => f.required && !(state.fields[f.key] && String(state.fields[f.key]).trim()));
-  if (missing.length) {
-    toast(state.lang === 'hi'
-      ? `${missing.length} अनिवार्य फ़ील्ड खाली हैं: ${missing.map(f => f.label_hi).slice(0,3).join(', ')}…`
-      : `${missing.length} required fields are empty: ${missing.map(f => f.label_en).slice(0,3).join(', ')}…`, 'warn', 4000);
-    // Don't block — still generate, just warn
+  opts = opts || {};
+  const silent = !!opts.silent;
+
+  // Manual press → warn on missing required (but still generate, see what happens).
+  // Silent (auto) → quietly skip if no required field has content yet.
+  const filled = (state.template.fields || []).filter(f => f.required && state.fields[f.key] && String(state.fields[f.key]).trim());
+  if (silent && filled.length === 0) return;
+  if (!silent) {
+    const missing = (state.template.fields || []).filter(f => f.required && !(state.fields[f.key] && String(state.fields[f.key]).trim()));
+    if (missing.length) {
+      toast(state.lang === 'hi'
+        ? `${missing.length} अनिवार्य फ़ील्ड खाली हैं: ${missing.map(f => f.label_hi).slice(0,3).join(', ')}…`
+        : `${missing.length} required fields are empty: ${missing.map(f => f.label_en).slice(0,3).join(', ')}…`, 'warn', 4000);
+    }
   }
+
   state.generating = true;
   $('#doc-pane').classList.add('is-generating');
   $('#btn-generate').disabled = true;
-  $('#gen-label').textContent = state.lang === 'hi' ? '⏳ बना रहे हैं…' : '⏳ Generating…';
-
-  // Open the preview sheet on mobile so user sees the result
-  if (window.matchMedia('(max-width: 880px)').matches) {
-    setPreview('half');
+  if (!silent) {
+    $('#gen-label').textContent = state.lang === 'hi' ? '⏳ बना रहे हैं…' : '⏳ Generating…';
+    // First manual generation on mobile — auto-open the preview sheet
+    if (window.matchMedia('(max-width: 880px)').matches && !state.document) {
+      setPreview('half');
+    }
   }
+
+  // Preserve scroll position so the preview doesn't jump on re-render
+  const docPage = $('#doc-page');
+  const prevScroll = docPage ? docPage.scrollTop : 0;
 
   try {
     const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
@@ -512,16 +569,37 @@ async function generateDocument() {
     if (!r.ok) throw new Error((data.detail || `HTTP ${r.status}`));
     state.document = data.document;
     renderDocument();
+    if (docPage) docPage.scrollTop = prevScroll;
     saveToLocalStorage();
-    toast(state.lang === 'hi' ? '✓ दस्तावेज़ तैयार है' : '✓ Document ready', 'ok');
+    // Snapshot what we just sent so debounceRegen can skip no-op calls
+    state._lastGenFields = JSON.stringify(state.fields);
+    if (!silent) {
+      toast(state.lang === 'hi' ? '✓ दस्तावेज़ तैयार है' : '✓ Document ready', 'ok');
+    }
   } catch (e) {
-    toast('Error: ' + e.message, 'err', 4000);
+    if (!silent) toast('Error: ' + e.message, 'err', 4000);
   } finally {
     state.generating = false;
     $('#doc-pane').classList.remove('is-generating');
     $('#btn-generate').disabled = false;
     $('#gen-label').textContent = state.lang === 'hi' ? '✨ दस्तावेज़ बनाएं' : '✨ Generate Document';
   }
+}
+
+// ---- Live preview: debounced auto-regen ----
+// Fires REGEN_DEBOUNCE_MS after the user stops typing. Skips if:
+//   - no required field has any content yet
+//   - the fields haven't actually changed since the last regen
+//   - we've hit the per-session safety cap
+function scheduleAutoRegen() {
+  if (state._regenTimer) clearTimeout(state._regenTimer);
+  state._regenTimer = setTimeout(() => {
+    if (state._regenCount >= REGEN_MAX_PER_SESSION) return;
+    const snap = JSON.stringify(state.fields);
+    if (snap === state._lastGenFields) return;  // nothing changed since last regen
+    state._regenCount++;
+    generateDocument({ silent: true });
+  }, REGEN_DEBOUNCE_MS);
 }
 function renderDocument() {
   $('#doc-empty').style.display = 'none';
