@@ -19,7 +19,7 @@
 // version doesn't match, the browser is running stale JS (old tab, aggressive
 // cache). We force ONE reload to pick up the new code. This prevents the
 // "sign-in loop" and "missing features" bugs caused by cached old files.
-const _CODE_VERSION = '20260521f';
+const _CODE_VERSION = '20260522a';
 
 /* ------------------------------------------------------------------ state */
 
@@ -121,6 +121,9 @@ async function initAuth() {
   // the console rather than silently dropping the session.
   _sb = window.supabase.createClient(cfg.supabase_url, cfg.supabase_anon_key, {
     auth: {
+      flowType: 'implicit',          // ← THE FIX: Supabase project returns #access_token (implicit),
+                                      //   but supabase-js@2 defaults to PKCE (?code=). Without this,
+                                      //   the client ignores valid tokens in the URL hash.
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
