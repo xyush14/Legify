@@ -19,7 +19,7 @@
 // version doesn't match, the browser is running stale JS (old tab, aggressive
 // cache). We force ONE reload to pick up the new code. This prevents the
 // "sign-in loop" and "missing features" bugs caused by cached old files.
-const _CODE_VERSION = '20260522b';
+const _CODE_VERSION = '20260522c';
 
 /* ------------------------------------------------------------------ state */
 
@@ -89,6 +89,19 @@ async function initAuth() {
   if (cfg.code_version === _CODE_VERSION) {
     try { sessionStorage.removeItem('_headnote_reloaded'); } catch {}
   }
+
+  // Periodic version check — every 5 min, re-fetch /api/config and check
+  // if the server has deployed newer code. If so, show a friendly banner
+  // asking the user to refresh. This catches the "I left my tab open for
+  // hours" scenario that one-shot version checks miss.
+  setInterval(async () => {
+    try {
+      const fresh = await _fetchWithTimeout('/api/config', 4000);
+      if (fresh.code_version && fresh.code_version !== _CODE_VERSION) {
+        _showUpdateBanner(fresh.code_version);
+      }
+    } catch {}
+  }, 5 * 60 * 1000);
 
   if (!cfg.supabase_url || !cfg.supabase_anon_key) {
     console.log('[auth] Supabase not configured — auth skipped (dev mode)');
@@ -691,6 +704,28 @@ function _surfaceOAuthErrorFromUrl() {
   } catch (e) {
     console.error('[auth] _surfaceOAuthErrorFromUrl failed:', e);
   }
+}
+
+// Show a banner at the top of the page when the server has deployed newer
+// code than this tab is running. One-click reload preserves nothing —
+// pages should auto-save their draft state to localStorage if data loss
+// matters (and they do).
+function _showUpdateBanner(newVersion) {
+  if (document.getElementById('hn-update-banner')) return;
+  const b = document.createElement('div');
+  b.id = 'hn-update-banner';
+  b.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#c9a96e;color:#0a0a0f;padding:10px 16px;font-size:14px;font-weight:600;text-align:center;z-index:99999;box-shadow:0 2px 12px rgba(0,0,0,0.2);display:flex;gap:12px;align-items:center;justify-content:center;font-family:system-ui,sans-serif';
+  b.innerHTML = `
+    <span>New version available — refresh to get the latest fixes</span>
+    <button id="hn-update-reload" style="background:#0a0a0f;color:#c9a96e;border:none;padding:6px 14px;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px">Refresh now</button>
+    <button id="hn-update-dismiss" style="background:transparent;border:none;color:#0a0a0f;font-size:18px;cursor:pointer;padding:0 4px">×</button>
+  `;
+  document.body.appendChild(b);
+  document.getElementById('hn-update-reload').onclick = () => {
+    try { sessionStorage.removeItem('_headnote_reloaded'); } catch {}
+    window.location.reload();
+  };
+  document.getElementById('hn-update-dismiss').onclick = () => b.remove();
 }
 
 function _waitFor(cond, timeoutMs) {
