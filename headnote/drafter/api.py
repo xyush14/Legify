@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Literal, Optional
+from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
@@ -267,44 +267,70 @@ async def translate_fields(
 
 # ----------------------------------------------------------- OCR
 
+_OCR_ALLOWED_MIME = {
+    "image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf",
+}
+_OCR_MAX_BYTES = 20 * 1024 * 1024
+_OCR_MAX_PAGES = 8  # NCRB I.I.F.-I is at most 4-5 pages; cap generously
+
+
 @router.post("/ocr-fir", summary="OCR a photographed/scanned FIR → structured fields")
 async def ocr_fir(
-    file: UploadFile = File(...),
+    file: Optional[UploadFile] = File(None),
+    files: Optional[List[UploadFile]] = File(None),
     user: CurrentUser = Depends(get_current_user),
 ):
     """Claude vision reads the FIR (Hindi or English, printed or handwritten)
     and returns the structured fields needed to pre-fill a bail application.
 
-    Supported: JPEG, PNG, WebP, GIF, PDF (single-page best, multi-page OK).
-    Max file size: ~20 MB (Anthropic's limit on vision payloads).
+    Accepts either a single `file` OR a list of `files` (multi-page FIR — the
+    NCRB I.I.F.-I form runs 3-5 pages; sending them all in one call lets the
+    model reconcile fields that span pages, e.g. narrative on p3 + IO name
+    on p4).
+
+    Supported: JPEG, PNG, WebP, GIF, PDF.
+    Max per file: 20 MB. Max pages per FIR: 8.
 
     Gated: draft feature (counts against quota; 402 if exhausted).
     """
-    from headnote.drafter.ocr import ocr_fir_image
+    from headnote.drafter.ocr import ocr_fir_pages
 
-    if not file.content_type:
-        raise HTTPException(status_code=400, detail="file content_type required")
-    if file.content_type not in {
-        "image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf",
-    }:
+    uploads: List[UploadFile] = []
+    if files:
+        uploads.extend(files)
+    if file:
+        uploads.append(file)
+    if not uploads:
+        raise HTTPException(status_code=400, detail="upload 'file' or 'files'")
+    if len(uploads) > _OCR_MAX_PAGES:
         raise HTTPException(
             status_code=400,
-            detail=f"unsupported file type {file.content_type!r}; use JPEG, PNG, WebP, GIF, or PDF",
+            detail=f"too many pages ({len(uploads)}); max {_OCR_MAX_PAGES}",
         )
 
-    image_bytes = await file.read()
-    if len(image_bytes) == 0:
-        raise HTTPException(status_code=400, detail="empty file")
-    if len(image_bytes) > 20 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="file too large; max 20 MB")
+    pages: list[tuple[bytes, str]] = []
+    for idx, up in enumerate(uploads, start=1):
+        mt = up.content_type or ""
+        if mt not in _OCR_ALLOWED_MIME:
+            raise HTTPException(
+                status_code=400,
+                detail=f"page {idx}: unsupported file type {mt!r}; use JPEG, PNG, WebP, GIF, or PDF",
+            )
+        data = await up.read()
+        if not data:
+            raise HTTPException(status_code=400, detail=f"page {idx}: empty file")
+        if len(data) > _OCR_MAX_BYTES:
+            raise HTTPException(status_code=400, detail=f"page {idx}: too large; max 20 MB")
+        pages.append((data, mt))
 
     with check_and_record(user.id, "draft", endpoint="ocr_fir") as _record:
         try:
-            parsed = ocr_fir_image(image_bytes, media_type=file.content_type)
+            parsed = ocr_fir_pages(pages)
         except ValueError as e:
             raise HTTPException(status_code=502, detail=f"OCR failed: {e}")
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"OCR error: {e}")
 
-        _record(cost_paise=300, model="claude-sonnet-4-6-vision")  # rough estimate
-        return {"ok": True, "extracted": parsed}
+        # Cost scales roughly with page count. 300p per page is conservative.
+        _record(cost_paise=300 * len(pages), model="claude-sonnet-4-6-vision")
+        return {"ok": True, "page_count": len(pages), "extracted": parsed}

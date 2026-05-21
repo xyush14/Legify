@@ -187,10 +187,25 @@ def _extract_bearer(authorization: Optional[str]) -> Optional[str]:
 
 # ---------------------------------------------------------------- dependencies
 
+# Stable synthetic user returned when no auth backend is configured (local dev).
+# Uses a fixed UUID so quota/usage rows persist across restarts and the founder
+# bypass kicks in via the email below.
+_LOCAL_DEV_USER = CurrentUser(
+    id="00000000-0000-0000-0000-000000000001",
+    email="local-dev@headnote.local",
+    role="authenticated",
+    raw_claims={"sub": "00000000-0000-0000-0000-000000000001", "local_dev": True},
+)
+
+
 def get_current_user(
     authorization: Optional[str] = Header(default=None),
 ) -> CurrentUser:
     """FastAPI dependency: requires a valid Supabase JWT.
+
+    Local-dev escape hatch: if SUPABASE_URL is not configured, there's no way
+    for the user to obtain a token anyway, so we return a synthetic local
+    user. Production has SUPABASE_URL set, so this never triggers there.
 
     Usage:
         @router.post("/api/situation")
@@ -199,6 +214,9 @@ def get_current_user(
     """
     token = _extract_bearer(authorization)
     if not token:
+        if not SUPABASE_URL:
+            current_user_email.set(_LOCAL_DEV_USER.email)
+            return _LOCAL_DEV_USER
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing 'Authorization: Bearer <token>' header",

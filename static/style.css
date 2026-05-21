@@ -196,8 +196,56 @@ button { font-family: inherit; }
   font-family: 'Geist Mono', monospace;
   font-size: 11px;
   color: var(--ink-3);
-  padding: 4px 12px;
+  padding: 8px 12px;
+  line-height: 1.4;
 }
+
+/* "+ new chat" CTA at the top of the chat list */
+.history-newchat {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  margin-bottom: 6px;
+  background: var(--ink, #1a1814);
+  color: var(--bg, #faf8f3);
+  border: none;
+  border-radius: var(--radius, 6px);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.history-newchat:hover { background: #000; }
+
+/* Chat row = item + delete button */
+.history-row {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  border-radius: var(--radius, 6px);
+  position: relative;
+}
+.history-row .history-item { flex: 1; min-width: 0; }
+.history-row--active { background: var(--soft, #f6f4ee); }
+.history-row--active .history-item { color: var(--ink); font-weight: 500; }
+.history-del {
+  background: transparent;
+  border: none;
+  color: var(--ink-3, #b4afa3);
+  font-size: 16px;
+  line-height: 1;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: var(--radius, 6px);
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.history-row:hover .history-del,
+.history-row--active .history-del { opacity: 1; }
+.history-del:hover { color: var(--bad, #c0392b); background: var(--soft); }
 
 .sidebar__footer {
   margin-top: auto;
@@ -1339,7 +1387,73 @@ button { font-family: inherit; }
 }
 .draft-footer__hint { color: var(--ink-2); margin-top: 12px; }
 
-@media (max-width: 960px) {
+/* =============================================================================
+   Mobile shell — top bar + bottom nav + slide-out drawer
+   Default state: hidden on desktop. Shown when viewport <= 760px.
+   ============================================================================= */
+.mobnav, .botnav, .drawer-backdrop { display: none; }
+
+.mobnav {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 52px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line, #e8e6df);
+  z-index: 90;
+  padding: 0 8px;
+  align-items: center; justify-content: space-between;
+}
+.mobnav__icon {
+  width: 40px; height: 40px;
+  border: none; background: transparent;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink, #1a1814); cursor: pointer;
+  border-radius: 8px;
+  -webkit-tap-highlight-color: transparent;
+}
+.mobnav__icon:active { background: var(--soft, #f6f4ee); }
+.mobnav__icon svg { width: 22px; height: 22px; }
+.mobnav__brand {
+  font-weight: 600; font-size: 16px;
+  letter-spacing: -0.01em;
+}
+
+.botnav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  height: 60px;
+  background: var(--bg);
+  border-top: 1px solid var(--line, #e8e6df);
+  z-index: 90;
+  padding: 4px 4px env(safe-area-inset-bottom);
+  align-items: stretch; justify-content: space-around;
+}
+.botnav__item {
+  flex: 1; min-width: 0;
+  background: transparent; border: none;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px;
+  padding: 6px 2px;
+  font-size: 10.5px; font-weight: 500;
+  color: var(--muted, #847e6f);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  font-family: inherit;
+  text-transform: lowercase;
+  letter-spacing: 0.01em;
+}
+.botnav__item svg { width: 22px; height: 22px; }
+.botnav__item.is-active { color: var(--ink, #1a1814); font-weight: 600; }
+
+.drawer-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 100;
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+.drawer-backdrop.is-open { opacity: 1; }
+
+/* Tablet breakpoint — keep the icon-only sidebar look */
+@media (max-width: 960px) and (min-width: 761px) {
   .shell { grid-template-columns: 1fr; }
   .sidebar {
     position: fixed;
@@ -1361,6 +1475,52 @@ button { font-family: inherit; }
   .main { margin-left: 76px; }
   :root { --main-pad: 20px; }
   .view { padding-top: 18px; padding-bottom: 60px; }
+}
+
+/* Phone breakpoint — full mobile shell */
+@media (max-width: 760px) {
+  /* Activate mobile chrome */
+  .mobnav { display: flex; }
+  .botnav { display: flex; }
+
+  /* Sidebar becomes a slide-out drawer (hamburger-controlled) */
+  .shell { grid-template-columns: 1fr; }
+  .sidebar {
+    position: fixed;
+    left: 0; top: 0; bottom: 0;
+    width: 280px;
+    max-width: 85vw;
+    padding: 16px 14px 18px;
+    z-index: 110;
+    gap: 16px;
+    background: var(--bg, #faf8f3);
+    border-right: 1px solid var(--line, #e8e6df);
+    transform: translateX(-100%);
+    transition: transform 0.26s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .sidebar.is-open { transform: translateX(0); }
+
+  /* Body offset to clear the fixed top bar and bottom nav */
+  .main {
+    margin-left: 0;
+    padding-top: 52px;
+    padding-bottom: 72px;
+  }
+  :root { --main-pad: 14px; }
+  .view { padding-top: 12px; padding-bottom: 12px; }
+
+  /* All sidebar internals visible in drawer mode */
+  .sidebar__brand .brand__name,
+  .navitem span:not(.badge-soon),
+  .sidebar__section,
+  .sidebar__footer { display: block; }
+  .sidebar__nav { gap: 6px; }
+  .navitem { justify-content: flex-start; padding: 10px 12px; }
+}
+
+@media (max-width: 760px) {
   .browse-form { grid-template-columns: 1fr; gap: 8px; }
   .input--year { width: 100%; }
   .topbar { flex-direction: column; align-items: flex-start; gap: 4px; }

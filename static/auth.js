@@ -18,6 +18,7 @@
 
 let _sb = null;
 let currentUser = null;
+const _authChangeListeners = [];
 
 /* ------------------------------------------------------------------ boot */
 
@@ -112,6 +113,7 @@ async function initAuth() {
   _sb.auth.onAuthStateChange(async (_event, session) => {
     console.log('[auth] Auth state changed. Event:', _event,
                 'has session:', !!session, 'user:', session?.user?.email);
+    const prevUserId = currentUser?.id || null;
     if (session?.user) {
       currentUser = session.user;
       // CRITICAL: the user_profiles row fetch can hang for 5-10s on
@@ -140,6 +142,14 @@ async function initAuth() {
       currentUser = null;
       _cancelWatchdog();
       _showLoginModal();
+    }
+    // Notify subscribers (app.js) so per-user state (history, drafts list,
+    // chat threads) can be re-scoped to the new user — or cleared on signout.
+    const newUserId = currentUser?.id || null;
+    if (prevUserId !== newUserId) {
+      _authChangeListeners.forEach(fn => {
+        try { fn(currentUser); } catch (e) { console.error('[auth] listener err:', e); }
+      });
     }
   });
 
@@ -261,7 +271,21 @@ async function signOut() {
 window.headnoteAuth = {
   getAccessToken: getAuthToken,
   getUser:        () => currentUser,
+  userId:         () => currentUser?.id || null,
   signOut:        signOut,
+  // Subscribe to sign-in / sign-out / user-switch events.
+  // Callback receives the new user object (or null when signed out).
+  // Returns an unsubscribe function.
+  onAuthChange:   (fn) => {
+    if (typeof fn !== 'function') return () => {};
+    _authChangeListeners.push(fn);
+    // Fire once with current state so subscribers don't need separate init
+    try { fn(currentUser); } catch (e) { console.error('[auth] init listener err:', e); }
+    return () => {
+      const i = _authChangeListeners.indexOf(fn);
+      if (i >= 0) _authChangeListeners.splice(i, 1);
+    };
+  },
 };
 
 /* ------------------------------------------------------------------ click handlers (called from HTML) */

@@ -29,9 +29,22 @@
     ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 
   // -------------------------------------------------------------- state
-  const HISTORY_KEY = 'headnote.history.v2';
   const HISTORY_MAX = 12;
   const VIEW_TOGGLE_KEY = 'headnote.viewmode.v1';   // headnote | table
+
+  // Per-user scoping for any state that contains user content.
+  // Research history was previously stored under a SHARED key
+  // ('headnote.history.v2'), so any user signing in on a shared browser
+  // saw the previous user's queries — a real data isolation bug. Now we
+  // namespace by Supabase user.id and clear the legacy shared key on first
+  // load. A logged-out browser uses an 'anon' bucket that's wiped on sign-in.
+  const LEGACY_HISTORY_KEY = 'headnote.history.v2';
+  function historyKey() {
+    const uid = (window.headnoteAuth && window.headnoteAuth.userId && window.headnoteAuth.userId()) || 'anon';
+    return `headnote.history.v3.${uid}`;
+  }
+  // One-time migration: wipe the old shared key so it can't leak across users.
+  try { localStorage.removeItem(LEGACY_HISTORY_KEY); } catch (e) {}
 
   const state = {
     activeView: 'research',
@@ -122,6 +135,60 @@
     state.activeView = view;
     $$('.view').forEach(el => el.classList.toggle('is-active', el.dataset.view === view));
     $$('.navitem').forEach(el => el.classList.toggle('is-active', el.dataset.view === view));
+    // Keep mobile bottom nav in sync
+    $$('.botnav__item[data-view]').forEach(el => el.classList.toggle('is-active', el.dataset.view === view));
+    // Close drawer if open
+    closeDrawer();
+    // Scroll to top on view switch (mobile UX)
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+
+  // -------------------------------------------------------------- mobile drawer
+  function openDrawer() {
+    const sb = $('#sidebar'); const bd = $('#drawer-backdrop');
+    if (!sb || !bd) return;
+    sb.classList.add('is-open');
+    bd.hidden = false;
+    requestAnimationFrame(() => bd.classList.add('is-open'));
+    document.body.style.overflow = 'hidden';
+  }
+  function closeDrawer() {
+    const sb = $('#sidebar'); const bd = $('#drawer-backdrop');
+    if (!sb || !bd) return;
+    sb.classList.remove('is-open');
+    bd.classList.remove('is-open');
+    setTimeout(() => { bd.hidden = true; }, 220);
+    document.body.style.overflow = '';
+  }
+  function toggleDrawer() {
+    const sb = $('#sidebar');
+    if (!sb) return;
+    if (sb.classList.contains('is-open')) closeDrawer(); else openDrawer();
+  }
+
+  // Wire mobile chrome handlers — called from boot() once DOM is ready.
+  function wireMobileChrome() {
+    const menuBtn = $('#mobnav-menu');
+    if (menuBtn) menuBtn.addEventListener('click', toggleDrawer);
+    const backdrop = $('#drawer-backdrop');
+    if (backdrop) backdrop.addEventListener('click', closeDrawer);
+    $$('.botnav__item[data-view]').forEach(btn => {
+      btn.addEventListener('click', () => switchView(btn.dataset.view));
+    });
+    const newChat = $('#mobnav-newchat');
+    if (newChat) newChat.addEventListener('click', () => {
+      switchView('research');
+      createNewChat();
+    });
+    const acctBtn = $('#botnav-account');
+    if (acctBtn) acctBtn.addEventListener('click', () => {
+      // Open the drawer to expose sign-out + user info
+      openDrawer();
+    });
+    // Close drawer on Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeDrawer();
+    });
   }
 
   // -------------------------------------------------------------- input intent
@@ -143,37 +210,145 @@
     return 'detected: factual situation → ranked precedents';
   }
 
-  // -------------------------------------------------------------- history
-  function readHistory() {
-    try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); }
+  // -------------------------------------------------------------- chats / history
+  // Multi-conversation research:
+  //   chats[]  — array of { id, title, query, result, meta, autoMode, ts }
+  //   Each chat = a saved research session. New chats are created via the
+  //   "+ New chat" button or implicitly on submit when no active chat.
+  //   Backed by per-user localStorage so accounts are isolated.
+  //
+  // The legacy flat-string history (HISTORY_KEY) was kept for backwards
+  // compatibility above but is now derived from chats[] for rendering.
+  const CHATS_MAX = 30;
+  function chatsKey() {
+    const uid = (window.headnoteAuth && window.headnoteAuth.userId && window.headnoteAuth.userId()) || 'anon';
+    return `headnote.chats.v1.${uid}`;
+  }
+  function readChats() {
+    try { return JSON.parse(localStorage.getItem(chatsKey()) || '[]'); }
     catch { return []; }
   }
-  function pushHistory(text) {
-    if (!text || !text.trim()) return;
-    const items = readHistory().filter(s => s !== text);
-    items.unshift(text);
-    while (items.length > HISTORY_MAX) items.pop();
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(items));
+  function writeChats(arr) {
+    try { localStorage.setItem(chatsKey(), JSON.stringify(arr.slice(0, CHATS_MAX))); } catch {}
+  }
+  function uuid() {
+    return 'c_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  }
+  function chatTitle(query) {
+    const t = (query || '').trim().split('\n')[0];
+    return t.length > 48 ? t.slice(0, 45) + '…' : (t || 'untitled chat');
+  }
+  function createNewChat() {
+    // Don't clutter the sidebar with multiple empty chats — if the user
+    // hit "new chat" without typing, reuse the existing empty one.
+    let chats = readChats();
+    const empty = chats.find(c => !c.query);
+    if (empty) {
+      state.currentChatId = empty.id;
+    } else {
+      const c = { id: uuid(), title: '', query: '', result: null, meta: null, autoMode: null, ts: Date.now() };
+      chats.unshift(c);
+      writeChats(chats);
+      state.currentChatId = c.id;
+    }
+    state.lastResult = null;
+    const target = $('#results'); if (target) target.innerHTML = '';
+    const input  = $('#situation-input'); if (input) input.value = '';
     renderHistory();
+    if (input) input.focus();
+  }
+  function saveCurrentChat(query, result, meta, autoMode) {
+    let chats = readChats();
+    if (!state.currentChatId) state.currentChatId = uuid();
+    let c = chats.find(x => x.id === state.currentChatId);
+    if (!c) {
+      c = { id: state.currentChatId, title: '', query: '', result: null, meta: null, autoMode: null, ts: Date.now() };
+      chats.unshift(c);
+    } else {
+      // Move to top
+      chats = chats.filter(x => x.id !== c.id);
+      chats.unshift(c);
+    }
+    c.query    = query;
+    c.result   = result;
+    c.meta     = meta;
+    c.autoMode = autoMode;
+    c.title    = chatTitle(query);
+    c.ts       = Date.now();
+    writeChats(chats);
+    renderHistory();
+  }
+  function loadChat(chatId) {
+    const c = readChats().find(x => x.id === chatId);
+    if (!c) return;
+    state.currentChatId = c.id;
+    const input = $('#situation-input');
+    if (input) input.value = c.query || '';
+    if (c.result) {
+      state.lastResult = { autoMode: c.autoMode, parsed: c.result, meta: c.meta || {}, query: c.query };
+      renderResearchResult();
+    } else {
+      state.lastResult = null;
+      const target = $('#results'); if (target) target.innerHTML = '';
+    }
+    renderHistory();
+    closeDrawer();
+    switchView('research');
+  }
+  function deleteChat(chatId) {
+    const chats = readChats().filter(c => c.id !== chatId);
+    writeChats(chats);
+    if (state.currentChatId === chatId) {
+      state.currentChatId = null;
+      state.lastResult = null;
+      const target = $('#results'); if (target) target.innerHTML = '';
+      const input  = $('#situation-input'); if (input) input.value = '';
+    }
+    renderHistory();
+  }
+
+  // Back-compat shims — existing code calls readHistory() and pushHistory(text).
+  // We derive the flat string list from chats[] so any caller that still
+  // expects a string array keeps working.
+  function readHistory() {
+    return readChats().map(c => c.query).filter(Boolean);
+  }
+  function pushHistory(text) {
+    // Submitting a new query: ensure there's an active chat to attach to.
+    if (!text || !text.trim()) return;
+    if (!state.currentChatId) state.currentChatId = uuid();
   }
   function renderHistory() {
     const wrap = $('#history');
     if (!wrap) return;
     wrap.innerHTML = '';
-    const items = readHistory();
-    if (!items.length) {
-      wrap.appendChild(ce('div', { cls: 'history-empty', text: 'nothing yet' }));
+
+    // "+ New chat" CTA at the top
+    const newBtn = ce('button', { cls: 'history-newchat', text: '+ new chat' });
+    newBtn.addEventListener('click', createNewChat);
+    wrap.appendChild(newBtn);
+
+    const chats = readChats().filter(c => c.query); // hide empty placeholder chats
+    if (!chats.length) {
+      wrap.appendChild(ce('div', { cls: 'history-empty', text: 'no chats yet — start by asking a question' }));
       return;
     }
-    items.forEach(text => {
-      const b = ce('button', { cls: 'history-item', text: text.length > 70 ? text.slice(0, 67) + '…' : text, attrs: { title: text, role: 'listitem' } });
-      b.addEventListener('click', () => {
-        switchView('research');
-        $('#situation-input').value = text;
-        updateModeDisplay();
-        $('#situation-input').focus();
+    chats.forEach(c => {
+      const row = ce('div', { cls: 'history-row' + (c.id === state.currentChatId ? ' history-row--active' : '') });
+      const b = ce('button', {
+        cls: 'history-item',
+        text: c.title || chatTitle(c.query),
+        attrs: { title: c.query, role: 'listitem' },
       });
-      wrap.appendChild(b);
+      b.addEventListener('click', () => loadChat(c.id));
+      const del = ce('button', { cls: 'history-del', text: '×', attrs: { 'aria-label': 'Delete chat' } });
+      del.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (confirm('Delete this chat?')) deleteChat(c.id);
+      });
+      row.appendChild(b);
+      row.appendChild(del);
+      wrap.appendChild(row);
     });
   }
 
@@ -766,6 +941,8 @@
         query: input,
       };
       renderResearchResult();
+      // Persist this Q&A into the active chat (per-user, localStorage).
+      saveCurrentChat(input, resp.result || {}, meta, intent);
     } catch (err) {
       clearTimeout(abortTimer);
       target.innerHTML = '';
@@ -956,12 +1133,23 @@
 
   function boot() {
     attachEvents();
+    wireMobileChrome();
     renderHistory();
     updateModeDisplay();
     setMode('hidden');
     setStyle('practitioner');
     // Kick off Google auth + onboarding check (no-op if Supabase not configured)
     if (typeof initAuth === 'function') initAuth();
+
+    // Re-render any per-user UI (history list, drafts, chat threads)
+    // whenever the user signs in / out / switches accounts. Until this
+    // hook existed, history stayed showing the previous user's queries.
+    if (window.headnoteAuth && typeof window.headnoteAuth.onAuthChange === 'function') {
+      window.headnoteAuth.onAuthChange(() => {
+        renderHistory();
+        loadUserState();
+      });
+    }
 
     // Load user state (plan + usage) after auth resolves. We poll briefly
     // because initAuth is async and we don't want to race with the JWT.

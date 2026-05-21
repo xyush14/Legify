@@ -43,7 +43,59 @@
   /* ---------- main layout: split-pane ---------- */
   .split { display: grid; grid-template-columns: 460px 1fr; height: calc(100vh - 56px); }
   @media (max-width: 1100px) { .split { grid-template-columns: 380px 1fr; } }
-  @media (max-width: 880px) { .split { grid-template-columns: 1fr; height: auto; } .form-pane { max-height: 50vh; } }
+
+  /* Mobile pane switcher — shown only on phones */
+  .pane-tabs { display: none; }
+
+  @media (max-width: 880px) {
+    .split {
+      display: block;
+      height: auto;
+      padding-top: 44px;          /* room for the sticky pane-tabs */
+    }
+    .pane-tabs {
+      display: flex;
+      position: fixed;
+      top: 56px; left: 0; right: 0;
+      z-index: 9;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+      padding: 0;
+    }
+    .pane-tabs button {
+      flex: 1;
+      background: transparent; border: none;
+      padding: 12px 8px;
+      font-family: inherit; font-size: 13px; font-weight: 600;
+      color: var(--muted); cursor: pointer;
+      border-bottom: 2px solid transparent;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .pane-tabs button.is-active {
+      color: var(--ink);
+      border-bottom-color: var(--ink);
+    }
+    body.lang-hi .pane-tabs button { font-family: 'Noto Sans Devanagari', sans-serif; }
+
+    .form-pane, .doc-pane {
+      max-height: none;
+      padding-left: 14px; padding-right: 14px;
+    }
+    .form-pane { display: block; }
+    .doc-pane { display: none; }
+    .split[data-pane="preview"] .form-pane { display: none; }
+    .split[data-pane="preview"] .doc-pane { display: block; }
+
+    /* Condensed topbar — title only, hide subtitle and label text */
+    .topbar { padding: 10px 12px; }
+    .topbar__title { font-size: 14px; }
+    .topbar__sub { display: none; }
+    .topbar__right { gap: 4px; }
+    .topbar__right .btn { padding: 6px 8px; font-size: 12px; }
+    .topbar__right .btn .btn-label-long { display: none; }
+  }
+
+  @media (max-width: 880px) { .form-pane { max-height: none; } }
 
   /* LEFT: form */
   .form-pane { overflow-y: auto; padding: 20px 22px 60px; border-right: 1px solid var(--line); background: var(--panel); }
@@ -139,6 +191,23 @@
   .ocr-zone__title { font-weight: 600; font-size: 13px; margin-bottom: 2px; }
   .ocr-zone__sub { font-size: 11px; color: var(--muted); }
   .ocr-zone input { display: none; }
+  .ocr-pages { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .ocr-page { position: relative; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; width: 64px; height: 80px; background: var(--soft); }
+  .ocr-page img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ocr-page__num { position: absolute; top: 2px; left: 2px; background: rgba(0,0,0,0.7); color: #fff; font-size: 10px; padding: 1px 4px; border-radius: 3px; line-height: 1; }
+  .ocr-page__rm { position: absolute; top: 2px; right: 2px; background: rgba(0,0,0,0.7); color: #fff; font-size: 11px; width: 16px; height: 16px; border-radius: 50%; border: none; cursor: pointer; padding: 0; line-height: 1; }
+  .ocr-cta { margin-top: 10px; display: flex; gap: 8px; }
+  .ocr-cta button { flex: 1; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--panel); font-size: 12px; font-weight: 600; cursor: pointer; }
+  .ocr-cta button.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .ocr-cta button:disabled { opacity: 0.4; cursor: not-allowed; }
+  /* Accused chooser shown when FIR has >1 accused */
+  .accused-picker { background: var(--soft); border: 1px solid var(--line-strong); border-radius: 8px; padding: 10px 12px; margin-top: 10px; }
+  .accused-picker__title { font-weight: 600; font-size: 12px; margin-bottom: 6px; }
+  .accused-picker__opt { display: flex; align-items: flex-start; gap: 6px; padding: 6px 0; border-top: 1px dashed var(--line); font-size: 12px; cursor: pointer; }
+  .accused-picker__opt:first-of-type { border-top: none; }
+  .accused-picker__opt input { margin-top: 2px; }
+  .accused-picker__name { font-weight: 600; }
+  .accused-picker__meta { color: var(--muted); font-size: 11px; }
 
   /* Smart suggestions panel */
   .hint-card { background: var(--soft); border-left: 3px solid var(--good); padding: 10px 12px; border-radius: 6px; margin: 8px 0; font-size: 12.5px; }
@@ -152,6 +221,7 @@
   .toast--show { opacity: 1; }
   .toast--err { background: var(--bad); }
   .toast--ok { background: var(--good); }
+  .toast--warn { background: var(--warn, #c9923a); }
 
   /* print/PDF: hide form when printing */
   @media print { .topbar, .form-pane { display: none; } .split { grid-template-columns: 1fr; } .doc-pane { background: #fff; padding: 0; } .doc-page { box-shadow: none; padding: 0; } }
@@ -189,20 +259,31 @@
   </div>
 </div>
 
-<div class="split">
+<!-- Mobile-only pane switcher (Form / Preview) -->
+<div class="pane-tabs" id="pane-tabs" role="tablist" aria-label="Form or preview">
+  <button type="button" id="pane-tab-form" class="is-active" role="tab" aria-selected="true" data-en="✎ Form" data-hi="✎ फ़ॉर्म">✎ फ़ॉर्म</button>
+  <button type="button" id="pane-tab-preview" role="tab" aria-selected="false" data-en="📄 Preview" data-hi="📄 प्रीव्यू">📄 प्रीव्यू</button>
+</div>
+
+<div class="split" id="split" data-pane="form">
   <!-- LEFT: form -->
   <div class="form-pane" id="form-pane">
 
     <!-- OCR -->
     <div class="section">
       <div class="section__eyebrow" data-en="SHORTCUT" data-hi="शॉर्टकट">शॉर्टकट</div>
-      <h3 class="section__title" data-en="Upload FIR Photo" data-hi="FIR का फोटो अपलोड करें">FIR का फोटो अपलोड करें</h3>
+      <h3 class="section__title" data-en="Upload FIR Photos (all pages)" data-hi="FIR की सभी पन्नों की फोटो अपलोड करें">FIR की सभी पन्नों की फोटो अपलोड करें</h3>
       <label class="ocr-zone" id="ocr-zone">
-        <input type="file" id="ocr-file" accept="image/*,application/pdf">
+        <input type="file" id="ocr-file" accept="image/*,application/pdf" multiple>
         <div class="ocr-zone__icon">📷</div>
-        <div class="ocr-zone__title" id="ocr-title" data-en="Tap to take a photo or upload" data-hi="FIR की फोटो खींचें या अपलोड करें">FIR की फोटो खींचें या अपलोड करें</div>
-        <div class="ocr-zone__sub" id="ocr-sub" data-en="JPEG, PNG, or PDF · AI extracts FIR no, sections, accused, narrative" data-hi="JPEG, PNG, या PDF · AI स्वतः FIR क्रमांक, धाराएं, अभियुक्त, तथ्य निकालेगा">JPEG, PNG, या PDF · AI स्वतः FIR क्रमांक, धाराएं, अभियुक्त, तथ्य निकालेगा</div>
+        <div class="ocr-zone__title" id="ocr-title" data-en="Tap to take photos or upload all FIR pages" data-hi="सभी पन्नों की फोटो खींचें या अपलोड करें">सभी पन्नों की फोटो खींचें या अपलोड करें</div>
+        <div class="ocr-zone__sub" id="ocr-sub" data-en="NCRB I.I.F.-I format · upload 1-8 pages · AI reads all of them together" data-hi="NCRB I.I.F.-I फॉर्मेट · 1-8 पन्ने अपलोड करें · AI सभी एक साथ पढ़ेगा">NCRB I.I.F.-I फॉर्मेट · 1-8 पन्ने अपलोड करें · AI सभी एक साथ पढ़ेगा</div>
       </label>
+      <div class="ocr-pages" id="ocr-pages"></div>
+      <div class="ocr-cta" id="ocr-cta" style="display:none;">
+        <button type="button" id="ocr-clear" data-en="Clear" data-hi="हटाएं">हटाएं</button>
+        <button type="button" id="ocr-extract" class="primary" data-en="Extract with AI" data-hi="AI से निकालें">AI से निकालें</button>
+      </div>
       <div id="ocr-result"></div>
     </div>
 
@@ -1491,20 +1572,89 @@ async function saveDraft() {
 // =========================================================================
 // OCR
 // =========================================================================
-document.getElementById('ocr-file').addEventListener('change', async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const zone = document.getElementById('ocr-zone');
-  const title = document.getElementById('ocr-title');
-  const sub = document.getElementById('ocr-sub');
+// =========================================================================
+// OCR — multi-page FIR upload
+// FIRs in the standard NCRB I.I.F.-I format span 3-5 pages. We collect all
+// selected pages client-side, show thumbnails, and only fire the LLM call
+// when the user clicks "Extract" — so a stray tap doesn't burn ₹5-15.
+// =========================================================================
+const ocrState = { files: [] };  // Array<File>
+
+const ocrFileInput = document.getElementById('ocr-file');
+const ocrPagesEl   = document.getElementById('ocr-pages');
+const ocrCtaEl     = document.getElementById('ocr-cta');
+const ocrZone      = document.getElementById('ocr-zone');
+const ocrTitle     = document.getElementById('ocr-title');
+const ocrSub       = document.getElementById('ocr-sub');
+
+ocrFileInput.addEventListener('change', (e) => {
+  const newFiles = Array.from(e.target.files || []);
+  // Append (don't replace) so the user can add pages in batches
+  const room = 8 - ocrState.files.length;
+  ocrState.files.push(...newFiles.slice(0, room));
+  e.target.value = '';
+  renderOcrPages();
+});
+
+document.getElementById('ocr-clear').addEventListener('click', () => {
+  ocrState.files = [];
+  renderOcrPages();
+  resetOcrZoneText();
+});
+
+document.getElementById('ocr-extract').addEventListener('click', runOcr);
+
+function renderOcrPages() {
+  ocrPagesEl.innerHTML = '';
+  ocrState.files.forEach((file, idx) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'ocr-page';
+    wrap.title = file.name;
+    if (file.type.startsWith('image/')) {
+      const img = document.createElement('img');
+      img.src = URL.createObjectURL(file);
+      wrap.appendChild(img);
+    } else {
+      const ph = document.createElement('div');
+      ph.style.cssText = 'display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:11px;color:var(--muted);';
+      ph.textContent = 'PDF';
+      wrap.appendChild(ph);
+    }
+    const num = document.createElement('div');
+    num.className = 'ocr-page__num';
+    num.textContent = idx + 1;
+    wrap.appendChild(num);
+    const rm = document.createElement('button');
+    rm.className = 'ocr-page__rm';
+    rm.type = 'button';
+    rm.textContent = '×';
+    rm.onclick = () => {
+      ocrState.files.splice(idx, 1);
+      renderOcrPages();
+    };
+    wrap.appendChild(rm);
+    ocrPagesEl.appendChild(wrap);
+  });
+  ocrCtaEl.style.display = ocrState.files.length ? 'flex' : 'none';
+}
+
+function resetOcrZoneText() {
   const isHi = state.lang === 'hi';
-  zone.classList.add('ocr-zone--busy');
-  title.textContent = isHi ? 'Claude vision से FIR पढ़ी जा रही है…' : 'Reading FIR with Claude vision…';
-  sub.textContent   = isHi ? '4-8 सेकंड लगेंगे' : 'this takes 4-8 seconds';
+  ocrTitle.textContent = isHi ? 'सभी पन्नों की फोटो खींचें या अपलोड करें' : 'Tap to take photos or upload all FIR pages';
+  ocrSub.textContent   = isHi ? 'NCRB I.I.F.-I फॉर्मेट · 1-8 पन्ने अपलोड करें · AI सभी एक साथ पढ़ेगा' : 'NCRB I.I.F.-I format · upload 1-8 pages · AI reads all of them together';
+}
+
+async function runOcr() {
+  if (!ocrState.files.length) return;
+  const isHi = state.lang === 'hi';
+  ocrZone.classList.add('ocr-zone--busy');
+  const pageCount = ocrState.files.length;
+  ocrTitle.textContent = isHi ? `Claude vision से ${pageCount} पन्ने पढ़े जा रहे हैं…` : `Reading ${pageCount} page${pageCount>1?'s':''} with Claude vision…`;
+  ocrSub.textContent   = isHi ? '6-12 सेकंड लगेंगे' : 'this takes 6-12 seconds';
 
   try {
     const fd = new FormData();
-    fd.append('file', file);
+    ocrState.files.forEach(f => fd.append('files', f));
     const headers = await authHeaders();
     const r = await fetch('/api/draft/ocr-fir', { method: 'POST', headers, body: fd });
     if (!r.ok) {
@@ -1512,50 +1662,185 @@ document.getElementById('ocr-file').addEventListener('change', async (e) => {
       throw new Error(err.detail || err.error || `HTTP ${r.status}`);
     }
     const data = await r.json();
-    applyOcrResult(data.extracted);
-    const conf = data.extracted.confidence || 'unknown';
-    title.textContent = isHi ? `✓ FIR पढ़ी गई (विश्वसनीयता: ${conf})` : `✓ FIR extracted (confidence: ${conf})`;
-    sub.textContent   = isHi ? 'फ़ील्ड स्वतः भरी गईं — जाँचें और संपादित करें' : 'fields auto-filled — review and edit as needed';
-    toast(isHi ? `${countFilled(data.extracted)} फ़ील्ड स्वतः भरीं` : `Auto-filled ${countFilled(data.extracted)} fields from FIR`, 'ok');
+    const conf = (data.extracted && data.extracted.confidence) || 'unknown';
+    const ext = data.extracted || {};
+
+    // If multiple accused, ask the lawyer which one is the bail applicant.
+    if (Array.isArray(ext.accused_details) && ext.accused_details.length > 1) {
+      showAccusedPicker(ext);
+    } else {
+      applyOcrResult(ext, 0);
+    }
+
+    ocrTitle.textContent = isHi ? `✓ ${pageCount} पन्ने पढ़े गए (विश्वसनीयता: ${conf})` : `✓ ${pageCount} page${pageCount>1?'s':''} extracted (confidence: ${conf})`;
+    ocrSub.textContent   = isHi ? 'फ़ील्ड भरी गईं — जाँचें और संपादित करें' : 'fields auto-filled — review and edit as needed';
+    toast(isHi ? `${countFilled(ext)} फ़ील्ड FIR से भरीं` : `Auto-filled ${countFilled(ext)} fields from FIR`, 'ok');
+
+    if (ext.notes) {
+      toast((isHi ? 'टिप्पणी: ' : 'Note: ') + ext.notes, 'warn');
+    }
   } catch (err) {
-    title.textContent = isHi ? '✗ OCR विफल' : '✗ OCR failed';
-    sub.textContent   = isHi ? (err.message || 'स्पष्ट फोटो लें और पुनः प्रयास करें') : (err.message || 'try a clearer photo');
+    ocrTitle.textContent = isHi ? '✗ OCR विफल' : '✗ OCR failed';
+    ocrSub.textContent   = isHi ? (err.message || 'स्पष्ट फोटो लें और पुनः प्रयास करें') : (err.message || 'try a clearer photo');
     toast('OCR failed: ' + (err.message || 'unknown error'), 'err');
   } finally {
-    zone.classList.remove('ocr-zone--busy');
-    e.target.value = '';
+    ocrZone.classList.remove('ocr-zone--busy');
   }
-});
-
-function countFilled(o) {
-  return Object.values(o || {}).filter(v => v && (typeof v !== 'object' || (Array.isArray(v) && v.length))).length;
 }
 
-function applyOcrResult(o) {
-  if (!o) return;
-  if (o.fir_number) state.answers.fir_number = o.fir_number;
-  if (o.fir_date) state.answers.fir_date = o.fir_date;
-  if (o.police_station) state.answers.police_station = o.police_station;
-  if (o.district) state.answers.district = o.district;
-  if (o.state) state.answers.state_name = o.state;
-  if (o.sections && o.sections.length) state.answers.sections_str = o.sections.join(', ');
-  if (o.arrest_date) state.answers.arrest_date = o.arrest_date;
-  if (o.narrative) state.answers.facts_narrative = o.narrative;
-  // Co-accused — auto-populate from accused list (minus the main applicant if matched)
-  if (o.accused_names && o.accused_names.length) {
-    state.answers.co_accused = state.answers.co_accused || [];
-    o.accused_names.forEach(name => {
-      // Skip if it matches the applicant
-      if (state.answers.applicant_name && name.includes(state.answers.applicant_name)) return;
-      // Skip if already in list
-      if (state.answers.co_accused.some(c => (c.parties || '').includes(name))) return;
-      state.answers.co_accused.push({
-        parties: `${name} Vs State of ${state.answers.state_name || 'MP'}`,
-        case_no: '',
-        outcome: 'Disposed',
-      });
-    });
+function countFilled(o) {
+  if (!o) return 0;
+  let n = 0;
+  for (const v of Object.values(o)) {
+    if (v == null) continue;
+    if (typeof v === 'string' && v.trim()) n++;
+    else if (Array.isArray(v) && v.length) n++;
+    else if (typeof v === 'object' && Object.keys(v).length) n++;
+    else if (typeof v === 'number') n++;
   }
+  return n;
+}
+
+function showAccusedPicker(ext) {
+  const isHi = state.lang === 'hi';
+  const existing = document.getElementById('accused-picker');
+  if (existing) existing.remove();
+  const box = document.createElement('div');
+  box.className = 'accused-picker';
+  box.id = 'accused-picker';
+  const title = document.createElement('div');
+  title.className = 'accused-picker__title';
+  title.textContent = isHi
+    ? 'FIR में कई अभियुक्त हैं — किसके लिए जमानत आवेदन बना रहे हैं?'
+    : 'FIR names multiple accused — which one is the bail applicant?';
+  box.appendChild(title);
+
+  ext.accused_details.forEach((acc, i) => {
+    const opt = document.createElement('label');
+    opt.className = 'accused-picker__opt';
+    opt.innerHTML = `
+      <input type="radio" name="acc-pick" value="${i}" ${i === 0 ? 'checked' : ''}>
+      <div>
+        <div class="accused-picker__name">${esc(acc.name || '?')}</div>
+        <div class="accused-picker__meta">${esc(acc.relative_type === 'husband' ? (isHi?'पति: ':'H/o: ') : (isHi?'पिता: ':'S/o: '))}${esc(acc.relative || '—')} · ${esc(acc.address || '')}</div>
+      </div>`;
+    box.appendChild(opt);
+  });
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'btn btn--primary';
+  btn.style.cssText = 'margin-top:8px;padding:6px 12px;font-size:12px;';
+  btn.textContent = isHi ? 'पुष्टि करें' : 'Confirm';
+  btn.onclick = () => {
+    const sel = box.querySelector('input[name="acc-pick"]:checked');
+    const idx = sel ? parseInt(sel.value, 10) : 0;
+    applyOcrResult(ext, idx);
+    box.remove();
+  };
+  box.appendChild(btn);
+  ocrCtaEl.parentNode.insertBefore(box, ocrCtaEl.nextSibling);
+}
+
+// Derive an English court name from district + bail section.
+// 439 CrPC → Sessions Court / HC; 437 → Magistrate; 438 → Sessions/HC (anticipatory).
+// We default to Sessions level which covers most cases (439 + 438 successive).
+function suggestCourtName(district, stateName, bailSection) {
+  const dist = (district || '').trim();
+  if (!dist) return null;
+  if (bailSection === '437') {
+    return `Court of the Chief Judicial Magistrate, ${dist}`;
+  }
+  // 439 / 438 default
+  return `Court of the Sessions Judge, ${dist}`;
+}
+
+// Derive Hindi court name
+function suggestCourtNameHi(district, stateName, bailSection) {
+  const dist = (district || '').trim();
+  if (!dist) return null;
+  if (bailSection === '437') {
+    return `मुख्य न्यायिक मजिस्ट्रेट न्यायालय, ${dist}`;
+  }
+  return `सत्र न्यायालय, ${dist}`;
+}
+
+function applyOcrResult(o, applicantIdx) {
+  if (!o) return;
+  const ans = state.answers;
+  const setIfEmpty = (k, v) => { if (v && !ans[k]) ans[k] = v; };
+  const setAlways  = (k, v) => { if (v) ans[k] = v; };
+
+  // ---- FIR core fields
+  if (o.fir_number_full || o.fir_number) {
+    setAlways('fir_number', o.fir_number_full || o.fir_number);
+  }
+  setAlways('fir_date',        o.fir_date);
+  setAlways('police_station',  o.police_station);
+  setAlways('district',        o.district);
+  setIfEmpty('state_name',     o.state);
+  setAlways('arrest_date',     o.arrest_date);
+
+  // ---- sections (normalise & join)
+  if (Array.isArray(o.sections) && o.sections.length) {
+    ans.sections_str = o.sections.join(', ');
+  }
+
+  // ---- narrative (Para 5.1)
+  // Groq returns BOTH narrative_hi and narrative_en — pick based on current
+  // language, and stash the other so language-toggle can swap instantly
+  // without burning another API call.
+  const narrHi = o.narrative_hi || '';
+  const narrEn = o.narrative_en || '';
+  const narrFallback = o.narrative || o.narrative_raw || '';
+  if (narrHi || narrEn || narrFallback) {
+    ans._narrative_hi = narrHi || narrFallback;
+    ans._narrative_en = narrEn || narrFallback;
+    ans.facts_narrative = (state.lang === 'hi')
+      ? (ans._narrative_hi || ans._narrative_en)
+      : (ans._narrative_en || ans._narrative_hi);
+  }
+
+  // ---- place of occurrence → Section 9 "Place" field gets the district by
+  // default; the occurrence_place is more useful inside the narrative.
+  setIfEmpty('place', o.district);
+
+  // ---- APPLICANT (= the chosen accused). This is the critical fix —
+  // earlier we left applicant_* empty; the bail applicant is the accused,
+  // never the complainant.
+  const accList = Array.isArray(o.accused_details) ? o.accused_details : [];
+  const idx = (typeof applicantIdx === 'number' && accList[applicantIdx]) ? applicantIdx : 0;
+  const applicant = accList[idx];
+  if (applicant) {
+    setIfEmpty('applicant_name',    applicant.name);
+    setIfEmpty('applicant_father',  applicant.relative);  // father OR husband; lawyer can edit
+    setIfEmpty('applicant_address', applicant.address);
+    setIfEmpty('applicant_age',     applicant.age);
+  }
+
+  // ---- CO-ACCUSED: everyone else from the accused list goes here as
+  // parity candidates. The lawyer fills bail outcome later.
+  ans.co_accused = ans.co_accused || [];
+  accList.forEach((acc, i) => {
+    if (i === idx) return;
+    if (!acc.name) return;
+    if (ans.co_accused.some(c => (c.parties || '').includes(acc.name))) return;
+    ans.co_accused.push({
+      parties:  `${acc.name} Vs State of ${ans.state_name || 'MP'}`,
+      case_no:  '',
+      outcome:  'Disposed',
+    });
+  });
+
+  // ---- Auto-derive a sensible court name when none set.
+  if (!ans.court_name) {
+    const isHi = state.lang === 'hi';
+    const suggested = isHi
+      ? suggestCourtNameHi(o.district, o.state, ans.bail_section)
+      : suggestCourtName(o.district, o.state, ans.bail_section);
+    if (suggested) ans.court_name = suggested;
+  }
+
   syncUIToState();
   onChange();
 }
@@ -1613,9 +1898,20 @@ async function switchLang(newLang) {
   const prevLang = state.lang;
   state.lang = newLang;
 
-  // Collect non-empty prose fields to translate
+  // Instant swap for OCR-derived narrative: when both _narrative_hi and
+  // _narrative_en are stashed (from the dual-output Groq OCR), we don't
+  // need an API call — just pick the stashed version.
+  if (state.answers._narrative_hi || state.answers._narrative_en) {
+    state.answers.facts_narrative = (newLang === 'hi')
+      ? (state.answers._narrative_hi || state.answers._narrative_en)
+      : (state.answers._narrative_en || state.answers._narrative_hi);
+  }
+
+  // Collect non-empty prose fields to translate (excluding facts_narrative
+  // if we already swapped it above)
   const toTranslate = {};
   TRANSLATABLE_FORM_FIELDS.forEach(k => {
+    if (k === 'facts_narrative' && (state.answers._narrative_hi || state.answers._narrative_en)) return;
     const v = state.answers[k];
     if (v && String(v).trim()) toTranslate[k] = v;
   });
@@ -1656,6 +1952,27 @@ async function switchLang(newLang) {
 
 document.getElementById('lang-en').addEventListener('click', () => switchLang('en'));
 document.getElementById('lang-hi').addEventListener('click', () => switchLang('hi'));
+
+// =========================================================================
+// Mobile pane switcher (Form ↔ Preview tabs).
+// On screens > 880px the form + preview show side-by-side and the tabs
+// are hidden via CSS — this JS is a no-op on desktop.
+// =========================================================================
+function switchPane(which) {
+  const split = document.getElementById('split');
+  if (!split) return;
+  split.dataset.pane = which;
+  const formTab    = document.getElementById('pane-tab-form');
+  const previewTab = document.getElementById('pane-tab-preview');
+  if (formTab)    formTab.classList.toggle('is-active', which === 'form');
+  if (previewTab) previewTab.classList.toggle('is-active', which === 'preview');
+  if (formTab)    formTab.setAttribute('aria-selected',    which === 'form');
+  if (previewTab) previewTab.setAttribute('aria-selected', which === 'preview');
+  // Scroll to top of the active pane
+  window.scrollTo({ top: 0, behavior: 'instant' });
+}
+document.getElementById('pane-tab-form')?.addEventListener('click', () => switchPane('form'));
+document.getElementById('pane-tab-preview')?.addEventListener('click', () => switchPane('preview'));
 
 // =========================================================================
 // Toast
