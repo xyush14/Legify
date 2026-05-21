@@ -38,7 +38,7 @@ from headnote.entitlements.subscription import get_active_subscription, is_admin
 
 
 def get_user_state(user_id: str, email: str | None = None) -> dict:
-    sub = get_active_subscription(user_id) or {}
+    sub = get_active_subscription(user_id, email=email) or {}
     plan_name = sub.get("plan", "demo")
     plan = get_plan(plan_name)
 

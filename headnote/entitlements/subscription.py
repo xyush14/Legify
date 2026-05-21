@@ -41,19 +41,26 @@ def _founder_sub(user_id: str) -> dict:
     }
 
 
-def get_active_subscription(user_id: str) -> dict | None:
+def get_active_subscription(user_id: str, email: str | None = None) -> dict | None:
     """Return the user's current subscription row, auto-downgrading to Demo
     if the previous plan has expired.
 
     If no row exists at all (first call, trigger hasn't fired yet), creates
     a Demo row idempotently.
 
-    Founder bypass: if the request's authenticated email (set by auth.py via
-    contextvar) is in config.FOUNDER_EMAILS, returns a synthetic founder sub
-    without touching the DB. Side effect: founder usage is NOT metered.
+    Founder bypass: if the email (passed explicitly OR read from contextvar)
+    is in config.FOUNDER_EMAILS, returns a synthetic founder sub without
+    touching the DB. Side effect: founder usage is NOT metered.
+
+    NOTE: the contextvar set by get_current_user does NOT survive across
+    sync-dependency → async-endpoint boundaries because FastAPI runs sync
+    deps in a thread pool with a copied context. So callers from async
+    endpoints MUST pass email= explicitly. Falling back to contextvar for
+    sync endpoints that still rely on it.
     """
-    email = current_user_email.get()
-    if email and email in config.FOUNDER_EMAILS:
+    if email is None:
+        email = current_user_email.get()
+    if email and email.lower() in config.FOUNDER_EMAILS:
         return _founder_sub(user_id)
 
     rows = _supabase.select(

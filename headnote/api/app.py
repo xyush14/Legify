@@ -628,7 +628,7 @@ def api_situation(
 
     Gated: deep_search feature. Counts against the user's quota; 402 if exhausted.
     """
-    with check_and_record(user.id, "deep_search", endpoint="situation") as _record:
+    with check_and_record(user.id, "deep_search", endpoint="situation", email=user.email) as _record:
         return _api_situation_impl(req, _record)
 
 
@@ -974,7 +974,7 @@ def api_digest(
     user: CurrentUser = Depends(get_current_user),
 ):
     """Gated: deep_search feature."""
-    with check_and_record(user.id, "deep_search", endpoint="digest") as _record:
+    with check_and_record(user.id, "deep_search", endpoint="digest", email=user.email) as _record:
         return _api_digest_impl(req, _record)
 
 
@@ -1031,7 +1031,7 @@ def api_headnote(
     user: CurrentUser = Depends(get_current_user),
 ):
     """Gated: deep_search feature."""
-    with check_and_record(user.id, "deep_search", endpoint="headnote") as _record:
+    with check_and_record(user.id, "deep_search", endpoint="headnote", email=user.email) as _record:
         return _api_headnote_impl(req, _record)
 
 

@@ -100,7 +100,7 @@ def start_draft(
     if s is None:
         raise HTTPException(status_code=404, detail=f"unknown story_id={body.story_id!r}")
 
-    with check_and_record(user.id, "draft", endpoint="draft_start") as _record:
+    with check_and_record(user.id, "draft", endpoint="draft_start", email=user.email) as _record:
         # v0: we allow start even on not-ready stories so the FE can save
         # progress before the template module is finalised. The /render endpoint
         # will still return a 'coming soon' message until ready=True.
@@ -253,7 +253,7 @@ async def translate_fields(
         f"{fields_json}"
     )
 
-    with check_and_record(user.id, "draft", endpoint="translate_fields") as _record:
+    with check_and_record(user.id, "draft", endpoint="translate_fields", email=user.email) as _record:
         try:
             raw = _llm_call(system, prompt, max_tokens=3000, model="quality")
         except Exception as e:
@@ -340,7 +340,7 @@ async def ocr_fir(
             raise HTTPException(status_code=400, detail=f"page {idx}: too large; max 20 MB")
         pages.append((data, mt))
 
-    with check_and_record(user.id, "draft", endpoint="ocr_fir") as _record:
+    with check_and_record(user.id, "draft", endpoint="ocr_fir", email=user.email) as _record:
         try:
             parsed = ocr_fir_pages(pages)
         except ValueError as e:
@@ -411,7 +411,7 @@ async def transcribe(
     # Normalise language to ISO-639-1 (Whisper's expected format)
     lang = (language or "").lower().strip()[:2] or "hi"
 
-    with check_and_record(user.id, "draft", endpoint="transcribe") as _record:
+    with check_and_record(user.id, "draft", endpoint="transcribe", email=user.email) as _record:
         try:
             from groq import Groq
             client = Groq(api_key=os.environ["GROQ_API_KEY"])
@@ -469,7 +469,7 @@ def compose(
     if not body.doc_type:
         raise HTTPException(status_code=400, detail="doc_type required")
 
-    with check_and_record(user.id, "draft", endpoint="compose") as _record:
+    with check_and_record(user.id, "draft", endpoint="compose", email=user.email) as _record:
         try:
             result = conductor_step(
                 doc_type=body.doc_type,
@@ -558,7 +558,7 @@ def polish_text(
 
     user_prompt = f"Polish this text:\n\n{text}"
 
-    with check_and_record(user.id, "draft", endpoint="polish_text") as _record:
+    with check_and_record(user.id, "draft", endpoint="polish_text", email=user.email) as _record:
         try:
             polished = _llm_call(sys, user_prompt, max_tokens=1200, model="fast")
         except Exception as e:
@@ -598,7 +598,7 @@ def render_template(
     if not template:
         raise HTTPException(status_code=400, detail=f"unknown doc_type '{body.doc_type}'")
 
-    with check_and_record(user.id, "draft", endpoint="render_template") as _record:
+    with check_and_record(user.id, "draft", endpoint="render_template", email=user.email) as _record:
         try:
             doc = _generate_document(template, body.fields or {}, body.lang)
         except Exception as e:

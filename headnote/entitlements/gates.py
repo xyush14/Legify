@@ -77,7 +77,7 @@ class FeatureLocked(HTTPException):
 
 # ---------------------------------------------------------------- checks
 
-def can_use_feature(user_id: str, feature: str) -> dict:
+def can_use_feature(user_id: str, feature: str, email: str | None = None) -> dict:
     """Read-only check: can this user use `feature` right now?
 
     Returns:
@@ -86,8 +86,12 @@ def can_use_feature(user_id: str, feature: str) -> dict:
 
     `use_haiku=True` signals the soft-cap was crossed — caller should
     downgrade Sonnet→Haiku for the model call.
+
+    Pass email= from CurrentUser to ensure the founder bypass kicks in
+    even when called from async endpoints (where the contextvar set by
+    get_current_user doesn't propagate).
     """
-    sub = get_active_subscription(user_id) or {}
+    sub = get_active_subscription(user_id, email=email) or {}
     plan = sub.get("plan", "demo")
 
     lim = get_limit(plan, feature)
@@ -141,6 +145,7 @@ def check_and_record(
     feature: str,
     *,
     endpoint: Optional[str] = None,
+    email: Optional[str] = None,
 ):
     """Gate + meter context manager.
 
@@ -152,8 +157,12 @@ def check_and_record(
     On exit (no exception):
       - increments the meter
       - records a usage_event row (if `record` was called with cost details)
+
+    Pass email= from CurrentUser so the founder bypass works in async
+    endpoints (the contextvar set by get_current_user doesn't propagate
+    from sync deps into async handlers via FastAPI's thread pool).
     """
-    check = can_use_feature(user_id, feature)
+    check = can_use_feature(user_id, feature, email=email)
     if not check["allowed"]:
         if check["reason"] == "feature_locked":
             raise FeatureLocked(feature, check["plan"])
