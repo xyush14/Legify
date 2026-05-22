@@ -331,6 +331,36 @@ def pricing_page():
     return FileResponse(config.STATIC_DIR / "pricing.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
+# ---- Legal & trust pages (required for Cashfree / RBI compliance) ----
+@app.get("/terms", include_in_schema=False)
+@app.get("/terms/", include_in_schema=False)
+@app.get("/terms-of-service", include_in_schema=False)
+def terms_page():
+    return FileResponse(config.STATIC_DIR / "terms.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
+@app.get("/privacy", include_in_schema=False)
+@app.get("/privacy/", include_in_schema=False)
+@app.get("/privacy-policy", include_in_schema=False)
+def privacy_page():
+    return FileResponse(config.STATIC_DIR / "privacy.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
+@app.get("/refund", include_in_schema=False)
+@app.get("/refund/", include_in_schema=False)
+@app.get("/refund-policy", include_in_schema=False)
+@app.get("/cancellation", include_in_schema=False)
+def refund_page():
+    return FileResponse(config.STATIC_DIR / "refund.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
+@app.get("/contact", include_in_schema=False)
+@app.get("/contact/", include_in_schema=False)
+@app.get("/contact-us", include_in_schema=False)
+def contact_page():
+    return FileResponse(config.STATIC_DIR / "contact.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
 @app.get("/admin", include_in_schema=False)
 @app.get("/admin/", include_in_schema=False)
 def admin_panel():
@@ -428,7 +458,7 @@ def api_config():
     return {
         "supabase_url":      config.SUPABASE_URL or "",
         "supabase_anon_key": config.SUPABASE_ANON_KEY or "",
-        "code_version":      "20260522e",
+        "code_version":      "20260522f",
     }
 
 

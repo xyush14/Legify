@@ -15,7 +15,7 @@
   <!-- Supabase JS (auth) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
 
-  <link rel="stylesheet" href="/static/style.css?v=20260522e" />
+  <link rel="stylesheet" href="/static/style.css?v=20260522f" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23ffffff'/%3E%3Ccircle cx='50' cy='50' r='12' fill='%23121212'/%3E%3C/svg%3E" />
 </head>
 
@@ -81,6 +81,30 @@
 
       <div class="sidebar__footer">
         <!--
+          Plan card — shows current plan + an Upgrade button. Populated by
+          /api/me on boot (see loadUserState in app.js). When a paying or
+          founder plan is active, the Upgrade card morphs into a "Manage
+          subscription" link.
+        -->
+        <a id="sidebar-plan-card" class="sidebar-plan" href="/pricing"
+           style="display:none;text-decoration:none;color:inherit;
+                  background:linear-gradient(135deg,#1a1a18,#2a221a);
+                  border:1px solid #c9a96e;border-radius:10px;
+                  padding:12px 14px;margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#c9a96e;font-weight:600;margin-bottom:2px;">
+                <span id="sidebar-plan-label">Demo</span>
+              </div>
+              <div id="sidebar-plan-sub" style="font-size:12px;color:#b8b0a4;line-height:1.4;">
+                Upgrade for unlimited drafts &amp; research
+              </div>
+            </div>
+            <div id="sidebar-plan-arrow" style="color:#c9a96e;font-size:18px;font-weight:600;">→</div>
+          </div>
+        </a>
+
+        <!--
           Signed-in user card. Populated by auth.js _renderSidebarUser()
           once a Supabase session exists. Stays hidden when in dev mode
           (no Supabase configured) so the sidebar doesn't look broken.
@@ -93,7 +117,7 @@
                     id="sidebar-signout-btn" onclick="signOut()">sign out</button>
           </div>
         </div>
-        <a class="footer-link" href="/admin/cost-dashboard" target="_blank" rel="noopener">cost dashboard ↗</a>
+        <a class="footer-link" href="/pricing">pricing &amp; plans</a>
       </div>
     </aside>
 
@@ -565,7 +589,7 @@
   </div>
   <!-- ============ END AUTH OVERLAY ============ -->
 
-  <script src="/static/auth.js?v=20260522e" defer></script>
-  <script src="/static/app.js?v=20260522e" defer></script>
+  <script src="/static/auth.js?v=20260522f" defer></script>
+  <script src="/static/app.js?v=20260522f" defer></script>
 </body>
 </html>

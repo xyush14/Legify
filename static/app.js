@@ -1173,8 +1173,48 @@
       if (!r.ok) return;
       userState = await r.json();
       renderPlanBadge();
+      renderPlanCard();   // sidebar upgrade card
       renderUsageBar();
     } catch (e) { /* silent */ }
+  }
+
+  // Sidebar plan-card: morphs based on current plan.
+  // - demo  → "Demo · Upgrade for unlimited" → /pricing
+  // - paid  → "Monthly · Manage" → /pricing (where they can cancel/upgrade)
+  // - founder → "Founder · Unlimited access" — no upgrade button
+  function renderPlanCard() {
+    if (!userState) return;
+    const card  = document.getElementById('sidebar-plan-card');
+    const label = document.getElementById('sidebar-plan-label');
+    const sub   = document.getElementById('sidebar-plan-sub');
+    const arrow = document.getElementById('sidebar-plan-arrow');
+    if (!card || !label || !sub) return;
+
+    const s = userState.subscription || {};
+    const plan = s.plan || 'demo';
+    const display = s.display_name || 'Demo';
+    card.style.display = 'block';
+
+    if (plan === 'founder') {
+      label.textContent = 'Founder · ∞';
+      sub.textContent = 'Unlimited access — thank you for building with us';
+      arrow.style.display = 'none';
+      card.href = '#';
+      card.style.cursor = 'default';
+      card.onclick = (e) => e.preventDefault();
+    } else if (plan === 'demo') {
+      label.textContent = 'Demo plan';
+      sub.textContent = 'Upgrade for unlimited drafts & research →';
+      arrow.style.display = '';
+      card.href = '/pricing';
+    } else {
+      // weekly / monthly / yearly
+      label.textContent = display + ' active';
+      const ends = s.period_end ? new Date(s.period_end).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) : '';
+      sub.textContent = ends ? ('Active until ' + ends + ' · Manage →') : 'Manage subscription →';
+      arrow.style.display = '';
+      card.href = '/pricing';
+    }
   }
 
   function renderPlanBadge() {
