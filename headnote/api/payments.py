@@ -61,19 +61,12 @@ class CreateOrderRequest(BaseModel):
 class CreateOrderResponse(BaseModel):
     order_id: str
     payment_session_id: str
-    payment_url: str
     amount_inr: int
     plan: str
     env: str  # 'sandbox' or 'production'
 
 
 # ---------------------------------------------------------------- shared logic
-
-def _payment_url_for_session(payment_session_id: str) -> str:
-    """Cashfree hosted-checkout URL. The session ID itself contains an `env`
-    prefix that determines which page renders. So we use the same payments.cashfree.com
-    host for both sandbox and production — Cashfree routes internally."""
-    return f"https://payments.cashfree.com/pay/{payment_session_id}"
 
 
 def _upgrade_from_paid_order(order: dict) -> dict:
@@ -178,7 +171,6 @@ def create_order(
     return CreateOrderResponse(
         order_id=order_id,
         payment_session_id=session_id,
-        payment_url=_payment_url_for_session(session_id),
         amount_inr=cashfree.PLAN_AMOUNTS.get(body.plan, 0),
         plan=body.plan,
         env=os.environ.get("CASHFREE_ENV", "sandbox"),

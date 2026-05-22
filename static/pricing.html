@@ -192,14 +192,22 @@
 
 <!-- Supabase JS (auth) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Cashfree v3 SDK — the official way to open hosted checkout. There is
+     no plain URL we can navigate to; the SDK handles the redirect itself. -->
+<script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
 <script src="/static/auth.js?v=20260522e" defer></script>
 
 <script>
+  let _cashfreeEnv = 'sandbox';  // updated from /api/payments/config
+
   // Show env badge if backend is in sandbox mode (so we don't accidentally
   // demo with sandbox keys during a real seminar).
   fetch('/api/payments/config')
     .then(r => r.json())
     .then(cfg => {
+      if (cfg && cfg.env) {
+        _cashfreeEnv = cfg.env;
+      }
       if (cfg && cfg.env === 'sandbox') {
         const b = document.getElementById('env-badge');
         if (b) { b.textContent = 'SANDBOX MODE — test cards only, no real charges'; b.style.display = 'inline-block'; }
@@ -241,17 +249,26 @@
         });
         const data = await r.json();
         if (!r.ok) {
-          throw new Error(data.detail || ('HTTP ' + r.status));
+          throw new Error((data && (data.detail || data.error)) || ('HTTP ' + r.status));
         }
-        if (!data.payment_url) {
-          throw new Error('No payment URL returned by Cashfree');
+        if (!data.payment_session_id) {
+          throw new Error('No payment_session_id returned by server');
         }
-        // Cashfree's hosted checkout — full-page redirect. User pays there,
-        // gets redirected back to /payment-success?order_id=...
-        window.location.href = data.payment_url;
+        // Open Cashfree's hosted checkout via the official SDK. With
+        // redirectTarget='_self' the browser does a full-page redirect to
+        // Cashfree, user pays there, then Cashfree redirects back to the
+        // return_url we set on the order (= /payments/return?order_id=…).
+        if (typeof Cashfree !== 'function') {
+          throw new Error('Cashfree SDK failed to load. Disable ad-blockers and try again.');
+        }
+        const cashfree = Cashfree({ mode: (data.env || _cashfreeEnv) === 'production' ? 'production' : 'sandbox' });
+        cashfree.checkout({
+          paymentSessionId: data.payment_session_id,
+          redirectTarget: '_self',
+        });
       } catch (e) {
         console.error('checkout failed:', e);
-        alert('Could not start payment: ' + e.message + '\n\nPlease try again, or email founder@headnote.in if this persists.');
+        alert('Could not start payment: ' + (e.message || e) + '\n\nPlease try again, or email founder@headnote.in if this persists.');
         btn.disabled = false;
         btn.textContent = orig;
       }
