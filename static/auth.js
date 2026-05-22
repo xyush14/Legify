@@ -19,7 +19,7 @@
 // version doesn't match, the browser is running stale JS (old tab, aggressive
 // cache). We force ONE reload to pick up the new code. This prevents the
 // "sign-in loop" and "missing features" bugs caused by cached old files.
-const _CODE_VERSION = '20260522g';
+const _CODE_VERSION = '20260522h';
 
 /* ------------------------------------------------------------------ state */
 
@@ -476,11 +476,33 @@ async function submitOnboarding() {
     await _saveOnboarding(name, '+91' + rawPhone, referral || null);
     console.log('[auth] Onboarding saved. Revealing app.');
     _revealApp();
+
+    // Fire-and-forget welcome email. Never blocks the app reveal — if
+    // the backend or Resend is down, the user still gets in. Idempotent
+    // server-side (user_profiles.welcome_sent), so re-firing on later
+    // signins is harmless.
+    _fireWelcomeEmail();
   } catch (e) {
     console.error('[auth] Onboarding save failed:', e);
     btn.disabled = false;
     btn.innerHTML = orig;
     _showAuthError('Could not save profile: ' + e.message);
+  }
+}
+
+async function _fireWelcomeEmail() {
+  try {
+    const token = await getAuthToken();
+    if (!token) return;
+    const r = await fetch('/api/onboarding/welcome-email', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token },
+    });
+    const data = await r.json().catch(() => ({}));
+    console.log('[auth] welcome email:', data);
+  } catch (e) {
+    // Silently swallow — welcome email is non-critical.
+    console.warn('[auth] welcome email trigger failed (non-fatal):', e.message);
   }
 }
 

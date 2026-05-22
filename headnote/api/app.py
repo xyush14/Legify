@@ -261,6 +261,10 @@ app.include_router(_admin_v2_router)
 from headnote.api.payments import router as _payments_router
 app.include_router(_payments_router)
 
+# Onboarding side-effects: /api/onboarding/welcome-email
+from headnote.api.onboarding import router as _onboarding_router
+app.include_router(_onboarding_router)
+
 # Pre-extract universal facts for the 42 curated cases at boot. ~50ms
 # one-time cost that removes a per-query latency spike for the first user.
 # Safe to skip via env var if the curated corpus changes at runtime (which
@@ -458,7 +462,7 @@ def api_config():
     return {
         "supabase_url":      config.SUPABASE_URL or "",
         "supabase_anon_key": config.SUPABASE_ANON_KEY or "",
-        "code_version":      "20260522g",
+        "code_version":      "20260522h",
     }
 
 

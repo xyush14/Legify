@@ -32,6 +32,13 @@ google-genai>=0.3
 # Without the key the OCR endpoint falls back to Anthropic Sonnet vision.
 groq>=1.0
 
+# Resend — transactional email provider for welcome emails and (later)
+# payment receipts, password reset confirmations, etc. Requires
+# RESEND_API_KEY and a verified domain (headnote.in) with SPF/DKIM/DMARC.
+# Without the key the email module no-ops with a loud warning so dev/local
+# isn't blocked. See headnote/email/welcome.py.
+resend>=2.0
+
 # ---- IK API client + HTML parsing
 requests>=2.31
 beautifulsoup4>=4.12
