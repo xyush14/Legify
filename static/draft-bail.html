@@ -2451,11 +2451,38 @@ async function maybeLoadExisting() {
 // =========================================================================
 // Boot
 // =========================================================================
+// Pre-fill advocate fields from saved bar profile (settings page).
+// Never overwrites a value the user already typed or auto-saved.
+async function prefillFromPersona() {
+  try {
+    const headers = await authHeaders();
+    if (!headers.Authorization) return;
+    const r = await fetch('/api/lawyer-profile', { headers });
+    if (!r.ok) return;
+    const p = await r.json();
+    state.answers = state.answers || {};
+    const map = {
+      advocate_name: p.advocate_name,
+      court_name:    p.home_court,
+      place:         '',  // place is matter-specific (filing location), leave alone
+    };
+    Object.entries(map).forEach(([key, val]) => {
+      if (!val) return;
+      if (state.answers[key] && String(state.answers[key]).trim()) return;
+      state.answers[key] = val;
+      const input = document.querySelector(`[data-field="${key}"]`);
+      if (input) input.value = val;
+    });
+  } catch (e) { /* non-fatal */ }
+}
+
 (async function init() {
   loadDefaults();
   await maybeLoadExisting();
   bindInputs();
   applyLang();
+  // Persona auto-fill after default + existing load so it only fills gaps.
+  await prefillFromPersona();
   onChange();
   // Wire mic icons onto long-text fields. No-op if browser can't do voice.
   wireVoiceFields();

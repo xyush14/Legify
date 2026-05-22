@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<script>if(location.protocol==='http:'&&location.hostname!=='localhost'&&!location.hostname.startsWith('127.')){location.replace(location.href.replace(/^http:/,'https:'));}</script>
+<title>Settings — Headnote</title>
+<meta name="description" content="Manage your bar profile and account settings." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&display=swap" rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/static/auth.js?v=20260523a" defer></script>
+
+<style>
+  :root {
+    --bg: #fdfcf9;
+    --card: #ffffff;
+    --ink: #0c0c0a;
+    --ink-2: #2a2a26;
+    --ink-3: #5d5b54;
+    --ink-4: #8a857a;
+    --line: #e8e3d6;
+    --line-strong: #d4cfbb;
+    --gold: #c9a96e;
+    --gold-deep: #8c7549;
+    --gold-tint: #f9f3e3;
+    --emerald: #1a7a3a;
+    --bad: #b91c1c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Geist', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; text-decoration: none; }
+
+  .topbar {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(253, 252, 249, 0.85);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--line);
+    padding: 14px 24px;
+    display: flex; align-items: center; gap: 18px;
+  }
+  .topbar__back {
+    font-size: 13px; color: var(--ink-3);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .topbar__back:hover { color: var(--ink); }
+  .topbar__title {
+    font-family: 'Geist Mono', monospace;
+    font-size: 12px; color: var(--ink-3);
+    margin-left: auto;
+  }
+
+  main { max-width: 780px; margin: 0 auto; padding: 40px 24px 100px; }
+
+  .page-head { margin-bottom: 40px; }
+  .page-head__eyebrow {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px; color: var(--gold-deep);
+    text-transform: uppercase; letter-spacing: 0.12em;
+    margin-bottom: 8px;
+  }
+  .page-head h1 {
+    font-size: 32px;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    line-height: 1.1;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+  .page-head p {
+    color: var(--ink-3);
+    font-size: 14.5px;
+    max-width: 580px;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 28px;
+    margin-bottom: 18px;
+  }
+  .card h2 {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    margin-bottom: 4px;
+  }
+  .card .sub {
+    color: var(--ink-3);
+    font-size: 13px;
+    margin-bottom: 24px;
+  }
+
+  .row { margin-bottom: 16px; }
+  .row.grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 540px) { .row.grid-2 { grid-template-columns: 1fr; } }
+  .row .field { display: flex; flex-direction: column; gap: 6px; }
+  .row label {
+    font-size: 11px;
+    color: var(--ink-4);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 500;
+  }
+  .row input, .row textarea {
+    width: 100%;
+    padding: 11px 13px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    font-family: inherit;
+    font-size: 14px;
+    background: var(--bg);
+    color: var(--ink);
+    outline: none;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .row input:focus, .row textarea:focus { border-color: var(--gold); background: #fff; }
+  .row input:disabled { background: #f4f0e6; color: var(--ink-3); cursor: not-allowed; }
+  .row textarea { min-height: 60px; resize: vertical; }
+  .row .hint {
+    font-size: 11.5px;
+    color: var(--ink-4);
+    margin-top: 2px;
+  }
+
+  .save-row {
+    display: flex; align-items: center; gap: 14px;
+    margin-top: 24px;
+  }
+  .btn-primary {
+    background: var(--ink); color: #fff;
+    border: 1px solid var(--ink);
+    padding: 11px 22px;
+    border-radius: 9px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: transform 0.15s, opacity 0.15s;
+  }
+  .btn-primary:hover { transform: translateY(-1px); opacity: 0.95; }
+  .btn-primary:disabled { background: #888; border-color: #888; cursor: not-allowed; transform: none; }
+  .save-status {
+    font-family: 'Geist Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-3);
+  }
+  .save-status.ok    { color: var(--emerald); }
+  .save-status.error { color: var(--bad); }
+
+  .complete-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--gold-tint);
+    color: var(--gold-deep);
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    margin-left: 8px;
+  }
+  .complete-badge.complete { background: #def2e0; color: var(--emerald); }
+
+  .danger-zone {
+    border-color: #f0d0d0;
+    background: #fff8f7;
+  }
+  .danger-zone h2 { color: var(--bad); }
+  .btn-signout {
+    background: transparent;
+    color: var(--bad);
+    border: 1px solid #e0c0c0;
+    padding: 9px 18px;
+    border-radius: 9px;
+    font-family: inherit;
+    font-size: 13.5px;
+    cursor: pointer;
+  }
+  .btn-signout:hover { background: #fff; border-color: var(--bad); }
+
+  .loading { text-align: center; padding: 40px; color: var(--ink-3); font-family: 'Geist Mono', monospace; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a href="/app" class="topbar__back">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+    Back to app
+  </a>
+  <div class="topbar__title">settings</div>
+</header>
+
+<main>
+  <div class="page-head">
+    <div class="page-head__eyebrow">Settings</div>
+    <h1>Your bar profile</h1>
+    <p>One-time setup. Auto-fills the advocate signature block, vakalatnama, and court field on every draft. You can edit this anytime.</p>
+  </div>
+
+  <div id="loading" class="loading">Loading…</div>
+
+  <form id="profile-form" hidden>
+
+    <!-- Account (read-only) -->
+    <div class="card">
+      <h2>Account</h2>
+      <div class="sub">From your Google sign-in. Not editable here.</div>
+      <div class="row grid-2">
+        <div class="field">
+          <label>Email</label>
+          <input id="acc-email" type="email" disabled />
+        </div>
+        <div class="field">
+          <label>Phone</label>
+          <input id="acc-phone" type="text" disabled />
+        </div>
+      </div>
+    </div>
+
+    <!-- Bar profile -->
+    <div class="card">
+      <h2>Bar profile <span id="complete-badge" class="complete-badge">Incomplete</span></h2>
+      <div class="sub">Used to auto-fill the advocate block on every draft.</div>
+
+      <div class="row">
+        <div class="field">
+          <label>Advocate name *</label>
+          <input id="advocate_name" type="text" placeholder="e.g. Vishnu Shivhare" maxlength="120" />
+          <div class="hint">As you sign it on filings</div>
+        </div>
+      </div>
+
+      <div class="row grid-2">
+        <div class="field">
+          <label>Bar Council enrolment number *</label>
+          <input id="enrolment_number" type="text" placeholder="e.g. MP/2349/2010" maxlength="60" />
+        </div>
+        <div class="field">
+          <label>Bar Council</label>
+          <input id="bar_council" type="text" placeholder="e.g. Bar Council of Madhya Pradesh" maxlength="120" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label>Chamber address</label>
+          <textarea id="chamber_address" placeholder="e.g. Chamber No. 47, MP HC Premises, Gwalior — 474001" maxlength="400"></textarea>
+          <div class="hint">Appears on letterhead and signature block</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label>Home court (default)</label>
+          <input id="home_court" type="text" placeholder="e.g. MP High Court, Gwalior Bench" maxlength="120" />
+          <div class="hint">Pre-fills the court field on new drafts</div>
+        </div>
+      </div>
+
+      <div class="save-row">
+        <button type="submit" class="btn-primary" id="save-btn">Save profile</button>
+        <span id="save-status" class="save-status"></span>
+      </div>
+    </div>
+
+    <!-- Danger zone -->
+    <div class="card danger-zone">
+      <h2>Sign out</h2>
+      <div class="sub">You'll need to sign in with Google again to access Headnote.</div>
+      <button type="button" class="btn-signout" id="signout-btn">Sign out of this device</button>
+    </div>
+  </form>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const FIELDS = ['advocate_name', 'enrolment_number', 'bar_council', 'chamber_address', 'home_court'];
+
+let _token = null;
+
+async function load() {
+  if (window.headnoteAuth && window.headnoteAuth.ready) {
+    try { await window.headnoteAuth.ready(); } catch {}
+  }
+  _token = window.headnoteAuth && await window.headnoteAuth.getAccessToken();
+  if (!_token) {
+    $('loading').textContent = 'Sign in at /app first, then come back.';
+    setTimeout(() => { window.location.href = '/app'; }, 1500);
+    return;
+  }
+
+  try {
+    const r = await fetch('/api/lawyer-profile', { headers: { 'Authorization': 'Bearer ' + _token } });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    fillForm(data);
+    $('loading').hidden = true;
+    $('profile-form').hidden = false;
+  } catch (e) {
+    $('loading').textContent = 'Could not load profile: ' + e.message;
+  }
+}
+
+function fillForm(data) {
+  $('acc-email').value = data.email || '';
+  $('acc-phone').value = data.phone || '';
+  FIELDS.forEach(f => { if ($(f)) $(f).value = (data[f] || ''); });
+  updateBadge(!!data.complete);
+}
+
+function updateBadge(isComplete) {
+  const b = $('complete-badge');
+  if (!b) return;
+  if (isComplete) {
+    b.textContent = '✓ Complete';
+    b.classList.add('complete');
+  } else {
+    b.textContent = 'Incomplete';
+    b.classList.remove('complete');
+  }
+}
+
+$('profile-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = $('save-btn');
+  const status = $('save-status');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  status.className = 'save-status';
+  status.textContent = '';
+
+  const payload = {};
+  FIELDS.forEach(f => {
+    const el = $(f);
+    if (el) payload[f] = (el.value || '').trim();
+  });
+
+  try {
+    const r = await fetch('/api/lawyer-profile', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _token },
+      body: JSON.stringify(payload),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.detail || ('HTTP ' + r.status));
+    }
+    const data = await r.json();
+    fillForm(data);
+    status.className = 'save-status ok';
+    status.textContent = '✓ Saved';
+    setTimeout(() => { status.textContent = ''; }, 3000);
+  } catch (e) {
+    status.className = 'save-status error';
+    status.textContent = 'Could not save: ' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save profile';
+  }
+});
+
+$('signout-btn').addEventListener('click', async () => {
+  if (window.headnoteAuth && window.headnoteAuth.signOut) {
+    await window.headnoteAuth.signOut();
+  }
+  window.location.href = '/app';
+});
+
+load();
+</script>
+</body>
+</html>

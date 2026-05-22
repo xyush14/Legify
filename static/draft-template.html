@@ -433,14 +433,50 @@ async function loadTemplate() {
     renderForm();
     applyLang();
     const hadDraft = restoreFromLocalStorage();
+    // Persona auto-fill — runs even if a draft exists (only fills empty
+    // advocate fields, never overwrites user-entered values).
+    await prefillFromPersona();
     if (!hadDraft) {
-      // No saved draft — fire one quiet initial render so the lawyer sees
-      // the document skeleton with [BLANK] placeholders, like bail.
       maybeRenderInitial();
     }
   } catch (e) {
     showError('Failed to load: ' + e.message);
   }
+}
+
+// Pre-fill advocate fields from the saved bar profile (settings page).
+// Maps persona columns → template field keys:
+//   persona.advocate_name      → field advocate_name
+//   persona.enrolment_number   → field advocate_enrollment
+//   persona.chamber_address    → field advocate_address
+//   persona.home_court         → field court_name (only if no value yet)
+// Never overwrites a non-empty value the user already typed.
+async function prefillFromPersona() {
+  try {
+    const headers = await authHeaders();
+    if (!headers.Authorization) return;  // not signed in — nothing to fill
+    const r = await fetch('/api/lawyer-profile', { headers });
+    if (!r.ok) return;
+    const p = await r.json();
+    const map = {
+      advocate_name:       p.advocate_name,
+      advocate_enrollment: p.enrolment_number,
+      advocate_address:    p.chamber_address,
+    };
+    // Court is only filled if completely empty — court is matter-specific.
+    if (p.home_court && !(state.fields && state.fields.court_name)) {
+      map.court_name = p.home_court;
+    }
+    Object.entries(map).forEach(([key, val]) => {
+      if (!val) return;
+      const cur = state.fields && state.fields[key];
+      if (cur && String(cur).trim()) return;  // already has a value
+      state.fields = state.fields || {};
+      state.fields[key] = val;
+      const input = document.querySelector(`[name="${key}"]`);
+      if (input) input.value = val;
+    });
+  } catch (e) { /* non-fatal */ }
 }
 function showError(msg) {
   $('#template-title').textContent = 'Error';

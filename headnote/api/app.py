@@ -369,6 +369,14 @@ def contact_page():
     return FileResponse(config.STATIC_DIR / "contact.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
+@app.get("/settings", include_in_schema=False)
+@app.get("/settings/", include_in_schema=False)
+def settings_page():
+    """Bar profile editor + sign-out. Auth handled client-side (settings.html
+    reads /api/lawyer-profile; if not signed in, bounces to /app)."""
+    return FileResponse(config.STATIC_DIR / "settings.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
 @app.get("/admin", include_in_schema=False)
 @app.get("/admin/", include_in_schema=False)
 def admin_panel():
