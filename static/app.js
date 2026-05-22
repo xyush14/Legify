@@ -1052,48 +1052,155 @@
       b.addEventListener('click', () => switchView(b.dataset.view));
     });
 
-    // Drafting tiles — "soon" tiles show a wait-list toast; "live" tiles
-    // (marked with data-href) navigate to the working drafter. Live tiles
-    // open in the SAME tab so the back button returns to the drafting
-    // home naturally; on mobile this is the right behaviour.
-    $$('.draft-tile').forEach(tile => {
-      tile.addEventListener('click', () => {
-        const name = tile.querySelector('.draft-tile__name')?.textContent?.trim() || 'this draft';
-        const href = tile.dataset.href;
-        if (href) {
-          window.location.href = href;
-          return;
-        }
-        toast(`"${name}" — coming soon. We're building each flow deeply.`, 'info', 3000);
-      });
-    });
+    // ============================================================
+    // DRAFTING HOME v2 — court-organised
+    // ============================================================
+    // Cards fetched from /api/draft/courts on first switch into the
+    // drafting view; cached for the session. Tiles render as buttons
+    // linking to /draft/court/{id} for browse and /draft/template/{id}
+    // for procedural (cross-court) templates.
+    let _courtCache = null;       // [{id, label_en, label_hi, count, templates: [...]}]
+    let _flatTemplateCache = null; // flat list of all templates for cross-court search
 
-    // Drafting search — filter tiles by name + statute-hint substring.
-    // Lightweight (no fuzzy match yet), runs on every keyup. At 10 tiles
-    // this is instant; revisit if the list grows past ~40 tiles.
+    async function loadCourtData() {
+      if (_courtCache) return _courtCache;
+      try {
+        const r = await fetch('/api/draft/courts');
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const data = await r.json();
+        _courtCache = data.courts || [];
+        _flatTemplateCache = _courtCache.flatMap(c => c.templates || []);
+        return _courtCache;
+      } catch (e) {
+        console.warn('court data load failed:', e);
+        return [];
+      }
+    }
+
+    function renderCourtCards(courts) {
+      const wrap = document.getElementById('draft-courts');
+      if (!wrap) return;
+      // The 5 main courts (procedural rendered separately below).
+      const mainCourts = courts.filter(c => c.id !== 'procedural');
+      wrap.innerHTML = mainCourts.map(c => {
+        const empty = (c.count === 0);
+        const sample = (c.templates && c.templates[0]) || null;
+        const hint = sample
+          ? `${c.count} templates · ${esc(sample.name_en)}…`
+          : `${c.count} templates`;
+        return `
+          <${empty ? 'div' : 'a href="/draft/court/' + c.id + '"'}
+             class="court-card ${empty ? 'court-card--empty' : ''}"
+             role="listitem"
+             ${empty ? 'aria-disabled="true"' : ''}>
+            <div class="court-card__name">${esc(c.label_en)}</div>
+            <div class="court-card__name-hi">${esc(c.label_hi)}</div>
+            <div class="court-card__count">${empty ? 'coming soon' : (c.count + ' templates')}</div>
+          </${empty ? 'div' : 'a'}>
+        `;
+      }).join('');
+    }
+
+    function renderProceduralRail(courts) {
+      const wrap = document.getElementById('draft-procedural');
+      if (!wrap) return;
+      const proc = courts.find(c => c.id === 'procedural');
+      if (!proc || !proc.templates || !proc.templates.length) {
+        wrap.innerHTML = '';
+        return;
+      }
+      wrap.innerHTML = proc.templates.map(t => `
+        <a href="/draft/template/${esc(t.id)}" class="procedural-tile" role="listitem">
+          <div class="procedural-tile__name">${esc(t.name_en)}</div>
+          <div class="procedural-tile__sub">${esc(t.name_hi || '')}</div>
+        </a>
+      `).join('');
+    }
+
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+        ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    }
+
+    async function initDraftingHome() {
+      const courts = await loadCourtData();
+      renderCourtCards(courts);
+      renderProceduralRail(courts);
+      checkPersonaNudge();
+    }
+
+    // ============================================================
+    // Persona nudge — show "Complete your bar profile" if user
+    // hasn't filled in advocate_name + enrolment_number yet.
+    // ============================================================
+    async function checkPersonaNudge() {
+      const nudge = document.getElementById('persona-nudge');
+      if (!nudge) return;
+      try {
+        if (!window.headnoteAuth) return;
+        await window.headnoteAuth.ready();
+        const token = await window.headnoteAuth.getAccessToken();
+        if (!token) return;  // not signed in — no nudge
+        const r = await fetch('/api/lawyer-profile', {
+          headers: { 'Authorization': 'Bearer ' + token },
+        });
+        if (!r.ok) return;
+        const data = await r.json();
+        nudge.hidden = !!data.complete;  // hide if profile already complete
+      } catch (e) { /* silent */ }
+    }
+
+    // ============================================================
+    // Search — cross-court flat search across all 35 templates.
+    // ============================================================
     const searchInput = document.getElementById('draft-search-input');
     const searchClear = document.getElementById('draft-search-clear');
-    const draftEmpty = document.getElementById('draft-empty');
-    const draftGrid = document.getElementById('draft-grid');
+    const draftEmpty  = document.getElementById('draft-empty');
+    const courtBrowse = document.getElementById('draft-court-browse');
+    const searchResults = document.getElementById('draft-search-results');
+
+    function renderSearchResults(needle) {
+      if (!searchResults) return;
+      const list = _flatTemplateCache || [];
+      const matches = list.filter(t => {
+        const hay = (t.name_en + ' ' + (t.name_hi||'') + ' ' + (t.description||''))
+          .toLowerCase();
+        return hay.includes(needle);
+      });
+      if (!matches.length) {
+        searchResults.innerHTML = '';
+        return false;
+      }
+      searchResults.innerHTML = matches.map(t => `
+        <a href="/draft/template/${esc(t.id)}" class="draft-tile draft-tile--live" role="listitem">
+          <div class="draft-tile__name">${esc(t.name_en)}</div>
+          <div class="draft-tile__sub mono">${esc(t.court_label_en)} · ${esc((t.description||'').slice(0,60))}</div>
+          <span class="draft-tile__badge draft-tile__badge--live">open</span>
+        </a>
+      `).join('');
+      return true;
+    }
 
     function applyDraftFilter(q) {
       const needle = (q || '').toLowerCase().trim();
-      let visible = 0;
-      $$('.draft-tile').forEach(tile => {
-        const name = (tile.querySelector('.draft-tile__name')?.textContent || '').toLowerCase();
-        const sub  = (tile.querySelector('.draft-tile__sub')?.textContent  || '').toLowerCase();
-        const matches = !needle || name.includes(needle) || sub.includes(needle);
-        tile.dataset.hidden = matches ? 'false' : 'true';
-        if (matches) visible++;
-      });
-      if (draftEmpty) draftEmpty.hidden = visible !== 0;
-      if (draftGrid)  draftGrid.hidden = visible === 0;
-      if (searchClear) searchClear.hidden = !needle;
+      if (!needle) {
+        // Show court browse, hide search results
+        if (courtBrowse)   courtBrowse.hidden = false;
+        if (searchResults) searchResults.hidden = true;
+        if (draftEmpty)    draftEmpty.hidden = true;
+        if (searchClear)   searchClear.hidden = true;
+        return;
+      }
+      // Show search, hide court browse
+      if (courtBrowse)   courtBrowse.hidden = true;
+      const hadResults = renderSearchResults(needle);
+      if (searchResults) searchResults.hidden = !hadResults;
+      if (draftEmpty)    draftEmpty.hidden = hadResults;
+      if (searchClear)   searchClear.hidden = false;
     }
 
     if (searchInput) {
       searchInput.addEventListener('input', e => applyDraftFilter(e.target.value));
-      // Escape clears (faster than reaching for the × button)
       searchInput.addEventListener('keydown', e => {
         if (e.key === 'Escape' && searchInput.value) {
           searchInput.value = '';
@@ -1104,11 +1211,15 @@
     }
     if (searchClear) {
       searchClear.addEventListener('click', () => {
-        searchInput.value = '';
+        if (searchInput) { searchInput.value = ''; }
         applyDraftFilter('');
-        searchInput.focus();
+        if (searchInput) searchInput.focus();
       });
     }
+
+    // Kick off the drafting home render. Idempotent — first switchView
+    // into 'drafting' will see cached data on subsequent calls.
+    initDraftingHome();
 
     // Mode + style chips
     $$('.composer__chips .chip[data-mode]').forEach(c => {

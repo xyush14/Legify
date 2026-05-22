@@ -15,7 +15,7 @@
   <!-- Supabase JS (auth) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
 
-  <link rel="stylesheet" href="/static/style.css?v=20260522h" />
+  <link rel="stylesheet" href="/static/style.css?v=20260523a" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23ffffff'/%3E%3Ccircle cx='50' cy='50' r='12' fill='%23121212'/%3E%3C/svg%3E" />
 </head>
 
@@ -261,37 +261,39 @@
         <div class="results" id="browse-results" aria-live="polite"></div>
       </section>
 
-      <!-- ============ DRAFTING VIEW ============
-           Home screen for the drafting engine. Ten document types,
-           each with its own situation-based logic, structured fields,
-           court-style hierarchy. Click → wait-list toast for now;
-           individual flows ship one by one. -->
+      <!-- ============ DRAFTING VIEW (v2 — court-organised) ============
+           Browse-by-court IA. Six groups (SC / HC / Sessions / Magistrate /
+           Family / Procedural). Hero CTA = Smart Drafter for voice-first
+           entry. Cards + tiles rendered dynamically from /api/draft/courts. -->
       <section class="view" data-view="drafting">
         <header class="topbar">
           <div class="topbar__title">drafting</div>
-          <div class="topbar__hint mono">ten document types · arriving in waves</div>
+          <div class="topbar__hint mono">organised by court · 35 templates · हिंदी + english</div>
         </header>
 
         <div class="draft-home">
-          <div class="draft-prompt">
-            <h2 class="draft-prompt__title">what do you need to draft?</h2>
-            <p class="draft-prompt__sub">
-              every application has its own logic — situation-based
-              questioning, structured fields, court-ready output. pick
-              a template below, or just tell us what you need.
-            </p>
-          </div>
 
-          <!-- ✨ SMART DRAFTER HERO CTA -->
+          <!-- ✨ SMART DRAFTER HERO CTA (kept) -->
           <a href="/draft/smart" class="smart-cta">
             <div class="smart-cta__icon" aria-hidden="true">✨</div>
             <div class="smart-cta__body">
               <div class="smart-cta__title">Smart Drafter — just describe it</div>
-              <div class="smart-cta__sub">Tell the AI what you need (voice or text). It asks the right questions, drafts the document, and shows live preview.</div>
+              <div class="smart-cta__sub">Voice or text. AI infers the template, asks the right questions, drafts the document.</div>
             </div>
             <div class="smart-cta__arrow" aria-hidden="true">→</div>
           </a>
 
+          <!-- ✱ Persona-completion nudge (shown only when bar profile incomplete) -->
+          <a href="/settings" id="persona-nudge" class="persona-nudge" hidden>
+            <div class="persona-nudge__icon" aria-hidden="true">⚖</div>
+            <div class="persona-nudge__body">
+              <div class="persona-nudge__title">Complete your bar profile</div>
+              <div class="persona-nudge__sub mono">2 minutes · auto-fills signature block, vakalatnama, home-court default on every draft</div>
+            </div>
+            <div class="persona-nudge__arrow" aria-hidden="true">→</div>
+          </a>
+
+          <!-- Search — cross-court template search -->
           <div class="draft-search">
             <svg class="draft-search__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/>
@@ -302,156 +304,34 @@
               class="draft-search__input"
               autocomplete="off"
               spellcheck="false"
-              placeholder="search drafts — e.g. ant bail, vakalat, 138 notice, quashing" />
+              placeholder="search across all 35 templates — e.g. ant bail, vakalat, 138, quashing" />
             <button type="button" class="draft-search__clear" id="draft-search-clear" aria-label="clear search" hidden>×</button>
           </div>
+
+          <!-- COURT BROWSE — main IA. Cards rendered by renderCourtCards(). -->
+          <div id="draft-court-browse">
+            <div class="draft-section-eyebrow mono">browse by court</div>
+            <div class="draft-courts" id="draft-courts" role="list">
+              <!-- 5 court cards rendered by JS: SC, HC, Sessions, Magistrate, Family -->
+            </div>
+
+            <div class="draft-section-eyebrow mono" style="margin-top:28px;">common across courts</div>
+            <div class="draft-procedural" id="draft-procedural" role="list">
+              <!-- 3 procedural tiles rendered by JS: vakalatnama, mention memo, general affidavit -->
+            </div>
+          </div>
+
+          <!-- SEARCH RESULTS — hidden by default. Populated when user types in search. -->
+          <div id="draft-search-results" class="draft-grid" role="list" hidden></div>
 
           <div class="draft-empty mono" id="draft-empty" hidden>
             no draft type matches that search. try fewer words.
           </div>
 
-          <div class="draft-grid" role="list" id="draft-grid">
-
-            <!-- Pre-existing custom drafters (handcrafted UX) -->
-            <button type="button" class="draft-tile draft-tile--live" data-draft="bail-application" data-href="/draft/bail" role="listitem">
-              <svg class="draft-tile__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <rect x="5" y="11" width="14" height="10" rx="2"/>
-                <path d="M8 11V7a4 4 0 0 1 8 0"/>
-              </svg>
-              <div class="draft-tile__name">bail application</div>
-              <div class="draft-tile__sub mono">s.437 / 438 / 439 · live preview · FIR OCR</div>
-              <span class="draft-tile__badge draft-tile__badge--live">try now</span>
-            </button>
-
-            <button type="button" class="draft-tile draft-tile--live" data-draft="cheque-notice" data-href="/drafter" role="listitem">
-              <svg class="draft-tile__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <rect x="3" y="6" width="18" height="12" rx="2"/>
-                <path d="M3 10h18"/><path d="M7 14h4"/>
-                <path d="M16 13l2 2 3-4" stroke="currentColor" opacity="0.4"/>
-              </svg>
-              <div class="draft-tile__name">cheque bounce notice</div>
-              <div class="draft-tile__sub mono">s.138 ni act</div>
-              <span class="draft-tile__badge draft-tile__badge--live">try now</span>
-            </button>
-
-            <!-- Tier 1 — daily-use templates via the universal drafter -->
-            <button type="button" class="draft-tile draft-tile--live" data-draft="vakalatnama anti-bail vakalat authorisation" data-href="/draft/template/vakalatnama" role="listitem">
-              <svg class="draft-tile__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                <circle cx="9" cy="7" r="4"/><path d="M16 11l2 2 4-4"/>
-              </svg>
-              <div class="draft-tile__name">vakalatnama</div>
-              <div class="draft-tile__sub mono">authorisation to represent</div>
-              <span class="draft-tile__badge draft-tile__badge--live">try now</span>
-            </button>
-
-            <button type="button" class="draft-tile draft-tile--live" data-draft="mention memo urgent listing" data-href="/draft/template/mention_memo" role="listitem">
-              <svg class="draft-tile__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
-                <path d="M8 11h.01M12 11h.01M16 11h.01"/>
-              </svg>
-              <div class="draft-tile__name">mention memo</div>
-              <div class="draft-tile__sub mono">urgent listing · oral mention</div>
-              <span class="draft-tile__badge draft-tile__badge--live">try now</span>
-            </button>
-
-            <button type="button" class="draft-tile draft-tile--live" data-draft="anticipatory bail 438 482" data-href="/draft/template/anticipatory_bail" role="listitem">
-              <svg class="draft-tile__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                <path d="M9 12l2 2 4-4"/>
-              </svg>
-              <div class="draft-tile__name">anticipatory bail</div>
-              <div class="draft-tile__sub mono">s.482 bnss / 438 crpc · pre-arrest</div>
-              <span class="draft-tile__badge draft-tile__badge--live">try now</span>
-            </button>
-
-            <button type="button" class="draft-tile draft-tile--live" data-draft="quashing fir 528 482" data-href="/draft/template/quashing_petition" role="listitem">
-              <svg class="draft-tile__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M3 6l3 14h12l3-14"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                <line x1="10" y1="10" x2="14" y2="14"/><line x1="14" y1="10" x2="10" y2="14"/>
-              </svg>
-              <div class="draft-tile__name">quashing petition</div>
-              <div class="draft-tile__sub mono">s.528 bnss / 482 crpc · hc inherent</div>
-              <span class="draft-tile__badge draft-tile__badge--live">try now</span>
-            </button>
-
-            <button type="button" class="draft-tile draft-tile--live" data-draft="writ petition article 226 mandamus certiorari" data-href="/draft/template/writ_petition" role="listitem">
-              <svg class="draft-tile__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M19 3v18l-7-4-7 4V3"/>
-                <line x1="9" y1="9" x2="15" y2="9"/>
-                <line x1="9" y1="13" x2="13" y2="13"/>
-              </svg>
-              <div class="draft-tile__name">writ petition</div>
-              <div class="draft-tile__sub mono">art. 226 · mandamus / certiorari / habeas</div>
-              <span class="draft-tile__badge draft-tile__badge--live">try now</span>
-            </button>
-
-            <!-- Tier 2 — weekly use -->
-            <button type="button" class="draft-tile draft-tile--live" data-draft="default bail 187 167 statutory" data-href="/draft/template/default_bail" role="listitem">
-              <svg class="draft-tile__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/>
-              </svg>
-              <div class="draft-tile__name">default bail</div>
-              <div class="draft-tile__sub mono">s.187(3) bnss / 167(2) crpc · 60/90 days</div>
-              <span class="draft-tile__badge draft-tile__badge--live">try now</span>
-            </button>
-
-            <button type="button" class="draft-tile draft-tile--live" data-draft="discharge application 250 258 227 239" data-href="/draft/template/discharge_application" role="listitem">
-              <svg class="draft-tile__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M9 12l2 2 4-4"/>
-                <path d="M21 12c0 5-3.5 7.5-9 9-5.5-1.5-9-4-9-9V5l9-3 9 3z"/>
-              </svg>
-              <div class="draft-tile__name">discharge application</div>
-              <div class="draft-tile__sub mono">s.250/258 bnss · pre-trial relief</div>
-              <span class="draft-tile__badge draft-tile__badge--live">try now</span>
-            </button>
-
-            <button type="button" class="draft-tile draft-tile--live" data-draft="maintenance 144 125 wife" data-href="/draft/template/maintenance" role="listitem">
-              <svg class="draft-tile__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
-                <circle cx="9" cy="7" r="4"/>
-                <path d="M22 11h-6M19 8v6"/>
-              </svg>
-              <div class="draft-tile__name">maintenance petition</div>
-              <div class="draft-tile__sub mono">s.144 bnss / 125 crpc · family</div>
-              <span class="draft-tile__badge draft-tile__badge--live">try now</span>
-            </button>
-
-            <button type="button" class="draft-tile draft-tile--live" data-draft="criminal revision 438 397" data-href="/draft/template/revision_petition" role="listitem">
-              <svg class="draft-tile__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M23 4v6h-6"/><path d="M1 20v-6h6"/>
-                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
-              </svg>
-              <div class="draft-tile__name">criminal revision</div>
-              <div class="draft-tile__sub mono">s.438 bnss / 397 crpc · 90-day window</div>
-              <span class="draft-tile__badge draft-tile__badge--live">try now</span>
-            </button>
-
-            <button type="button" class="draft-tile draft-tile--live" data-draft="reply to bail counter affidavit" data-href="/draft/template/reply_to_bail" role="listitem">
-              <svg class="draft-tile__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M9 17l-5-5 5-5"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/>
-              </svg>
-              <div class="draft-tile__name">reply to bail</div>
-              <div class="draft-tile__sub mono">counter affidavit · opposing bail</div>
-              <span class="draft-tile__badge draft-tile__badge--live">try now</span>
-            </button>
-
-            <button type="button" class="draft-tile draft-tile--live" data-draft="appeal conviction 374 415 419" data-href="/draft/template/appeal_conviction" role="listitem">
-              <svg class="draft-tile__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M18 15l-6-6-6 6"/><circle cx="12" cy="12" r="10"/>
-              </svg>
-              <div class="draft-tile__name">appeal against conviction</div>
-              <div class="draft-tile__sub mono">s.415/419 bnss / 374 crpc</div>
-              <span class="draft-tile__badge draft-tile__badge--live">try now</span>
-            </button>
-
-          </div>
-
           <div class="draft-footer">
             <p class="draft-footer__line mono">
-              each draft is being built deeply, not as a generic form.
-              native bilingual templates, court-style hierarchy,
-              situation-aware questioning, zero-llm in the draft path.
+              each template models a real court format. structured fields,
+              hindi + english, live preview, voice input, ai polish on rough notes.
             </p>
             <p class="draft-footer__line mono draft-footer__hint">
               tell us which draft you'd use most — we'll prioritise it.
@@ -589,7 +469,7 @@
   </div>
   <!-- ============ END AUTH OVERLAY ============ -->
 
-  <script src="/static/auth.js?v=20260522h" defer></script>
-  <script src="/static/app.js?v=20260522h" defer></script>
+  <script src="/static/auth.js?v=20260523a" defer></script>
+  <script src="/static/app.js?v=20260523a" defer></script>
 </body>
 </html>

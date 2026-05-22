@@ -1279,6 +1279,162 @@ button { font-family: inherit; }
   .smart-cta__arrow { font-size: 18px; }
 }
 
+/* ============================================================================
+   v2 — court-organised drafting home
+   Cards rendered by renderCourtCards() in app.js, populated from
+   /api/draft/courts. Layout: 5 court cards in a responsive grid,
+   followed by a 3-tile procedural mini-rail.
+   ============================================================================ */
+
+.persona-nudge {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  margin: 0 0 18px;
+  border: 1px solid #e6d9b8;
+  background: linear-gradient(135deg, #fdf8e8, #fffbf0);
+  border-radius: 14px;
+  text-decoration: none;
+  color: var(--ink, #0c0c0a);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.persona-nudge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px -8px rgba(0,0,0,0.1);
+}
+.persona-nudge__icon {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  background: #c9a96e;
+  color: #0c0c0a;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.persona-nudge__body { flex: 1; min-width: 0; }
+.persona-nudge__title {
+  font-size: 14px; font-weight: 600;
+  color: #0c0c0a;
+  margin-bottom: 2px;
+}
+.persona-nudge__sub {
+  font-size: 11.5px;
+  color: #5d5b54;
+  line-height: 1.4;
+}
+.persona-nudge__arrow {
+  color: #8c7549;
+  font-size: 18px;
+  font-weight: 600;
+  transition: transform 0.15s;
+}
+.persona-nudge:hover .persona-nudge__arrow { transform: translateX(3px); }
+
+.draft-section-eyebrow {
+  font-size: 11px;
+  color: #8a857a;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 24px 0 12px;
+  font-weight: 500;
+}
+
+/* 5-card court row — responsive grid. Desktop: 5 across. Tablet: 3 across.
+   Mobile: 2 across, 1 if very narrow. */
+.draft-courts {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+}
+@media (max-width: 1100px) { .draft-courts { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 720px)  { .draft-courts { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 420px)  { .draft-courts { grid-template-columns: 1fr; } }
+
+.court-card {
+  display: flex; flex-direction: column;
+  align-items: flex-start; gap: 6px;
+  padding: 18px 16px;
+  background: #fff;
+  border: 1px solid #e8e3d6;
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+  font-family: inherit;
+  text-decoration: none;
+  color: var(--ink, #0c0c0a);
+  min-height: 110px;
+}
+.court-card:hover {
+  transform: translateY(-2px);
+  border-color: #c9a96e;
+  box-shadow: 0 8px 24px -10px rgba(201,169,110,0.25);
+}
+.court-card__name {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: #0c0c0a;
+  letter-spacing: -0.01em;
+}
+.court-card__name-hi {
+  font-family: 'Noto Sans Devanagari', 'Geist', sans-serif;
+  font-size: 12px;
+  color: #5d5b54;
+  font-weight: 500;
+}
+.court-card__count {
+  margin-top: auto;
+  font-size: 11px;
+  color: #8a857a;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-family: 'Geist Mono', monospace;
+}
+.court-card--empty {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.court-card--empty:hover {
+  transform: none;
+  border-color: #e8e3d6;
+  box-shadow: none;
+}
+
+/* Procedural mini-rail — 3 small tiles. */
+.draft-procedural {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+@media (max-width: 720px) { .draft-procedural { grid-template-columns: 1fr; } }
+.procedural-tile {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 12px 14px;
+  background: #faf8f3;
+  border: 1px solid #ece6d3;
+  border-radius: 10px;
+  cursor: pointer;
+  text-decoration: none;
+  color: var(--ink, #0c0c0a);
+  font-family: inherit;
+  transition: background 0.15s, border-color 0.15s;
+  text-align: left;
+}
+.procedural-tile:hover {
+  background: #fff;
+  border-color: #c9a96e;
+}
+.procedural-tile__name {
+  font-size: 13px; font-weight: 600;
+  color: #0c0c0a;
+}
+.procedural-tile__sub {
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px;
+  color: #8a857a;
+}
+
 /* Inline search above the grid — filters tiles by name + statute hint.
    Position: relative so the clear-button absolute-anchors inside. */
 .draft-search {

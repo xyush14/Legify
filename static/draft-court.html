@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<script>if(location.protocol==='http:'&&location.hostname!=='localhost'&&!location.hostname.startsWith('127.')){location.replace(location.href.replace(/^http:/,'https:'));}</script>
+<title>Drafting — Headnote</title>
+<meta name="description" content="Court-specific drafting templates for Indian criminal advocates." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600&display=swap" rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/static/auth.js?v=20260523a" defer></script>
+
+<style>
+  :root {
+    --bg: #fdfcf9;
+    --card: #ffffff;
+    --ink: #0c0c0a;
+    --ink-2: #2a2a26;
+    --ink-3: #5d5b54;
+    --ink-4: #8a857a;
+    --line: #e8e3d6;
+    --gold: #c9a96e;
+    --gold-deep: #8c7549;
+    --gold-tint: #f9f3e3;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Geist', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; text-decoration: none; }
+
+  .topbar {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(253, 252, 249, 0.85);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--line);
+    padding: 14px 24px;
+    display: flex; align-items: center; gap: 18px;
+  }
+  .topbar__back {
+    font-size: 13px; color: var(--ink-3);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .topbar__back:hover { color: var(--ink); }
+  .topbar__crumb {
+    font-family: 'Geist Mono', monospace;
+    font-size: 12px; color: var(--ink-3);
+    margin-left: auto;
+  }
+  .topbar__crumb .court { color: var(--gold-deep); }
+
+  main { max-width: 1180px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  .head { margin-bottom: 36px; }
+  .head__eyebrow {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px; color: var(--gold-deep);
+    text-transform: uppercase; letter-spacing: 0.12em;
+    margin-bottom: 8px;
+  }
+  .head__title {
+    font-size: clamp(28px, 4vw, 42px);
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    line-height: 1.05;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+  .head__title-hi {
+    font-family: 'Noto Sans Devanagari', 'Geist', sans-serif;
+    font-size: 18px;
+    color: var(--ink-3);
+    font-weight: 500;
+  }
+  .head__count {
+    margin-top: 14px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-4);
+  }
+
+  .section-label {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-4);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin: 28px 0 14px;
+    font-weight: 500;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+  }
+  .tile {
+    display: flex; flex-direction: column; gap: 6px;
+    padding: 18px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+    color: var(--ink);
+    text-align: left;
+    min-height: 100px;
+    font-family: inherit;
+  }
+  .tile:hover {
+    transform: translateY(-2px);
+    border-color: var(--gold);
+    box-shadow: 0 10px 24px -12px rgba(201,169,110,0.25);
+  }
+  .tile.tile--popular {
+    background: linear-gradient(180deg, var(--gold-tint), #fff 70%);
+  }
+  .tile__name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+  .tile__name-hi {
+    font-family: 'Noto Sans Devanagari', sans-serif;
+    font-size: 12.5px;
+    color: var(--ink-3);
+    margin-top: 2px;
+  }
+  .tile__desc {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11.5px;
+    color: var(--ink-4);
+    margin-top: 8px;
+    line-height: 1.45;
+  }
+  .tile__tag {
+    margin-top: auto;
+    align-self: flex-start;
+    font-family: 'Geist Mono', monospace;
+    font-size: 9.5px; font-weight: 600;
+    background: var(--gold-tint);
+    color: var(--gold-deep);
+    padding: 3px 7px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .empty-state {
+    background: var(--card);
+    border: 1px dashed var(--line);
+    border-radius: 12px;
+    padding: 36px 24px;
+    text-align: center;
+    color: var(--ink-3);
+  }
+  .empty-state h3 {
+    font-size: 16px; color: var(--ink);
+    margin-bottom: 6px;
+  }
+  .empty-state p {
+    font-size: 13px;
+    color: var(--ink-3);
+  }
+
+  .procedural-rail {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+  }
+  .pr-tile {
+    background: #faf8f3;
+    border: 1px solid #ece6d3;
+    border-radius: 10px;
+    padding: 12px 14px;
+    cursor: pointer;
+    color: var(--ink);
+    font-family: inherit;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .pr-tile:hover { background: #fff; border-color: var(--gold); }
+  .pr-tile__name { font-size: 13px; font-weight: 600; }
+  .pr-tile__sub {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-4);
+    margin-top: 2px;
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a href="/app" class="topbar__back">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+    Drafting home
+  </a>
+  <div class="topbar__crumb">drafting / <span class="court" id="crumb-court">…</span></div>
+</header>
+
+<main>
+  <div class="head">
+    <div class="head__eyebrow">Court</div>
+    <h1 class="head__title" id="court-title">Loading…</h1>
+    <div class="head__title-hi" id="court-title-hi"></div>
+    <div class="head__count" id="court-count"></div>
+  </div>
+
+  <div id="popular-section" hidden>
+    <div class="section-label">Most filed</div>
+    <div class="grid" id="popular-grid"></div>
+  </div>
+
+  <div id="all-section" hidden>
+    <div class="section-label">All templates</div>
+    <div class="grid" id="all-grid"></div>
+  </div>
+
+  <div id="empty-state" hidden>
+    <div class="empty-state">
+      <h3>No templates yet for this court</h3>
+      <p>We're building these in waves. Reach out at <a href="mailto:hello@headnote.in" style="color:var(--gold-deep)">hello@headnote.in</a> to vote up what we ship next.</p>
+    </div>
+  </div>
+
+  <div id="procedural-section" style="margin-top:40px;" hidden>
+    <div class="section-label">Also useful here</div>
+    <div class="procedural-rail" id="procedural-grid"></div>
+  </div>
+</main>
+
+<script>
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+function getCourtId() {
+  const m = window.location.pathname.match(/\/draft\/court\/([a-z]+)/i);
+  return (m ? m[1] : '').toLowerCase();
+}
+
+async function load() {
+  const courtId = getCourtId();
+  if (!courtId) { window.location.href = '/app'; return; }
+  try {
+    const r = await fetch('/api/draft/courts');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    const all = data.courts || [];
+    const court = all.find(c => c.id === courtId);
+    const procedural = all.find(c => c.id === 'procedural');
+    if (!court) { document.getElementById('court-title').textContent = 'Unknown court'; return; }
+
+    document.title = `${court.label_en} — Drafting — Headnote`;
+    document.getElementById('court-title').textContent    = court.label_en;
+    document.getElementById('court-title-hi').textContent = court.label_hi;
+    document.getElementById('court-count').textContent    = court.count + ' templates available';
+    document.getElementById('crumb-court').textContent    = court.label_en;
+
+    const templates = court.templates || [];
+    if (templates.length === 0) {
+      document.getElementById('empty-state').hidden = false;
+    } else {
+      // Split into popular (popularity >= 4) and rest.
+      const popular = templates.filter(t => (t.popularity || 0) >= 4);
+      const rest    = templates.filter(t => (t.popularity || 0) <  4);
+
+      if (popular.length) {
+        renderGrid('popular-grid', popular, true);
+        document.getElementById('popular-section').hidden = false;
+      }
+      if (rest.length) {
+        renderGrid('all-grid', rest, false);
+        document.getElementById('all-section').hidden = false;
+      }
+    }
+
+    // Procedural mini-rail (only if this isn't the procedural court itself)
+    if (court.id !== 'procedural' && procedural && procedural.templates.length) {
+      renderRail('procedural-grid', procedural.templates);
+      document.getElementById('procedural-section').hidden = false;
+    }
+  } catch (e) {
+    console.error('load failed:', e);
+    document.getElementById('court-title').textContent = 'Could not load templates';
+  }
+}
+
+function renderGrid(elId, templates, popular) {
+  const wrap = document.getElementById(elId);
+  if (!wrap) return;
+  wrap.innerHTML = templates.map(t => `
+    <a href="/draft/template/${esc(t.id)}" class="tile ${popular ? 'tile--popular' : ''}">
+      <div class="tile__name">${esc(t.name_en)}</div>
+      <div class="tile__name-hi">${esc(t.name_hi || '')}</div>
+      ${t.description ? `<div class="tile__desc">${esc(t.description.slice(0, 110))}${t.description.length > 110 ? '…' : ''}</div>` : ''}
+      ${t.tier ? `<span class="tile__tag">Tier ${t.tier}</span>` : ''}
+    </a>
+  `).join('');
+}
+
+function renderRail(elId, templates) {
+  const wrap = document.getElementById(elId);
+  if (!wrap) return;
+  wrap.innerHTML = templates.map(t => `
+    <a href="/draft/template/${esc(t.id)}" class="pr-tile">
+      <div class="pr-tile__name">${esc(t.name_en)}</div>
+      <div class="pr-tile__sub">${esc(t.name_hi || '')}</div>
+    </a>
+  `).join('');
+}
+
+load();
+</script>
+</body>
+</html>

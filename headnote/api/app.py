@@ -436,6 +436,19 @@ def draft_template_drafter(doc_type: str):
     return FileResponse(config.STATIC_DIR / "draft-template.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
+@app.get("/draft/court/{court_id}", include_in_schema=False)
+@app.get("/draft/court/{court_id}/", include_in_schema=False)
+def draft_court_page(court_id: str):
+    """Court drill-down page — shows all templates filed at this court level.
+
+    court_id is one of: sc, hc, sessions, magistrate, family, procedural.
+    Validation happens client-side; unknown ids render an empty state.
+
+    Same SPA shell served regardless of court_id — JS calls /api/draft/courts
+    and renders the matching court's templates."""
+    return FileResponse(config.STATIC_DIR / "draft-court.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
 @app.get("/draft/smart", include_in_schema=False)
 @app.get("/draft/smart/", include_in_schema=False)
 def draft_smart():
@@ -466,7 +479,7 @@ def api_config():
     return {
         "supabase_url":      config.SUPABASE_URL or "",
         "supabase_anon_key": config.SUPABASE_ANON_KEY or "",
-        "code_version":      "20260522h",
+        "code_version":      "20260523a",
     }
 
 
