@@ -31,3 +31,11 @@ kanoon_cache/
 
 # Logs
 *.log
+
+# Reference templates — real client filings, scrubbed or unscrubbed,
+# used to tune format_specs in headnote/drafter/compose_templates.py.
+# Never committed — client names, FIR numbers, addresses must not leak
+# into version control. The README in the folder is committed; everything
+# else is local-only.
+templates_reference/*
+!templates_reference/README.md
