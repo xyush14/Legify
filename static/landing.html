@@ -3,897 +3,829 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#0a0a0f" />
+<meta name="theme-color" content="#fafafa" />
 <script>if(location.protocol==='http:'&&location.hostname!=='localhost'&&!location.hostname.startsWith('127.')){location.replace(location.href.replace(/^http:/,'https:'));}</script>
-<title>Headnote — AI for Indian criminal advocates</title>
-<meta name="description" content="Verified legal research, voice-first court drafting, BNSS-mapped templates. Built for advocates practising in Indian criminal courts." />
-<meta property="og:title" content="Headnote — AI for Indian criminal advocates" />
-<meta property="og:description" content="Verified research. Voice-first drafting. Court-ready Hindi & English. The AI co-counsel for India's criminal bar." />
-<meta property="og:type" content="website" />
+<title>Headnote — AI for criminal advocates</title>
+<meta name="description" content="Verified legal research and court drafting. Built for India's criminal bar." />
+<meta property="og:title" content="Headnote — AI for criminal advocates" />
+<meta property="og:description" content="Verified research. Court-ready drafting. हिंदी + English. BNSS mapped." />
 <meta property="og:url" content="https://headnote.in" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&display=swap" rel="stylesheet">
 
-<!-- Supabase JS (auth) — landing nav reflects whether user is signed in -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/static/auth.js?v=20260522f" defer></script>
 
 <style>
-  /* ===============================================================
-     Design tokens — premium "court paper" aesthetic.
-     Same language as the in-app drafter so brand stays cohesive.
-  =============================================================== */
+  /* ===========================================================
+     Tokens — pure neutral palette. Mono everywhere except H1/H2.
+  =========================================================== */
   :root {
-    --bg:         #fdfcf9;
-    --bg-deep:    #f4f0e6;
-    --bg-dark:    #0a0a0f;
-    --surface:    #ffffff;
-    --ink:        #0c0c0a;
-    --ink-2:      #2a2a26;
-    --ink-3:      #5d5b54;
-    --ink-4:      #8a857a;
-    --line:       #e8e3d6;
-    --line-deep:  #d6cfbb;
-    --accent:     #c9a96e;
-    --accent-deep:#8c7549;
-    --accent-bg:  #f5edd7;
-    --success:    #1a7a3a;
+    --bg:    #fafafa;
+    --card:  #ffffff;
+    --ink:   #0a0a0a;
+    --ink-2: #525252;
+    --ink-3: #a3a3a3;
+    --ink-4: #d4d4d4;
+    --line:  #ebebeb;
+    --line-2:#dddddd;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html { scroll-behavior: smooth; }
   body {
-    font-family: 'Geist', system-ui, -apple-system, sans-serif;
+    /* DEFAULT IS MONO — only headings escape into Geist sans. */
+    font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 14px;
+    line-height: 1.55;
     background: var(--bg);
     color: var(--ink);
-    line-height: 1.5;
     -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.005em;
   }
-  a { color: inherit; }
+  h1, h2, h3, .sans { font-family: 'Geist', system-ui, sans-serif; letter-spacing: -0.025em; }
+  .hi { font-family: 'Noto Sans Devanagari', 'Geist Mono', monospace; }
+  a { color: inherit; text-decoration: none; }
 
-  /* ========== Top nav ========== */
+  /* ========== Nav ========== */
   .nav {
     position: sticky; top: 0; z-index: 50;
-    background: rgba(253, 252, 249, 0.85);
-    backdrop-filter: saturate(180%) blur(14px);
-    -webkit-backdrop-filter: saturate(180%) blur(14px);
+    background: rgba(250,250,250,0.82);
+    backdrop-filter: saturate(180%) blur(10px);
+    -webkit-backdrop-filter: saturate(180%) blur(10px);
     border-bottom: 1px solid var(--line);
   }
   .nav-inner {
     max-width: 1180px; margin: 0 auto;
     padding: 14px 24px;
-    display: flex; align-items: center; gap: 18px;
+    display: flex; align-items: center; gap: 28px;
+    font-size: 13px;
   }
   .nav-brand {
-    display: flex; align-items: center; gap: 10px;
-    text-decoration: none; color: var(--ink);
-    font-weight: 700; font-size: 18px; letter-spacing: -0.01em;
+    font-family: 'Geist', sans-serif;
+    font-weight: 600; font-size: 16px;
+    display: flex; align-items: center; gap: 8px;
   }
-  .brand-dot {
-    width: 10px; height: 10px; border-radius: 50%;
-    background: var(--ink);
+  .nav-brand .dot {
+    width: 8px; height: 8px; background: var(--ink); border-radius: 2px;
   }
-  .nav-spacer { flex: 1; }
   .nav-links {
-    display: flex; align-items: center; gap: 22px;
-    font-size: 14px;
-    color: var(--ink-3);
+    display: flex; gap: 22px;
+    color: var(--ink-2);
   }
-  .nav-links a { text-decoration: none; }
   .nav-links a:hover { color: var(--ink); }
-  @media (max-width: 720px) {
-    .nav-links { display: none; }
+  @media (max-width: 720px) { .nav-links { display: none; } }
+  .nav-spacer { flex: 1; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 13px; font-weight: 500;
+    padding: 8px 14px;
+    background: var(--ink); color: var(--bg);
+    border: 1px solid var(--ink);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: opacity 0.15s;
   }
-  .nav-cta {
-    background: var(--ink);
-    color: var(--bg);
-    padding: 9px 18px;
-    border-radius: 999px;
-    font-weight: 600; font-size: 14px;
-    text-decoration: none;
-    transition: transform 0.15s;
+  .btn:hover { opacity: 0.85; }
+  .btn--ghost {
+    background: transparent; color: var(--ink); border-color: var(--line-2);
   }
-  .nav-cta:hover { transform: translateY(-1px); }
-  .nav-cta--signedin {
-    background: var(--accent-bg);
-    color: var(--accent-deep);
-    border: 1px solid var(--accent);
-  }
+  .btn--ghost:hover { background: var(--card); opacity: 1; }
+  .btn--lg { padding: 12px 22px; font-size: 14px; }
+
+  /* ========== Frame ========== */
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
 
   /* ========== Hero ========== */
   .hero {
-    padding: 80px 24px 64px;
-    max-width: 1100px;
-    margin: 0 auto;
-    text-align: center;
-  }
-  .hero-eyebrow {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 6px 14px;
-    background: var(--accent-bg);
-    color: var(--accent-deep);
-    border-radius: 999px;
-    font-size: 13px; font-weight: 500;
-    margin-bottom: 24px;
-  }
-  .hero-eyebrow .dot {
-    width: 6px; height: 6px; border-radius: 50%;
-    background: var(--accent-deep);
-    animation: pulse 1.5s infinite;
-  }
-  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: 0.4 } }
-
-  .hero h1 {
-    font-size: clamp(40px, 6vw, 68px);
-    line-height: 1.05;
-    letter-spacing: -0.03em;
-    font-weight: 700;
-    margin-bottom: 22px;
-  }
-  .hero h1 em {
-    font-style: normal;
-    color: var(--accent-deep);
-    border-bottom: 3px solid var(--accent);
-    padding-bottom: 2px;
-  }
-  .hero p.lede {
-    font-size: clamp(17px, 2vw, 21px);
-    color: var(--ink-3);
-    max-width: 720px; margin: 0 auto 36px;
-    line-height: 1.55;
-  }
-  .hero-cta-row {
-    display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
-    margin-bottom: 22px;
-  }
-  .btn {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 14px 26px;
-    border-radius: 12px;
-    font-weight: 600; font-size: 16px;
-    text-decoration: none;
-    border: 1px solid var(--ink);
-    background: var(--ink);
-    color: var(--bg);
-    cursor: pointer;
-    transition: transform 0.15s, box-shadow 0.15s;
-  }
-  .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
-  .btn--ghost {
-    background: transparent;
-    color: var(--ink);
-  }
-  .btn--ghost:hover { background: var(--bg-deep); }
-  .hero-meta {
-    color: var(--ink-4); font-size: 13px;
-    display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap;
-  }
-  .hero-meta .sep { color: var(--line-deep); }
-
-  /* Hero proof strip */
-  .proof-strip {
-    background: var(--bg-deep);
-    border-top: 1px solid var(--line);
-    border-bottom: 1px solid var(--line);
-    padding: 28px 24px;
-  }
-  .proof-strip-inner {
-    max-width: 1100px; margin: 0 auto;
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 32px;
-    text-align: center;
-  }
-  .proof-strip .num {
-    font-family: 'Geist Mono', monospace;
-    font-size: 28px; font-weight: 700;
-    color: var(--ink);
-    letter-spacing: -0.02em;
-  }
-  .proof-strip .lbl {
-    font-size: 12px;
-    color: var(--ink-4);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-top: 4px;
-  }
-  @media (max-width: 720px) {
-    .proof-strip-inner { grid-template-columns: repeat(2, 1fr); gap: 24px; }
-  }
-
-  /* ========== Section frame ========== */
-  section.feature {
+    padding: 140px 24px 80px;
     max-width: 1180px;
     margin: 0 auto;
-    padding: 96px 24px;
   }
-  .section-eyebrow {
+  .hero-tag {
     font-family: 'Geist Mono', monospace;
     font-size: 12px;
-    color: var(--accent-deep);
-    text-transform: uppercase;
-    letter-spacing: 0.14em;
-    margin-bottom: 14px;
-  }
-  .section-title {
-    font-size: clamp(28px, 4vw, 42px);
-    line-height: 1.1;
-    letter-spacing: -0.02em;
-    font-weight: 700;
-    margin-bottom: 18px;
-    max-width: 760px;
-  }
-  .section-lede {
-    font-size: 18px;
     color: var(--ink-3);
-    max-width: 680px;
-    line-height: 1.55;
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 36px;
+  }
+  .hero-tag .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #16a34a;
+  }
+  .hero h1 {
+    font-size: clamp(40px, 6.2vw, 76px);
+    line-height: 1.02;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 28px;
+    max-width: 900px;
+  }
+  .hero h1 .fade { color: var(--ink-3); }
+  .hero p {
+    font-size: 15px;
+    color: var(--ink-2);
+    max-width: 540px;
+    margin-bottom: 36px;
+    line-height: 1.6;
+  }
+  .hero-row {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  }
+
+  /* ========== Stats strip ========== */
+  .stats {
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    background: var(--bg);
+  }
+  .stats-grid {
+    max-width: 1180px; margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-left: 1px solid var(--line);
+  }
+  .stats-cell {
+    border-right: 1px solid var(--line);
+    padding: 28px 24px;
+  }
+  .stats-cell .v {
+    font-family: 'Geist', sans-serif;
+    font-size: 28px; font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 4px;
+    letter-spacing: -0.02em;
+  }
+  .stats-cell .k {
+    font-size: 12px;
+    color: var(--ink-3);
+  }
+  @media (max-width: 720px) {
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* ========== Section ========== */
+  section.block { padding: 120px 24px; }
+  .section-eyebrow {
+    font-size: 12px; color: var(--ink-3);
+    margin-bottom: 14px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .section-eyebrow .num { color: var(--ink); }
+  .section-title {
+    font-family: 'Geist', sans-serif;
+    font-size: clamp(28px, 4vw, 44px);
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    line-height: 1.1;
+    color: var(--ink);
+    max-width: 720px;
+    margin-bottom: 16px;
+  }
+  .section-sub {
+    font-size: 14px;
+    color: var(--ink-2);
+    max-width: 560px;
     margin-bottom: 48px;
+    line-height: 1.6;
   }
 
-  /* Two-column feature row */
-  .split {
-    display: grid; grid-template-columns: 1fr 1fr;
-    gap: 60px; align-items: center;
+  /* ========== Bento grid ========== */
+  .bento {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
   }
-  .split.reverse > :first-child { order: 2; }
-  @media (max-width: 880px) {
-    .split { grid-template-columns: 1fr; gap: 30px; }
-    .split.reverse > :first-child { order: initial; }
-  }
+  @media (max-width: 880px) { .bento { grid-template-columns: 1fr; } }
 
-  .preview-card {
-    background: var(--surface);
+  .card {
+    background: var(--card);
     border: 1px solid var(--line);
-    border-radius: 18px;
-    padding: 28px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.06);
+    border-radius: 12px;
+    padding: 24px;
     position: relative;
     overflow: hidden;
   }
-  .preview-card.dark {
-    background: var(--bg-dark);
-    color: #e8e0d4;
-    border-color: #2a2a35;
-  }
-  .preview-card h3 { font-size: 17px; margin-bottom: 14px; font-weight: 600; }
-  .preview-card .preview-list {
-    list-style: none;
-    display: grid; gap: 10px;
-  }
-  .preview-card .preview-list li {
-    padding: 12px 14px;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    background: var(--bg);
-    font-size: 14px;
-    color: var(--ink-2);
-    display: flex; gap: 10px; align-items: flex-start;
-  }
-  .preview-card.dark .preview-list li {
-    background: #16161e;
-    border-color: #2a2a35;
-    color: #b8b0a4;
-  }
-  .preview-card .preview-list li .check {
-    width: 18px; height: 18px; flex-shrink: 0;
-    border-radius: 50%;
-    background: var(--accent-bg);
-    color: var(--accent-deep);
-    font-size: 12px; font-weight: 700;
-    display: grid; place-items: center;
-  }
-  .preview-card.dark .preview-list li .check {
-    background: #2a221a; color: var(--accent);
-  }
-
-  /* ========== Document mock ========== */
-  .doc-mock {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    padding: 28px;
-    font-family: 'Noto Sans Devanagari', 'Geist', serif;
-    font-size: 13px;
-    line-height: 1.8;
-    color: var(--ink-2);
-    box-shadow: 0 20px 60px rgba(0,0,0,0.08);
-    transform: rotate(-1deg);
-  }
-  .doc-mock h4 {
-    text-align: center; font-size: 14px;
-    text-decoration: underline; margin-bottom: 14px;
-    font-weight: 700; color: var(--ink);
-  }
-  .doc-mock p { margin-bottom: 8px; }
-  .doc-mock .placeholder {
-    background: var(--accent-bg); padding: 0 4px; border-radius: 3px;
-    color: var(--accent-deep);
-  }
-
-  /* ========== Voice section ========== */
-  .orb-mock {
-    width: 220px; height: 220px; margin: 0 auto;
-    border-radius: 50%;
-    background: radial-gradient(circle at 35% 35%, #c9a96e, #6b5a3f 70%, #2a2419);
-    box-shadow: 0 20px 80px rgba(201, 169, 110, 0.4);
-    animation: orb-breathe 3.5s ease-in-out infinite;
-  }
-  @keyframes orb-breathe {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.04); box-shadow: 0 30px 100px rgba(201,169,110,0.55); }
-  }
-
-  /* ========== Templates grid ========== */
-  .template-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 14px;
-  }
-  .template-tile {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 18px;
-    transition: transform 0.15s, border-color 0.15s;
-  }
-  .template-tile:hover {
-    transform: translateY(-3px);
-    border-color: var(--accent);
-  }
-  .template-tile .ttl {
-    font-weight: 600; font-size: 14px; margin-bottom: 4px;
-  }
-  .template-tile .ttl-hi {
-    font-family: 'Noto Sans Devanagari', sans-serif;
-    color: var(--ink-3); font-size: 12px;
-  }
-  .template-tile .tag {
-    margin-top: 12px;
-    display: inline-block;
-    padding: 3px 8px;
-    font-size: 10px; font-weight: 600;
-    background: var(--accent-bg);
-    color: var(--accent-deep);
-    border-radius: 4px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  /* ========== Workflow cards ========== */
-  .work-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
-  }
-  @media (max-width: 880px) {
-    .work-grid { grid-template-columns: 1fr; }
-  }
-  .work-card {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    padding: 26px;
-  }
-  .work-card .icon {
-    width: 44px; height: 44px;
-    border-radius: 10px;
-    background: var(--accent-bg);
-    color: var(--accent-deep);
-    display: grid; place-items: center;
-    font-size: 22px; margin-bottom: 16px;
-  }
-  .work-card h3 { font-size: 17px; margin-bottom: 8px; }
-  .work-card p { color: var(--ink-3); font-size: 14px; line-height: 1.55; }
-
-  /* ========== Dark moat section ========== */
-  .dark-section {
-    background: var(--bg-dark);
-    color: #e8e0d4;
-    padding: 96px 24px;
-    margin: 60px 0;
-  }
-  .dark-section-inner { max-width: 1180px; margin: 0 auto; }
-  .dark-section .section-eyebrow { color: var(--accent); }
-  .dark-section .section-title { color: #f4ecd9; }
-  .dark-section .section-lede { color: #b8b0a4; }
-  .dark-section .check-grid {
-    display: grid; grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
-  }
-  @media (max-width: 880px) {
-    .dark-section .check-grid { grid-template-columns: 1fr; }
-  }
-  .dark-section .check-card {
-    background: #16161e;
-    border: 1px solid #2a2a35;
-    border-radius: 14px;
-    padding: 26px;
-  }
-  .dark-section .check-num {
-    font-family: 'Geist Mono', monospace;
-    color: var(--accent);
-    font-size: 13px;
-    margin-bottom: 12px;
-  }
-  .dark-section .check-card h3 {
-    color: #f4ecd9; font-size: 18px; margin-bottom: 10px;
-  }
-  .dark-section .check-card p {
-    color: #b8b0a4; font-size: 14px; line-height: 1.6;
-  }
-
-  /* ========== Pricing teaser ========== */
-  .pricing-teaser {
-    max-width: 1180px;
-    margin: 80px auto;
-    padding: 0 24px;
-    text-align: center;
-  }
-  .price-row {
-    display: inline-flex; gap: 16px; flex-wrap: wrap; justify-content: center;
-    margin-top: 28px;
-  }
-  .price-chip {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    padding: 16px 22px;
-    border-radius: 12px;
-    text-align: left;
-    min-width: 180px;
-  }
-  .price-chip .plan-name {
-    font-size: 12px;
-    color: var(--ink-4);
+  .card-eyebrow {
+    font-size: 11px;
+    color: var(--ink-3);
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    margin-bottom: 6px;
+    margin-bottom: 12px;
   }
-  .price-chip .price {
-    font-size: 26px; font-weight: 700;
-    letter-spacing: -0.02em;
-    font-family: 'Geist Mono', monospace;
+  .card-title {
+    font-family: 'Geist', sans-serif;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    color: var(--ink);
+    margin-bottom: 8px;
+    line-height: 1.2;
   }
-  .price-chip .period {
-    color: var(--ink-3); font-size: 13px;
-    margin-top: 2px;
+  .card-body {
+    font-size: 13px;
+    color: var(--ink-2);
+    line-height: 1.55;
   }
-  .price-chip.featured {
-    border-color: var(--accent);
-    background: var(--accent-bg);
+  .card-tall { grid-row: span 2; }
+  .card-w3 { grid-column: span 3; }
+  .card-w4 { grid-column: span 4; }
+  .card-w2 { grid-column: span 2; }
+  .card-w6 { grid-column: span 6; }
+  @media (max-width: 880px) {
+    .card-w3, .card-w4, .card-w2, .card-w6 { grid-column: span 1; }
+    .card-tall { grid-row: span 1; }
   }
 
-  /* ========== Final CTA ========== */
-  .final-cta {
-    background: var(--ink);
-    color: var(--bg);
-    padding: 90px 24px;
+  /* ========== In-card visuals ========== */
+  .doc-mini {
+    margin-top: 18px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px;
+    font-family: 'Noto Sans Devanagari', 'Geist Mono', monospace;
+    font-size: 11.5px;
+    color: var(--ink-2);
+    line-height: 1.75;
+    background: #fcfcfc;
+  }
+  .doc-mini .head {
+    text-align: center; font-weight: 600;
+    text-decoration: underline; color: var(--ink);
+    font-size: 11.5px; margin-bottom: 8px;
+  }
+  .doc-mini .ph {
+    background: #f4f4f4; padding: 0 4px; border-radius: 2px;
+    color: var(--ink-3);
+  }
+  .case-list {
+    margin-top: 16px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .case-row {
+    display: grid; grid-template-columns: 36px 1fr;
+    gap: 10px; align-items: center;
+    padding: 8px 10px;
+    background: #fcfcfc;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font-size: 11.5px;
+  }
+  .case-row .badge {
+    font-size: 9.5px; font-weight: 600;
+    background: var(--ink); color: var(--bg);
+    padding: 3px 6px; border-radius: 3px;
     text-align: center;
-    margin-top: 100px;
+    letter-spacing: 0.04em;
   }
-  .final-cta h2 {
-    font-size: clamp(32px, 5vw, 52px);
-    letter-spacing: -0.02em;
-    line-height: 1.1;
-    margin-bottom: 18px;
+  .case-row .badge--hc { background: #525252; }
+  .case-row .badge--obs { background: #a3a3a3; }
+  .case-row strong { color: var(--ink); font-weight: 600; }
+
+  /* Orb */
+  .orb-wrap {
+    margin: 24px auto 0;
+    display: flex; align-items: center; justify-content: center;
+    height: 180px;
   }
-  .final-cta p {
-    color: #b8b0a4; font-size: 17px; max-width: 580px; margin: 0 auto 32px;
+  .orb {
+    width: 140px; height: 140px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #404040, #0a0a0a 70%);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15), inset 0 0 30px rgba(255,255,255,0.05);
+    animation: breathe 3.6s ease-in-out infinite;
   }
-  .final-cta .btn {
-    background: var(--accent);
+  @keyframes breathe {
+    0%,100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+  }
+  .orb-meta {
+    font-size: 11px; color: var(--ink-3);
+    text-align: center; margin-top: 12px;
+  }
+
+  /* Template list */
+  .tpl-list {
+    margin-top: 16px;
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  @media (max-width: 600px) { .tpl-list { grid-template-columns: 1fr; } }
+  .tpl-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 12px;
+    background: #fcfcfc;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font-size: 12px;
+  }
+  .tpl-item .name { color: var(--ink); }
+  .tpl-item .tag {
+    font-size: 9.5px; color: var(--ink-3);
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+
+  /* Verify steps */
+  .vrow {
+    display: grid; grid-template-columns: 40px 1fr;
+    gap: 14px; margin-bottom: 14px;
+  }
+  .vrow:last-child { margin-bottom: 0; }
+  .vrow .n {
+    font-family: 'Geist', sans-serif;
+    font-size: 24px; font-weight: 500; color: var(--ink-3);
+  }
+  .vrow .ttl {
+    font-family: 'Geist', sans-serif;
+    font-weight: 500; font-size: 15px; color: var(--ink);
+    margin-bottom: 2px;
+  }
+  .vrow .desc {
+    font-size: 12.5px; color: var(--ink-2); line-height: 1.5;
+  }
+
+  /* Pricing */
+  .pricing-row {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-top: 36px;
+  }
+  @media (max-width: 880px) { .pricing-row { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 520px) { .pricing-row { grid-template-columns: 1fr; } }
+  .price {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 22px;
+  }
+  .price.featured { border-color: var(--ink); }
+  .price .pname {
+    font-size: 11px; color: var(--ink-3);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+  .price .pval {
+    font-family: 'Geist', sans-serif;
+    font-size: 32px; font-weight: 600;
+    letter-spacing: -0.025em;
     color: var(--ink);
-    border-color: var(--accent);
-    padding: 16px 32px; font-size: 17px;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .price .pmeta {
+    font-size: 11.5px; color: var(--ink-3);
+    margin-bottom: 14px;
+  }
+  .price .pbody {
+    font-size: 12px; color: var(--ink-2);
+    line-height: 1.55;
+  }
+
+  /* ========== CTA ========== */
+  .cta {
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    padding: 120px 24px;
+    text-align: center;
+    background: var(--card);
+  }
+  .cta h2 {
+    font-family: 'Geist', sans-serif;
+    font-size: clamp(36px, 5vw, 60px);
+    font-weight: 600; letter-spacing: -0.03em;
+    line-height: 1.05;
+    margin-bottom: 18px;
+    color: var(--ink);
+  }
+  .cta p {
+    color: var(--ink-2);
+    font-size: 14px;
+    margin-bottom: 32px;
   }
 
   /* ========== Footer ========== */
-  footer {
-    background: var(--bg-deep);
-    border-top: 1px solid var(--line);
-    padding: 60px 24px 30px;
-  }
-  .footer-inner {
+  footer { padding: 60px 24px 36px; }
+  .foot-inner {
     max-width: 1180px; margin: 0 auto;
-    display: grid;
-    grid-template-columns: 2fr 1fr 1fr 1fr;
-    gap: 50px;
+    display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 40px;
   }
   @media (max-width: 720px) {
-    .footer-inner { grid-template-columns: 1fr 1fr; gap: 36px; }
+    .foot-inner { grid-template-columns: 1fr 1fr; }
   }
-  .footer-brand { font-weight: 700; font-size: 18px; }
-  .footer-tag {
-    color: var(--ink-3); font-size: 14px;
-    margin-top: 8px; line-height: 1.5; max-width: 320px;
+  .foot-brand {
+    font-family: 'Geist', sans-serif;
+    font-size: 16px; font-weight: 600;
+    margin-bottom: 8px;
   }
-  .footer-col h5 {
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--ink-4);
-    margin-bottom: 14px;
+  .foot-tag {
+    font-size: 12px; color: var(--ink-2);
+    max-width: 280px; line-height: 1.55;
   }
-  .footer-col ul {
-    list-style: none; display: grid; gap: 10px;
+  .foot-col h5 {
+    font-size: 11px; color: var(--ink-3);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    margin-bottom: 12px;
   }
-  .footer-col a {
-    color: var(--ink-2);
-    text-decoration: none;
-    font-size: 14px;
-  }
-  .footer-col a:hover { color: var(--ink); }
-  .footer-bottom {
-    max-width: 1180px; margin: 50px auto 0;
-    padding-top: 24px; border-top: 1px solid var(--line);
-    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 14px;
-    font-size: 12px; color: var(--ink-4);
+  .foot-col ul { list-style: none; display: grid; gap: 8px; }
+  .foot-col a { font-size: 12.5px; color: var(--ink-2); }
+  .foot-col a:hover { color: var(--ink); }
+  .foot-base {
+    max-width: 1180px; margin: 48px auto 0;
+    padding-top: 22px; border-top: 1px solid var(--line);
+    display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    font-size: 11px; color: var(--ink-3);
   }
 </style>
 </head>
 <body>
 
-<!-- ============ Top nav ============ -->
+<!-- ============ Nav ============ -->
 <nav class="nav">
   <div class="nav-inner">
-    <a href="/" class="nav-brand"><span class="brand-dot"></span>Headnote</a>
-    <div class="nav-spacer"></div>
+    <a href="/" class="nav-brand"><span class="dot"></span>Headnote</a>
     <div class="nav-links">
-      <a href="#features">Features</a>
-      <a href="#research">Research</a>
       <a href="#drafting">Drafting</a>
+      <a href="#research">Research</a>
+      <a href="#templates">Templates</a>
+      <a href="#workflow">Workflow</a>
       <a href="/pricing">Pricing</a>
     </div>
-    <a href="/app" class="nav-cta" id="nav-cta">Sign in</a>
+    <div class="nav-spacer"></div>
+    <a href="/app" class="btn btn--ghost" id="nav-cta">Sign in</a>
   </div>
 </nav>
 
 <!-- ============ Hero ============ -->
 <section class="hero">
-  <div class="hero-eyebrow">
+  <div class="hero-tag">
     <span class="dot"></span>
-    Now live · v0.4 · BNSS 2023 mapped
+    v0.4 · BNSS mapped · live
   </div>
   <h1>
-    AI co-counsel for India's<br>
-    <em>criminal advocates.</em>
+    AI for India's<br>
+    criminal advocates.<br>
+    <span class="fade">Research. Draft. Cite.</span>
   </h1>
-  <p class="lede">
-    Verified case research. Voice-first court drafting. Hindi &amp; English
-    output that prints exactly like a typist would file it. Built specifically
-    for the Indian criminal bar — not adapted from a US legal tool.
+  <p>
+    Verified citations. Court-ready Hindi &amp; English. Voice-first drafting.
+    Built for the Indian criminal bar — not adapted from a US tool.
   </p>
-  <div class="hero-cta-row">
-    <a href="/app" class="btn" id="hero-cta">Start free — no card</a>
-    <a href="#features" class="btn btn--ghost">See what it does</a>
-  </div>
-  <div class="hero-meta">
-    <span>42K curated cases</span>
-    <span class="sep">·</span>
-    <span>Three-check verification</span>
-    <span class="sep">·</span>
-    <span>BNSS + IPC mapping</span>
+  <div class="hero-row">
+    <a href="/app" class="btn btn--lg" id="hero-cta">Start free →</a>
+    <a href="#drafting" class="btn btn--ghost btn--lg">See what it does</a>
   </div>
 </section>
 
-<!-- ============ Proof strip ============ -->
-<div class="proof-strip">
-  <div class="proof-strip-inner">
-    <div>
-      <div class="num">42K+</div>
-      <div class="lbl">Curated cases</div>
-    </div>
-    <div>
-      <div class="num">11</div>
-      <div class="lbl">Court templates</div>
-    </div>
-    <div>
-      <div class="num">3-check</div>
-      <div class="lbl">Citation verification</div>
-    </div>
-    <div>
-      <div class="num">हिंदी</div>
-      <div class="lbl">+ English output</div>
-    </div>
+<!-- ============ Stats ============ -->
+<div class="stats">
+  <div class="stats-grid">
+    <div class="stats-cell"><div class="v">42K+</div><div class="k">curated cases</div></div>
+    <div class="stats-cell"><div class="v">11</div><div class="k">court templates</div></div>
+    <div class="stats-cell"><div class="v">3-check</div><div class="k">verification</div></div>
+    <div class="stats-cell"><div class="v hi">हिंदी</div><div class="k">+ English</div></div>
   </div>
 </div>
 
-<!-- ============ AI Drafting ============ -->
-<section class="feature" id="features">
-  <div class="section-eyebrow">01 · AI Drafting</div>
-  <h2 class="section-title">Dictate the facts. File the application.</h2>
-  <p class="section-lede">
-    Smart Drafter listens to your account of the matter, asks the questions
-    a typist would have asked, and produces a court-ready application in
-    Hindi or English. Eleven of the most-filed criminal templates, BNSS-mapped.
-  </p>
+<!-- ============ 01 — Drafting ============ -->
+<section class="block" id="drafting">
+  <div class="wrap">
+    <div class="section-eyebrow"><span class="num">01</span> Drafting</div>
+    <h2 class="section-title">Dictate the facts. File the application.</h2>
+    <p class="section-sub">
+      Smart Drafter asks the questions a typist would. Outputs court-ready prose in
+      Hindi or English. Eleven templates, BNSS &amp; CrPC mapped.
+    </p>
 
-  <div class="split">
-    <div>
-      <div class="preview-card">
-        <h3 style="display:flex;gap:8px;align-items:center;">
-          <span style="width:8px;height:8px;border-radius:50%;background:#1a7a3a"></span>
-          Smart Drafter — conversational
-        </h3>
-        <ul class="preview-list">
-          <li><span class="check">✓</span><span>Pick a template, or just describe the matter — Headnote infers the right one</span></li>
-          <li><span class="check">✓</span><span>Answer one question at a time. Voice or text, Hindi or English</span></li>
-          <li><span class="check">✓</span><span>Auto-fills accused, FIR, sections, PS, court header from your FIR photo</span></li>
-          <li><span class="check">✓</span><span>Output: print-perfect document with proper margins, indents, signatures</span></li>
-        </ul>
+    <div class="bento">
+      <div class="card card-w3 card-tall">
+        <div class="card-eyebrow">draft.bail</div>
+        <div class="card-title">Conversational input.<br>Court-perfect output.</div>
+        <div class="card-body">
+          Pick a template or describe the matter. Headnote infers what to draft and
+          asks one focused question at a time. Voice or text.
+        </div>
+        <div class="doc-mini">
+          <div class="head">IN THE COURT OF SESSIONS JUDGE, GWALIOR</div>
+          <div style="text-align:center;font-weight:600;">Bail Application No. <span class="ph">[auto]</span> / 2026</div>
+          <div style="margin-top:6px;">आवेदक — रामेश्वर पुत्र लालचंद, उम्र <span class="ph">28</span></div>
+          <div>निवासी — <span class="ph">[address from FIR]</span></div>
+          <div style="text-align:center;">बनाम</div>
+          <div>राज्य म.प्र., थाना <span class="ph">मुरार</span></div>
+          <div style="margin-top:6px;"><strong>संक्षिप्त तथ्य:</strong> दिनांक <span class="ph">12.02.2026</span> को धारा <span class="ph">420, 406</span>…</div>
+        </div>
       </div>
-    </div>
-    <div>
-      <div class="doc-mock">
-        <h4>IN THE COURT OF SESSIONS JUDGE, GWALIOR</h4>
-        <p style="text-align:center; font-weight:600;">Bail Application No. <span class="placeholder">[auto]</span> / 2026</p>
-        <p>आवेदक — रामेश्वर पुत्र श्री लालचंद, उम्र <span class="placeholder">28</span> वर्ष,<br>निवासी — <span class="placeholder">[address from FIR]</span></p>
-        <p style="text-align:center;">बनाम</p>
-        <p>राज्य — मध्य प्रदेश, थाना <span class="placeholder">मुरार</span></p>
-        <p style="margin-top:12px;"><strong>संक्षिप्त तथ्य:</strong> दिनांक <span class="placeholder">12.02.2026</span> को आवेदक को धारा <span class="placeholder">420, 406 IPC</span> में…</p>
+
+      <div class="card card-w3">
+        <div class="card-eyebrow">ocr.fir</div>
+        <div class="card-title">Photo of FIR → filled draft.</div>
+        <div class="card-body">
+          Snap the NCRB I.I.F.-I. Accused, sections, PS, narrative — auto-extracted
+          in 6–12 seconds. Hindi or English OCR.
+        </div>
+      </div>
+
+      <div class="card card-w3">
+        <div class="card-eyebrow">polish.ai</div>
+        <div class="card-title">Rough notes → court prose.</div>
+        <div class="card-body">
+          ✨ button on every long-text field. Lawyer's dictation, junior's draft,
+          typist's headers — same one-tap polish.
+        </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ============ Smart Legal Research ============ -->
-<section class="feature" id="research" style="background:var(--bg-deep); max-width:none; margin-left:calc(50% - 50vw); margin-right:calc(50% - 50vw); padding-left:24px; padding-right:24px;">
-  <div style="max-width:1180px; margin:0 auto;">
-    <div class="section-eyebrow">02 · Smart Legal Research</div>
+<!-- ============ 02 — Research ============ -->
+<section class="block" id="research" style="background:var(--card);border-top:1px solid var(--line);border-bottom:1px solid var(--line);">
+  <div class="wrap">
+    <div class="section-eyebrow"><span class="num">02</span> Research</div>
     <h2 class="section-title">The precedent your opponent didn't find.</h2>
-    <p class="section-lede">
-      Headnote searches a 42,000-case curated corpus plus live Indian Kanoon.
-      Every citation is verified before it reaches you — case ID, paragraph
-      anchor, and quoted phrase all checked. No hallucinations. No
-      "AIR 1985 SC 999" that doesn't exist.
+    <p class="section-sub">
+      42,000 curated cases plus live Indian Kanoon. Every citation verified before
+      it reaches you. No hallucinated case IDs. No fake paragraph numbers.
     </p>
 
-    <div class="split reverse">
-      <div>
-        <div class="preview-card">
-          <h3>One situation, three to five hidden authorities</h3>
-          <ul class="preview-list">
-            <li><span class="check">✓</span><span>Cite the case nobody in your bar room is quoting — by design</span></li>
-            <li><span class="check">✓</span><span>Every case ID + paragraph link clickable to Indian Kanoon</span></li>
-            <li><span class="check">✓</span><span>BNSS 2023 sections mapped to old CrPC for transition matters</span></li>
-            <li><span class="check">✓</span><span>"Fame indicator" — famous vs hidden — so you pick what suits your strategy</span></li>
-          </ul>
+    <div class="bento">
+      <div class="card card-w4">
+        <div class="card-eyebrow">situation → cases</div>
+        <div class="card-title">One situation. Three to five hidden authorities.</div>
+        <div class="card-body" style="margin-bottom:14px;">
+          "Quashing FIR — civil dispute disguised as breach of trust. MP HC Gwalior."
         </div>
-      </div>
-      <div>
-        <div class="preview-card" style="padding: 22px;">
-          <div style="font-family:'Geist Mono',monospace; font-size:12px; color:var(--ink-4); margin-bottom:10px;">SITUATION</div>
-          <div style="background:var(--accent-bg); padding:14px; border-radius:10px; font-size:14px; color:var(--ink-2); margin-bottom:18px;">
-            "Quashing FIR — civil dispute disguised as criminal breach of trust. MP HC Gwalior."
+        <div class="case-list">
+          <div class="case-row">
+            <div class="badge">SC</div>
+            <div><strong>Bhajan Lal</strong> · 1992 SCC (Cri) 426 · ¶108 — seven categories test</div>
           </div>
-          <div style="font-family:'Geist Mono',monospace; font-size:12px; color:var(--ink-4); margin-bottom:10px;">CASES FOUND (3)</div>
-          <ul class="preview-list">
-            <li style="padding:10px 12px; font-size:13px;"><span class="check" style="background:#d8f1de;color:#1a7a3a;">SC</span><span><strong>State of Haryana v. Bhajan Lal</strong> · 1992 SCC (Cri) 426 · ¶108 — seven categories test</span></li>
-            <li style="padding:10px 12px; font-size:13px;"><span class="check" style="background:#fff4d1;color:#7c5e1a;">HC</span><span><strong>MP HC: Devendra Sharma v. State</strong> · 2024 MPLJ Cri 312 · ¶7 — civil-criminal divide</span></li>
-            <li style="padding:10px 12px; font-size:13px;"><span class="check" style="background:#f5edd7;color:#8c7549;">obscure</span><span><strong>Madhavrao Scindia v. Sambhajirao Angre</strong> · (1988) 1 SCC 692 — pre-Bhajan Lal anchor</span></li>
-          </ul>
+          <div class="case-row">
+            <div class="badge badge--hc">HC</div>
+            <div><strong>Devendra Sharma v. State</strong> · 2024 MPLJ Cri 312 · ¶7</div>
+          </div>
+          <div class="case-row">
+            <div class="badge badge--obs">obs</div>
+            <div><strong>Madhavrao Scindia v. Sambhajirao</strong> · (1988) 1 SCC 692</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card card-w2">
+        <div class="card-eyebrow">no fake cites</div>
+        <div class="card-title">Three-check verification.</div>
+        <div class="card-body">
+          Generic AI hallucinates. We don't — by design.
+        </div>
+        <div style="margin-top:18px;">
+          <div class="vrow"><div class="n">01</div><div><div class="ttl">Case ID exists</div><div class="desc">Matched against corpus + Indian Kanoon.</div></div></div>
+          <div class="vrow"><div class="n">02</div><div><div class="ttl">Paragraph is real</div><div class="desc">Anchor checked against judgment text.</div></div></div>
+          <div class="vrow"><div class="n">03</div><div><div class="ttl">Quote is verbatim</div><div class="desc">No paraphrased Bench observations.</div></div></div>
+        </div>
+      </div>
+
+      <div class="card card-w2">
+        <div class="card-eyebrow">bnss.map</div>
+        <div class="card-title">BNSS 2023 ↔ CrPC.</div>
+        <div class="card-body">
+          Old section, new section, both visible. Matters in transition stay legible.
+        </div>
+      </div>
+
+      <div class="card card-w2">
+        <div class="card-eyebrow">fame.indicator</div>
+        <div class="card-title">Famous · obscure · curated.</div>
+        <div class="card-body">
+          Pick the obvious citation or the hidden one. Tactical choice, not lottery.
+        </div>
+      </div>
+
+      <div class="card card-w2">
+        <div class="card-eyebrow">deep.link</div>
+        <div class="card-title">¶ → Indian Kanoon.</div>
+        <div class="card-body">
+          Every case ID + paragraph clickable. Verify before you file.
         </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ============ Voice-based Drafting ============ -->
-<section class="feature" id="drafting">
-  <div class="section-eyebrow">03 · Voice-first Experience</div>
-  <h2 class="section-title">Tap. Speak. File.</h2>
-  <p class="section-lede">
-    The fastest drafting input you have is your voice. Headnote understands
-    legal Hindi, court English, and the messy mix lawyers actually speak. Rough
-    dictation becomes formal court prose — verified for tone, mapped to BNSS.
-  </p>
+<!-- ============ 03 — Voice ============ -->
+<section class="block" id="voice">
+  <div class="wrap">
+    <div class="section-eyebrow"><span class="num">03</span> Voice</div>
+    <h2 class="section-title">Tap. Speak. File.</h2>
+    <p class="section-sub">
+      Your voice is the fastest input you have. Headnote understands legal Hindi,
+      court English, and the mix lawyers actually speak.
+    </p>
 
-  <div class="split">
-    <div style="text-align:center;">
-      <div class="orb-mock"></div>
-      <div style="margin-top:24px; color:var(--ink-3); font-size:14px; font-family:'Geist Mono',monospace;">
-        listening · हिंदी | English
+    <div class="bento">
+      <div class="card card-w2 card-tall" style="text-align:center;">
+        <div class="card-eyebrow" style="text-align:left;">listening</div>
+        <div class="orb-wrap"><div class="orb"></div></div>
+        <div class="orb-meta">हिंदी · English · auto-detect</div>
       </div>
-    </div>
-    <div>
-      <div class="preview-card dark">
-        <h3 style="color:var(--accent);">What lawyers actually do</h3>
-        <ul class="preview-list">
-          <li><span class="check">🎤</span><span>Dictate facts during a court break. Get formal narrative back in 4 seconds.</span></li>
-          <li><span class="check">✨</span><span>"Polish with AI" button on every long-text field — rough notes → court prose</span></li>
-          <li><span class="check">🔄</span><span>One-tap translate every field: English draft → Hindi, or vice versa</span></li>
-          <li><span class="check">📞</span><span>WhatsApp the PDF to your junior, your client, or directly to the typist</span></li>
-        </ul>
+
+      <div class="card card-w4">
+        <div class="card-eyebrow">voice.web-speech + whisper</div>
+        <div class="card-title">Dictate during a court break.<br>Formal narrative in 4 seconds.</div>
+        <div class="card-body">
+          Web Speech for instant transcription. Groq Whisper as fallback for
+          Firefox &amp; webviews. Indian English &amp; Hindi tuned.
+        </div>
+      </div>
+
+      <div class="card card-w2">
+        <div class="card-eyebrow">translate.fields</div>
+        <div class="card-title">EN ⇄ हिंदी</div>
+        <div class="card-body">
+          One tap. Every field. The whole draft.
+        </div>
+      </div>
+
+      <div class="card card-w2">
+        <div class="card-eyebrow">share.whatsapp</div>
+        <div class="card-title">PDF → WhatsApp.</div>
+        <div class="card-body">
+          To your junior, to your client, to the typist. One tap.
+        </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ============ Templates & Court Formats ============ -->
-<section class="feature" style="background:var(--bg-deep); max-width:none; margin-left:calc(50% - 50vw); margin-right:calc(50% - 50vw); padding-left:24px; padding-right:24px;">
-  <div style="max-width:1180px; margin:0 auto;">
-    <div class="section-eyebrow">04 · Templates &amp; Court Formats</div>
+<!-- ============ 04 — Templates ============ -->
+<section class="block" id="templates" style="background:var(--card);border-top:1px solid var(--line);border-bottom:1px solid var(--line);">
+  <div class="wrap">
+    <div class="section-eyebrow"><span class="num">04</span> Templates</div>
     <h2 class="section-title">11 templates. Filed yesterday at MP HC Gwalior.</h2>
-    <p class="section-lede">
-      Each template models the exact format a District / Sessions / High Court
-      bench expects — header, parties, prayer, verification, signature block.
-      BNSS 2023 sections paired with old CrPC for matters still in transition.
+    <p class="section-sub">
+      Each template models the format a District / Sessions / High Court bench
+      expects. Header, parties, prayer, verification, signature.
     </p>
 
-    <div class="template-grid">
-      <div class="template-tile"><div class="ttl">Regular Bail (S.483 BNSS / 439 CrPC)</div><div class="ttl-hi">नियमित जमानत आवेदन</div><span class="tag">Tier 1</span></div>
-      <div class="template-tile"><div class="ttl">Anticipatory Bail (S.482 BNSS / 438 CrPC)</div><div class="ttl-hi">अग्रिम जमानत</div><span class="tag">Tier 1</span></div>
-      <div class="template-tile"><div class="ttl">Quashing (S.528 BNSS / 482 CrPC)</div><div class="ttl-hi">FIR निरस्तीकरण</div><span class="tag">Tier 1</span></div>
-      <div class="template-tile"><div class="ttl">Vakalatnama</div><div class="ttl-hi">वकालतनामा</div><span class="tag">Tier 1</span></div>
-      <div class="template-tile"><div class="ttl">Mention Memo</div><div class="ttl-hi">मेंशन मेमो</div><span class="tag">Tier 1</span></div>
-      <div class="template-tile"><div class="ttl">Writ Petition (Art. 226)</div><div class="ttl-hi">रिट याचिका</div><span class="tag">Tier 1</span></div>
-      <div class="template-tile"><div class="ttl">Default Bail (S.187(3) BNSS)</div><div class="ttl-hi">स्थिर जमानत</div><span class="tag">Tier 2</span></div>
-      <div class="template-tile"><div class="ttl">Discharge Application</div><div class="ttl-hi">उन्मोचन आवेदन</div><span class="tag">Tier 2</span></div>
-      <div class="template-tile"><div class="ttl">Maintenance (S.144 BNSS / 125 CrPC)</div><div class="ttl-hi">भरण-पोषण याचिका</div><span class="tag">Tier 2</span></div>
-      <div class="template-tile"><div class="ttl">Criminal Revision</div><div class="ttl-hi">आपराधिक पुनरीक्षण</div><span class="tag">Tier 2</span></div>
-      <div class="template-tile"><div class="ttl">Reply to Bail</div><div class="ttl-hi">प्रत्युत्तर</div><span class="tag">Tier 2</span></div>
-      <div class="template-tile"><div class="ttl">Appeal against Conviction</div><div class="ttl-hi">दोषसिद्धि अपील</div><span class="tag">Tier 2</span></div>
+    <div class="bento">
+      <div class="card card-w3">
+        <div class="card-eyebrow">tier 1 · most filed</div>
+        <div class="tpl-list">
+          <div class="tpl-item"><span class="name">Regular Bail · S.483/439</span><span class="tag hi">नियमित जमानत</span></div>
+          <div class="tpl-item"><span class="name">Anticipatory Bail · S.482/438</span><span class="tag hi">अग्रिम जमानत</span></div>
+          <div class="tpl-item"><span class="name">Quashing · S.528/482</span><span class="tag hi">निरस्तीकरण</span></div>
+          <div class="tpl-item"><span class="name">Vakalatnama</span><span class="tag hi">वकालतनामा</span></div>
+          <div class="tpl-item"><span class="name">Mention Memo</span><span class="tag hi">मेंशन मेमो</span></div>
+          <div class="tpl-item"><span class="name">Writ Petition · Art. 226</span><span class="tag hi">रिट याचिका</span></div>
+        </div>
+      </div>
+
+      <div class="card card-w3">
+        <div class="card-eyebrow">tier 2 · specialised</div>
+        <div class="tpl-list">
+          <div class="tpl-item"><span class="name">Default Bail · S.187(3)</span><span class="tag hi">स्थिर जमानत</span></div>
+          <div class="tpl-item"><span class="name">Discharge Application</span><span class="tag hi">उन्मोचन</span></div>
+          <div class="tpl-item"><span class="name">Maintenance · S.144/125</span><span class="tag hi">भरण-पोषण</span></div>
+          <div class="tpl-item"><span class="name">Criminal Revision</span><span class="tag hi">पुनरीक्षण</span></div>
+          <div class="tpl-item"><span class="name">Reply to Bail (Counter)</span><span class="tag hi">प्रत्युत्तर</span></div>
+          <div class="tpl-item"><span class="name">Appeal v. Conviction · S.415/374</span><span class="tag hi">अपील</span></div>
+        </div>
+      </div>
     </div>
   </div>
 </section>
 
-<!-- ============ Three-check moat (dark section) ============ -->
-<section class="dark-section">
-  <div class="dark-section-inner">
-    <div class="section-eyebrow">Why Headnote &mdash; the moat</div>
-    <h2 class="section-title">Three-check verification.<br>Built so you never quote a fake case.</h2>
-    <p class="section-lede">
-      Generic AI tools hallucinate citations. We don't — by design. Every
-      output passes three independent checks before it reaches your screen.
+<!-- ============ 05 — Workflow ============ -->
+<section class="block" id="workflow">
+  <div class="wrap">
+    <div class="section-eyebrow"><span class="num">05</span> Workflow</div>
+    <h2 class="section-title">Built around how courts actually run.</h2>
+    <p class="section-sub">
+      Shaped by hours with senior advocates at MP HC Gwalior, district courts in
+      Bhopal, and mofussil benches across the Hindi belt.
     </p>
 
-    <div class="check-grid">
-      <div class="check-card">
-        <div class="check-num">CHECK 01</div>
-        <h3>Case ID exists</h3>
-        <p>Every cited case is matched against the curated corpus or Indian Kanoon. If the case doesn't exist, the output is regenerated automatically.</p>
+    <div class="bento">
+      <div class="card card-w2">
+        <div class="card-eyebrow">autosave</div>
+        <div class="card-title">Drafts that don't vanish.</div>
+        <div class="card-body">Every keystroke saved. Lose Wi-Fi at the complex. Come back, keep going.</div>
       </div>
-      <div class="check-card">
-        <div class="check-num">CHECK 02</div>
-        <h3>Paragraph anchor is real</h3>
-        <p>The cited paragraph number is checked against the actual judgment text. No "para 47" that turns out to be para 23 of a different case.</p>
+      <div class="card card-w2">
+        <div class="card-eyebrow">mobile.first</div>
+        <div class="card-title">iPad. Phone. Desktop.</div>
+        <div class="card-body">Same draft, same login. Senior reviews on a tablet, typist files from a desktop.</div>
       </div>
-      <div class="check-card">
-        <div class="check-num">CHECK 03</div>
-        <h3>Quoted phrase is verbatim</h3>
-        <p>Any text in quotes must appear verbatim in the source paragraph. Paraphrases are flagged. No misattributed Bench observations.</p>
+      <div class="card card-w2">
+        <div class="card-eyebrow">export.pdf</div>
+        <div class="card-title">Print-perfect PDF.</div>
+        <div class="card-body">Court margins, indentation, verification, signature blocks. Hindi &amp; English.</div>
+      </div>
+      <div class="card card-w3">
+        <div class="card-eyebrow">privacy</div>
+        <div class="card-title">Your matters stay yours.</div>
+        <div class="card-body">Data isolated per user. No training on queries. RLS-enforced. Sign-out clears state.</div>
+      </div>
+      <div class="card card-w3">
+        <div class="card-eyebrow">history</div>
+        <div class="card-title">Per-user chat history.</div>
+        <div class="card-body">Every search and draft tied to your account. Multiple chats, named, searchable.</div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ============ Workflow features ============ -->
-<section class="feature">
-  <div class="section-eyebrow">05 · Workflow</div>
-  <h2 class="section-title">Built around how courts actually run.</h2>
-  <p class="section-lede">
-    Headnote is shaped by hours of pairing with senior advocates at MP HC
-    Gwalior, district courts in Bhopal, and mofussil benches across the
-    Hindi belt. The workflow respects how you already work.
-  </p>
+<!-- ============ Pricing ============ -->
+<section class="block" id="pricing" style="background:var(--card);border-top:1px solid var(--line);border-bottom:1px solid var(--line);">
+  <div class="wrap">
+    <div class="section-eyebrow"><span class="num">06</span> Pricing</div>
+    <h2 class="section-title">Honest pricing. Cancel anytime.</h2>
+    <p class="section-sub">
+      Demo is real: 14 days, no card. Three deep searches and two drafts to feel
+      the verification quality. Upgrade only if you'd file what we drafted.
+    </p>
 
-  <div class="work-grid">
-    <div class="work-card">
-      <div class="icon">📸</div>
-      <h3>FIR photo OCR</h3>
-      <p>Snap the NCRB I.I.F.-I FIR on your phone. Headnote auto-fills the bail application — accused name, sections, PS, narrative — in 6 to 12 seconds.</p>
+    <div class="pricing-row">
+      <div class="price">
+        <div class="pname">Demo</div>
+        <div class="pval">Free</div>
+        <div class="pmeta">14 days, no card</div>
+        <div class="pbody">3 deep searches · 2 drafts · 42K corpus</div>
+      </div>
+      <div class="price">
+        <div class="pname">Weekly</div>
+        <div class="pval">₹120</div>
+        <div class="pmeta">7 days, one-time</div>
+        <div class="pbody">15 searches · 30 drafts · PDF export (EN)</div>
+      </div>
+      <div class="price featured">
+        <div class="pname">Monthly · popular</div>
+        <div class="pval">₹499</div>
+        <div class="pmeta">30 days</div>
+        <div class="pbody">100 searches · unlimited drafts · हिंदी PDF</div>
+      </div>
+      <div class="price">
+        <div class="pname">Yearly</div>
+        <div class="pval">₹4,999</div>
+        <div class="pmeta">save ₹989 · best value</div>
+        <div class="pbody">1,500 searches · unlimited · letterhead</div>
+      </div>
     </div>
-    <div class="work-card">
-      <div class="icon">💾</div>
-      <h3>Drafts that don't vanish</h3>
-      <p>Every keystroke auto-saves. Switch tabs, lose Wi-Fi at the court complex, your work is still there when you come back. Per-user chat history.</p>
-    </div>
-    <div class="work-card">
-      <div class="icon">📱</div>
-      <h3>Mobile-first</h3>
-      <p>Drafted on a senior's iPad. Reviewed on the junior's phone during travel. Filed from the typist's desktop. Same draft, same login.</p>
-    </div>
-    <div class="work-card">
-      <div class="icon">📑</div>
-      <h3>Print-perfect PDF</h3>
-      <p>Hindi and English exports with proper court margins, indentation, signature blocks, and verification clauses. Take it to the typist as-is.</p>
-    </div>
-    <div class="work-card">
-      <div class="icon">🔒</div>
-      <h3>Your matters stay yours</h3>
-      <p>Data isolated per user. No training on your queries. Sign in with Google. Sign out clears local state.</p>
-    </div>
-    <div class="work-card">
-      <div class="icon">💬</div>
-      <h3>WhatsApp-ready</h3>
-      <p>One tap shares a PDF to WhatsApp — to your client, junior, or the typist. The medium lawyers actually use, not the one product designers imagine.</p>
+
+    <div style="margin-top:32px;text-align:center;">
+      <a href="/pricing" class="btn btn--ghost">Full pricing →</a>
     </div>
   </div>
 </section>
 
-<!-- ============ Pricing teaser ============ -->
-<div class="pricing-teaser">
-  <div class="section-eyebrow" style="text-align:center;">Pricing</div>
-  <h2 class="section-title" style="margin-left:auto; margin-right:auto; text-align:center;">Honest pricing. Cancel anytime.</h2>
-  <p class="section-lede" style="margin-left:auto; margin-right:auto; text-align:center;">
-    Demo is real — 14 days, no card. Three deep searches and two drafts to feel
-    the verification quality yourself. Upgrade only if you'd file something we drafted.
-  </p>
-  <div class="price-row">
-    <div class="price-chip">
-      <div class="plan-name">Weekly Trial</div>
-      <div class="price">₹120</div>
-      <div class="period">7 days, one-time</div>
-    </div>
-    <div class="price-chip featured">
-      <div class="plan-name">Monthly</div>
-      <div class="price">₹499</div>
-      <div class="period">most popular</div>
-    </div>
-    <div class="price-chip">
-      <div class="plan-name">Yearly</div>
-      <div class="price">₹4,999</div>
-      <div class="period">save ₹989/year</div>
-    </div>
-  </div>
-  <div style="margin-top:28px;">
-    <a href="/pricing" class="btn btn--ghost">See full pricing →</a>
-  </div>
-</div>
-
-<!-- ============ Final CTA ============ -->
-<section class="final-cta">
-  <h2>The bar room hears about it eventually.<br>Be early.</h2>
-  <p>Two minutes to sign in with Google. No card. Your first matter starts working in less than a minute.</p>
-  <a href="/app" class="btn" id="final-cta">Open Headnote</a>
+<!-- ============ CTA ============ -->
+<section class="cta">
+  <h2>The bar room finds out eventually.<br>Be early.</h2>
+  <p>Two minutes to sign in. No card. First matter working in under a minute.</p>
+  <a href="/app" class="btn btn--lg" id="final-cta">Open Headnote →</a>
 </section>
 
 <!-- ============ Footer ============ -->
 <footer>
-  <div class="footer-inner">
+  <div class="foot-inner">
     <div>
-      <div class="footer-brand">Headnote</div>
-      <p class="footer-tag">
-        AI co-counsel for India's criminal advocates. Built in Bhopal, pairs
-        with senior advocates from MP HC, Allahabad HC, and district courts.
-      </p>
+      <div class="foot-brand">Headnote</div>
+      <div class="foot-tag">AI co-counsel for India's criminal advocates. Built in Bhopal.</div>
     </div>
-    <div class="footer-col">
+    <div class="foot-col">
       <h5>Product</h5>
       <ul>
         <li><a href="/app">Open app</a></li>
         <li><a href="/pricing">Pricing</a></li>
-        <li><a href="#features">Features</a></li>
+        <li><a href="#drafting">Drafting</a></li>
         <li><a href="#research">Research</a></li>
       </ul>
     </div>
-    <div class="footer-col">
+    <div class="foot-col">
       <h5>Legal</h5>
       <ul>
-        <li><a href="/terms">Terms of Service</a></li>
-        <li><a href="/privacy">Privacy Policy</a></li>
-        <li><a href="/refund">Refund Policy</a></li>
-        <li><a href="/contact">Contact us</a></li>
+        <li><a href="/terms">Terms</a></li>
+        <li><a href="/privacy">Privacy</a></li>
+        <li><a href="/refund">Refund</a></li>
+        <li><a href="/contact">Contact</a></li>
       </ul>
     </div>
-    <div class="footer-col">
-      <h5>Contact</h5>
+    <div class="foot-col">
+      <h5>Connect</h5>
       <ul>
         <li><a href="mailto:founder@headnote.in">founder@headnote.in</a></li>
-        <li><a href="/contact">WhatsApp support</a></li>
+        <li><a href="/contact">WhatsApp</a></li>
       </ul>
     </div>
   </div>
-  <div class="footer-bottom">
-    <div>© 2026 Headnote Private Limited. All rights reserved.</div>
-    <div>Made in Bhopal, for Indian courts.</div>
+  <div class="foot-base">
+    <div>© 2026 Headnote Private Limited</div>
+    <div>Made in Bhopal · for Indian courts</div>
   </div>
 </footer>
 
 <script>
-  // Sign-in awareness: change "Sign in" → "Open app" if user has a session.
   (async function navAuth() {
     try {
       if (window.headnoteAuth && window.headnoteAuth.ready) {
@@ -905,9 +837,9 @@
       const nav = document.getElementById('nav-cta');
       const hero = document.getElementById('hero-cta');
       const finalBtn = document.getElementById('final-cta');
-      if (nav) { nav.textContent = 'Open app →'; nav.classList.add('nav-cta--signedin'); }
-      if (hero) { hero.textContent = 'Open Headnote →'; }
-      if (finalBtn) { finalBtn.textContent = 'Open Headnote →'; }
+      if (nav) nav.textContent = 'Open app →';
+      if (hero) hero.textContent = 'Open Headnote →';
+      if (finalBtn) finalBtn.textContent = 'Open Headnote →';
     }
   })();
 </script>
