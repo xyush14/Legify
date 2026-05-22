@@ -32,7 +32,7 @@
   <p id="msg">Reading order status from Cashfree. This takes 2-5 seconds.</p>
   <div class="meta" id="meta" style="display:none"></div>
   <div id="actions"></div>
-  <div class="small">If this takes more than 30 seconds, contact founder@headnote.in with your order ID.</div>
+  <div class="small">If this takes more than 30 seconds, contact hello@headnote.in with your order ID.</div>
 </div>
 
 <script>
@@ -123,7 +123,7 @@ async function verify() {
       if (attempts < MAX) {
         setTimeout(poll, 3000);
       } else {
-        showFailure('Payment is taking longer than expected. Your card may be on a slow bank network. Check your account in 5 minutes at /app — if it\'s not upgraded, contact founder@headnote.in with order ID ' + orderId);
+        showFailure('Payment is taking longer than expected. Your card may be on a slow bank network. Check your account in 5 minutes at /app — if it\'s not upgraded, contact hello@headnote.in with order ID ' + orderId);
       }
     } catch (e) {
       showFailure('Network error: ' + e.message);
