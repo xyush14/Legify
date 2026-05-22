@@ -195,7 +195,7 @@
 <!-- Cashfree v3 SDK — the official way to open hosted checkout. There is
      no plain URL we can navigate to; the SDK handles the redirect itself. -->
 <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
-<script src="/static/auth.js?v=20260522f" defer></script>
+<script src="/static/auth.js?v=20260522g" defer></script>
 
 <script>
   let _cashfreeEnv = 'sandbox';  // updated from /api/payments/config
@@ -215,66 +215,181 @@
     })
     .catch(() => {});
 
-  function startCheckout(plan, btn) {
+  // ===== Confirm-details modal — shown before opening Cashfree =====
+  // Solves the bug where Cashfree was getting placeholder phone (9999999999).
+  // Now: every user reviews their name/email/phone before checkout. The phone
+  // is required; if it's missing or invalid, the buy button stays disabled.
+  function openConfirmModal({ plan, planLabel, amount, customer, onConfirm }) {
+    const wrap = document.createElement('div');
+    wrap.id = 'cf-confirm-wrap';
+    wrap.style.cssText = 'position:fixed;inset:0;background:rgba(12,12,10,0.55);backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;animation:cfFade .15s ease';
+    wrap.innerHTML = `
+      <style>
+        @keyframes cfFade { from { opacity:0 } to { opacity:1 } }
+        #cf-confirm-card { background:#fff;border-radius:18px;max-width:440px;width:100%;padding:28px;box-shadow:0 30px 80px rgba(0,0,0,0.25);font-family:'Inter','Geist',system-ui,sans-serif }
+        #cf-confirm-card h3 { font-size:20px;font-weight:700;margin:0 0 6px;color:#0c0c0a;letter-spacing:-0.01em }
+        #cf-confirm-card .sub { font-size:13px;color:#5d5b54;margin-bottom:20px }
+        #cf-confirm-card .row { margin-bottom:14px }
+        #cf-confirm-card label { display:block;font-size:11px;color:#8a857a;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;font-weight:600 }
+        #cf-confirm-card input { width:100%;padding:11px 13px;border:1px solid #e8e3d6;border-radius:9px;font-size:14px;font-family:inherit;color:#0c0c0a;background:#fcfcfc }
+        #cf-confirm-card input:focus { outline:none;border-color:#c9a96e;background:#fff }
+        #cf-confirm-card input:disabled { background:#f4f0e6;color:#5d5b54;cursor:not-allowed }
+        #cf-confirm-card .err { color:#b91c1c;font-size:12px;margin-top:4px;display:none }
+        #cf-confirm-card .err.show { display:block }
+        #cf-confirm-card .order { background:#f8f5ec;border-radius:10px;padding:12px 14px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;font-size:13px }
+        #cf-confirm-card .order .plan { font-weight:600;color:#0c0c0a }
+        #cf-confirm-card .order .amt { font-weight:700;color:#0c0c0a;font-size:18px }
+        #cf-confirm-card .actions { display:flex;gap:10px;margin-top:18px }
+        #cf-confirm-card .btn-primary { flex:1;background:#0c0c0a;color:#fdfcf9;border:none;padding:13px;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer;letter-spacing:0.01em }
+        #cf-confirm-card .btn-primary:disabled { background:#a3a3a3;cursor:not-allowed }
+        #cf-confirm-card .btn-cancel { background:transparent;color:#5d5b54;border:1px solid #e8e3d6;padding:13px 18px;border-radius:10px;font-weight:500;font-size:14px;cursor:pointer }
+        #cf-confirm-card .secure { display:flex;align-items:center;gap:6px;font-size:11px;color:#8a857a;margin-top:14px;justify-content:center }
+        #cf-confirm-card .phone-prefix { position:relative }
+        #cf-confirm-card .phone-prefix::before { content:'+91';position:absolute;left:13px;top:50%;transform:translateY(-50%);color:#5d5b54;font-size:14px;font-weight:500;pointer-events:none }
+        #cf-confirm-card .phone-prefix input { padding-left:44px }
+      </style>
+      <div id="cf-confirm-card">
+        <h3>Confirm your details</h3>
+        <div class="sub">We'll send the receipt &amp; OTP to these.</div>
+        <div class="order">
+          <span class="plan">${planLabel}</span>
+          <span class="amt">₹${amount}</span>
+        </div>
+        <div class="row">
+          <label>Full name</label>
+          <input id="cf-name" type="text" value="${(customer.name || '').replace(/"/g,'&quot;')}" />
+        </div>
+        <div class="row">
+          <label>Email</label>
+          <input id="cf-email" type="email" value="${(customer.email || '').replace(/"/g,'&quot;')}" disabled />
+        </div>
+        <div class="row">
+          <label>Mobile (10 digits, for UPI &amp; OTP)</label>
+          <div class="phone-prefix">
+            <input id="cf-phone" type="tel" inputmode="numeric" maxlength="10" placeholder="88156 21916" value="${customer.phone || ''}" />
+          </div>
+          <div class="err" id="cf-phone-err">Enter a valid 10-digit Indian mobile (starts with 6/7/8/9).</div>
+        </div>
+        <div class="actions">
+          <button class="btn-cancel" id="cf-cancel">Cancel</button>
+          <button class="btn-primary" id="cf-go">Continue to payment →</button>
+        </div>
+        <div class="secure">🔒 Secured by Cashfree · RBI-licensed payment gateway</div>
+      </div>
+    `;
+    document.body.appendChild(wrap);
+    wrap.addEventListener('click', (e) => { if (e.target === wrap) close(); });
+
+    const phoneInput = wrap.querySelector('#cf-phone');
+    const nameInput  = wrap.querySelector('#cf-name');
+    const errEl      = wrap.querySelector('#cf-phone-err');
+    const goBtn      = wrap.querySelector('#cf-go');
+    const cancelBtn  = wrap.querySelector('#cf-cancel');
+
+    function close() { try { wrap.remove(); } catch {} }
+    function validPhone(v) { return /^[6-9]\d{9}$/.test(v.replace(/\D/g, '')); }
+    function refresh() {
+      const ok = nameInput.value.trim().length >= 2 && validPhone(phoneInput.value);
+      goBtn.disabled = !ok;
+    }
+    phoneInput.addEventListener('input', () => {
+      phoneInput.value = phoneInput.value.replace(/\D/g, '').slice(0, 10);
+      errEl.classList.remove('show');
+      refresh();
+    });
+    nameInput.addEventListener('input', refresh);
+    cancelBtn.addEventListener('click', close);
+    goBtn.addEventListener('click', () => {
+      const phone = phoneInput.value.replace(/\D/g, '');
+      if (!validPhone(phone)) { errEl.classList.add('show'); return; }
+      goBtn.disabled = true;
+      goBtn.textContent = 'Opening Cashfree…';
+      onConfirm({ name: nameInput.value.trim(), phone });
+    });
+    setTimeout(() => { if (!phoneInput.value) phoneInput.focus(); else nameInput.focus(); }, 50);
+    refresh();
+    return close;
+  }
+
+  async function startCheckout(plan, btn) {
     const orig = btn.textContent;
     btn.disabled = true;
-    btn.textContent = 'Opening Cashfree…';
+    btn.textContent = 'Loading…';
 
-    // Wait for auth.js to initialize before grabbing the token. If the user
-    // is signed in, we attach Bearer; if not, send them to /app to sign in
-    // and bounce them back to /pricing with the plan pre-selected.
-    const proceed = async () => {
-      try {
-        if (window.headnoteAuth && window.headnoteAuth.ready) {
-          await window.headnoteAuth.ready();
-        }
-      } catch {}
-
+    try {
+      // 1. Wait for auth.
+      if (window.headnoteAuth && window.headnoteAuth.ready) {
+        try { await window.headnoteAuth.ready(); } catch {}
+      }
       const token = window.headnoteAuth && await window.headnoteAuth.getAccessToken();
+
+      // 2. If not signed in, stash plan and bounce to /app.
       if (!token) {
-        // Not signed in. Stash the chosen plan and redirect.
         try { localStorage.setItem('headnote.pending_plan', plan); } catch {}
         window.location.href = '/app';
         return;
       }
 
-      try {
-        const r = await fetch('/api/payments/create-order', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + token,
-          },
-          body: JSON.stringify({ plan }),
-        });
-        const data = await r.json();
-        if (!r.ok) {
-          throw new Error((data && (data.detail || data.error)) || ('HTTP ' + r.status));
-        }
-        if (!data.payment_session_id) {
-          throw new Error('No payment_session_id returned by server');
-        }
-        // Open Cashfree's hosted checkout via the official SDK. With
-        // redirectTarget='_self' the browser does a full-page redirect to
-        // Cashfree, user pays there, then Cashfree redirects back to the
-        // return_url we set on the order (= /payments/return?order_id=…).
-        if (typeof Cashfree !== 'function') {
-          throw new Error('Cashfree SDK failed to load. Disable ad-blockers and try again.');
-        }
-        const cashfree = Cashfree({ mode: (data.env || _cashfreeEnv) === 'production' ? 'production' : 'sandbox' });
-        cashfree.checkout({
-          paymentSessionId: data.payment_session_id,
-          redirectTarget: '_self',
-        });
-      } catch (e) {
-        console.error('checkout failed:', e);
-        alert('Could not start payment: ' + (e.message || e) + '\n\nPlease try again, or email hello@headnote.in if this persists.');
-        btn.disabled = false;
-        btn.textContent = orig;
-      }
-    };
+      // 3. Pre-fill customer data from backend (name + email always; phone if onboarded).
+      const ciResp = await fetch('/api/payments/customer-info', {
+        headers: { 'Authorization': 'Bearer ' + token },
+      });
+      const customer = ciResp.ok ? await ciResp.json() : { name: '', email: '', phone: '' };
 
-    proceed();
+      // 4. Plan metadata for the modal.
+      const planMeta = {
+        weekly:  { label: 'Headnote Weekly Trial',     amount: 120 },
+        monthly: { label: 'Headnote Monthly',          amount: 499 },
+        yearly:  { label: 'Headnote Yearly',           amount: 4999 },
+      }[plan] || { label: 'Headnote', amount: 0 };
+
+      btn.disabled = false;
+      btn.textContent = orig;
+
+      // 5. Show the confirm modal. User reviews + types/edits phone if needed.
+      openConfirmModal({
+        plan, planLabel: planMeta.label, amount: planMeta.amount,
+        customer,
+        onConfirm: async ({ name, phone }) => {
+          try {
+            const r = await fetch('/api/payments/create-order', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token,
+              },
+              body: JSON.stringify({ plan, phone }),
+            });
+            const data = await r.json();
+            if (!r.ok) {
+              const msg = (data && data.detail && (data.detail.message || data.detail)) || ('HTTP ' + r.status);
+              throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+            }
+            if (!data.payment_session_id) throw new Error('No payment_session_id from server');
+            if (typeof Cashfree !== 'function') {
+              throw new Error('Cashfree SDK failed to load. Disable ad-blockers and reload.');
+            }
+            const cashfree = Cashfree({ mode: (data.env || _cashfreeEnv) === 'production' ? 'production' : 'sandbox' });
+            cashfree.checkout({
+              paymentSessionId: data.payment_session_id,
+              redirectTarget: '_self',
+            });
+          } catch (e) {
+            console.error('checkout failed:', e);
+            alert('Could not start payment: ' + (e.message || e) + '\n\nPlease try again, or email hello@headnote.in if this persists.');
+            const card = document.getElementById('cf-confirm-card');
+            if (card) card.remove();
+            btn.disabled = false;
+            btn.textContent = orig;
+          }
+        },
+      });
+    } catch (e) {
+      console.error('startCheckout failed:', e);
+      alert('Something went wrong: ' + (e.message || e));
+      btn.disabled = false;
+      btn.textContent = orig;
+    }
   }
 
   document.querySelectorAll('[data-plan]').forEach(btn => {

@@ -84,6 +84,21 @@ def create_order(
     # Cashfree replaces {order_id} in return_url with the actual order_id
     return_url = f"{app_base_url}/payments/return?order_id={order_id}"
 
+    # Cashfree requires a real 10-digit phone. We never default this to a
+    # dummy ("9999999999") anymore — the caller MUST collect it via the
+    # pricing-page confirm modal so the customer's actual phone reaches
+    # Cashfree (used for UPI, OTP, refunds, receipts).
+    phone = (customer_phone or "").strip().replace(" ", "").replace("-", "")
+    if phone.startswith("+91"):
+        phone = phone[3:]
+    if phone.startswith("91") and len(phone) == 12:
+        phone = phone[2:]
+    if not (phone.isdigit() and len(phone) == 10 and phone[0] in "6789"):
+        raise ValueError(
+            "Cashfree requires a valid 10-digit Indian phone number "
+            "(starting with 6/7/8/9). Got: " + repr(customer_phone)
+        )
+
     payload = {
         "order_id":       order_id,
         "order_amount":   float(amount),
@@ -92,7 +107,7 @@ def create_order(
             "customer_id":    user_id[:50],
             "customer_name":  (customer_name or "Headnote User")[:50],
             "customer_email": customer_email,
-            "customer_phone": customer_phone or "9999999999",
+            "customer_phone": phone,
         },
         "order_meta": {
             "return_url": return_url,

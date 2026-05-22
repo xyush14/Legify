@@ -6,7 +6,7 @@
 <script>if(location.protocol==='http:'&&location.hostname!=='localhost'&&!location.hostname.startsWith('127.')){location.replace(location.href.replace(/^http:/,'https:'));}</script>
 <title>Payment — Headnote</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="/static/auth.js?v=20260522f" defer></script>
+<script src="/static/auth.js?v=20260522g" defer></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: #fdfcf9; color: #0c0c0a; display: grid; place-items: center; min-height: 100vh; padding: 20px; }
@@ -61,12 +61,21 @@ function showSuccess(data) {
   $('msg').textContent = 'Every Headnote feature is now unlocked on your account.';
   if (data.plan) {
     $('meta').style.display = '';
+    const niceName = data.display_name || (data.plan ? data.plan[0].toUpperCase() + data.plan.slice(1) : '');
     $('meta').innerHTML = `
-      <div><strong>Plan:</strong> ${data.plan}</div>
-      ${data.amount ? `<div><strong>Amount:</strong> ₹${data.amount}</div>` : ''}
-      ${data.order_id ? `<div><strong>Order ID:</strong> ${data.order_id}</div>` : ''}
+      <div><strong>Plan:</strong> ${niceName}</div>
+      ${data.amount ? `<div><strong>Amount paid:</strong> ₹${data.amount}</div>` : ''}
+      ${data.order_id ? `<div><strong>Order ID:</strong> <code style="font-size:11px">${data.order_id}</code></div>` : ''}
     `;
   }
+  // Set a one-time flag so /app shows a celebration toast on next load.
+  try {
+    localStorage.setItem('headnote.justUpgraded', JSON.stringify({
+      plan: data.plan,
+      display_name: data.display_name,
+      at: Date.now(),
+    }));
+  } catch {}
   $('actions').innerHTML = `<a class="btn" href="/app">Open Headnote →</a>`;
 }
 

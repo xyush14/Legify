@@ -1159,6 +1159,42 @@
     // Load user state (plan + usage) after auth resolves. We poll briefly
     // because initAuth is async and we don't want to race with the JWT.
     setTimeout(loadUserState, 1500);
+
+    // Post-payment celebration. Flag set by /payment-success.html on
+    // successful upgrade. Fires once, then is cleared. Doesn't depend
+    // on /api/me — works even if the meter is briefly stale.
+    showUpgradeCelebrationIfPending();
+  }
+
+  // Show a one-time celebration toast when the user has just completed a
+  // payment. The flag is set by static/payment-success.html via localStorage.
+  // We clear it immediately so it never fires twice.
+  function showUpgradeCelebrationIfPending() {
+    let raw = null;
+    try { raw = localStorage.getItem('headnote.justUpgraded'); } catch {}
+    if (!raw) return;
+    try { localStorage.removeItem('headnote.justUpgraded'); } catch {}
+    let data; try { data = JSON.parse(raw); } catch { return; }
+    if (!data || !data.plan) return;
+    // Stale flags (>10 min old) are ignored.
+    if (data.at && Date.now() - data.at > 10 * 60 * 1000) return;
+
+    const planName = data.display_name || (data.plan[0].toUpperCase() + data.plan.slice(1));
+    const banner = document.createElement('div');
+    banner.style.cssText = 'position:fixed;top:24px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#0c0c0a,#2a221a);color:#fdfcf9;padding:14px 22px;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,0.25);z-index:9999;display:flex;gap:14px;align-items:center;font-family:Geist,Inter,system-ui,sans-serif;border:1px solid #c9a96e;animation:upBan 0.4s cubic-bezier(0.16,1,0.3,1)';
+    banner.innerHTML = `
+      <style>@keyframes upBan { from { transform:translateX(-50%) translateY(-20px); opacity:0 } to { transform:translateX(-50%) translateY(0); opacity:1 } }</style>
+      <div style="width:32px;height:32px;border-radius:50%;background:#c9a96e;color:#0c0c0a;font-size:18px;display:grid;place-items:center;font-weight:700">✓</div>
+      <div>
+        <div style="font-size:14px;font-weight:600;letter-spacing:-0.01em;">You're now on the <span style="color:#c9a96e">${planName}</span> plan</div>
+        <div style="font-size:12px;color:#b8b0a4;margin-top:2px;">Every feature unlocked — start drafting</div>
+      </div>
+      <button onclick="this.parentElement.remove()" style="background:transparent;border:none;color:#8a857a;font-size:18px;cursor:pointer;padding:0 4px">×</button>
+    `;
+    document.body.appendChild(banner);
+    setTimeout(() => { if (banner.parentElement) banner.remove(); }, 8000);
+    // Refresh /api/me so the sidebar plan card immediately shows the new plan.
+    setTimeout(loadUserState, 600);
   }
 
   // ------------------------------------------------------------- /api/me state

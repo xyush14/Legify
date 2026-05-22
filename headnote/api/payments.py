@@ -38,9 +38,33 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from headnote.entitlements import CurrentUser, get_current_user
+from headnote.entitlements import _supabase
 from headnote.entitlements.plans import PLANS, get_plan
 from headnote.entitlements.subscription import change_plan
 from headnote.payments import cashfree
+
+
+def _profile_lookup(user_id: str) -> dict:
+    """Read this user's row from public.user_profiles. Returns {} on miss."""
+    try:
+        rows = _supabase.select(
+            "user_profiles",
+            params={"id": f"eq.{user_id}", "select": "name,phone,referral_code", "limit": "1"},
+        )
+        return rows[0] if rows else {}
+    except Exception as e:
+        log.warning("profile lookup failed for user=%.8s: %s", user_id, e)
+        return {}
+
+
+def _normalise_phone(raw: str | None) -> str:
+    """Return a 10-digit Indian phone (no country code). Empty string if invalid.
+    Accepts: '+91 88156 21916', '+918815621916', '8815621916', '918815621916'."""
+    if not raw: return ""
+    s = "".join(ch for ch in raw if ch.isdigit())
+    if s.startswith("91") and len(s) == 12: s = s[2:]
+    if len(s) == 10 and s[0] in "6789": return s
+    return ""
 
 
 log = logging.getLogger(__name__)
@@ -101,6 +125,34 @@ def _upgrade_from_paid_order(order: dict) -> dict:
 
 # ---------------------------------------------------------------- endpoints
 
+@router.get("/customer-info", summary="Get this user's pre-fill data for the checkout confirm modal")
+def customer_info(user: CurrentUser = Depends(get_current_user)) -> dict:
+    """Returns the data the pricing-page 'Confirm your details' modal needs.
+
+    name + email come from the Google sign-in (Supabase JWT claims).
+    phone comes from public.user_profiles (set during onboarding).
+
+    The frontend uses `phone_ok=false` to decide whether to mark the phone
+    input as required-and-empty vs pre-filled-and-locked.
+    """
+    claims = user.raw_claims or {}
+    meta   = claims.get("user_metadata") or {}
+    name = (
+        meta.get("full_name") or meta.get("name")
+        or (user.email.split("@")[0] if user.email else "")
+    )
+    profile = _profile_lookup(user.id)
+    if profile.get("name"):
+        name = profile["name"]
+    phone = _normalise_phone(profile.get("phone"))
+    return {
+        "name":     name,
+        "email":    user.email or "",
+        "phone":    phone,           # 10 digits or empty
+        "phone_ok": bool(phone),
+    }
+
+
 @router.get("/config", summary="Public payments config (for FE badges)")
 def payments_config() -> dict:
     """Returns the public payment config so the pricing page can show
@@ -141,11 +193,37 @@ def create_order(
     # is unreliable behind a proxy, so we require this env var in prod.
     app_base_url = (os.environ.get("APP_BASE_URL") or "https://headnote.in").rstrip("/")
 
+    # Resolve customer details: profile first, then JWT claims, then email-prefix.
+    profile = _profile_lookup(user.id)
     customer_name = (
-        (user.raw_claims or {}).get("user_metadata", {}).get("full_name")
+        profile.get("name")
+        or (user.raw_claims or {}).get("user_metadata", {}).get("full_name")
         or (user.raw_claims or {}).get("user_metadata", {}).get("name")
         or (user.email.split("@")[0] if user.email else "Headnote User")
     )
+
+    # Phone: explicit body value wins; fallback to stored profile phone.
+    phone = _normalise_phone(body.phone) or _normalise_phone(profile.get("phone"))
+    if not phone:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code":    "phone_required",
+                "message": "A valid 10-digit Indian mobile number is required. "
+                           "Please confirm your details before continuing to payment.",
+            },
+        )
+
+    # Persist the validated phone back to the profile so the next checkout
+    # pre-fills it. Best-effort — failure here doesn't block payment.
+    try:
+        _supabase.update(
+            "user_profiles",
+            {"phone": "+91" + phone},
+            params={"id": f"eq.{user.id}"},
+        )
+    except Exception as e:
+        log.info("profile phone update skipped (non-fatal): %s", e)
 
     try:
         order = cashfree.create_order(
@@ -153,7 +231,7 @@ def create_order(
             user_id=user.id,
             customer_email=user.email or f"{user.id}@headnote.local",
             customer_name=customer_name,
-            customer_phone=(body.phone or "").strip(),
+            customer_phone=phone,
             app_base_url=app_base_url,
         )
     except Exception as e:
@@ -247,14 +325,17 @@ def verify_payment(
         raise HTTPException(status_code=403, detail="order belongs to another user")
 
     upgraded = False
+    sub = {}
     if (order.get("order_status") or "").upper() == "PAID":
-        result = _upgrade_from_paid_order(order)
-        upgraded = bool(result)
+        sub = _upgrade_from_paid_order(order)
+        upgraded = bool(sub)
 
     return {
-        "order_id":  order_id,
-        "status":    order.get("order_status"),
-        "plan":      plan_id,
-        "amount":    order.get("order_amount"),
-        "upgraded":  upgraded,
+        "order_id":     order_id,
+        "status":       order.get("order_status"),
+        "plan":         plan_id,
+        "amount":       order.get("order_amount"),
+        "upgraded":     upgraded,
+        "subscription": sub or None,   # FE uses this to update sidebar immediately
+        "display_name": (get_plan(plan_id).display_name if plan_id in PLANS else None),
     }
