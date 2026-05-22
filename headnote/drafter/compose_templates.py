@@ -975,15 +975,105 @@ TEMPLATES: dict[str, dict] = {
 }
 
 
+# ----------------------------------------------------------------------------
+# Court taxonomy (v2 — drafting home reorganisation).
+# Maps each template id to the court tier where it's typically filed.
+# Source: analysis of Vishnu ji's filing library + Headnote v2 plan.
+# Consumed by /api/draft/courts to render court-grouped tile lists.
+# ----------------------------------------------------------------------------
+
+# Display labels per court. Order is the order shown on the drafting home.
+COURT_LABELS: dict[str, dict[str, str]] = {
+    "sc":         {"en": "Supreme Court",     "hi": "उच्चतम न्यायालय"},
+    "hc":         {"en": "High Court",        "hi": "उच्च न्यायालय"},
+    "sessions":   {"en": "Sessions Court",    "hi": "सत्र न्यायालय"},
+    "magistrate": {"en": "Magistrate Court",  "hi": "मजिस्ट्रेट न्यायालय"},
+    "family":     {"en": "Family Court",      "hi": "परिवार न्यायालय"},
+    "procedural": {"en": "Common",            "hi": "सामान्य"},  # cross-court rail
+}
+COURT_ORDER: list[str] = ["sc", "hc", "sessions", "magistrate", "family", "procedural"]
+
+# Per-template (court, popularity 1-5). Popularity sorts the within-court
+# template list — higher = more prominent on the court drill-down page.
+_COURT_METADATA: dict[str, tuple[str, int]] = {
+    "vakalatnama":           ("procedural", 5),
+    "mention_memo":          ("procedural", 4),
+    "anticipatory_bail":     ("hc",         5),
+    "quashing_petition":     ("hc",         5),
+    "writ_petition":         ("hc",         3),
+    "default_bail":          ("sessions",   3),
+    "discharge_application": ("sessions",   4),
+    "maintenance":           ("family",     5),
+    "revision_petition":     ("hc",         3),
+    "reply_to_bail":         ("hc",         3),
+    "appeal_conviction":     ("hc",         4),
+}
+
+
+def _enrich_with_court_metadata() -> None:
+    """Inject court / court_label_en / court_label_hi / popularity into each
+    template dict so the FE can group templates by court without inferring
+    from the id. Idempotent — safe to call multiple times."""
+    for tpl_id, (court, popularity) in _COURT_METADATA.items():
+        tpl = TEMPLATES.get(tpl_id)
+        if not tpl:
+            continue
+        tpl["court"]          = court
+        tpl["court_label_en"] = COURT_LABELS[court]["en"]
+        tpl["court_label_hi"] = COURT_LABELS[court]["hi"]
+        tpl["popularity"]     = popularity
+
+
+# Apply enrichment immediately so callers see the populated fields.
+_enrich_with_court_metadata()
+
+
 def list_templates_slim() -> list[dict]:
-    """Slim metadata for the FE picker."""
+    """Slim metadata for the FE picker. Now includes court grouping fields."""
     return [
-        {"id": t["id"], "name_en": t["name_en"], "name_hi": t["name_hi"],
-         "category": t.get("category"), "tier": t.get("tier"),
-         "description": t.get("description"),
-         "example_prompts": t.get("example_prompts", [])}
+        {
+            "id":              t["id"],
+            "name_en":         t["name_en"],
+            "name_hi":         t["name_hi"],
+            "category":        t.get("category"),
+            "tier":            t.get("tier"),
+            "court":           t.get("court", "procedural"),
+            "court_label_en":  t.get("court_label_en", "Common"),
+            "court_label_hi":  t.get("court_label_hi", "सामान्य"),
+            "popularity":      t.get("popularity", 1),
+            "description":     t.get("description"),
+            "example_prompts": t.get("example_prompts", []),
+        }
         for t in TEMPLATES.values()
     ]
+
+
+def list_templates_by_court() -> list[dict]:
+    """Return templates grouped by court, in the canonical display order.
+    Used by GET /api/draft/courts to render the drafting home grid.
+
+    Returns a list of court groups:
+        [{"id": "sc",  "label_en": "Supreme Court", "label_hi": "...",
+          "count": 0, "templates": []},
+         {"id": "hc",  "label_en": "High Court",    ..., "templates": [...]},
+         ...]
+
+    Within each group, templates are sorted by popularity desc, then by
+    name_en asc.
+    """
+    slim = list_templates_slim()
+    groups: list[dict] = []
+    for court_id in COURT_ORDER:
+        members = [t for t in slim if t["court"] == court_id]
+        members.sort(key=lambda t: (-t["popularity"], t["name_en"].lower()))
+        groups.append({
+            "id":       court_id,
+            "label_en": COURT_LABELS[court_id]["en"],
+            "label_hi": COURT_LABELS[court_id]["hi"],
+            "count":    len(members),
+            "templates": members,
+        })
+    return groups
 
 
 def get_template(doc_type: str) -> dict | None:

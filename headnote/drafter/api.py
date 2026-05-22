@@ -126,6 +126,17 @@ def list_compose_templates():
     return {"templates": list_templates_slim()}
 
 
+@router.get("/courts", summary="Templates grouped by court (drafting home)")
+def list_compose_courts():
+    """Returns the 6 court groups (sc / hc / sessions / magistrate / family /
+    procedural) with their templates sorted by popularity. Drives the new
+    court-card drafting home and the per-court drill-down pages.
+
+    Public (no auth) — same access policy as /templates."""
+    from headnote.drafter.compose import list_templates_by_court
+    return {"courts": list_templates_by_court()}
+
+
 @router.get("/template-schema/{doc_type}", summary="Full schema for one template (fields + format spec)")
 def get_template_schema(doc_type: str):
     """Returns the complete field schema for one template. Used by the

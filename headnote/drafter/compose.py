@@ -41,6 +41,7 @@ from headnote.drafter.compose_templates import (  # noqa: E402
     TEMPLATES,
     get_template,
     list_templates_slim,
+    list_templates_by_court,
 )
 
 

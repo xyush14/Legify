@@ -265,6 +265,10 @@ app.include_router(_payments_router)
 from headnote.api.onboarding import router as _onboarding_router
 app.include_router(_onboarding_router)
 
+# Lawyer persona auto-fill: /api/lawyer-profile (GET, PATCH)
+from headnote.api.lawyer_profile import router as _lawyer_profile_router
+app.include_router(_lawyer_profile_router)
+
 # Pre-extract universal facts for the 42 curated cases at boot. ~50ms
 # one-time cost that removes a per-query latency spike for the first user.
 # Safe to skip via env var if the curated corpus changes at runtime (which
