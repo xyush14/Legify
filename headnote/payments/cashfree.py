@@ -144,22 +144,24 @@ def get_order_payments(order_id: str) -> list[dict]:
 def verify_webhook_signature(raw_body: bytes, timestamp: str, signature: str) -> bool:
     """Verify a Cashfree webhook.
 
-    Cashfree signs: HMAC-SHA256(secret, timestamp + "." + raw_body_bytes)
-    then base64-encodes → sent as x-webhook-signature header.
+    Cashfree v2023-08-01 signing scheme:
+        signed_payload = timestamp + raw_request_body   (string concat, no separator)
+        signature      = base64(HMAC-SHA256(secret, signed_payload))
 
-    Returns True if signature is valid or if CASHFREE_WEBHOOK_SECRET is not set
-    (dev mode — log a warning in that case).
+    The webhook secret is configured in Cashfree dashboard → Developers →
+    Webhooks. Until it's set, we fall back to CASHFREE_SECRET_KEY which is
+    Cashfree's default signing key. If neither is configured we skip the
+    check in dev mode (loud log) so local development isn't blocked.
     """
-    if not _WEBHOOK_SEC:
-        log.warning("CASHFREE_WEBHOOK_SECRET not configured; skipping webhook signature check (dev mode)")
+    secret = _WEBHOOK_SEC or _SECRET_KEY
+    if not secret:
+        log.warning("Cashfree webhook secret not configured; skipping signature check (dev mode)")
         return True
+    if not signature or not timestamp:
+        return False
 
-    message = (timestamp + ".").encode() + raw_body
-    expected_bytes = hmac.new(
-        _WEBHOOK_SEC.encode(),
-        message,
-        hashlib.sha256,
-    ).digest()
+    message = (timestamp.encode() + raw_body)
+    expected_bytes = hmac.new(secret.encode(), message, hashlib.sha256).digest()
     expected = base64.b64encode(expected_bytes).decode()
     return hmac.compare_digest(expected, signature)
 

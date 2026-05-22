@@ -184,24 +184,101 @@
   </div>
 
   <div class="pricing-foot">
-    <p>Razorpay & Cashfree checkout coming this week. Today, click a plan to register your interest — we'll grant access manually.</p>
+    <p id="env-badge" style="display:none;background:#fde68a;color:#7c5e1a;padding:6px 14px;border-radius:8px;display:inline-block;font-size:12px;font-weight:600;margin-bottom:12px"></p>
+    <p>Secure payments via Cashfree — UPI, cards, netbanking, wallets. GST invoice on request.</p>
     <p>Already have an account? <a href="/app">Open Headnote →</a></p>
   </div>
 </div>
 
+<!-- Supabase JS (auth) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/static/auth.js?v=20260522e" defer></script>
+
 <script>
+  // Show env badge if backend is in sandbox mode (so we don't accidentally
+  // demo with sandbox keys during a real seminar).
+  fetch('/api/payments/config')
+    .then(r => r.json())
+    .then(cfg => {
+      if (cfg && cfg.env === 'sandbox') {
+        const b = document.getElementById('env-badge');
+        if (b) { b.textContent = 'SANDBOX MODE — test cards only, no real charges'; b.style.display = 'inline-block'; }
+      }
+    })
+    .catch(() => {});
+
+  function startCheckout(plan, btn) {
+    const orig = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Opening Cashfree…';
+
+    // Wait for auth.js to initialize before grabbing the token. If the user
+    // is signed in, we attach Bearer; if not, send them to /app to sign in
+    // and bounce them back to /pricing with the plan pre-selected.
+    const proceed = async () => {
+      try {
+        if (window.headnoteAuth && window.headnoteAuth.ready) {
+          await window.headnoteAuth.ready();
+        }
+      } catch {}
+
+      const token = window.headnoteAuth && await window.headnoteAuth.getAccessToken();
+      if (!token) {
+        // Not signed in. Stash the chosen plan and redirect.
+        try { localStorage.setItem('headnote.pending_plan', plan); } catch {}
+        window.location.href = '/app';
+        return;
+      }
+
+      try {
+        const r = await fetch('/api/payments/create-order', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token,
+          },
+          body: JSON.stringify({ plan }),
+        });
+        const data = await r.json();
+        if (!r.ok) {
+          throw new Error(data.detail || ('HTTP ' + r.status));
+        }
+        if (!data.payment_url) {
+          throw new Error('No payment URL returned by Cashfree');
+        }
+        // Cashfree's hosted checkout — full-page redirect. User pays there,
+        // gets redirected back to /payment-success?order_id=...
+        window.location.href = data.payment_url;
+      } catch (e) {
+        console.error('checkout failed:', e);
+        alert('Could not start payment: ' + e.message + '\n\nPlease try again, or email founder@headnote.in if this persists.');
+        btn.disabled = false;
+        btn.textContent = orig;
+      }
+    };
+
+    proceed();
+  }
+
   document.querySelectorAll('[data-plan]').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      const plan = e.target.dataset.plan;
-      // Until Razorpay is wired, hit a webhook / show contact info
-      alert(
-        'Payment checkout is being wired up.\n\n' +
-        'For now, sign in and email ayush@headnote (or DM) and we\'ll activate the ' + plan + ' plan manually.\n\n' +
-        'You\'ll be redirected to /app to sign in.'
-      );
-      window.location.href = '/app';
+    btn.addEventListener('click', (e) => {
+      const plan = e.currentTarget.dataset.plan;
+      startCheckout(plan, e.currentTarget);
     });
   });
+
+  // If we just came from a sign-in redirect with a pending plan, auto-start.
+  (async function autoResume() {
+    let pending = null;
+    try { pending = localStorage.getItem('headnote.pending_plan'); } catch {}
+    if (!pending) return;
+    try { localStorage.removeItem('headnote.pending_plan'); } catch {}
+    const btn = document.querySelector('[data-plan="' + pending + '"]');
+    if (btn) {
+      // Slight delay so auth.js can settle and the user sees what's happening.
+      setTimeout(() => startCheckout(pending, btn), 600);
+    }
+  })();
 </script>
 </body>
 </html>

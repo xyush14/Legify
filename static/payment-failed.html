@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<script>if(location.protocol==='http:'&&location.hostname!=='localhost'&&!location.hostname.startsWith('127.')){location.replace(location.href.replace(/^http:/,'https:'));}</script>
+<title>Payment failed — Headnote</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',system-ui,sans-serif;background:#fdfcf9;color:#0c0c0a;display:grid;place-items:center;min-height:100vh;padding:20px}
+  .card{background:#fff;border:1px solid #e8e3d6;border-radius:16px;padding:40px 32px;max-width:440px;width:100%;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,0.06)}
+  .icon{width:72px;height:72px;border-radius:50%;margin:0 auto 22px;display:grid;place-items:center;font-size:36px;background:#fde0e0;color:#b91c1c}
+  h1{font-size:24px;font-weight:700;margin-bottom:8px}
+  p{color:#5d5b54;font-size:15px;line-height:1.5;margin-bottom:18px}
+  .btn{display:inline-block;padding:12px 24px;border-radius:10px;background:#0c0c0a;color:#fdfcf9;text-decoration:none;font-weight:600;font-size:15px}
+  .btn.secondary{background:transparent;color:#0c0c0a;border:1px solid #0c0c0a;margin-left:8px}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="icon">✗</div>
+  <h1>Payment couldn't be completed</h1>
+  <p>Your payment was cancelled or failed. Don't worry — your card hasn't been charged. Please try again.</p>
+  <a class="btn" href="/pricing">Try again</a>
+  <a class="btn secondary" href="/app">Back to app</a>
+</div>
+</body>
+</html>

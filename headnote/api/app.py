@@ -257,6 +257,10 @@ from headnote.api.admin_v2 import router as _admin_v2_router
 app.include_router(_me_router)
 app.include_router(_admin_v2_router)
 
+# Cashfree PG checkout: /api/payments/{create-order, webhook, verify, config}
+from headnote.api.payments import router as _payments_router
+app.include_router(_payments_router)
+
 # Pre-extract universal facts for the 42 curated cases at boot. ~50ms
 # one-time cost that removes a per-query latency spike for the first user.
 # Safe to skip via env var if the curated corpus changes at runtime (which
@@ -349,6 +353,23 @@ def drafter_standalone():
     See HEADNOTE_DRAFTING_HANDOFF.md for the full design spec.
     """
     return FileResponse(config.STATIC_DIR / "drafter.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
+# ---- Payment return pages (after Cashfree hosted checkout) ----
+@app.get("/payments/return", include_in_schema=False)
+@app.get("/payment-success", include_in_schema=False)
+def payment_success_page():
+    """Cashfree redirects here after the user finishes payment. The page
+    polls /api/payments/verify?order_id=... to confirm with Cashfree and
+    upgrade the subscription. Idempotent — webhook may have already run."""
+    return FileResponse(config.STATIC_DIR / "payment-success.html",
+                        headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
+@app.get("/payment-failed", include_in_schema=False)
+def payment_failed_page():
+    return FileResponse(config.STATIC_DIR / "payment-failed.html",
+                        headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
 @app.get("/draft/bail", include_in_schema=False)
