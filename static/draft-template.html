@@ -10,6 +10,17 @@
 <!-- UI fonts (sans-serif) + court-paper preview fonts (Times + Tiro Devanagari serif) -->
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Tiro+Devanagari+Hindi:ital@0;1&family=Noto+Serif+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+  /* Kruti Dev 010 — self-hosted. Loaded but not applied until the
+     Unicode → Kruti Dev byte-sequence converter ships. See draft-bail.html
+     for the same declaration. */
+  @font-face {
+    font-family: 'KrutiDev010';
+    src: url('/static/fonts/KrutiDev010.ttf') format('truetype');
+    font-display: swap;
+    font-weight: 400;
+    font-style: normal;
+  }
+
   /* =============================================================================
      Universal Template Drafter — visually matched to /draft/bail
      Same palette, same fonts, same section hierarchy, court-paper preview.
