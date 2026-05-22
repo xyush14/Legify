@@ -10,7 +10,14 @@
 <title>Bail Application Drafter — Headnote</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- UI fonts (sans-serif) + DOCUMENT PREVIEW fonts (serif, court-paper style).
+     The reference filings use Kruti Dev 010 (a pre-Unicode display font) for
+     Hindi + Times New Roman for English. We use the closest Unicode-safe
+     equivalent: Tiro Devanagari Hindi (serif, formal) for the Devanagari
+     and Times New Roman (system font) for Latin. The font stack on the
+     document preview puts Times first so digits + statute refs (S.302 etc)
+     stay in Times even mid-Hindi sentence — browser picks per character. -->
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Tiro+Devanagari+Hindi:ital@0;1&family=Noto+Serif+Devanagari:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
   :root {
@@ -181,54 +188,178 @@
 
   /* RIGHT: live document */
   .doc-pane { overflow-y: auto; background: #e8e6df; padding: 30px 16px 60px; }
+  /* ============================================================================
+     DOCUMENT PREVIEW — court-paper styling. Matches Vishnu ji's filings.
+     Font stack: Times New Roman for Latin (digits, statute refs like S.302),
+     Tiro Devanagari Hindi (serif) for Devanagari. Browser picks per character.
+     Falls back to Noto Serif Devanagari, then system serif.
+     ============================================================================ */
   .doc-page {
     background: #fff;
     max-width: 760px;
     margin: 0 auto;
-    padding: 50px 60px;
-    min-height: 80vh;
+    padding: 60px 70px 80px;
+    min-height: 85vh;
     box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06);
     border-radius: 4px;
-    font-family: 'Noto Sans Devanagari', 'Inter', sans-serif;
-    line-height: 1.65;
-    color: #0c0c0a;
+    font-family: 'Times New Roman', 'Tiro Devanagari Hindi', 'Noto Serif Devanagari', Times, serif;
+    line-height: 1.7;
+    color: #000;
+    font-size: 14.5px;
   }
 
-  /* Document styles (mirrors templates/bail_application.py output) */
-  .bail-doc { font-size: 14px; }
-  .bail-doc--hi { font-family: 'Noto Sans Devanagari', sans-serif; }
-  .bail-doc .bd-header { text-align: center; margin-bottom: 18px; }
-  .bail-doc .bd-side { text-align: right; font-size: 13px; margin-bottom: 4px; }
-  .bail-doc .bd-court { font-size: 18px; font-weight: 700; text-decoration: underline; margin: 4px 0 10px; }
-  .bail-doc .bd-caseno { font-size: 13px; }
-  .bail-doc .bd-parties { margin: 22px 0 12px; }
-  .bail-doc .bd-party { display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-start; }
-  .bail-doc .bd-party-label { min-width: 80px; }
-  .bail-doc .bd-party-dots { color: var(--muted); }
-  .bail-doc .bd-party-detail { flex: 1; }
-  .bail-doc .bd-versus { text-align: center; font-weight: 600; margin: 4px 0; }
-  .bail-doc .bd-app-title { text-align: center; text-decoration: underline; font-size: 15px; font-weight: 700; margin: 18px 0; }
-  .bail-doc .bd-table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 12.5px; }
-  .bail-doc .bd-table th, .bail-doc .bd-table td { border: 1px solid #000; padding: 5px 7px; text-align: left; vertical-align: top; }
-  .bail-doc .bd-table th { background: #f5f3ec; font-weight: 600; }
-  .bail-doc .bd-prelude { margin: 14px 0 6px; }
-  .bail-doc .bd-paras { padding-left: 26px; }
-  .bail-doc .bd-paras > li { margin-bottom: 10px; text-align: justify; }
-  .bail-doc .bd-subparas { padding-left: 22px; margin: 6px 0; counter-reset: subpara; list-style: none; }
-  .bail-doc .bd-subparas > li { counter-increment: subpara; position: relative; margin-bottom: 8px; text-align: justify; }
-  .bail-doc .bd-subparas > li:before { content: counters(subpara, "."); position: absolute; left: -22px; font-weight: 500; }
-  .bail-doc .bd-section-label { font-weight: 600; text-decoration: underline; margin: 6px 0; }
-  .bail-doc .bd-prayer { margin: 20px 0; }
-  .bail-doc .bd-prayer h3 { text-align: center; text-decoration: underline; margin: 8px 0; font-size: 15px; }
-  .bail-doc .bd-prayer p { text-align: justify; padding-left: 30px; }
-  .bail-doc .bd-sig { display: flex; justify-content: space-between; margin-top: 30px; font-size: 13px; }
+  /* Document styles — matches Vishnu ji's MP HC Gwalior bail filings */
+  .bail-doc { font-size: 14.5px; }
+  .bail-doc--hi { /* same fonts — handled by stack at .doc-page */ }
+
+  /* ── Header block ── */
+  .bail-doc .bd-header { text-align: center; margin-bottom: 20px; }
+  .bail-doc .bd-side {
+    text-align: center; font-size: 14px;
+    margin-bottom: 8px; font-weight: 500;
+  }
+  .bail-doc .bd-court {
+    font-size: 16.5px; font-weight: 700;
+    margin: 4px 0 12px;
+    letter-spacing: 0.01em;
+  }
+  .bail-doc .bd-caseno {
+    font-size: 14px;
+    margin-bottom: 6px;
+  }
+
+  /* ── Party block ── */
+  .bail-doc .bd-parties { margin: 26px 0 14px; }
+  .bail-doc .bd-party {
+    display: grid;
+    grid-template-columns: 110px 16px 1fr;
+    gap: 6px;
+    margin-bottom: 10px;
+    align-items: flex-start;
+  }
+  .bail-doc .bd-party-label { font-weight: 500; }
+  .bail-doc .bd-party-dots { color: #555; text-align: center; }
+  .bail-doc .bd-party-detail { text-align: justify; }
+  .bail-doc .bd-versus {
+    text-align: center; font-weight: 700;
+    margin: 10px 0;
+    font-size: 15px;
+  }
+
+  /* ── Application title (centred, bold, underlined) ── */
+  .bail-doc .bd-app-title {
+    text-align: center;
+    text-decoration: underline;
+    font-size: 16px;
+    font-weight: 700;
+    margin: 24px 0 18px;
+    letter-spacing: 0.005em;
+  }
+
+  /* ── Tables (bail history, crime details) ── */
+  .bail-doc .bd-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0;
+    font-size: 13.5px;
+  }
+  .bail-doc .bd-table th,
+  .bail-doc .bd-table td {
+    border: 1.2px solid #000;
+    padding: 7px 9px;
+    text-align: left;
+    vertical-align: top;
+    line-height: 1.55;
+  }
+  .bail-doc .bd-table th {
+    background: #fff;
+    font-weight: 600;
+    text-align: center;
+  }
+
+  /* ── Body text + numbered paragraphs ── */
+  .bail-doc .bd-prelude { margin: 16px 0 10px; text-align: justify; }
+  .bail-doc .bd-paras {
+    padding-left: 0;
+    counter-reset: para;
+    list-style: none;
+  }
+  .bail-doc .bd-paras > li {
+    counter-increment: para;
+    position: relative;
+    padding-left: 36px;
+    margin-bottom: 14px;
+    text-align: justify;
+    line-height: 1.75;
+  }
+  .bail-doc .bd-paras > li::before {
+    content: counter(para) ".";
+    position: absolute;
+    left: 0;
+    font-weight: 700;
+    width: 30px;
+    text-align: right;
+    padding-right: 6px;
+  }
+  /* Sub-paragraphs (4.1, 4.2, 5.1 etc.) — same hanging-indent pattern */
+  .bail-doc .bd-subparas {
+    padding-left: 0;
+    margin: 10px 0;
+    counter-reset: subpara;
+    list-style: none;
+  }
+  .bail-doc .bd-subparas > li {
+    counter-increment: subpara;
+    position: relative;
+    padding-left: 42px;
+    margin-bottom: 10px;
+    text-align: justify;
+    line-height: 1.7;
+  }
+  .bail-doc .bd-subparas > li::before {
+    content: counters(para, ".") "." counter(subpara);
+    position: absolute;
+    left: 0;
+    font-weight: 700;
+    width: 36px;
+    text-align: right;
+    padding-right: 6px;
+  }
+  .bail-doc .bd-section-label {
+    font-weight: 700;
+    text-decoration: underline;
+    margin: 12px 0 6px;
+  }
+
+  /* ── Prayer + verification + signature ── */
+  .bail-doc .bd-prayer { margin: 24px 0; }
+  .bail-doc .bd-prayer h3 {
+    text-align: center;
+    text-decoration: underline;
+    margin: 10px 0 12px;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .bail-doc .bd-prayer p {
+    text-align: justify;
+    padding-left: 36px;
+    text-indent: -10px;
+    line-height: 1.75;
+  }
+  .bail-doc .bd-sig {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 38px;
+    font-size: 14px;
+  }
   .bail-doc .bd-sig-right { text-align: center; }
-  .bail-doc .bd-sig-name { margin-top: 4px; }
-  .bail-doc .bd-sig-advocate { margin-top: 12px; }
-  .bail-doc .bd-sig-advname { font-weight: 500; margin-top: 14px; }
+  .bail-doc .bd-sig-name { margin-top: 8px; }
+  .bail-doc .bd-sig-advocate { margin-top: 14px; }
+  .bail-doc .bd-sig-advname { font-weight: 600; margin-top: 18px; }
+
+  /* Placeholders — pale italic, hint at "fill this in" */
   .bail-doc .ph { color: #b4afa3; font-style: italic; }
   .bail-doc .bd-table .ph { font-style: italic; color: #b4afa3; }
-  /* Auto-transliterated names/places — subtle highlight so lawyer can verify spelling */
   .bail-doc .xlit { background: #fffbef; padding: 0 2px; border-bottom: 1px dotted #d4b864; }
 
   /* OCR drop zone */

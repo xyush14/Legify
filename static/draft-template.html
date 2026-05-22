@@ -7,7 +7,8 @@
 <!-- Supabase JS — REQUIRED for auth.js to read the user's session. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <title>Drafter — Headnote</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- UI fonts (sans-serif) + court-paper preview fonts (Times + Tiro Devanagari serif) -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Tiro+Devanagari+Hindi:ital@0;1&family=Noto+Serif+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   /* =============================================================================
      Universal Template Drafter — visually matched to /draft/bail
@@ -129,35 +130,76 @@
   .ocr-cta button { flex: 1; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--panel); font-size: 12px; font-weight: 600; cursor: pointer; }
   .ocr-cta button.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 
-  /* Court-paper document preview — matches bail's bail-doc styling */
+  /* ============================================================================
+     Court-paper document preview — matches Vishnu ji's MP HC Gwalior filings.
+     Font stack: Times New Roman first (for digits + statute refs like S.302),
+     then Tiro Devanagari Hindi (serif court-style) for Devanagari, falling
+     back to Noto Serif Devanagari. Browser auto-picks per character.
+     ============================================================================ */
   .doc-page {
     background: #fff;
-    padding: 56px 56px 80px;
+    padding: 60px 70px 80px;
     box-shadow: 0 1px 4px rgba(0,0,0,0.08);
     border-radius: 4px;
-    font-family: 'Noto Sans Devanagari', 'Times New Roman', Times, serif;
-    font-size: 13.5px;
-    line-height: 1.75;
-    color: #1a1814;
-    max-width: 720px;
+    font-family: 'Times New Roman', 'Tiro Devanagari Hindi', 'Noto Serif Devanagari', Times, serif;
+    font-size: 14.5px;
+    line-height: 1.7;
+    color: #000;
+    max-width: 760px;
     width: 100%;
     margin: 0 auto;
-    min-height: 80vh;
+    min-height: 85vh;
   }
   body.lang-en .doc-page { font-family: 'Times New Roman', Times, serif; }
-  /* Parsed elements inside the doc — applied by JS parser */
-  .doc-page .doc-head      { text-align: center; font-weight: 700; font-size: 14.5px; margin: 0 0 14px; letter-spacing: 0.02em; }
-  .doc-page .doc-court     { text-align: center; font-weight: 700; font-size: 14px; text-decoration: underline; margin: 0 0 12px; }
-  .doc-page .doc-case-no   { text-align: center; font-size: 13px; margin: 0 0 16px; }
-  .doc-page .doc-title     { text-align: center; font-weight: 700; font-size: 13px; text-decoration: underline; margin: 18px 0 14px; }
-  .doc-page .doc-vs        { text-align: center; font-weight: 600; font-style: italic; margin: 6px 0; }
-  .doc-page .doc-shewith   { font-weight: 700; margin: 14px 0 10px; font-size: 13px; }
-  .doc-page .doc-para      { margin: 0 0 11px; text-indent: 0; }
-  .doc-page .doc-para-num  { margin: 0 0 11px; padding-left: 24px; text-indent: -24px; }
-  .doc-page .doc-prayer    { font-weight: 700; text-decoration: underline; margin: 20px 0 10px; text-align: center; }
-  .doc-page .doc-verify    { font-weight: 700; text-decoration: underline; margin: 22px 0 8px; }
-  .doc-page .doc-sig       { margin-top: 30px; text-align: right; }
-  .doc-page .doc-pl-date   { display: flex; justify-content: space-between; margin-top: 22px; font-size: 12.5px; }
+
+  /* Parsed elements — applied by parseDocToHtml() */
+  .doc-page .doc-head      { text-align: center; font-weight: 500; font-size: 14.5px; margin: 0 0 8px; }
+  .doc-page .doc-court     { text-align: center; font-weight: 700; font-size: 16.5px; margin: 6px 0 12px; }
+  .doc-page .doc-case-no   { text-align: center; font-size: 14px; margin: 0 0 18px; }
+  .doc-page .doc-title     {
+    text-align: center; font-weight: 700; font-size: 16px;
+    text-decoration: underline; margin: 24px 0 18px;
+  }
+  .doc-page .doc-vs        { text-align: center; font-weight: 700; margin: 10px 0; font-size: 15px; }
+  .doc-page .doc-shewith   { font-weight: 700; margin: 16px 0 10px; font-size: 14.5px; }
+  .doc-page .doc-para      { margin: 0 0 12px; text-align: justify; }
+  .doc-page .doc-para-num  {
+    margin: 0 0 14px;
+    padding-left: 36px;
+    text-indent: -36px;
+    text-align: justify;
+    line-height: 1.75;
+  }
+  /* Bold paragraph numbers (4., 4.1, 5.1 etc.) — applied if parser emits a
+     <strong> wrapping the number. Adds the courtly heavy-number look. */
+  .doc-page .doc-para-num strong:first-child { font-weight: 700; }
+  .doc-page .doc-prayer    {
+    font-weight: 700; text-decoration: underline;
+    margin: 24px 0 12px; text-align: center; font-size: 16px;
+  }
+  .doc-page .doc-verify    {
+    font-weight: 700; text-decoration: underline;
+    margin: 24px 0 10px; font-size: 14.5px;
+  }
+  .doc-page .doc-sig       { margin-top: 38px; text-align: right; font-size: 14px; }
+  .doc-page .doc-pl-date   {
+    display: flex; justify-content: space-between;
+    margin-top: 24px; font-size: 13.5px;
+  }
+
+  /* Tables inside the preview (bail history, crime details) — court-style */
+  .doc-page table {
+    width: 100%; border-collapse: collapse;
+    margin: 14px 0; font-size: 13.5px;
+  }
+  .doc-page table th,
+  .doc-page table td {
+    border: 1.2px solid #000;
+    padding: 7px 9px;
+    vertical-align: top;
+    line-height: 1.55;
+  }
+  .doc-page table th { font-weight: 600; text-align: center; }
 
   /* Generating shimmer */
   .doc-pane.is-generating .doc-page { opacity: 0.7; transition: opacity 0.2s; }
