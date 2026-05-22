@@ -163,7 +163,11 @@ ADMIN_TOKEN: Optional[str] = os.environ.get("ADMIN_TOKEN")
 # the founder + co-founder accounts. Add via env var FOUNDER_EMAILS (comma-
 # separated) for production, or extend the default tuple below for hard-coded
 # entries. Match is case-insensitive on the local-part + domain.
-_FOUNDER_DEFAULT = ("20pe3009@rgipt.ac.in", "ayushshivhare02@gmail.com")
+_FOUNDER_DEFAULT = (
+    "20pe3009@rgipt.ac.in",
+    "ayushshivhare02@gmail.com",
+    "kpal645@gmail.com",
+)
 _founder_env = os.environ.get("FOUNDER_EMAILS", "")
 FOUNDER_EMAILS: frozenset[str] = frozenset(
     e.strip().lower()
