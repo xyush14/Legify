@@ -643,6 +643,126 @@
     display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
     font-size: 11px; color: var(--ink-3);
   }
+
+  /* ============= DEMO SECTION ============= */
+  .demo-section {
+    padding: 100px 24px 110px;
+    background: var(--ink);
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+  .demo-section::before {
+    content: "";
+    position: absolute; inset: 0; z-index: -1;
+    background:
+      radial-gradient(50% 50% at 20% 50%, rgba(201,169,110,0.12), transparent 60%),
+      radial-gradient(40% 40% at 80% 50%, rgba(201,169,110,0.08), transparent 60%);
+  }
+  .demo-section .section-eyebrow { color: var(--gold); }
+  .demo-section .section-eyebrow .num { color: var(--gold); }
+  .demo-section .section-title { color: #fff; max-width: 680px; }
+  .demo-section .section-sub { color: rgba(255,255,255,0.5); }
+
+  .demo-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-top: 0;
+  }
+  @media (max-width: 860px) { .demo-grid { grid-template-columns: 1fr; } }
+
+  .demo-card {
+    border-radius: 16px;
+    overflow: hidden;
+    background: #111;
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 32px 80px -24px rgba(0,0,0,0.6);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .demo-card:hover { transform: translateY(-3px); box-shadow: 0 40px 100px -24px rgba(0,0,0,0.7); }
+
+  .demo-card__header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+  .demo-card__lang {
+    display: flex; align-items: center; gap: 8px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--gold);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 500;
+  }
+  .demo-card__lang .flag {
+    font-size: 16px;
+  }
+  .demo-card__duration {
+    font-family: 'Geist Mono', monospace;
+    font-size: 10px;
+    color: rgba(255,255,255,0.35);
+    letter-spacing: 0.06em;
+  }
+
+  /* Video player wrapper — 16:9 aspect ratio */
+  .demo-player {
+    position: relative;
+    width: 100%;
+    padding-top: 56.25%; /* 16:9 */
+    background: #0a0a0a;
+  }
+  .demo-player iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+  }
+
+  /* Placeholder shown before YouTube ID is set */
+  .demo-player__placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 16px;
+    background: #0d0d0d;
+    cursor: pointer;
+  }
+  .demo-player__placeholder .play-btn {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: rgba(201,169,110,0.15);
+    border: 2px solid rgba(201,169,110,0.35);
+    display: grid; place-items: center;
+    transition: background 0.2s, transform 0.15s;
+  }
+  .demo-player__placeholder:hover .play-btn {
+    background: rgba(201,169,110,0.25);
+    transform: scale(1.06);
+  }
+  .demo-player__placeholder .play-btn svg { color: var(--gold); }
+  .demo-player__placeholder .coming-label {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: rgba(255,255,255,0.3);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .demo-card__footer {
+    padding: 12px 18px;
+    border-top: 1px solid rgba(255,255,255,0.07);
+    font-size: 11.5px;
+    color: rgba(255,255,255,0.4);
+    font-family: 'Geist Mono', monospace;
+    display: flex; gap: 18px; flex-wrap: wrap;
+  }
+  .demo-card__footer span { display: flex; align-items: center; gap: 5px; }
+  .demo-card__footer span::before { content: "·"; }
+  .demo-card__footer span:first-child::before { content: ""; }
 </style>
 </head>
 <body>
@@ -654,6 +774,7 @@
       <img src="/static/headnote-logo.svg" alt="Headnote" />
     </a>
     <div class="nav-links">
+      <a href="#demo">Demo</a>
       <a href="#drafting">Drafting</a>
       <a href="#research">Research</a>
       <a href="#templates">Templates</a>
@@ -668,25 +789,136 @@
 <section class="hero">
   <div class="hero-tag">
     <span class="dot"></span>
-    Live · v0.4 · BNSS 2023 mapped · हिंदी + English
+    Live · BNSS 2023 mapped · हिंदी + English
   </div>
   <h1>
-    AI for India's<br>
-    criminal advocates.<br>
-    <span class="gold">Research. Draft. Cite.</span>
+    Bail application.<br>
+    <span class="fade">3 घंटे →</span> <span class="gold">15 मिनट।</span>
   </h1>
   <p>
-    27+ lakh case corpus. 100+ application formats. Voice-first drafting in
-    Hindi &amp; English. Every citation verified before it reaches you.
+    AI research with verified citations. Voice-first court drafting in Hindi &amp; English.
+    34 application formats across HC, Sessions, Magistrate &amp; Family courts.
   </p>
   <div class="hero-row">
     <a href="/app" class="btn btn--lg" id="hero-cta">Start free — no card</a>
-    <a href="#drafting" class="btn btn--ghost btn--lg">See what it does</a>
+    <a href="#demo" class="btn btn--ghost btn--lg">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><path d="M8 5v14l11-7z"/></svg>
+      Watch demo
+    </a>
   </div>
   <div class="hero-foot">
-    Trusted by senior advocates at MP HC Gwalior, Allahabad HC, and district bars across India.
+    Trusted by advocates at MP HC Gwalior, Allahabad HC, and district bars across India.
   </div>
 </section>
+
+<!-- ============ DEMO VIDEOS ============ -->
+<!--
+  TO ADD YOUR YOUTUBE VIDEOS:
+  1. Upload to YouTube (unlisted is fine)
+  2. Find the 11-char video ID from the URL: youtube.com/watch?v=XXXXXXXXXXX
+  3. Replace HINDI_VIDEO_ID and ENGLISH_VIDEO_ID below with your actual IDs
+  4. The placeholder cards will automatically hide and the player will show
+-->
+<section class="demo-section" id="demo">
+  <div class="wrap">
+    <div class="section-eyebrow"><span class="num">↓</span> Demo</div>
+    <h2 class="section-title">Watch it work.<br>Research → draft → PDF.</h2>
+    <p class="section-sub" style="margin-bottom:48px;">
+      Full walkthrough — from one legal query to a filed-ready bail application.
+      Same product. Two languages.
+    </p>
+
+    <div class="demo-grid">
+
+      <!-- Hindi Demo -->
+      <div class="demo-card">
+        <div class="demo-card__header">
+          <div class="demo-card__lang">
+            <span class="flag">🇮🇳</span>
+            हिंदी Demo
+          </div>
+          <div class="demo-card__duration">~3 min</div>
+        </div>
+        <div class="demo-player" id="demo-hi-wrap">
+          <!-- REPLACE: change HINDI_VIDEO_ID to your actual YouTube video ID -->
+          <div class="demo-player__placeholder" id="demo-hi-placeholder" onclick="loadDemo('hi', 'HINDI_VIDEO_ID')">
+            <div class="play-btn">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            </div>
+            <div class="coming-label">Hindi demo · uploading soon</div>
+          </div>
+        </div>
+        <div class="demo-card__footer">
+          <span>FIR upload → bail application</span>
+          <span>Verified SC citations</span>
+          <span>Hindi PDF export</span>
+        </div>
+      </div>
+
+      <!-- English Demo -->
+      <div class="demo-card">
+        <div class="demo-card__header">
+          <div class="demo-card__lang">
+            <span class="flag">🇬🇧</span>
+            English Demo
+          </div>
+          <div class="demo-card__duration">~3 min</div>
+        </div>
+        <div class="demo-player" id="demo-en-wrap">
+          <!-- REPLACE: change ENGLISH_VIDEO_ID to your actual YouTube video ID -->
+          <div class="demo-player__placeholder" id="demo-en-placeholder" onclick="loadDemo('en', 'ENGLISH_VIDEO_ID')">
+            <div class="play-btn">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            </div>
+            <div class="coming-label">English demo · uploading soon</div>
+          </div>
+        </div>
+        <div class="demo-card__footer">
+          <span>Research → 3 verified authorities</span>
+          <span>Anticipatory bail · HC</span>
+          <span>Download PDF</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<script>
+// Replace the placeholder with an embedded YouTube player
+function loadDemo(lang, videoId) {
+  const placeholder = document.getElementById('demo-' + lang + '-placeholder');
+  const wrap = document.getElementById('demo-' + lang + '-wrap');
+  if (!placeholder || !wrap || videoId.includes('VIDEO_ID')) {
+    // No real ID yet — do nothing (placeholder stays)
+    return;
+  }
+  const iframe = document.createElement('iframe');
+  iframe.src = 'https://www.youtube.com/embed/' + videoId + '?autoplay=1&rel=0&modestbranding=1';
+  iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+  iframe.allowFullscreen = true;
+  iframe.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none;';
+  placeholder.remove();
+  wrap.appendChild(iframe);
+}
+
+// If real YouTube IDs are set (no VIDEO_ID placeholder), auto-embed on page load
+(function autoEmbedIfReady() {
+  [
+    { lang: 'hi', id: document.querySelector('#demo-hi-placeholder') },
+    { lang: 'en', id: document.querySelector('#demo-en-placeholder') },
+  ].forEach(({ lang, id }) => {
+    if (id) {
+      const onclick = id.getAttribute('onclick') || '';
+      const match = onclick.match(/'([A-Za-z0-9_-]{11})'/);
+      if (match && match[1] && match[1].length === 11 && !match[1].includes('VIDEO_ID')) {
+        // Real 11-char YouTube ID found — auto-embed without click
+        loadDemo(lang, match[1]);
+      }
+    }
+  });
+})();
+</script>
 
 <!-- ============ SCROLLING BOOKSHELF ============ -->
 <div class="shelf" aria-label="The legal corpus behind Headnote">
