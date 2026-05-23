@@ -744,36 +744,6 @@
     position: absolute; inset: 0;
     width: 100%; height: 100%; border: none;
   }
-  .demo-player__placeholder {
-    position: absolute; inset: 0;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    gap: 18px;
-    background: #0d0d0d;
-    cursor: pointer;
-  }
-  .demo-player__placeholder .play-btn {
-    width: 72px; height: 72px;
-    border-radius: 50%;
-    background: rgba(201,169,110,0.12);
-    border: 2px solid rgba(201,169,110,0.3);
-    display: grid; place-items: center;
-    transition: background 0.2s, transform 0.15s, border-color 0.2s;
-  }
-  .demo-player__placeholder:hover .play-btn {
-    background: rgba(201,169,110,0.22);
-    border-color: rgba(201,169,110,0.6);
-    transform: scale(1.07);
-  }
-  .demo-player__placeholder .play-btn svg { color: var(--gold); }
-  .demo-player__placeholder .coming-label {
-    font-family: 'Geist Mono', monospace;
-    font-size: 11px;
-    color: rgba(255,255,255,0.25);
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-  }
-
   .demo-card__footer {
     padding: 13px 20px;
     border-top: 1px solid rgba(255,255,255,0.07);
@@ -857,15 +827,19 @@
     </div>
     <!-- Centred 16:9 player card -->
     <div class="demo-card"
-         data-hi-id="HINDI_VIDEO_ID"
-         data-en-id="ENGLISH_VIDEO_ID">
+         data-hi-src="https://app.trupeer.ai/embed/2dziY0qmG"
+         data-en-src="https://app.trupeer.ai/embed/6FqCecsKI">
       <div class="demo-player" id="demo-player-wrap">
-        <div class="demo-player__placeholder" id="demo-placeholder">
-          <div class="play-btn" id="demo-play-btn">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-          </div>
-          <div class="coming-label" id="demo-coming-label">Demo uploading soon</div>
-        </div>
+        <iframe
+          id="demo-iframe"
+          src="https://app.trupeer.ai/embed/2dziY0qmG"
+          frameborder="0"
+          allowfullscreen="true"
+          allow="autoplay; fullscreen; encrypted-media; clipboard-write"
+          loading="lazy"
+          style="position:absolute;inset:0;width:100%;height:100%;border:none;"
+          title="Headnote demo">
+        </iframe>
       </div>
       <div class="demo-card__footer" id="demo-footer">
         <span id="df1">FIR upload → bail application</span>
@@ -878,24 +852,20 @@
 </section>
 
 <script>
-// ---- Demo section: tab switcher + YouTube lazy embed ----
+// ---- Demo section: Trupeer tab switcher ----
 (function demoInit() {
   const VIDEOS = {
-    hi: { id: null, footer: ['FIR upload → bail application', 'Verified SC citations', 'Hindi PDF export'] },
-    en: { id: null, footer: ['Research → 3 verified authorities', 'Anticipatory bail · HC', 'Download PDF'] },
+    hi: { footer: ['FIR upload → bail application', 'Verified SC citations', 'Hindi PDF export'] },
+    en: { footer: ['Research → 3 verified authorities', 'Anticipatory bail · HC', 'Download PDF'] },
   };
 
-  // Read video IDs from the card's data attrs
-  const card = document.querySelector('.demo-card[data-hi-id]');
+  const card = document.querySelector('.demo-card[data-hi-src]');
   if (card) {
-    const hiId = card.dataset.hiId;
-    const enId = card.dataset.enId;
-    if (hiId && !hiId.includes('VIDEO_ID')) VIDEOS.hi.id = hiId;
-    if (enId && !enId.includes('VIDEO_ID')) VIDEOS.en.id = enId;
+    VIDEOS.hi.src = card.dataset.hiSrc;
+    VIDEOS.en.src = card.dataset.enSrc;
   }
 
   let activeLang = 'hi';
-  let playerLoaded = false;
 
   function setFooter(lang) {
     const f = VIDEOS[lang].footer;
@@ -905,62 +875,29 @@
     });
   }
 
-  function loadPlayer(lang) {
-    const videoId = VIDEOS[lang].id;
-    const wrap = document.getElementById('demo-player-wrap');
-    const placeholder = document.getElementById('demo-placeholder');
-    if (!videoId || !wrap) return;
-    placeholder && placeholder.remove();
-    const iframe = document.createElement('iframe');
-    iframe.src = 'https://www.youtube.com/embed/' + videoId + '?autoplay=1&rel=0&modestbranding=1';
-    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-    iframe.allowFullscreen = true;
-    iframe.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none;';
-    wrap.appendChild(iframe);
-    playerLoaded = true;
-  }
-
   function switchTo(lang) {
-    if (lang === activeLang && playerLoaded) return;
+    if (lang === activeLang) return;
     activeLang = lang;
 
-    // Update tabs
+    // Swap tab active state
     document.querySelectorAll('.demo-tab').forEach(btn => {
       const active = btn.dataset.lang === lang;
       btn.classList.toggle('active', active);
       btn.setAttribute('aria-selected', active);
     });
 
-    // Update footer labels
+    // Swap iframe src
+    const iframe = document.getElementById('demo-iframe');
+    if (iframe && VIDEOS[lang].src) iframe.src = VIDEOS[lang].src;
+
+    // Swap footer labels
     setFooter(lang);
-
-    // If player already loaded, reload iframe with new video
-    const wrap = document.getElementById('demo-player-wrap');
-    const existing = wrap && wrap.querySelector('iframe');
-    const videoId = VIDEOS[lang].id;
-
-    if (existing && videoId) {
-      existing.src = 'https://www.youtube.com/embed/' + videoId + '?autoplay=1&rel=0&modestbranding=1';
-    } else if (!existing) {
-      loadPlayer(lang);
-    }
-
-    // Update placeholder label if still showing
-    const label = document.getElementById('demo-coming-label');
-    if (label) label.textContent = lang === 'hi' ? 'Hindi demo · uploading soon' : 'English demo · uploading soon';
   }
 
   // Tab click handlers
   document.querySelectorAll('.demo-tab').forEach(btn => {
     btn.addEventListener('click', () => switchTo(btn.dataset.lang));
   });
-
-  // Play-button click on placeholder
-  const playBtn = document.getElementById('demo-play-btn');
-  const placeholder = document.getElementById('demo-placeholder');
-  if (placeholder) {
-    placeholder.addEventListener('click', () => loadPlayer(activeLang));
-  }
 
   // Set initial footer
   setFooter('hi');
