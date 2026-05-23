@@ -974,6 +974,17 @@ TEMPLATES: dict[str, dict] = {
     APPEAL_CONVICTION["id"]:  APPEAL_CONVICTION,
 }
 
+# Merge in the 23 v2 templates (SC / HC additions / Sessions / Magistrate /
+# Family / additional Procedural). Each v2 template already carries its
+# court / court_label_en / court_label_hi / popularity fields directly,
+# so _enrich_with_court_metadata() does NOT need to mutate them.
+try:
+    from headnote.drafter.compose_templates_v2 import NEW_TEMPLATES_V2
+    TEMPLATES.update(NEW_TEMPLATES_V2)
+except Exception as _e:  # pragma: no cover — defensive
+    import logging as _logging
+    _logging.getLogger(__name__).warning("v2 templates import failed: %s", _e)
+
 
 # ----------------------------------------------------------------------------
 # Court taxonomy (v2 — drafting home reorganisation).
@@ -1029,7 +1040,8 @@ _enrich_with_court_metadata()
 
 
 def list_templates_slim() -> list[dict]:
-    """Slim metadata for the FE picker. Now includes court grouping fields."""
+    """Slim metadata for the FE picker. Now includes court grouping fields,
+    redirect_url (for wrapper templates), and quality tag (v1-ai etc)."""
     return [
         {
             "id":              t["id"],
@@ -1041,6 +1053,8 @@ def list_templates_slim() -> list[dict]:
             "court_label_en":  t.get("court_label_en", "Common"),
             "court_label_hi":  t.get("court_label_hi", "सामान्य"),
             "popularity":      t.get("popularity", 1),
+            "redirect_url":    t.get("redirect_url"),  # wrappers (regular_bail_sessions etc.)
+            "quality":         t.get("quality", "v1"),  # v1-ai / v1-wrapper / tuned
             "description":     t.get("description"),
             "example_prompts": t.get("example_prompts", []),
         }

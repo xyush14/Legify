@@ -350,7 +350,7 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="/static/auth.js?v=20260523a"></script>
+<script src="/static/auth.js?v=20260523b"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
 // =========================================================================
@@ -482,12 +482,19 @@ async function loadTemplate() {
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
     state.template = data.template;
+
+    // Wrapper templates (regular_bail_sessions, trial_bail_437 etc.) have a
+    // redirect_url field. The generic form drafter doesn't apply to them —
+    // their actual UX lives on /draft/bail. Navigate there immediately.
+    if (state.template && state.template.redirect_url) {
+      window.location.replace(state.template.redirect_url);
+      return;
+    }
+
     updateTitle();
     renderForm();
     applyLang();
     const hadDraft = restoreFromLocalStorage();
-    // Persona auto-fill — runs even if a draft exists (only fills empty
-    // advocate fields, never overwrites user-entered values).
     await prefillFromPersona();
     if (!hadDraft) {
       maybeRenderInitial();

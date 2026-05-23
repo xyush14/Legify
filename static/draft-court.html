@@ -11,7 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600&display=swap" rel="stylesheet">
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="/static/auth.js?v=20260523a" defer></script>
+<script src="/static/auth.js?v=20260523b" defer></script>
 
 <style>
   :root {
@@ -299,14 +299,20 @@ async function load() {
 function renderGrid(elId, templates, popular) {
   const wrap = document.getElementById(elId);
   if (!wrap) return;
-  wrap.innerHTML = templates.map(t => `
-    <a href="/draft/template/${esc(t.id)}" class="tile ${popular ? 'tile--popular' : ''}">
+  wrap.innerHTML = templates.map(t => {
+    // Wrapper templates (regular_bail_sessions, trial_bail_437 etc.) carry a
+    // redirect_url that points at the polished bail-page UX instead of the
+    // generic /draft/template/{id} form. Use it when present.
+    const href = t.redirect_url || ('/draft/template/' + esc(t.id));
+    return `
+    <a href="${href}" class="tile ${popular ? 'tile--popular' : ''}">
       <div class="tile__name">${esc(t.name_en)}</div>
       <div class="tile__name-hi">${esc(t.name_hi || '')}</div>
       ${t.description ? `<div class="tile__desc">${esc(t.description.slice(0, 110))}${t.description.length > 110 ? '…' : ''}</div>` : ''}
       ${t.tier ? `<span class="tile__tag">Tier ${t.tier}</span>` : ''}
     </a>
-  `).join('');
+  `;
+  }).join('');
 }
 
 function renderRail(elId, templates) {
