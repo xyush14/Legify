@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Dark rounded background -->
+  <rect width="32" height="32" rx="6" fill="#111111"/>
+  <!-- "h" letterform: left vertical stroke (full height) -->
+  <rect x="6" y="6" width="4" height="20" rx="1.5" fill="#c9a96e"/>
+  <!-- "h" arch connector + right vertical setup -->
+  <rect x="10" y="14" width="9" height="3.5" rx="0" fill="#c9a96e"/>
+  <rect x="15" y="14" width="4" height="12" rx="1.5" fill="#c9a96e"/>
+  <!-- Period "." after h -->
+  <rect x="21.5" y="22" width="4" height="4" rx="1.5" fill="#c9a96e"/>
+</svg>
