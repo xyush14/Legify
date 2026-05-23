@@ -665,17 +665,21 @@
 
   /* ============= DEMO SECTION (tab-based switcher) ============= */
   .demo-section {
-    padding: 100px 0 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 52px 0 0;
     background: var(--ink);
     position: relative;
     overflow: hidden;
     isolation: isolate;
   }
-  /* Text block keeps readable side padding */
+  /* Text + tabs block — fixed height, doesn't grow */
   .demo-section > .wrap {
     padding-left: 24px;
     padding-right: 24px;
-    padding-bottom: 40px;
+    padding-bottom: 20px;
+    flex-shrink: 0;
   }
   .demo-section::before {
     content: "";
@@ -728,22 +732,25 @@
   }
   .demo-tab:not(.active):hover { color: rgba(255,255,255,0.75); }
 
-  /* Single demo card — full width, edge-to-edge cinematic player */
+  /* Single demo card — full width, fills remaining viewport height */
   .demo-card {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
     width: 100%;
     border-radius: 0;
     overflow: hidden;
     background: #111;
     border-top: 1px solid rgba(255,255,255,0.08);
-    border-bottom: 1px solid rgba(255,255,255,0.08);
-    box-shadow: 0 -40px 80px -20px rgba(0,0,0,0.5);
   }
 
-  /* Video player wrapper — 16:9 aspect ratio */
+  /* Video player — fills card, no fixed aspect ratio needed (flex driven) */
   .demo-player {
+    flex: 1;
+    min-height: 0;
     position: relative;
     width: 100%;
-    padding-top: 56.25%;
     background: #0a0a0a;
   }
   .demo-player iframe {
