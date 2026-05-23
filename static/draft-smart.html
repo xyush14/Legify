@@ -865,10 +865,33 @@ function greetAndShowChips() {
   renderTemplateChips();
 }
 
+// ---- Persona prefill ----
+// Silently fetches the lawyer's bar profile and seeds state.collected so
+// the conductor never has to ask for advocate_name / enrolment_number / etc.
+async function loadPersona() {
+  try {
+    const headers = await authHeaders();
+    if (!headers['Authorization']) return; // not signed in yet
+    const r = await fetch('/api/lawyer-profile', { headers });
+    if (!r.ok) return;
+    const data = await r.json();
+    const MAP = {
+      advocate_name:    'advocate_name',
+      enrolment_number: 'enrolment_number',
+      bar_council:      'bar_council',
+      chamber_address:  'chamber_address',
+      home_court:       'court_name',
+    };
+    Object.entries(MAP).forEach(([src, dst]) => {
+      if (data[src]) state.collected[dst] = data[src];
+    });
+  } catch (_) {}
+}
+
 // ---- Boot ----
 (async function init() {
   applyLang();
-  await loadTemplates();
+  await Promise.all([loadTemplates(), loadPersona()]);
   greetAndShowChips();
 })();
 </script>
