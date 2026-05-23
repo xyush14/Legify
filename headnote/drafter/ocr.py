@@ -240,23 +240,80 @@ def ocr_fir_pages(pages: Sequence[tuple[bytes, str]]) -> dict:
 
     Provider priority:
       1. Groq  (free, fast — llama-4-scout vision)   when GROQ_API_KEY set
-      2. Anthropic Claude Sonnet                       when ANTHROPIC_API_KEY / Bedrock set
+      2. Anthropic Claude Sonnet                       when ANTHROPIC_API_KEY set
+         AND it actually has a usable key. We don't waste a round-trip on
+         Anthropic if its key is empty (production today) — that just leaks
+         a misleading "Anthropic low balance" error to the user when the
+         REAL failure is Groq.
+
+    If only one provider is configured and it fails, the user sees that
+    provider's actual error message (not a confusing fallback error from
+    a provider they aren't using).
     """
     if not pages:
         raise ValueError("no pages provided")
 
-    last_err: Optional[Exception] = None
+    groq_key      = os.environ.get("GROQ_API_KEY", "").strip()
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    bedrock_key   = os.environ.get("AWS_ACCESS_KEY_ID", "").strip()
 
-    if os.environ.get("GROQ_API_KEY"):
+    groq_err: Optional[Exception] = None
+    anthropic_err: Optional[Exception] = None
+
+    if groq_key:
         try:
             return _normalise(_ocr_via_groq(pages))
         except Exception as e:
-            log.warning("Groq OCR failed (%s), trying Anthropic fallback", e)
-            last_err = e
+            log.warning("Groq OCR failed: %s", e)
+            groq_err = e
 
-    try:
-        return _normalise(_ocr_via_anthropic(pages))
-    except Exception as e:
-        last_err = e
+    # Only attempt Anthropic if it has a real key. Skipping with empty
+    # key prevents the misleading "Anthropic balance low" error from
+    # masking the real Groq failure.
+    if anthropic_key or bedrock_key:
+        try:
+            return _normalise(_ocr_via_anthropic(pages))
+        except Exception as e:
+            log.warning("Anthropic OCR failed: %s", e)
+            anthropic_err = e
 
-    raise ValueError(f"All OCR backends failed. Last error: {last_err}")
+    # All configured providers exhausted. Build a clear, user-facing
+    # message that names the actual failure(s) instead of leaking
+    # the wrong provider's error.
+    if groq_err and not anthropic_key and not bedrock_key:
+        # Common production case — Groq is the only configured backend.
+        # Show the real Groq error with guidance.
+        msg = _format_groq_error(groq_err)
+        raise ValueError(msg)
+    if groq_err and anthropic_err:
+        raise ValueError(
+            f"OCR failed on both providers. Groq: {groq_err}. Anthropic: {anthropic_err}"
+        )
+    if anthropic_err:
+        raise ValueError(f"OCR failed: {anthropic_err}")
+    if groq_err:
+        raise ValueError(_format_groq_error(groq_err))
+    raise ValueError("OCR is not configured. Set GROQ_API_KEY on the server.")
+
+
+def _format_groq_error(err: Exception) -> str:
+    """Translate raw Groq exceptions into user-friendly guidance. Groq's
+    common failure modes are token-per-minute rate limit (for multi-page
+    FIRs) and request-too-large (single huge image)."""
+    s = str(err).lower()
+    if "rate_limit" in s or "rate limit" in s or "429" in s or "tpm" in s:
+        return (
+            "Hit Groq's per-minute rate limit while reading the FIR. "
+            "Wait 60 seconds and retry, or upload fewer pages at a time. "
+            "(Free tier: 6,000 tokens/min for vision.)"
+        )
+    if "request_too_large" in s or "request too large" in s or "413" in s:
+        return (
+            "FIR pages too large for one request. Try uploading 1-2 pages "
+            "at a time, or compress the images before upload."
+        )
+    if "401" in s or "unauthorized" in s or "invalid_api_key" in s:
+        return "OCR provider rejected the API key. Contact hello@headnote.in."
+    if "timeout" in s or "timed out" in s:
+        return "OCR request timed out. Network or provider slow — please retry."
+    return f"OCR failed: {err}"
