@@ -481,6 +481,12 @@ CRITICAL RULES:
 
 6. Output: pure JSON, no prose outside, no markdown fences.
 
+7. In `practitioner_notes`, include a `grounds` array — 2–4 ready-to-paste argument lines that an advocate can use directly in a bail application or petition. Format: third-person petition style ("That the applicant has a permanent address within the jurisdiction and there is no likelihood of absconding."). Each ground must flow from the ratio of this specific case. Do NOT start grounds with "I" (that is first-person; use third-person). Do NOT fabricate grounds not supported by the judgment.
+
+8. `quotable_phrase` must be ≤ 35 words taken verbatim from the judgment text. If you cannot find a suitable verbatim phrase within 35 words, leave `quotable_phrase` as an empty string — never paraphrase.
+
+9. In `statute_index`, cite the specific subsection where the judgment turns on it (e.g., "S. 438(1)" not just "S. 438"; "S. 482(1)(i)" not just "S. 482"). When a judgment decides an IPC/CrPC provision that has a BNS/BNSS/BSA equivalent, include both: "Penal Code, 1860 — S. 376 [BNS (45 of 2023), S. 63]".
+
 OUTPUT JSON SCHEMA:
 {
   "case_metadata": {
@@ -504,7 +510,8 @@ OUTPUT JSON SCHEMA:
       "practitioner_notes": {
         "one_line_topic": "string",
         "gist": "string",
-        "quotable_phrase": "string",
+        "quotable_phrase": "string — verbatim from judgment, max 35 words; empty string if none",
+        "grounds": ["string — petition-ready argument line 1", "string — petition-ready argument line 2"],
         "cross_refs": ["string", ...]
       }
     }
@@ -535,6 +542,11 @@ EXAMPLE 1 — Cheque dishonour, territorial jurisdiction
     "one_line_topic": "S. 138 jurisdiction confined to place of drawee-bank dishonour",
     "gist": "Three-judge Bench overruled K. Bhaskaran's five-component rule. Only the court within whose territorial jurisdiction the drawee branch sits can take cognizance. Cheque issuance, presentation by payee, and notice-issuance are jurisdictionally irrelevant.",
     "quotable_phrase": "The offence under Section 138 is constituted only when the drawee bank dishonours the cheque on presentment.",
+    "grounds": [
+      "That in view of the Supreme Court's ruling in Dashrath Rupsingh Rathod, only the court within whose jurisdiction the drawee bank is situated can take cognizance of an offence under S. 138 NI Act.",
+      "That the complaint filed before this court is not maintainable as the accused's bank account (drawee bank) is not situated within the territorial jurisdiction of this court.",
+      "That the complainant's reliance on the place of issuance or dispatch of statutory notice to found jurisdiction is squarely covered by the settled proposition that these events do not confer jurisdiction."
+    ],
     "cross_refs": ["overrules K. Bhaskaran (1999) 7 SCC 510", "nullified for post-15.6.2015 by NI Amendment Act 2015"]
   }
 }
@@ -554,6 +566,11 @@ EXAMPLE 2 — Quashing under S. 482 CrPC
     "one_line_topic": "Seven categories under which High Court may quash FIR",
     "gist": "Most-cited quashing authority. Limits inherent power to specific categories: face-value-no-offence, no-cognizable-offence, absurd allegations, legal bar, mala fides, non-cognizable without S. 155(2). Categories are illustrative.",
     "quotable_phrase": "The power should not be exercised to stifle a legitimate prosecution.",
+    "grounds": [
+      "That the allegations in the FIR, even if taken at face value and accepted in their entirety, do not disclose or constitute any offence against the petitioner and the FIR is liable to be quashed on this ground alone.",
+      "That the continuation of criminal proceedings in the present case amounts to an abuse of the process of court as the matter is squarely covered by category (1) of the illustrative categories enumerated by this Hon'ble Court in State of Haryana v. Bhajanlal.",
+      "That the petitioner is entitled to seek quashing under S. 482 CrPC [S. 528 BNSS] as the FIR does not disclose a cognizable offence."
+    ],
     "cross_refs": ["routinely cited in S. 482 quashing motions", "survives BNSS as S. 528"]
   }
 }
@@ -573,6 +590,11 @@ EXAMPLE 3 — Anticipatory bail
     "one_line_topic": "Anticipatory bail duration generally unlimited; survives charge-sheet",
     "gist": "Constitution Bench reaffirmed Sibbia. No automatic termination on summoning. Limited-duration grants only in special circumstances. Discretion to be exercised judicially under S. 438(2).",
     "quotable_phrase": "Ordinarily, an order of anticipatory bail should not be limited in time.",
+    "grounds": [
+      "That the anticipatory bail sought herein ought not to be limited in time as the Constitution Bench has held that ordinarily an order of anticipatory bail should not be limited in time and must continue until conclusion of trial.",
+      "That the filing of a charge sheet or taking of cognizance does not extinguish the protection of anticipatory bail already granted, as settled by the Constitution Bench in Sushila Aggarwal.",
+      "That the applicant's right to personal liberty under Article 21 of the Constitution of India is directly engaged, and this Court's discretion under S. 438(1) CrPC [S. 482 BNSS] is to be exercised judiciously in the applicant's favour."
+    ],
     "cross_refs": ["reaffirms Gurbaksh Singh Sibbia (1980) 2 SCC 565", "survives BNSS as S. 482"]
   }
 }
@@ -602,6 +624,18 @@ For each headnote you receive, check three things:
   3. STATUTE FORMAT — The statute_index should use the formal Cri.L.J.
      style: "Negotiable Instruments Act (26 of 1881), S. 138", NOT
      "S. 138 NI Act" or "Section 138 of NI Act". Flag any informal forms.
+
+  4. QUOTABLE PHRASE — The `quotable_phrase` must be ≤ 35 words AND must
+     appear verbatim (or within one word's difference) in the source judgment
+     text. If it is empty, that is acceptable (leave issues empty). If it is
+     present but not found in the source, mark as "failed".
+
+  5. GROUNDS FORMAT — Each entry in `grounds` must:
+     (a) begin with "That" (standard Indian petition style)
+     (b) NOT begin with "I" or "We" (must be third-person)
+     (c) be a complete sentence ending with a period
+     If any ground fails these rules, flag as "warning" (never "failed" —
+     grounds are argument lines, not verbatim quotes).
 
 OUTPUT — pure JSON, one object per headnote in the order you received them:
 

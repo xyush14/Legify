@@ -1128,6 +1128,60 @@ button { font-family: inherit; }
   padding-left: 12px;
   margin: 10px 0;
 }
+.headnote-block__statute {
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gold-deep, #8c7549);
+  letter-spacing: 0.02em;
+  margin-bottom: 8px;
+}
+.headnote-block__carveout {
+  font-size: 12.5px;
+  color: #b05c00;
+  background: #fff8f0;
+  border-left: 2px solid #e8a060;
+  padding: 6px 10px;
+  border-radius: 0 4px 4px 0;
+  margin: 8px 0;
+}
+.headnote-block__anchor {
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px;
+  color: var(--ink-4);
+  margin-top: 4px;
+}
+.headnote-block__gist {
+  font-size: 13px;
+  color: var(--ink-2);
+  line-height: 1.55;
+  margin-top: 10px;
+}
+.headnote-block__grounds {
+  margin: 14px 0 4px;
+  background: #f2f8f2;
+  border: 1px solid #c6dfc6;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.headnote-block__grounds-label {
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #3a7a3a;
+  margin-bottom: 8px;
+}
+.headnote-block__ground {
+  font-size: 12.5px;
+  color: #1a3a1a;
+  line-height: 1.5;
+  margin-bottom: 6px;
+  padding-left: 10px;
+  border-left: 2px solid #8fc88f;
+}
+.headnote-block__ground:last-child { margin-bottom: 0; }
 .headnote-block__cases {
   font-family: 'Geist Mono', monospace;
   font-size: 12px;

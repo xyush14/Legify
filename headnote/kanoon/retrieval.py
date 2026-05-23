@@ -310,14 +310,35 @@ def _distill_query(situation: str, *, max_tokens: int = 8) -> str:
     return " ".join(tokens[:max_tokens])
 
 
-def _build_search_input(situation: str, extra_filters: str = "") -> str:
+def _build_search_input(
+    situation: str,
+    extra_filters: str = "",
+    refined_query: Optional[dict] = None,
+) -> str:
     """Compose the IK search formInput from the lawyer's situation.
 
-    Calls _distill_query to extract signal-bearing tokens, then appends the
-    doctype filter. The raw situation is NEVER sent verbatim — IK's keyword
-    search returns zero hits for long natural-language queries.
+    When `refined_query` is provided (from shallow_refine), builds the search
+    string directly from structured facets — primary_statute + doctrines_at_issue —
+    which are far more precise than regex extraction from the raw query text.
+
+    Falls back to _distill_query when refined_query is None (curated-only path).
+    The raw situation is NEVER sent verbatim — IK's keyword search returns zero
+    hits for long natural-language queries.
     """
-    distilled = _distill_query(situation)
+    if refined_query:
+        parts: list[str] = []
+        if refined_query.get("primary_statute"):
+            parts.append(str(refined_query["primary_statute"]))
+        for s in refined_query.get("secondary_statutes", [])[:2]:
+            if s and s not in parts:
+                parts.append(str(s))
+        for d in refined_query.get("doctrines_at_issue", [])[:3]:
+            if d:
+                parts.append(str(d))
+        distilled = " ".join(parts[:8])  # cap at 8 tokens to stay under IK query limits
+    else:
+        distilled = _distill_query(situation)
+
     if not distilled:
         # Last-resort fallback: take the first 8 alpha words >3 chars
         words = [w for w in re.findall(r"[A-Za-z]{4,}", situation) if w.lower() not in _QUERY_STOPWORDS][:8]
@@ -484,6 +505,7 @@ def retrieve_for_situation(
     skip_ik_search_if_cases_at_least: int = DEFAULT_SKIP_IK_SEARCH_IF_CASES_AT_LEAST,
     mode: str = "mixed",
     jurisdiction: Optional[str] = None,
+    refined_query: Optional[dict] = None,
 ) -> RetrievalResult:
     """End-to-end retrieval for a lawyer's situation query.
 
@@ -731,7 +753,7 @@ def retrieve_for_situation(
         run_ik_search = True
 
     if run_ik_search:
-        form_input = _build_search_input(situation, extra_filters=search_filters)
+        form_input = _build_search_input(situation, extra_filters=search_filters, refined_query=refined_query)
         all_hits: list[SearchHit] = []
 
         # Single IK search page per query to stay inside Render's request

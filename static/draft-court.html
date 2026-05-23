@@ -11,7 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600&display=swap" rel="stylesheet">
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="/static/auth.js?v=20260524a" defer></script>
+<script src="/static/auth.js?v=20260524b" defer></script>
 
 <style>
   :root {
@@ -172,6 +172,34 @@
     color: var(--ink-3);
   }
 
+  /* Filter chips */
+  .filter-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 28px;
+  }
+  .filter-chip {
+    display: inline-flex; align-items: center;
+    font-family: 'Geist Mono', monospace;
+    font-size: 11.5px;
+    font-weight: 500;
+    padding: 6px 13px;
+    border-radius: 20px;
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--ink-3);
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+    white-space: nowrap;
+  }
+  .filter-chip:hover { border-color: var(--gold); color: var(--ink); }
+  .filter-chip.active {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: #fff;
+  }
+
   .procedural-rail {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -204,18 +232,21 @@
 <header class="topbar">
   <a href="/app" class="topbar__back">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-    Drafting home
+    Research
   </a>
-  <div class="topbar__crumb">drafting / <span class="court" id="crumb-court">…</span></div>
+  <div class="topbar__crumb">drafting / <span class="court" id="crumb-court">templates</span></div>
 </header>
 
 <main>
   <div class="head">
-    <div class="head__eyebrow">Court</div>
-    <h1 class="head__title" id="court-title">Loading…</h1>
-    <div class="head__title-hi" id="court-title-hi"></div>
+    <div class="head__eyebrow">Draft a document</div>
+    <h1 class="head__title">Choose a template</h1>
+    <div class="head__title-hi">दस्तावेज़ चुनें</div>
     <div class="head__count" id="court-count"></div>
   </div>
+
+  <!-- Court filter chips — rendered by JS once courts are loaded -->
+  <div class="filter-strip" id="filter-strip"></div>
 
   <div id="popular-section" hidden>
     <div class="section-label">Most filed</div>
@@ -233,11 +264,6 @@
       <p>We're building these in waves. Reach out at <a href="mailto:hello@headnote.in" style="color:var(--gold-deep)">hello@headnote.in</a> to vote up what we ship next.</p>
     </div>
   </div>
-
-  <div id="procedural-section" style="margin-top:40px;" hidden>
-    <div class="section-label">Also useful here</div>
-    <div class="procedural-rail" id="procedural-grid"></div>
-  </div>
 </main>
 
 <script>
@@ -246,55 +272,129 @@ function esc(s) {
     ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 }
 
-function getCourtId() {
-  const m = window.location.pathname.match(/\/draft\/court\/([a-z]+)/i);
-  return (m ? m[1] : '').toLowerCase();
+// Read initial court from URL: /draft/court/hc → 'hc', /draft/court → 'all'
+function getInitialCourt() {
+  const m = window.location.pathname.match(/\/draft\/court\/([a-z_]+)/i);
+  return m ? m[1].toLowerCase() : 'all';
 }
 
+let _allCourts = [];   // full response from /api/draft/courts
+let _activeCourt = 'all';
+
+// Chip display names (English, short)
+const CHIP_LABELS = {
+  all:         'All templates',
+  sc:          'Supreme Court',
+  hc:          'High Court',
+  sessions:    'Sessions',
+  magistrate:  'Magistrate',
+  family:      'Family Court',
+  procedural:  'Procedural',
+};
+
 async function load() {
-  const courtId = getCourtId();
-  if (!courtId) { window.location.href = '/app'; return; }
   try {
     const r = await fetch('/api/draft/courts');
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const data = await r.json();
-    const all = data.courts || [];
-    const court = all.find(c => c.id === courtId);
-    const procedural = all.find(c => c.id === 'procedural');
-    if (!court) { document.getElementById('court-title').textContent = 'Unknown court'; return; }
+    _allCourts = data.courts || [];
 
-    document.title = `${court.label_en} — Drafting — Headnote`;
-    document.getElementById('court-title').textContent    = court.label_en;
-    document.getElementById('court-title-hi').textContent = court.label_hi;
-    document.getElementById('court-count').textContent    = court.count + ' templates available';
-    document.getElementById('crumb-court').textContent    = court.label_en;
+    // Build filter chips from available courts
+    const strip = document.getElementById('filter-strip');
+    const courtOrder = ['all', 'sc', 'hc', 'sessions', 'magistrate', 'family', 'procedural'];
+    const availableIds = new Set(_allCourts.map(c => c.id));
+    courtOrder.forEach(id => {
+      if (id !== 'all' && !availableIds.has(id)) return;
+      const btn = document.createElement('button');
+      btn.className = 'filter-chip';
+      btn.dataset.court = id;
+      btn.textContent = CHIP_LABELS[id] || id;
+      btn.addEventListener('click', () => setFilter(id));
+      strip.appendChild(btn);
+    });
 
-    const templates = court.templates || [];
-    if (templates.length === 0) {
-      document.getElementById('empty-state').hidden = false;
-    } else {
-      // Split into popular (popularity >= 4) and rest.
-      const popular = templates.filter(t => (t.popularity || 0) >= 4);
-      const rest    = templates.filter(t => (t.popularity || 0) <  4);
-
-      if (popular.length) {
-        renderGrid('popular-grid', popular, true);
-        document.getElementById('popular-section').hidden = false;
-      }
-      if (rest.length) {
-        renderGrid('all-grid', rest, false);
-        document.getElementById('all-section').hidden = false;
-      }
-    }
-
-    // Procedural mini-rail (only if this isn't the procedural court itself)
-    if (court.id !== 'procedural' && procedural && procedural.templates.length) {
-      renderRail('procedural-grid', procedural.templates);
-      document.getElementById('procedural-section').hidden = false;
-    }
+    // Set initial filter from URL
+    _activeCourt = getInitialCourt();
+    renderFilter(_activeCourt);
   } catch (e) {
     console.error('load failed:', e);
-    document.getElementById('court-title').textContent = 'Could not load templates';
+    document.getElementById('court-count').textContent = 'Could not load templates';
+  }
+}
+
+function setFilter(courtId) {
+  _activeCourt = courtId;
+  // Update URL without navigation (history.replaceState)
+  const newPath = courtId === 'all'
+    ? '/draft/court'
+    : `/draft/court/${courtId}`;
+  history.replaceState({}, '', newPath);
+  renderFilter(courtId);
+}
+
+function renderFilter(courtId) {
+  // Update active chip
+  document.querySelectorAll('.filter-chip').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.court === courtId);
+  });
+
+  // Collect templates to show
+  let templates = [];
+  if (courtId === 'all') {
+    // All non-procedural templates, deduped by id
+    const seen = new Set();
+    _allCourts.forEach(c => {
+      if (c.id === 'procedural') return;
+      (c.templates || []).forEach(t => {
+        if (!seen.has(t.id)) { seen.add(t.id); templates.push(t); }
+      });
+    });
+    // Sort: popular first, then alpha
+    templates.sort((a, b) => (b.popularity || 0) - (a.popularity || 0) || a.name_en.localeCompare(b.name_en));
+    document.getElementById('court-count').textContent = templates.length + ' templates available';
+    document.getElementById('crumb-court').textContent = 'all templates';
+    document.title = 'All templates — Drafting — Headnote';
+  } else {
+    const court = _allCourts.find(c => c.id === courtId);
+    if (!court) { templates = []; }
+    else {
+      templates = court.templates || [];
+      document.getElementById('court-count').textContent = templates.length + ' templates available';
+      document.getElementById('crumb-court').textContent = court.label_en;
+      document.title = `${court.label_en} — Drafting — Headnote`;
+    }
+  }
+
+  // Render split: popular (popularity >= 4) and rest
+  const popular = templates.filter(t => (t.popularity || 0) >= 4);
+  const rest    = templates.filter(t => (t.popularity || 0) <  4);
+
+  const popSec  = document.getElementById('popular-section');
+  const allSec  = document.getElementById('all-section');
+  const emptySec = document.getElementById('empty-state');
+
+  if (templates.length === 0) {
+    popSec.hidden  = true;
+    allSec.hidden  = true;
+    emptySec.hidden = false;
+    return;
+  }
+  emptySec.hidden = true;
+
+  if (popular.length) {
+    renderGrid('popular-grid', popular, true);
+    popSec.hidden = false;
+  } else {
+    popSec.hidden = true;
+  }
+  if (rest.length) {
+    renderGrid('all-grid', rest, false);
+    allSec.hidden = false;
+    // Update section label depending on context
+    const label = allSec.querySelector('.section-label');
+    if (label) label.textContent = popular.length ? 'All templates' : 'Templates';
+  } else {
+    allSec.hidden = true;
   }
 }
 
@@ -302,9 +402,6 @@ function renderGrid(elId, templates, popular) {
   const wrap = document.getElementById(elId);
   if (!wrap) return;
   wrap.innerHTML = templates.map(t => {
-    // Wrapper templates (regular_bail_sessions, trial_bail_437 etc.) carry a
-    // redirect_url that points at the polished bail-page UX instead of the
-    // generic /draft/template/{id} form. Use it when present.
     const href = t.redirect_url || ('/draft/template/' + esc(t.id));
     return `
     <a href="${href}" class="tile ${popular ? 'tile--popular' : ''}">
@@ -315,17 +412,6 @@ function renderGrid(elId, templates, popular) {
     </a>
   `;
   }).join('');
-}
-
-function renderRail(elId, templates) {
-  const wrap = document.getElementById(elId);
-  if (!wrap) return;
-  wrap.innerHTML = templates.map(t => `
-    <a href="/draft/template/${esc(t.id)}" class="pr-tile">
-      <div class="pr-tile__name">${esc(t.name_en)}</div>
-      <div class="pr-tile__sub">${esc(t.name_hi || '')}</div>
-    </a>
-  `).join('');
 }
 
 load();

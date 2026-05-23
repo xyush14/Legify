@@ -73,6 +73,20 @@
   .section__eyebrow { font-family: 'Geist Mono', monospace; font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
   .section__title { font-size: 16px; font-weight: 600; margin: 0 0 14px; letter-spacing: -0.01em; }
   body.lang-hi .section__eyebrow { font-family: 'Noto Sans Devanagari', monospace; }
+  /* Collapsible sections */
+  .section__toggle {
+    display: flex; align-items: center; gap: 8px;
+    background: none; border: none; cursor: pointer;
+    padding: 0; width: 100%; text-align: left;
+    font-family: inherit;
+  }
+  .section__toggle-icon {
+    width: 16px; height: 16px; color: var(--muted);
+    flex-shrink: 0; transition: transform 0.2s;
+  }
+  .section--collapsed .section__toggle-icon { transform: rotate(-90deg); }
+  .section__body { margin-top: 12px; }
+  .section--collapsed .section__body { display: none; }
 
   /* Fields */
   .field { margin-bottom: 12px; position: relative; }
@@ -296,6 +310,12 @@
     .topbar__title { font-size: 13px; }
     .topbar__right .btn .btn-long { display: none; }
   }
+  @media print {
+    .topbar, .form-pane { display: none !important; }
+    .split { grid-template-columns: 1fr !important; }
+    .doc-pane { background: #fff !important; padding: 0 !important; }
+    .doc-page { box-shadow: none !important; padding: 0 !important; }
+  }
 </style>
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/static/favicon.svg">
@@ -352,7 +372,7 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="/static/auth.js?v=20260524a"></script>
+<script src="/static/auth.js?v=20260524b"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
 // =========================================================================
@@ -588,20 +608,50 @@ function renderForm() {
     groups[s].push(f);
   });
 
+  // Sections that start collapsed (pre-filled from advocate profile, rarely need editing)
+  const COLLAPSIBLE_SECTIONS = new Set(['advocate', 'filing']);
+
   sectionOrder.forEach((sectionId, i) => {
-    const sec = ce('div', { className: 'section' });
+    const isCollapsible = COLLAPSIBLE_SECTIONS.has(sectionId);
+    const sec = ce('div', { className: 'section' + (isCollapsible ? ' section--collapsed' : '') });
+
     const eyebrow = ce('div', { className: 'section__eyebrow' });
     eyebrow.dataset.en = `SECTION ${i + 1}`;
     eyebrow.dataset.hi = `अनुभाग ${i + 1}`;
     eyebrow.textContent = state.lang === 'hi' ? `अनुभाग ${i + 1}` : `SECTION ${i + 1}`;
-    const title = ce('h3', { className: 'section__title' });
-    const lab = SECTION_LABELS[sectionId] || {en: sectionId, hi: sectionId};
-    title.dataset.en = lab.en; title.dataset.hi = lab.hi;
-    title.textContent = state.lang === 'hi' ? lab.hi : lab.en;
-    sec.appendChild(eyebrow);
-    sec.appendChild(title);
 
-    groups[sectionId].forEach(f => sec.appendChild(renderField(f)));
+    const lab = SECTION_LABELS[sectionId] || {en: sectionId, hi: sectionId};
+
+    if (isCollapsible) {
+      // Wrap title in a toggle button
+      const toggle = ce('button', { className: 'section__toggle', type: 'button' });
+      const title = ce('h3', { className: 'section__title', style: 'margin:0;' });
+      title.dataset.en = lab.en; title.dataset.hi = lab.hi;
+      title.textContent = state.lang === 'hi' ? lab.hi : lab.en;
+      toggle.appendChild(title);
+      // Chevron icon
+      const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      icon.setAttribute('viewBox', '0 0 24 24');
+      icon.setAttribute('fill', 'none');
+      icon.setAttribute('stroke', 'currentColor');
+      icon.setAttribute('stroke-width', '2');
+      icon.setAttribute('class', 'section__toggle-icon');
+      icon.innerHTML = '<polyline points="6 9 12 15 18 9"/>';
+      toggle.appendChild(icon);
+      toggle.addEventListener('click', () => sec.classList.toggle('section--collapsed'));
+      sec.appendChild(eyebrow);
+      sec.appendChild(toggle);
+    } else {
+      const title = ce('h3', { className: 'section__title' });
+      title.dataset.en = lab.en; title.dataset.hi = lab.hi;
+      title.textContent = state.lang === 'hi' ? lab.hi : lab.en;
+      sec.appendChild(eyebrow);
+      sec.appendChild(title);
+    }
+
+    const body = ce('div', { className: 'section__body' });
+    groups[sectionId].forEach(f => body.appendChild(renderField(f)));
+    sec.appendChild(body);
     container.appendChild(sec);
   });
 }
@@ -1138,7 +1188,16 @@ $('#btn-pdf').addEventListener('click', () => {
   const wrap = document.createElement('div');
   wrap.style.padding = '40px';
   wrap.appendChild(el);
-  const filename = `${state.template.name_en.replace(/[^a-z0-9]+/gi, '-')}-${new Date().toISOString().slice(0,10)}.pdf`;
+  const applicantRaw = (state.fields && (
+    state.fields.petitioner_name || state.fields.applicant_name ||
+    state.fields.appellant_name  || state.fields.accused_name   || ''
+  )) || '';
+  const applicantSlug = applicantRaw.trim().split(/\s+/)[0].toLowerCase().replace(/[^a-z]/g, '');
+  const tplSlug = state.template.name_en.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const filename = applicantSlug
+    ? `${tplSlug}-${applicantSlug}-${dateStr}.pdf`
+    : `${tplSlug}-${dateStr}.pdf`;
   const opt = {
     margin: [10, 12, 14, 12], filename,
     image: { type: 'jpeg', quality: 0.95 },

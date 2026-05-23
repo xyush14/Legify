@@ -778,14 +778,50 @@
       return wrap;
     }
     list.forEach(hn => {
+      // Support both flat (legacy) and nested (v2) schema
+      const jh = hn.journal_headnote || {};
+      const pn = hn.practitioner_notes || {};
       const block = ce('div', { cls: 'headnote-block' });
+
       if (hn.letter) block.appendChild(ce('span', { cls: 'headnote-block__letter', text: '(' + hn.letter + ')' }));
-      if (hn.catchwords) block.appendChild(ce('div', { cls: 'headnote-block__catchwords', text: hn.catchwords }));
-      if (hn.ratio) block.appendChild(ce('div', { cls: 'headnote-block__ratio', text: hn.ratio }));
-      if (hn.quotable_phrase) block.appendChild(ce('div', { cls: 'headnote-block__quote', text: '“' + hn.quotable_phrase + '”' }));
-      if (hn.cases_referred && hn.cases_referred.length) {
-        block.appendChild(ce('div', { cls: 'headnote-block__cases', text: 'cases referred: ' + hn.cases_referred.join(' · ') }));
+
+      // Journal headnote fields
+      const statuteIdx = jh.statute_index || hn.statute_index || '';
+      const catchwords = jh.catchword_chain || hn.catchwords || '';
+      const ratio      = jh.ratio || hn.ratio || '';
+      const carveOut   = jh.negative_carve_out || '';
+      const paraAnchor = jh.paragraph_anchor || hn.paragraph_anchor || '';
+
+      if (statuteIdx) block.appendChild(ce('div', { cls: 'headnote-block__statute', text: statuteIdx }));
+      if (catchwords)  block.appendChild(ce('div', { cls: 'headnote-block__catchwords', text: catchwords }));
+      if (ratio)       block.appendChild(ce('div', { cls: 'headnote-block__ratio', text: ratio }));
+      if (carveOut)    block.appendChild(ce('div', { cls: 'headnote-block__carveout', text: '⚠ ' + carveOut }));
+      if (paraAnchor)  block.appendChild(ce('div', { cls: 'headnote-block__anchor', text: paraAnchor }));
+
+      // Practitioner notes
+      const gist        = pn.gist || '';
+      const quote       = pn.quotable_phrase || hn.quotable_phrase || '';
+      const grounds     = pn.grounds || hn.grounds || [];
+      const crossRefs   = pn.cross_refs || hn.cases_referred || [];
+
+      if (gist)  block.appendChild(ce('div', { cls: 'headnote-block__gist', text: gist }));
+      if (quote) block.appendChild(ce('div', { cls: 'headnote-block__quote', text: '“' + quote + '”' }));
+
+      // Grounds — the petition-ready argument lines (new field)
+      if (grounds.length) {
+        const groundsWrap = ce('div', { cls: 'headnote-block__grounds' });
+        groundsWrap.appendChild(ce('div', { cls: 'headnote-block__grounds-label', text: 'Grounds to use' }));
+        grounds.forEach(g => {
+          groundsWrap.appendChild(ce('div', { cls: 'headnote-block__ground', text: g }));
+        });
+        block.appendChild(groundsWrap);
       }
+
+      if (crossRefs.length) {
+        block.appendChild(ce('div', { cls: 'headnote-block__cases',
+          text: 'cases referred: ' + crossRefs.join(' · ') }));
+      }
+
       wrap.appendChild(block);
     });
     return wrap;

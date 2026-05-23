@@ -352,9 +352,18 @@
     font-size: 13.5px;
     line-height: 1.75;
     color: #1a1814;
-    white-space: pre-wrap;
   }
   body.lang-en .doc-paper { font-family: 'Times New Roman', serif; }
+  /* Court document formatting classes (set via formatCourtDoc()) */
+  .doc-paper .court-center  { text-align: center; }
+  .doc-paper .court-bold    { font-weight: 700; }
+  .doc-paper .court-italic  { font-style: italic; }
+  .doc-paper .section-heading {
+    font-weight: 700; margin: 20px 0 8px;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .doc-paper .ground-item   { padding-left: 16px; margin: 4px 0; }
+  .doc-paper .para-line     { margin: 2px 0; }
 
   /* Toast */
   .toast {
@@ -464,7 +473,7 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="/static/auth.js?v=20260524a"></script>
+<script src="/static/auth.js?v=20260524b"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
 // =========================================================================
@@ -718,8 +727,41 @@ async function stepConductor(userMessage, force = false) {
   }
 }
 
+function formatCourtDoc(raw) {
+  /** Convert plain-text court document to HTML with proper visual hierarchy. */
+  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return raw.split('\n').map(line => {
+    const t = line.trim();
+    if (!t) return '<br>';
+    // Court name / bench header — centered and bold
+    if (/^(IN THE|BEFORE THE)\b/i.test(t))
+      return `<div class="court-center court-bold">${esc(t)}</div>`;
+    // Parties separator
+    if (/^(v\.|versus|vs\.)\s/i.test(t) || t.toLowerCase() === 'v.' || t.toLowerCase() === 'vs.')
+      return `<div class="court-center court-italic">${esc(t)}</div>`;
+    // Section headings — GROUNDS, PRAYER, etc.
+    if (/^(GROUNDS|PRAYER|FACTS OF THE CASE|HUMBLE PETITION|VERIFICATION|SYNOPSIS|SUBMISSIONS?|RELIEF SOUGHT)\b/i.test(t))
+      return `<div class="section-heading">${esc(t)}</div>`;
+    // Numbered grounds / paragraphs
+    if (/^\d+\.\s/.test(t))
+      return `<div class="ground-item">${esc(t)}</div>`;
+    // ALL-CAPS lines (cause title, applicant block headers)
+    if (/^[A-Z][A-Z\s,./():;-]{8,}:?\s*$/.test(t))
+      return `<div class="court-bold">${esc(t)}</div>`;
+    // Default paragraph line
+    return `<div class="para-line">${esc(t)}</div>`;
+  }).join('');
+}
+
 function revealDocument() {
-  $('#doc-paper').textContent = state.document;
+  const paper = $('#doc-paper');
+  if (state.lang === 'en') {
+    paper.innerHTML = formatCourtDoc(state.document);
+  } else {
+    // Hindi: plain pre-wrap (Devanagari structure differs; avoid mis-classifying Hindi headings)
+    paper.textContent = state.document;
+    paper.style.whiteSpace = 'pre-wrap';
+  }
   const tpl = state.templates.find(t => t.id === state.docType);
   if (tpl) $('#doc-title').textContent = state.lang === 'hi' ? tpl.name_hi : tpl.name_en;
   $('#doc-overlay').classList.add('is-open');

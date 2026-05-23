@@ -117,15 +117,21 @@ def _enrich_case(case: dict, meta_by_id: dict) -> dict:
     if anchor and "paragraph_anchor" not in case:
         case["paragraph_anchor"] = anchor
 
-    kdoc = meta.get("kanoon_doc_id") or _kanoon_doc_id_from_case_id(cid or "")
+    # Only use kanoon_doc_id if it came from the retrieval pool or curated corpus.
+    # Removing the _kanoon_doc_id_from_case_id() fallback prevents LLM-hallucinated
+    # case_ids from generating plausible-looking but wrong IK URLs.
+    kdoc = meta.get("kanoon_doc_id")
     if kdoc:
         case["kanoon_doc_id"] = str(kdoc)
         case["kanoon_url"] = f"https://indiankanoon.org/doc/{kdoc}/"
         if anchor:
             tok = re.sub(r"^[\(\s]*Para[s]?[\s\.]*", "", anchor, flags=re.IGNORECASE).rstrip(") ").strip()
             # Para anchors can list multiple ("14, 16-17"); take the first
-            tok = re.split(r"[,\s]", tok, maxsplit=1)[0]
-            if tok:
+            tok = re.split(r"[,\s]", tok, maxsplit=1)[0].strip("()")
+            # IK HTML uses id="p_14" for paragraphs — fragment must be #p_14 not #14
+            if tok.isdigit():
+                case["kanoon_paragraph_url"] = f"https://indiankanoon.org/doc/{kdoc}/#p_{tok}"
+            elif tok:
                 case["kanoon_paragraph_url"] = f"https://indiankanoon.org/doc/{kdoc}/#{tok}"
     if "numcitedby" not in case and "numcitedby" in meta:
         case["numcitedby"] = meta["numcitedby"]
@@ -444,16 +450,21 @@ def draft_template_drafter(doc_type: str):
     return FileResponse(config.STATIC_DIR / "draft-template.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
+@app.get("/draft/court", include_in_schema=False)
+@app.get("/draft/court/", include_in_schema=False)
 @app.get("/draft/court/{court_id}", include_in_schema=False)
 @app.get("/draft/court/{court_id}/", include_in_schema=False)
-def draft_court_page(court_id: str):
-    """Court drill-down page — shows all templates filed at this court level.
+def draft_court_page(court_id: str = "all"):
+    """Court drill-down / template browser.
+
+    With no court_id (or court_id='all'): shows all templates with filter chips.
+    With a court_id: pre-selects that court's filter chip.
 
     court_id is one of: sc, hc, sessions, magistrate, family, procedural.
     Validation happens client-side; unknown ids render an empty state.
 
-    Same SPA shell served regardless of court_id — JS calls /api/draft/courts
-    and renders the matching court's templates."""
+    Same SPA shell served regardless — JS calls /api/draft/courts and renders
+    the matching filter using URL-based chip pre-selection."""
     return FileResponse(config.STATIC_DIR / "draft-court.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
@@ -487,7 +498,7 @@ def api_config():
     return {
         "supabase_url":      config.SUPABASE_URL or "",
         "supabase_anon_key": config.SUPABASE_ANON_KEY or "",
-        "code_version":      "20260524a",
+        "code_version":      "20260524b",
     }
 
 
@@ -784,6 +795,7 @@ def _api_situation_impl(req: SituationRequest, _record):
             curated_corpus=curated,
             mode=req.mode,
             jurisdiction=req.jurisdiction,
+            refined_query=refined.to_dict(),
         )
         _stage("03_retrieve", _t)
         retrieval_cases = list(ret.cases)
