@@ -826,19 +826,26 @@
       <button class="demo-tab"        role="tab" aria-selected="false" data-lang="en">English</button>
     </div>
     <!-- Centred 16:9 player card -->
-    <div class="demo-card"
-         data-hi-src="https://app.trupeer.ai/embed/2dziY0qmG"
-         data-en-src="https://app.trupeer.ai/embed/6FqCecsKI">
+    <div class="demo-card">
       <div class="demo-player" id="demo-player-wrap">
+        <!-- Hindi — self-hosted MP4 -->
+        <video
+          id="demo-video-hi"
+          src="/static/headnote-demo-hi.mp4"
+          controls
+          preload="none"
+          style="position:absolute;inset:0;width:100%;height:100%;display:block;background:#000;">
+        </video>
+        <!-- English — Trupeer embed -->
         <iframe
-          id="demo-iframe"
-          src="https://app.trupeer.ai/embed/2dziY0qmG"
+          id="demo-iframe-en"
+          src="https://app.trupeer.ai/embed/6FqCecsKI"
           frameborder="0"
           allowfullscreen="true"
           allow="autoplay; fullscreen; encrypted-media; clipboard-write"
           loading="lazy"
-          style="position:absolute;inset:0;width:100%;height:100%;border:none;"
-          title="Headnote demo">
+          style="position:absolute;inset:0;width:100%;height:100%;border:none;display:none;"
+          title="Headnote demo — English">
         </iframe>
       </div>
       <div class="demo-card__footer" id="demo-footer">
@@ -852,26 +859,22 @@
 </section>
 
 <script>
-// ---- Demo section: Trupeer tab switcher ----
+// ---- Demo section: tab switcher (Hindi = <video>, English = <iframe>) ----
 (function demoInit() {
-  const VIDEOS = {
-    hi: { footer: ['FIR upload → bail application', 'Verified SC citations', 'Hindi PDF export'] },
-    en: { footer: ['Research → 3 verified authorities', 'Anticipatory bail · HC', 'Download PDF'] },
+  const FOOTER = {
+    hi: ['FIR upload → bail application', 'Verified SC citations', 'Hindi PDF export'],
+    en: ['Research → 3 verified authorities', 'Anticipatory bail · HC', 'Download PDF'],
   };
 
-  const card = document.querySelector('.demo-card[data-hi-src]');
-  if (card) {
-    VIDEOS.hi.src = card.dataset.hiSrc;
-    VIDEOS.en.src = card.dataset.enSrc;
-  }
+  const videoHi  = document.getElementById('demo-video-hi');
+  const iframeEn = document.getElementById('demo-iframe-en');
 
   let activeLang = 'hi';
 
   function setFooter(lang) {
-    const f = VIDEOS[lang].footer;
     ['df1','df2','df3'].forEach((id, i) => {
       const el = document.getElementById(id);
-      if (el) el.textContent = f[i];
+      if (el) el.textContent = FOOTER[lang][i];
     });
   }
 
@@ -879,18 +882,23 @@
     if (lang === activeLang) return;
     activeLang = lang;
 
-    // Swap tab active state
+    // Update tab buttons
     document.querySelectorAll('.demo-tab').forEach(btn => {
       const active = btn.dataset.lang === lang;
       btn.classList.toggle('active', active);
       btn.setAttribute('aria-selected', active);
     });
 
-    // Swap iframe src
-    const iframe = document.getElementById('demo-iframe');
-    if (iframe && VIDEOS[lang].src) iframe.src = VIDEOS[lang].src;
+    if (lang === 'hi') {
+      // Pause + hide English iframe (reset src to stop audio)
+      if (iframeEn) { iframeEn.style.display = 'none'; iframeEn.src = iframeEn.src; }
+      if (videoHi)  { videoHi.style.display = 'block'; }
+    } else {
+      // Pause + hide Hindi video
+      if (videoHi)  { videoHi.pause(); videoHi.style.display = 'none'; }
+      if (iframeEn) { iframeEn.style.display = 'block'; }
+    }
 
-    // Swap footer labels
     setFooter(lang);
   }
 
