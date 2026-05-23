@@ -177,6 +177,21 @@
     -webkit-background-clip: text; background-clip: text;
     -webkit-text-fill-color: transparent; color: transparent;
   }
+
+  /* ---- Hero rotating text ---- */
+  @keyframes heroEnter {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0);    }
+  }
+  @keyframes heroExit {
+    from { opacity: 1; transform: translateY(0);     }
+    to   { opacity: 0; transform: translateY(-10px); }
+  }
+  .hero-anim-exit  { animation: heroExit  0.35s ease-in  forwards; }
+  .hero-anim-enter { animation: heroEnter 0.45s cubic-bezier(0.22,1,0.36,1) forwards; }
+  /* ensure inline elements participate in animation */
+  #hero-task, #hero-from, #hero-to { display: inline-block; }
+
   .hero p {
     font-size: 16px;
     color: var(--ink-2);
@@ -811,8 +826,8 @@
     Live · BNSS 2023 mapped · Hindi + English
   </div>
   <h1>
-    Bail application.<br>
-    <span class="fade">3 hours →</span> <span class="gold">15 minutes.</span>
+    <span id="hero-task">Bail application.</span><br>
+    <span class="fade" id="hero-from">1 hour →</span> <span class="gold" id="hero-to">5 minutes.</span>
   </h1>
   <p>
     AI research with verified citations. Voice-first court drafting in Hindi and English.
@@ -1378,6 +1393,48 @@
 </footer>
 
 <script>
+  // ---- Hero rotating text ----
+  (function heroRotateInit() {
+    const SLIDES = [
+      { task: 'Bail application.',      from: '1 hour →',   to: '5 minutes.' },
+      { task: 'Case law research.',     from: '3 hours →',  to: '5 minutes.' },
+      { task: 'Court petition draft.',  from: '45 min →',   to: '5 minutes.' },
+      { task: 'Anticipatory bail.',     from: '2 hours →',  to: '5 minutes.' },
+    ];
+
+    const taskEl = document.getElementById('hero-task');
+    const fromEl = document.getElementById('hero-from');
+    const toEl   = document.getElementById('hero-to');
+    if (!taskEl || !fromEl || !toEl) return;
+
+    const els = [taskEl, fromEl, toEl];
+    let current = 0;
+    const EXIT_MS = 380;   // must match heroExit duration
+    const HOLD_MS = 3400;  // visible time per slide
+
+    function advance() {
+      els.forEach(el => {
+        el.classList.remove('hero-anim-enter');
+        el.classList.add('hero-anim-exit');
+      });
+
+      setTimeout(function() {
+        current = (current + 1) % SLIDES.length;
+        var s = SLIDES[current];
+        taskEl.textContent = s.task;
+        fromEl.textContent = s.from;
+        toEl.textContent   = s.to;
+
+        els.forEach(el => {
+          el.classList.remove('hero-anim-exit');
+          el.classList.add('hero-anim-enter');
+        });
+      }, EXIT_MS);
+    }
+
+    setInterval(advance, HOLD_MS);
+  })();
+
   // ---- Parallax background scroll handler ----
   (function parallaxInit() {
     const bg = document.getElementById('page-bg');
