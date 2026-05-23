@@ -6,9 +6,9 @@
 <meta name="theme-color" content="#fafafa" />
 <script>if(location.protocol==='http:'&&location.hostname!=='localhost'&&!location.hostname.startsWith('127.')){location.replace(location.href.replace(/^http:/,'https:'));}</script>
 <title>Headnote — AI for India's criminal advocates</title>
-<meta name="description" content="27+ lakh case corpus. 100+ application formats. Verified citations. Voice-first court drafting. हिंदी + English. Built for India's criminal bar." />
+<meta name="description" content="27+ lakh case corpus. 100+ application formats. Verified citations. Voice-first court drafting. Hindi + English. Built for India's criminal bar." />
 <meta property="og:title" content="Headnote — AI for India's criminal advocates" />
-<meta property="og:description" content="27+ lakh cases. 100+ application formats. Verified citations. हिंदी + English." />
+<meta property="og:description" content="27+ lakh cases. 100+ application formats. Verified citations. Hindi + English." />
 <meta property="og:url" content="https://headnote.in" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -645,6 +645,20 @@
   }
 
   /* ============= DEMO SECTION ============= */
+  /* ============= PARALLAX BACKGROUND ============= */
+  .page-bg {
+    position: fixed;
+    inset: -30% 0 -30%;   /* oversized so parallax movement doesn't clip */
+    z-index: -1;
+    background: url('/static/cr-journals.png') center center / cover no-repeat;
+    opacity: 0.055;
+    pointer-events: none;
+    will-change: transform;
+    /* Desaturate the image so it reads as texture, not imagery */
+    filter: grayscale(60%) sepia(20%);
+  }
+
+  /* ============= DEMO SECTION (tab-based switcher) ============= */
   .demo-section {
     padding: 100px 24px 110px;
     background: var(--ink);
@@ -656,116 +670,121 @@
     content: "";
     position: absolute; inset: 0; z-index: -1;
     background:
-      radial-gradient(50% 50% at 20% 50%, rgba(201,169,110,0.12), transparent 60%),
-      radial-gradient(40% 40% at 80% 50%, rgba(201,169,110,0.08), transparent 60%);
+      radial-gradient(55% 55% at 50% 0%, rgba(201,169,110,0.14), transparent 65%),
+      radial-gradient(40% 40% at 80% 80%, rgba(201,169,110,0.07), transparent 60%);
+  }
+  /* Bookshelf texture bleeds into the dark demo section at higher opacity */
+  .demo-section::after {
+    content: "";
+    position: absolute; inset: 0; z-index: -1;
+    background: url('/static/cr-journals.png') center center / cover no-repeat;
+    opacity: 0.06;
+    filter: grayscale(50%);
+    pointer-events: none;
   }
   .demo-section .section-eyebrow { color: var(--gold); }
   .demo-section .section-eyebrow .num { color: var(--gold); }
   .demo-section .section-title { color: #fff; max-width: 680px; }
   .demo-section .section-sub { color: rgba(255,255,255,0.5); }
 
-  .demo-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-    margin-top: 0;
+  /* Language tab switcher */
+  .demo-tabs {
+    display: inline-flex;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 4px;
+    gap: 2px;
+    margin-bottom: 32px;
   }
-  @media (max-width: 860px) { .demo-grid { grid-template-columns: 1fr; } }
+  .demo-tab {
+    padding: 8px 22px;
+    border-radius: 7px;
+    border: none;
+    background: transparent;
+    color: rgba(255,255,255,0.45);
+    font-family: 'Geist Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    transition: background 0.18s, color 0.18s;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .demo-tab.active {
+    background: var(--gold);
+    color: var(--ink);
+  }
+  .demo-tab:not(.active):hover { color: rgba(255,255,255,0.75); }
 
+  /* Single demo card */
   .demo-card {
+    max-width: 900px;
     border-radius: 16px;
     overflow: hidden;
     background: #111;
     border: 1px solid rgba(255,255,255,0.08);
-    box-shadow: 0 32px 80px -24px rgba(0,0,0,0.6);
-    transition: transform 0.2s, box-shadow 0.2s;
-  }
-  .demo-card:hover { transform: translateY(-3px); box-shadow: 0 40px 100px -24px rgba(0,0,0,0.7); }
-
-  .demo-card__header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 18px;
-    border-bottom: 1px solid rgba(255,255,255,0.07);
-  }
-  .demo-card__lang {
-    display: flex; align-items: center; gap: 8px;
-    font-family: 'Geist Mono', monospace;
-    font-size: 11px;
-    color: var(--gold);
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    font-weight: 500;
-  }
-  .demo-card__lang .flag {
-    font-size: 16px;
-  }
-  .demo-card__duration {
-    font-family: 'Geist Mono', monospace;
-    font-size: 10px;
-    color: rgba(255,255,255,0.35);
-    letter-spacing: 0.06em;
+    box-shadow: 0 40px 100px -24px rgba(0,0,0,0.7), 0 0 0 1px rgba(201,169,110,0.08);
   }
 
   /* Video player wrapper — 16:9 aspect ratio */
   .demo-player {
     position: relative;
     width: 100%;
-    padding-top: 56.25%; /* 16:9 */
+    padding-top: 56.25%;
     background: #0a0a0a;
   }
   .demo-player iframe {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    border: none;
+    position: absolute; inset: 0;
+    width: 100%; height: 100%; border: none;
   }
-
-  /* Placeholder shown before YouTube ID is set */
   .demo-player__placeholder {
-    position: absolute;
-    inset: 0;
+    position: absolute; inset: 0;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
-    gap: 16px;
+    gap: 18px;
     background: #0d0d0d;
     cursor: pointer;
   }
   .demo-player__placeholder .play-btn {
-    width: 64px; height: 64px;
+    width: 72px; height: 72px;
     border-radius: 50%;
-    background: rgba(201,169,110,0.15);
-    border: 2px solid rgba(201,169,110,0.35);
+    background: rgba(201,169,110,0.12);
+    border: 2px solid rgba(201,169,110,0.3);
     display: grid; place-items: center;
-    transition: background 0.2s, transform 0.15s;
+    transition: background 0.2s, transform 0.15s, border-color 0.2s;
   }
   .demo-player__placeholder:hover .play-btn {
-    background: rgba(201,169,110,0.25);
-    transform: scale(1.06);
+    background: rgba(201,169,110,0.22);
+    border-color: rgba(201,169,110,0.6);
+    transform: scale(1.07);
   }
   .demo-player__placeholder .play-btn svg { color: var(--gold); }
   .demo-player__placeholder .coming-label {
     font-family: 'Geist Mono', monospace;
     font-size: 11px;
-    color: rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.25);
     letter-spacing: 0.1em;
     text-transform: uppercase;
   }
 
   .demo-card__footer {
-    padding: 12px 18px;
+    padding: 13px 20px;
     border-top: 1px solid rgba(255,255,255,0.07);
     font-size: 11.5px;
-    color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.35);
     font-family: 'Geist Mono', monospace;
-    display: flex; gap: 18px; flex-wrap: wrap;
+    display: flex; gap: 20px; flex-wrap: wrap;
+    transition: opacity 0.2s;
   }
-  .demo-card__footer span { display: flex; align-items: center; gap: 5px; }
-  .demo-card__footer span::before { content: "·"; }
+  .demo-card__footer span::before { content: "· "; }
   .demo-card__footer span:first-child::before { content: ""; }
 </style>
 </head>
 <body>
+
+<!-- Global parallax bookshelf texture — moves at 0.2× scroll speed -->
+<div class="page-bg" id="page-bg" aria-hidden="true"></div>
 
 <!-- ============ NAV ============ -->
 <nav class="nav">
@@ -789,15 +808,15 @@
 <section class="hero">
   <div class="hero-tag">
     <span class="dot"></span>
-    Live · BNSS 2023 mapped · हिंदी + English
+    Live · BNSS 2023 mapped · Hindi + English
   </div>
   <h1>
     Bail application.<br>
-    <span class="fade">3 घंटे →</span> <span class="gold">15 मिनट।</span>
+    <span class="fade">3 hours →</span> <span class="gold">15 minutes.</span>
   </h1>
   <p>
-    AI research with verified citations. Voice-first court drafting in Hindi &amp; English.
-    34 application formats across HC, Sessions, Magistrate &amp; Family courts.
+    AI research with verified citations. Voice-first court drafting in Hindi and English.
+    34 application formats across HC, Sessions, Magistrate and Family courts.
   </p>
   <div class="hero-row">
     <a href="/app" class="btn btn--lg" id="hero-cta">Start free — no card</a>
@@ -813,110 +832,138 @@
 
 <!-- ============ DEMO VIDEOS ============ -->
 <!--
-  TO ADD YOUR YOUTUBE VIDEOS:
-  1. Upload to YouTube (unlisted is fine)
-  2. Find the 11-char video ID from the URL: youtube.com/watch?v=XXXXXXXXXXX
-  3. Replace HINDI_VIDEO_ID and ENGLISH_VIDEO_ID below with your actual IDs
-  4. The placeholder cards will automatically hide and the player will show
+  TO ADD YOUR YOUTUBE VIDEOS — replace the two IDs below:
+    data-hi-id="HINDI_VIDEO_ID"    ← your Hindi video's 11-char YouTube ID
+    data-en-id="ENGLISH_VIDEO_ID"  ← your English video's 11-char YouTube ID
+  Format: youtube.com/watch?v=XXXXXXXXXXX → use the XXXXXXXXXXX part.
 -->
 <section class="demo-section" id="demo">
   <div class="wrap">
     <div class="section-eyebrow"><span class="num">↓</span> Demo</div>
     <h2 class="section-title">Watch it work.<br>Research → draft → PDF.</h2>
-    <p class="section-sub" style="margin-bottom:48px;">
-      Full walkthrough — from one legal query to a filed-ready bail application.
-      Same product. Two languages.
+    <p class="section-sub">
+      Full walkthrough — one legal query to a filed-ready bail application. 3 minutes.
     </p>
 
-    <div class="demo-grid">
-
-      <!-- Hindi Demo -->
-      <div class="demo-card">
-        <div class="demo-card__header">
-          <div class="demo-card__lang">
-            <span class="flag">🇮🇳</span>
-            हिंदी Demo
-          </div>
-          <div class="demo-card__duration">~3 min</div>
-        </div>
-        <div class="demo-player" id="demo-hi-wrap">
-          <!-- REPLACE: change HINDI_VIDEO_ID to your actual YouTube video ID -->
-          <div class="demo-player__placeholder" id="demo-hi-placeholder" onclick="loadDemo('hi', 'HINDI_VIDEO_ID')">
-            <div class="play-btn">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-            </div>
-            <div class="coming-label">Hindi demo · uploading soon</div>
-          </div>
-        </div>
-        <div class="demo-card__footer">
-          <span>FIR upload → bail application</span>
-          <span>Verified SC citations</span>
-          <span>Hindi PDF export</span>
-        </div>
-      </div>
-
-      <!-- English Demo -->
-      <div class="demo-card">
-        <div class="demo-card__header">
-          <div class="demo-card__lang">
-            <span class="flag">🇬🇧</span>
-            English Demo
-          </div>
-          <div class="demo-card__duration">~3 min</div>
-        </div>
-        <div class="demo-player" id="demo-en-wrap">
-          <!-- REPLACE: change ENGLISH_VIDEO_ID to your actual YouTube video ID -->
-          <div class="demo-player__placeholder" id="demo-en-placeholder" onclick="loadDemo('en', 'ENGLISH_VIDEO_ID')">
-            <div class="play-btn">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-            </div>
-            <div class="coming-label">English demo · uploading soon</div>
-          </div>
-        </div>
-        <div class="demo-card__footer">
-          <span>Research → 3 verified authorities</span>
-          <span>Anticipatory bail · HC</span>
-          <span>Download PDF</span>
-        </div>
-      </div>
-
+    <!-- Language toggle -->
+    <div class="demo-tabs" role="tablist" aria-label="Demo language">
+      <button class="demo-tab active" role="tab" aria-selected="true"  data-lang="hi">
+        🇮🇳 Hindi
+      </button>
+      <button class="demo-tab"        role="tab" aria-selected="false" data-lang="en">
+        🇬🇧 English
+      </button>
     </div>
+
+    <!-- Single player card -->
+    <div class="demo-card"
+         data-hi-id="HINDI_VIDEO_ID"
+         data-en-id="ENGLISH_VIDEO_ID">
+      <div class="demo-player" id="demo-player-wrap">
+        <div class="demo-player__placeholder" id="demo-placeholder">
+          <div class="play-btn" id="demo-play-btn">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </div>
+          <div class="coming-label" id="demo-coming-label">Demo uploading soon</div>
+        </div>
+      </div>
+      <div class="demo-card__footer" id="demo-footer">
+        <span id="df1">FIR upload → bail application</span>
+        <span id="df2">Verified SC citations</span>
+        <span id="df3">Hindi PDF export</span>
+      </div>
+    </div>
+
   </div>
 </section>
 
 <script>
-// Replace the placeholder with an embedded YouTube player
-function loadDemo(lang, videoId) {
-  const placeholder = document.getElementById('demo-' + lang + '-placeholder');
-  const wrap = document.getElementById('demo-' + lang + '-wrap');
-  if (!placeholder || !wrap || videoId.includes('VIDEO_ID')) {
-    // No real ID yet — do nothing (placeholder stays)
-    return;
-  }
-  const iframe = document.createElement('iframe');
-  iframe.src = 'https://www.youtube.com/embed/' + videoId + '?autoplay=1&rel=0&modestbranding=1';
-  iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-  iframe.allowFullscreen = true;
-  iframe.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none;';
-  placeholder.remove();
-  wrap.appendChild(iframe);
-}
+// ---- Demo section: tab switcher + YouTube lazy embed ----
+(function demoInit() {
+  const VIDEOS = {
+    hi: { id: null, footer: ['FIR upload → bail application', 'Verified SC citations', 'Hindi PDF export'] },
+    en: { id: null, footer: ['Research → 3 verified authorities', 'Anticipatory bail · HC', 'Download PDF'] },
+  };
 
-// If real YouTube IDs are set (no VIDEO_ID placeholder), auto-embed on page load
-(function autoEmbedIfReady() {
-  [
-    { lang: 'hi', id: document.querySelector('#demo-hi-placeholder') },
-    { lang: 'en', id: document.querySelector('#demo-en-placeholder') },
-  ].forEach(({ lang, id }) => {
-    if (id) {
-      const onclick = id.getAttribute('onclick') || '';
-      const match = onclick.match(/'([A-Za-z0-9_-]{11})'/);
-      if (match && match[1] && match[1].length === 11 && !match[1].includes('VIDEO_ID')) {
-        // Real 11-char YouTube ID found — auto-embed without click
-        loadDemo(lang, match[1]);
-      }
+  // Read video IDs from the card's data attrs
+  const card = document.querySelector('.demo-card[data-hi-id]');
+  if (card) {
+    const hiId = card.dataset.hiId;
+    const enId = card.dataset.enId;
+    if (hiId && !hiId.includes('VIDEO_ID')) VIDEOS.hi.id = hiId;
+    if (enId && !enId.includes('VIDEO_ID')) VIDEOS.en.id = enId;
+  }
+
+  let activeLang = 'hi';
+  let playerLoaded = false;
+
+  function setFooter(lang) {
+    const f = VIDEOS[lang].footer;
+    ['df1','df2','df3'].forEach((id, i) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = f[i];
+    });
+  }
+
+  function loadPlayer(lang) {
+    const videoId = VIDEOS[lang].id;
+    const wrap = document.getElementById('demo-player-wrap');
+    const placeholder = document.getElementById('demo-placeholder');
+    if (!videoId || !wrap) return;
+    placeholder && placeholder.remove();
+    const iframe = document.createElement('iframe');
+    iframe.src = 'https://www.youtube.com/embed/' + videoId + '?autoplay=1&rel=0&modestbranding=1';
+    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+    iframe.allowFullscreen = true;
+    iframe.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none;';
+    wrap.appendChild(iframe);
+    playerLoaded = true;
+  }
+
+  function switchTo(lang) {
+    if (lang === activeLang && playerLoaded) return;
+    activeLang = lang;
+
+    // Update tabs
+    document.querySelectorAll('.demo-tab').forEach(btn => {
+      const active = btn.dataset.lang === lang;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-selected', active);
+    });
+
+    // Update footer labels
+    setFooter(lang);
+
+    // If player already loaded, reload iframe with new video
+    const wrap = document.getElementById('demo-player-wrap');
+    const existing = wrap && wrap.querySelector('iframe');
+    const videoId = VIDEOS[lang].id;
+
+    if (existing && videoId) {
+      existing.src = 'https://www.youtube.com/embed/' + videoId + '?autoplay=1&rel=0&modestbranding=1';
+    } else if (!existing) {
+      loadPlayer(lang);
     }
+
+    // Update placeholder label if still showing
+    const label = document.getElementById('demo-coming-label');
+    if (label) label.textContent = lang === 'hi' ? 'Hindi demo · uploading soon' : 'English demo · uploading soon';
+  }
+
+  // Tab click handlers
+  document.querySelectorAll('.demo-tab').forEach(btn => {
+    btn.addEventListener('click', () => switchTo(btn.dataset.lang));
   });
+
+  // Play-button click on placeholder
+  const playBtn = document.getElementById('demo-play-btn');
+  const placeholder = document.getElementById('demo-placeholder');
+  if (placeholder) {
+    placeholder.addEventListener('click', () => loadPlayer(activeLang));
+  }
+
+  // Set initial footer
+  setFooter('hi');
 })();
 </script>
 
@@ -935,11 +982,11 @@ function loadDemo(lang, videoId) {
 <div class="stats">
   <div class="stats-grid">
     <div class="stats-cell">
-      <div class="v">27+<span class="accent"> लाख</span></div>
+      <div class="v">27+<span class="accent"> Lakh</span></div>
       <div class="k">case corpus</div>
     </div>
     <div class="stats-cell">
-      <div class="v">100+</div>
+      <div class="v">34+</div>
       <div class="k">application formats</div>
     </div>
     <div class="stats-cell">
@@ -947,7 +994,7 @@ function loadDemo(lang, videoId) {
       <div class="k">citation verification</div>
     </div>
     <div class="stats-cell">
-      <div class="v hi">हिंदी</div>
+      <div class="v">Hindi</div>
       <div class="k">+ English output</div>
     </div>
   </div>
@@ -974,11 +1021,11 @@ function loadDemo(lang, videoId) {
         <div class="doc-mini">
           <div class="head">IN THE COURT OF SESSIONS JUDGE, GWALIOR</div>
           <div style="text-align:center;font-weight:600;">Bail Application No. <span class="ph">[auto]</span> / 2026</div>
-          <div style="margin-top:6px;">आवेदक — रामेश्वर पुत्र लालचंद, उम्र <span class="ph">28</span></div>
-          <div>निवासी — <span class="ph">[address from FIR]</span></div>
-          <div style="text-align:center;">बनाम</div>
-          <div>राज्य म.प्र., थाना <span class="ph">मुरार</span></div>
-          <div style="margin-top:6px;"><strong>संक्षिप्त तथ्य:</strong> दिनांक <span class="ph">12.02.2026</span> को धारा <span class="ph">420, 406</span>…</div>
+          <div style="margin-top:6px;">Applicant — Rameshwar s/o Lalchand, aged <span class="ph">28</span></div>
+          <div>R/o — <span class="ph">[address from FIR]</span></div>
+          <div style="text-align:center;">Versus</div>
+          <div>State of MP, PS <span class="ph">Murar</span></div>
+          <div style="margin-top:6px;"><strong>Brief Facts:</strong> On <span class="ph">12.02.2026</span>, the applicant was arrested u/s <span class="ph">308, 420</span> BNSS…</div>
         </div>
       </div>
 
@@ -1082,7 +1129,7 @@ function loadDemo(lang, videoId) {
       <div class="card card-w2 card-tall" style="text-align:center;">
         <div class="card-eyebrow" style="text-align:left;">listening</div>
         <div class="orb-wrap"><div class="orb"></div></div>
-        <div class="orb-meta">हिंदी · English · auto-detect</div>
+        <div class="orb-meta">Hindi · English · auto-detect</div>
       </div>
 
       <div class="card card-w4">
@@ -1096,7 +1143,7 @@ function loadDemo(lang, videoId) {
 
       <div class="card card-w2">
         <div class="card-eyebrow">translate.fields</div>
-        <div class="card-title">EN ⇄ हिंदी</div>
+        <div class="card-title">EN ⇄ Hindi</div>
         <div class="card-body">One tap. Every field. The whole draft.</div>
       </div>
 
@@ -1123,24 +1170,24 @@ function loadDemo(lang, videoId) {
       <div class="card card-w3">
         <div class="card-eyebrow">tier 1 · most filed</div>
         <div class="tpl-list">
-          <div class="tpl-item"><span class="name">Regular Bail · S.483/439</span><span class="tag hi">नियमित जमानत</span></div>
-          <div class="tpl-item"><span class="name">Anticipatory Bail · S.482/438</span><span class="tag hi">अग्रिम जमानत</span></div>
-          <div class="tpl-item"><span class="name">Quashing · S.528/482</span><span class="tag hi">निरस्तीकरण</span></div>
-          <div class="tpl-item"><span class="name">Vakalatnama</span><span class="tag hi">वकालतनामा</span></div>
-          <div class="tpl-item"><span class="name">Mention Memo</span><span class="tag hi">मेंशन मेमो</span></div>
-          <div class="tpl-item"><span class="name">Writ Petition · Art. 226</span><span class="tag hi">रिट याचिका</span></div>
+          <div class="tpl-item"><span class="name">Regular Bail · S.483/439</span></div>
+          <div class="tpl-item"><span class="name">Anticipatory Bail · S.482/438</span></div>
+          <div class="tpl-item"><span class="name">Quashing · S.528/482</span></div>
+          <div class="tpl-item"><span class="name">Vakalatnama</span></div>
+          <div class="tpl-item"><span class="name">Mention Memo</span></div>
+          <div class="tpl-item"><span class="name">Writ Petition · Art. 226</span></div>
         </div>
       </div>
 
       <div class="card card-w3">
         <div class="card-eyebrow">tier 2 · specialised</div>
         <div class="tpl-list">
-          <div class="tpl-item"><span class="name">Default Bail · S.187(3)</span><span class="tag hi">स्थिर जमानत</span></div>
-          <div class="tpl-item"><span class="name">Discharge Application</span><span class="tag hi">उन्मोचन</span></div>
-          <div class="tpl-item"><span class="name">Maintenance · S.144/125</span><span class="tag hi">भरण-पोषण</span></div>
-          <div class="tpl-item"><span class="name">Criminal Revision</span><span class="tag hi">पुनरीक्षण</span></div>
-          <div class="tpl-item"><span class="name">Reply to Bail (Counter)</span><span class="tag hi">प्रत्युत्तर</span></div>
-          <div class="tpl-item"><span class="name">Appeal v. Conviction · S.415/374</span><span class="tag hi">अपील</span></div>
+          <div class="tpl-item"><span class="name">Default Bail · S.187(3)</span></div>
+          <div class="tpl-item"><span class="name">Discharge Application</span></div>
+          <div class="tpl-item"><span class="name">Maintenance · S.144/125</span></div>
+          <div class="tpl-item"><span class="name">Criminal Revision</span></div>
+          <div class="tpl-item"><span class="name">Reply to Bail (Counter)</span></div>
+          <div class="tpl-item"><span class="name">Appeal v. Conviction · S.415/374</span></div>
         </div>
       </div>
 
@@ -1216,7 +1263,7 @@ function loadDemo(lang, videoId) {
           <li><span class="tick">✓</span>10 judgment reads/day</li>
           <li><span class="tick">✓</span>42K curated corpus</li>
           <li><span class="x">×</span><span class="muted">No PDF export</span></li>
-          <li><span class="x">×</span><span class="muted">No हिंदी export</span></li>
+          <li><span class="x">×</span><span class="muted">No Hindi export</span></li>
         </ul>
         <a href="/app" class="pcta">Start free</a>
       </div>
@@ -1234,7 +1281,7 @@ function loadDemo(lang, videoId) {
           <li><span class="tick">✓</span>Unlimited judgment reads</li>
           <li><span class="tick">✓</span>PDF export (English)</li>
           <li><span class="tick">✓</span>7-day history</li>
-          <li><span class="x">×</span><span class="muted">No हिंदी export</span></li>
+          <li><span class="x">×</span><span class="muted">No Hindi export</span></li>
         </ul>
         <a href="/pricing" class="pcta">Buy ₹120</a>
       </div>
@@ -1252,7 +1299,7 @@ function loadDemo(lang, videoId) {
           <li><span class="tick">✓</span>100 deep searches / month</li>
           <li><span class="tick">✓</span><strong>Unlimited drafts</strong></li>
           <li><span class="tick">✓</span>Unlimited judgment reads</li>
-          <li><span class="tick">✓</span>PDF export (English + हिंदी)</li>
+          <li><span class="tick">✓</span>PDF export (English + Hindi)</li>
           <li><span class="tick">✓</span>Unlimited history</li>
           <li><span class="tick">✓</span>Email support</li>
         </ul>
@@ -1270,7 +1317,7 @@ function loadDemo(lang, videoId) {
           <li><span class="tick">✓</span>1,500 deep searches / year</li>
           <li><span class="tick">✓</span><strong>Unlimited drafts</strong></li>
           <li><span class="tick">✓</span>Unlimited judgment reads</li>
-          <li><span class="tick">✓</span>PDF + हिंदी + letterhead</li>
+          <li><span class="tick">✓</span>PDF + Hindi + letterhead</li>
           <li><span class="tick">✓</span>WhatsApp support</li>
           <li><span class="tick">✓</span>Custom format requests</li>
         </ul>
@@ -1331,7 +1378,25 @@ function loadDemo(lang, videoId) {
 </footer>
 
 <script>
-  // Auth-aware CTAs
+  // ---- Parallax background scroll handler ----
+  (function parallaxInit() {
+    const bg = document.getElementById('page-bg');
+    if (!bg) return;
+    let ticking = false;
+    function onScroll() {
+      if (!ticking) {
+        window.requestAnimationFrame(function() {
+          // Move at 20% of scroll speed — subtle depth without motion sickness
+          bg.style.transform = 'translateY(' + (window.scrollY * 0.2) + 'px)';
+          ticking = false;
+        });
+        ticking = true;
+      }
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+
+  // ---- Auth-aware CTAs ----
   (async function navAuth() {
     try {
       if (window.headnoteAuth && window.headnoteAuth.ready) {
