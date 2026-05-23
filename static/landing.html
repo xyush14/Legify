@@ -665,21 +665,11 @@
 
   /* ============= DEMO SECTION (tab-based switcher) ============= */
   .demo-section {
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    padding: 52px 0 0;
+    padding: 90px 24px 100px;
     background: var(--ink);
     position: relative;
     overflow: hidden;
     isolation: isolate;
-  }
-  /* Text + tabs block — fixed height, doesn't grow */
-  .demo-section > .wrap {
-    padding-left: 24px;
-    padding-right: 24px;
-    padding-bottom: 20px;
-    flex-shrink: 0;
   }
   .demo-section::before {
     content: "";
@@ -732,25 +722,22 @@
   }
   .demo-tab:not(.active):hover { color: rgba(255,255,255,0.75); }
 
-  /* Single demo card — full width, fills remaining viewport height */
+  /* Single demo card — centred, standard 16:9, side-padded */
   .demo-card {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    border-radius: 0;
+    max-width: 960px;
+    margin: 0 auto;
+    border-radius: 14px;
     overflow: hidden;
     background: #111;
-    border-top: 1px solid rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 40px 100px -20px rgba(0,0,0,0.8), 0 0 0 1px rgba(201,169,110,0.06);
   }
 
-  /* Video player — fills card, no fixed aspect ratio needed (flex driven) */
+  /* Standard 16:9 aspect-ratio player */
   .demo-player {
-    flex: 1;
-    min-height: 0;
     position: relative;
     width: 100%;
+    padding-top: 56.25%;
     background: #0a0a0a;
   }
   .demo-player iframe {
@@ -866,27 +853,26 @@
       <button class="demo-tab active" role="tab" aria-selected="true"  data-lang="hi">Hindi</button>
       <button class="demo-tab"        role="tab" aria-selected="false" data-lang="en">English</button>
     </div>
-  </div>
-
-  <!-- Full-width cinematic player — lives outside .wrap intentionally -->
-  <div class="demo-card"
-       data-hi-id="HINDI_VIDEO_ID"
-       data-en-id="ENGLISH_VIDEO_ID">
-    <div class="demo-player" id="demo-player-wrap">
-      <div class="demo-player__placeholder" id="demo-placeholder">
-        <div class="play-btn" id="demo-play-btn">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+    <!-- Centred 16:9 player card -->
+    <div class="demo-card"
+         data-hi-id="HINDI_VIDEO_ID"
+         data-en-id="ENGLISH_VIDEO_ID">
+      <div class="demo-player" id="demo-player-wrap">
+        <div class="demo-player__placeholder" id="demo-placeholder">
+          <div class="play-btn" id="demo-play-btn">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </div>
+          <div class="coming-label" id="demo-coming-label">Demo uploading soon</div>
         </div>
-        <div class="coming-label" id="demo-coming-label">Demo uploading soon</div>
+      </div>
+      <div class="demo-card__footer" id="demo-footer">
+        <span id="df1">FIR upload → bail application</span>
+        <span id="df2">Verified SC citations</span>
+        <span id="df3">Hindi PDF export</span>
       </div>
     </div>
-    <div class="demo-card__footer" id="demo-footer">
-      <span id="df1">FIR upload → bail application</span>
-      <span id="df2">Verified SC citations</span>
-      <span id="df3">Hindi PDF export</span>
-    </div>
-  </div>
 
+  </div>
 </section>
 
 <script>
