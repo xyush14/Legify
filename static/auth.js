@@ -19,7 +19,7 @@
 // version doesn't match, the browser is running stale JS (old tab, aggressive
 // cache). We force ONE reload to pick up the new code. This prevents the
 // "sign-in loop" and "missing features" bugs caused by cached old files.
-const _CODE_VERSION = '20260523b';
+const _CODE_VERSION = '20260524a';
 
 /* ------------------------------------------------------------------ state */
 
@@ -602,6 +602,28 @@ function _revealApp() {
   try { window.localStorage.removeItem('headnote.returnTo'); } catch (e) {}
 }
 
+// Founder emails that get the Admin mask in the sidebar UI.
+// Name shows as "Admin", avatar shows as a scales-of-justice icon.
+const _ADMIN_EMAILS = new Set([
+  '20pe3009@rgipt.ac.in',
+  'ayushshivhare02@gmail.com',
+  'kpal645@gmail.com',
+]);
+
+// Scales-of-justice SVG avatar (gold on dark, 40×40).
+const _ADMIN_AVATAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true">
+  <circle cx="20" cy="20" r="20" fill="#1a1108"/>
+  <line x1="20" y1="9" x2="20" y2="31" stroke="#c9a96e" stroke-width="1.6" stroke-linecap="round"/>
+  <line x1="10" y1="13" x2="30" y2="13" stroke="#c9a96e" stroke-width="1.6" stroke-linecap="round"/>
+  <line x1="15" y1="31" x2="25" y2="31" stroke="#c9a96e" stroke-width="1.6" stroke-linecap="round"/>
+  <line x1="10" y1="13" x2="8"  y2="21" stroke="#c9a96e" stroke-width="1.2" stroke-linecap="round"/>
+  <line x1="10" y1="13" x2="14" y2="21" stroke="#c9a96e" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M7 21 Q11 25.5 15 21" stroke="#c9a96e" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+  <line x1="30" y1="13" x2="26" y2="21" stroke="#c9a96e" stroke-width="1.2" stroke-linecap="round"/>
+  <line x1="30" y1="13" x2="32" y2="21" stroke="#c9a96e" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M25 21 Q29 25.5 33 21" stroke="#c9a96e" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+</svg>`;
+
 /** Populate the sidebar footer with the signed-in user's name + avatar. */
 function _renderSidebarUser(user) {
   const card = document.getElementById('sidebar-user');
@@ -610,10 +632,12 @@ function _renderSidebarUser(user) {
     card.hidden = true;
     return;
   }
-  // Name: prefer the onboarded profile if we already have it via
-  // user_metadata, otherwise fall back to the Google full name, then to
-  // the email local-part.
-  const name = (
+
+  const email = (user?.email || '').toLowerCase().trim();
+  const isAdmin = _ADMIN_EMAILS.has(email);
+
+  // Name: founders show as "Admin"; everyone else shows their real name.
+  const name = isAdmin ? 'Admin' : (
     user?.user_metadata?.full_name ||
     user?.user_metadata?.name ||
     user?.identities?.[0]?.identity_data?.full_name ||
@@ -623,21 +647,25 @@ function _renderSidebarUser(user) {
   const nameEl = document.getElementById('sidebar-user-name');
   if (nameEl) nameEl.textContent = name || 'Signed in';
 
-  // Avatar: Google profile picture if available, otherwise the first
-  // letter of the name as a coloured initial.
-  const avatarUrl = (
-    user?.user_metadata?.avatar_url ||
-    user?.user_metadata?.picture ||
-    user?.identities?.[0]?.identity_data?.avatar_url ||
-    ''
-  );
+  // Avatar: founders get the scales-of-justice icon; everyone else gets
+  // their Google photo or an initial.
   const avatarEl = document.getElementById('sidebar-user-avatar');
   if (avatarEl) {
-    if (avatarUrl) {
-      avatarEl.innerHTML = `<img src="${avatarUrl}" alt="" referrerpolicy="no-referrer" />`;
+    if (isAdmin) {
+      avatarEl.innerHTML = _ADMIN_AVATAR_SVG;
     } else {
-      const initial = (name || 'U').trim().charAt(0).toUpperCase();
-      avatarEl.textContent = initial;
+      const avatarUrl = (
+        user?.user_metadata?.avatar_url ||
+        user?.user_metadata?.picture ||
+        user?.identities?.[0]?.identity_data?.avatar_url ||
+        ''
+      );
+      if (avatarUrl) {
+        avatarEl.innerHTML = `<img src="${avatarUrl}" alt="" referrerpolicy="no-referrer" />`;
+      } else {
+        const initial = (name || 'U').trim().charAt(0).toUpperCase();
+        avatarEl.textContent = initial;
+      }
     }
   }
   card.hidden = false;
