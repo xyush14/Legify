@@ -1677,37 +1677,65 @@ async def all_exception_handler(request: Request, exc: Exception):
     print(f"[exc_handler] {exc_type}: {msg[:500]}", flush=True)
     _tb.print_exc()
 
-    # AWS Bedrock — IAM user missing bedrock:InvokeModel permission. Very
-    # common when access keys are from a non-admin IAM user.
-    if "AccessDeniedException" in msg or "is not authorized to perform: bedrock" in lower:
-        return JSONResponse(status_code=503, content={
-            "error": "AWS IAM user can't invoke Bedrock — attach AmazonBedrockFullAccess managed policy to the IAM user whose access keys are on Railway, OR add bedrock:InvokeModel + bedrock:InvokeModelWithResponseStream permissions."
-        })
-    # AWS Bedrock — Marketplace payment instrument not on file (very common
-    # on Indian AWS accounts that have credits but no card linked).
-    if "invalid_payment_instrument" in lower or "marketplace subscription" in lower or "valid payment instrument" in lower:
-        return JSONResponse(status_code=503, content={
-            "error": "AWS Bedrock isn't ready yet — go to AWS Console → Billing → Payment methods and add a card (credits will be used first, no charge). Then AWS Console → Bedrock → Model access → subscribe to Claude Sonnet + Haiku."
-        })
+    # Identify which provider actually raised — needed because the error
+    # message used to always say "Anthropic" even when the active path was
+    # DeepSeek or Groq, which is misleading for ops.
+    def _which_provider(s: str) -> str:
+        sl = s.lower()
+        if "deepseek" in sl or "api.deepseek.com" in sl:
+            return "DeepSeek"
+        if "groq" in sl or "api.groq.com" in sl:
+            return "Groq"
+        if "anthropic" in sl or "api.anthropic.com" in sl:
+            return "Anthropic"
+        return "AI provider"
+
+    provider = _which_provider(msg)
+
+    # Rate limit / 429 — common when free-tier or fresh keys haven't warmed
+    # up yet. DeepSeek is the most common offender on a new account.
     if "rate_limit" in lower or "ratelimit" in lower or "429" in msg or "rate limit" in lower:
         return JSONResponse(status_code=503, content={
-            "error": "The AI service is busy — please retry in 10-15 seconds. (Anthropic rate limit hit.)"
+            "error": f"{provider} is rate-limiting our requests. Retry in 10-15 seconds. If this persists, your {provider} key may be on a low free tier — top up or switch providers via LLM_PROVIDER env var.",
+            "provider": provider,
         })
-    if "credit balance" in lower or "insufficient credit" in lower or "out of credits" in lower:
-        # Include the original exception type so we can tell whether the chain
-        # ended at Anthropic (real) or whether Bedrock failed silently first.
+
+    # Invalid/missing API key
+    if "api key" in lower or "unauthorized" in lower or "401" in msg or "invalid_api_key" in lower:
         return JSONResponse(status_code=503, content={
-            "error": f"LLM unavailable. Bedrock call failed (last_exception={exc_type}), Anthropic fallback also failed (credit balance). Most likely fix: attach AmazonBedrockFullAccess policy to your Railway IAM user. Backup fix: add $5 Anthropic credits.",
+            "error": f"{provider} API key is invalid or missing on the server. Check Railway env vars (ANTHROPIC_API_KEY, DEEPSEEK_API_KEY, GROQ_API_KEY).",
+            "provider": provider,
         })
-    if "resource_exhausted" in lower or ("gemini" in lower and "quota" in lower):
+
+    # Out-of-credit / billing
+    if "credit balance" in lower or "insufficient credit" in lower or "out of credits" in lower or "payment required" in lower or "402" in msg:
         return JSONResponse(status_code=503, content={
-            "error": "Fallback model quota exceeded. Set USE_BEDROCK=true and configure AWS Bedrock to use AWS credits instead."
+            "error": f"{provider} account is out of credit. Top up at the provider dashboard, or set LLM_PROVIDER=deepseek to route via DeepSeek instead (cheaper).",
+            "provider": provider,
+            "exception_type": exc_type,
         })
-    if "model identifier" in lower or "model not found" in lower:
+
+    # Connection / timeout
+    if "timeout" in lower or "connection" in lower or "timed out" in lower or "connecterror" in lower:
+        return JSONResponse(status_code=503, content={
+            "error": f"{provider} connection timeout. Retry in a few seconds. If persistent, the provider may be having an outage.",
+            "provider": provider,
+        })
+
+    # Model not found
+    if "model identifier" in lower or "model not found" in lower or "model_not_found" in lower:
         return JSONResponse(status_code=500, content={
-            "error": "AI model config issue — admin notified. Try again in a moment."
+            "error": f"{provider} model ID is unrecognised — likely a stale model name in env vars. Check DEEPSEEK_MODEL_OVERRIDE / MODEL on Railway.",
+            "provider": provider,
         })
-    return JSONResponse(status_code=500, content={"error": msg})
+
+    # Fallback — show the raw message with provider attribution so ops can
+    # diagnose without grepping Railway logs.
+    return JSONResponse(status_code=500, content={
+        "error": f"{provider} error: {msg[:500]}",
+        "provider": provider,
+        "exception_type": exc_type,
+    })
 
 
 # Mount static last so /api/* takes priority.

@@ -119,19 +119,38 @@ def _call_claude_with_gemini_fallback(
     enable_thinking: bool,
     thinking_budget: int,
 ):
-    """Single point where Anthropic is called.
+    """Single point where the LLM is called.
+
+    When DeepSeek is primary (LLM_PROVIDER=deepseek), short-circuits the
+    Anthropic-retry path entirely — call_claude_cached internally handles
+    DeepSeek → Groq fallback, no need for additional retry layers here.
+
+    When Anthropic is primary, retries transient failures up to twice with
+    exponential backoff. call_claude_cached itself falls through to DeepSeek
+    → Groq on Anthropic credit failures.
 
     Strategy on transient failure (rate-limit / 5xx / connection blip):
       1. Up to 2 retries with exponential backoff (Anthropic 429s usually
          clear in 5-15s for tier 1 accounts).
-      2. Optional Gemini fallback after retries, gated on ENABLE_GEMINI_FALLBACK
-         env var. Defaults OFF — Gemini's free tier is unreliable (limit=0
-         on suspended projects) and an Anthropic-only flow gives cleaner
-         error messages than a chain of confusing fallback errors.
+      2. call_claude_cached takes over for credit-balance errors by
+         routing to DeepSeek → Groq automatically.
     """
     import os
     import time as _time
+    from headnote.llm.client import _deepseek_primary
 
+    # PATH A: DeepSeek primary — single call, no anthropic-retry. DeepSeek's
+    # SDK has 180s timeout; Groq fallback inside call_claude_cached handles
+    # any DeepSeek failure.
+    if _deepseek_primary():
+        return call_claude_cached(
+            system_prompt, user_prompt,
+            model=model, cache=cache,
+            enable_thinking=enable_thinking,
+            thinking_budget=thinking_budget,
+        )
+
+    # PATH B: Anthropic primary with retry-on-transient
     last_exc: Optional[Exception] = None
     backoff_seconds = (2.0, 6.0)  # two retries spaced at 2s and 6s
     for attempt in range(len(backoff_seconds) + 1):
@@ -154,22 +173,6 @@ def _call_claude_with_gemini_fallback(
                 type(e).__name__, attempt + 1, len(backoff_seconds), sleep_s,
             )
             _time.sleep(sleep_s)
-
-    # All retries exhausted. Only try Gemini if explicitly enabled — and
-    # the Gemini call may still fail with its own quota error.
-    gemini_enabled = os.environ.get("ENABLE_GEMINI_FALLBACK", "false").lower() in {"1", "true", "yes"}
-    if gemini_enabled and _gemini_configured():
-        log.warning(
-            "Anthropic transient error after %d retries; falling back to Gemini",
-            len(backoff_seconds),
-        )
-        try:
-            return _call_gemini(system_prompt, user_prompt, model="")
-        except Exception as ge:
-            log.error("Gemini fallback also failed: %s", str(ge)[:200])
-            # Re-raise the original Anthropic exception so the user sees the
-            # real cause, not a confusing Gemini quota message.
-            raise last_exc from ge
 
     raise last_exc
 
