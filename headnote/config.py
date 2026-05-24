@@ -217,6 +217,21 @@ PRICE_SONNET = {
     "input_cache_read":  0.30,
     "output":           15.00,
 }
+# DeepSeek V3 (deepseek-chat) pricing — ~10x cheaper than Sonnet.
+# No cache tiers; cache_write/read set to input price as approximation.
+PRICE_DEEPSEEK = {
+    "input":             0.27,
+    "input_cache_write": 0.27,
+    "input_cache_read":  0.07,   # DeepSeek context cache discount
+    "output":            1.10,
+}
+# Groq free-tier Llama-3.3-70B — essentially $0, set to 0 for meter.
+PRICE_GROQ = {
+    "input":             0.0,
+    "input_cache_write": 0.0,
+    "input_cache_read":  0.0,
+    "output":            0.0,
+}
 
 
 # ----------------------------------------------------------------- helpers

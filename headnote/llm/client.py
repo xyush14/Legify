@@ -83,15 +83,76 @@ def _is_anthropic_no_credit_error(exc: Exception) -> bool:
     ))
 
 
+def _call_deepseek_fallback(
+    system_prompt: str,
+    user_prompt: str,
+    *,
+    max_tokens: int,
+) -> Tuple[str, dict]:
+    """DeepSeek V3 fallback — fires after Bedrock + direct Anthropic both fail.
+
+    DeepSeek V3 uses an OpenAI-compatible API endpoint so no extra SDK is
+    needed — the `openai` package (already in requirements.txt for OCR) works
+    out of the box. Quality tier for Headnote tasks:
+
+        Sonnet 4.6 > DeepSeek V3 > Groq Llama-3.3-70B
+
+    For legal JSON extraction / Hindi translation DeepSeek V3 is meaningfully
+    better than Llama (sharper JSON discipline, better multilingual coverage),
+    so it sits between the Anthropic path and the free Groq path.
+
+    Requires DEEPSEEK_API_KEY env var on Railway.
+    Model: deepseek-chat (V3) — faster and cheaper than deepseek-reasoner (R1).
+    """
+    ds_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
+    if not ds_key:
+        # No DeepSeek key — propagate so caller can try next fallback (Groq)
+        raise RuntimeError("DEEPSEEK_API_KEY not set")
+
+    try:
+        from openai import OpenAI
+    except ImportError as e:
+        raise RuntimeError(f"openai SDK not installed: {e}") from e
+
+    model = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")
+    log.warning(
+        "[llm] Falling back to DeepSeek %s (Bedrock + Anthropic both failed)", model
+    )
+
+    client = OpenAI(
+        api_key=ds_key,
+        base_url="https://api.deepseek.com",
+        timeout=90.0,
+    )
+    resp = client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user",   "content": user_prompt},
+        ],
+        max_tokens=min(max_tokens or 4000, 8192),
+        temperature=0.2,
+    )
+    text = resp.choices[0].message.content or ""
+    usage = resp.usage
+    return text, {
+        "model": f"deepseek:{model}",
+        "input_tokens": getattr(usage, "prompt_tokens", 0) if usage else 0,
+        "output_tokens": getattr(usage, "completion_tokens", 0) if usage else 0,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+    }
+
+
 def _call_groq_fallback(
     system_prompt: str,
     user_prompt: str,
     *,
     max_tokens: int,
 ) -> Tuple[str, dict]:
-    """Last-resort fallback to Groq's free-tier Llama-3.3-70B when both
-    Bedrock and direct Anthropic fail. Quality is lower than Sonnet for
-    legal reasoning, but works without any payment dependency.
+    """Last-resort fallback to Groq's free-tier Llama-3.3-70B when Bedrock,
+    direct Anthropic, AND DeepSeek all fail. Free but lowest quality for
+    Indian legal reasoning.
 
     Uses GROQ_API_KEY env var (already configured for OCR/drafter paths).
     Returns the same (response_text, usage_dict) shape as the Anthropic path
@@ -112,7 +173,7 @@ def _call_groq_fallback(
         ) from e
 
     model = os.environ.get("GROQ_FALLBACK_MODEL", "llama-3.3-70b-versatile")
-    log.warning("[llm] Falling back to Groq %s (Bedrock + Anthropic both failed)", model)
+    log.warning("[llm] Falling back to Groq %s (Bedrock + Anthropic + DeepSeek all failed)", model)
 
     client = Groq(api_key=groq_key)
     resp = client.chat.completions.create(
@@ -134,6 +195,25 @@ def _call_groq_fallback(
         "cache_creation_input_tokens": 0,
         "cache_read_input_tokens": 0,
     }
+
+
+def _call_deepseek_or_groq(
+    system_prompt: str,
+    user_prompt: str,
+    *,
+    max_tokens: int,
+) -> Tuple[str, dict]:
+    """Try DeepSeek V3 first; fall through to Groq if DeepSeek key is absent
+    or the call errors. This gives:
+        DeepSeek V3 (paid, ~10x cheaper than Sonnet, better than Llama)
+        ↓ if DEEPSEEK_API_KEY not set or call fails
+        Groq Llama-3.3-70B (free, last resort)
+    """
+    try:
+        return _call_deepseek_fallback(system_prompt, user_prompt, max_tokens=max_tokens)
+    except Exception as ds_exc:
+        log.warning("[llm] DeepSeek fallback failed — trying Groq: %s", str(ds_exc)[:200])
+        return _call_groq_fallback(system_prompt, user_prompt, max_tokens=max_tokens)
 
 
 def get_client():
@@ -245,24 +325,35 @@ def call_claude_cached(
                     create_kwargs["model"] = canonical
                     resp = fallback_client.messages.create(**create_kwargs)
                 except Exception as anth_exc:
-                    # Anthropic also failed (out of credits, etc.) → final
-                    # fallback to Groq's free tier. Quality drop but reliable.
+                    # Anthropic also failed (out of credits, etc.) → try
+                    # DeepSeek V3 first (paid, better quality), then Groq
+                    # (free, last resort).
                     if _is_anthropic_no_credit_error(anth_exc):
                         log.warning(
-                            "Anthropic also failed (no credit) — falling back to Groq: %s",
+                            "Anthropic also failed (no credit) — trying DeepSeek → Groq: %s",
                             str(anth_exc)[:200],
                         )
-                        return _call_groq_fallback(
+                        return _call_deepseek_or_groq(
                             system_prompt, user_prompt,
                             max_tokens=create_kwargs.get("max_tokens", 4000),
                         )
                     raise
             else:
-                # No Anthropic key at all — go straight to Groq
-                return _call_groq_fallback(
+                # No Anthropic key at all — try DeepSeek → Groq
+                return _call_deepseek_or_groq(
                     system_prompt, user_prompt,
                     max_tokens=create_kwargs.get("max_tokens", 4000),
                 )
+        elif not _USE_BEDROCK and _is_anthropic_no_credit_error(exc):
+            # Direct Anthropic path (no Bedrock) ran out of credits → DeepSeek → Groq
+            log.warning(
+                "Direct Anthropic failed (no credit) — trying DeepSeek → Groq: %s",
+                str(exc)[:200],
+            )
+            return _call_deepseek_or_groq(
+                system_prompt, user_prompt,
+                max_tokens=create_kwargs.get("max_tokens", 4000),
+            )
         else:
             raise
     usage = resp.usage
@@ -285,9 +376,13 @@ def call_claude_cached(
 
 
 def estimate_cost_usd(usage: dict) -> float:
-    """Estimate USD cost from a Claude usage dict, using model-specific pricing."""
+    """Estimate USD cost from a usage dict. Handles Claude, DeepSeek, and Groq."""
     model = (usage.get("model") or "").lower()
-    if "haiku" in model:
+    if model.startswith("deepseek:"):
+        pricing = config.PRICE_DEEPSEEK
+    elif model.startswith("groq:"):
+        pricing = config.PRICE_GROQ
+    elif "haiku" in model:
         pricing = config.PRICE_HAIKU
     elif "sonnet" in model:
         pricing = config.PRICE_SONNET
