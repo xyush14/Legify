@@ -561,6 +561,44 @@ def auth_verify(authorization: str | None = Header(default=None)):
                 "trace": _tb.format_exc()[-500:]}
 
 
+@app.get("/api/debug/bedrock", summary="Minimal Bedrock invocation test (DEBUG)")
+def debug_bedrock_invoke():
+    """Fire a minimal Bedrock call so we can see the exact error without
+    needing a signed-in /api/situation roundtrip. Returns:
+      { ok: true, model: "...", response: "..." }  on success
+      { ok: false, exc_type: "...", message: "..." } on failure
+    """
+    import os as _os
+    from headnote.llm.client import _USE_BEDROCK, _BEDROCK_IDS, get_client
+    if not _USE_BEDROCK:
+        return {"ok": False, "exc_type": "config", "message": "USE_BEDROCK is not true on this deploy"}
+    sonnet_id = _BEDROCK_IDS.get("claude-sonnet-4-6", "?")
+    try:
+        client = get_client()
+        resp = client.messages.create(
+            model=sonnet_id,
+            max_tokens=20,
+            messages=[{"role": "user", "content": "Reply with the single word OK."}],
+        )
+        txt = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text")
+        return {
+            "ok": True,
+            "model": sonnet_id,
+            "region": _os.environ.get("AWS_REGION"),
+            "response": txt[:100],
+            "input_tokens": getattr(resp.usage, "input_tokens", None),
+            "output_tokens": getattr(resp.usage, "output_tokens", None),
+        }
+    except Exception as exc:
+        return {
+            "ok": False,
+            "exc_type": type(exc).__name__,
+            "message": str(exc)[:1000],
+            "model_attempted": sonnet_id,
+            "region": _os.environ.get("AWS_REGION"),
+        }
+
+
 @app.get("/api/health", summary="Liveness check + config summary")
 def health():
     # Add HF corpus stats so we can confirm the import landed without
@@ -1631,6 +1669,20 @@ async def all_exception_handler(request: Request, exc: Exception):
     # lawyers don't see "429 RESOURCE_EXHAUSTED" or "credit balance is too low".
     msg = str(exc)
     lower = msg.lower()
+    exc_type = type(exc).__name__
+
+    # DEBUG: log the raw exception type + message + traceback to Railway logs
+    # so an operator can diagnose Bedrock fallback chains, IAM denials, etc.
+    import traceback as _tb
+    print(f"[exc_handler] {exc_type}: {msg[:500]}", flush=True)
+    _tb.print_exc()
+
+    # AWS Bedrock — IAM user missing bedrock:InvokeModel permission. Very
+    # common when access keys are from a non-admin IAM user.
+    if "AccessDeniedException" in msg or "is not authorized to perform: bedrock" in lower:
+        return JSONResponse(status_code=503, content={
+            "error": "AWS IAM user can't invoke Bedrock — attach AmazonBedrockFullAccess managed policy to the IAM user whose access keys are on Railway, OR add bedrock:InvokeModel + bedrock:InvokeModelWithResponseStream permissions."
+        })
     # AWS Bedrock — Marketplace payment instrument not on file (very common
     # on Indian AWS accounts that have credits but no card linked).
     if "invalid_payment_instrument" in lower or "marketplace subscription" in lower or "valid payment instrument" in lower:
@@ -1642,8 +1694,10 @@ async def all_exception_handler(request: Request, exc: Exception):
             "error": "The AI service is busy — please retry in 10-15 seconds. (Anthropic rate limit hit.)"
         })
     if "credit balance" in lower or "insufficient credit" in lower or "out of credits" in lower:
+        # Include the original exception type so we can tell whether the chain
+        # ended at Anthropic (real) or whether Bedrock failed silently first.
         return JSONResponse(status_code=503, content={
-            "error": "Anthropic API has no balance and Bedrock isn't set up — see admin to enable AWS Bedrock or add Anthropic credits."
+            "error": f"LLM unavailable. Bedrock call failed (last_exception={exc_type}), Anthropic fallback also failed (credit balance). Most likely fix: attach AmazonBedrockFullAccess policy to your Railway IAM user. Backup fix: add $5 Anthropic credits.",
         })
     if "resource_exhausted" in lower or ("gemini" in lower and "quota" in lower):
         return JSONResponse(status_code=503, content={
