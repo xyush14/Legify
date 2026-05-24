@@ -193,15 +193,66 @@ _corpus_log = _logging.getLogger(__name__)
 _CORPUS_JOBS: dict[str, dict] = {}
 
 
-def _run_corpus_script(job_id: str, cmd: list[str]) -> None:
-    """Spawn a long-running script in a thread, capture summary to _CORPUS_JOBS."""
+def _run_corpus_script(
+    job_id: str,
+    cmd: list[str],
+    *,
+    extra_requirements: Optional[str] = None,
+) -> None:
+    """Spawn a long-running script in a thread, capture summary to _CORPUS_JOBS.
+
+    If `extra_requirements` is set (e.g. 'requirements-harvest.txt'), pip
+    installs those deps first. Used for harvest which needs `datasets`+`tqdm`
+    (~200MB) that we don't ship in the base image.
+    """
     repo_root = _Path(__file__).resolve().parent.parent.parent
     job = _CORPUS_JOBS[job_id]
     job["started_at"] = _time.time()
     job["status"] = "running"
     job["cmd"] = " ".join(cmd)
+    tail: list[str] = []
+
+    def _stream_proc(proc) -> int:
+        """Read stdout line by line into the rolling tail."""
+        for line in proc.stdout:  # type: ignore[union-attr]
+            _corpus_log.info("[corpus:%s] %s", job_id, line.rstrip())
+            tail.append(line.rstrip())
+            if len(tail) > 50:
+                tail.pop(0)
+            job["last_lines"] = tail[-30:]
+        proc.wait()
+        return proc.returncode
+
     try:
-        # Use Popen + tail-style read so we capture last 50 lines for status.
+        # Phase 1: install extra deps if needed (30-90s typical)
+        if extra_requirements:
+            req_path = repo_root / extra_requirements
+            if req_path.exists():
+                job["phase"] = f"installing {extra_requirements}"
+                tail.append(f"$ pip install -r {extra_requirements}")
+                job["last_lines"] = tail[-30:]
+                pip_proc = _subprocess.Popen(
+                    ["pip", "install", "--no-cache-dir", "-r", str(req_path)],
+                    cwd=str(repo_root),
+                    stdout=_subprocess.PIPE,
+                    stderr=_subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                )
+                rc = _stream_proc(pip_proc)
+                if rc != 0:
+                    job["status"] = "failed"
+                    job["return_code"] = rc
+                    job["error"] = "pip install of extra requirements failed"
+                    return
+                tail.append("$ pip install complete — starting script")
+                job["last_lines"] = tail[-30:]
+            else:
+                tail.append(f"WARNING: {extra_requirements} not found, skipping pre-install")
+                job["last_lines"] = tail[-30:]
+
+        # Phase 2: run the actual script
+        job["phase"] = "running script"
         proc = _subprocess.Popen(
             cmd,
             cwd=str(repo_root),
@@ -211,16 +262,9 @@ def _run_corpus_script(job_id: str, cmd: list[str]) -> None:
             bufsize=1,
         )
         job["pid"] = proc.pid
-        tail: list[str] = []
-        for line in proc.stdout:  # type: ignore[union-attr]
-            _corpus_log.info("[corpus:%s] %s", job_id, line.rstrip())
-            tail.append(line.rstrip())
-            if len(tail) > 50:
-                tail.pop(0)
-            job["last_lines"] = tail[-30:]
-        proc.wait()
-        job["return_code"] = proc.returncode
-        job["status"] = "completed" if proc.returncode == 0 else "failed"
+        rc = _stream_proc(proc)
+        job["return_code"] = rc
+        job["status"] = "completed" if rc == 0 else "failed"
     except Exception as e:
         job["status"] = "errored"
         job["error"] = str(e)[:500]
@@ -252,15 +296,23 @@ def admin_trigger_harvest(
         cmd += ["--limit", str(int(limit))]
 
     _CORPUS_JOBS[job_id] = {"job_id": job_id, "kind": "harvest", "status": "queued"}
-    t = _threading.Thread(target=_run_corpus_script, args=(job_id, cmd), daemon=True)
+    # Harvest needs `datasets` + `tqdm` which we don't ship in the base
+    # production image (saves ~200MB). Install them on demand before
+    # running the script.
+    t = _threading.Thread(
+        target=_run_corpus_script,
+        args=(job_id, cmd),
+        kwargs={"extra_requirements": "requirements-harvest.txt"},
+        daemon=True,
+    )
     t.start()
 
     return {
         "ok": True,
         "job_id": job_id,
         "command": " ".join(cmd),
-        "note": "Running in background. Watch Railway logs, or poll GET /admin/v2/corpus/status/" + job_id,
-        "estimated_minutes": 30 if "bail" not in subset_list else 90,
+        "note": "Running in background. First step is pip-installing harvest deps (~60s), then the actual harvest. Poll GET /admin/v2/corpus/status/" + job_id,
+        "estimated_minutes": 32 if "bail" not in subset_list else 92,
     }
 
 

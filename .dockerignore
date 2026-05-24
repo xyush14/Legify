@@ -33,7 +33,6 @@ feedback.db-journal
 
 # Tests + dev-only
 tests
-scripts
 legacy
 docs
 Dockerfile
@@ -41,6 +40,10 @@ Dockerfile
 README.md
 requirements-dev.txt
 pyproject.toml
+# NOTE: 'scripts/' is intentionally KEPT in the image — corpus admin
+# endpoints (harvest, backfill_embeddings) shell out to scripts/*.py.
+# If you need to slim the image, port the scripts into the package
+# instead of excluding them here.
 
 # OS artefacts
 .DS_Store
