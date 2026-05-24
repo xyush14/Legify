@@ -73,7 +73,15 @@
     if (status === 502 || status === 504) {
       return 'request took too long. opus + the full corpus can exceed the request budget on the free tier. try without deep mode, or narrow your query.';
     }
-    if (status === 503) return 'a backend dependency is down (likely IK token / anthropic key not set). check the server config.';
+    if (status === 503) {
+      // The backend returns specific actionable messages for 503 (Bedrock
+      // marketplace, no Anthropic credits, rate limit, Bedrock model
+      // misconfig, etc.). Surface them instead of a generic message — the
+      // lawyer can act on "AWS Bedrock isn't ready yet — go to AWS
+      // Console..." but not on "backend dependency is down".
+      if (errText && errText.trim()) return errText;
+      return 'a backend dependency is down (likely IK token / anthropic key not set). check the server config.';
+    }
     if (status === 429) return 'rate-limited. wait 30 seconds and try again.';
     if (status === 0)   return 'network error or request was cancelled.';
     return errText || `HTTP ${status}`;
