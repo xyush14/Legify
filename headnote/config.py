@@ -167,6 +167,7 @@ _FOUNDER_DEFAULT = (
     "20pe3009@rgipt.ac.in",
     "ayushshivhare02@gmail.com",
     "kpal645@gmail.com",
+    "vishnushivhare25@gmail.com",
 )
 _founder_env = os.environ.get("FOUNDER_EMAILS", "")
 FOUNDER_EMAILS: frozenset[str] = frozenset(

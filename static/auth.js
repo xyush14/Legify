@@ -19,7 +19,7 @@
 // version doesn't match, the browser is running stale JS (old tab, aggressive
 // cache). We force ONE reload to pick up the new code. This prevents the
 // "sign-in loop" and "missing features" bugs caused by cached old files.
-const _CODE_VERSION = '20260524d';
+const _CODE_VERSION = '20260524e';
 
 /* ------------------------------------------------------------------ state */
 
@@ -608,6 +608,7 @@ const _ADMIN_EMAILS = new Set([
   '20pe3009@rgipt.ac.in',
   'ayushshivhare02@gmail.com',
   'kpal645@gmail.com',
+  'vishnushivhare25@gmail.com',
 ]);
 
 // Scales-of-justice SVG avatar (gold on dark, 40×40).
