@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Headnote — Corpus Admin (Founder Only)</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f5f5f7;
+      color: #1d1d1f;
+      padding: 24px;
+      max-width: 720px;
+      margin: 0 auto;
+      line-height: 1.5;
+    }
+    h1 {
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+    .sub {
+      color: #6e6e73;
+      margin-bottom: 32px;
+      font-size: 15px;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #d2d2d7;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+    .card h2 {
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+    .card p {
+      color: #6e6e73;
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+    button {
+      background: #0071e3;
+      color: #fff;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      width: 100%;
+      transition: background 0.15s;
+    }
+    button:hover:not(:disabled) {
+      background: #0077ed;
+    }
+    button:disabled {
+      background: #aeaeb2;
+      cursor: not-allowed;
+    }
+    button.secondary {
+      background: #e8e8ed;
+      color: #1d1d1f;
+    }
+    button.secondary:hover:not(:disabled) {
+      background: #d8d8dd;
+    }
+    .status {
+      background: #f5f5f7;
+      border: 1px solid #d2d2d7;
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 16px;
+      font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 13px;
+      max-height: 400px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .status.ok { border-color: #34c759; background: #f0fff4; }
+    .status.err { border-color: #ff3b30; background: #fff5f5; }
+    .totals {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .totals .stat {
+      background: #f5f5f7;
+      padding: 12px;
+      border-radius: 8px;
+    }
+    .totals .stat .label {
+      font-size: 12px;
+      color: #6e6e73;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .totals .stat .value {
+      font-size: 24px;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+    .totals .stat .value.zero { color: #ff3b30; }
+    .totals .stat .value.ok { color: #34c759; }
+    .footer {
+      margin-top: 32px;
+      color: #6e6e73;
+      font-size: 13px;
+      text-align: center;
+    }
+    .step-num {
+      display: inline-block;
+      width: 24px;
+      height: 24px;
+      background: #0071e3;
+      color: #fff;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 24px;
+      margin-right: 8px;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .step-num.done {
+      background: #34c759;
+    }
+  </style>
+</head>
+<body>
+  <h1>Corpus Admin</h1>
+  <p class="sub">Load the HuggingFace IL-TUR judgment corpus + build paragraph embeddings.
+  Founder access only.</p>
+
+  <!-- Current totals -->
+  <div class="card">
+    <h2><span class="step-num" id="step0-num">0</span> Current corpus status</h2>
+    <p>How many judgments are in the database right now.</p>
+    <button class="secondary" id="btn-refresh">Refresh totals</button>
+    <div class="totals" id="totals" style="display:none;">
+      <div class="stat">
+        <div class="label">HF Corpus</div>
+        <div class="value" id="stat-hf">—</div>
+      </div>
+      <div class="stat">
+        <div class="label">Paragraph Embeddings</div>
+        <div class="value" id="stat-emb">—</div>
+      </div>
+    </div>
+    <div class="status" id="totals-status" style="display:none;"></div>
+  </div>
+
+  <!-- Harvest -->
+  <div class="card">
+    <h2><span class="step-num" id="step1-num">1</span> Start corpus harvest</h2>
+    <p>Imports ~40,000 Indian Supreme Court + High Court judgments from HuggingFace IL-TUR (cjpe + summ subsets).
+    Takes ~30 minutes. Runs in background — you can close this tab.</p>
+    <button id="btn-harvest">Start harvest (cjpe + summ)</button>
+    <div class="status" id="harvest-status" style="display:none;"></div>
+  </div>
+
+  <!-- Backfill embeddings -->
+  <div class="card">
+    <h2><span class="step-num" id="step2-num">2</span> Start embedding backfill</h2>
+    <p>Run this AFTER harvest completes. Builds the semantic search index over the imported judgments.
+    Takes ~20 minutes.</p>
+    <button id="btn-backfill">Start embedding backfill</button>
+    <div class="status" id="backfill-status" style="display:none;"></div>
+  </div>
+
+  <!-- Job log -->
+  <div class="card">
+    <h2><span class="step-num">📋</span> Last 30 log lines (live)</h2>
+    <p>Shows the most recent output from whichever job is running. Auto-refreshes every 10 seconds when a job is active.</p>
+    <button class="secondary" id="btn-check-status">Check job status now</button>
+    <div class="status" id="job-status" style="display:none;"></div>
+  </div>
+
+  <div class="footer">
+    Headnote v0.4.0 · founder-only · all jobs are idempotent and safe to re-run
+  </div>
+
+  <!-- Supabase auth -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="/static/auth.js"></script>
+
+  <script>
+    // Wait for auth to be ready, grab the token, then enable buttons.
+    async function withAuth(method, path, opts = {}) {
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('Not signed in. Open /app first, sign in as founder, then come back to /corpus.html.');
+      }
+      const res = await fetch(path, {
+        method,
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'Content-Type': 'application/json',
+        },
+        ...opts,
+      });
+      const text = await res.text();
+      let body;
+      try { body = JSON.parse(text); } catch { body = { raw: text }; }
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${body.error || body.detail || text}`);
+      }
+      return body;
+    }
+
+    function setStatus(elId, text, kind = '') {
+      const el = document.getElementById(elId);
+      el.style.display = 'block';
+      el.className = 'status' + (kind ? ' ' + kind : '');
+      el.textContent = text;
+    }
+
+    function fmtNumber(n) {
+      if (n == null) return '—';
+      return new Intl.NumberFormat('en-IN').format(n);
+    }
+
+    // --- Refresh totals -----------------------------------------------
+    async function refreshTotals() {
+      const btn = document.getElementById('btn-refresh');
+      btn.disabled = true;
+      btn.textContent = 'Checking…';
+      try {
+        const body = await withAuth('GET', '/admin/v2/corpus/totals');
+        const hf = body.hf_corpus || {};
+        const emb = body.embeddings || {};
+
+        document.getElementById('totals').style.display = 'grid';
+        const hfEl = document.getElementById('stat-hf');
+        hfEl.textContent = fmtNumber(hf.total);
+        hfEl.className = 'value ' + (hf.total > 0 ? 'ok' : 'zero');
+
+        const embEl = document.getElementById('stat-emb');
+        embEl.textContent = fmtNumber(emb.paragraph_count);
+        embEl.className = 'value ' + (emb.paragraph_count > 0 ? 'ok' : 'zero');
+
+        // Mark steps as done if their data is present
+        if (hf.total > 0) document.getElementById('step1-num').classList.add('done');
+        if (emb.paragraph_count > 0) document.getElementById('step2-num').classList.add('done');
+        document.getElementById('step0-num').classList.add('done');
+
+        setStatus('totals-status', JSON.stringify(body, null, 2), 'ok');
+      } catch (e) {
+        setStatus('totals-status', 'Error: ' + e.message, 'err');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Refresh totals';
+      }
+    }
+
+    // --- Start harvest ------------------------------------------------
+    async function startHarvest() {
+      if (!confirm('This starts a 30-minute background job on Railway. Proceed?')) return;
+      const btn = document.getElementById('btn-harvest');
+      btn.disabled = true;
+      btn.textContent = 'Starting…';
+      try {
+        const body = await withAuth('POST', '/admin/v2/corpus/harvest?subsets=cjpe,summ');
+        setStatus('harvest-status',
+          '✓ Harvest started!\n\n' +
+          'Job ID:  ' + body.job_id + '\n' +
+          'Command: ' + body.command + '\n' +
+          'ETA:     ' + body.estimated_minutes + ' minutes\n\n' +
+          body.note,
+          'ok');
+        btn.textContent = 'Started — see status below';
+        // Auto-start polling
+        startPolling(body.job_id);
+      } catch (e) {
+        setStatus('harvest-status', 'Error: ' + e.message, 'err');
+        btn.disabled = false;
+        btn.textContent = 'Start harvest (cjpe + summ)';
+      }
+    }
+
+    // --- Start backfill -----------------------------------------------
+    async function startBackfill() {
+      if (!confirm('This starts a 20-minute embedding job. Make sure harvest is COMPLETE first. Proceed?')) return;
+      const btn = document.getElementById('btn-backfill');
+      btn.disabled = true;
+      btn.textContent = 'Starting…';
+      try {
+        const body = await withAuth('POST', '/admin/v2/corpus/backfill-embeddings');
+        setStatus('backfill-status',
+          '✓ Backfill started!\n\n' +
+          'Job ID:  ' + body.job_id + '\n' +
+          'Command: ' + body.command + '\n' +
+          'ETA:     ' + body.estimated_minutes + ' minutes\n\n' +
+          body.note,
+          'ok');
+        btn.textContent = 'Started — see status below';
+        startPolling(body.job_id);
+      } catch (e) {
+        setStatus('backfill-status', 'Error: ' + e.message, 'err');
+        btn.disabled = false;
+        btn.textContent = 'Start embedding backfill';
+      }
+    }
+
+    // --- Job status polling -------------------------------------------
+    let pollTimer = null;
+    async function checkStatusOnce(jobId = null) {
+      try {
+        const path = jobId
+          ? '/admin/v2/corpus/status/' + encodeURIComponent(jobId)
+          : '/admin/v2/corpus/status';
+        const body = await withAuth('GET', path);
+
+        let display;
+        if (jobId) {
+          // Single-job view
+          const lines = (body.last_lines || []).join('\n');
+          display =
+            'Job ID:    ' + body.job_id + '\n' +
+            'Kind:      ' + body.kind + '\n' +
+            'Status:    ' + body.status + '\n' +
+            'Elapsed:   ' + (body.elapsed_seconds || '—') + ' sec\n' +
+            'PID:       ' + (body.pid || '—') + '\n\n' +
+            '─── last lines ───\n' + (lines || '(no output yet)');
+
+          // Stop polling if completed/failed
+          if (body.status === 'completed' || body.status === 'failed' || body.status === 'errored') {
+            if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+            display = '✓ JOB FINISHED\n\n' + display;
+            // Auto-refresh totals so the user sees the new numbers
+            setTimeout(refreshTotals, 500);
+          }
+        } else {
+          display = JSON.stringify(body, null, 2);
+        }
+        const kind = (body.status === 'failed' || body.status === 'errored') ? 'err' :
+                     (body.status === 'completed' ? 'ok' : '');
+        setStatus('job-status', display, kind);
+      } catch (e) {
+        setStatus('job-status', 'Error: ' + e.message, 'err');
+      }
+    }
+
+    function startPolling(jobId) {
+      if (pollTimer) clearInterval(pollTimer);
+      checkStatusOnce(jobId);
+      pollTimer = setInterval(() => checkStatusOnce(jobId), 10000);  // 10s
+    }
+
+    // --- Wire buttons -------------------------------------------------
+    document.getElementById('btn-refresh').addEventListener('click', refreshTotals);
+    document.getElementById('btn-harvest').addEventListener('click', startHarvest);
+    document.getElementById('btn-backfill').addEventListener('click', startBackfill);
+    document.getElementById('btn-check-status').addEventListener('click', () => checkStatusOnce());
+
+    // Initial load: refresh totals so user sees current state
+    window.addEventListener('load', () => {
+      setTimeout(refreshTotals, 1500);  // wait for auth.js to init
+    });
+  </script>
+</body>
+</html>
