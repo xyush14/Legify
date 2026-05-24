@@ -52,6 +52,14 @@ deep-translator>=1.11
 fastembed>=0.3
 numpy>=1.24
 
+# ---- HuggingFace corpus harvest (datasets + tqdm)
+# Previously kept in requirements-harvest.txt and pip-installed on demand,
+# but Railway sometimes restarts the container mid-install, killing the
+# admin harvest job. Moving these into the base image (~250MB cost) so the
+# harvest endpoint can run synchronously without any pip phase.
+datasets>=2.14
+tqdm>=4.66
+
 # ---- Py 3.9 backport for Pydantic v2 evaluation of `str | None` style hints.
 # No-op on 3.10+. Render uses 3.11; safe to keep.
 eval_type_backport>=0.2; python_version < "3.10"

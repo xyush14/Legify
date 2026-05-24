@@ -296,13 +296,12 @@ def admin_trigger_harvest(
         cmd += ["--limit", str(int(limit))]
 
     _CORPUS_JOBS[job_id] = {"job_id": job_id, "kind": "harvest", "status": "queued"}
-    # Harvest needs `datasets` + `tqdm` which we don't ship in the base
-    # production image (saves ~200MB). Install them on demand before
-    # running the script.
+    # `datasets` + `tqdm` are baked into the base image (requirements.txt)
+    # so no runtime pip install is needed — eliminates the Railway-restart
+    # race where the harvest job ID would be lost mid-install.
     t = _threading.Thread(
         target=_run_corpus_script,
         args=(job_id, cmd),
-        kwargs={"extra_requirements": "requirements-harvest.txt"},
         daemon=True,
     )
     t.start()
@@ -311,8 +310,8 @@ def admin_trigger_harvest(
         "ok": True,
         "job_id": job_id,
         "command": " ".join(cmd),
-        "note": "Running in background. First step is pip-installing harvest deps (~60s), then the actual harvest. Poll GET /admin/v2/corpus/status/" + job_id,
-        "estimated_minutes": 32 if "bail" not in subset_list else 92,
+        "note": "Running in background. Poll GET /admin/v2/corpus/status/" + job_id,
+        "estimated_minutes": 30 if "bail" not in subset_list else 90,
     }
 
 
