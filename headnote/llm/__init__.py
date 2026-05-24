@@ -11,6 +11,11 @@ from .prompts import (
     HEADNOTE_VERIFY_USER_TEMPLATE,
     build_digest_system_prompt,
     DIGEST_USER_TEMPLATE,
+    MEMORANDUM_SYSTEM_PROMPT,
+    MEMORANDUM_USER_TEMPLATE,
+    MEMORANDUM_OUTPUT_STYLE,
+    build_memorandum_system_prompt,
+    build_memorandum_user,
 )
 from .client import (
     get_client,
@@ -44,6 +49,11 @@ __all__ = [
     "HEADNOTE_VERIFY_USER_TEMPLATE",
     "build_digest_system_prompt",
     "DIGEST_USER_TEMPLATE",
+    "MEMORANDUM_SYSTEM_PROMPT",
+    "MEMORANDUM_USER_TEMPLATE",
+    "MEMORANDUM_OUTPUT_STYLE",
+    "build_memorandum_system_prompt",
+    "build_memorandum_user",
     "get_client",
     "call_claude_cached",
     "estimate_cost_usd",

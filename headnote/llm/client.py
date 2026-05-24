@@ -1,6 +1,18 @@
-"""Anthropic Claude wrapper: a single typed entrypoint with prompt caching,
-JSON-response parsing, and a cost meter. Pricing constants live in
-headnote.config so they can be tuned without editing this module.
+"""LLM client wrapper with multi-provider fallback chain.
+
+Active providers:
+  1. Anthropic Claude (primary when ANTHROPIC_API_KEY has balance)
+  2. DeepSeek (primary alternate when LLM_PROVIDER=deepseek, or auto-fallback
+     when Anthropic is out of credits; OpenAI-compatible API at api.deepseek.com)
+  3. Groq Llama-3.3-70B (free-tier last resort)
+
+DeepSeek model routing:
+  - "deep" tasks (research, headnote generation, memorandum) → deepseek-reasoner (R1)
+  - "fast" tasks (translation, verification, extraction) → deepseek-chat (V3)
+
+Bedrock has been removed — Marketplace subscription issues made it unreliable.
+If/when Bedrock is fixed in the future, restore the AnthropicBedrock branch
+in get_client() and the _to_bedrock_id() mapping.
 """
 
 from __future__ import annotations
@@ -17,61 +29,46 @@ from headnote import config
 
 log = logging.getLogger(__name__)
 
-# Use Bedrock only when BOTH AWS credentials AND an explicit opt-in are set.
-# This prevents accidental Bedrock activation when AWS keys are present for
-# other services (S3, etc.) but no Marketplace subscription is configured.
-# To enable Bedrock, set USE_BEDROCK=true in addition to AWS_ACCESS_KEY_ID.
-_USE_BEDROCK = (
-    bool(os.environ.get("AWS_ACCESS_KEY_ID"))
-    and os.environ.get("USE_BEDROCK", "").lower() in {"1", "true", "yes"}
-)
 
-# Internal model name → Bedrock cross-region inference profile ID.
-# Override in Railway env vars without a code deploy:
-#   BEDROCK_HAIKU_ID, BEDROCK_SONNET_ID, BEDROCK_OPUS_ID
-_BEDROCK_IDS: dict[str, str] = {
-    "claude-haiku-4-5":  os.environ.get("BEDROCK_HAIKU_ID",  "us.anthropic.claude-haiku-4-5"),
-    "claude-sonnet-4-6": os.environ.get("BEDROCK_SONNET_ID", "us.anthropic.claude-sonnet-4-6"),
-    "claude-opus-4-7":   os.environ.get("BEDROCK_OPUS_ID",   "us.anthropic.claude-opus-4-7"),
+# Provider toggle:
+#   "anthropic" (default): use Claude when ANTHROPIC_API_KEY is set, fall through
+#                          to DeepSeek → Groq on credit/quota errors.
+#   "deepseek":           use DeepSeek as PRIMARY for every call. Claude only
+#                          fires if explicitly forced via env override.
+#   "auto":               same as "anthropic" but switches default to deepseek
+#                          when ANTHROPIC_API_KEY is missing or empty.
+_LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "auto").strip().lower()
+
+
+# Map Claude model family → DeepSeek model. Sonnet/Opus → reasoner (R1) for
+# better legal reasoning; Haiku → chat (V3) for fast structured output.
+_CLAUDE_TO_DEEPSEEK = {
+    "claude-opus-4-7":   "deepseek-reasoner",
+    "claude-sonnet-4-6": "deepseek-reasoner",
+    "claude-haiku-4-5":  "deepseek-chat",
 }
 
 
-def _to_bedrock_id(model: str) -> str:
-    return _BEDROCK_IDS.get(model, model)
-
-
-def _to_canonical_model(bedrock_id: str) -> str:
-    """Reverse-map a Bedrock model ID back to the canonical internal name."""
-    reverse = {v: k for k, v in _BEDROCK_IDS.items()}
-    return reverse.get(bedrock_id, config.DEFAULT_MODEL)
-
-
-def _is_bedrock_recoverable_error(exc: Exception) -> bool:
-    """Errors where falling back to direct Anthropic API is the right move:
-    - 403 payment / Marketplace subscription issues
-    - 400 invalid model identifier (Bedrock model IDs change/expire)
-    - PermissionDenied / AccessDenied on the IAM role
+def _deepseek_primary() -> bool:
+    """Should DeepSeek handle the primary call (not just fallback)?
+    True when LLM_PROVIDER=deepseek, OR when LLM_PROVIDER=auto AND no
+    Anthropic key is configured.
     """
-    s = str(exc)
-    return any(k in s for k in (
-        "INVALID_PAYMENT_INSTRUMENT",
-        "payment_instrument",
-        "valid payment",
-        "PermissionDenied",
-        "AccessDeniedException",
-        "subscription",
-        "Marketplace subscription",
-        "provided model identifier is invalid",
-        "model identifier",
-        "ValidationException",
-        "model not found",
-        "Could not find model",
-    )) or any(code in s for code in ("403 ", "404 ", "400 - {'message'"))
+    if _LLM_PROVIDER == "deepseek":
+        return True
+    if _LLM_PROVIDER == "auto" and not config.ANTHROPIC_API_KEY:
+        return True
+    return False
+
+
+def _to_deepseek_model(claude_model: str) -> str:
+    """Map a Claude model name to the DeepSeek equivalent."""
+    return _CLAUDE_TO_DEEPSEEK.get(claude_model, "deepseek-chat")
 
 
 def _is_anthropic_no_credit_error(exc: Exception) -> bool:
     """Direct Anthropic call failed because the account has no balance.
-    Recoverable via Groq fallback (cheaper, no payment required)."""
+    Recoverable via DeepSeek → Groq fallback chain."""
     s = str(exc).lower()
     return any(k in s for k in (
         "credit balance is too low",
@@ -88,25 +85,22 @@ def _call_deepseek_fallback(
     user_prompt: str,
     *,
     max_tokens: int,
+    claude_model: str = "claude-sonnet-4-6",
 ) -> Tuple[str, dict]:
-    """DeepSeek V3 fallback — fires after Bedrock + direct Anthropic both fail.
+    """DeepSeek API call — fires as primary (when LLM_PROVIDER=deepseek) or as
+    fallback when Anthropic fails.
 
-    DeepSeek V3 uses an OpenAI-compatible API endpoint so no extra SDK is
-    needed — the `openai` package (already in requirements.txt for OCR) works
-    out of the box. Quality tier for Headnote tasks:
+    Routes by claude_model:
+        Sonnet / Opus   → deepseek-reasoner (R1, chain-of-thought, deep)
+        Haiku           → deepseek-chat (V3, fast, cheap)
 
-        Sonnet 4.6 > DeepSeek V3 > Groq Llama-3.3-70B
-
-    For legal JSON extraction / Hindi translation DeepSeek V3 is meaningfully
-    better than Llama (sharper JSON discipline, better multilingual coverage),
-    so it sits between the Anthropic path and the free Groq path.
+    DeepSeek V3 / R1 use OpenAI-compatible API; the existing `openai` SDK
+    (already in requirements.txt) works without any extra dependency.
 
     Requires DEEPSEEK_API_KEY env var on Railway.
-    Model: deepseek-chat (V3) — faster and cheaper than deepseek-reasoner (R1).
     """
     ds_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
     if not ds_key:
-        # No DeepSeek key — propagate so caller can try next fallback (Groq)
         raise RuntimeError("DEEPSEEK_API_KEY not set")
 
     try:
@@ -114,23 +108,32 @@ def _call_deepseek_fallback(
     except ImportError as e:
         raise RuntimeError(f"openai SDK not installed: {e}") from e
 
-    model = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")
-    log.warning(
-        "[llm] Falling back to DeepSeek %s (Bedrock + Anthropic both failed)", model
+    # Pick reasoner vs chat based on the Claude model family the caller asked for.
+    model = os.environ.get(
+        "DEEPSEEK_MODEL_OVERRIDE",
+        _to_deepseek_model(claude_model),
     )
+    log.warning("[llm] DeepSeek call (claude→ds: %s → %s)", claude_model, model)
 
     client = OpenAI(
         api_key=ds_key,
         base_url="https://api.deepseek.com",
-        timeout=90.0,
+        timeout=180.0,   # R1 reasoner can run 30-90s
     )
+
+    # R1 supports a longer max_tokens than V3
+    if model == "deepseek-reasoner":
+        capped_max = min(max_tokens or 8000, 16384)
+    else:
+        capped_max = min(max_tokens or 4000, 8192)
+
     resp = client.chat.completions.create(
         model=model,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user",   "content": user_prompt},
         ],
-        max_tokens=min(max_tokens or 4000, 8192),
+        max_tokens=capped_max,
         temperature=0.2,
     )
     text = resp.choices[0].message.content or ""
@@ -150,19 +153,17 @@ def _call_groq_fallback(
     *,
     max_tokens: int,
 ) -> Tuple[str, dict]:
-    """Last-resort fallback to Groq's free-tier Llama-3.3-70B when Bedrock,
-    direct Anthropic, AND DeepSeek all fail. Free but lowest quality for
-    Indian legal reasoning.
+    """Last-resort fallback to Groq's free-tier Llama-3.3-70B when both
+    Anthropic AND DeepSeek fail. Lowest quality for Indian legal reasoning
+    but free and reliable.
 
-    Uses GROQ_API_KEY env var (already configured for OCR/drafter paths).
-    Returns the same (response_text, usage_dict) shape as the Anthropic path
-    so callers don't need to special-case the source.
+    Uses GROQ_API_KEY env var.
     """
     groq_key = os.environ.get("GROQ_API_KEY", "").strip()
     if not groq_key:
         raise HTTPException(
             status_code=503,
-            detail="LLM unavailable. Set GROQ_API_KEY on Railway to enable the free fallback path.",
+            detail="LLM unavailable. All providers failed. Set DEEPSEEK_API_KEY or GROQ_API_KEY on Railway.",
         )
     try:
         from groq import Groq
@@ -173,7 +174,7 @@ def _call_groq_fallback(
         ) from e
 
     model = os.environ.get("GROQ_FALLBACK_MODEL", "llama-3.3-70b-versatile")
-    log.warning("[llm] Falling back to Groq %s (Bedrock + Anthropic + DeepSeek all failed)", model)
+    log.warning("[llm] Falling back to Groq %s (Anthropic + DeepSeek both failed)", model)
 
     client = Groq(api_key=groq_key)
     resp = client.chat.completions.create(
@@ -182,7 +183,7 @@ def _call_groq_fallback(
             {"role": "system", "content": system_prompt},
             {"role": "user",   "content": user_prompt},
         ],
-        max_tokens=min(max_tokens or 4000, 8000),  # Groq caps lower than Anthropic
+        max_tokens=min(max_tokens or 4000, 8000),
         temperature=0.2,
         timeout=60.0,
     )
@@ -202,27 +203,27 @@ def _call_deepseek_or_groq(
     user_prompt: str,
     *,
     max_tokens: int,
+    claude_model: str = "claude-sonnet-4-6",
 ) -> Tuple[str, dict]:
-    """Try DeepSeek V3 first; fall through to Groq if DeepSeek key is absent
-    or the call errors. This gives:
-        DeepSeek V3 (paid, ~10x cheaper than Sonnet, better than Llama)
-        ↓ if DEEPSEEK_API_KEY not set or call fails
-        Groq Llama-3.3-70B (free, last resort)
+    """Try DeepSeek first; fall through to Groq if DeepSeek key is absent or
+    the call errors. Used as the fallback path after Anthropic fails AND as
+    the primary path when LLM_PROVIDER=deepseek.
     """
     try:
-        return _call_deepseek_fallback(system_prompt, user_prompt, max_tokens=max_tokens)
+        return _call_deepseek_fallback(
+            system_prompt, user_prompt,
+            max_tokens=max_tokens,
+            claude_model=claude_model,
+        )
     except Exception as ds_exc:
-        log.warning("[llm] DeepSeek fallback failed — trying Groq: %s", str(ds_exc)[:200])
+        log.warning("[llm] DeepSeek failed — trying Groq: %s", str(ds_exc)[:200])
         return _call_groq_fallback(system_prompt, user_prompt, max_tokens=max_tokens)
 
 
 def get_client():
-    """Return AnthropicBedrock when AWS creds are present, else direct Anthropic."""
-    if _USE_BEDROCK:
-        from anthropic import AnthropicBedrock
-        return AnthropicBedrock(
-            aws_region=os.environ.get("AWS_REGION", "us-east-1"),
-        )
+    """Return a direct Anthropic client. Bedrock support removed — see module
+    docstring. Raises 500 if no Anthropic key configured AND DeepSeek isn't
+    primary (caller should route to DeepSeek before invoking get_client)."""
     if not config.ANTHROPIC_API_KEY:
         raise HTTPException(
             status_code=500,
@@ -246,29 +247,34 @@ def call_claude_cached(
     Returns (response_text, usage_dict). usage_dict has input/output/cache token
     counts; pass it to `estimate_cost_usd()` for the meter.
 
+    Provider routing:
+      - If LLM_PROVIDER=deepseek (or =auto and no Anthropic key), DeepSeek is
+        the primary path. Sonnet/Opus → deepseek-reasoner (R1); Haiku → V3.
+      - Otherwise Claude is primary. On credit failure, falls through to
+        DeepSeek → Groq automatically.
+
     Extended thinking
     -----------------
-    When `enable_thinking=True`, the model gets a dedicated scratch space
-    (`thinking_budget` tokens) for chain-of-thought BEFORE producing its
-    JSON output. The thinking blocks are stripped from the response — the
-    caller sees only the final text. Thinking tokens are billed as output.
+    When `enable_thinking=True`, Claude gets a dedicated scratch space
+    (`thinking_budget` tokens) for chain-of-thought BEFORE producing JSON.
+    DeepSeek-Reasoner has chain-of-thought built in — no equivalent flag needed.
 
-    For the SITUATION endpoint, thinking is what gives the model room to
-    actually execute the four-dimension scoring rubric (fact-archetype /
-    doctrinal / outcome / authority) on every corpus case before writing
-    the final JSON. Without thinking, the model has to interleave the
-    reasoning with the structured output, which degrades both.
-
-    Supported on Sonnet 4 / Opus 4 model families (claude-sonnet-4-*,
-    claude-opus-4-*). Haiku 4.5 does not support extended thinking.
-    When thinking is enabled, temperature is forced to 1.0 (Anthropic
-    requirement).
+    Supported on Sonnet 4 / Opus 4 only. Haiku 4.5 does not support thinking.
     """
     model = model or config.DEFAULT_MODEL
-    if _USE_BEDROCK:
-        model = _to_bedrock_id(model)
-        enable_thinking = False  # older Bedrock model IDs don't support extended thinking
     max_tokens = max_tokens or config.MAX_TOKENS
+
+    # PATH A: DeepSeek primary mode — every call goes through DeepSeek first
+    if _deepseek_primary():
+        log.info("[llm] LLM_PROVIDER=%s → routing to DeepSeek primary (model=%s)",
+                 _LLM_PROVIDER, model)
+        return _call_deepseek_or_groq(
+            system_prompt, user_prompt,
+            max_tokens=max_tokens,
+            claude_model=model,
+        )
+
+    # PATH B: Anthropic primary, DeepSeek/Groq as fallback
     client = get_client()
     if cache:
         system = [
@@ -277,10 +283,7 @@ def call_claude_cached(
     else:
         system = system_prompt
 
-    # Per-model timeouts prevent indefinite hangs but allow real-world latency.
-    # Sonnet with 3500 thinking tokens + IK doc fetches + heavy system prompt
-    # legitimately runs 30-90s on cold cache; 150s gives headroom for the
-    # 99th-percentile case while still failing fast on genuine hangs.
+    # Per-model timeouts
     if "haiku" in model.lower():
         _timeout = 45.0
     elif "sonnet" in model.lower():
@@ -297,65 +300,29 @@ def call_claude_cached(
     )
 
     if enable_thinking and "haiku" not in model.lower():
-        # max_tokens must be greater than thinking budget — bump if needed
         if max_tokens <= thinking_budget:
             create_kwargs["max_tokens"] = thinking_budget + 2000
         create_kwargs["thinking"] = {
             "type": "enabled",
             "budget_tokens": thinking_budget,
         }
-        create_kwargs["temperature"] = 1.0   # Required by API when thinking is on
+        create_kwargs["temperature"] = 1.0
 
     try:
         resp = client.messages.create(**create_kwargs)
     except Exception as exc:
-        # Bedrock failure (payment / invalid model / IAM) → transparent fallback
-        # to direct Anthropic API. Covers the common Railway misconfigurations.
-        if _USE_BEDROCK and _is_bedrock_recoverable_error(exc):
-            canonical = _to_canonical_model(create_kwargs["model"])
+        if _is_anthropic_no_credit_error(exc):
             log.warning(
-                "Bedrock error — falling back to direct Anthropic API "
-                "(bedrock_model=%s → anthropic_model=%s): %s",
-                create_kwargs.get("model"), canonical, str(exc)[:250]
-            )
-            # Try Anthropic if we have a key, else go straight to Groq.
-            if config.ANTHROPIC_API_KEY:
-                try:
-                    fallback_client = Anthropic(api_key=config.ANTHROPIC_API_KEY)
-                    create_kwargs["model"] = canonical
-                    resp = fallback_client.messages.create(**create_kwargs)
-                except Exception as anth_exc:
-                    # Anthropic also failed (out of credits, etc.) → try
-                    # DeepSeek V3 first (paid, better quality), then Groq
-                    # (free, last resort).
-                    if _is_anthropic_no_credit_error(anth_exc):
-                        log.warning(
-                            "Anthropic also failed (no credit) — trying DeepSeek → Groq: %s",
-                            str(anth_exc)[:200],
-                        )
-                        return _call_deepseek_or_groq(
-                            system_prompt, user_prompt,
-                            max_tokens=create_kwargs.get("max_tokens", 4000),
-                        )
-                    raise
-            else:
-                # No Anthropic key at all — try DeepSeek → Groq
-                return _call_deepseek_or_groq(
-                    system_prompt, user_prompt,
-                    max_tokens=create_kwargs.get("max_tokens", 4000),
-                )
-        elif not _USE_BEDROCK and _is_anthropic_no_credit_error(exc):
-            # Direct Anthropic path (no Bedrock) ran out of credits → DeepSeek → Groq
-            log.warning(
-                "Direct Anthropic failed (no credit) — trying DeepSeek → Groq: %s",
+                "Anthropic failed (no credit) — trying DeepSeek → Groq: %s",
                 str(exc)[:200],
             )
             return _call_deepseek_or_groq(
                 system_prompt, user_prompt,
                 max_tokens=create_kwargs.get("max_tokens", 4000),
+                claude_model=model,
             )
-        else:
-            raise
+        raise
+
     usage = resp.usage
     usage_dict = {
         "model": model,
@@ -365,9 +332,6 @@ def call_claude_cached(
         "cache_read_input_tokens": getattr(usage, "cache_read_input_tokens", 0),
     }
 
-    # When thinking is on, response.content may include thinking blocks
-    # BEFORE the text blocks. Concatenate only the text blocks for the
-    # caller — the thinking is internal scratch space.
     text_blocks = [b.text for b in resp.content if getattr(b, "type", None) == "text"]
     response_text = "\n".join(text_blocks) if text_blocks else (
         resp.content[0].text if resp.content else ""
@@ -379,7 +343,17 @@ def estimate_cost_usd(usage: dict) -> float:
     """Estimate USD cost from a usage dict. Handles Claude, DeepSeek, and Groq."""
     model = (usage.get("model") or "").lower()
     if model.startswith("deepseek:"):
-        pricing = config.PRICE_DEEPSEEK
+        # Reasoner is slightly pricier than chat; both still ~10x cheaper than Sonnet
+        if "reasoner" in model:
+            # DeepSeek R1: $0.55/M input, $2.19/M output (Nov 2025 prices)
+            pricing = {
+                "input": 0.55,
+                "input_cache_write": 0.55,
+                "input_cache_read": 0.14,
+                "output": 2.19,
+            }
+        else:
+            pricing = config.PRICE_DEEPSEEK
     elif model.startswith("groq:"):
         pricing = config.PRICE_GROQ
     elif "haiku" in model:
@@ -397,8 +371,8 @@ def estimate_cost_usd(usage: dict) -> float:
 
 
 def parse_json_response(raw: str) -> dict:
-    """Parse Claude's response as JSON, tolerating ```json fences. Raises
-    HTTPException(502) if the response is not parseable JSON."""
+    """Parse Claude/DeepSeek response as JSON, tolerating ```json fences.
+    Raises HTTPException(502) if the response is not parseable JSON."""
     text = raw.strip()
     if text.startswith("```"):
         text = "\n".join(text.split("\n")[1:])

@@ -78,3 +78,27 @@ class FeedbackRequest(BaseModel):
     rating: int = Field(..., description="1 for thumbs-up, -1 for thumbs-down.")
     correction: Optional[str] = None
     lawyer_handle: Optional[str] = None
+
+
+class MemorandumRequest(BaseModel):
+    """Input for POST /api/memorandum — produces a two-tier legal research
+    memorandum (Quick Brief + Deep IRAC memo) modelled on lexlegis.ai's
+    output structure."""
+    question: str = Field(
+        ...,
+        min_length=10,
+        max_length=8000,
+        description="Lawyer's question. May be Hindi, English, or Hinglish.",
+    )
+    jurisdiction: Optional[str] = Field(
+        "India",
+        description="Court/state hint (e.g. 'Madhya Pradesh High Court').",
+    )
+    stage: Optional[str] = Field(
+        "pre-trial",
+        description="Litigation stage: pre-trial / trial / appeal / writ.",
+    )
+    use_corpus: bool = Field(
+        True,
+        description="If True, retrieve relevant corpus cases first and feed to the memo.",
+    )

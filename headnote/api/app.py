@@ -275,6 +275,10 @@ app.include_router(_onboarding_router)
 from headnote.api.lawyer_profile import router as _lawyer_profile_router
 app.include_router(_lawyer_profile_router)
 
+# Lexlegis-style two-tier memorandum: /api/memorandum
+from headnote.api.memorandum import router as _memorandum_router
+app.include_router(_memorandum_router)
+
 # Pre-extract universal facts for the 42 curated cases at boot. ~50ms
 # one-time cost that removes a per-query latency spike for the first user.
 # Safe to skip via env var if the curated corpus changes at runtime (which
@@ -561,41 +565,38 @@ def auth_verify(authorization: str | None = Header(default=None)):
                 "trace": _tb.format_exc()[-500:]}
 
 
-@app.get("/api/debug/bedrock", summary="Minimal Bedrock invocation test (DEBUG)")
-def debug_bedrock_invoke():
-    """Fire a minimal Bedrock call so we can see the exact error without
-    needing a signed-in /api/situation roundtrip. Returns:
-      { ok: true, model: "...", response: "..." }  on success
-      { ok: false, exc_type: "...", message: "..." } on failure
+@app.get("/api/debug/llm", summary="Minimal LLM invocation test (DEBUG)")
+def debug_llm_invoke():
+    """Fire a minimal LLM call through call_claude_cached so we can see the
+    exact path taken (Anthropic / DeepSeek / Groq) and any errors without
+    needing a signed-in /api/situation roundtrip.
     """
     import os as _os
-    from headnote.llm.client import _USE_BEDROCK, _BEDROCK_IDS, get_client
-    if not _USE_BEDROCK:
-        return {"ok": False, "exc_type": "config", "message": "USE_BEDROCK is not true on this deploy"}
-    sonnet_id = _BEDROCK_IDS.get("claude-sonnet-4-6", "?")
+    from headnote.llm.client import call_claude_cached, _LLM_PROVIDER, _deepseek_primary
     try:
-        client = get_client()
-        resp = client.messages.create(
-            model=sonnet_id,
+        text, usage = call_claude_cached(
+            system_prompt="Reply with exactly the single word: OK",
+            user_prompt="Test ping",
+            model="claude-haiku-4-5",
             max_tokens=20,
-            messages=[{"role": "user", "content": "Reply with the single word OK."}],
+            cache=False,
         )
-        txt = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text")
         return {
             "ok": True,
-            "model": sonnet_id,
-            "region": _os.environ.get("AWS_REGION"),
-            "response": txt[:100],
-            "input_tokens": getattr(resp.usage, "input_tokens", None),
-            "output_tokens": getattr(resp.usage, "output_tokens", None),
+            "llm_provider_env": _LLM_PROVIDER,
+            "deepseek_primary": _deepseek_primary(),
+            "model_used": usage.get("model"),
+            "response": text[:100],
+            "input_tokens": usage.get("input_tokens"),
+            "output_tokens": usage.get("output_tokens"),
         }
     except Exception as exc:
         return {
             "ok": False,
             "exc_type": type(exc).__name__,
             "message": str(exc)[:1000],
-            "model_attempted": sonnet_id,
-            "region": _os.environ.get("AWS_REGION"),
+            "llm_provider_env": _LLM_PROVIDER,
+            "deepseek_primary": _deepseek_primary(),
         }
 
 
@@ -609,22 +610,21 @@ def health():
     except Exception:
         hf = {"total": 0, "configured": False}
 
-    # Surface the LLM backend state so an operator can confirm Bedrock is
-    # actually being used (vs silently falling back to direct Anthropic).
-    # Reads the same env vars the LLM client uses at boot.
+    # Surface the LLM backend state so an operator can see which provider
+    # path is active (Anthropic primary, DeepSeek primary, or fallback).
     import os as _os
-    bedrock_block: dict = {
-        "use_bedrock_flag": _os.environ.get("USE_BEDROCK", "").lower() in {"1", "true", "yes"},
-        "has_aws_creds":    bool(_os.environ.get("AWS_ACCESS_KEY_ID")),
-        "aws_region":       _os.environ.get("AWS_REGION") or None,
+    llm_block: dict = {
+        "llm_provider_env":    _os.environ.get("LLM_PROVIDER", "auto"),
+        "has_anthropic_key":   bool(config.ANTHROPIC_API_KEY),
+        "has_deepseek_key":    bool(_os.environ.get("DEEPSEEK_API_KEY", "").strip()),
+        "has_groq_key":        bool(_os.environ.get("GROQ_API_KEY", "").strip()),
     }
     try:
-        from headnote.llm.client import _USE_BEDROCK, _BEDROCK_IDS
-        bedrock_block["bedrock_active"] = bool(_USE_BEDROCK)
-        bedrock_block["model_ids"] = dict(_BEDROCK_IDS) if _USE_BEDROCK else None
+        from headnote.llm.client import _deepseek_primary, _CLAUDE_TO_DEEPSEEK
+        llm_block["deepseek_primary"] = _deepseek_primary()
+        llm_block["claude_to_deepseek_map"] = dict(_CLAUDE_TO_DEEPSEEK)
     except Exception as e:
-        bedrock_block["bedrock_active"] = False
-        bedrock_block["error"] = str(e)[:200]
+        llm_block["error"] = str(e)[:200]
 
     # Embedding index stats — confirms backfill ran
     try:
@@ -638,7 +638,7 @@ def health():
         **config.summary(),
         "hf_corpus":  hf,
         "embeddings": emb,
-        "llm_backend": bedrock_block,
+        "llm_backend": llm_block,
     }
 
 
