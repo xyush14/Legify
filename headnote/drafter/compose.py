@@ -102,8 +102,11 @@ def _llm_call(system: str, user: str, *, max_tokens: int = 1200, model: str = "f
             log.warning("Groq %s failed (%s); trying Anthropic", m, e)
 
     # Anthropic fallback
+    # TEMPORARY (demo 2026-05-24): force Sonnet for both fast + quality
+    # because Haiku 4.5 isn't yet subscribed in Bedrock Sydney. Revert the
+    # ternary once Haiku Bedrock access is approved.
     from headnote.llm.client import call_claude_cached
-    anthr_model = "claude-haiku-4-5" if model == "fast" else "claude-sonnet-4-6"
+    anthr_model = "claude-sonnet-4-6"   # was: "claude-haiku-4-5" if model == "fast" else "claude-sonnet-4-6"
     text, _ = call_claude_cached(
         system_prompt=system, user_prompt=user,
         model=anthr_model, max_tokens=max_tokens, cache=False,

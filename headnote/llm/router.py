@@ -223,10 +223,15 @@ _MODEL_ALIASES: dict[str, str] = {
 # quality. Opus was here historically for `headnote` (case-summary synthesis)
 # but adds ~4× cost without measurable quality gain — Sonnet matched it on
 # our 42-case regression set. Keep OPUS_MODEL reachable via force_model="opus".
+#
+# TEMPORARY (demo window 2026-05-24): all light tasks (translation,
+# verification, extraction) routed to Sonnet too because Haiku 4.5 isn't
+# subscribed in this AWS Bedrock account's Sydney region. Revert these
+# three lines to HAIKU_MODEL once Bedrock Haiku access is approved.
 _ROUTING: dict[str, str] = {
-    "translation":  HAIKU_MODEL,
-    "verification": HAIKU_MODEL,
-    "extraction":   HAIKU_MODEL,
+    "translation":  SONNET_MODEL,   # was HAIKU_MODEL
+    "verification": SONNET_MODEL,   # was HAIKU_MODEL
+    "extraction":   SONNET_MODEL,   # was HAIKU_MODEL
     "situation":    SONNET_MODEL,
     "digest":       SONNET_MODEL,
     "rerank":       SONNET_MODEL,
