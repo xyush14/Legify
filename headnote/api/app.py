@@ -498,7 +498,7 @@ def api_config():
     return {
         "supabase_url":      config.SUPABASE_URL or "",
         "supabase_anon_key": config.SUPABASE_ANON_KEY or "",
-        "code_version":      "20260524h",
+        "code_version":      "20260524i",
     }
 
 
@@ -1347,7 +1347,7 @@ def api_translate(
 
     Demo and Weekly users get FeatureLocked → 402 with upgrade hint.
     """
-    require_feature(user.id, "hindi_export")
+    require_feature(user.id, "hindi_export", email=user.email)
     return _api_translate_impl(req)
 
 

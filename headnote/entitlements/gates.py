@@ -125,13 +125,19 @@ def can_use_feature(user_id: str, feature: str, email: str | None = None) -> dic
             "plan": plan, "use_haiku": use_haiku, "remaining": remaining}
 
 
-def require_feature(user_id: str, feature: str) -> None:
+def require_feature(user_id: str, feature: str, *, email: Optional[str] = None) -> None:
     """Raise FeatureLocked if `feature` isn't unlocked on this user's plan.
 
     Use for boolean features (export_pdf, hindi_export) that don't have
     a numeric limit. Idempotent — does not increment any counter.
+
+    Pass email= explicitly from CurrentUser so the founder bypass fires
+    in async endpoints. The contextvar set by get_current_user doesn't
+    propagate from sync deps into async handlers via FastAPI's thread
+    pool — without an explicit email, founders are wrongly demoted to
+    Demo plan and feature checks fail.
     """
-    sub = get_active_subscription(user_id) or {}
+    sub = get_active_subscription(user_id, email=email) or {}
     plan = sub.get("plan", "demo")
     if not is_feature_unlocked(plan, feature):
         raise FeatureLocked(feature, plan)
