@@ -154,12 +154,15 @@ def translate_hi_to_en(query: str) -> Tuple[str, list[str], int]:
         "Return JSON only."
     )
     try:
+        # Cache the system prompt (static glossary block + role instructions).
+        # On Haiku, cache_read is ~10% of input price → significant savings
+        # across the ~hourly call frequency of Hindi/code-mix queries.
         result = route_call(
             "translation",
             {
                 "system_prompt": _TRANSLATE_SYSTEM_PROMPT,
                 "user_prompt": user_prompt,
-                "cache": False,
+                "cache": True,
             },
         )
     except Exception as e:

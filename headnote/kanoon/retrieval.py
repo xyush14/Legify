@@ -571,12 +571,38 @@ def retrieve_for_situation(
         if len(cases) >= candidate_pool:
             break
 
-    # 2. Semantic search over locally-cached paragraphs (free)
-    # Surfaces IK cases already in cache that keyword search would miss.
+    # 2. Semantic search over locally-cached paragraphs (free) + HF corpus.
+    # Surfaces IK/HF cases that keyword search would miss.
+    #
+    # We embed a STRUCTURED query, not the raw lawyer prose. The raw prose
+    # carries non-legal stop-words ("my client", "what's the precedent?")
+    # that pollute the embedding. A composite of (canonical_question +
+    # statute + doctrines + stage) lands far closer to how a judgment
+    # paragraph actually phrases the principle.
+    #
+    # Falls back to raw situation when refined_query is missing or thin.
+    semantic_query = situation
+    if refined_query:
+        parts: list[str] = []
+        cq = (refined_query.get("canonical_question") or "").strip()
+        if cq and cq != situation.strip():
+            parts.append(cq)
+        if refined_query.get("primary_statute"):
+            parts.append(str(refined_query["primary_statute"]))
+        for d in refined_query.get("doctrines_at_issue", [])[:3]:
+            parts.append(str(d).replace("_", " "))
+        if refined_query.get("stage"):
+            parts.append(str(refined_query["stage"]).replace("_", " "))
+        composite = " ".join(p for p in parts if p).strip()
+        if composite:
+            # Keep the raw situation appended — provides fact-pattern signal
+            # that the structured envelope alone can miss.
+            semantic_query = f"{composite}. {situation}".strip()
+
     semantic_case_ids: set[str] = set()
     if emb_idx is not None and len(cases) < candidate_pool:
         try:
-            sem_hits = emb_idx.search(situation, top_k=40, min_similarity=0.55)
+            sem_hits = emb_idx.search(semantic_query, top_k=40, min_similarity=0.55)
             meta.semantic_hits = len(sem_hits)
             by_case: dict[str, list[EmbeddingHit]] = {}
             for h in sem_hits:
@@ -591,46 +617,102 @@ def retrieve_for_situation(
             for case_id, hits_for_case in case_rank:
                 if len(cases) >= candidate_pool:
                     break
-                if not case_id.startswith("ik:"):
-                    continue
-                tid = int(case_id.split(":", 1)[1])
-                try:
-                    doc = client.get_doc(tid)          # cache hit → ₹0
-                    meta.cache_hits += 1
-                except KanoonError as e:
-                    meta.notes.append(f"semantic-cache-hit miss for tid={tid}: {e}")
-                    continue
-                parsed = parse_judgment(
-                    doc.doc_html, tid=tid,
-                    title_hint=doc.title, court_hint=doc.docsource,
-                    publishdate_hint=doc.publishdate,
-                )
-                top_paras = [
-                    p for p in parsed.paragraphs
-                    if any(h.para_id == p.id for h in hits_for_case)
-                ][:top_paragraphs_per_case]
-                if not top_paras:
-                    top_paras = _rank_paragraphs(parsed.paragraphs, situation, top_paragraphs_per_case)
 
-                top_sim = max(h.similarity for h in hits_for_case)
-                cases.append(CaseSummary(
-                    case_id=case_id,
-                    title=parsed.title or doc.title,
-                    court=parsed.court or doc.docsource,
-                    year=parsed.date_of_decision[:4] if parsed.date_of_decision else "",
-                    citation=parsed.primary_citation,
-                    bench=", ".join(parsed.bench),
-                    source="ik-semantic",
-                    numcitedby=doc.numcitedby,
-                    relevance_score=round(top_sim * 10, 2),
-                    paragraphs=top_paras,
-                    statutes=parsed.statutes,
-                ))
-                for p in top_paras:
-                    evidence.append(EvidenceParagraph(
-                        case_id=case_id, para_id=p.id, para_num=p.num, text=p.text,
+                # Branch on case_id prefix — semantic index now contains
+                # both IK-cached judgments (ik:<tid>) and HF IL-TUR
+                # judgments (hf:<subset>:<id>). HF rows don't need IK fetch.
+                if case_id.startswith("ik:"):
+                    try:
+                        tid = int(case_id.split(":", 1)[1])
+                        doc = client.get_doc(tid)      # cache hit → ₹0
+                        meta.cache_hits += 1
+                    except (KanoonError, ValueError) as e:
+                        meta.notes.append(f"semantic-cache-hit miss for {case_id}: {e}")
+                        continue
+                    parsed = parse_judgment(
+                        doc.doc_html, tid=tid,
+                        title_hint=doc.title, court_hint=doc.docsource,
+                        publishdate_hint=doc.publishdate,
+                    )
+                    top_paras = [
+                        p for p in parsed.paragraphs
+                        if any(h.para_id == p.id for h in hits_for_case)
+                    ][:top_paragraphs_per_case]
+                    if not top_paras:
+                        top_paras = _rank_paragraphs(parsed.paragraphs, situation, top_paragraphs_per_case)
+
+                    top_sim = max(h.similarity for h in hits_for_case)
+                    cases.append(CaseSummary(
+                        case_id=case_id,
+                        title=parsed.title or doc.title,
+                        court=parsed.court or doc.docsource,
+                        year=parsed.date_of_decision[:4] if parsed.date_of_decision else "",
+                        citation=parsed.primary_citation,
+                        bench=", ".join(parsed.bench),
+                        source="ik-semantic",
+                        numcitedby=doc.numcitedby,
+                        relevance_score=round(top_sim * 10, 2),
+                        paragraphs=top_paras,
+                        statutes=parsed.statutes,
                     ))
-                semantic_case_ids.add(case_id)
+                    for p in top_paras:
+                        evidence.append(EvidenceParagraph(
+                            case_id=case_id, para_id=p.id, para_num=p.num, text=p.text,
+                        ))
+                    semantic_case_ids.add(case_id)
+
+                elif case_id.startswith("hf:"):
+                    # HF semantic hit — pull row from hf_judgments and
+                    # reuse the paragraphs already embedded (no further
+                    # parsing needed).
+                    try:
+                        from headnote.retrieval.hf_corpus import get_by_id as _hf_get
+                        hj = _hf_get(case_id)
+                    except Exception as e:
+                        meta.notes.append(f"hf-semantic-hit fetch failed for {case_id}: {e}")
+                        continue
+                    if not hj:
+                        continue
+
+                    top_sim = max(h.similarity for h in hits_for_case)
+                    # Build Paragraph objects from the embedding hits — the
+                    # embedding store already has the text and our para_id
+                    # scheme (p_<idx>) from the backfill.
+                    para_objs: list = []
+                    for h in hits_for_case[:top_paragraphs_per_case]:
+                        para_objs.append(Paragraph(
+                            id=h.para_id, num=h.para_num or 0,
+                            structure=h.structure or "other", text=h.text,
+                        ))
+                        evidence.append(EvidenceParagraph(
+                            case_id=case_id, para_id=h.para_id,
+                            para_num=h.para_num or 0, text=h.text,
+                        ))
+
+                    court_label = {
+                        "supreme_court": "Supreme Court",
+                        "supreme_court_or_hc": "Supreme Court / High Court",
+                        "high_court": "High Court",
+                        "district_court": "District Court",
+                    }.get(hj.court or "", hj.court or "")
+
+                    cases.append(CaseSummary(
+                        case_id=case_id,
+                        title=hj.title or case_id,
+                        court=court_label,
+                        year="",
+                        citation="",
+                        bench="",
+                        source="hf-semantic",
+                        numcitedby=0,
+                        relevance_score=round(top_sim * 10, 2),
+                        paragraphs=para_objs,
+                        statutes=(hj.facts or {}).get("statutes", []),
+                    ))
+                    semantic_case_ids.add(case_id)
+                else:
+                    # Unknown case_id prefix; skip.
+                    continue
         except Exception as e:
             meta.notes.append(f"semantic search failed: {e}")
 

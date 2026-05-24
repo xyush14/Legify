@@ -416,6 +416,37 @@ def main() -> int:
     print(f"Target DB: {db_path}")
     print(f"Subsets:   {', '.join(args.subsets)}")
 
+    # --- Pre-flight disk check ------------------------------------------
+    # Estimated disk needed per subset, in MB. These are observed sizes after
+    # SQLite compresses + indexes the imports. The Hindi BAIL subset is the
+    # big one — 176K rows averaging ~1500 words each = ~2.5 GB.
+    _DISK_ESTIMATE_MB = {
+        "cjpe": 900,   # ~34K SC English judgments
+        "summ": 200,   # ~7K SC/HC with gold summaries
+        "bail": 2500,  # ~176K Hindi district-court bail orders
+        "lsi":  1500,  # ~66K judgments with statute mapping
+        "pcr":  250,   # ~8K judgments with citation graph
+    }
+    requested_mb = sum(_DISK_ESTIMATE_MB.get(s, 500) for s in args.subsets)
+    try:
+        import shutil
+        free_bytes = shutil.disk_usage(db_path.parent if db_path.parent.exists() else Path(".")).free
+        free_mb = free_bytes // (1024 * 1024)
+        # Need the requested size + a 500 MB working buffer (SQLite WAL,
+        # temp indexes, fastembed model file).
+        needed_mb = requested_mb + 500
+        if free_mb < needed_mb:
+            print(f"\n  ⚠️  INSUFFICIENT DISK SPACE")
+            print(f"     Free:     {free_mb:,} MB")
+            print(f"     Needed:   {needed_mb:,} MB (subsets: {requested_mb:,} MB + 500 MB working buffer)")
+            print(f"     Shortfall: {needed_mb - free_mb:,} MB")
+            print(f"\n  Either resize the Railway Volume / free up disk, or pass --limit to test with fewer rows.")
+            return 2
+        print(f"Disk OK:   {free_mb:,} MB free / {needed_mb:,} MB needed")
+    except Exception as e:
+        # Don't block the import if the check itself fails — just log.
+        print(f"(disk check failed: {e}; proceeding anyway)")
+
     for subset in args.subsets:
         try:
             import_subset(subset, db_path, limit=args.limit, batch_size=args.batch_size)
@@ -427,6 +458,15 @@ def main() -> int:
             continue
 
     _print_summary(db_path)
+
+    # Hint the operator about the next step. Embedding the freshly-imported
+    # judgments is a separate, idempotent script — it's not auto-run here
+    # because (a) it has heavy ML deps not always installed on harvest
+    # hosts, and (b) re-running harvest shouldn't re-embed already-indexed
+    # rows.
+    print("\nNEXT: embed the new judgments for semantic retrieval —")
+    print("      python scripts/backfill_embeddings.py --skip-ik")
+    print("      (idempotent; only embeds rows not yet in paragraph_embeddings)\n")
     return 0
 
 
