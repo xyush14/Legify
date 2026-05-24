@@ -570,7 +570,38 @@ def health():
         hf = corpus_stats()
     except Exception:
         hf = {"total": 0, "configured": False}
-    return {"ok": True, **config.summary(), "hf_corpus": hf}
+
+    # Surface the LLM backend state so an operator can confirm Bedrock is
+    # actually being used (vs silently falling back to direct Anthropic).
+    # Reads the same env vars the LLM client uses at boot.
+    import os as _os
+    bedrock_block: dict = {
+        "use_bedrock_flag": _os.environ.get("USE_BEDROCK", "").lower() in {"1", "true", "yes"},
+        "has_aws_creds":    bool(_os.environ.get("AWS_ACCESS_KEY_ID")),
+        "aws_region":       _os.environ.get("AWS_REGION") or None,
+    }
+    try:
+        from headnote.llm.client import _USE_BEDROCK, _BEDROCK_IDS
+        bedrock_block["bedrock_active"] = bool(_USE_BEDROCK)
+        bedrock_block["model_ids"] = dict(_BEDROCK_IDS) if _USE_BEDROCK else None
+    except Exception as e:
+        bedrock_block["bedrock_active"] = False
+        bedrock_block["error"] = str(e)[:200]
+
+    # Embedding index stats — confirms backfill ran
+    try:
+        from headnote.retrieval.embeddings import EmbeddingIndex
+        emb = EmbeddingIndex().stats()
+    except Exception as e:
+        emb = {"error": str(e)[:200]}
+
+    return {
+        "ok":         True,
+        **config.summary(),
+        "hf_corpus":  hf,
+        "embeddings": emb,
+        "llm_backend": bedrock_block,
+    }
 
 
 @app.get("/api/spend", summary="Current Indian Kanoon API cost ledger")
