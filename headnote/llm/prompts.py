@@ -311,6 +311,13 @@ OUTPUT JSON SCHEMA (style-dependent fields shown together — populate the block
         "total": 0
       },
       "relevance_explanation": "string — MUST lead with fact-pattern parallel, not generic summary",
+      "match_dimensions": {
+        "statute_match":  "string — one sentence on which sections/codes match (cite both old + new)",
+        "doctrine_match": "string — one sentence on the doctrinal hook (e.g. 'turns on dishonest intent at inception')",
+        "fact_match":     "string — one sentence connecting the case's facts to the lawyer's circumstances",
+        "outcome_match":  "string — one sentence on whether the case's outcome HELPS the lawyer's client"
+      },
+      "court_quote": "string — ONE verbatim quote ≤30 words from the judgment that resolves the lawyer's question. Empty string if no clean verbatim line exists; never paraphrase.",
       "bns_note": "string — IPC/CrPC/Evidence Act → BNS/BNSS/BSA mapping for matters post 1 July 2024",
       "outcome": "acquittal | quashed | dismissed | conviction | remand | bail-granted | bail-denied | other",
       "journal_headnote": null,
@@ -553,6 +560,10 @@ REFINED QUERY ENVELOPE (produced by upstream parser — TRUST these facets):
   Intent type:           {intent_type}
   Primary statute:       {primary_statute}
   Secondary statutes:    {secondary_statutes}
+  Dual statute map:      {dual_statute_map}
+  Parties involved:      {parties_involved}
+  Core circumstances:    {core_circumstances}
+  Legal concepts:        {legal_concepts}
   Stage:                 {stage}
   Appeal subtype:        {appeal_subtype}
   Doctrines at issue:    {doctrines}
@@ -569,10 +580,18 @@ INSTRUCTIONS:
 - Style requested: {style}
 - Use the REFINED ENVELOPE as your decomposition — you don't need to re-extract statutes/stage/doctrines, they're given.
 - Read the RAW situation too, to catch nuance the envelope may have missed.
+- PARTY-ORIENTATION FILTER: if "parties_involved" indicates the lawyer's role (e.g. defence for the Accused), DOWNWEIGHT cases where the same authority was applied AGAINST that role's interests. A bail-grant precedent helps the accused; a bail-rejection precedent hurts. Treat outcome-alignment as a hard filter, not a soft preference.
+- DUAL CODE MATCH: when "dual_statute_map" provides both old + new section numbers (e.g. CrPC 156(3) → BNSS 175(3)), a case citing EITHER section qualifies as a statute match. Don't penalise pre-2024 cases for citing the old section.
+- CORE CIRCUMSTANCES are the chronological facts. Use these for fact-archetype scoring — a case with parallel sequence (e.g. advance paid → sale deed not executed → property sold to third party) scores higher than a case with just a similar doctrine.
 - Score every corpus case on the four dimensions. Drop any case scoring 0 on fact-archetype match.
 - For PROCEDURAL/DOCTRINAL questions (intent_type=procedural_law_question or doctrinal_inquiry), weight DOCTRINAL_MATCH higher than FACT_ARCHETYPE_MATCH — score fact_archetype neutral (1-2) for all candidates rather than dropping cases on it.
 - Return top 3–5 by total score, with relevance_scores populated per case.
-- Each "relevance_explanation" MUST name the specific element of the matter that this case addresses — quote the canonical question or a doctrine from the envelope, not a generic summary.
+- For EACH returned case, populate match_dimensions with one-sentence-each:
+    statute_match:   "Both involve Section 156(3) CrPC / 175(3) BNSS applications"
+    doctrine_match:  "Both turn on dishonest intent at inception under Section 420 IPC"
+    fact_match:      "Both: advance paid, sale deed not executed in 6 months, property sold to third party"
+    outcome_match:   "Both directed FIR registration (helps the petitioner-buyer)"
+- Each "relevance_explanation" MUST name the specific element of the matter that this case addresses — reference a doctrine, party-orientation, or fact-pattern from the envelope, not a generic summary.
 - Populate internal_reasoning with your decomposition and scoring rationale.
 - Return JSON conforming to the schema. No prose outside JSON. No markdown fences.
 """
@@ -612,12 +631,44 @@ def build_situation_user_v2(
         if expected else "(unspecified)"
     )
 
+    # Format the new lexlegis-style facets for the prompt
+    dual_map = refined.get("dual_statute_map") or []
+    if dual_map:
+        dual_str = "; ".join(
+            f"{d.get('old','?')} → {d.get('new','?')} ({d.get('subject','')})"
+            for d in dual_map if isinstance(d, dict)
+        )
+    else:
+        dual_str = "(none — single-code matter)"
+
+    parties = refined.get("parties_involved") or []
+    if parties:
+        parties_str = "; ".join(
+            f"{p.get('role','?')}: {p.get('description','')}"
+            for p in parties if isinstance(p, dict)
+        )
+    else:
+        parties_str = "(none specified)"
+
+    circumstances = refined.get("core_circumstances") or []
+    circumstances_str = (
+        "\n      ".join(f"- {c}" for c in circumstances)
+        if circumstances else "(none extracted)"
+    )
+
+    concepts = refined.get("legal_concepts") or []
+    concepts_str = ", ".join(concepts) if concepts else "(none extracted)"
+
     return SITUATION_USER_TEMPLATE_V2.format(
         raw_situation      = raw_situation,
         canonical_question = refined.get("canonical_question") or "(same as raw)",
         intent_type        = refined.get("intent_type") or "factual_matter",
         primary_statute    = refined.get("primary_statute") or "(none)",
         secondary_statutes = ", ".join(refined.get("secondary_statutes") or []) or "(none)",
+        dual_statute_map   = dual_str,
+        parties_involved   = parties_str,
+        core_circumstances = circumstances_str,
+        legal_concepts     = concepts_str,
         stage              = refined.get("stage") or "(unspecified)",
         appeal_subtype     = refined.get("appeal_subtype") or "(n/a)",
         doctrines          = ", ".join(refined.get("doctrines_at_issue") or []) or "(none)",

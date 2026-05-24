@@ -332,10 +332,19 @@ def _build_search_input(
         for s in refined_query.get("secondary_statutes", [])[:2]:
             if s and s not in parts:
                 parts.append(str(s))
+        # NEW: dual statute map — include BOTH old and new code sections so
+        # IK returns cases citing either CrPC or BNSS, IPC or BNS, etc.
+        # Critical for the post-2024 transition where old + new judgments
+        # cite different section numbers for identical concepts.
+        for ds in (refined_query.get("dual_statute_map") or [])[:3]:
+            if isinstance(ds, dict):
+                old, new = ds.get("old"), ds.get("new")
+                if old and old not in parts: parts.append(str(old))
+                if new and new not in parts: parts.append(str(new))
         for d in refined_query.get("doctrines_at_issue", [])[:3]:
             if d:
                 parts.append(str(d))
-        distilled = " ".join(parts[:8])  # cap at 8 tokens to stay under IK query limits
+        distilled = " ".join(parts[:10])  # cap at 10 tokens (was 8 — now we have dual statutes)
     else:
         distilled = _distill_query(situation)
 

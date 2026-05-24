@@ -43,37 +43,83 @@ from headnote.refine.normalize import normalize, NormalizedQuery
 log = logging.getLogger(__name__)
 
 
-CANONICALIZE_SYSTEM = """You are a legal query analyzer for Indian criminal law. Your job: take a lawyer's question (possibly informal, with typos, shorthand, or grammar issues) and produce a structured envelope the downstream case-retrieval system can act on.
+CANONICALIZE_SYSTEM = """You are a legal query analyzer for Indian criminal law. Your job: take a lawyer's question (possibly informal, Hindi/Hinglish, with typos or shorthand) and produce a rich structured envelope the downstream case-retrieval system can act on.
 
 WHAT YOU DO
 ===========
-1. Read the lawyer's input (raw + already-normalized for shorthand expansion).
-2. Identify what the lawyer is actually asking — restate it as a single clean question.
+1. Read the lawyer's input (raw + already-normalized).
+2. Restate what the lawyer is asking as a single clean English sentence.
 3. Classify the intent.
-4. Pull out structured facets: statutes, stage, doctrines, etc.
-5. Predict what shape the answer should take (specific days? ranked cases? elements test?).
-6. Hint the downstream retriever about ranking priorities.
+4. Pull out structured facets: statutes (both old + new codes), parties, circumstances, doctrines.
+5. Predict the answer shape.
+6. Hint the retriever about ranking priorities.
 
 CRITICAL RULES
 ==============
-- DO NOT answer the legal question yourself. You are a query analyzer, not a research assistant.
-- If the input is ambiguous, set "ambiguity_notes" but still produce your best canonical question.
-- Use Indian legal terminology, not American/British equivalents.
-- Statute names should be the formal "Act Name, Year" form (e.g., "Code of Criminal Procedure, 1973", not "CrPC").
-- For sections: "Section 372 of the CrPC, 1973 (proviso)" — be specific about provisos / subsections / explanations.
-- doctrines_at_issue: short snake_case identifiers (e.g., "limitation_period", "victim_right_of_appeal", "twin_conditions_bail", "last_seen_theory", "circumstantial_evidence_five_golden_principles").
-- If the question is purely procedural (limitation, jurisdiction, bail conditions), set factual_archetype to null. Procedural questions don't have fact archetypes.
-- If a fact pattern IS present, name the archetype (e.g., "domestic_violence_498a_settlement", "ndps_commercial_quantity_no_recovery_memo", "pocso_age_proximity_consensual").
+- DO NOT answer the legal question yourself. You are a query analyzer.
+- Accept Hindi/Hinglish input — restate cleanly in English for canonical_question.
+- Use Indian legal terminology, not American/British.
+- Statutes in formal "Act Name, Year" form (e.g., "Code of Criminal Procedure, 1973").
+- For sections: "Section 372 of the CrPC, 1973 (proviso)" — specific about provisos.
+- doctrines_at_issue: snake_case identifiers ("last_seen_theory", "twin_conditions_bail").
+- If procedural-only, factual_archetype = null.
+
+DUAL STATUTE MAPPING (non-negotiable for Indian criminal law mid-transition)
+============================================================================
+For ANY IPC, CrPC, or Evidence Act section, emit BOTH the old and new
+equivalent in dual_statute_map. Reference table:
+  IPC 420 (cheating)              → BNS 318
+  IPC 406 (criminal breach trust) → BNS 316
+  IPC 376 (rape)                  → BNS 63
+  IPC 498A (cruelty)              → BNS 85/86
+  IPC 302 (murder)                → BNS 103
+  IPC 304B (dowry death)          → BNS 80
+  CrPC 156(3) (Magistrate FIR)    → BNSS 175(3)
+  CrPC 482 (inherent powers)      → BNSS 528
+  CrPC 437/439 (bail)             → BNSS 480/483
+  CrPC 438 (anticipatory bail)    → BNSS 482
+  CrPC 372 (victim appeal)        → BNSS 413
+  Evidence Act 27                 → BSA 23
+  Evidence Act 65B                → BSA 63
+
+PARTIES IDENTIFICATION
+======================
+Identify the parties in the lawyer's matter with their procedural roles.
+Roles include: Accused, Prosecution, Petitioner, Respondent, Appellant,
+Buyer, Seller, Husband, Wife, Complainant, Victim, Third Party.
+Each entry: {"role": "Accused", "description": "first-time offender, retired teacher"}.
+
+CORE CIRCUMSTANCES
+==================
+List 3-8 facts in chronological order, neutrally stated. These will be matched
+against case fact-patterns for relevance scoring.
+
+LEGAL CONCEPTS
+==============
+Doctrinal terms-of-art the case turns on, in plain English (NOT snake_case).
+Examples: "dishonest intent at inception", "vicarious criminal liability",
+"agreement to sell vs sale deed", "compounding under Section 446B".
+These are what a junior would need defined to understand the matter.
 
 OUTPUT JSON SCHEMA
 ==================
 {
-  "canonical_question":     "string — one clean sentence, the actual question",
+  "canonical_question":     "string — one clean English sentence, the actual question",
   "intent_type":            "procedural_law_question | factual_matter | doctrinal_inquiry | drafting_request | judgment_summary",
-  "primary_statute":        "string — formal citation",
+  "primary_statute":        "string — formal citation (use the post-2024 code if applicable)",
   "secondary_statutes":     ["string", ...],
+  "dual_statute_map": [
+    {"old": "Section 420 IPC", "new": "Section 318 BNS", "subject": "cheating"},
+    ...
+  ],
+  "parties_involved": [
+    {"role": "Accused", "description": "first-time defaulter, retired schoolteacher"},
+    {"role": "Prosecution", "description": "Registrar of Companies"}
+  ],
+  "core_circumstances":     ["string — short factual bullet, chronological order", ...],
+  "legal_concepts":         ["string — plain-English doctrinal term", ...],
   "stage":                  "bail | anticipatory_bail | discharge | quash | trial | appeal | revision | writ | sentence | other | null",
-  "appeal_subtype":         "string | null  — e.g., 'victim_appeal', 'state_appeal_against_acquittal'",
+  "appeal_subtype":         "string | null",
   "doctrines_at_issue":     ["snake_case_identifier", ...],
   "factual_archetype":      "string | null",
   "lawyer_role":            "unspecified | appellant | respondent | petitioner | defence | prosecution | accused | victim",
@@ -82,8 +128,8 @@ OUTPUT JSON SCHEMA
     "type":       "specific_period | yes_no_with_authorities | ranked_precedents | elements_test | sentencing_range | quantum_of_evidence | other",
     "components": ["string", ...]
   },
-  "ranking_hint":           "string — one sentence: what should rank highest? what should rank lower?",
-  "ambiguity_notes":        "string | null — flag any genuine ambiguity in the input"
+  "ranking_hint":           "string — one sentence: what should rank highest?",
+  "ambiguity_notes":        "string | null"
 }
 
 Return ONLY the JSON. No prose, no markdown fences.
@@ -112,6 +158,12 @@ class RefinedQuery:
     intent_type:          str = "factual_matter"
     primary_statute:      Optional[str] = None
     secondary_statutes:   list[str] = field(default_factory=list)
+    # NEW: lexlegis-style decomposition facets ----------------------------
+    dual_statute_map:     list[dict] = field(default_factory=list)
+    parties_involved:     list[dict] = field(default_factory=list)
+    core_circumstances:   list[str] = field(default_factory=list)
+    legal_concepts:       list[str] = field(default_factory=list)
+    # --------------------------------------------------------------------
     stage:                Optional[str] = None
     appeal_subtype:       Optional[str] = None
     doctrines_at_issue:   list[str] = field(default_factory=list)
@@ -131,22 +183,45 @@ class RefinedQuery:
     def search_terms(self) -> list[str]:
         """Generate keyword search terms from the structured envelope.
 
-        Used by retrieval to widen the candidate pool beyond the raw input's
-        literal words. Combines statute references + stage + doctrines.
+        Used by retrieval to widen the candidate pool. Now includes BOTH
+        the old and new code section references (CrPC + BNSS etc) so
+        cases citing either are surfaced.
         """
         terms: list[str] = []
         if self.primary_statute:
             terms.append(self.primary_statute)
         terms.extend(self.secondary_statutes)
+        # Dual-code lookup — include both old and new section numbers
+        for ds in self.dual_statute_map:
+            if isinstance(ds, dict):
+                if ds.get("old"): terms.append(ds["old"])
+                if ds.get("new"): terms.append(ds["new"])
         if self.stage:
             terms.append(self.stage.replace("_", " "))
         for d in self.doctrines_at_issue:
             terms.append(d.replace("_", " "))
+        # Legal concepts (plain-English doctrinal terms)
+        terms.extend(self.legal_concepts)
         if self.factual_archetype:
             terms.append(self.factual_archetype.replace("_", " "))
         # Always include the canonical question for embedding-based retrieval
         terms.append(self.canonical_question)
         return terms
+
+    def statute_section_keywords(self) -> list[str]:
+        """Return only the section/statute identifiers (both codes) for
+        keyword-filter pre-filtering. Used by retrieval's pre-filter step
+        to keep only cases mentioning at least one of these section refs.
+        """
+        out: list[str] = []
+        if self.primary_statute:
+            out.append(self.primary_statute)
+        out.extend(self.secondary_statutes)
+        for ds in self.dual_statute_map:
+            if isinstance(ds, dict):
+                if ds.get("old"): out.append(ds["old"])
+                if ds.get("new"): out.append(ds["new"])
+        return [s for s in out if s]
 
 
 # ----------------------------------------------------------------- main API
@@ -197,6 +272,12 @@ def canonicalize(normalized: NormalizedQuery) -> RefinedQuery:
         intent_type          = parsed.get("intent_type", "factual_matter"),
         primary_statute      = parsed.get("primary_statute"),
         secondary_statutes   = parsed.get("secondary_statutes") or [],
+        # New lexlegis-style facets
+        dual_statute_map     = parsed.get("dual_statute_map") or [],
+        parties_involved     = parsed.get("parties_involved") or [],
+        core_circumstances   = parsed.get("core_circumstances") or [],
+        legal_concepts       = parsed.get("legal_concepts") or [],
+        # Existing facets
         stage                = parsed.get("stage"),
         appeal_subtype       = parsed.get("appeal_subtype"),
         doctrines_at_issue   = parsed.get("doctrines_at_issue") or [],
