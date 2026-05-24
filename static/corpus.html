@@ -161,6 +161,19 @@
     <div class="status" id="harvest-status" style="display:none;"></div>
   </div>
 
+  <!-- Expand corpus -->
+  <div class="card">
+    <h2><span class="step-num" id="step1b-num">1b</span> Expand corpus (optional)</h2>
+    <p>Adds 250,000 more judgments to the database. Idempotent — safe to fire even if step 1 already ran.</p>
+    <ul style="margin: 0 0 16px 24px; color:#6e6e73; font-size:14px;">
+      <li><b>BAIL</b> — 176K Hindi district-court bail orders (~2.5 GB, ~90 min)</li>
+      <li><b>LSI</b> — 66K statute-labelled judgments (~1.5 GB, ~45 min)</li>
+      <li><b>PCR</b> — 8K SC judgments with citation graph (~250 MB, ~10 min)</li>
+    </ul>
+    <button id="btn-harvest-expand">Add BAIL + LSI + PCR (~145 min)</button>
+    <div class="status" id="harvest-expand-status" style="display:none;"></div>
+  </div>
+
   <!-- Backfill embeddings -->
   <div class="card">
     <h2><span class="step-num" id="step2-num">2</span> Start embedding backfill</h2>
@@ -280,6 +293,30 @@
       }
     }
 
+    // --- Start harvest of remaining subsets (BAIL + LSI + PCR) -------
+    async function startHarvestExpand() {
+      if (!confirm('This adds 250,000 more judgments and takes ~2.5 hours in background. Proceed?')) return;
+      const btn = document.getElementById('btn-harvest-expand');
+      btn.disabled = true;
+      btn.textContent = 'Starting…';
+      try {
+        const body = await withAuth('POST', '/admin/v2/corpus/harvest?subsets=bail,lsi,pcr');
+        setStatus('harvest-expand-status',
+          '✓ Expansion harvest started!\n\n' +
+          'Job ID:  ' + body.job_id + '\n' +
+          'Command: ' + body.command + '\n' +
+          'ETA:     ' + body.estimated_minutes + ' minutes\n\n' +
+          body.note,
+          'ok');
+        btn.textContent = 'Started — see status below';
+        startPolling(body.job_id);
+      } catch (e) {
+        setStatus('harvest-expand-status', 'Error: ' + e.message, 'err');
+        btn.disabled = false;
+        btn.textContent = 'Add BAIL + LSI + PCR (~145 min)';
+      }
+    }
+
     // --- Start backfill -----------------------------------------------
     async function startBackfill() {
       if (!confirm('This starts a 20-minute embedding job. Make sure harvest is COMPLETE first. Proceed?')) return;
@@ -352,6 +389,7 @@
     // --- Wire buttons -------------------------------------------------
     document.getElementById('btn-refresh').addEventListener('click', refreshTotals);
     document.getElementById('btn-harvest').addEventListener('click', startHarvest);
+    document.getElementById('btn-harvest-expand').addEventListener('click', startHarvestExpand);
     document.getElementById('btn-backfill').addEventListener('click', startBackfill);
     document.getElementById('btn-check-status').addEventListener('click', () => checkStatusOnce());
 
