@@ -69,6 +69,73 @@ def _is_bedrock_recoverable_error(exc: Exception) -> bool:
     )) or any(code in s for code in ("403 ", "404 ", "400 - {'message'"))
 
 
+def _is_anthropic_no_credit_error(exc: Exception) -> bool:
+    """Direct Anthropic call failed because the account has no balance.
+    Recoverable via Groq fallback (cheaper, no payment required)."""
+    s = str(exc).lower()
+    return any(k in s for k in (
+        "credit balance is too low",
+        "credit balance",
+        "insufficient credit",
+        "out of credits",
+        "billing",
+        "your account does not have",
+    ))
+
+
+def _call_groq_fallback(
+    system_prompt: str,
+    user_prompt: str,
+    *,
+    max_tokens: int,
+) -> Tuple[str, dict]:
+    """Last-resort fallback to Groq's free-tier Llama-3.3-70B when both
+    Bedrock and direct Anthropic fail. Quality is lower than Sonnet for
+    legal reasoning, but works without any payment dependency.
+
+    Uses GROQ_API_KEY env var (already configured for OCR/drafter paths).
+    Returns the same (response_text, usage_dict) shape as the Anthropic path
+    so callers don't need to special-case the source.
+    """
+    groq_key = os.environ.get("GROQ_API_KEY", "").strip()
+    if not groq_key:
+        raise HTTPException(
+            status_code=503,
+            detail="LLM unavailable. Set GROQ_API_KEY on Railway to enable the free fallback path.",
+        )
+    try:
+        from groq import Groq
+    except ImportError as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"groq SDK not installed on this deploy: {e}",
+        ) from e
+
+    model = os.environ.get("GROQ_FALLBACK_MODEL", "llama-3.3-70b-versatile")
+    log.warning("[llm] Falling back to Groq %s (Bedrock + Anthropic both failed)", model)
+
+    client = Groq(api_key=groq_key)
+    resp = client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user",   "content": user_prompt},
+        ],
+        max_tokens=min(max_tokens or 4000, 8000),  # Groq caps lower than Anthropic
+        temperature=0.2,
+        timeout=60.0,
+    )
+    text = resp.choices[0].message.content or ""
+    usage = resp.usage
+    return text, {
+        "model": f"groq:{model}",
+        "input_tokens": getattr(usage, "prompt_tokens", 0) if usage else 0,
+        "output_tokens": getattr(usage, "completion_tokens", 0) if usage else 0,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+    }
+
+
 def get_client():
     """Return AnthropicBedrock when AWS creds are present, else direct Anthropic."""
     if _USE_BEDROCK:
@@ -165,17 +232,37 @@ def call_claude_cached(
         # Bedrock failure (payment / invalid model / IAM) → transparent fallback
         # to direct Anthropic API. Covers the common Railway misconfigurations.
         if _USE_BEDROCK and _is_bedrock_recoverable_error(exc):
-            if not config.ANTHROPIC_API_KEY:
-                raise  # no fallback available
             canonical = _to_canonical_model(create_kwargs["model"])
             log.warning(
                 "Bedrock error — falling back to direct Anthropic API "
                 "(bedrock_model=%s → anthropic_model=%s): %s",
                 create_kwargs.get("model"), canonical, str(exc)[:250]
             )
-            fallback_client = Anthropic(api_key=config.ANTHROPIC_API_KEY)
-            create_kwargs["model"] = canonical
-            resp = fallback_client.messages.create(**create_kwargs)
+            # Try Anthropic if we have a key, else go straight to Groq.
+            if config.ANTHROPIC_API_KEY:
+                try:
+                    fallback_client = Anthropic(api_key=config.ANTHROPIC_API_KEY)
+                    create_kwargs["model"] = canonical
+                    resp = fallback_client.messages.create(**create_kwargs)
+                except Exception as anth_exc:
+                    # Anthropic also failed (out of credits, etc.) → final
+                    # fallback to Groq's free tier. Quality drop but reliable.
+                    if _is_anthropic_no_credit_error(anth_exc):
+                        log.warning(
+                            "Anthropic also failed (no credit) — falling back to Groq: %s",
+                            str(anth_exc)[:200],
+                        )
+                        return _call_groq_fallback(
+                            system_prompt, user_prompt,
+                            max_tokens=create_kwargs.get("max_tokens", 4000),
+                        )
+                    raise
+            else:
+                # No Anthropic key at all — go straight to Groq
+                return _call_groq_fallback(
+                    system_prompt, user_prompt,
+                    max_tokens=create_kwargs.get("max_tokens", 4000),
+                )
         else:
             raise
     usage = resp.usage
