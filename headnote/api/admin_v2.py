@@ -172,3 +172,155 @@ def aggregate_usage(
         "by_feature":      by_feature,
         "top_users":       [{"user_id": u, "cost_paise": c} for u, c in top_users],
     }
+
+
+# ---------------------------------------------------------------- corpus mgmt
+# Founder-only endpoints to trigger the long-running corpus pipeline from
+# anywhere (phone, laptop). Scripts run as background subprocesses; output
+# goes to Railway logs. Both scripts are idempotent — safe to re-run.
+
+import logging as _logging
+import os as _corpus_os
+import subprocess as _subprocess
+import threading as _threading
+import time as _time
+from pathlib import Path as _Path
+
+_corpus_log = _logging.getLogger(__name__)
+
+# In-memory job registry. Cleared on restart — Railway logs are the source
+# of truth for full output. This is just for the status endpoint.
+_CORPUS_JOBS: dict[str, dict] = {}
+
+
+def _run_corpus_script(job_id: str, cmd: list[str]) -> None:
+    """Spawn a long-running script in a thread, capture summary to _CORPUS_JOBS."""
+    repo_root = _Path(__file__).resolve().parent.parent.parent
+    job = _CORPUS_JOBS[job_id]
+    job["started_at"] = _time.time()
+    job["status"] = "running"
+    job["cmd"] = " ".join(cmd)
+    try:
+        # Use Popen + tail-style read so we capture last 50 lines for status.
+        proc = _subprocess.Popen(
+            cmd,
+            cwd=str(repo_root),
+            stdout=_subprocess.PIPE,
+            stderr=_subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
+        job["pid"] = proc.pid
+        tail: list[str] = []
+        for line in proc.stdout:  # type: ignore[union-attr]
+            _corpus_log.info("[corpus:%s] %s", job_id, line.rstrip())
+            tail.append(line.rstrip())
+            if len(tail) > 50:
+                tail.pop(0)
+            job["last_lines"] = tail[-30:]
+        proc.wait()
+        job["return_code"] = proc.returncode
+        job["status"] = "completed" if proc.returncode == 0 else "failed"
+    except Exception as e:
+        job["status"] = "errored"
+        job["error"] = str(e)[:500]
+    finally:
+        job["finished_at"] = _time.time()
+        job["elapsed_seconds"] = round(job["finished_at"] - job["started_at"], 1)
+
+
+@router.post("/corpus/harvest", summary="Trigger HF corpus harvest (founder-only, runs in background)")
+def admin_trigger_harvest(
+    subsets: str = Query(default="cjpe,summ",
+                         description="Comma-separated IL-TUR subsets: cjpe, summ, bail, lsi, pcr"),
+    limit: Optional[int] = Query(default=None,
+                                 description="Cap rows per subset (testing only)"),
+    actor: str = Depends(_admin_guard),
+) -> dict:
+    """Spawn `python scripts/harvest_hf_corpus.py --subsets <s1> <s2>` in the
+    background. Returns immediately with a job_id; poll /admin/v2/corpus/status
+    or watch Railway logs for progress. Idempotent — re-runs skip rows already
+    in hf_judgments."""
+    subset_list = [s.strip() for s in subsets.split(",") if s.strip()]
+    valid = {"cjpe", "summ", "bail", "lsi", "pcr"}
+    if not all(s in valid for s in subset_list):
+        raise HTTPException(400, f"Invalid subsets. Valid: {sorted(valid)}")
+
+    job_id = f"harvest-{int(_time.time())}"
+    cmd = ["python", "scripts/harvest_hf_corpus.py", "--subsets", *subset_list]
+    if limit is not None:
+        cmd += ["--limit", str(int(limit))]
+
+    _CORPUS_JOBS[job_id] = {"job_id": job_id, "kind": "harvest", "status": "queued"}
+    t = _threading.Thread(target=_run_corpus_script, args=(job_id, cmd), daemon=True)
+    t.start()
+
+    return {
+        "ok": True,
+        "job_id": job_id,
+        "command": " ".join(cmd),
+        "note": "Running in background. Watch Railway logs, or poll GET /admin/v2/corpus/status/" + job_id,
+        "estimated_minutes": 30 if "bail" not in subset_list else 90,
+    }
+
+
+@router.post("/corpus/backfill-embeddings", summary="Trigger embedding backfill (founder-only)")
+def admin_trigger_backfill(
+    skip_ik: bool = Query(default=True,
+                          description="Skip IK cases (only embed HF corpus). Default: True"),
+    actor: str = Depends(_admin_guard),
+) -> dict:
+    """Spawn `python scripts/backfill_embeddings.py --skip-ik` in the
+    background. Run AFTER /corpus/harvest has finished. Idempotent — only
+    embeds rows not already in paragraph_embeddings table."""
+    job_id = f"backfill-{int(_time.time())}"
+    cmd = ["python", "scripts/backfill_embeddings.py"]
+    if skip_ik:
+        cmd.append("--skip-ik")
+
+    _CORPUS_JOBS[job_id] = {"job_id": job_id, "kind": "backfill", "status": "queued"}
+    t = _threading.Thread(target=_run_corpus_script, args=(job_id, cmd), daemon=True)
+    t.start()
+
+    return {
+        "ok": True,
+        "job_id": job_id,
+        "command": " ".join(cmd),
+        "note": "Running in background. Poll GET /admin/v2/corpus/status/" + job_id,
+        "estimated_minutes": 20,
+    }
+
+
+@router.get("/corpus/status", summary="List all corpus jobs in this process")
+def admin_corpus_status_all(actor: str = Depends(_admin_guard)) -> dict:
+    return {
+        "jobs": list(_CORPUS_JOBS.values()),
+        "active_count": sum(1 for j in _CORPUS_JOBS.values() if j.get("status") == "running"),
+    }
+
+
+@router.get("/corpus/status/{job_id}", summary="Status of a single corpus job")
+def admin_corpus_status_one(
+    job_id: str,
+    actor: str = Depends(_admin_guard),
+) -> dict:
+    job = _CORPUS_JOBS.get(job_id)
+    if not job:
+        raise HTTPException(404, f"No such job: {job_id} (lost on Railway restart — check logs)")
+    return job
+
+
+@router.get("/corpus/totals", summary="Current corpus + embedding totals (no auth needed but logged)")
+def admin_corpus_totals(actor: str = Depends(_admin_guard)) -> dict:
+    """Quick health check: how many cases imported, how many embedded."""
+    try:
+        from headnote.retrieval.hf_corpus import corpus_stats
+        hf = corpus_stats()
+    except Exception as e:
+        hf = {"error": str(e)[:200]}
+    try:
+        from headnote.retrieval.embeddings import EmbeddingIndex
+        emb = EmbeddingIndex().stats()
+    except Exception as e:
+        emb = {"error": str(e)[:200]}
+    return {"hf_corpus": hf, "embeddings": emb}
