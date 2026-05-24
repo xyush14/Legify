@@ -57,7 +57,7 @@ RUN groupadd --gid 10001 headnote \
  && mkdir -p /data \
  && chown headnote:headnote /data
 
-COPY --from=builder /opt/venv /opt/venv
+COPY --from=builder --chown=headnote:headnote /opt/venv /opt/venv
 
 WORKDIR /app
 COPY --chown=headnote:headnote . /app
