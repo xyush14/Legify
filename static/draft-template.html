@@ -372,7 +372,7 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="/static/auth.js?v=20260524b"></script>
+<script src="/static/auth.js?v=20260524c"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
 // =========================================================================
@@ -490,7 +490,10 @@ function updateTitle() {
 
 // ---- Load template ----
 function getDocTypeFromUrl() {
-  const m = window.location.pathname.match(/\/draft\/template\/([a-z_]+)/i);
+  // Template IDs may contain digits (ni_act_138, complaint_156_3, etc.),
+  // so we allow [a-z0-9_]. Trailing slash is stripped automatically by the
+  // greedy match boundary.
+  const m = window.location.pathname.match(/\/draft\/template\/([a-z0-9_]+)/i);
   return m ? m[1] : null;
 }
 async function loadTemplate() {

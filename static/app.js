@@ -534,8 +534,14 @@
     if (c.kanoon_url) {
       titleEl.appendChild(ce('a', { text: c.title, attrs: { href: c.kanoon_url, target: '_blank', rel: 'noopener' } }));
       titleEl.appendChild(ce('span', { cls: 'ext-arrow', text: '↗' }));
+    } else if (c.title) {
+      // No pool-verified URL — link to IK search by title so the lawyer can
+      // still locate the judgment manually instead of dead-ending on text.
+      const searchUrl = 'https://indiankanoon.org/search/?formInput=' + encodeURIComponent(c.title);
+      titleEl.appendChild(ce('a', { text: c.title, attrs: { href: searchUrl, target: '_blank', rel: 'noopener', title: 'Search Indian Kanoon' } }));
+      titleEl.appendChild(ce('span', { cls: 'ext-arrow', text: '⌕' }));
     } else {
-      titleEl.appendChild(document.createTextNode(c.title));
+      titleEl.appendChild(document.createTextNode(c.title || ''));
     }
     head.appendChild(titleEl);
     head.appendChild(ce('div', { cls: 'case-card__meta mono', text: `#${idx + 1}` }));
@@ -699,8 +705,12 @@
       const titleEl = ce('span', { cls: 'ct-title' });
       if (c.kanoon_url) {
         titleEl.appendChild(ce('a', { text: c.title, attrs: { href: c.kanoon_url, target: '_blank', rel: 'noopener' } }));
+      } else if (c.title) {
+        // No pool-verified URL → IK search by title (manual lookup fallback)
+        const searchUrl = 'https://indiankanoon.org/search/?formInput=' + encodeURIComponent(c.title);
+        titleEl.appendChild(ce('a', { text: c.title, attrs: { href: searchUrl, target: '_blank', rel: 'noopener', title: 'Search Indian Kanoon' } }));
       } else {
-        titleEl.appendChild(document.createTextNode(c.title));
+        titleEl.appendChild(document.createTextNode(c.title || ''));
       }
       titleCell.appendChild(titleEl);
       if (c.citation) titleCell.appendChild(ce('span', { cls: 'ct-citation', text: c.citation }));
