@@ -395,6 +395,15 @@ def admin_panel():
     return FileResponse(config.STATIC_DIR / "admin.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
+@app.get("/corpus", include_in_schema=False)
+@app.get("/corpus/", include_in_schema=False)
+@app.get("/corpus.html", include_in_schema=False)
+def corpus_admin():
+    """Founder-only corpus admin page. One-click harvest + embedding backfill.
+    Requires signed-in founder session — the page itself is inert without auth."""
+    return FileResponse(config.STATIC_DIR / "corpus.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
 @app.get("/drafter", include_in_schema=False)
 @app.get("/drafter/", include_in_schema=False)
 def drafter_standalone():
