@@ -19,7 +19,7 @@
 // version doesn't match, the browser is running stale JS (old tab, aggressive
 // cache). We force ONE reload to pick up the new code. This prevents the
 // "sign-in loop" and "missing features" bugs caused by cached old files.
-const _CODE_VERSION = '20260524i';
+const _CODE_VERSION = '20260524j';
 
 /* ------------------------------------------------------------------ state */
 
@@ -49,15 +49,22 @@ async function initAuth() {
   console.log('[auth] search:', window.location.search || '(empty)');
 
   // -- Hard timeout safety net --
-  // If anything in this function hangs for more than 8 seconds, force
+  // If anything in this function hangs for more than 20 seconds, force
   // the login modal so the user can at least retry instead of staring
   // at "checking sign-in…" forever.
+  //
+  // Was 8s — too aggressive for Indian mobile networks (Jio 5G with
+  // congested cells, rural 4G, etc.) where Supabase JS CDN + /api/config
+  // + /api/me round-trips can legitimately exceed 10s. Reports from
+  // advocates on mobile showed the watchdog firing on valid sign-ins
+  // mid-flow. 20s is the longest tolerable wait before users assume
+  // the page is broken.
   const _watchdog = setTimeout(() => {
-    console.error('[auth] initAuth watchdog fired — forcing login modal after 8s');
+    console.error('[auth] initAuth watchdog fired — forcing login modal after 20s');
     _showLoginModal();
-    _showAuthError('Sign-in check is taking longer than expected. You can sign in again.');
+    _showAuthError('Sign-in is taking longer than usual on your network. Tap "Continue with Google" again.');
     _markReady();  // unblock anyone awaiting ready() — they'll see no user
-  }, 8000);
+  }, 20000);
 
   function _cancelWatchdog() { clearTimeout(_watchdog); }
 
@@ -68,7 +75,7 @@ async function initAuth() {
   // a flaky network doesn't keep the page in 'checking' forever.
   let cfg = {};
   try {
-    cfg = await _fetchWithTimeout('/api/config', 5000);
+    cfg = await _fetchWithTimeout('/api/config', 10000);
   } catch (e) {
     console.error('[auth] /api/config fetch failed:', e);
   }
@@ -114,7 +121,7 @@ async function initAuth() {
   // Wait for the Supabase CDN script to load (defer-loaded; usually ready
   // by the time we get here but be defensive).
   if (!window.supabase || !window.supabase.createClient) {
-    await _waitFor(() => window.supabase && window.supabase.createClient, 3000);
+    await _waitFor(() => window.supabase && window.supabase.createClient, 8000);
   }
   if (!window.supabase) {
     console.error('[auth] Supabase CDN failed to load');
