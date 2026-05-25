@@ -152,26 +152,28 @@
     <div class="status" id="totals-status" style="display:none;"></div>
   </div>
 
-  <!-- Harvest -->
-  <div class="card">
-    <h2><span class="step-num" id="step1-num">1</span> Start corpus harvest</h2>
-    <p>Imports ~40,000 Indian Supreme Court + High Court judgments from HuggingFace IL-TUR (cjpe + summ subsets).
-    Takes ~30 minutes. Runs in background — you can close this tab.</p>
-    <button id="btn-harvest">Start harvest (cjpe + summ)</button>
-    <div class="status" id="harvest-status" style="display:none;"></div>
+  <!-- FULL harvest (all 5 subsets) -->
+  <div class="card" style="border: 2px solid #0071e3;">
+    <h2><span class="step-num" id="step1-num">1</span> Start FULL corpus harvest (recommended)</h2>
+    <p>Imports ALL 5 IL-TUR subsets in a single background job. <b>Takes ~3 hours.</b> Idempotent — safe to re-run.</p>
+    <ul style="margin: 0 0 16px 24px; color:#6e6e73; font-size:14px;">
+      <li><b>cjpe</b> — 34,816 SC judgments (English)</li>
+      <li><b>summ</b> — 7,130 SC+HC summarised judgments</li>
+      <li><b>bail</b> — 176,000 Hindi district-court bail orders</li>
+      <li><b>lsi</b> — 66,000 statute-labelled judgments</li>
+      <li><b>pcr</b> — 8,000 SC judgments with citation graph</li>
+      <li><b>Total: ~292,000 judgments</b></li>
+    </ul>
+    <button id="btn-harvest-full">Start FULL harvest (all 5 subsets, ~3 hrs)</button>
+    <div class="status" id="harvest-full-status" style="display:none;"></div>
   </div>
 
-  <!-- Expand corpus -->
+  <!-- Smaller harvest (just first 2 subsets) -->
   <div class="card">
-    <h2><span class="step-num" id="step1b-num">1b</span> Expand corpus (optional)</h2>
-    <p>Adds 250,000 more judgments to the database. Idempotent — safe to fire even if step 1 already ran.</p>
-    <ul style="margin: 0 0 16px 24px; color:#6e6e73; font-size:14px;">
-      <li><b>BAIL</b> — 176K Hindi district-court bail orders (~2.5 GB, ~90 min)</li>
-      <li><b>LSI</b> — 66K statute-labelled judgments (~1.5 GB, ~45 min)</li>
-      <li><b>PCR</b> — 8K SC judgments with citation graph (~250 MB, ~10 min)</li>
-    </ul>
-    <button id="btn-harvest-expand">Add BAIL + LSI + PCR (~145 min)</button>
-    <div class="status" id="harvest-expand-status" style="display:none;"></div>
+    <h2><span class="step-num" id="step1b-num">1b</span> Quick harvest (cjpe + summ only)</h2>
+    <p>For testing only — imports just 40,000 English judgments. Takes ~30 min.</p>
+    <button id="btn-harvest" class="secondary">Quick harvest (cjpe + summ, ~30 min)</button>
+    <div class="status" id="harvest-status" style="display:none;"></div>
   </div>
 
   <!-- Backfill embeddings -->
@@ -293,27 +295,29 @@
       }
     }
 
-    // --- Start harvest of remaining subsets (BAIL + LSI + PCR) -------
-    async function startHarvestExpand() {
-      if (!confirm('This adds 250,000 more judgments and takes ~2.5 hours in background. Proceed?')) return;
-      const btn = document.getElementById('btn-harvest-expand');
+    // --- FULL harvest (all 5 subsets in ONE background job) ----------
+    async function startHarvestFull() {
+      if (!confirm('Starts a ~3-hour background job importing all 292,000 judgments. Proceed?')) return;
+      const btn = document.getElementById('btn-harvest-full');
       btn.disabled = true;
       btn.textContent = 'Starting…';
       try {
-        const body = await withAuth('POST', '/admin/v2/corpus/harvest?subsets=bail,lsi,pcr');
-        setStatus('harvest-expand-status',
-          '✓ Expansion harvest started!\n\n' +
+        const body = await withAuth('POST', '/admin/v2/corpus/harvest?subsets=cjpe,summ,bail,lsi,pcr');
+        setStatus('harvest-full-status',
+          '✓ FULL harvest started!\n\n' +
           'Job ID:  ' + body.job_id + '\n' +
           'Command: ' + body.command + '\n' +
           'ETA:     ' + body.estimated_minutes + ' minutes\n\n' +
+          'IMPORTANT: Do NOT trigger any code deploys or click any other harvest\n' +
+          'button until this finishes. Each Railway restart kills the job.\n\n' +
           body.note,
           'ok');
         btn.textContent = 'Started — see status below';
         startPolling(body.job_id);
       } catch (e) {
-        setStatus('harvest-expand-status', 'Error: ' + e.message, 'err');
+        setStatus('harvest-full-status', 'Error: ' + e.message, 'err');
         btn.disabled = false;
-        btn.textContent = 'Add BAIL + LSI + PCR (~145 min)';
+        btn.textContent = 'Start FULL harvest (all 5 subsets, ~3 hrs)';
       }
     }
 
@@ -388,8 +392,8 @@
 
     // --- Wire buttons -------------------------------------------------
     document.getElementById('btn-refresh').addEventListener('click', refreshTotals);
+    document.getElementById('btn-harvest-full').addEventListener('click', startHarvestFull);
     document.getElementById('btn-harvest').addEventListener('click', startHarvest);
-    document.getElementById('btn-harvest-expand').addEventListener('click', startHarvestExpand);
     document.getElementById('btn-backfill').addEventListener('click', startBackfill);
     document.getElementById('btn-check-status').addEventListener('click', () => checkStatusOnce());
 
