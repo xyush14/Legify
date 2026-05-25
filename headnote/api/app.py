@@ -368,6 +368,152 @@ _init_feedback_db()
 init_telemetry_db()
 app.include_router(admin_router)
 
+
+# -----------------------------------------------------------------------
+# AUTO-RECOVERY: rebuild HF corpus + embeddings on boot if /data was wiped
+# -----------------------------------------------------------------------
+# Railway's volume mount is not persisting our /data SQLite across deploys
+# (configuration issue we cannot fix from code). To make the system
+# self-healing, on every container boot we check if the corpus is empty
+# and, if so, spawn a background thread that:
+#   1. Runs harvest_hf_corpus.py for all 5 IL-TUR subsets (~30 min)
+#   2. Runs backfill_embeddings.py --skip-ik (~60-90 min)
+#
+# The server starts immediately and serves traffic against curated + IK
+# live retrieval while the background rebuild runs. After ~90 min, full
+# HF corpus is restored. Every deploy now self-heals.
+#
+# Gated by env var AUTO_REBUILD_CORPUS_ON_BOOT=true (defaults on).
+# Requires HF_TOKEN to be set (already on Railway).
+
+def _maybe_autorebuild_corpus_on_boot() -> None:
+    import os as _os
+    import threading as _threading
+    import subprocess as _subprocess
+    import logging as _log
+    import time as _time
+    from pathlib import Path as _Path
+
+    logger = _log.getLogger("autorebuild")
+
+    if _os.environ.get("AUTO_REBUILD_CORPUS_ON_BOOT", "true").lower() not in ("1", "true", "yes"):
+        logger.info("[autorebuild] disabled via AUTO_REBUILD_CORPUS_ON_BOOT env")
+        return
+
+    if not _os.environ.get("HF_TOKEN", "").strip():
+        logger.warning("[autorebuild] HF_TOKEN not set — skipping (set it on Railway to enable)")
+        return
+
+    # Check current corpus state
+    try:
+        from headnote.retrieval.hf_corpus import corpus_stats
+        stats = corpus_stats()
+        current_total = int(stats.get("total", 0) or 0)
+    except Exception as e:
+        logger.warning("[autorebuild] couldn't read corpus stats (%s); will attempt rebuild", e)
+        current_total = 0
+
+    # If corpus has > 1000 rows, assume healthy — don't rebuild
+    if current_total > 1000:
+        logger.info("[autorebuild] corpus already has %d rows; skipping rebuild", current_total)
+        # Check embeddings separately — they may need backfill
+        try:
+            from headnote.retrieval.embeddings import EmbeddingIndex
+            emb_stats = EmbeddingIndex().stats()
+            emb_count = int(emb_stats.get("paragraph_count", 0) or 0)
+            if emb_count < (current_total * 0.5):
+                logger.info("[autorebuild] embeddings thin (%d paras for %d cases); spawning backfill",
+                            emb_count, current_total)
+                _spawn_backfill_thread(logger)
+        except Exception as e:
+            logger.warning("[autorebuild] embedding check failed: %s", e)
+        return
+
+    # Corpus is empty/thin — full rebuild needed
+    logger.warning("[autorebuild] corpus has %d rows — spawning FULL rebuild thread", current_total)
+    _spawn_full_rebuild_thread(logger)
+
+
+def _spawn_full_rebuild_thread(logger) -> None:
+    import threading as _threading
+    import subprocess as _subprocess
+    import time as _time
+    from pathlib import Path as _Path
+
+    def _rebuild_worker():
+        repo_root = _Path(__file__).resolve().parent.parent.parent
+        t_start = _time.time()
+        try:
+            logger.warning("[autorebuild] === HARVEST starting (5 subsets, ~30-90 min) ===")
+            harvest_cmd = ["python", "scripts/harvest_hf_corpus.py",
+                          "--subsets", "cjpe", "summ", "bail", "lsi", "pcr"]
+            proc = _subprocess.Popen(
+                harvest_cmd, cwd=str(repo_root),
+                stdout=_subprocess.PIPE, stderr=_subprocess.STDOUT,
+                text=True, bufsize=1,
+            )
+            for line in proc.stdout or []:
+                logger.info("[autorebuild:harvest] %s", line.rstrip())
+            proc.wait()
+            if proc.returncode != 0:
+                logger.error("[autorebuild] harvest exited rc=%d after %.0fs",
+                            proc.returncode, _time.time() - t_start)
+                return
+            logger.warning("[autorebuild] === HARVEST done in %.0fs ===", _time.time() - t_start)
+
+            # Backfill embeddings
+            t_emb = _time.time()
+            logger.warning("[autorebuild] === EMBEDDING BACKFILL starting (~60-90 min) ===")
+            backfill_cmd = ["python", "scripts/backfill_embeddings.py", "--skip-ik"]
+            proc = _subprocess.Popen(
+                backfill_cmd, cwd=str(repo_root),
+                stdout=_subprocess.PIPE, stderr=_subprocess.STDOUT,
+                text=True, bufsize=1,
+            )
+            for line in proc.stdout or []:
+                logger.info("[autorebuild:backfill] %s", line.rstrip())
+            proc.wait()
+            logger.warning("[autorebuild] === BACKFILL done in %.0fs, TOTAL %.0fs ===",
+                          _time.time() - t_emb, _time.time() - t_start)
+        except Exception as e:
+            logger.exception("[autorebuild] worker crashed: %s", e)
+
+    t = _threading.Thread(target=_rebuild_worker, daemon=True, name="corpus-autorebuild")
+    t.start()
+    logger.warning("[autorebuild] background rebuild thread launched (server starts normally now)")
+
+
+def _spawn_backfill_thread(logger) -> None:
+    import threading as _threading
+    import subprocess as _subprocess
+    import time as _time
+    from pathlib import Path as _Path
+
+    def _backfill_only():
+        repo_root = _Path(__file__).resolve().parent.parent.parent
+        t_start = _time.time()
+        try:
+            logger.warning("[autorebuild] embedding-only backfill starting")
+            proc = _subprocess.Popen(
+                ["python", "scripts/backfill_embeddings.py", "--skip-ik"],
+                cwd=str(repo_root),
+                stdout=_subprocess.PIPE, stderr=_subprocess.STDOUT,
+                text=True, bufsize=1,
+            )
+            for line in proc.stdout or []:
+                logger.info("[autorebuild:backfill] %s", line.rstrip())
+            proc.wait()
+            logger.warning("[autorebuild] backfill done in %.0fs", _time.time() - t_start)
+        except Exception as e:
+            logger.exception("[autorebuild] backfill crashed: %s", e)
+
+    t = _threading.Thread(target=_backfill_only, daemon=True, name="corpus-backfill")
+    t.start()
+
+
+# Fire the check at module import (uvicorn loads this before serving requests)
+_maybe_autorebuild_corpus_on_boot()
+
 # Drafting engine (10 document types, story-first). Per-type templates
 # ship one at a time; the API surface lives here from v0 so the FE can
 # integrate against `/api/draft/*` while individual templates are ported.
