@@ -96,17 +96,138 @@ def _fame_indicator(numcitedby: int) -> str:
     return "obscure"
 
 
-def _enrich_case(case: dict, meta_by_id: dict) -> dict:
+# IPC ↔ BNS / CrPC ↔ BNSS / Evidence ↔ BSA mapping table.
+# Used to auto-populate `bns_note` when the LLM leaves it blank or writes
+# placeholder text. Covers the sections that show up most in criminal-law
+# practice — extend as needed.
+_BNS_MAP = [
+    # (regex matching old code section, new code equivalent, short subject)
+    (r"\bS(?:ection)?\.?\s*420\b.*?\bIPC\b",     "Section 318, BNS",   "cheating"),
+    (r"\bS(?:ection)?\.?\s*406\b.*?\bIPC\b",     "Section 316, BNS",   "criminal breach of trust"),
+    (r"\bS(?:ection)?\.?\s*376\b.*?\bIPC\b",     "Section 63, BNS",    "rape"),
+    (r"\bS(?:ection)?\.?\s*498A\b.*?\bIPC\b",    "Section 85, BNS",    "cruelty by husband"),
+    (r"\bS(?:ection)?\.?\s*302\b.*?\bIPC\b",     "Section 103, BNS",   "murder"),
+    (r"\bS(?:ection)?\.?\s*304B\b.*?\bIPC\b",    "Section 80, BNS",    "dowry death"),
+    (r"\bS(?:ection)?\.?\s*307\b.*?\bIPC\b",     "Section 109, BNS",   "attempt to murder"),
+    (r"\bS(?:ection)?\.?\s*323\b.*?\bIPC\b",     "Section 115, BNS",   "voluntarily causing hurt"),
+    (r"\bS(?:ection)?\.?\s*354\b.*?\bIPC\b",     "Section 74, BNS",    "outraging modesty"),
+    (r"\bS(?:ection)?\.?\s*379\b.*?\bIPC\b",     "Section 303, BNS",   "theft"),
+    (r"\bS(?:ection)?\.?\s*156\s*\(3\).*?\bCrPC\b", "Section 175(3), BNSS", "Magistrate FIR direction"),
+    (r"\bS(?:ection)?\.?\s*482\b.*?\bCrPC\b",    "Section 528, BNSS",  "inherent powers"),
+    (r"\bS(?:ection)?\.?\s*437\b.*?\bCrPC\b",    "Section 480, BNSS",  "regular bail"),
+    (r"\bS(?:ection)?\.?\s*439\b.*?\bCrPC\b",    "Section 483, BNSS",  "HC/Sessions bail"),
+    (r"\bS(?:ection)?\.?\s*438\b.*?\bCrPC\b",    "Section 482, BNSS",  "anticipatory bail"),
+    (r"\bS(?:ection)?\.?\s*372\b.*?\bCrPC\b",    "Section 413, BNSS",  "victim appeal"),
+    (r"\bS(?:ection)?\.?\s*27\b.*?\bEvidence\b", "Section 23, BSA",    "discovery statement"),
+    (r"\bS(?:ection)?\.?\s*65B\b.*?\bEvidence\b","Section 63, BSA",    "electronic evidence"),
+]
+
+
+def _is_placeholder_bns(s: str) -> bool:
+    """Detect the LLM's common 'no info' boilerplate so we can replace it
+    with a real mapping rather than show 'pending editorial review' to a
+    paying advocate."""
+    if not s:
+        return True
+    sl = s.lower().strip()
+    return (
+        len(sl) < 8 or
+        "pending" in sl or "tbd" in sl or "to be determined" in sl or
+        "editorial review" in sl or "not applicable" in sl or
+        "n/a" == sl or sl == "none"
+    )
+
+
+def _auto_bns_note(case: dict, refined_dual_map: list[dict] | None = None) -> str:
+    """Build a real BNS/BNSS/BSA mapping note for the case.
+
+    Strategy:
+      1. If the refined query has a dual_statute_map (from canonicalize),
+         use that — it's the authoritative cross-reference for THIS query.
+      2. Otherwise, scan the case's text fields for known section refs and
+         map via the local _BNS_MAP table.
+      3. If nothing matches, return empty string (better than placeholder).
+    """
+    # Path 1: use refined.dual_statute_map verbatim
+    if refined_dual_map:
+        parts = []
+        for ds in refined_dual_map[:4]:
+            if isinstance(ds, dict) and ds.get("old") and ds.get("new"):
+                subj = ds.get("subject", "")
+                parts.append(
+                    f"{ds['old']} → {ds['new']}"
+                    + (f" ({subj})" if subj else "")
+                )
+        if parts:
+            return "; ".join(parts)
+
+    # Path 2: scan case content for sections, map via local table
+    scan_text = " ".join(filter(None, [
+        case.get("title") or "",
+        case.get("relevance_explanation") or "",
+        case.get("statute_index") or "",
+        (case.get("journal_headnote") or {}).get("statute_index") or "",
+        case.get("court_quote") or "",
+    ]))
+    hits = []
+    seen = set()
+    for pattern, new_section, subject in _BNS_MAP:
+        if re.search(pattern, scan_text, flags=re.IGNORECASE):
+            key = (new_section, subject)
+            if key not in seen:
+                seen.add(key)
+                # Find the matched old section for a cleaner display
+                m = re.search(pattern, scan_text, flags=re.IGNORECASE)
+                old_token = m.group(0) if m else ""
+                hits.append(f"{old_token} → {new_section} ({subject})")
+    return "; ".join(hits[:3])
+
+
+def _enrich_case(case: dict, meta_by_id: dict, refined_dual_map: list[dict] | None = None) -> dict:
     """Attach kanoon_doc_id, kanoon_url, kanoon_paragraph_url, fame_indicator,
-    numcitedby, source to a single case dict produced by the LLM. Non-destructive —
-    overwrites only when we have better data.
+    numcitedby, source, AND fix any title/outcome/bns_note degradations from
+    the LLM. Non-destructive — overwrites only when we have better data.
 
     Pulls paragraph_anchor out of the nested journal_headnote block if the LLM
     placed it there (per the prompt schema), so the deep-link helper can use it.
+
+    Backstops for the demo:
+      - Title starting with '===' (broken HF import) → use meta.title
+      - Outcome empty + meta.outcome present → use meta.outcome verbatim
+      - bns_note placeholder ('pending editorial review') → compute from
+        refined.dual_statute_map or scan-and-map.
     """
     cid = case.get("case_id")
     meta = meta_by_id.get(cid) or {}
     case["source"] = meta.get("source", case.get("source") or "ik")
+
+    # Title backstop: if LLM echoed the broken '=== ... ===' title, replace
+    # with the cleaned title from retrieval.
+    t = (case.get("title") or "").strip()
+    if (not t or t.startswith("===") or t.endswith("===") or "===" in t) and meta.get("clean_title"):
+        case["title"] = meta["clean_title"]
+
+    # Court backstop: prefer the retrieval-side label (which includes district)
+    if meta.get("court") and not (case.get("court") or "").strip():
+        case["court"] = meta["court"]
+
+    # Outcome backstop: source label > LLM guess
+    if meta.get("outcome"):
+        # Only override if LLM left it empty or wrote vague text
+        ll_outcome = (case.get("outcome") or "").strip().lower()
+        if not ll_outcome or ll_outcome in {"other", "unknown", "tbd", "n/a"}:
+            case["outcome"] = meta["outcome"]
+
+    # BNS mapping backstop — replace placeholder text with real mapping
+    if _is_placeholder_bns(case.get("bns_note") or ""):
+        better = _auto_bns_note(case, refined_dual_map)
+        if better:
+            case["bns_note"] = better
+        elif (case.get("bns_note") or "").lower().strip() in {
+            "bns mapping pending editorial review", "pending", "tbd"
+        }:
+            # Strip placeholder rather than show it
+            case["bns_note"] = ""
 
     # Anchor may live at top level OR nested under journal_headnote (journal style)
     anchor = (
@@ -1092,21 +1213,30 @@ def _api_situation_impl(req: SituationRequest, _record):
     )
 
     # Enrich each returned case with kanoon_doc_id, kanoon_url, fame_indicator.
-    # Build a quick lookup from retrieval-time metadata (numcitedby, source).
+    # Build a quick lookup from retrieval-time metadata (numcitedby, source,
+    # AND the verified outcome / clean title / court label from the HF
+    # retrieval path so we can override LLM hallucinations).
     meta_by_id: dict = {}
     for cs in retrieval_cases:
         meta_by_id[cs.case_id] = {
             "kanoon_doc_id": _kanoon_doc_id_from_case_id(cs.case_id),
-            "numcitedby": cs.numcitedby,
-            "source": cs.source,
+            "numcitedby":    cs.numcitedby,
+            "source":        cs.source,
+            "clean_title":   cs.title,                              # NEW
+            "court":         cs.court,                              # NEW
+            "outcome":       getattr(cs, "outcome", "") or "",      # NEW
+            "district":      getattr(cs, "district", "") or "",     # NEW
         }
     for c in curated:
         if c.get("id"):
             meta_by_id.setdefault(c["id"], {})
             if c.get("kanoon_doc_id"):
                 meta_by_id[c["id"]]["kanoon_doc_id"] = str(c["kanoon_doc_id"])
+    # Pass refined.dual_statute_map so _auto_bns_note can use it for the
+    # per-case BNS mapping note (replaces 'pending editorial review').
+    refined_dual_map = (refined.dual_statute_map if hasattr(refined, "dual_statute_map") else []) or []
     for case in parsed.get("cases", []):
-        _enrich_case(case, meta_by_id)
+        _enrich_case(case, meta_by_id, refined_dual_map=refined_dual_map)
 
     # Telemetry — fire-and-forget, never blocks the response
     record_query(

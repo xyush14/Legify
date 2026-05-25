@@ -135,11 +135,95 @@ class CaseSummary:
     year: str | int
     citation: str
     bench: str = ""
-    source: str = "ik"          # "curated" | "ik"
+    source: str = "ik"          # "curated" | "ik" | "hf-semantic" | "hf-keyword"
     numcitedby: int = 0
     relevance_score: float = 0.0
     paragraphs: list[Paragraph] = field(default_factory=list)
     statutes: list[str] = field(default_factory=list)
+    # New: outcome and district pulled from HF judgment metadata so the
+    # frontend can render a real disposition badge + jurisdiction.
+    outcome: str = ""           # "bail-granted" | "bail-denied" | "acquittal" | ...
+    district: str = ""          # Only for BAIL subset cases (e.g., "agra")
+
+
+# ----------------------------------------------------------------- HF helpers
+
+def _looks_like_section_marker(s: str) -> bool:
+    """A line like `=== Facts And Arguments ===` is a section header injected
+    during HF text flattening, NOT a real case title. The harvest script's
+    `_synthesize_title` had a bug where these section markers got picked as
+    the title; fix at retrieval time so we don't need to re-import."""
+    s = (s or "").strip()
+    return bool(s) and (s.startswith("===") or s.endswith("==="))
+
+
+def _hf_label_to_outcome(label, subset: str) -> str:
+    """Map IL-TUR labels to the outcome enum the frontend renders.
+
+    BAIL labels:
+      "GRANTED" / 1  → bail-granted
+      "REJECTED"/ "DENIED" / 0 → bail-denied
+    CJPE labels (binary appeal accepted/rejected):
+      1 / "ACCEPTED"  → quashed     (appeal accepted ≈ relief granted)
+      0 / "REJECTED"  → dismissed
+    SUMM has no outcome label — return "".
+    """
+    if label is None or label == "":
+        return ""
+    s = str(label).strip().upper()
+    if subset == "bail":
+        if s in {"1", "GRANTED", "TRUE", "YES"}: return "bail-granted"
+        if s in {"0", "REJECTED", "DENIED", "FALSE", "NO"}: return "bail-denied"
+        return ""
+    if subset == "cjpe":
+        if s in {"1", "ACCEPTED", "ALLOWED", "TRUE"}: return "quashed"
+        if s in {"0", "REJECTED", "DISMISSED", "FALSE"}: return "dismissed"
+        return ""
+    return ""
+
+
+def _hf_court_label(court: str, district: str | None) -> str:
+    """Build a properly-formatted court label. For BAIL cases include the
+    district (e.g., 'Agra District Court' instead of just 'District Court')."""
+    base = {
+        "supreme_court":         "Supreme Court",
+        "supreme_court_or_hc":   "Supreme Court / High Court",
+        "high_court":            "High Court",
+        "district_court":        "District Court",
+    }.get(court or "", court or "")
+    if court == "district_court" and district:
+        return f"{district.strip().title()} District Court"
+    return base
+
+
+def _hf_synthesize_title(hj, case_id: str) -> str:
+    """Build a presentable title for an HF judgment when the stored title is
+    empty, just the doc_id, or a section marker (the bug in old imports)."""
+    src = hj.title or ""
+    src = src.strip()
+
+    # Stored title is usable — return it unchanged
+    if src and not _looks_like_section_marker(src) and len(src) > 10 and "===" not in src:
+        return src
+
+    # Reconstruct from metadata. BAIL has the most useful structure (district + id + label).
+    subset = (case_id.split(":")[1] if case_id.startswith("hf:") and ":" in case_id[3:] else "")
+    short_id = (case_id.rsplit(":", 1)[-1] or "").replace("_", " ")
+    if subset == "bail":
+        district = (getattr(hj, "district", None) or "").strip()
+        label = (getattr(hj, "label", None) or "").strip().upper()
+        verdict = ""
+        if label in {"GRANTED", "1"}:
+            verdict = " · BAIL GRANTED"
+        elif label in {"REJECTED", "DENIED", "0"}:
+            verdict = " · BAIL REJECTED"
+        loc = district.title() if district else "District Court"
+        return f"Bail Application — {loc}{verdict} (#{short_id[:40]})"
+    if subset == "cjpe":
+        return f"Supreme Court Judgment (CJPE) — {short_id[:80]}"
+    if subset == "summ":
+        return f"Supreme/High Court Judgment (SUMM) — {short_id[:80]}"
+    return f"Judgment {short_id[:80]}"
 
 
 @dataclass
@@ -698,16 +782,16 @@ def retrieve_for_situation(
                             para_num=h.para_num or 0, text=h.text,
                         ))
 
-                    court_label = {
-                        "supreme_court": "Supreme Court",
-                        "supreme_court_or_hc": "Supreme Court / High Court",
-                        "high_court": "High Court",
-                        "district_court": "District Court",
-                    }.get(hj.court or "", hj.court or "")
+                    # Identify subset from case_id (hf:<subset>:<id>)
+                    _parts = case_id.split(":", 2)
+                    _subset = _parts[1] if len(_parts) >= 3 else ""
+                    court_label = _hf_court_label(hj.court, getattr(hj, "district", None))
+                    fixed_title = _hf_synthesize_title(hj, case_id)
+                    outcome = _hf_label_to_outcome(getattr(hj, "label", None), _subset)
 
                     cases.append(CaseSummary(
                         case_id=case_id,
-                        title=hj.title or case_id,
+                        title=fixed_title,
                         court=court_label,
                         year="",
                         citation="",
@@ -717,6 +801,8 @@ def retrieve_for_situation(
                         relevance_score=round(top_sim * 10, 2),
                         paragraphs=para_objs,
                         statutes=(hj.facts or {}).get("statutes", []),
+                        outcome=outcome,
+                        district=getattr(hj, "district", "") or "",
                     ))
                     semantic_case_ids.add(case_id)
                 else:
@@ -797,16 +883,17 @@ def retrieve_for_situation(
                             para_num=idx + 1, text=text,
                         ))
 
-                    # Court level → readable label
-                    court_label = {
-                        "supreme_court": "Supreme Court",
-                        "supreme_court_or_hc": "Supreme Court / High Court",
-                        "high_court": "High Court",
-                    }.get(j.court or "", j.court or "")
+                    # Court level → readable label (now includes district for BAIL)
+                    court_label = _hf_court_label(j.court, getattr(j, "district", None))
+                    # Subset from doc_id: "hf:<subset>:<id>"
+                    _parts = j.doc_id.split(":", 2)
+                    _subset = _parts[1] if len(_parts) >= 3 else ""
+                    fixed_title = _hf_synthesize_title(j, j.doc_id)
+                    outcome = _hf_label_to_outcome(getattr(j, "label", None), _subset)
 
                     cases.append(CaseSummary(
                         case_id=j.doc_id,
-                        title=j.title or j.doc_id,
+                        title=fixed_title,
                         court=court_label,
                         year="",                       # IL-TUR lacks a clean year column
                         citation="",                   # ditto — to be enriched later
@@ -1164,6 +1251,11 @@ def result_to_prompt_corpus_json(
             "holding": holding_text,
             "key_paras": key_paras_text,
             "subsequent_treatment": "",
+            # NEW: verified outcome + district from BAIL/CJPE labels.
+            # Critical — without these the LLM hallucinates outcomes
+            # (e.g. "bail-granted" when source label said REJECTED).
+            "outcome": getattr(cs, "outcome", "") or "",
+            "district": getattr(cs, "district", "") or "",
             # Preserve the actual source ('ik' / 'ik-semantic' / 'hf') so
             # the UI can label the badge correctly. HF entries carry the
             # 'hf' source so the front-end can show 'IL-TUR' instead of

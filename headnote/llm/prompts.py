@@ -731,6 +731,14 @@ def _compact_candidate_block(c: dict) -> str:
         parts.append(f"court: {c.get('court')}")
     if c.get("year"):
         parts.append(f"year: {c.get('year')}")
+    # NEW: pass verified outcome (e.g. bail-granted) so the LLM doesn't
+    # have to guess from paragraph text. This comes from the BAIL subset's
+    # binary label or CJPE's appeal-accepted/rejected flag.
+    if c.get("outcome"):
+        parts.append(f"verified_outcome: {c.get('outcome')}")
+    # NEW: district for BAIL cases — makes the court label specific
+    if c.get("district"):
+        parts.append(f"district: {c.get('district')}")
     if c.get("_numcitedby") is not None:
         parts.append(f"cited_by: {c.get('_numcitedby')}")
     if c.get("_source"):
