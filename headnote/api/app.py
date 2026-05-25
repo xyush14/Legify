@@ -695,6 +695,65 @@ def auth_verify(authorization: str | None = Header(default=None)):
                 "trace": _tb.format_exc()[-500:]}
 
 
+@app.get("/api/debug/paths", summary="Inspect actual storage paths in use (DEBUG)")
+def debug_paths():
+    """Show where the SQLite cache + embedding index are actually living.
+    Critical for diagnosing Railway volume mount issues — if KANOON_CACHE_PATH
+    fell back to /tmp, all corpus data is lost on restart.
+    """
+    import os as _os
+    from pathlib import Path as _P
+    paths = {}
+    for env, default_attr in [
+        ("KANOON_CACHE_PATH", "KANOON_CACHE_PATH"),
+        ("FEEDBACK_DB",       "FEEDBACK_DB"),
+    ]:
+        configured = _os.environ.get(env)
+        actual = getattr(config, default_attr, None)
+        actual_path = _P(str(actual)) if actual else None
+        exists = actual_path.exists() if actual_path else False
+        size_mb = round(actual_path.stat().st_size / 1024 / 1024, 2) if exists else 0
+        is_tmp = actual_path and "/tmp" in str(actual_path)
+        # Check writability of parent dir
+        parent_writable = False
+        if actual_path:
+            try:
+                test = actual_path.parent / ".write_test"
+                test.touch()
+                test.unlink()
+                parent_writable = True
+            except Exception:
+                parent_writable = False
+        paths[env] = {
+            "configured_env":  configured,
+            "actual":          str(actual) if actual else None,
+            "exists":          exists,
+            "size_mb":         size_mb,
+            "fell_back_to_tmp": bool(is_tmp),
+            "parent_writable": parent_writable,
+        }
+    # Also list /data contents if present
+    try:
+        data_files = []
+        if _P("/data").exists():
+            for f in _P("/data").iterdir():
+                try:
+                    data_files.append({
+                        "name": f.name,
+                        "size_mb": round(f.stat().st_size / 1024 / 1024, 2),
+                        "is_dir": f.is_dir(),
+                    })
+                except Exception:
+                    pass
+    except Exception as e:
+        data_files = [{"error": str(e)[:200]}]
+    return {
+        "paths": paths,
+        "/data_contents": data_files,
+        "running_as_uid": _os.getuid() if hasattr(_os, "getuid") else None,
+    }
+
+
 @app.get("/api/debug/llm", summary="Minimal LLM invocation test (DEBUG)")
 def debug_llm_invoke():
     """Fire a minimal LLM call through call_claude_cached so we can see the
