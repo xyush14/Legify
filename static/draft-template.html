@@ -1056,8 +1056,20 @@ function parseDocToHtml(text) {
 
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i];
-    const line = raw.trim();
+    let line = raw.trim();
     if (!line) { out.push('<br>'); continue; }
+    // Strip LLM-produced markdown / HTML formatting markers so titles,
+    // headings, etc. can be detected by the regex tests below and rendered
+    // via CSS classes. Without this, '_<u>PETITION...</u>_' would be
+    // HTML-escaped and displayed literally on the page.
+    line = line
+      .replace(/<\/?u\b[^>]*>/gi,     '')
+      .replace(/<\/?b\b[^>]*>/gi,     '')
+      .replace(/<\/?strong\b[^>]*>/gi, '')
+      .replace(/<\/?em\b[^>]*>/gi,    '')
+      .replace(/<\/?i\b[^>]*>/gi,     '')
+      .replace(/\*\*([^*]+)\*\*/g,    '$1')
+      .replace(/(?<!\w)_([^_\n]+)_(?!\w)/g, '$1');
     const e = esc(line);
 
     // 1. "IN THE COURT OF …" header

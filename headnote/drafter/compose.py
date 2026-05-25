@@ -322,7 +322,15 @@ def _generate_document(template: dict, collected: dict, lang: str) -> str:
         "the lawyer can fill it in later by hand. Never substitute fake "
         "names, addresses, dates, or sections.\n\n"
         "Return the document as PLAIN TEXT. Use double newlines between "
-        "paragraphs. No markdown fences. No commentary."
+        "paragraphs. No markdown fences. No commentary.\n\n"
+        "ABSOLUTELY DO NOT use any of these markup tokens — they will appear "
+        "as literal text on the page and look unprofessional:\n"
+        "  - HTML tags: <u>, <b>, <i>, <em>, <strong>\n"
+        "  - Markdown: **bold**, _italic_, *emphasis*, # headings\n"
+        "Output PLAIN UPPERCASE for titles (e.g. 'PETITION UNDER S.9 OF THE "
+        "HINDU MARRIAGE ACT, 1955') — the frontend automatically renders "
+        "centred + underlined + bold styling from the CSS. Never wrap titles "
+        "in markup."
     )
     fields_dump = "\n".join(
         f"- {f['label_en']} ({f['key']}): {collected.get(f['key']) or '[BLANK]'}"
