@@ -369,6 +369,42 @@ init_telemetry_db()
 app.include_router(admin_router)
 
 
+# ----------------------------------------------------------------------
+# HTTPS enforcement — fixes Chrome's "Not Secure" badge for HTTP visitors
+# ----------------------------------------------------------------------
+# Railway terminates TLS at its edge proxy and forwards plain HTTP to the
+# container. The proxy sets X-Forwarded-Proto: https for HTTPS visitors
+# and X-Forwarded-Proto: http for HTTP visitors. We use that header to
+# redirect HTTP → HTTPS, and add HSTS so browsers remember to always use
+# HTTPS for headnote.in.
+from starlette.middleware.base import BaseHTTPMiddleware
+from fastapi.responses import RedirectResponse
+
+
+class HTTPSRedirectMiddleware(BaseHTTPMiddleware):
+    """Redirect HTTP requests to HTTPS based on the X-Forwarded-Proto
+    header set by Railway's edge proxy. Skips /api/health for monitoring
+    tools that may legitimately probe over HTTP."""
+
+    async def dispatch(self, request, call_next):
+        proto = request.headers.get("x-forwarded-proto", "").lower()
+        # Only redirect if we know we're behind a proxy AND it's HTTP.
+        # If header is missing (local dev, direct access), let it through.
+        if proto == "http" and not request.url.path.startswith("/api/health"):
+            https_url = str(request.url).replace("http://", "https://", 1)
+            return RedirectResponse(url=https_url, status_code=301)
+        response = await call_next(request)
+        # HSTS — tell browsers to always use HTTPS for this domain for the
+        # next year, include subdomains. Only set on actual HTTPS responses
+        # so we don't accidentally lock HTTP visitors out before redirect.
+        if proto == "https":
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        return response
+
+
+app.add_middleware(HTTPSRedirectMiddleware)
+
+
 # -----------------------------------------------------------------------
 # AUTO-RECOVERY: rebuild HF corpus + embeddings on boot if /data was wiped
 # -----------------------------------------------------------------------
