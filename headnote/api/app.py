@@ -1005,7 +1005,7 @@ def api_config():
     return {
         "supabase_url":      config.SUPABASE_URL or "",
         "supabase_anon_key": config.SUPABASE_ANON_KEY or "",
-        "code_version":      "20260526h",
+        "code_version":      "20260526i",
     }
 
 
@@ -1687,9 +1687,22 @@ def _api_situation_impl(req: SituationRequest, _record):
     escalated = False
     parsed = parse_json_response(raw)
 
-    # Existence filter (drop case_ids we don't recognise)
+    # Existence filter — a case_id is "known" if it appeared in ANY of:
+    #   (a) curated corpus (42 hand-vetted cases)
+    #   (b) evidence paragraphs (IK-fetched text we showed the LLM)
+    #   (c) retrieval_cases (cases the reranker selected and we fed to the LLM)
+    #
+    # BUG FIX: previously only (a) + (b) were included. When IK paragraph
+    # fetch was slow/partial, evidence could be empty while retrieval_cases
+    # had 5 valid cases. The LLM cited those cases (correctly — they were in
+    # the corpus we gave it) but the existence filter dropped ALL of them
+    # as "unknown", producing "no cases survived verification."
     if client is not None:
-        known_ids = {c["id"] for c in curated} | {e.case_id for e in evidence}
+        known_ids = (
+            {c["id"] for c in curated}
+            | {e.case_id for e in evidence}
+            | {cs.case_id for cs in retrieval_cases}
+        )
     else:
         known_ids = {c["id"] for c in curated}
 
