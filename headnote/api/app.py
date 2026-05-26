@@ -1005,7 +1005,7 @@ def api_config():
     return {
         "supabase_url":      config.SUPABASE_URL or "",
         "supabase_anon_key": config.SUPABASE_ANON_KEY or "",
-        "code_version":      "20260526f",
+        "code_version":      "20260526g",
     }
 
 
@@ -1482,16 +1482,35 @@ def _api_situation_impl(req: SituationRequest, _record):
     working_situation = translation_info["english_query"]
     _stage("02_translate", _t)
 
-    # Stage 1: query refinement — always use shallow_refine() (instant, regex).
+    # Stage 1: query refinement — try LLM-powered refine_query() first with
+    # a tight 12s timeout. If it completes (typical: 3-8s on V3), we get a
+    # rich structured envelope (statutes, doctrines, parties, dual-code map,
+    # factual archetype) that feeds into:
+    #   - retrieval: search_terms() generates precise IK keywords
+    #   - V2 prompt: LLM gets structured context instead of empty fields
+    #   - reranker: uses structured query for better scoring
     #
-    # The LLM-powered refine_query() was adding a DeepSeek V3 call (5-60s)
-    # that, when DeepSeek is slow, consumed most of the pipeline budget and
-    # caused 502 timeouts. shallow_refine() extracts statutes, intent, and
-    # stage via regex — enough for IK search and the main LLM prompt.
-    # The main Sonnet/V3 LLM call already does query understanding internally
-    # (STEP 1 in the v2 prompt), so the extra refine call was redundant.
+    # If V3 is slow (>12s) or fails, fall back to shallow_refine() (instant,
+    # regex-only) — no worse than before but AT MOST 12s of pipeline budget
+    # spent, not the 45-65s that was causing 502s.
+    _REFINE_TIMEOUT = 12.0
     _t = time.time()
-    refined = shallow_refine(working_situation)
+    try:
+        from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FutureTimeout
+        with ThreadPoolExecutor(max_workers=1) as _pool:
+            _future = _pool.submit(refine_query, working_situation)
+            refined = _future.result(timeout=_REFINE_TIMEOUT)
+        print(
+            f"[situation] refine_query OK in {time.time()-_t:.1f}s — "
+            f"statute={refined.primary_statute}, intent={refined.intent_type}, "
+            f"doctrines={refined.doctrines_at_issue}"
+        )
+    except Exception as _refine_exc:
+        refined = shallow_refine(working_situation)
+        print(
+            f"[situation] refine_query failed/timed out in {time.time()-_t:.1f}s "
+            f"({type(_refine_exc).__name__}) — using shallow_refine fallback"
+        )
     _stage("02b_refine", _t)
 
     ik_meta_extra: dict = {}
@@ -1501,11 +1520,11 @@ def _api_situation_impl(req: SituationRequest, _record):
     retrieval_cases: list = []
 
     # Pipeline time budget. The frontend AbortController fires at 180s.
-    # The pipeline makes 2-3 sequential DeepSeek V3 calls:
-    #   - refine_query() (only for ≥80 word queries, ~5-15s)
-    #   - reranker (~5-15s, skippable)
+    # The pipeline makes 2-3 sequential LLM calls:
+    #   - refine_query (capped at 12s thread timeout — never blocks longer)
+    #   - reranker (~5-15s, skippable by time budget gate)
     #   - main LLM (~10-30s, required)
-    # Each call's worst case is V3 timeout (45s) + Groq fallback (20s) = 65s.
+    # Each uncapped call's worst case is V3 timeout (45s) + Groq fallback (20s) = 65s.
     # Budget: 150s total, dynamically split based on time already spent.
     _PIPELINE_DEADLINE_SECONDS = 150.0       # total cap (30s buffer before 180s FE abort)
 
