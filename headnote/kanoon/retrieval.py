@@ -109,11 +109,14 @@ DEFAULT_IK_FETCH_PARALLELISM = int(_os.environ.get("IK_FETCH_PARALLELISM", "8"))
 # semantic cache + curated 42) have already filled the pool with enough
 # substantive cases. Counts ONLY ik-semantic + hf + curated; the IK live
 # branch hasn't run yet at this check.
-# Lowered 5 → 3: IK live fetches were the dominant tail-latency source
-# (each uncached doc = 2-8s, 4 fetches = 8-30s). The HF 42K corpus
-# delivers good cases for most queries; only fall back to IK live when
-# we have <3 substantive matches.
-DEFAULT_SKIP_IK_SEARCH_IF_CASES_AT_LEAST = int(_os.environ.get("SKIP_IK_IF_CASES", "3"))
+#
+# Raised 3 → 8: IK has 2.6 crore judgments — vastly more than HF's 290K.
+# Skipping IK because local pool has 3 cases means the lawyer never sees
+# the broader IK universe. The whole point of IK integration is access
+# to authorities our local corpus doesn't have. We now keep IK running
+# unless the local pool ALREADY has a strong 8+ candidate set (in which
+# case the LLM has enough to discriminate from).
+DEFAULT_SKIP_IK_SEARCH_IF_CASES_AT_LEAST = int(_os.environ.get("SKIP_IK_IF_CASES", "8"))
 
 # Structural priors for paragraph ranking. Higher = more likely to carry the ratio.
 STRUCTURE_PRIOR: dict[str, float] = {
@@ -447,34 +450,67 @@ def _build_search_input(
 ) -> str:
     """Compose the IK search formInput from the lawyer's situation.
 
-    When `refined_query` is provided (from shallow_refine), builds the search
-    string directly from structured facets — primary_statute + doctrines_at_issue —
-    which are far more precise than regex extraction from the raw query text.
+    PHILOSOPHY: Lawyers don't search by section number — they search by
+    FACT PATTERN, LEGAL ISSUE, and DOCTRINAL PRINCIPLE. IK's API is
+    keyword-based but the keywords we send don't have to be section
+    numbers. We construct an IK query rich in fact-pattern phrases and
+    plain-English doctrinal terms; the statute reference is included as
+    an anchor (helps narrow) but is NOT what leads the search.
 
-    Falls back to _distill_query when refined_query is None (curated-only path).
-    The raw situation is NEVER sent verbatim — IK's keyword search returns zero
-    hits for long natural-language queries.
+    Query construction order (most important first for IK keyword scoring):
+      1. factual_archetype       — high-level fact-pattern label
+      2. core_circumstances      — 2 specific fact phrases
+      3. legal_concepts          — plain-English doctrinal terms
+      4. doctrines_at_issue      — formal doctrine names
+      5. stage                   — procedural posture
+      6. primary_statute         — statute anchor (LAST, single mention)
+      7. dual_statute (old code) — for pre-2024 cases on the same concept
+
+    Falls back to _distill_query when refined_query is None.
+    The raw situation is NEVER sent verbatim — IK's keyword search returns
+    zero hits for long natural-language queries.
     """
     if refined_query:
         parts: list[str] = []
-        if refined_query.get("primary_statute"):
-            parts.append(str(refined_query["primary_statute"]))
-        for s in refined_query.get("secondary_statutes", [])[:2]:
-            if s and s not in parts:
-                parts.append(str(s))
-        # NEW: dual statute map — include BOTH old and new code sections so
-        # IK returns cases citing either CrPC or BNSS, IPC or BNS, etc.
-        # Critical for the post-2024 transition where old + new judgments
-        # cite different section numbers for identical concepts.
-        for ds in (refined_query.get("dual_statute_map") or [])[:3]:
-            if isinstance(ds, dict):
-                old, new = ds.get("old"), ds.get("new")
-                if old and old not in parts: parts.append(str(old))
-                if new and new not in parts: parts.append(str(new))
-        for d in refined_query.get("doctrines_at_issue", [])[:3]:
+        # ── FACTS first ──
+        if refined_query.get("factual_archetype"):
+            fa = str(refined_query["factual_archetype"]).replace("_", " ")
+            if fa: parts.append(fa)
+        for circ in (refined_query.get("core_circumstances") or [])[:2]:
+            if circ:
+                # IK API has a length limit on formInput; keep each phrase short
+                s = str(circ).strip()
+                if 6 <= len(s) <= 80:
+                    parts.append(s)
+        # ── ISSUE / DOCTRINE ──
+        for lc in (refined_query.get("legal_concepts") or [])[:3]:
+            if lc:
+                s = str(lc).replace("_", " ").strip()
+                if s and s not in parts: parts.append(s)
+        for d in (refined_query.get("doctrines_at_issue") or [])[:2]:
             if d:
-                parts.append(str(d))
-        distilled = " ".join(parts[:10])  # cap at 10 tokens (was 8 — now we have dual statutes)
+                s = str(d).replace("_", " ").strip()
+                if s and s not in parts: parts.append(s)
+        # ── Procedural posture ──
+        if refined_query.get("stage"):
+            stg = str(refined_query["stage"]).replace("_", " ")
+            if stg and stg not in parts: parts.append(stg)
+        # ── Statute anchor LAST (single primary mention) ──
+        if refined_query.get("primary_statute"):
+            ps = str(refined_query["primary_statute"]).strip()
+            if ps and ps not in parts: parts.append(ps)
+        # Include one secondary statute IF present (helps when primary is
+        # generic like "IPC" and secondary specifies "Section 376"):
+        for s in (refined_query.get("secondary_statutes") or [])[:1]:
+            if s and str(s).strip() not in parts:
+                parts.append(str(s).strip())
+        # Dual-code old form (for pre-2024 cases citing IPC/CrPC):
+        for ds in (refined_query.get("dual_statute_map") or [])[:1]:
+            if isinstance(ds, dict):
+                old = ds.get("old")
+                if old and str(old).strip() not in parts:
+                    parts.append(str(old).strip())
+        distilled = " ".join(parts[:12])  # cap at 12 tokens for IK formInput length
     else:
         distilled = _distill_query(situation)
 
