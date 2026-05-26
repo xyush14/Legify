@@ -422,6 +422,10 @@ app.add_middleware(HTTPSRedirectMiddleware)
 # Gated by env var AUTO_REBUILD_CORPUS_ON_BOOT=true (defaults on).
 # Requires HF_TOKEN to be set (already on Railway).
 
+# Module-level rebuild status — visible on /api/health so we stop guessing
+_AUTOREBUILD_STATUS: dict = {"state": "not_started", "detail": ""}
+
+
 def _maybe_autorebuild_corpus_on_boot() -> None:
     import os as _os
     import threading as _threading
@@ -430,13 +434,21 @@ def _maybe_autorebuild_corpus_on_boot() -> None:
     import time as _time
     from pathlib import Path as _Path
 
+    global _AUTOREBUILD_STATUS
     logger = _log.getLogger("autorebuild")
 
     if _os.environ.get("AUTO_REBUILD_CORPUS_ON_BOOT", "true").lower() not in ("1", "true", "yes"):
+        _AUTOREBUILD_STATUS = {"state": "disabled", "detail": "AUTO_REBUILD_CORPUS_ON_BOOT is off"}
         logger.info("[autorebuild] disabled via AUTO_REBUILD_CORPUS_ON_BOOT env")
         return
 
-    if not _os.environ.get("HF_TOKEN", "").strip():
+    hf_token_set = bool(_os.environ.get("HF_TOKEN", "").strip())
+    if not hf_token_set:
+        _AUTOREBUILD_STATUS = {
+            "state": "skipped",
+            "detail": "HF_TOKEN env var NOT SET on Railway. Set it to enable 290K corpus auto-rebuild.",
+            "hf_token_configured": False,
+        }
         logger.warning("[autorebuild] HF_TOKEN not set — skipping (set it on Railway to enable)")
         return
 
@@ -448,6 +460,11 @@ def _maybe_autorebuild_corpus_on_boot() -> None:
         from headnote import config as _cfg
         actual_path = str(_cfg.KANOON_CACHE_PATH)
         if "/tmp" in actual_path or actual_path.startswith("/tmp"):
+            _AUTOREBUILD_STATUS = {
+                "state": "skipped",
+                "detail": f"Storage at {actual_path} (ephemeral /tmp). Attach Railway volume at /data.",
+                "hf_token_configured": True,
+            }
             logger.warning(
                 "[autorebuild] data path is %s (ephemeral). Skipping rebuild — "
                 "attach a Railway volume at /data to enable persistence + rebuild.",
@@ -468,6 +485,12 @@ def _maybe_autorebuild_corpus_on_boot() -> None:
 
     # If corpus has > 1000 rows, assume healthy — don't rebuild
     if current_total > 1000:
+        _AUTOREBUILD_STATUS = {
+            "state": "healthy",
+            "detail": f"Corpus has {current_total} rows — no rebuild needed",
+            "hf_token_configured": True,
+            "corpus_total": current_total,
+        }
         logger.info("[autorebuild] corpus already has %d rows; skipping rebuild", current_total)
         # Check embeddings separately — they may need backfill
         try:
@@ -483,6 +506,12 @@ def _maybe_autorebuild_corpus_on_boot() -> None:
         return
 
     # Corpus is empty/thin — full rebuild needed
+    _AUTOREBUILD_STATUS = {
+        "state": "running",
+        "detail": f"Corpus has {current_total} rows — FULL rebuild spawned (harvest → embed → metadata, ~90 min)",
+        "hf_token_configured": True,
+        "started_at": _time.time(),
+    }
     logger.warning("[autorebuild] corpus has %d rows — spawning FULL rebuild thread", current_total)
     _spawn_full_rebuild_thread(logger)
 
@@ -526,10 +555,13 @@ def _spawn_full_rebuild_thread(logger) -> None:
     from pathlib import Path as _Path
 
     def _rebuild_worker():
+        global _AUTOREBUILD_STATUS
         repo_root = _Path(__file__).resolve().parent.parent.parent
         t_start = _time.time()
         _mark_rebuild_active(True)
         try:
+            # Phase 1: HARVEST
+            _AUTOREBUILD_STATUS["phase"] = "harvest"
             logger.warning("[autorebuild] === HARVEST starting (5 subsets, ~30-90 min) ===")
             harvest_cmd = ["python", "scripts/harvest_hf_corpus.py",
                           "--subsets", "cjpe", "summ", "bail", "lsi", "pcr"]
@@ -538,16 +570,29 @@ def _spawn_full_rebuild_thread(logger) -> None:
                 stdout=_subprocess.PIPE, stderr=_subprocess.STDOUT,
                 text=True, bufsize=1,
             )
+            last_lines: list[str] = []
             for line in proc.stdout or []:
                 logger.info("[autorebuild:harvest] %s", line.rstrip())
+                last_lines.append(line.rstrip())
+                if len(last_lines) > 5:
+                    last_lines.pop(0)
+                _AUTOREBUILD_STATUS["last_log"] = last_lines[-1][:200]
             proc.wait()
             if proc.returncode != 0:
+                _AUTOREBUILD_STATUS = {
+                    "state": "failed",
+                    "phase": "harvest",
+                    "detail": f"Harvest exited rc={proc.returncode} after {_time.time()-t_start:.0f}s",
+                    "last_lines": last_lines[-3:],
+                    "hf_token_configured": True,
+                }
                 logger.error("[autorebuild] harvest exited rc=%d after %.0fs",
                             proc.returncode, _time.time() - t_start)
                 return
             logger.warning("[autorebuild] === HARVEST done in %.0fs ===", _time.time() - t_start)
 
-            # Backfill embeddings
+            # Phase 2: EMBEDDINGS
+            _AUTOREBUILD_STATUS["phase"] = "embeddings"
             t_emb = _time.time()
             logger.warning("[autorebuild] === EMBEDDING BACKFILL starting (~60-90 min) ===")
             backfill_cmd = ["python", "scripts/backfill_embeddings.py", "--skip-ik"]
@@ -558,13 +603,12 @@ def _spawn_full_rebuild_thread(logger) -> None:
             )
             for line in proc.stdout or []:
                 logger.info("[autorebuild:backfill] %s", line.rstrip())
+                _AUTOREBUILD_STATUS["last_log"] = line.rstrip()[:200]
             proc.wait()
             logger.warning("[autorebuild] === EMBEDDING done in %.0fs ===", _time.time() - t_emb)
 
-            # Backfill case metadata (parties, citation, court, judges)
-            # — extracts clean caption metadata from each judgment's text.
-            # This is what makes case titles look like "X v. State" instead
-            # of "On a companyplaint filed..." in the output cards.
+            # Phase 3: METADATA
+            _AUTOREBUILD_STATUS["phase"] = "metadata"
             t_md = _time.time()
             logger.warning("[autorebuild] === METADATA BACKFILL starting (~15-25 min) ===")
             md_cmd = ["python", "scripts/backfill_metadata.py"]
@@ -575,12 +619,35 @@ def _spawn_full_rebuild_thread(logger) -> None:
             )
             for line in proc.stdout or []:
                 logger.info("[autorebuild:metadata] %s", line.rstrip())
+                _AUTOREBUILD_STATUS["last_log"] = line.rstrip()[:200]
             proc.wait()
+            total_elapsed = _time.time() - t_start
             logger.warning(
                 "[autorebuild] === METADATA done in %.0fs, TOTAL %.0fs ===",
-                _time.time() - t_md, _time.time() - t_start,
+                _time.time() - t_md, total_elapsed,
             )
+
+            # Done — update status with final corpus count
+            try:
+                from headnote.retrieval.hf_corpus import corpus_stats
+                final_stats = corpus_stats()
+                final_total = int(final_stats.get("total", 0) or 0)
+            except Exception:
+                final_total = -1
+            _AUTOREBUILD_STATUS = {
+                "state": "completed",
+                "detail": f"Full rebuild done in {total_elapsed:.0f}s ({total_elapsed/60:.0f} min). Corpus: {final_total} rows.",
+                "hf_token_configured": True,
+                "corpus_total": final_total,
+                "elapsed_seconds": round(total_elapsed, 0),
+            }
         except Exception as e:
+            _AUTOREBUILD_STATUS = {
+                "state": "crashed",
+                "detail": str(e)[:500],
+                "hf_token_configured": True,
+                "elapsed_seconds": round(_time.time() - t_start, 0),
+            }
             logger.exception("[autorebuild] worker crashed: %s", e)
         finally:
             # Clear the circuit-breaker flag so retrieval re-enables HF reads
@@ -1163,12 +1230,19 @@ def health():
     except Exception as e:
         emb = {"error": str(e)[:200]}
 
+    # Auto-rebuild status — the definitive answer to "why is corpus 0?"
+    import os as _os2
+    rebuild_block = dict(_AUTOREBUILD_STATUS)
+    rebuild_block["hf_token_configured"] = bool(_os2.environ.get("HF_TOKEN", "").strip())
+    rebuild_block["rebuild_flag_active"] = autorebuild_in_progress()
+
     return {
         "ok":         True,
         **config.summary(),
         "hf_corpus":  hf,
         "embeddings": emb,
         "llm_backend": llm_block,
+        "autorebuild": rebuild_block,
     }
 
 
