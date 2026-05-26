@@ -560,36 +560,59 @@ def _spawn_full_rebuild_thread(logger) -> None:
         t_start = _time.time()
         _mark_rebuild_active(True)
         try:
-            # Phase 1: HARVEST
+            # Phase 1: HARVEST — run subsets one at a time, smallest first.
+            # The Railway volume may not fit all 5 subsets at once (bail=2.5GB,
+            # lsi=1.5GB). By harvesting individually we guarantee the small
+            # high-value subsets (cjpe, summ, pcr) get imported even if the
+            # big ones don't fit. Each run is idempotent (INSERT OR IGNORE).
             _AUTOREBUILD_STATUS["phase"] = "harvest"
-            logger.warning("[autorebuild] === HARVEST starting (5 subsets, ~30-90 min) ===")
-            harvest_cmd = ["python", "scripts/harvest_hf_corpus.py",
-                          "--subsets", "cjpe", "summ", "bail", "lsi", "pcr"]
-            proc = _subprocess.Popen(
-                harvest_cmd, cwd=str(repo_root),
-                stdout=_subprocess.PIPE, stderr=_subprocess.STDOUT,
-                text=True, bufsize=1,
-            )
-            last_lines: list[str] = []
-            for line in proc.stdout or []:
-                logger.info("[autorebuild:harvest] %s", line.rstrip())
-                last_lines.append(line.rstrip())
-                if len(last_lines) > 5:
-                    last_lines.pop(0)
-                _AUTOREBUILD_STATUS["last_log"] = last_lines[-1][:200]
-            proc.wait()
-            if proc.returncode != 0:
+            # Priority order: English SC/HC first (most useful), then large
+            _subset_order = ["summ", "pcr", "cjpe", "lsi", "bail"]
+            harvested_subsets: list[str] = []
+            failed_subsets: list[str] = []
+            for subset in _subset_order:
+                logger.warning("[autorebuild] === HARVEST subset=%s starting ===", subset)
+                _AUTOREBUILD_STATUS["last_log"] = f"Harvesting subset: {subset}"
+                harvest_cmd = ["python", "scripts/harvest_hf_corpus.py",
+                              "--subsets", subset]
+                proc = _subprocess.Popen(
+                    harvest_cmd, cwd=str(repo_root),
+                    stdout=_subprocess.PIPE, stderr=_subprocess.STDOUT,
+                    text=True, bufsize=1,
+                )
+                last_lines: list[str] = []
+                for line in proc.stdout or []:
+                    logger.info("[autorebuild:harvest:%s] %s", subset, line.rstrip())
+                    last_lines.append(line.rstrip())
+                    if len(last_lines) > 5:
+                        last_lines.pop(0)
+                    _AUTOREBUILD_STATUS["last_log"] = line.rstrip()[:200]
+                proc.wait()
+                if proc.returncode == 0:
+                    harvested_subsets.append(subset)
+                    logger.warning("[autorebuild] === subset=%s done ===", subset)
+                else:
+                    failed_subsets.append(subset)
+                    logger.warning(
+                        "[autorebuild] subset=%s failed rc=%d (likely disk space) — continuing with others",
+                        subset, proc.returncode,
+                    )
+            if not harvested_subsets:
                 _AUTOREBUILD_STATUS = {
                     "state": "failed",
                     "phase": "harvest",
-                    "detail": f"Harvest exited rc={proc.returncode} after {_time.time()-t_start:.0f}s",
-                    "last_lines": last_lines[-3:],
+                    "detail": "All subsets failed — check Railway volume size (need ≥2GB free)",
+                    "failed_subsets": failed_subsets,
                     "hf_token_configured": True,
                 }
-                logger.error("[autorebuild] harvest exited rc=%d after %.0fs",
-                            proc.returncode, _time.time() - t_start)
+                logger.error("[autorebuild] ALL subsets failed; no corpus data imported")
                 return
-            logger.warning("[autorebuild] === HARVEST done in %.0fs ===", _time.time() - t_start)
+            logger.warning(
+                "[autorebuild] === HARVEST done in %.0fs — imported: %s, failed: %s ===",
+                _time.time() - t_start, harvested_subsets, failed_subsets or "none",
+            )
+            _AUTOREBUILD_STATUS["harvested_subsets"] = harvested_subsets
+            _AUTOREBUILD_STATUS["failed_subsets"] = failed_subsets
 
             # Phase 2: EMBEDDINGS
             _AUTOREBUILD_STATUS["phase"] = "embeddings"
