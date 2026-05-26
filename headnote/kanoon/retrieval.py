@@ -674,6 +674,22 @@ def retrieve_for_situation(
     cases: list[CaseSummary] = []
     evidence: list[EvidenceParagraph] = []
 
+    # Circuit breaker: if the auto-rebuild worker is currently writing to
+    # the SQLite file (harvest, embedding backfill, or metadata backfill),
+    # skip HF corpus reads entirely. The single-writer lock would otherwise
+    # queue every read behind the rebuild's writes, blowing past timeouts.
+    # Curated + IK live retrieval is unaffected — they don't touch
+    # hf_judgments or paragraph_embeddings.
+    _rebuild_active = False
+    try:
+        from headnote.api.app import autorebuild_in_progress as _arp
+        _rebuild_active = _arp()
+    except Exception:
+        _rebuild_active = False
+    if _rebuild_active:
+        use_embeddings = False
+        meta.notes.append("HF reads skipped — autorebuild in progress")
+
     # Lazy embedding index (singleton-ish via param)
     emb_idx = embedding_index
     if use_embeddings and emb_idx is None and _EMBEDDINGS_AVAILABLE:
@@ -878,7 +894,11 @@ def retrieve_for_situation(
     # The Hidden Authorities reranker downstream still has the final say;
     # HF results compete with curated + semantic + IK on the same scale.
     hf_case_ids: set[str] = set()
-    if len(cases) < candidate_pool:
+    # Circuit breaker: skip HF keyword search during active autorebuild
+    # to avoid SQLite write/read contention. Same flag as semantic block.
+    if _rebuild_active:
+        pass  # skip HF keyword search entirely
+    elif len(cases) < candidate_pool:
         try:
             from headnote.retrieval.hf_corpus import search as _hf_search
 

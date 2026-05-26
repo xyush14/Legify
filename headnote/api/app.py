@@ -487,6 +487,38 @@ def _maybe_autorebuild_corpus_on_boot() -> None:
     _spawn_full_rebuild_thread(logger)
 
 
+# Module-level flag toggled by the rebuild worker thread. Read by
+# retrieve_for_situation to skip HF corpus reads while a rebuild is
+# actively writing to the same SQLite file. This prevents the
+# single-writer lock contention that was making every user query
+# wait 60+ sec behind the rebuild's writes.
+import os as _bg_os
+_REBUILD_FLAG_PATH = "/tmp/.headnote-rebuild-active"
+
+
+def autorebuild_in_progress() -> bool:
+    """True when the auto-rebuild worker is actively writing to SQLite.
+    Retrieval skips HF reads during this window to avoid lock contention."""
+    try:
+        return _bg_os.path.exists(_REBUILD_FLAG_PATH)
+    except Exception:
+        return False
+
+
+def _mark_rebuild_active(active: bool) -> None:
+    try:
+        if active:
+            with open(_REBUILD_FLAG_PATH, "w") as f:
+                f.write("1")
+        else:
+            try:
+                _bg_os.remove(_REBUILD_FLAG_PATH)
+            except FileNotFoundError:
+                pass
+    except Exception:
+        pass
+
+
 def _spawn_full_rebuild_thread(logger) -> None:
     import threading as _threading
     import subprocess as _subprocess
@@ -496,6 +528,7 @@ def _spawn_full_rebuild_thread(logger) -> None:
     def _rebuild_worker():
         repo_root = _Path(__file__).resolve().parent.parent.parent
         t_start = _time.time()
+        _mark_rebuild_active(True)
         try:
             logger.warning("[autorebuild] === HARVEST starting (5 subsets, ~30-90 min) ===")
             harvest_cmd = ["python", "scripts/harvest_hf_corpus.py",
@@ -549,6 +582,10 @@ def _spawn_full_rebuild_thread(logger) -> None:
             )
         except Exception as e:
             logger.exception("[autorebuild] worker crashed: %s", e)
+        finally:
+            # Clear the circuit-breaker flag so retrieval re-enables HF reads
+            _mark_rebuild_active(False)
+            logger.warning("[autorebuild] rebuild flag cleared — HF reads re-enabled")
 
     t = _threading.Thread(target=_rebuild_worker, daemon=True, name="corpus-autorebuild")
     t.start()
@@ -564,6 +601,7 @@ def _spawn_backfill_thread(logger) -> None:
     def _backfill_only():
         repo_root = _Path(__file__).resolve().parent.parent.parent
         t_start = _time.time()
+        _mark_rebuild_active(True)
         try:
             logger.warning("[autorebuild] embedding-only backfill starting")
             proc = _subprocess.Popen(
@@ -593,6 +631,9 @@ def _spawn_backfill_thread(logger) -> None:
             logger.warning("[autorebuild] metadata-backfill done in %.0fs", _time.time() - t_md)
         except Exception as e:
             logger.exception("[autorebuild] backfill crashed: %s", e)
+        finally:
+            _mark_rebuild_active(False)
+            logger.warning("[autorebuild] backfill flag cleared — HF reads re-enabled")
 
     t = _threading.Thread(target=_backfill_only, daemon=True, name="corpus-backfill")
     t.start()
