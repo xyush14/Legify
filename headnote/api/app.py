@@ -1002,7 +1002,7 @@ def api_config():
     return {
         "supabase_url":      config.SUPABASE_URL or "",
         "supabase_anon_key": config.SUPABASE_ANON_KEY or "",
-        "code_version":      "20260526d",
+        "code_version":      "20260526e",
     }
 
 
@@ -1479,30 +1479,16 @@ def _api_situation_impl(req: SituationRequest, _record):
     working_situation = translation_info["english_query"]
     _stage("02_translate", _t)
 
-    # Stage 1: query refinement.
+    # Stage 1: query refinement — always use shallow_refine() (instant, regex).
     #
-    # Smart switching based on query length:
-    #   - Short queries (<80 words): shallow_refine() — regex only, instant.
-    #     Sonnet's V2 prompt handles query understanding well enough.
-    #   - Long/complex queries (≥80 words): refine_query() — makes one
-    #     DeepSeek V3 call (~5-15s) to decompose into structured facets
-    #     (statutes, doctrines, stage, parties). Produces dramatically
-    #     better IK search terms for multi-issue Company Act / NI Act type
-    #     queries where shallow regex misses the key statute.
-    #
-    # The V3 call cost (~5-15s) is paid back by the main LLM getting
-    # better-targeted candidates (fewer irrelevant results to wade through).
+    # The LLM-powered refine_query() was adding a DeepSeek V3 call (5-60s)
+    # that, when DeepSeek is slow, consumed most of the pipeline budget and
+    # caused 502 timeouts. shallow_refine() extracts statutes, intent, and
+    # stage via regex — enough for IK search and the main LLM prompt.
+    # The main Sonnet/V3 LLM call already does query understanding internally
+    # (STEP 1 in the v2 prompt), so the extra refine call was redundant.
     _t = time.time()
-    _word_count = len(working_situation.split())
-    if _word_count >= 80:
-        print(f"[situation] long query ({_word_count} words) — using LLM-powered refine_query()")
-        try:
-            refined = refine_query(working_situation)
-        except Exception as e:
-            print(f"[situation] refine_query() failed ({e}); falling back to shallow_refine()")
-            refined = shallow_refine(working_situation)
-    else:
-        refined = shallow_refine(working_situation)
+    refined = shallow_refine(working_situation)
     _stage("02b_refine", _t)
 
     ik_meta_extra: dict = {}
