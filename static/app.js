@@ -71,7 +71,7 @@
   function friendlyError(status, errText) {
     if (status === 401) return 'sign in to continue.';
     if (status === 502 || status === 504) {
-      return 'request took too long. opus + the full corpus can exceed the request budget on the free tier. try without deep mode, or narrow your query.';
+      return 'this query took longer than our limit (3 min). usually means the corpus is still indexing in the background — try again in a few minutes, or use a more specific query (e.g. add a section reference like "BNSS 482").';
     }
     if (status === 503) {
       // The backend returns specific actionable messages for 503 (Bedrock

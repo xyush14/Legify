@@ -227,18 +227,31 @@ _MODEL_ALIASES: dict[str, str] = {
 # but adds ~4× cost without measurable quality gain — Sonnet matched it on
 # our 42-case regression set. Keep OPUS_MODEL reachable via force_model="opus".
 #
-# TEMPORARY (demo window 2026-05-24): all light tasks (translation,
-# verification, extraction) routed to Sonnet too because Haiku 4.5 isn't
-# subscribed in this AWS Bedrock account's Sydney region. Revert these
-# three lines to HAIKU_MODEL once Bedrock Haiku access is approved.
+# Task → model routing.
+#
+# When LLM_PROVIDER=deepseek (current production state), the model names
+# get rewritten in client.py:
+#   SONNET_MODEL → deepseek-reasoner (R1) — chain-of-thought, slow (60-120s)
+#   HAIKU_MODEL  → deepseek-chat (V3) — fast (5-15s), still high quality
+#
+# Light tasks (translation/verification/extraction/situation_main) use
+# V3 because:
+#   1. Speed — V3 is 3-4× faster than R1 for the same input
+#   2. The full pipeline runs 5+ LLM calls in sequence. With R1 at each
+#      stage we'd hit 5+ min total; with V3 we get ~40-70s total.
+#   3. Quality on legal JSON extraction is comparable — R1's chain-of-
+#      thought helps math/coding tasks more than structured legal output.
+#
+# Heavy tasks (headnote generation, deep_mode situation) keep R1 because
+# the depth of reasoning genuinely shows in the output quality.
 _ROUTING: dict[str, str] = {
-    "translation":  SONNET_MODEL,   # was HAIKU_MODEL
-    "verification": SONNET_MODEL,   # was HAIKU_MODEL
-    "extraction":   SONNET_MODEL,   # was HAIKU_MODEL
-    "situation":    SONNET_MODEL,
-    "digest":       SONNET_MODEL,
-    "rerank":       SONNET_MODEL,
-    "headnote":     SONNET_MODEL,
+    "translation":  HAIKU_MODEL,    # V3 — fast prose translation
+    "verification": HAIKU_MODEL,    # V3 — yes/no claim checks
+    "extraction":   HAIKU_MODEL,    # V3 — pull statutes/parties from text
+    "situation":    HAIKU_MODEL,    # V3 — ranks 20→5 candidates; speed > depth
+    "digest":       HAIKU_MODEL,    # V3 — topical case digest
+    "rerank":       HAIKU_MODEL,    # V3 — final reorder pass
+    "headnote":     SONNET_MODEL,   # R1 — Cri.L.J.-grade headnote from full judgment
 }
 
 # Tasks that require a quality answer the user will read directly.
