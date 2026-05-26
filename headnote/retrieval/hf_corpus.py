@@ -52,6 +52,11 @@ class HFJudgment:
     facts: dict[str, Any] = field(default_factory=dict)
     fact_score: float = 0.0
     fact_breakdown: dict[str, float] = field(default_factory=dict)
+    # Clean caption metadata extracted by scripts/backfill_metadata.py.
+    # When present, the values here OVERRIDE `title` for display purposes
+    # — the original `title` field is often broken (section header text)
+    # in BAIL/LSI subsets. See case_metadata_extractor.py.
+    case_metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def preview(self) -> str:
@@ -92,6 +97,17 @@ def _row_to_judgment(
         except (json.JSONDecodeError, TypeError):
             facts = {}
 
+    # New optional column from scripts/backfill_metadata.py — only present
+    # if the row tuple is long enough AND the value is a non-empty JSON
+    # string. Otherwise default to empty dict (retrieval falls back to the
+    # old broken-title path).
+    case_metadata: dict[str, Any] = {}
+    if len(row) >= 12 and row[11]:
+        try:
+            case_metadata = json.loads(row[11]) or {}
+        except (json.JSONDecodeError, TypeError):
+            case_metadata = {}
+
     return HFJudgment(
         doc_id=row[0],
         source=row[1],
@@ -106,13 +122,40 @@ def _row_to_judgment(
         facts=facts,
         fact_score=fact_score,
         fact_breakdown=fact_breakdown or {},
+        case_metadata=case_metadata,
     )
 
 
-_SELECT_COLS = (
+_BASE_SELECT_COLS = (
     "doc_id, source, court, title, text, summary, "
     "label, district, language, word_count, facts_json"
 )
+
+
+def _has_case_metadata_column(conn: sqlite3.Connection) -> bool:
+    """Check if the case_metadata_json column exists (added by
+    scripts/backfill_metadata.py). Cached per-connection."""
+    try:
+        cols = {row[1] for row in conn.execute(
+            "PRAGMA table_info(hf_judgments)"
+        ).fetchall()}
+        return "case_metadata_json" in cols
+    except sqlite3.OperationalError:
+        return False
+
+
+def _select_cols_for(conn: sqlite3.Connection) -> str:
+    """Build the SELECT column list, including case_metadata_json only if
+    the column exists in this DB. Older snapshots lack it."""
+    if _has_case_metadata_column(conn):
+        return _BASE_SELECT_COLS + ", case_metadata_json"
+    return _BASE_SELECT_COLS
+
+
+# Keep the old name for back-compat (used by search() and other callers
+# that don't have a conn handy at module load). Defaults to base cols;
+# callers that DO have a conn should use _select_cols_for(conn).
+_SELECT_COLS = _BASE_SELECT_COLS
 
 
 # ----------------------------------------------------------------- public API
@@ -167,8 +210,9 @@ def get_by_id(
 ) -> Optional[HFJudgment]:
     """Fetch one judgment by its `hf:<source>:<id>` key."""
     with _conn(db_path) as c:
+        cols = _select_cols_for(c)
         row = c.execute(
-            f"SELECT {_SELECT_COLS} FROM hf_judgments WHERE doc_id = ?",
+            f"SELECT {cols} FROM hf_judgments WHERE doc_id = ?",
             (doc_id,),
         ).fetchone()
     return _row_to_judgment(row) if row else None
@@ -275,19 +319,21 @@ def search(
         score_params.extend([wildcard, wildcard])
 
     # Pull candidate_pool rows, not just `limit`. Stage 2 rescore picks
-    # the top `limit` from this wider pool.
-    sql = f"""
-        SELECT {_SELECT_COLS},
-               ({score_sql}) AS match_score
-        FROM hf_judgments
-        WHERE {' AND '.join(where_parts)}
-        ORDER BY match_score DESC, word_count DESC
-        LIMIT ?
-    """
-    full_params = score_params + params + [candidate_pool]
-
+    # the top `limit` from this wider pool. SELECT_cols is determined per
+    # connection — picks up the optional case_metadata_json column if it
+    # exists in this DB snapshot.
     try:
         with _conn(db_path) as c:
+            cols = _select_cols_for(c)
+            sql = f"""
+                SELECT {cols},
+                       ({score_sql}) AS match_score
+                FROM hf_judgments
+                WHERE {' AND '.join(where_parts)}
+                ORDER BY match_score DESC, word_count DESC
+                LIMIT ?
+            """
+            full_params = score_params + params + [candidate_pool]
             rows = c.execute(sql, full_params).fetchall()
     except sqlite3.OperationalError:
         # Table missing — harvest not run yet
@@ -300,14 +346,14 @@ def search(
 
     # If no situation provided, just return keyword-ranked results (legacy mode).
     if not situation or not situation.strip():
-        return [_row_to_judgment(row[:11]) for row in rows[:limit]]
+        return [_row_to_judgment(row[:-1]) for row in rows[:limit]]
 
     query_facts = extract_facts(situation)
 
     # If the extractor pulled nothing usable from the query, fall back to
     # keyword ranking — better to return rough matches than nothing.
     if not query_facts:
-        return [_row_to_judgment(row[:11]) for row in rows[:limit]]
+        return [_row_to_judgment(row[:-1]) for row in rows[:limit]]
 
     # Rescore every candidate. Keyword keyword-rank is a soft tiebreaker
     # so cases with zero fact overlap but heavy keyword presence still
@@ -335,9 +381,11 @@ def search(
 
     out: list[HFJudgment] = []
     for composite, breakdown, kw_score, row in scored[:limit]:
+        # Drop the trailing match_score column; row[:-1] keeps everything
+        # else including optional case_metadata_json.
         out.append(
             _row_to_judgment(
-                row[:11],
+                row[:-1],
                 fact_score=round(composite, 2),
                 fact_breakdown=breakdown,
             )

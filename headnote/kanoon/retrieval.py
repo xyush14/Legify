@@ -182,9 +182,24 @@ def _hf_label_to_outcome(label, subset: str) -> str:
     return ""
 
 
-def _hf_court_label(court: str, district: str | None) -> str:
-    """Build a properly-formatted court label. For BAIL cases include the
-    district (e.g., 'Agra District Court' instead of just 'District Court')."""
+def _hf_court_label(court: str, district: str | None, case_metadata: dict | None = None) -> str:
+    """Build a properly-formatted court label.
+
+    Priority:
+      1. Extracted court from case_metadata_json (e.g., "High Court of Madhya Pradesh, Gwalior Bench")
+      2. district + subset-court combination (BAIL: "Agra District Court")
+      3. Hardcoded subset-to-label map
+    """
+    # 1. Prefer extracted court if metadata gives it
+    if case_metadata:
+        ext_court = (case_metadata.get("court") or "").strip()
+        bench = (case_metadata.get("bench") or "").strip()
+        if ext_court:
+            # If extractor split bench into separate field, append it cleanly
+            if bench and bench.lower() not in ext_court.lower():
+                return f"{ext_court}, {bench}"
+            return ext_court
+
     base = {
         "supreme_court":         "Supreme Court",
         "supreme_court_or_hc":   "Supreme Court / High Court",
@@ -197,28 +212,55 @@ def _hf_court_label(court: str, district: str | None) -> str:
 
 
 def _hf_synthesize_title(hj, case_id: str) -> str:
-    """Build a presentable title for an HF judgment when the stored title is
-    empty, just the doc_id, or a section marker (the bug in old imports)."""
-    src = hj.title or ""
-    src = src.strip()
+    """Build a presentable title for an HF judgment.
 
-    # Stored title is usable — return it unchanged
+    Priority order:
+      1. Extracted parties from case_metadata_json (cleanest — real "X v. Y")
+      2. case_number from metadata (e.g. "Criminal Appeal No. 1234 of 2023")
+      3. Original stored title IF it looks usable (>10 chars, no section markers)
+      4. Subset-specific fallback (BAIL → "Bail Application — <district> · <verdict>")
+    """
+    md = getattr(hj, "case_metadata", None) or {}
+    # 1. Best: extracted parties caption
+    parties = (md.get("parties") or "").strip()
+    if parties and 5 <= len(parties) <= 200 and " v. " in parties:
+        return parties
+    # 2. Fall back to case number if we extracted one
+    case_no = (md.get("case_number") or "").strip()
+    if case_no and 10 <= len(case_no) <= 200:
+        return case_no
+
+    # 3. Original stored title (only if it looks clean)
+    src = (hj.title or "").strip()
     if src and not _looks_like_section_marker(src) and len(src) > 10 and "===" not in src:
-        return src
+        # Reject titles that look like body sentences
+        body_starts = (
+            "on a ", "in the matter ", "the petitioner ", "the appellant ",
+            "the respondent ", "this is ", "by this ", "the present ",
+            "facts ", "brief facts ",
+        )
+        if not src.lower().startswith(body_starts):
+            return src
 
-    # Reconstruct from metadata. BAIL has the most useful structure (district + id + label).
+    # 4. Subset-specific reconstruction
     subset = (case_id.split(":")[1] if case_id.startswith("hf:") and ":" in case_id[3:] else "")
     short_id = (case_id.rsplit(":", 1)[-1] or "").replace("_", " ")
     if subset == "bail":
         district = (getattr(hj, "district", None) or "").strip()
+        # Prefer extracted court label if metadata has it
+        ext_court = (md.get("court") or "").strip()
         label = (getattr(hj, "label", None) or "").strip().upper()
         verdict = ""
         if label in {"GRANTED", "1"}:
             verdict = " · BAIL GRANTED"
         elif label in {"REJECTED", "DENIED", "0"}:
             verdict = " · BAIL REJECTED"
-        loc = district.title() if district else "District Court"
+        loc = ext_court if ext_court else (district.title() if district else "District Court")
         return f"Bail Application — {loc}{verdict} (#{short_id[:40]})"
+    # For other subsets — use extracted court if available, else generic
+    ext_court = (md.get("court") or "").strip()
+    if ext_court:
+        return f"{ext_court} — {short_id[:60]}"
     if subset == "cjpe":
         return f"Supreme Court Judgment (CJPE) — {short_id[:80]}"
     if subset == "summ":
@@ -785,17 +827,29 @@ def retrieve_for_situation(
                     # Identify subset from case_id (hf:<subset>:<id>)
                     _parts = case_id.split(":", 2)
                     _subset = _parts[1] if len(_parts) >= 3 else ""
-                    court_label = _hf_court_label(hj.court, getattr(hj, "district", None))
+                    _md = getattr(hj, "case_metadata", None) or {}
+                    court_label = _hf_court_label(
+                        hj.court, getattr(hj, "district", None),
+                        case_metadata=_md,
+                    )
                     fixed_title = _hf_synthesize_title(hj, case_id)
                     outcome = _hf_label_to_outcome(getattr(hj, "label", None), _subset)
+                    # Pull citation from metadata if extractor found one — used
+                    # by the LLM prompt + frontend.
+                    _ext_citation = (_md.get("citation") or "")
+                    _ext_year = ""
+                    _ext_date = (_md.get("date") or "")
+                    if _ext_date and len(_ext_date) >= 4:
+                        _ext_year = _ext_date[:4]
+                    _ext_bench = ", ".join(_md.get("judges") or [])[:200]
 
                     cases.append(CaseSummary(
                         case_id=case_id,
                         title=fixed_title,
                         court=court_label,
-                        year="",
-                        citation="",
-                        bench="",
+                        year=_ext_year,
+                        citation=_ext_citation,
+                        bench=_ext_bench,
                         source="hf-semantic",
                         numcitedby=0,
                         relevance_score=round(top_sim * 10, 2),
@@ -883,26 +937,37 @@ def retrieve_for_situation(
                             para_num=idx + 1, text=text,
                         ))
 
-                    # Court level → readable label (now includes district for BAIL)
-                    court_label = _hf_court_label(j.court, getattr(j, "district", None))
+                    # Court level → readable label (now includes district for BAIL,
+                    # AND prefers extracted metadata when available)
+                    _md = getattr(j, "case_metadata", None) or {}
+                    court_label = _hf_court_label(
+                        j.court, getattr(j, "district", None),
+                        case_metadata=_md,
+                    )
                     # Subset from doc_id: "hf:<subset>:<id>"
                     _parts = j.doc_id.split(":", 2)
                     _subset = _parts[1] if len(_parts) >= 3 else ""
                     fixed_title = _hf_synthesize_title(j, j.doc_id)
                     outcome = _hf_label_to_outcome(getattr(j, "label", None), _subset)
+                    _ext_citation = (_md.get("citation") or "")
+                    _ext_date = (_md.get("date") or "")
+                    _ext_year = _ext_date[:4] if _ext_date and len(_ext_date) >= 4 else ""
+                    _ext_bench = ", ".join(_md.get("judges") or [])[:200]
 
                     cases.append(CaseSummary(
                         case_id=j.doc_id,
                         title=fixed_title,
                         court=court_label,
-                        year="",                       # IL-TUR lacks a clean year column
-                        citation="",                   # ditto — to be enriched later
-                        bench="",
+                        year=_ext_year,
+                        citation=_ext_citation,
+                        bench=_ext_bench,
                         source="hf",
                         numcitedby=0,                  # HF doesn't expose this
                         relevance_score=round(j.fact_score, 2),
                         paragraphs=para_objs,
                         statutes=(j.facts or {}).get("statutes", []),
+                        outcome=outcome,
+                        district=getattr(j, "district", "") or "",
                     ))
                     hf_case_ids.add(j.doc_id)
         except Exception as e:

@@ -487,9 +487,16 @@
   function normaliseCase(c) {
     const pn = c.practitioner_notes || {};
     const jh = c.journal_headnote || {};
+    const md = c.match_dimensions || {};
+    // Internal viewer URL — for HF cases, every card gets a real link
+    // to our in-app /case/<doc_id> viewer (replaces the broken
+    // "Search Indian Kanoon" fallback). IK cases keep their existing
+    // kanoon_url; curated cases also get the viewer.
+    const cid = c.case_id || '';
+    const internalUrl = cid ? '/case/' + encodeURIComponent(cid) : null;
     return {
       // identifiers
-      case_id: c.case_id,
+      case_id: cid,
       title: c.title || c.case_title || c.case_id || 'untitled',
       citation: c.citation || '',
       court: c.court || '',
@@ -499,13 +506,26 @@
       kanoon_url: c.kanoon_url,
       kanoon_paragraph_url: c.kanoon_paragraph_url,
       kanoon_doc_id: c.kanoon_doc_id,
+      internal_url: internalUrl,                  // NEW — /case/<doc_id>
       fame_indicator: c.fame_indicator,
       source: c.source,
-      // body — the differentiator and the substance
+      source_language: c.source_language || (c.source && String(c.source).startsWith('hf') ? null : 'en'),
+      // body — NEW schema (stinger + held_line + court_quote)
+      stinger_sentence: c.stinger_sentence || '',
+      held_line: c.held_line || c.holding || jh.ratio || pn.gist || c.ratio || '',
+      court_quote: c.court_quote || pn.quotable_phrase || c.quotable_phrase || '',
+      negative_carve_out: c.negative_carve_out || jh.negative_carve_out || '',
+      // match precision (4 dimensions)
+      match_dimensions: {
+        statute_match:  md.statute_match  || '',
+        doctrine_match: md.doctrine_match || '',
+        fact_match:     md.fact_match     || '',
+        outcome_match:  md.outcome_match  || '',
+      },
+      // Legacy fields kept for back-compat during transition
       fact_match: c.relevance_explanation || c.fact_match || pn.one_line_topic || '',
       one_line_topic: pn.one_line_topic || '',
       ratio: jh.ratio || pn.gist || c.ratio || c.holding || '',
-      negative_carve_out: jh.negative_carve_out || '',
       catchword_chain: jh.catchword_chain || '',
       statute_index: jh.statute_index || '',
       quotable_phrase: pn.quotable_phrase || c.quotable_phrase || '',
@@ -539,15 +559,16 @@
     const c = normaliseCase(raw);
     const head = ce('div', { cls: 'case-card__head' });
     const titleEl = ce('div', { cls: 'case-card__title' });
+    // Title link priority:
+    //   1. IK pool-verified URL — opens authoritative judgment on IK
+    //   2. Internal viewer /case/<doc_id> — for HF + curated cases
+    //   3. Plain text (no link) if neither available
     if (c.kanoon_url) {
       titleEl.appendChild(ce('a', { text: c.title, attrs: { href: c.kanoon_url, target: '_blank', rel: 'noopener' } }));
       titleEl.appendChild(ce('span', { cls: 'ext-arrow', text: '↗' }));
-    } else if (c.title) {
-      // No pool-verified URL — link to IK search by title so the lawyer can
-      // still locate the judgment manually instead of dead-ending on text.
-      const searchUrl = 'https://indiankanoon.org/search/?formInput=' + encodeURIComponent(c.title);
-      titleEl.appendChild(ce('a', { text: c.title, attrs: { href: searchUrl, target: '_blank', rel: 'noopener', title: 'Search Indian Kanoon' } }));
-      titleEl.appendChild(ce('span', { cls: 'ext-arrow', text: '⌕' }));
+    } else if (c.internal_url) {
+      titleEl.appendChild(ce('a', { text: c.title, attrs: { href: c.internal_url, target: '_blank', rel: 'noopener', title: 'Read full judgment' } }));
+      titleEl.appendChild(ce('span', { cls: 'ext-arrow', text: '→' }));
     } else {
       titleEl.appendChild(document.createTextNode(c.title || ''));
     }
@@ -570,23 +591,65 @@
 
     const rows = [];
 
-    // Fact-match row — THE differentiator, navy tint
-    if (c.fact_match) {
+    // NEW ORDER (mirrors Cri.L.J. + the lawyer's 10-second triage):
+    //   1. Stinger sentence   — "Why this helps your matter" (lawyer voice)
+    //   2. HELD line          — binding ratio, paste-ready into petition
+    //   3. Court quote        — verbatim ≤30 words, visually distinct
+    //   4. Match precision    — 4-line ✓⚠✗ confirmation grid
+    //   5. Negative carve-out — what the case does NOT decide
+    //   6. BNS mapping        — IPC↔BNS reference for advocate
+    //   7. Cross-refs         — related cases (low priority, last)
+
+    // 1. Stinger — single sentence, headline tint
+    const stingerText = c.stinger_sentence || c.fact_match;
+    if (stingerText) {
       rows.push(ce('div', { cls: 'case-card__row case-card__row--factmatch', children: [
-        ce('div', { cls: 'case-card__rowlabel', text: 'fact match' }),
-        ce('div', { cls: 'case-card__rowtext', text: c.fact_match }),
+        ce('div', { cls: 'case-card__rowlabel', text: 'why' }),
+        ce('div', { cls: 'case-card__rowtext', text: stingerText }),
       ]}));
     }
 
-    // Ratio (holding compressed)
-    if (c.ratio) {
+    // 2. HELD line — binding rule
+    if (c.held_line || c.ratio) {
+      const heldText = c.held_line || c.ratio;
+      // Ensure HELD prefix is present for visual recognition
+      const formatted = /^HELD\s*[—:-]/i.test(heldText) ? heldText : ('HELD — ' + heldText);
       rows.push(ce('div', { cls: 'case-card__row', children: [
-        ce('div', { cls: 'case-card__rowlabel', text: 'ratio' }),
-        ce('div', { cls: 'case-card__rowtext', text: c.ratio }),
+        ce('div', { cls: 'case-card__rowlabel', text: 'held' }),
+        ce('div', { cls: 'case-card__rowtext', text: formatted }),
       ]}));
     }
 
-    // Negative carve-out — journal style; warn-coloured to signal limitation
+    // 3. Court's words (verbatim) — moneyshot block
+    const quoteText = c.court_quote || c.quotable_phrase;
+    if (quoteText) {
+      const quoteBlock = ce('div', { cls: 'case-card__rowtext' });
+      quoteBlock.appendChild(ce('span', { text: '“' + quoteText + '”' }));
+      // Anchor + copy button right after quote
+      if (c.paragraph_anchor) {
+        quoteBlock.appendChild(ce('span', { cls: 'mono', text: '   — ' + c.paragraph_anchor }));
+      }
+      rows.push(ce('div', { cls: 'case-card__row case-card__row--quote', children: [
+        ce('div', { cls: 'case-card__rowlabel', text: 'quote' }),
+        quoteBlock,
+      ]}));
+    }
+
+    // 4. Match precision — 4 dimension confirmation lines
+    const mdim = c.match_dimensions || {};
+    const matchLines = [];
+    if (mdim.statute_match)  matchLines.push('· statute  ' + mdim.statute_match);
+    if (mdim.doctrine_match) matchLines.push('· doctrine ' + mdim.doctrine_match);
+    if (mdim.fact_match)     matchLines.push('· facts    ' + mdim.fact_match);
+    if (mdim.outcome_match)  matchLines.push('· outcome  ' + mdim.outcome_match);
+    if (matchLines.length) {
+      rows.push(ce('div', { cls: 'case-card__row', children: [
+        ce('div', { cls: 'case-card__rowlabel', text: 'match' }),
+        ce('div', { cls: 'case-card__rowtext', text: matchLines.join('\n') }),
+      ]}));
+    }
+
+    // 5. Negative carve-out — what case does NOT decide
     if (c.negative_carve_out) {
       rows.push(ce('div', { cls: 'case-card__row', children: [
         ce('div', { cls: 'case-card__rowlabel', text: 'carve-out' }),
@@ -594,39 +657,19 @@
       ]}));
     }
 
-    // Quotable phrase
-    if (c.quotable_phrase) {
+    // 6. BNS / BNSS mapping note (hide if placeholder)
+    if (c.bns_note && !/pending|tbd|editorial review/i.test(c.bns_note)) {
       rows.push(ce('div', { cls: 'case-card__row', children: [
-        ce('div', { cls: 'case-card__rowlabel', text: 'quote' }),
-        ce('div', { cls: 'case-card__rowtext', text: '“' + c.quotable_phrase + '”' }),
+        ce('div', { cls: 'case-card__rowlabel', text: 'bns' }),
+        ce('div', { cls: 'case-card__rowtext', text: c.bns_note }),
       ]}));
     }
 
-    // Paragraph anchor → deep link
-    if (c.paragraph_anchor) {
-      rows.push(ce('div', { cls: 'case-card__row', children: [
-        ce('div', { cls: 'case-card__rowlabel', text: 'paragraph' }),
-        ce('div', { cls: 'case-card__rowtext', children: [
-          c.kanoon_paragraph_url
-            ? ce('a', { cls: 'judgment-link', text: c.paragraph_anchor + ' ↗', attrs: { href: c.kanoon_paragraph_url, target: '_blank', rel: 'noopener' } })
-            : document.createTextNode(c.paragraph_anchor),
-        ]}),
-      ]}));
-    }
-
-    // Cross-refs (practitioner style)
+    // 7. Cross-refs (low priority, last)
     if (c.cross_refs && c.cross_refs.length) {
       rows.push(ce('div', { cls: 'case-card__row', children: [
         ce('div', { cls: 'case-card__rowlabel', text: 'cited' }),
         ce('div', { cls: 'case-card__rowtext mono', text: c.cross_refs.join(' · ') }),
-      ]}));
-    }
-
-    // BNS / BNSS mapping note (helps the lawyer translate IPC→BNS)
-    if (c.bns_note) {
-      rows.push(ce('div', { cls: 'case-card__row', children: [
-        ce('div', { cls: 'case-card__rowlabel', text: 'bns' }),
-        ce('div', { cls: 'case-card__rowtext', text: c.bns_note }),
       ]}));
     }
 
@@ -645,7 +688,7 @@
   }
 
   // ---- Per-card Hindi back-translation (lazy) ----
-  const hindiCache = new Map();   // case_id -> { ratio, quote, fact_match }
+  const hindiCache = new Map();   // case_id -> translation payload
   async function toggleCardHindi(btn, c, rows) {
     const cid = c.case_id || c.title;
     if (btn.classList.contains('is-active')) {
@@ -659,24 +702,44 @@
     btn.textContent = 'translating…';
     btn.disabled = true;
     try {
+      // CRITICAL RULE: verbatim court quotes are NEVER translated. If the
+      // source is English, the quote stays in English in quotation marks.
+      // If we translated it to Hindi, the lawyer might cite a Hindi line
+      // that doesn't exist in the actual judgment — court-citation risk.
+      // Only the EXPLANATORY layer (stinger, held_line, fact_match) is
+      // translatable.
       let cached = hindiCache.get(cid);
       if (!cached) {
         const payload = {
-          ratio: c.ratio || '',
+          stinger:   c.stinger_sentence || '',
+          held_line: c.held_line || '',
+          ratio:     c.ratio || '',
           fact_match: c.fact_match || '',
-          quotable_phrase: c.quotable_phrase || '',
+          // INTENTIONALLY excluded:
+          //   - quotable_phrase / court_quote — must stay verbatim
+          //   - negative_carve_out — translate it OK, but keep English fallback
+          carve_out: c.negative_carve_out || '',
         };
         const resp = await post('/api/translate', { payload });
         cached = resp.result || {};
         hindiCache.set(cid, cached);
       }
-      // Mutate the displayed rows to show Hindi
+      // Mutate the displayed rows to show Hindi — but NEVER touch the quote row
       rows.forEach(row => {
-        const label = row.querySelector('.case-card__rowlabel').textContent;
-        const text = row.querySelector('.case-card__rowtext');
-        if (label === 'ratio' && cached.ratio) text.textContent = cached.ratio;
-        else if (label === 'fact match' && cached.fact_match) text.textContent = cached.fact_match;
-        else if (label === 'quote' && cached.quotable_phrase) text.textContent = '“' + cached.quotable_phrase + '”';
+        const labelEl = row.querySelector('.case-card__rowlabel');
+        const textEl  = row.querySelector('.case-card__rowtext');
+        if (!labelEl || !textEl) return;
+        const label = labelEl.textContent;
+        if (label === 'why' && (cached.stinger || cached.fact_match)) {
+          textEl.textContent = cached.stinger || cached.fact_match;
+        }
+        else if (label === 'held' && (cached.held_line || cached.ratio)) {
+          textEl.textContent = cached.held_line || cached.ratio;
+        }
+        else if (label === 'carve-out' && cached.carve_out) {
+          textEl.textContent = cached.carve_out;
+        }
+        // 'quote' row intentionally skipped — verbatim never translated
       });
       btn.textContent = 'show in english';
       btn.disabled = false;

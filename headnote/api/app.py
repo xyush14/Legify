@@ -509,8 +509,27 @@ def _spawn_full_rebuild_thread(logger) -> None:
             for line in proc.stdout or []:
                 logger.info("[autorebuild:backfill] %s", line.rstrip())
             proc.wait()
-            logger.warning("[autorebuild] === BACKFILL done in %.0fs, TOTAL %.0fs ===",
-                          _time.time() - t_emb, _time.time() - t_start)
+            logger.warning("[autorebuild] === EMBEDDING done in %.0fs ===", _time.time() - t_emb)
+
+            # Backfill case metadata (parties, citation, court, judges)
+            # — extracts clean caption metadata from each judgment's text.
+            # This is what makes case titles look like "X v. State" instead
+            # of "On a companyplaint filed..." in the output cards.
+            t_md = _time.time()
+            logger.warning("[autorebuild] === METADATA BACKFILL starting (~15-25 min) ===")
+            md_cmd = ["python", "scripts/backfill_metadata.py"]
+            proc = _subprocess.Popen(
+                md_cmd, cwd=str(repo_root),
+                stdout=_subprocess.PIPE, stderr=_subprocess.STDOUT,
+                text=True, bufsize=1,
+            )
+            for line in proc.stdout or []:
+                logger.info("[autorebuild:metadata] %s", line.rstrip())
+            proc.wait()
+            logger.warning(
+                "[autorebuild] === METADATA done in %.0fs, TOTAL %.0fs ===",
+                _time.time() - t_md, _time.time() - t_start,
+            )
         except Exception as e:
             logger.exception("[autorebuild] worker crashed: %s", e)
 
@@ -539,7 +558,22 @@ def _spawn_backfill_thread(logger) -> None:
             for line in proc.stdout or []:
                 logger.info("[autorebuild:backfill] %s", line.rstrip())
             proc.wait()
-            logger.warning("[autorebuild] backfill done in %.0fs", _time.time() - t_start)
+            logger.warning("[autorebuild] embedding-backfill done in %.0fs", _time.time() - t_start)
+
+            # Metadata backfill — runs after embedding finishes since both
+            # write to hf_judgments and SQLite write contention slows things.
+            t_md = _time.time()
+            logger.warning("[autorebuild] metadata backfill starting")
+            proc = _subprocess.Popen(
+                ["python", "scripts/backfill_metadata.py"],
+                cwd=str(repo_root),
+                stdout=_subprocess.PIPE, stderr=_subprocess.STDOUT,
+                text=True, bufsize=1,
+            )
+            for line in proc.stdout or []:
+                logger.info("[autorebuild:metadata] %s", line.rstrip())
+            proc.wait()
+            logger.warning("[autorebuild] metadata-backfill done in %.0fs", _time.time() - t_md)
         except Exception as e:
             logger.exception("[autorebuild] backfill crashed: %s", e)
 
@@ -558,6 +592,12 @@ from headnote.drafter.storage import init_drafts_db as _init_drafts_db
 
 app.include_router(_drafter_router)
 _init_drafts_db()
+
+# In-app judgment viewer — /case/<doc_id> + /api/case/<doc_id>
+# Lawyers click "Read judgment" → land here instead of an IK search redirect.
+# Critical for the trust moat: full text, clean caption, provenance footer.
+from headnote.api.case_viewer import router as _case_viewer_router
+app.include_router(_case_viewer_router)
 
 # Subscription / entitlements: /api/me, /api/plans, /admin/v2/*
 from headnote.api.me import router as _me_router

@@ -310,14 +310,17 @@ OUTPUT JSON SCHEMA (style-dependent fields shown together — populate the block
         "authority_weight": 0,
         "total": 0
       },
-      "relevance_explanation": "string — MUST lead with fact-pattern parallel, not generic summary",
+      "stinger_sentence": "string — 25-40 word sentence that names the SPECIFIC parallel between this case and the lawyer's matter. Format: 'Like your client/matter, here [fact]; court [outcome] because [doctrine] — directly applicable to your [stage] before [court].' This is the single most important output field. Never generic ('this case addresses...'). Never starts with 'This case'.",
+      "held_line": "string — the binding rule in 1-3 sentences, present tense, paste-ready into a written submission. Format: 'HELD — [the rule].' Compress from the case's conclusion paragraphs; never invent.",
+      "negative_carve_out": "string — 1-2 sentence statement of what this case does NOT decide / does NOT support. Critical so the lawyer knows what opposing counsel can use to distinguish. Empty string if no clear carve-out.",
       "match_dimensions": {
         "statute_match":  "string — one sentence on which sections/codes match (cite both old + new)",
         "doctrine_match": "string — one sentence on the doctrinal hook (e.g. 'turns on dishonest intent at inception')",
         "fact_match":     "string — one sentence connecting the case's facts to the lawyer's circumstances",
-        "outcome_match":  "string — one sentence on whether the case's outcome HELPS the lawyer's client"
+        "outcome_match":  "string — one sentence on whether the case's outcome HELPS the lawyer's client. Mark adverse outcomes clearly: '⚠ this case went the OTHER way — opposing counsel may cite it'"
       },
-      "court_quote": "string — ONE verbatim quote ≤30 words from the judgment that resolves the lawyer's question. Empty string if no clean verbatim line exists; never paraphrase.",
+      "court_quote": "string — ONE verbatim quote ≤30 words from the judgment that resolves the lawyer's question. Empty string if no clean verbatim line exists; never paraphrase. NEVER translate — if the source is English, quote in English; if Hindi, quote in Hindi.",
+      "relevance_explanation": "DEPRECATED — use stinger_sentence + held_line + match_dimensions. Leave empty string.",
       "bns_note": "string — IPC/CrPC/Evidence Act → BNS/BNSS/BSA mapping for matters post 1 July 2024",
       "outcome": "acquittal | quashed | dismissed | conviction | remand | bail-granted | bail-denied | other",
       "journal_headnote": null,
@@ -586,12 +589,27 @@ INSTRUCTIONS:
 - Score every corpus case on the four dimensions. Drop any case scoring 0 on fact-archetype match.
 - For PROCEDURAL/DOCTRINAL questions (intent_type=procedural_law_question or doctrinal_inquiry), weight DOCTRINAL_MATCH higher than FACT_ARCHETYPE_MATCH — score fact_archetype neutral (1-2) for all candidates rather than dropping cases on it.
 - Return top 3–5 by total score, with relevance_scores populated per case.
-- For EACH returned case, populate match_dimensions with one-sentence-each:
-    statute_match:   "Both involve Section 156(3) CrPC / 175(3) BNSS applications"
-    doctrine_match:  "Both turn on dishonest intent at inception under Section 420 IPC"
-    fact_match:      "Both: advance paid, sale deed not executed in 6 months, property sold to third party"
-    outcome_match:   "Both directed FIR registration (helps the petitioner-buyer)"
-- Each "relevance_explanation" MUST name the specific element of the matter that this case addresses — reference a doctrine, party-orientation, or fact-pattern from the envelope, not a generic summary.
+- For EACH returned case, populate THREE fields in this order of importance:
+    1. stinger_sentence — 25-40 words, references the lawyer's SPECIFIC facts.
+       Bad:  "This case is relevant to your bail application."
+       Good: "Like your client (first-time offender, no recovery alleged),
+              here the MP HC granted anticipatory bail because custodial
+              interrogation was not required — directly applicable to your
+              application before the same bench."
+    2. held_line — the binding rule, paste-ready into a written submission,
+       1-3 sentences, present tense, starting with "HELD — ".
+       Example: "HELD — Where the accused is a first-time offender and no
+       recovery is alleged, the discretion under Section 482 BNSS / 438 CrPC
+       should ordinarily be exercised in favour of grant of anticipatory bail."
+    3. negative_carve_out — what this case does NOT decide. Critical for
+       cross-examination prep. Empty string if no clear carve-out.
+       Example: "Does NOT lay down a per-se rule; court preserved discretion
+       to deny bail where investigation requires custody."
+- match_dimensions: four one-line confirmations. Use '⚠' marker for outcomes
+  that go AGAINST the lawyer (case may be cited by opposing side).
+- relevance_explanation: SET TO EMPTY STRING. Deprecated field.
+- court_quote: ≤30 words verbatim. Never translate. If source is English,
+  English quote. If source is Hindi (BAIL subset), Hindi quote.
 - Populate internal_reasoning with your decomposition and scoring rationale.
 - Return JSON conforming to the schema. No prose outside JSON. No markdown fences.
 """
