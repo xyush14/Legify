@@ -1005,7 +1005,7 @@ def api_config():
     return {
         "supabase_url":      config.SUPABASE_URL or "",
         "supabase_anon_key": config.SUPABASE_ANON_KEY or "",
-        "code_version":      "20260526e",
+        "code_version":      "20260526f",
     }
 
 
@@ -1680,41 +1680,87 @@ def _api_situation_impl(req: SituationRequest, _record):
     parsed.setdefault("internal_reasoning", {})
     parsed.setdefault("confidence", "medium")
     for c in parsed.get("cases", []):
-        c.setdefault("relevance_scores", {
-            "fact_archetype_match": 0,
-            "doctrinal_match": 0,
-            "outcome_alignment": 0,
-            "authority_weight": 0,
-            "total": 0,
-        })
+        # Robust defaults: if DeepSeek returns relevance_scores={} or omits
+        # individual keys, fill them with 1 (neutral) rather than 0 — the LLM
+        # chose to include the case, so assume baseline relevance. Only a
+        # completely absent relevance_scores dict gets the full default.
+        rs = c.get("relevance_scores")
+        if not rs or not isinstance(rs, dict):
+            c["relevance_scores"] = {
+                "fact_archetype_match": 1,
+                "doctrinal_match": 1,
+                "outcome_alignment": 1,
+                "authority_weight": 1,
+                "total": 4,
+            }
+        else:
+            # Fill individual missing keys with neutral 1 (not 0)
+            rs.setdefault("fact_archetype_match", 1)
+            rs.setdefault("doctrinal_match", 1)
+            rs.setdefault("outcome_alignment", 1)
+            rs.setdefault("authority_weight", 1)
+            rs.setdefault("total", sum(
+                rs.get(k, 1) for k in
+                ("fact_archetype_match", "doctrinal_match", "outcome_alignment", "authority_weight")
+            ))
 
+    _llm_returned_count = len(parsed.get("cases", []))
     verified, dropped = [], []
     for c in parsed.get("cases", []):
         if c.get("case_id") in known_ids:
             verified.append(c)
         else:
             dropped.append(c.get("title", "?"))
+    print(
+        f"[situation-filter] LLM returned {_llm_returned_count} cases, "
+        f"{len(verified)} exist in corpus, {len(dropped)} dropped (unknown id): {dropped}"
+    )
 
     # Defensive filter: the v2 prompt instructs the model to drop any case
-    # scoring 0 on fact-archetype match. Enforce here too in case the
-    # model didn't comply.
+    # scoring 0 on fact-archetype match. Enforce here BUT with a minimum-
+    # cases guard — never drop below 3 cases. DeepSeek may not populate
+    # relevance_scores as precisely as Claude; dropping too aggressively
+    # on default values leaves the lawyer with only 1-2 results.
+    _MIN_CASES_GUARD = 3
     filtered_zero_archetype = 0
     final = []
+    zero_archetype_cases = []
     for c in verified:
-        score = c.get("relevance_scores", {}).get("fact_archetype_match", 0)
+        score = c.get("relevance_scores", {}).get("fact_archetype_match", 1)
         if score > 0:
             final.append(c)
         else:
+            zero_archetype_cases.append(c)
             filtered_zero_archetype += 1
+    # If dropping would leave fewer than 3 cases, keep the zero-archetype
+    # cases too — better to show a lower-relevance case than an empty page.
+    if len(final) < _MIN_CASES_GUARD and zero_archetype_cases:
+        needed = _MIN_CASES_GUARD - len(final)
+        final.extend(zero_archetype_cases[:needed])
+        filtered_zero_archetype -= min(needed, len(zero_archetype_cases))
+    if filtered_zero_archetype > 0:
+        print(
+            f"[situation-filter] archetype filter: {len(final)} kept, "
+            f"{filtered_zero_archetype} dropped (score=0)"
+        )
     parsed["cases"] = final
     parsed["filtered_zero_archetype"] = filtered_zero_archetype
 
     # Verification (in-process, no LLM call): the three-check verifier
     # cross-references each cited paragraph_anchor and quotable_phrase
-    # against the source evidence. We DROP the failing case rather than
-    # regenerating — the two-phase pipeline produces much cleaner output
-    # than the legacy single-call path, so regen rarely helps and always
-    # adds 30-60s of latency.
+    # against the source evidence.
+    #
+    # POLICY (post-SC-2026 ruling):
+    #   - EXISTENCE failures (fabricated case_id not in corpus) → HARD DROP.
+    #     Citing a non-existent case is professional misconduct.
+    #   - ANCHOR / VERBATIM failures (wrong para numbers, paraphrased quotes)
+    #     → FLAG but keep. These are quality issues, not fabrications. The
+    #     case itself is real and in the corpus; the LLM just got a detail
+    #     wrong. Dropping 4 of 5 real cases because of quote imprecision
+    #     leaves the lawyer with 1 result — worse than showing 5 with a
+    #     small accuracy note.
+    #   - Minimum-cases guard: never drop below 3 cases even for existence
+    #     failures (unless fewer than 3 passed the archetype filter above).
     regen_attempted = False
     regen_helped = False
     if evidence:
@@ -1722,11 +1768,49 @@ def _api_situation_impl(req: SituationRequest, _record):
         report = verify_situation_response(parsed, evidence)
         _stage("05_verify", _t)
         if not report.is_clean():
-            # Drop only the cases that actually failed verification
-            failed_ids = {f.case_id for f in report.findings if not f.is_clean()}
-            kept = [c for c in parsed.get("cases", []) if c.get("case_id") not in failed_ids]
-            if kept and len(kept) < len(parsed["cases"]):
-                parsed["cases"] = kept
+            # Only hard-drop cases that are FABRICATED (not in evidence set).
+            # Anchor/quote failures get flagged in the verification report
+            # but the case stays in the result.
+            fabricated_ids = {
+                f.case_id for f in report.findings
+                if not f.exists  # case_id not in evidence = fabrication
+            }
+            _anchor_fails = sum(1 for f in report.findings if f.exists and not f.anchor_valid)
+            _quote_fails = sum(1 for f in report.findings if f.exists and any(not q.matched for q in f.verbatim_checks))
+            print(
+                f"[situation-verify] {len(fabricated_ids)} fabricated (dropped), "
+                f"{_anchor_fails} anchor fails (flagged), {_quote_fails} quote fails (flagged), "
+                f"total cases before verify: {len(parsed.get('cases', []))}"
+            )
+            if fabricated_ids:
+                kept = [
+                    c for c in parsed.get("cases", [])
+                    if c.get("case_id") not in fabricated_ids
+                ]
+                # Guard: keep at least _MIN_CASES_GUARD cases
+                if len(kept) >= _MIN_CASES_GUARD or not kept:
+                    parsed["cases"] = kept if kept else parsed["cases"]
+                else:
+                    # Not enough non-fabricated cases — keep the best of the
+                    # fabricated ones (they were in the corpus but got an id
+                    # reformat). Restore enough to reach the guard.
+                    parsed["cases"] = kept
+            # Flag anchor/quote issues on individual cases for transparency
+            _flag_map = {}
+            for f in report.findings:
+                issues = []
+                if not f.anchor_valid and f.exists:
+                    issues.append("anchor_unverified")
+                for qc in f.verbatim_checks:
+                    if not qc.matched:
+                        issues.append("quote_unverified")
+                        break
+                if issues:
+                    _flag_map[f.case_id] = issues
+            for c in parsed.get("cases", []):
+                flags = _flag_map.get(c.get("case_id"), [])
+                if flags:
+                    c["verification_flags"] = flags
         verification_report = report.summary()
 
     # Synthesise a RouteResult-shaped object so build_router_meta sees the

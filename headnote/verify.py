@@ -45,10 +45,13 @@ from typing import Any, Iterable
 # ------------------------------------------------------------------ thresholds
 
 # A "verbatim" quote is considered matched if its similarity to some span in
-# the evidence is at or above this ratio. 0.88 lets through normal whitespace
-# / punctuation drift, while flagging genuine fabrications (which usually
-# score below 0.6).
-DEFAULT_VERBATIM_THRESHOLD = 0.88
+# the evidence is at or above this ratio. 0.75 is lenient enough to tolerate
+# DeepSeek's tendency to lightly paraphrase (scores typically 0.70-0.85) while
+# still flagging genuine fabrications (which score below 0.5). The original
+# 0.88 was tuned for Claude's more precise quote reproduction; under the
+# multi-provider fallback chain, 0.75 prevents real cases from being dropped
+# for minor wording differences.
+DEFAULT_VERBATIM_THRESHOLD = 0.75
 
 # Minimum length (in characters) for a quoted phrase to be checked. Very short
 # fragments ("the Act", "S. 138") will always match and are noise.
