@@ -1386,17 +1386,25 @@ def _api_situation_impl(req: SituationRequest, _record):
             config.load_curated_corpus(), working_situation,
             top_k=config.PREFILTER_TOP_K,
         )
-        # Stage 3 pre-rank — Haiku scores the curated candidates on the 5-dim
-        # rubric BEFORE Sonnet sees them. Drops poor matches, keeps top 10.
-        _t_pre = time.time()
-        pruned, prerank_scores_objs, prerank_cost = prerank_candidates(
-            refined, candidate_pool, top_n=10,
-        )
-        prerank_scores = [s.to_dict() for s in prerank_scores_objs]
-        _stage("03b_prerank", _t_pre)
-        # If prerank kept nothing (everything below threshold), fall back to
-        # the raw prefilter result rather than sending Sonnet an empty pool.
-        pool_for_llm = pruned if pruned else candidate_pool[:10]
+        # Skip prerank when the candidate pool is small. The prerank LLM call
+        # takes 5-15 sec; pointless to rank 10 candidates with an LLM before
+        # the main LLM also picks 5 from those same 10. Just pass them all
+        # through and let the main LLM rank in one shot.
+        if len(candidate_pool) <= 12:
+            pool_for_llm = candidate_pool
+            prerank_scores = []
+            prerank_cost = 0
+            print(f"[situation] prerank skipped — pool too small ({len(candidate_pool)} cases)")
+        else:
+            _t_pre = time.time()
+            pruned, prerank_scores_objs, prerank_cost = prerank_candidates(
+                refined, candidate_pool, top_n=10,
+            )
+            prerank_scores = [s.to_dict() for s in prerank_scores_objs]
+            _stage("03b_prerank", _t_pre)
+            # If prerank kept nothing (everything below threshold), fall back
+            # to the raw prefilter result rather than sending Sonnet empty pool.
+            pool_for_llm = pruned if pruned else candidate_pool[:10]
         corpus_json = json.dumps(_strip_debug(pool_for_llm), ensure_ascii=False)
         sys_prompt = build_situation_system_prompt(req.style, corpus_json)
         ik_meta_extra = {

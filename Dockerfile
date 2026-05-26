@@ -51,23 +51,23 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     KANOON_CACHE_PATH=/data/kanoon_cache.sqlite \
     FEEDBACK_DB=/data/feedback.db
 
-# Run as a non-root user
-RUN groupadd --gid 10001 headnote \
- && useradd  --uid 10001 --gid 10001 --create-home --shell /bin/bash headnote \
- && mkdir -p /data \
- && chown headnote:headnote /data
+# Set up /data with permissive permissions for the persistent volume.
+# We run as root in this image — the security trade-off (non-root user vs
+# Railway-volume-mount permissions) lost: Railway mounts the volume as root
+# and the headnote user (UID 10001) couldn't write to it, so the code kept
+# falling back to /tmp and losing data on every restart. Running as root
+# means root inside the container only — Railway's container sandbox already
+# isolates this from the host. No real security regression for our scale.
+RUN mkdir -p /data && chmod 777 /data
 
-COPY --from=builder --chown=headnote:headnote /opt/venv /opt/venv
+COPY --from=builder /opt/venv /opt/venv
 
 WORKDIR /app
-COPY --chown=headnote:headnote . /app
-
-USER headnote
+COPY . /app
 
 # No EXPOSE / HEALTHCHECK directives. Both were hardcoded to port 8000 which
 # breaks on hosts that inject a dynamic $PORT (Railway, fly.io, Cloud Run).
 # Railway's gateway uses the PORT env var for routing; the app binds to it.
-# Render uses its own out-of-band healthcheck against the URL Render assigns.
 
 # Run as a Python script so PORT is read inside Python — bypasses every
 # shell-expansion gotcha (Railway exec-form override, alpine /bin/sh

@@ -115,10 +115,13 @@ def _call_deepseek_fallback(
     )
     log.warning("[llm] DeepSeek call (claude→ds: %s → %s)", claude_model, model)
 
+    # 240s timeout — DeepSeek can be slow under load. R1 reasoner needs the
+    # full window; V3 normally finishes in 5-15s. We'd rather wait than have
+    # individual stages fail and retry through Groq fallback.
     client = OpenAI(
         api_key=ds_key,
         base_url="https://api.deepseek.com",
-        timeout=180.0,   # R1 reasoner can run 30-90s
+        timeout=240.0,
     )
 
     # R1 supports a longer max_tokens than V3
