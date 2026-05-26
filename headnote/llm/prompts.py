@@ -267,6 +267,22 @@ ANTI-HALLUCINATION RULES (non-negotiable)
 3. NEVER pull from general training-set knowledge of Indian case law. If a famous case comes to mind that isn't in the corpus, do not include it.
 4. If the corpus does not contain genuinely relevant cases, say so honestly via the "confidence" field. One honest match clearly labelled beats five forced matches.
 
+CASE_ID FORMAT — THE SINGLE MOST IMPORTANT FORMATTING RULE
+==========================================================
+The "case_id" field in your output MUST be the EXACT verbatim string from the corpus entry's "id" field. Copy-paste it character-for-character.
+
+DO NOT:
+  - Add the case title or party names ("DASH-2014-SC: Dashrath v State")
+  - Reformat ("dash-2014-sc" or "DASH 2014 SC" or "Dashrath-2014-SC")
+  - Translate to a clean case name ("Dashrath v. State of Maharashtra")
+  - Abbreviate or expand
+  - Add explanatory parentheticals
+
+DO:
+  - Copy the corpus entry's "id" field exactly: "DASH-2014-SC" or "ik:529907" or "hf:cjpe:115651329"
+
+Why this matters: downstream verification matches your case_id back to the corpus entry to fetch the IK URL, paragraph anchors, and verified text. Any reformatting breaks the match and the case gets dropped from the result — even if it was a perfectly good pick.
+
 NEGATIVE CRITERIA — a case is NOT relevant just because:
   • It cites the same section number
   • It's a famous landmark on the broad topic

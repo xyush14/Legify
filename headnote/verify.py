@@ -318,6 +318,44 @@ def verify_situation_response(
     for e in evidence:
         evidence_by_case.setdefault(e.case_id, []).append(e)
 
+    # NEW: defensive case_id matching. DeepSeek-Reasoner sometimes returns
+    # a slightly-reformatted case_id (capitalization, whitespace, or even
+    # the case TITLE instead of the canonical id). Build a normalised map
+    # of known_case_ids so we can rescue these near-matches before marking
+    # them as orphans. This is purely additive — exact matches still work
+    # the same, the fallback only fires when exact match fails.
+    def _norm(s: str) -> str:
+        return "".join(ch.lower() for ch in s if ch.isalnum())
+    _known_normalised: dict[str, str] = {}
+    for kid in known_case_ids:
+        n = _norm(kid)
+        if n and n not in _known_normalised:
+            _known_normalised[n] = kid
+
+    def _resolve_cid(raw_cid: str, raw_title: str) -> str | None:
+        """Try to map an LLM-returned case_id back to a real corpus id.
+        Returns the matching known_case_id, or None if no match."""
+        if not raw_cid:
+            return None
+        # 1. Exact match (the common path)
+        if raw_cid in known_case_ids:
+            return raw_cid
+        # 2. Normalised match (handles whitespace, case, punctuation)
+        n = _norm(raw_cid)
+        if n in _known_normalised:
+            return _known_normalised[n]
+        # 3. Substring match — LLM returned a longer string that contains
+        #    the real case_id (e.g., "DASH-2014-SC (Dashrath v State)").
+        for kid in known_case_ids:
+            if kid and len(kid) >= 5 and kid in raw_cid:
+                return kid
+        # 4. Reverse substring — LLM returned a fragment of the real id
+        #    (e.g., "DASH-2014" when the real id is "DASH-2014-SC").
+        for kid in known_case_ids:
+            if raw_cid and len(raw_cid) >= 5 and raw_cid in kid:
+                return kid
+        return None
+
     for c in cases:
         if not isinstance(c, dict):
             report.structural_issues.append(f"case entry is not a dict: {type(c).__name__}")
@@ -325,6 +363,18 @@ def verify_situation_response(
 
         cid = str(c.get("case_id") or "")
         title = str(c.get("title") or "")
+
+        # Try exact match first (fast path), then fall back to fuzzy resolution
+        resolved_cid = _resolve_cid(cid, title)
+        if resolved_cid and resolved_cid != cid:
+            # Rescue: rewrite the case_id on the output dict so downstream
+            # rendering (kanoon_url, paragraph_anchor) uses the canonical id
+            c["case_id"] = resolved_cid
+            cid = resolved_cid
+            # Optional debugging note — kept on the report for ops visibility
+            report.structural_issues.append(
+                f"case_id rescued via fuzzy match: '{c.get('original_case_id', '')}' → '{resolved_cid}'"
+            )
 
         exists = cid in known_case_ids
         if not exists:
