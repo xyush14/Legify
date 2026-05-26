@@ -1002,7 +1002,7 @@ def api_config():
     return {
         "supabase_url":      config.SUPABASE_URL or "",
         "supabase_anon_key": config.SUPABASE_ANON_KEY or "",
-        "code_version":      "20260526b",
+        "code_version":      "20260526c",
     }
 
 
@@ -1479,14 +1479,30 @@ def _api_situation_impl(req: SituationRequest, _record):
     working_situation = translation_info["english_query"]
     _stage("02_translate", _t)
 
-    # Stage 1: shallow query refinement (regex normalize only, NO Haiku).
-    # Trade-off chosen: saves ~3-5s. Sonnet's V2 prompt already handles
-    # query understanding well, and retrieval doesn't actually use the
-    # Haiku-produced facets (it works off raw situation text). The deep
-    # `refine_query()` is preserved for future use if we wire facets
-    # into retrieval properly.
+    # Stage 1: query refinement.
+    #
+    # Smart switching based on query length:
+    #   - Short queries (<80 words): shallow_refine() — regex only, instant.
+    #     Sonnet's V2 prompt handles query understanding well enough.
+    #   - Long/complex queries (≥80 words): refine_query() — makes one
+    #     DeepSeek V3 call (~5-15s) to decompose into structured facets
+    #     (statutes, doctrines, stage, parties). Produces dramatically
+    #     better IK search terms for multi-issue Company Act / NI Act type
+    #     queries where shallow regex misses the key statute.
+    #
+    # The V3 call cost (~5-15s) is paid back by the main LLM getting
+    # better-targeted candidates (fewer irrelevant results to wade through).
     _t = time.time()
-    refined = shallow_refine(working_situation)
+    _word_count = len(working_situation.split())
+    if _word_count >= 80:
+        print(f"[situation] long query ({_word_count} words) — using LLM-powered refine_query()")
+        try:
+            refined = refine_query(working_situation)
+        except Exception as e:
+            print(f"[situation] refine_query() failed ({e}); falling back to shallow_refine()")
+            refined = shallow_refine(working_situation)
+    else:
+        refined = shallow_refine(working_situation)
     _stage("02b_refine", _t)
 
     ik_meta_extra: dict = {}
@@ -1494,6 +1510,14 @@ def _api_situation_impl(req: SituationRequest, _record):
     verification_report: Optional[dict] = None
     evidence: list = []
     retrieval_cases: list = []
+
+    # Pipeline time budget. The frontend AbortController fires at 180s.
+    # Reserve ~80s for the main LLM call (DeepSeek V3 normally 5-15s,
+    # worst-case 60s). Retrieval + reranker get the rest (~90s). If
+    # retrieval runs long (slow IK, slow DeepSeek reranker), the reranker
+    # is auto-skipped to stay within budget.
+    _PIPELINE_DEADLINE_SECONDS = 150.0       # total cap (30s buffer before 180s FE abort)
+    _RETRIEVAL_TIME_BUDGET = 90.0            # retrieval phase cap (leaves ~60s for LLM)
 
     if client is not None:
         from headnote.kanoon.retrieval import (
@@ -1507,6 +1531,7 @@ def _api_situation_impl(req: SituationRequest, _record):
             mode=req.mode,
             jurisdiction=req.jurisdiction,
             refined_query=refined.to_dict(),
+            time_budget_seconds=_RETRIEVAL_TIME_BUDGET,
         )
         _stage("03_retrieve", _t)
         retrieval_cases = list(ret.cases)
@@ -1605,11 +1630,27 @@ def _api_situation_impl(req: SituationRequest, _record):
     # Extended thinking gives Sonnet/Opus a scratch space to actually execute
     # the four-dimension scoring rubric in the v2 prompt before writing JSON.
     # Haiku doesn't support it (skipped silently inside call_claude_cached).
+    #
+    # Pipeline deadline check: if retrieval + translation + refinement have
+    # already consumed most of the budget, disable extended thinking to save
+    # ~5-10s. The LLM still produces good output without thinking; it's the
+    # difference between A+ and A, not A and F.
+    _elapsed_so_far = time.time() - _t_total
+    _remaining = _PIPELINE_DEADLINE_SECONDS - _elapsed_so_far
+    _enable_thinking_this_call = config.ENABLE_THINKING
+    if _remaining < 70:
+        # Less than 70s left — disable thinking to speed up the LLM call
+        _enable_thinking_this_call = False
+        print(
+            f"[situation] pipeline deadline: {_elapsed_so_far:.1f}s elapsed, "
+            f"{_remaining:.1f}s remaining — disabling extended thinking"
+        )
+
     payload = {
         "system_prompt": sys_prompt,
         "user_prompt": user_prompt,
         "cache": True,
-        "enable_thinking": config.ENABLE_THINKING,
+        "enable_thinking": _enable_thinking_this_call,
         "thinking_budget": config.THINKING_BUDGET_TOKENS,
     }
     _t = time.time()
@@ -1772,6 +1813,8 @@ def _api_situation_impl(req: SituationRequest, _record):
 
     _stage("99_total", _t_total)
     meta["stage_timings_seconds"] = _stage_t
+    meta["pipeline_deadline_seconds"] = _PIPELINE_DEADLINE_SECONDS
+    meta["thinking_disabled_by_deadline"] = not _enable_thinking_this_call and config.ENABLE_THINKING
     # Surfaced to Railway logs so we can see per-stage breakdown without
     # digging into the JSON response. Format: "stage=Xs ..."
     print(

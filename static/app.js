@@ -71,7 +71,7 @@
   function friendlyError(status, errText) {
     if (status === 401) return 'sign in to continue.';
     if (status === 502 || status === 504) {
-      return 'this query took longer than our limit (3 min). usually means the corpus is still indexing in the background — try again in a few minutes, or use a more specific query (e.g. add a section reference like "BNSS 482").';
+      return 'the server took too long to respond. this can happen when the AI provider is under heavy load. please retry — the second attempt is usually much faster (cached prompts).';
     }
     if (status === 503) {
       // The backend returns specific actionable messages for 503 (Bedrock
@@ -1064,7 +1064,7 @@
       clearTimeout(abortTimer);
       target.innerHTML = '';
       const msg = err.name === 'AbortError'
-        ? 'query took over 3 minutes — try a more specific statute reference (e.g. "S.302 IPC self-defence" instead of "murder"), or just retry — the next attempt will hit the prompt cache and be ~3× faster.'
+        ? 'query took over 3 minutes — the AI provider may be under load. please retry (second attempt is usually ~3× faster due to caching). tip: adding a specific section reference (e.g. "BNSS 482") narrows the search and speeds things up.'
         : (err.message || 'request failed');
       target.appendChild(renderError(msg));
     } finally {

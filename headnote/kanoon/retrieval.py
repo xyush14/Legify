@@ -645,6 +645,7 @@ def retrieve_for_situation(
     mode: str = "mixed",
     jurisdiction: Optional[str] = None,
     refined_query: Optional[dict] = None,
+    time_budget_seconds: float = 120.0,
 ) -> RetrievalResult:
     """End-to-end retrieval for a lawyer's situation query.
 
@@ -661,6 +662,12 @@ def retrieve_for_situation(
     Separation of concerns:
       - candidate_pool (default 25): how many docs to collect before reranking.
       - top_cases (default 5): how many to return to the LLM after reranking.
+
+    time_budget_seconds: wall-clock cap for the retrieval phase. If retrieval
+    has already consumed most of the budget by the time the Sonnet reranker
+    would fire, the reranker is skipped to prevent the downstream LLM call
+    from timing out.  Caller (app.py) sets this based on the overall pipeline
+    deadline minus the LLM call budget.
 
     Never raises on IK errors — falls back to whatever we have so far.
     """
@@ -1220,6 +1227,23 @@ def retrieve_for_situation(
                 for cs in cases
             ]
 
+            # Time-budget gate: if retrieval has already consumed most of the
+            # allotted time, skip the Sonnet/DeepSeek reranker LLM call
+            # (5-30s) to leave room for the downstream main LLM call. The
+            # reranker improves quality but the response getting to the user
+            # at all is more important than perfect ranking.
+            _retrieval_elapsed = time.time() - t0
+            _skip_rerank_time = _retrieval_elapsed > (time_budget_seconds * 0.7)
+            if _skip_rerank_time:
+                print(
+                    f"[retrieval] time budget gate: {_retrieval_elapsed:.1f}s elapsed "
+                    f"vs {time_budget_seconds:.0f}s budget — skipping Sonnet reranker"
+                )
+                meta.notes.append(
+                    f"Sonnet reranker skipped (time budget: {_retrieval_elapsed:.1f}s "
+                    f"of {time_budget_seconds:.0f}s used)"
+                )
+
             # The Sonnet fact-pattern reranker is the single biggest case-
             # relevance lever. When enabled, Sonnet judges how well each
             # candidate's facts actually align with the lawyer's situation
@@ -1228,13 +1252,14 @@ def retrieve_for_situation(
             # produces "topically related" rather than "factually aligned"
             # results. Operator picks via the ENABLE_SONNET_RERANKER env var.
             from headnote import config as _hncfg
+            _force_skip_rerank = _skip_rerank_time or not _hncfg.ENABLE_SONNET_RERANKER
             scored = rank_candidates(
                 situation,
                 candidates,
                 mode,
                 query_jurisdiction=jurisdiction,
                 result_top_k=top_cases,
-                skip_sonnet_rerank=not _hncfg.ENABLE_SONNET_RERANKER,
+                skip_sonnet_rerank=_force_skip_rerank,
             )
 
             # Map scored results back to CaseSummary (preserving paragraph data).
