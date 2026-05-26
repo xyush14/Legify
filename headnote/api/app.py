@@ -1005,7 +1005,7 @@ def api_config():
     return {
         "supabase_url":      config.SUPABASE_URL or "",
         "supabase_anon_key": config.SUPABASE_ANON_KEY or "",
-        "code_version":      "20260526g",
+        "code_version":      "20260526h",
     }
 
 
@@ -1806,14 +1806,28 @@ def _api_situation_impl(req: SituationRequest, _record):
                     c for c in parsed.get("cases", [])
                     if c.get("case_id") not in fabricated_ids
                 ]
-                # Guard: keep at least _MIN_CASES_GUARD cases
-                if len(kept) >= _MIN_CASES_GUARD or not kept:
-                    parsed["cases"] = kept if kept else parsed["cases"]
-                else:
-                    # Not enough non-fabricated cases — keep the best of the
-                    # fabricated ones (they were in the corpus but got an id
-                    # reformat). Restore enough to reach the guard.
+                if not kept:
+                    # ALL cases fabricated — keep originals (better than empty)
+                    print("[situation-verify] all cases fabricated — keeping originals")
+                elif len(kept) >= _MIN_CASES_GUARD:
                     parsed["cases"] = kept
+                else:
+                    # Not enough non-fabricated cases. The "fabricated" ones
+                    # likely have reformatted case_ids (DeepSeek adds party
+                    # names or reformats). Keep the non-fabricated ones, then
+                    # re-add fabricated cases to reach the minimum — they're
+                    # still from the corpus, just with mangled IDs.
+                    fabricated_cases = [
+                        c for c in parsed.get("cases", [])
+                        if c.get("case_id") in fabricated_ids
+                    ]
+                    needed = _MIN_CASES_GUARD - len(kept)
+                    kept.extend(fabricated_cases[:needed])
+                    parsed["cases"] = kept
+                    print(
+                        f"[situation-verify] restored {min(needed, len(fabricated_cases))} "
+                        f"fabricated cases to reach minimum {_MIN_CASES_GUARD}"
+                    )
             # Flag anchor/quote issues on individual cases for transparency
             _flag_map = {}
             for f in report.findings:
@@ -1831,6 +1845,20 @@ def _api_situation_impl(req: SituationRequest, _record):
                 if flags:
                     c["verification_flags"] = flags
         verification_report = report.summary()
+
+    # Final guard: log clearly if ALL cases were filtered out. This should
+    # never happen with the minimum-cases guards above, but defensively
+    # catch it so we can diagnose via Railway logs.
+    _final_count = len(parsed.get("cases", []))
+    if _final_count == 0:
+        print(
+            f"[situation-WARN] 0 cases survived all filters! "
+            f"LLM returned {_llm_returned_count}, "
+            f"existence={len(verified)}, archetype={len(final)}, "
+            f"dropped_ids={dropped}"
+        )
+    else:
+        print(f"[situation-filter] final: {_final_count} cases returned to frontend")
 
     # Synthesise a RouteResult-shaped object so build_router_meta sees the
     # final (possibly-regen-augmented) totals.
