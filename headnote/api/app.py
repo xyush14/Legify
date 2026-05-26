@@ -440,6 +440,23 @@ def _maybe_autorebuild_corpus_on_boot() -> None:
         logger.warning("[autorebuild] HF_TOKEN not set — skipping (set it on Railway to enable)")
         return
 
+    # If the data path fell back to /tmp (Railway volume not properly
+    # attached), the corpus we rebuild will be wiped on the next restart.
+    # Don't burn CPU + SQLite I/O on work that won't survive. The system
+    # will run on curated + IK live instead, which is faster anyway.
+    try:
+        from headnote import config as _cfg
+        actual_path = str(_cfg.KANOON_CACHE_PATH)
+        if "/tmp" in actual_path or actual_path.startswith("/tmp"):
+            logger.warning(
+                "[autorebuild] data path is %s (ephemeral). Skipping rebuild — "
+                "attach a Railway volume at /data to enable persistence + rebuild.",
+                actual_path,
+            )
+            return
+    except Exception as e:
+        logger.warning("[autorebuild] could not check storage path (%s); proceeding anyway", e)
+
     # Check current corpus state
     try:
         from headnote.retrieval.hf_corpus import corpus_stats
