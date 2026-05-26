@@ -359,6 +359,45 @@ REGULAR_BAIL_SESSIONS = {
 }
 
 
+# Wrapper — links to the standalone bail page UX for High Court bail.
+# Follows the structure of the reference PDF (Rashmi Kanjar / Section 483
+# BNSS / 439 CrPC successive bail before MP HC Gwalior Bench):
+#   • Index page with annexure list
+#   • Front page: parties + prior bail history table + crime details table
+#     + criminal record table
+#   • Body paragraphs (1-8) with sub-tables for co-accused, cross-case,
+#     prior bail history
+#   • Brief facts (5.1 - 5.3) and grounds (6.1 - 6.8)
+#   • Affidavit page (memo of appearance)
+#   • Exemption application (optional, for filing without certified copy)
+REGULAR_BAIL_HC = {
+    "id":              "regular_bail_hc",
+    "name_en":         "Regular Bail (High Court — S.483 BNSS / 439 CrPC)",
+    "name_hi":         "नियमित जमानत (उच्च न्यायालय — धारा 483 BNSS / 439 दं.प्र.सं.)",
+    "court":           "hc",
+    "court_label_en":  "High Court",
+    "court_label_hi":  "उच्च न्यायालय",
+    "category":        "bail",
+    "tier":            1,
+    "popularity":      5,
+    "quality":         "v1-wrapper",
+    "description":     (
+        "Regular bail application before High Court (S.483 BNSS / 439 CrPC). "
+        "First or successive bail after Sessions Court rejection. Includes "
+        "prior bail history, co-accused parity table, FIR-OCR, affidavit, "
+        "and exemption-from-certified-copy application."
+    ),
+    "redirect_url":    "/draft/bail?court=hc&section=439",
+    "fields": [],
+    "format_spec":     "",  # rendered by /draft/bail with section=439
+    "example_prompts": [
+        "उच्च न्यायालय में द्वितीय जमानत आवेदन — सत्र न्यायालय से निरस्त, धारा 302/34 IPC",
+        "High Court bail under 439 CrPC after Sessions Court rejection in 376 IPC matter",
+        "Successive bail at MP HC Gwalior bench after first bail withdrawn",
+    ],
+}
+
+
 # Wrapper — links to the standalone bail page UX, anticipatory variant.
 ANTICIPATORY_BAIL_SESSIONS = {
     "id":              "anticipatory_bail_sessions",
@@ -1166,6 +1205,7 @@ NEW_TEMPLATES_V2: dict[str, dict] = {
     SUSPENSION_OF_SENTENCE["id"]:     SUSPENSION_OF_SENTENCE,
     STAY_PETITION_HC["id"]:           STAY_PETITION_HC,
     REGULAR_BAIL_SESSIONS["id"]:      REGULAR_BAIL_SESSIONS,
+    REGULAR_BAIL_HC["id"]:            REGULAR_BAIL_HC,
     ANTICIPATORY_BAIL_SESSIONS["id"]: ANTICIPATORY_BAIL_SESSIONS,
     CRIMINAL_REVISION_SESSIONS["id"]: CRIMINAL_REVISION_SESSIONS,
     REPLY_TO_BAIL_SESSIONS["id"]:     REPLY_TO_BAIL_SESSIONS,

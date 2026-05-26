@@ -833,22 +833,21 @@ const state = {
   saveTimer: null,
 };
 
-// Restore last-used defaults
+// CLIENT HISTORY DISABLED — every new matter starts fresh.
+// Previously these helpers loaded/saved court_name, district, state_name,
+// police_station, advocate_name, place, current_jail from localStorage so
+// successive bail drafts inherited the last matter's details. Lawyers
+// found this leaked one client's data into another's draft, which is
+// unacceptable for confidentiality. Advocate identity still auto-fills
+// from /api/lawyer-profile (their own bar profile), which is correct.
 function loadDefaults() {
-  try {
-    const saved = JSON.parse(localStorage.getItem('headnote.bail.defaults') || '{}');
-    ['court_name', 'district', 'state_name', 'police_station', 'advocate_name', 'place', 'current_jail'].forEach(k => {
-      if (saved[k] && !state.answers[k]) state.answers[k] = saved[k];
-    });
-  } catch (e) {}
+  // Clear any legacy localStorage so previously-cached client data is wiped
+  // from advocates' browsers on the next page load.
+  try { localStorage.removeItem('headnote.bail.defaults'); } catch (e) {}
 }
 
 function persistDefaults() {
-  const keep = {};
-  ['court_name', 'district', 'state_name', 'police_station', 'advocate_name', 'place', 'current_jail'].forEach(k => {
-    if (state.answers[k]) keep[k] = state.answers[k];
-  });
-  localStorage.setItem('headnote.bail.defaults', JSON.stringify(keep));
+  // No-op — see loadDefaults() comment.
 }
 
 // =========================================================================
@@ -2328,25 +2327,29 @@ function suggestCourtNameHi(district, stateName, bailSection) {
 function applyOcrResult(o, applicantIdx) {
   if (!o) return;
   const ans = state.answers;
-  const setIfEmpty = (k, v) => { if (v && !ans[k]) ans[k] = v; };
-  const setAlways  = (k, v) => { if (v) ans[k] = v; };
+  // POLICY (per Ayush, 2026-05-26): when the lawyer uploads a document, the
+  // OCR-extracted values are AUTHORITATIVE and REPLACE any previously-typed
+  // values. The lawyer can edit afterwards. Rationale: if they bothered to
+  // upload a fresh FIR, the document is the source of truth — auto-fill
+  // should not be polluted by typos in fields they hand-filled earlier.
+  const setOcr = (k, v) => { if (v) ans[k] = v; };
 
-  // ---- FIR core fields
+  // ---- FIR core fields (REPLACE on OCR)
   if (o.fir_number_full || o.fir_number) {
-    setAlways('fir_number', o.fir_number_full || o.fir_number);
+    setOcr('fir_number', o.fir_number_full || o.fir_number);
   }
-  setAlways('fir_date',        o.fir_date);
-  setAlways('police_station',  o.police_station);
-  setAlways('district',        o.district);
-  setIfEmpty('state_name',     o.state);
-  setAlways('arrest_date',     o.arrest_date);
+  setOcr('fir_date',        o.fir_date);
+  setOcr('police_station',  o.police_station);
+  setOcr('district',        o.district);
+  setOcr('state_name',      o.state);
+  setOcr('arrest_date',     o.arrest_date);
 
-  // ---- sections (normalise & join)
+  // ---- sections (normalise & join) — REPLACE on OCR
   if (Array.isArray(o.sections) && o.sections.length) {
     ans.sections_str = o.sections.join(', ');
   }
 
-  // ---- narrative (Para 5.1)
+  // ---- narrative (Para 5.1) — REPLACE on OCR
   // Groq returns BOTH narrative_hi and narrative_en — pick based on current
   // language, and stash the other so language-toggle can swap instantly
   // without burning another API call.
@@ -2361,30 +2364,26 @@ function applyOcrResult(o, applicantIdx) {
       : (ans._narrative_en || ans._narrative_hi);
   }
 
-  // ---- place of occurrence → Section 9 "Place" field gets the district by
-  // default; the occurrence_place is more useful inside the narrative.
-  setIfEmpty('place', o.district);
+  // ---- place of occurrence — REPLACE on OCR (district from FIR)
+  setOcr('place', o.district);
 
-  // ---- APPLICANT (= the chosen accused). This is the critical fix —
-  // earlier we left applicant_* empty; the bail applicant is the accused,
-  // never the complainant.
+  // ---- APPLICANT (= the chosen accused). REPLACE on OCR.
   const accList = Array.isArray(o.accused_details) ? o.accused_details : [];
   const idx = (typeof applicantIdx === 'number' && accList[applicantIdx]) ? applicantIdx : 0;
   const applicant = accList[idx];
   if (applicant) {
-    setIfEmpty('applicant_name',    applicant.name);
-    setIfEmpty('applicant_father',  applicant.relative);  // father OR husband; lawyer can edit
-    setIfEmpty('applicant_address', applicant.address);
-    setIfEmpty('applicant_age',     applicant.age);
+    setOcr('applicant_name',    applicant.name);
+    setOcr('applicant_father',  applicant.relative);  // father OR husband; lawyer can edit
+    setOcr('applicant_address', applicant.address);
+    setOcr('applicant_age',     applicant.age);
   }
 
-  // ---- CO-ACCUSED: everyone else from the accused list goes here as
-  // parity candidates. The lawyer fills bail outcome later.
-  ans.co_accused = ans.co_accused || [];
+  // ---- CO-ACCUSED: replace the entire array when OCR runs — fresh upload
+  // = fresh co-accused list. Previously we appended which mixed clients.
+  ans.co_accused = [];
   accList.forEach((acc, i) => {
     if (i === idx) return;
     if (!acc.name) return;
-    if (ans.co_accused.some(c => (c.parties || '').includes(acc.name))) return;
     ans.co_accused.push({
       parties:  `${acc.name} Vs State of ${ans.state_name || 'MP'}`,
       case_no:  '',
@@ -2392,14 +2391,14 @@ function applyOcrResult(o, applicantIdx) {
     });
   });
 
-  // ---- Auto-derive a sensible court name when none set.
-  if (!ans.court_name) {
-    const isHi = state.lang === 'hi';
-    const suggested = isHi
-      ? suggestCourtNameHi(o.district, o.state, ans.bail_section)
-      : suggestCourtName(o.district, o.state, ans.bail_section);
-    if (suggested) ans.court_name = suggested;
-  }
+  // ---- Auto-derive a sensible court name — REPLACE on OCR (always
+  // re-suggest based on the fresh FIR district/state, since the matter
+  // may be filed in a different jurisdiction than the prior draft).
+  const isHi = state.lang === 'hi';
+  const suggested = isHi
+    ? suggestCourtNameHi(o.district, o.state, ans.bail_section)
+    : suggestCourtName(o.district, o.state, ans.bail_section);
+  if (suggested) ans.court_name = suggested;
 
   syncUIToState();
   onChange();
