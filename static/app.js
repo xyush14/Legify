@@ -963,9 +963,10 @@
     const isHindi = /[ऀ-ॿ]/.test(input);
     const stages = intent === 'situation' ? [
       ...(isHindi ? ['translating hindi → english'] : []),
-      'searching 42k case corpus',
-      'analysing with claude',
-      'verifying citations',
+      'understanding the matter',
+      'searching across 2.6 crore judgments',
+      'reasoning through candidates',
+      'preparing case cards',
     ] : intent === 'headnote' ? [
       'reading the judgment',
       'extracting points of law',
@@ -979,14 +980,15 @@
     stagePanel = renderStagesPanel(stages);
     target.appendChild(stagePanel);
 
-    // Pacing now matches the new pipeline (shallow refine + parallel IK fetches):
-    //   - corpus search: <5s (HF + semantic + curated; IK only if pool thin)
-    //   - claude analysis: ~10-15s
-    //   - verification: <1s
-    // 'verifying citations' never advances via timer — replaced when results arrive.
+    // Pacing matches the R1-default pipeline:
+    //   - understanding (refine): ~8s
+    //   - searching (retrieve): ~30s
+    //   - reasoning (R1 main): 60-120s — chain-of-thought is the slow step
+    //   - preparing (verify + render): <2s
+    // 'preparing case cards' never advances via timer — replaced when results arrive.
     const situationDelays = isHindi
-      ? [3500, 8000, 18000]   // translate done at 3.5s, search done at 8s, claude active until results
-      : [5000, 16000];        // search done at 5s, claude active until results
+      ? [4000, 12000, 45000, 100000]   // hindi translate + 4-stage situation
+      : [10000, 40000, 100000];        // 3-stage situation pacing
     const defaultDelays = stages.slice(0, -1).map((_, i) => 4500 * (i + 1));
     const stageDelays = intent === 'situation' ? situationDelays : defaultDelays;
     const timers = stageDelays.map((delay, i) =>
@@ -1008,11 +1010,13 @@
       decompPromise = post('/api/decompose', { query: input }).catch(() => null);
     }
 
-    // Abort after 3 min so the user gets a clear message instead of an endless spinner.
-    // Sonnet w/ extended thinking + IK doc fetch + verification can legitimately
-    // take 30-90s on uncached queries; 90s was too tight and aborted real work.
+    // Abort after 4.5 min. R1 (DeepSeek reasoner / Sonnet 4.6) chain-of-thought
+    // takes 60-120s typical, up to 180s on complex queries. Plus refine +
+    // retrieve = realistic worst case 220s. 270s gives 50s safety buffer.
+    // Trade-off: predictable 5-case output worth the wait vs faster 0-case
+    // output users don't trust.
     const abortCtrl = new AbortController();
-    const abortTimer = setTimeout(() => abortCtrl.abort(), 180000);
+    const abortTimer = setTimeout(() => abortCtrl.abort(), 270000);
 
     try {
       let resp;

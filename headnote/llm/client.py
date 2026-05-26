@@ -116,17 +116,16 @@ def _call_deepseek_fallback(
     log.warning("[llm] DeepSeek call (claude→ds: %s → %s)", claude_model, model)
 
     # Split timeout by model family:
-    #   V3 (deepseek-chat)      → 45s   — normally 5-15s; if >45s, DeepSeek is
-    #                                      overloaded and Groq fallback is faster.
-    #   R1 (deepseek-reasoner)  → 120s  — chain-of-thought normally 60-120s.
-    #
-    # CRITICAL: the situation pipeline makes 2-3 sequential V3 calls
-    # (refine + reranker + main). Each call's worst case is:
-    #   V3 timeout + Groq fallback timeout = 45 + 20 = 65s
-    # Three calls × 65s = 195s (still tight vs 180s FE abort, but the
-    # time budget gate skips the reranker when running late, so real-world
-    # worst case is 2 calls × 65s = 130s).
-    _ds_timeout = 120.0 if model == "deepseek-reasoner" else 45.0
+    #   V3 (deepseek-chat)      → 90s   — normally 5-15s; the long tail
+    #                                      (30-90s under DeepSeek load) is
+    #                                      better waited out than fallen
+    #                                      through to Groq, which produces
+    #                                      poor Indian legal reasoning.
+    #   R1 (deepseek-reasoner)  → 180s  — chain-of-thought normally 60-120s
+    #                                      but complex legal queries can
+    #                                      extend to 150s. 180s catches the
+    #                                      long tail without false timeouts.
+    _ds_timeout = 180.0 if model == "deepseek-reasoner" else 90.0
     client = OpenAI(
         api_key=ds_key,
         base_url="https://api.deepseek.com",

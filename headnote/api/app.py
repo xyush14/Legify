@@ -1005,7 +1005,7 @@ def api_config():
     return {
         "supabase_url":      config.SUPABASE_URL or "",
         "supabase_anon_key": config.SUPABASE_ANON_KEY or "",
-        "code_version":      "20260526l",
+        "code_version":      "20260526m",
     }
 
 
@@ -1519,23 +1519,23 @@ def _api_situation_impl(req: SituationRequest, _record):
     evidence: list = []
     retrieval_cases: list = []
 
-    # Pipeline time budget. The frontend AbortController fires at 180s.
-    # The pipeline makes 2-3 sequential LLM calls:
-    #   - refine_query (capped at 12s thread timeout — never blocks longer)
+    # Pipeline time budget. The frontend AbortController fires at 270s.
+    # The pipeline makes sequential LLM calls:
+    #   - refine_query (capped at 12s thread timeout)
     #   - reranker (~5-15s, skippable by time budget gate)
-    #   - main LLM (~10-30s, required)
-    # Each uncapped call's worst case is V3 timeout (45s) + Groq fallback (20s) = 65s.
-    # Budget: 150s total, dynamically split based on time already spent.
-    _PIPELINE_DEADLINE_SECONDS = 150.0       # total cap (30s buffer before 180s FE abort)
+    #   - main LLM (R1: typical 60-120s, max 180s — chain-of-thought)
+    # R1 is the default for situation now (was V3) — slower but produces
+    # consistent 3-5 case output. V3 produced 0-1 cases on 30% of queries.
+    # Budget: 240s total, leaves 30s safety buffer before 270s FE abort.
+    _PIPELINE_DEADLINE_SECONDS = 240.0       # total cap (30s buffer before 270s FE abort)
 
     # Dynamic retrieval budget: subtract time already consumed by translate +
-    # refine, then reserve 65s for the main LLM call. Whatever's left is the
-    # retrieval budget (including the reranker). If refine_query() took 20s,
-    # retrieval gets 150 - 20 - 65 = 65s instead of a flat 90s.
+    # refine, then reserve 150s for the main R1 LLM call (chain-of-thought
+    # typical 60-120s, max 180s). Whatever's left is retrieval budget.
     _elapsed_before_retrieval = time.time() - _t_total
     _RETRIEVAL_TIME_BUDGET = max(
-        30.0,  # absolute minimum — IK search + fetch needs at least 30s
-        _PIPELINE_DEADLINE_SECONDS - _elapsed_before_retrieval - 65.0,
+        45.0,  # absolute minimum — IK search + fetch needs 30-45s
+        _PIPELINE_DEADLINE_SECONDS - _elapsed_before_retrieval - 150.0,
     )
     print(
         f"[situation] pipeline budget: {_elapsed_before_retrieval:.1f}s already used "
@@ -1680,8 +1680,10 @@ def _api_situation_impl(req: SituationRequest, _record):
     _elapsed_so_far = time.time() - _t_total
     _remaining = _PIPELINE_DEADLINE_SECONDS - _elapsed_so_far
     _enable_thinking_this_call = config.ENABLE_THINKING
-    if _remaining < 70:
-        # Less than 70s left — disable thinking to speed up the LLM call
+    # R1 has chain-of-thought built in; the thinking flag here only matters
+    # for Anthropic Sonnet. Threshold raised to 100s (was 70s) since pipeline
+    # budget grew to 240s; we have more room for quality.
+    if _remaining < 100:
         _enable_thinking_this_call = False
         print(
             f"[situation] pipeline deadline: {_elapsed_so_far:.1f}s elapsed, "

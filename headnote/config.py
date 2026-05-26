@@ -68,7 +68,12 @@ FEEDBACK_DB = _writable_path(
 
 ANTHROPIC_API_KEY: Optional[str] = os.environ.get("ANTHROPIC_API_KEY")
 DEFAULT_MODEL = os.environ.get("MODEL", "claude-sonnet-4-6")
-MAX_TOKENS = int(os.environ.get("MAX_TOKENS", "4000"))   # 2500→4000: room for relevance_explanations + internal_reasoning
+# 6000 (was 4000): R1/Sonnet needs room to output 5 detailed cases with
+# stinger_sentence + held_line + court_quote + match_dimensions +
+# negative_carve_out + relevance_scores + internal_reasoning. 4000 was
+# clipping responses on complex queries, causing partial JSON parse failures
+# that surfaced as "1 case returned" or "0 cases" downstream.
+MAX_TOKENS = int(os.environ.get("MAX_TOKENS", "6000"))
 
 
 # ----------------------------------------------------------------- IK / retrieval
@@ -100,18 +105,25 @@ INDIAN_KANOON_DAILY_CAP_INR: Optional[float] = (
 # Two env-var knobs that flip the quality/cost trade-off per-host.
 #
 # Under LLM_PROVIDER=deepseek:
-#   "haiku"  → deepseek-chat (V3)      — fast (5-15s/call), good quality
+#   "haiku"  → deepseek-chat (V3)      — fast (5-15s/call), conservative output
 #   "sonnet" → deepseek-reasoner (R1)  — slow (60-120s/call), chain-of-thought
 #   "opus"   → deepseek-reasoner (R1)  — same as sonnet under DeepSeek
 #
-# DEFAULT IS NOW HAIKU. R1's chain-of-thought is overkill for "rank 20
-# candidates and emit JSON" — V3 produces comparable output 3-5× faster
-# and prevents the 3-min Railway request timeout. Deep mode keeps R1 for
-# users who explicitly opt into the slower deeper reasoning path.
-SITUATION_MODEL: str = os.environ.get("SITUATION_MODEL", "haiku").lower().strip()
+# DEFAULT IS SONNET (R1). V3 was the previous default — chosen for speed —
+# but in production it produced inconsistent output: same query, sometimes
+# 5 cases, sometimes 0 cases. V3 is too conservative for legal reasoning:
+# when the corpus pool isn't a perfect statute match, V3 returns empty
+# arrays instead of ranking what's there. R1's chain-of-thought makes it
+# 5-10× more likely to produce 3-5 cases consistently — at the cost of
+# 60-120s latency instead of 10-30s.
+#
+# For a paying advocate, predictability > speed. They will wait 2 minutes
+# for a reliable answer; they will not trust a 30s tool that gives empty
+# pages on 30% of queries.
+SITUATION_MODEL: str = os.environ.get("SITUATION_MODEL", "sonnet").lower().strip()
 
-# When deep_mode is ON, use R1 (slower, chain-of-thought reasoning).
-# Most users don't need this — V3 is the right default.
+# Deep mode = same as default now (R1). Kept for forward compatibility;
+# can be pointed at "opus" or a future model for premium tier.
 SITUATION_DEEP_MODEL: str = os.environ.get("SITUATION_DEEP_MODEL", "sonnet").lower().strip()
 
 # Enable Sonnet fact-pattern reranking inside Hidden Authorities. This is the
