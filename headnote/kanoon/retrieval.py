@@ -736,35 +736,69 @@ def retrieve_for_situation(
     # 2. Semantic search over locally-cached paragraphs (free) + HF corpus.
     # Surfaces IK/HF cases that keyword search would miss.
     #
-    # We embed a STRUCTURED query, not the raw lawyer prose. The raw prose
-    # carries non-legal stop-words ("my client", "what's the precedent?")
-    # that pollute the embedding. A composite of (canonical_question +
-    # statute + doctrines + stage) lands far closer to how a judgment
-    # paragraph actually phrases the principle.
+    # PHILOSOPHY: A lawyer doesn't search by section number. They search by
+    # FACT PATTERN ("consensual relationship where marriage was promised"),
+    # LEGAL ISSUE ("can court go below mandatory minimum"), and DOCTRINAL
+    # PRINCIPLE ("adequate and special reasons for sentence reduction").
     #
-    # Falls back to raw situation when refined_query is missing or thin.
+    # The embedding query must therefore lead with FACTUAL/ISSUE content,
+    # not statute keywords. Statute references in the query DROWN OUT the
+    # fact signal in the embedding because they're prominent technical
+    # terms that match every case citing that section — including ones
+    # with zero factual relevance.
+    #
+    # New query construction order (most important first):
+    #   1. factual_archetype        — the high-level pattern label
+    #   2. core_circumstances       — factual chronology bullets
+    #   3. legal_concepts           — plain-English doctrinal terms
+    #   4. doctrines_at_issue       — formal doctrine names
+    #   5. canonical_question       — cleaned question (issue framing)
+    #   6. raw situation            — fact-pattern signal the envelope misses
+    #   7. stage                    — procedural posture
+    #   8. statute (LAST, minimal)  — just for disambiguation, not retrieval
     semantic_query = situation
     if refined_query:
         parts: list[str] = []
+        # FACT-FIRST signals
+        if refined_query.get("factual_archetype"):
+            parts.append(str(refined_query["factual_archetype"]).replace("_", " "))
+        for circ in (refined_query.get("core_circumstances") or [])[:5]:
+            if circ: parts.append(str(circ))
+        # ISSUE / DOCTRINE signals (plain English)
+        for lc in (refined_query.get("legal_concepts") or [])[:4]:
+            if lc: parts.append(str(lc).replace("_", " "))
+        for d in (refined_query.get("doctrines_at_issue") or [])[:3]:
+            if d: parts.append(str(d).replace("_", " "))
+        # Question framing
         cq = (refined_query.get("canonical_question") or "").strip()
         if cq and cq != situation.strip():
             parts.append(cq)
-        if refined_query.get("primary_statute"):
-            parts.append(str(refined_query["primary_statute"]))
-        for d in refined_query.get("doctrines_at_issue", [])[:3]:
-            parts.append(str(d).replace("_", " "))
+        # Procedural posture (helps surface cases at the same stage)
         if refined_query.get("stage"):
             parts.append(str(refined_query["stage"]).replace("_", " "))
+        # Statute LAST — and we only include one form (not both old + new)
+        # to avoid keyword dominance. Embeddings match factual paragraphs,
+        # not statute indexes; the statute is for the LLM reranker, not the
+        # embedding search.
+        if refined_query.get("primary_statute"):
+            parts.append(str(refined_query["primary_statute"]))
         composite = " ".join(p for p in parts if p).strip()
         if composite:
-            # Keep the raw situation appended — provides fact-pattern signal
-            # that the structured envelope alone can miss.
+            # Raw situation appended LAST — carries the most specific facts
+            # the structured envelope couldn't fully capture.
             semantic_query = f"{composite}. {situation}".strip()
 
     semantic_case_ids: set[str] = set()
     if emb_idx is not None and len(cases) < candidate_pool:
         try:
-            sem_hits = emb_idx.search(semantic_query, top_k=40, min_similarity=0.55)
+            # top_k=80 (was 40): wider net to surface fact-pattern matches that
+            # may rank lower on lexical overlap but higher on semantic similarity.
+            # min_similarity=0.45 (was 0.55): a 0.55 threshold drops fact-pattern
+            # matches whenever the lawyer's wording diverges from how a judgment
+            # paragraph phrases the same principle. 0.45 lets paraphrased
+            # fact patterns through; the LLM reranker downstream still has
+            # the final say on what reaches the output.
+            sem_hits = emb_idx.search(semantic_query, top_k=80, min_similarity=0.45)
             meta.semantic_hits = len(sem_hits)
             by_case: dict[str, list[EmbeddingHit]] = {}
             for h in sem_hits:
@@ -909,12 +943,42 @@ def retrieve_for_situation(
         try:
             from headnote.retrieval.hf_corpus import search as _hf_search
 
-            # Tokenise the situation the same way /api/hf_search does, so
-            # SQL LIKE matches the same candidate pool we test with via
-            # the dev endpoint. The fact-vector rescorer inside _hf_search
-            # then surfaces cases that share statute / stage / minor-victim
-            # / outcome dimensions, not just keyword hits.
-            tokens = [t for t in situation.lower().split() if len(t) > 2][:10]
+            # Build tokens from FACT and ISSUE language, not from raw whitespace
+            # split of the situation. A whitespace split treats "section" and
+            # "376" as separate tokens — useless for SQL LIKE. Instead we pull
+            # high-signal tokens from refined_query's factual and doctrinal
+            # facets (which are short noun phrases) and from the situation
+            # itself as fallback.
+            _hf_stop = {"the", "and", "for", "with", "from", "that", "this",
+                        "into", "what", "when", "where", "which", "have", "has",
+                        "been", "will", "must", "should", "could", "would",
+                        "case", "matter", "client", "your", "their", "they",
+                        "court", "section", "under"}
+            tokens: list[str] = []
+            if refined_query:
+                # Pull tokens from factual_archetype, core_circumstances,
+                # legal_concepts, doctrines — these are already curated noun
+                # phrases that index well via LIKE on facts_json.
+                _seeds: list[str] = []
+                if refined_query.get("factual_archetype"):
+                    _seeds.append(str(refined_query["factual_archetype"]))
+                _seeds.extend(refined_query.get("core_circumstances") or [])
+                _seeds.extend(refined_query.get("legal_concepts") or [])
+                _seeds.extend(refined_query.get("doctrines_at_issue") or [])
+                for s in _seeds:
+                    for w in str(s).lower().replace("_", " ").split():
+                        w = re.sub(r"[^a-z0-9]", "", w)
+                        if len(w) > 3 and w not in _hf_stop and w not in tokens:
+                            tokens.append(w)
+                        if len(tokens) >= 12: break
+                    if len(tokens) >= 12: break
+            # Fallback: situation-derived tokens (filtered)
+            if len(tokens) < 6:
+                for w in situation.lower().split():
+                    w = re.sub(r"[^a-z0-9]", "", w)
+                    if len(w) > 3 and w not in _hf_stop and w not in tokens:
+                        tokens.append(w)
+                    if len(tokens) >= 12: break
             if tokens:
                 hf_hits = _hf_search(
                     tokens,
