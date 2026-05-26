@@ -1002,7 +1002,7 @@ def api_config():
     return {
         "supabase_url":      config.SUPABASE_URL or "",
         "supabase_anon_key": config.SUPABASE_ANON_KEY or "",
-        "code_version":      "20260526c",
+        "code_version":      "20260526d",
     }
 
 
@@ -1512,12 +1512,27 @@ def _api_situation_impl(req: SituationRequest, _record):
     retrieval_cases: list = []
 
     # Pipeline time budget. The frontend AbortController fires at 180s.
-    # Reserve ~80s for the main LLM call (DeepSeek V3 normally 5-15s,
-    # worst-case 60s). Retrieval + reranker get the rest (~90s). If
-    # retrieval runs long (slow IK, slow DeepSeek reranker), the reranker
-    # is auto-skipped to stay within budget.
+    # The pipeline makes 2-3 sequential DeepSeek V3 calls:
+    #   - refine_query() (only for ≥80 word queries, ~5-15s)
+    #   - reranker (~5-15s, skippable)
+    #   - main LLM (~10-30s, required)
+    # Each call's worst case is V3 timeout (45s) + Groq fallback (20s) = 65s.
+    # Budget: 150s total, dynamically split based on time already spent.
     _PIPELINE_DEADLINE_SECONDS = 150.0       # total cap (30s buffer before 180s FE abort)
-    _RETRIEVAL_TIME_BUDGET = 90.0            # retrieval phase cap (leaves ~60s for LLM)
+
+    # Dynamic retrieval budget: subtract time already consumed by translate +
+    # refine, then reserve 65s for the main LLM call. Whatever's left is the
+    # retrieval budget (including the reranker). If refine_query() took 20s,
+    # retrieval gets 150 - 20 - 65 = 65s instead of a flat 90s.
+    _elapsed_before_retrieval = time.time() - _t_total
+    _RETRIEVAL_TIME_BUDGET = max(
+        30.0,  # absolute minimum — IK search + fetch needs at least 30s
+        _PIPELINE_DEADLINE_SECONDS - _elapsed_before_retrieval - 65.0,
+    )
+    print(
+        f"[situation] pipeline budget: {_elapsed_before_retrieval:.1f}s already used "
+        f"(translate+refine), retrieval gets {_RETRIEVAL_TIME_BUDGET:.0f}s"
+    )
 
     if client is not None:
         from headnote.kanoon.retrieval import (

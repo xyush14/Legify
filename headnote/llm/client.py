@@ -116,12 +116,17 @@ def _call_deepseek_fallback(
     log.warning("[llm] DeepSeek call (claude→ds: %s → %s)", claude_model, model)
 
     # Split timeout by model family:
-    #   V3 (deepseek-chat)      → 90s   — normally 5-15s; if >90s, DeepSeek is
+    #   V3 (deepseek-chat)      → 45s   — normally 5-15s; if >45s, DeepSeek is
     #                                      overloaded and Groq fallback is faster.
-    #   R1 (deepseek-reasoner)  → 180s  — chain-of-thought normally 60-120s.
-    # Previous: flat 240s for both. Two V3 calls in the situation pipeline
-    # (reranker + main) could burn 480s combined → frontend abort at 180s.
-    _ds_timeout = 180.0 if model == "deepseek-reasoner" else 90.0
+    #   R1 (deepseek-reasoner)  → 120s  — chain-of-thought normally 60-120s.
+    #
+    # CRITICAL: the situation pipeline makes 2-3 sequential V3 calls
+    # (refine + reranker + main). Each call's worst case is:
+    #   V3 timeout + Groq fallback timeout = 45 + 20 = 65s
+    # Three calls × 65s = 195s (still tight vs 180s FE abort, but the
+    # time budget gate skips the reranker when running late, so real-world
+    # worst case is 2 calls × 65s = 130s).
+    _ds_timeout = 120.0 if model == "deepseek-reasoner" else 45.0
     client = OpenAI(
         api_key=ds_key,
         base_url="https://api.deepseek.com",
@@ -192,7 +197,7 @@ def _call_groq_fallback(
         ],
         max_tokens=min(max_tokens or 4000, 8000),
         temperature=0.2,
-        timeout=60.0,
+        timeout=20.0,  # Groq free tier is fast (3-8s). 20s is generous; 60s was burning pipeline budget.
     )
     text = resp.choices[0].message.content or ""
     usage = resp.usage
