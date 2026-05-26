@@ -252,20 +252,21 @@ STEP 2 — Score EVERY corpus case on FOUR dimensions, integer 0–3 each:
       2 = High Court on point, or Supreme Court obiter directly on point
       3 = binding Supreme Court ratio directly on point
 
-  A case scoring 0 on FACT-ARCHETYPE MATCH is NOT relevant for this lawyer, no matter how famous. Drop it. Do not include it in the final list.
+  A case scoring 0 on FACT-ARCHETYPE MATCH is unlikely to be the lawyer's best fit, but if the corpus offers nothing closer, INCLUDE IT anyway with a low score and an honest stinger that calls out the fact-pattern gap. The lawyer needs to see the closest cases the corpus has, even imperfect ones — they can evaluate fit themselves. Only OMIT a corpus case if a genuinely better fact-match is also available.
 
 STEP 3 — Sort and select
   Sort by TOTAL score (sum of four dimensions, max 12) descending.
   Tiebreaker 1: fact-archetype match (descending).
   Tiebreaker 2: outcome alignment (descending).
-  Pick the top 3–5 unless the corpus is genuinely thin (then return fewer with confidence=medium/low).
+  ALWAYS return at least 3 cases when the corpus has at least 3 entries — even if scores are modest. Mark confidence=medium or low if the matches are imperfect, but DO return them. The lawyer can decide. Only return fewer than 3 when the corpus literally has fewer than 3 cases.
+  If the corpus has 5+ cases, return 3-5. Pick the top 5 by total score.
 
 ANTI-HALLUCINATION RULES (non-negotiable)
 =========================================
 1. NEVER cite a case not in the provided corpus. The corpus is your only universe.
 2. NEVER fabricate citations, paragraph numbers, statute references, or holdings. Every fact must trace to the corpus entry for that case.
 3. NEVER pull from general training-set knowledge of Indian case law. If a famous case comes to mind that isn't in the corpus, do not include it.
-4. If the corpus does not contain genuinely relevant cases, say so honestly via the "confidence" field. One honest match clearly labelled beats five forced matches.
+4. DO return what the corpus has. Returning an empty `cases` array is ALMOST ALWAYS the wrong call — the corpus was retrieved for a reason, and the lawyer needs visibility into what exists, even if no case is a perfect fit. Use the `confidence` field and the `stinger_sentence` to be honest about quality of fit. ONLY return zero cases if the corpus is literally empty (0 entries provided).
 
 CASE_ID FORMAT — THE SINGLE MOST IMPORTANT FORMATTING RULE
 ==========================================================
@@ -602,8 +603,9 @@ INSTRUCTIONS:
 - PARTY-ORIENTATION FILTER: if "parties_involved" indicates the lawyer's role (e.g. defence for the Accused), DOWNWEIGHT cases where the same authority was applied AGAINST that role's interests. A bail-grant precedent helps the accused; a bail-rejection precedent hurts. Treat outcome-alignment as a hard filter, not a soft preference.
 - DUAL CODE MATCH: when "dual_statute_map" provides both old + new section numbers (e.g. CrPC 156(3) → BNSS 175(3)), a case citing EITHER section qualifies as a statute match. Don't penalise pre-2024 cases for citing the old section.
 - CORE CIRCUMSTANCES are the chronological facts. Use these for fact-archetype scoring — a case with parallel sequence (e.g. advance paid → sale deed not executed → property sold to third party) scores higher than a case with just a similar doctrine.
-- Score every corpus case on the four dimensions. Drop any case scoring 0 on fact-archetype match.
-- For PROCEDURAL/DOCTRINAL questions (intent_type=procedural_law_question or doctrinal_inquiry), weight DOCTRINAL_MATCH higher than FACT_ARCHETYPE_MATCH — score fact_archetype neutral (1-2) for all candidates rather than dropping cases on it.
+- Score every corpus case on the four dimensions. Cases scoring 0 on fact-archetype can still be returned if they're the corpus's best offering for this question — just mark the gap honestly in the stinger.
+- For PROCEDURAL/DOCTRINAL questions (intent_type=procedural_law_question or doctrinal_inquiry), weight DOCTRINAL_MATCH higher than FACT_ARCHETYPE_MATCH — score fact_archetype neutral (1-2) for all candidates because procedural cases rarely share fact patterns. Doctrine/principle match is what counts here.
+- MINIMUM OUTPUT RULE: If the corpus has 5+ cases, return 5. If it has 3-4, return all of them. NEVER return an empty cases array unless the corpus literally has 0 entries. The lawyer needs visibility into what exists; use the confidence field to signal quality.
 - Return top 3–5 by total score, with relevance_scores populated per case.
 - For EACH returned case, populate THREE fields in this order of importance:
     1. stinger_sentence — 25-40 words, references the lawyer's SPECIFIC facts.

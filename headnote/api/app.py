@@ -1005,7 +1005,7 @@ def api_config():
     return {
         "supabase_url":      config.SUPABASE_URL or "",
         "supabase_anon_key": config.SUPABASE_ANON_KEY or "",
-        "code_version":      "20260526k",
+        "code_version":      "20260526l",
     }
 
 
@@ -1562,6 +1562,25 @@ def _api_situation_impl(req: SituationRequest, _record):
         curated_lookup = {c["id"]: c for c in curated}
         corpus_json = result_to_prompt_corpus_json(ret, curated_lookup)
         sys_prompt = build_situation_system_prompt(req.style, corpus_json) + IK_PROMPT_ADDENDUM
+
+        # Log what retrieval surfaced — critical for diagnosing "LLM
+        # returned 0 cases" scenarios. Without this we can't tell whether
+        # the retrieval pool was empty or the LLM rejected everything.
+        _by_source: dict[str, int] = {}
+        for cs in retrieval_cases:
+            _by_source[cs.source] = _by_source.get(cs.source, 0) + 1
+        print(
+            f"[situation-retrieve] surfaced {len(retrieval_cases)} cases "
+            f"by source={_by_source}, evidence_paragraphs={len(evidence)}, "
+            f"corpus_json_chars={len(corpus_json)}"
+        )
+        for i, cs in enumerate(retrieval_cases[:10]):
+            print(
+                f"  [{i+1}] {cs.case_id} | {cs.source} | "
+                f"score={cs.relevance_score:.2f} | {cs.title[:80]}"
+            )
+        if ret.meta.notes:
+            print(f"[situation-retrieve-notes] {ret.meta.notes}")
         ik_meta_extra = {
             "retrieval_path": "ik+curated",
             "retrieval_mode": req.mode,
@@ -1686,6 +1705,50 @@ def _api_situation_impl(req: SituationRequest, _record):
     primary_model = chosen_model
     escalated = False
     parsed = parse_json_response(raw)
+
+    # SAFETY NET: if the LLM returned 0 cases but retrieval surfaced ≥3,
+    # the LLM was being too conservative (V3 is prone to this). Force the
+    # top 3 retrieval results through with minimal LLM-generated content.
+    # The lawyer can decide if they're useful — better than empty page.
+    _llm_cases_count = len(parsed.get("cases", []))
+    if _llm_cases_count == 0 and len(retrieval_cases) >= 3:
+        print(
+            f"[situation-safety] LLM returned 0 cases but retrieval surfaced "
+            f"{len(retrieval_cases)} — injecting top 3 as fallback"
+        )
+        fallback_cases = []
+        for cs in retrieval_cases[:3]:
+            fallback_cases.append({
+                "case_id": cs.case_id,
+                "title": cs.title,
+                "court": cs.court,
+                "year": cs.year,
+                "citation": cs.citation,
+                "stinger_sentence": (
+                    f"This case was surfaced from the corpus by relevance "
+                    f"to your matter. Review the judgment to assess fit."
+                ),
+                "held_line": "",
+                "negative_carve_out": "",
+                "court_quote": "",
+                "relevance_explanation": "",
+                "match_dimensions": [],
+                "relevance_scores": {
+                    "fact_archetype_match": 1,
+                    "doctrinal_match": 1,
+                    "outcome_alignment": 1,
+                    "authority_weight": 1,
+                    "total": 4,
+                },
+                "fallback_safety_net": True,
+            })
+        parsed["cases"] = fallback_cases
+        parsed.setdefault("confidence", "low")
+        parsed.setdefault("internal_reasoning", {})
+        parsed["internal_reasoning"]["safety_net_triggered"] = (
+            "LLM returned 0 cases; retrieval pool had ≥3 candidates. "
+            "Top 3 injected as fallback."
+        )
 
     # Existence filter — a case_id is "known" if it appeared in ANY of:
     #   (a) curated corpus (42 hand-vetted cases)
