@@ -98,18 +98,20 @@ INDIAN_KANOON_DAILY_CAP_INR: Optional[float] = (
 
 # ----------------------------------------------------------------- quality knobs
 # Two env-var knobs that flip the quality/cost trade-off per-host.
-# Cheap-and-fast preset (Render Free):  SITUATION_MODEL=haiku, ENABLE_SONNET_RERANKER=0
-# Quality preset (Railway / Pro / VPS): SITUATION_MODEL=sonnet, ENABLE_SONNET_RERANKER=1  (default)
+#
+# Under LLM_PROVIDER=deepseek:
+#   "haiku"  → deepseek-chat (V3)      — fast (5-15s/call), good quality
+#   "sonnet" → deepseek-reasoner (R1)  — slow (60-120s/call), chain-of-thought
+#   "opus"   → deepseek-reasoner (R1)  — same as sonnet under DeepSeek
+#
+# DEFAULT IS NOW HAIKU. R1's chain-of-thought is overkill for "rank 20
+# candidates and emit JSON" — V3 produces comparable output 3-5× faster
+# and prevents the 3-min Railway request timeout. Deep mode keeps R1 for
+# users who explicitly opt into the slower deeper reasoning path.
+SITUATION_MODEL: str = os.environ.get("SITUATION_MODEL", "haiku").lower().strip()
 
-# Model the situation endpoint uses when deep_mode is OFF.
-# Accepts: haiku | sonnet | opus (or a full Anthropic model id).
-SITUATION_MODEL: str = os.environ.get("SITUATION_MODEL", "sonnet").lower().strip()
-
-# When the situation endpoint is in deep_mode (the explicit "premium" toggle),
-# use this model. Defaults to Sonnet — empirically Sonnet 4.6 with extended
-# thinking matches or beats Opus 4.7 on legal four-dimension scoring at
-# roughly 1/5 the per-query cost. Override to "opus" if you want the
-# explicit Opus retry for power-user queries.
+# When deep_mode is ON, use R1 (slower, chain-of-thought reasoning).
+# Most users don't need this — V3 is the right default.
 SITUATION_DEEP_MODEL: str = os.environ.get("SITUATION_DEEP_MODEL", "sonnet").lower().strip()
 
 # Enable Sonnet fact-pattern reranking inside Hidden Authorities. This is the
