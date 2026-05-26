@@ -486,7 +486,7 @@ def _maybe_autorebuild_corpus_on_boot() -> None:
     # Target: at least 100K cases (summ 7K + pcr 4K + cjpe 34K + lsi 66K = ~112K).
     # The full 290K needs bail (176K, 2.5GB) which requires an 8GB volume.
     # Below 100K means at least one importable subset is missing — rebuild.
-    _MIN_CORPUS_TARGET = int(_os2.environ.get("MIN_CORPUS_TARGET", "100000"))
+    _MIN_CORPUS_TARGET = int(os.environ.get("MIN_CORPUS_TARGET", "100000"))
     if current_total >= _MIN_CORPUS_TARGET:
         _AUTOREBUILD_STATUS = {
             "state": "healthy",
