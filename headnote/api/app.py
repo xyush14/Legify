@@ -1011,6 +1011,67 @@ def debug_llm_invoke():
         }
 
 
+@app.get("/api/debug/deepseek", summary="Directly test DeepSeek API (DEBUG)")
+def debug_deepseek_direct():
+    """Bypass the Headnote fallback chain entirely — call DeepSeek's API
+    directly and report the exact response (or error). This is the only
+    way to confirm DEEPSEEK_API_KEY is valid + the endpoint is reachable
+    + the model is being called correctly.
+    """
+    import os as _os
+    key = _os.environ.get("DEEPSEEK_API_KEY", "").strip()
+    if not key:
+        return {
+            "ok": False,
+            "error": "DEEPSEEK_API_KEY env var is empty or missing on Railway",
+            "fix": "Open Railway → Variables → add DEEPSEEK_API_KEY with your key from platform.deepseek.com",
+        }
+
+    # Mask the key for the response so we can confirm it's set without leaking
+    masked = key[:6] + "..." + key[-4:] if len(key) > 10 else "(too short)"
+
+    try:
+        from openai import OpenAI
+    except ImportError as e:
+        return {"ok": False, "error": f"openai SDK not installed: {e}"}
+
+    client = OpenAI(
+        api_key=key,
+        base_url="https://api.deepseek.com",
+        timeout=30.0,
+    )
+
+    # Try both models — V3 (cheap) first, then R1
+    results = {"key_masked": masked, "key_length": len(key)}
+    for model in ["deepseek-chat", "deepseek-reasoner"]:
+        try:
+            resp = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": "Reply with exactly OK."},
+                    {"role": "user",   "content": "ping"},
+                ],
+                max_tokens=10,
+                temperature=0.0,
+            )
+            results[model] = {
+                "ok": True,
+                "response": (resp.choices[0].message.content or "")[:50],
+                "input_tokens": getattr(resp.usage, "prompt_tokens", 0) if resp.usage else 0,
+                "output_tokens": getattr(resp.usage, "completion_tokens", 0) if resp.usage else 0,
+            }
+        except Exception as e:
+            # Surface the raw error so we can see exactly what DeepSeek is rejecting
+            err_msg = str(e)[:800]
+            err_type = type(e).__name__
+            results[model] = {
+                "ok": False,
+                "error_type": err_type,
+                "error": err_msg,
+            }
+    return results
+
+
 @app.get("/api/health", summary="Liveness check + config summary")
 def health():
     # Add HF corpus stats so we can confirm the import landed without
