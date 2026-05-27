@@ -534,6 +534,23 @@
       <div id="ocr-result"></div>
     </div>
 
+    <!-- OCR 2 — Sessions Court order (best source for HC 439 successive bail) -->
+    <div class="section" id="section-bail-order-ocr" style="display:none;">
+      <div class="section__eyebrow" data-en="RECOMMENDED FOR HC BAIL" data-hi="उच्च न्यायालय जमानत हेतु अनुशंसित">उच्च न्यायालय जमानत हेतु अनुशंसित</div>
+      <h3 class="section__title" data-en="Upload Sessions Court Order" data-hi="सत्र न्यायालय का आदेश अपलोड करें">सत्र न्यायालय का आदेश अपलोड करें</h3>
+      <label class="ocr-zone" id="bo-zone">
+        <input type="file" id="bo-file" accept="image/*,application/pdf" multiple>
+        <div class="ocr-zone__icon">⚖️</div>
+        <div class="ocr-zone__title" id="bo-title" data-en="Upload the lower court's bail rejection order" data-hi="निचली अदालत का जमानत निरस्तीकरण आदेश अपलोड करें">निचली अदालत का जमानत निरस्तीकरण आदेश अपलोड करें</div>
+        <div class="ocr-zone__sub" id="bo-sub" data-en="Fills court, case no, judge, order date, grounds + crime details · 1-8 pages" data-hi="न्यायालय, प्रकरण क्र., न्यायाधीश, आदेश दिनांक, आधार + अपराध विवरण भरता है · 1-8 पन्ने">न्यायालय, प्रकरण क्र., न्यायाधीश, आदेश दिनांक, आधार + अपराध विवरण भरता है · 1-8 पन्ने</div>
+      </label>
+      <div class="ocr-pages" id="bo-pages"></div>
+      <div class="ocr-cta" id="bo-cta" style="display:none;">
+        <button type="button" id="bo-clear" data-en="Clear" data-hi="हटाएं">हटाएं</button>
+        <button type="button" id="bo-extract" class="primary" data-en="Extract with AI" data-hi="AI से निकालें">AI से निकालें</button>
+      </div>
+    </div>
+
     <!-- 1. Court & Application Type -->
     <div class="section">
       <div class="section__eyebrow" data-en="SECTION 1" data-hi="अनुभाग 1">अनुभाग 1</div>
@@ -1766,6 +1783,12 @@ function onChange() {
   document.getElementById('field-current-jail').style.display = state.answers.bail_section === '438' ? 'none' : '';
   document.getElementById('field-arrest-date').style.display = state.answers.bail_section === '438' ? 'none' : '';
 
+  // Sessions-order OCR zone — show for regular bail (439/483 BNSS), where a
+  // lower-court order is the best source. Hidden for anticipatory (438), which
+  // has no prior order yet.
+  const _boEl = document.getElementById('section-bail-order-ocr');
+  if (_boEl) _boEl.style.display = (state.answers.bail_section === '439') ? '' : 'none';
+
   // Suggestions
   renderHints();
 
@@ -2160,6 +2183,167 @@ document.getElementById('ocr-clear').addEventListener('click', () => {
 });
 
 document.getElementById('ocr-extract').addEventListener('click', runOcr);
+
+// =========================================================================
+// SESSIONS COURT ORDER OCR — second upload zone, best source for HC 439
+// successive bail. Posts to /api/draft/ocr-bail-order and maps the order's
+// fields (lower court, case no, judge, order date, grounds, crime details)
+// into the bail form. OCR data REPLACES manual entry (same policy as FIR).
+// =========================================================================
+const boState = { files: [] };
+const boFileInput = document.getElementById('bo-file');
+const boPagesEl   = document.getElementById('bo-pages');
+const boCtaEl     = document.getElementById('bo-cta');
+const boZone      = document.getElementById('bo-zone');
+const boTitle     = document.getElementById('bo-title');
+const boSub       = document.getElementById('bo-sub');
+
+if (boFileInput) {
+  boFileInput.addEventListener('change', (e) => {
+    const newFiles = Array.from(e.target.files || []);
+    const room = 8 - boState.files.length;
+    boState.files.push(...newFiles.slice(0, room));
+    e.target.value = '';
+    renderBoPages();
+  });
+  document.getElementById('bo-clear').addEventListener('click', () => {
+    boState.files = [];
+    renderBoPages();
+    resetBoZoneText();
+  });
+  document.getElementById('bo-extract').addEventListener('click', runBailOrderOcr);
+}
+
+function renderBoPages() {
+  boPagesEl.innerHTML = '';
+  boState.files.forEach((file, idx) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'ocr-page';
+    wrap.title = file.name;
+    if (file.type.startsWith('image/')) {
+      const img = document.createElement('img');
+      img.src = URL.createObjectURL(file);
+      wrap.appendChild(img);
+    } else {
+      wrap.textContent = 'PDF';
+      wrap.style.cssText += 'display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted);';
+    }
+    const num = document.createElement('div');
+    num.className = 'ocr-page__num'; num.textContent = idx + 1;
+    wrap.appendChild(num);
+    const rm = document.createElement('button');
+    rm.className = 'ocr-page__rm'; rm.type = 'button'; rm.textContent = '×';
+    rm.onclick = () => { boState.files.splice(idx, 1); renderBoPages(); };
+    wrap.appendChild(rm);
+    boPagesEl.appendChild(wrap);
+  });
+  boCtaEl.style.display = boState.files.length ? 'flex' : 'none';
+}
+
+function resetBoZoneText() {
+  const isHi = state.lang === 'hi';
+  boTitle.textContent = isHi ? 'निचली अदालत का जमानत निरस्तीकरण आदेश अपलोड करें' : "Upload the lower court's bail rejection order";
+  boSub.textContent   = isHi ? 'न्यायालय, प्रकरण क्र., न्यायाधीश, आदेश दिनांक, आधार + अपराध विवरण भरता है · 1-8 पन्ने' : 'Fills court, case no, judge, order date, grounds + crime details · 1-8 pages';
+}
+
+async function runBailOrderOcr() {
+  if (!boState.files.length) return;
+  const isHi = state.lang === 'hi';
+  boZone.classList.add('ocr-zone--busy');
+  const n = boState.files.length;
+  boTitle.textContent = isHi ? `${n} पन्ने पढ़े जा रहे हैं…` : `Reading ${n} page${n>1?'s':''}…`;
+  boSub.textContent   = isHi ? '6-12 सेकंड' : 'this takes 6-12 seconds';
+  try {
+    const fd = new FormData();
+    boState.files.forEach(f => fd.append('files', f));
+    const headers = await authHeaders();
+    const r = await fetch('/api/draft/ocr-bail-order', { method: 'POST', headers, body: fd });
+    if (await handleAuthError(r.status)) return;
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(_extractErrorMessage(err) || `HTTP ${r.status}`);
+    }
+    const data = await r.json();
+    const ext = data.extracted || {};
+    applyBailOrderResult(ext);
+    const conf = ext.confidence || 'unknown';
+    boTitle.textContent = isHi ? `✓ आदेश पढ़ा गया (विश्वसनीयता: ${conf})` : `✓ order extracted (confidence: ${conf})`;
+    boSub.textContent   = isHi ? 'फ़ील्ड भरी गईं — जाँचें और संपादित करें' : 'fields auto-filled — review and edit';
+    toast(isHi ? 'सत्र न्यायालय आदेश से फ़ील्ड भरीं' : 'Filled fields from Sessions Court order', 'ok');
+    if (ext.notes) toast((isHi ? 'टिप्पणी: ' : 'Note: ') + ext.notes, 'warn');
+  } catch (err) {
+    boTitle.textContent = isHi ? '✗ OCR विफल' : '✗ OCR failed';
+    boSub.textContent   = err.message || (isHi ? 'स्पष्ट फोटो लें' : 'try a clearer photo');
+    toast('OCR failed: ' + (err.message || 'unknown error'), 'err');
+  } finally {
+    boZone.classList.remove('ocr-zone--busy');
+  }
+}
+
+function applyBailOrderResult(o) {
+  if (!o) return;
+  const ans = state.answers;
+  const set = (k, v) => { if (v != null && String(v).trim()) ans[k] = v; };
+
+  // Applicant(s) — the accused in the order become the bail applicant(s).
+  const apps = Array.isArray(o.applicants) ? o.applicants : [];
+  if (apps[0]) {
+    set('applicant_name',    apps[0].name);
+    set('applicant_father',  apps[0].relative);
+    set('applicant_age',     apps[0].age);
+    set('applicant_address', apps[0].address);
+  }
+  // Co-applicants (2nd onwards) → co_accused parity rows.
+  if (apps.length > 1) {
+    ans.co_accused = [];
+    apps.slice(1).forEach(a => {
+      if (a && a.name) ans.co_accused.push({ parties: a.name, case_no: '', outcome: 'Co-applicant' });
+    });
+  }
+
+  // Crime details
+  set('state_name',     o.state_name);
+  set('police_station', o.police_station);
+  set('district',       o.district);
+  set('fir_number',     o.fir_number_full || o.fir_number);
+  set('fir_date',       o.fir_date);
+  if (Array.isArray(o.sections) && o.sections.length) ans.sections_str = o.sections.join(', ');
+
+  // Lower court block — this is the unique value of the Sessions order.
+  set('trial_court',  o.court_name);
+  set('trial_judge',  o.presiding_judge);
+  set('trial_case_no', o.main_case_number || o.bail_case_number);
+
+  // Successive bail: the HC application follows a lower-court rejection.
+  ans.application_number = Math.max(2, parseInt(o.application_number || 1) + (
+    (o.outcome && /reject|dismiss/i.test(o.outcome)) ? 1 : 0
+  ));
+
+  // Lower-court history — what the Sessions Court held + why (the draft
+  // must address this on appeal/successive bail).
+  if (o.outcome || o.outcome_reasoning) {
+    const od = o.order_date ? ` dated ${o.order_date}` : '';
+    const res = (o.outcome || 'disposed of').toString();
+    const reason = o.outcome_reasoning ? ` Reasoning: ${o.outcome_reasoning}` : '';
+    ans.lower_court_history =
+      `The bail application before ${o.court_name || 'the lower court'}` +
+      `${o.bail_case_number ? ' (No. ' + o.bail_case_number + ')' : ''}${od} was ${res}.${reason}`;
+  }
+
+  // Facts narrative (bilingual stash so the language toggle can swap)
+  const nh = o.facts_narrative_hi || '', ne = o.facts_narrative_en || '';
+  if (nh || ne) {
+    ans._narrative_hi = nh || ne;
+    ans._narrative_en = ne || nh;
+    ans.facts_narrative = (state.lang === 'hi') ? (ans._narrative_hi) : (ans._narrative_en);
+  }
+
+  // Advocate (only if the form is empty — don't override the lawyer's persona)
+  if (o.applicant_advocate && !ans.advocate_name) set('advocate_name', o.applicant_advocate);
+
+  syncUIToState();
+  onChange();
+}
 
 function renderOcrPages() {
   ocrPagesEl.innerHTML = '';
