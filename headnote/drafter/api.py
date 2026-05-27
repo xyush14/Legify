@@ -364,6 +364,68 @@ async def ocr_fir(
         return {"ok": True, "page_count": len(pages), "extracted": parsed}
 
 
+@router.post("/ocr-bail-order", summary="OCR a Sessions/Magistrate bail order → structured fields")
+async def ocr_bail_order(
+    file: Optional[UploadFile] = File(None),
+    files: Optional[List[UploadFile]] = File(None),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """Vision reads a lower-court BAIL ORDER (the order disposing of a bail /
+    anticipatory-bail application) and returns the fields needed to draft a
+    SUCCESSIVE bail application before the High Court — lower court name,
+    bail-case number, order date, applicants, crime details, the outcome,
+    and the court's reasoning.
+
+    Best document for a S.439 / S.483 BNSS High Court bail draft: it carries
+    six fields the FIR can't (Sessions case number, judge, order date,
+    application number, the rejection reasoning, prior-bail history).
+
+    Accepts a single `file` or a list of `files` (multi-page order).
+    Supported: JPEG, PNG, WebP, GIF, PDF. Max 20 MB/file, 8 pages.
+    Gated: draft feature.
+    """
+    from headnote.drafter.ocr import ocr_bail_order_pages
+
+    uploads: List[UploadFile] = []
+    if files:
+        uploads.extend(files)
+    if file:
+        uploads.append(file)
+    if not uploads:
+        raise HTTPException(status_code=400, detail="upload 'file' or 'files'")
+    if len(uploads) > _OCR_MAX_PAGES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"too many pages ({len(uploads)}); max {_OCR_MAX_PAGES}",
+        )
+
+    pages: list[tuple[bytes, str]] = []
+    for idx, up in enumerate(uploads, start=1):
+        mt = up.content_type or ""
+        if mt not in _OCR_ALLOWED_MIME:
+            raise HTTPException(
+                status_code=400,
+                detail=f"page {idx}: unsupported file type {mt!r}; use JPEG, PNG, WebP, GIF, or PDF",
+            )
+        data = await up.read()
+        if not data:
+            raise HTTPException(status_code=400, detail=f"page {idx}: empty file")
+        if len(data) > _OCR_MAX_BYTES:
+            raise HTTPException(status_code=400, detail=f"page {idx}: too large; max 20 MB")
+        pages.append((data, mt))
+
+    with check_and_record(user.id, "draft", endpoint="ocr_bail_order", email=user.email) as _record:
+        try:
+            parsed = ocr_bail_order_pages(pages)
+        except ValueError as e:
+            raise HTTPException(status_code=502, detail=f"OCR failed: {e}")
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"OCR error: {e}")
+
+        _record(cost_paise=300 * len(pages), model="claude-sonnet-4-6-vision")
+        return {"ok": True, "page_count": len(pages), "extracted": parsed}
+
+
 # ----------------------------------------------------------- Voice transcription
 
 # Audio formats Whisper accepts. Web's MediaRecorder typically produces
