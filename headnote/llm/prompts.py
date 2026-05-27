@@ -337,6 +337,7 @@ OUTPUT JSON SCHEMA (style-dependent fields shown together — populate the block
         "outcome_match":  "string — one sentence on whether the case's outcome HELPS the lawyer's client. Mark adverse outcomes clearly: '⚠ this case went the OTHER way — opposing counsel may cite it'"
       },
       "court_quote": "string — ONE verbatim quote ≤30 words from the judgment that resolves the lawyer's question. Empty string if no clean verbatim line exists; never paraphrase. NEVER translate — if the source is English, quote in English; if Hindi, quote in Hindi.",
+      "paragraph_anchor": "string — REQUIRED whenever you have evidence. The paragraph number(s) where the held_line and court_quote come from, so the lawyer can cite and verify. Format: '(Para 14)' or '(Paras 14, 16-17)'. Take the number from the `num` field of the _ik_paragraphs you quoted; if num is null use the para id like '(p_24)'. Read it off the SAME paragraph your court_quote is taken from. Empty string ONLY if the corpus entry genuinely carries no paragraph numbers at all.",
       "relevance_explanation": "DEPRECATED — use stinger_sentence + held_line + match_dimensions. Leave empty string.",
       "bns_note": "string — IPC/CrPC/Evidence Act → BNS/BNSS/BSA mapping for matters post 1 July 2024",
       "outcome": "acquittal | quashed | dismissed | conviction | remand | bail-granted | bail-denied | other",
@@ -628,6 +629,13 @@ INSTRUCTIONS:
 - relevance_explanation: SET TO EMPTY STRING. Deprecated field.
 - court_quote: ≤30 words verbatim. Never translate. If source is English,
   English quote. If source is Hindi (BAIL subset), Hindi quote.
+- paragraph_anchor: MANDATORY. Cite the paragraph number(s) the court_quote
+  and held_line come from — a lawyer cannot use a precedent they cannot
+  pinpoint and verify. Read the `num` off the SAME _ik_paragraphs entry your
+  court_quote is drawn from. Format '(Para 16)' or '(Paras 14, 16-17)'. If
+  that paragraph's num is null, use its id like '(p_16)'. Only leave empty if
+  the corpus entry has NO paragraph numbers anywhere. Never invent a number —
+  it must match a real paragraph in _ik_paragraphs.
 - Populate internal_reasoning with your decomposition and scoring rationale.
 - Return JSON conforming to the schema. No prose outside JSON. No markdown fences.
 """

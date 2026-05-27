@@ -609,14 +609,23 @@
       ]}));
     }
 
-    // 2. HELD line — binding rule
+    // 2. HELD line — binding rule, with paragraph anchor appended
+    // (Cri.L.J. convention: "HELD — [rule]. (Paras 14, 16-17)"). Showing the
+    // anchor here guarantees the lawyer always sees the citable paragraph,
+    // even on cards that have no verbatim quote.
     if (c.held_line || c.ratio) {
-      const heldText = c.held_line || c.ratio;
+      let heldText = c.held_line || c.ratio;
       // Ensure HELD prefix is present for visual recognition
-      const formatted = /^HELD\s*[—:-]/i.test(heldText) ? heldText : ('HELD — ' + heldText);
+      heldText = /^HELD\s*[—:-]/i.test(heldText) ? heldText : ('HELD — ' + heldText);
+      const heldCell = ce('div', { cls: 'case-card__rowtext', text: heldText });
+      // Append the paragraph anchor if the quote row won't already show it,
+      // or always — the anchor is the holding's citation pointer.
+      if (c.paragraph_anchor) {
+        heldCell.appendChild(ce('span', { cls: 'mono', text: '  ' + c.paragraph_anchor }));
+      }
       rows.push(ce('div', { cls: 'case-card__row', children: [
         ce('div', { cls: 'case-card__rowlabel', text: 'held' }),
-        ce('div', { cls: 'case-card__rowtext', text: formatted }),
+        heldCell,
       ]}));
     }
 
