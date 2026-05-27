@@ -101,6 +101,22 @@ INDIAN_KANOON_DAILY_CAP_INR: Optional[float] = (
     float(_daily_cap_env) if _daily_cap_env else None
 )
 
+# HF→IK resolution (layer 2). HF judgments (IL-TUR cjpe/summ) have text but
+# NO verifiable public link — a lawyer can't open/cite them. When an HF case
+# survives reranking, we search Indian Kanoon for its caption/case-number and,
+# if a confident match is found, REPLACE it with the real IK judgment (real
+# title, citation, verifiable URL). HF cases that can't be resolved are
+# SUPPRESSED — never shown with a broken/missing link. Result: every displayed
+# case is verifiable on Indian Kanoon, or it isn't shown.
+#   ENABLE_HF_IK_RESOLUTION : master switch (default ON)
+#   HF_IK_RESOLUTION_BUDGET : max IK searches per query (cost/latency cap;
+#                             resolved mappings are cached, so steady-state
+#                             cost trends to ~0 as the cache warms)
+ENABLE_HF_IK_RESOLUTION = os.environ.get(
+    "ENABLE_HF_IK_RESOLUTION", "true",
+).lower() in {"1", "true", "yes"}
+HF_IK_RESOLUTION_BUDGET = int(os.environ.get("HF_IK_RESOLUTION_BUDGET", "6"))
+
 # ----------------------------------------------------------------- quality knobs
 # Two env-var knobs that flip the quality/cost trade-off per-host.
 #

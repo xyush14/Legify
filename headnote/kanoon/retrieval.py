@@ -1465,19 +1465,62 @@ def retrieve_for_situation(
             # results. Operator picks via the ENABLE_SONNET_RERANKER env var.
             from headnote import config as _hncfg
             _force_skip_rerank = _skip_rerank_time or not _hncfg.ENABLE_SONNET_RERANKER
+            # Ask the reranker for EXTRA candidates beyond top_cases so the
+            # HF→IK resolution step below has runners-up to backfill with when
+            # an HF case is suppressed (no verifiable link).
+            _rerank_k = top_cases + 8 if _hncfg.ENABLE_HF_IK_RESOLUTION else top_cases
             scored = rank_candidates(
                 situation,
                 candidates,
                 mode,
                 query_jurisdiction=jurisdiction,
-                result_top_k=top_cases,
+                result_top_k=_rerank_k,
                 skip_sonnet_rerank=_force_skip_rerank,
             )
 
             # Map scored results back to CaseSummary (preserving paragraph data).
             case_by_id = {cs.case_id: cs for cs in cases}
-            cases = [case_by_id[sc.candidate.case_id]
-                     for sc in scored if sc.candidate.case_id in case_by_id]
+            ranked = [case_by_id[sc.candidate.case_id]
+                      for sc in scored if sc.candidate.case_id in case_by_id]
+
+            # ---- HF→IK resolution + verifiable-only display ----
+            # Walk the ranked list and build the final set. IK/curated cases
+            # are kept as-is. HF cases (no verifiable link) are resolved to
+            # their real IK judgment; if they can't be resolved, they're
+            # SUPPRESSED and the next ranked case takes their place. Result:
+            # every displayed case is verifiable on Indian Kanoon.
+            if _hncfg.ENABLE_HF_IK_RESOLUTION:
+                _budget = _hncfg.HF_IK_RESOLUTION_BUDGET
+                _final: list[CaseSummary] = []
+                _resolved_ev: list[EvidenceParagraph] = []
+                _seen_ids: set[str] = set()
+                for cs in ranked:
+                    if len(_final) >= top_cases:
+                        break
+                    if _verifiable(cs):
+                        if cs.case_id not in _seen_ids:
+                            _final.append(cs); _seen_ids.add(cs.case_id)
+                        continue
+                    # HF case → attempt resolution within time + call budget.
+                    _late = (time.time() - t0) > (time_budget_seconds * 0.9)
+                    if _budget <= 0 or _late:
+                        continue  # out of budget/time → suppress unverifiable
+                    _budget -= 1
+                    _res = _resolve_hf_to_ik(cs, client, situation, top_paragraphs_per_case, meta)
+                    if _res is not None:
+                        ik_cs, ik_ev = _res
+                        if ik_cs.case_id not in _seen_ids:
+                            _final.append(ik_cs); _seen_ids.add(ik_cs.case_id)
+                            _resolved_ev.extend(ik_ev)
+                    # unresolved → suppressed (skip)
+                cases = _final
+                evidence = evidence + _resolved_ev
+                meta.notes.append(
+                    f"hf→ik resolution: {len(cases)} verifiable cases "
+                    f"(budget used {_hncfg.HF_IK_RESOLUTION_BUDGET - _budget})"
+                )
+            else:
+                cases = ranked[:top_cases]
 
             # Trim evidence to match selected cases.
             selected_ids = {c.case_id for c in cases}
@@ -1506,6 +1549,172 @@ def _was_cached(client: KanoonClient, page) -> bool:
 
 def _doc_was_cached(client: KanoonClient, tid: int) -> bool:
     return client._get_cached_doc(tid) is not None  # noqa: SLF001 (internal access OK)
+
+
+# ===================================================================== #
+# HF→IK RESOLUTION (layer 2)                                            #
+# Replace an HF judgment (no verifiable link) with its real Indian      #
+# Kanoon equivalent (verifiable title + citation + URL), or suppress it.#
+# ===================================================================== #
+
+def _verifiable(case: "CaseSummary") -> bool:
+    """A case is verifiable if a lawyer can open the real judgment: it's an
+    IK doc (ik:<tid>) or a hand-vetted curated case. HF-only cases are not."""
+    cid = case.case_id or ""
+    return cid.startswith("ik:") or case.source == "curated"
+
+
+_HF_IK_STOP = {
+    "state", "of", "the", "v", "vs", "versus", "and", "anr", "ors", "others",
+    "another", "union", "india", "through", "thru", "secy", "secretary",
+    "home", "prin", "principal", "etc", "re", "in",
+}
+
+
+def _ik_query_from_title(title: str) -> str:
+    """Turn an HF title into an IK search query. For a party caption we keep
+    the distinctive party tokens; for a case-number line we keep the number.
+    Returns '' if nothing searchable."""
+    t = (title or "").strip()
+    if not t:
+        return ""
+    # Case-number line → search the number form verbatim (quoted-ish).
+    if _CASENO_RE.search(t) and not _CAPTION_RE.search(t):
+        # keep alphanumerics + 'of' + slashes; cap length
+        return re.sub(r"\s+", " ", t)[:120]
+    # Caption → distinctive party tokens (drop generic legal words).
+    toks = []
+    for w in re.split(r"[^A-Za-z0-9]+", t):
+        wl = w.lower()
+        if len(w) >= 3 and wl not in _HF_IK_STOP:
+            toks.append(w)
+        if len(toks) >= 8:
+            break
+    return " ".join(toks)
+
+
+def _ensure_hf_ik_cache(cache_path) -> None:
+    import sqlite3 as _sq
+    try:
+        c = _sq.connect(cache_path, timeout=10)
+        c.execute(
+            "CREATE TABLE IF NOT EXISTS hf_ik_resolution ("
+            " hf_id TEXT PRIMARY KEY, ik_tid INTEGER, resolved_at TEXT)"
+        )
+        c.commit()
+        c.close()
+    except Exception:
+        pass
+
+
+def _hf_ik_cache_get(cache_path, hf_id: str):
+    """Return ik_tid (int >=0), -1 for known no-match, or None if uncached."""
+    import sqlite3 as _sq
+    try:
+        c = _sq.connect(cache_path, timeout=10)
+        row = c.execute(
+            "SELECT ik_tid FROM hf_ik_resolution WHERE hf_id=?", (hf_id,)
+        ).fetchone()
+        c.close()
+        return int(row[0]) if row else None
+    except Exception:
+        return None
+
+
+def _hf_ik_cache_set(cache_path, hf_id: str, ik_tid: int) -> None:
+    import sqlite3 as _sq
+    import datetime as _dt
+    try:
+        c = _sq.connect(cache_path, timeout=10)
+        c.execute(
+            "INSERT OR REPLACE INTO hf_ik_resolution (hf_id, ik_tid, resolved_at)"
+            " VALUES (?, ?, ?)",
+            (hf_id, int(ik_tid), _dt.datetime.utcnow().isoformat()),
+        )
+        c.commit()
+        c.close()
+    except Exception:
+        pass
+
+
+def _ik_case_from_tid(
+    tid: int, client: KanoonClient, situation: str,
+    base_score: float, top_paragraphs_per_case: int,
+) -> tuple["CaseSummary", list[EvidenceParagraph]] | None:
+    """Fetch IK doc tid, parse it, and build a verifiable CaseSummary + its
+    evidence paragraphs. Returns None on any failure."""
+    try:
+        doc = client.get_doc(tid)
+        parsed = parse_judgment(
+            doc.doc_html, tid=tid,
+            title_hint=doc.title, court_hint=doc.docsource,
+            publishdate_hint=doc.publishdate,
+        )
+        top_paras = _rank_paragraphs(parsed.paragraphs, situation, top_paragraphs_per_case)
+        case_id = f"ik:{tid}"
+        cs = CaseSummary(
+            case_id=case_id,
+            title=parsed.title or doc.title,
+            court=parsed.court or doc.docsource,
+            year=parsed.date_of_decision[:4] if parsed.date_of_decision else "",
+            citation=parsed.primary_citation,
+            bench=", ".join(parsed.bench),
+            source="ik-resolved",
+            numcitedby=doc.numcitedby,
+            relevance_score=base_score,
+            paragraphs=top_paras,
+            statutes=parsed.statutes,
+        )
+        ev = [EvidenceParagraph(case_id=case_id, para_id=p.id, para_num=p.num, text=p.text)
+              for p in top_paras]
+        return cs, ev
+    except Exception:
+        return None
+
+
+def _resolve_hf_to_ik(
+    case: "CaseSummary", client: KanoonClient, situation: str,
+    top_paragraphs_per_case: int, meta: "RetrievalMeta",
+) -> tuple["CaseSummary", list[EvidenceParagraph]] | None:
+    """Find the real IK judgment for an HF case. Cached. Returns
+    (ik_case, evidence) on a confident match, else None (and negative-caches)."""
+    from difflib import SequenceMatcher
+    _ensure_hf_ik_cache(client.cache_path)
+
+    cached = _hf_ik_cache_get(client.cache_path, case.case_id)
+    if cached is not None:
+        if cached < 0:
+            return None  # known no-match — free, instant
+        return _ik_case_from_tid(cached, client, situation, case.relevance_score, top_paragraphs_per_case)
+
+    query = _ik_query_from_title(case.title)
+    if not query or len(query) < 5:
+        _hf_ik_cache_set(client.cache_path, case.case_id, -1)
+        return None
+
+    try:
+        page = client.search(query, pagenum=0)
+    except Exception as e:
+        meta.notes.append(f"hf→ik search failed for {case.case_id}: {str(e)[:80]}")
+        return None  # transient — don't poison the cache
+
+    _norm = lambda s: re.sub(r"[^a-z0-9 ]", "", (s or "").lower()).strip()
+    hf_norm = _norm(case.title)
+    best_tid, best_sim = None, 0.0
+    for hit in (page.hits or [])[:10]:
+        sim = SequenceMatcher(None, hf_norm, _norm(hit.title)).ratio()
+        if sim > best_sim:
+            best_sim, best_tid = sim, hit.tid
+
+    # Require a confident title match so we never swap in the wrong case.
+    if best_tid is not None and best_sim >= 0.62:
+        _hf_ik_cache_set(client.cache_path, case.case_id, best_tid)
+        meta.notes.append(f"hf→ik resolved {case.case_id} → ik:{best_tid} (sim={best_sim:.2f})")
+        return _ik_case_from_tid(best_tid, client, situation, case.relevance_score, top_paragraphs_per_case)
+
+    _hf_ik_cache_set(client.cache_path, case.case_id, -1)
+    meta.notes.append(f"hf→ik no confident match for {case.case_id} (best sim={best_sim:.2f}) — suppressed")
+    return None
 
 
 def _finalise(
