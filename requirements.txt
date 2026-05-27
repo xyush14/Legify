@@ -67,6 +67,16 @@ numpy>=1.24
 datasets>=2.14
 tqdm>=4.66
 
+# ---- PDF rasterization for OCR.
+# Groq's vision model (our primary OCR backend) accepts IMAGES ONLY — it
+# returns "invalid image data" for PDF uploads. Anthropic can read PDFs but
+# is out of credits in production. So when a lawyer uploads a PDF (e.g. a
+# Sessions Court order, or an FIR scan), we rasterize each page to a PNG
+# with PyMuPDF and send those images to Groq. PyMuPDF bundles its own
+# renderer (no system poppler needed) and ships manylinux wheels — installs
+# cleanly on Railway with no extra system packages.
+PyMuPDF>=1.24
+
 # ---- Py 3.9 backport for Pydantic v2 evaluation of `str | None` style hints.
 # No-op on 3.10+. Render uses 3.11; safe to keep.
 eval_type_backport>=0.2; python_version < "3.10"

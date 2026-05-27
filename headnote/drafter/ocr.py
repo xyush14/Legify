@@ -319,6 +319,47 @@ def _ocr_via_anthropic(pages: Sequence[tuple[bytes, str]], prompt: str = OCR_FIR
     return _parse_json_response("\n".join(text_blocks))
 
 
+def _rasterize_pdfs(
+    pages: Sequence[tuple[bytes, str]],
+    *, dpi: int = 150, max_total: int = 8,
+) -> list[tuple[bytes, str]]:
+    """Expand any PDF entries into per-page PNG images.
+
+    Groq's vision model accepts images only ("invalid image data" on PDFs).
+    We rasterize each PDF page with PyMuPDF (self-contained, no system
+    poppler) so the downstream providers always receive images. Non-PDF
+    entries pass through untouched. Capped at `max_total` images so a long
+    PDF can't blow past Groq's per-request token limit.
+    """
+    out: list[tuple[bytes, str]] = []
+    for data, mt in pages:
+        if len(out) >= max_total:
+            break
+        if mt == "application/pdf":
+            try:
+                import fitz  # PyMuPDF
+            except ImportError:
+                # PyMuPDF not available — pass the PDF through; Anthropic
+                # (if it has credits) can still read it. Groq will reject it.
+                log.warning("PyMuPDF not installed — cannot rasterize PDF; passing through")
+                out.append((data, mt))
+                continue
+            try:
+                doc = fitz.open(stream=data, filetype="pdf")
+                for page in doc:
+                    if len(out) >= max_total:
+                        break
+                    pix = page.get_pixmap(dpi=dpi)
+                    out.append((pix.tobytes("png"), "image/png"))
+                doc.close()
+            except Exception as e:
+                log.warning("PDF rasterization failed (%s) — passing PDF through", e)
+                out.append((data, mt))
+        else:
+            out.append((data, mt))
+    return out
+
+
 def _run_ocr(pages, prompt, normalise_fn):
     """Generic multi-page OCR runner. Provider priority: Groq (free/fast) →
     Anthropic Sonnet (when a real key is set). `prompt` selects the schema;
@@ -326,6 +367,11 @@ def _run_ocr(pages, prompt, normalise_fn):
     clear, provider-accurate message when all configured providers fail."""
     if not pages:
         raise ValueError("no pages provided")
+
+    # Rasterize PDFs → images so Groq (images-only) can read them. No-op for
+    # image uploads. Env-tunable DPI for OCR quality vs request size.
+    _dpi = int(os.environ.get("OCR_PDF_DPI", "150"))
+    pages = _rasterize_pdfs(pages, dpi=_dpi, max_total=8)
 
     groq_key      = os.environ.get("GROQ_API_KEY", "").strip()
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
