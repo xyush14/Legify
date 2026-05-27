@@ -1011,7 +1011,7 @@ def api_config():
     return {
         "supabase_url":      config.SUPABASE_URL or "",
         "supabase_anon_key": config.SUPABASE_ANON_KEY or "",
-        "code_version":      "20260526o",
+        "code_version":      "20260526p",
     }
 
 
@@ -2288,13 +2288,24 @@ def _api_translate_impl(req: TranslateRequest):
     path ran.
     """
     t0 = time.time()
-    try:
-        if config.ANTHROPIC_API_KEY:
+
+    # Use the LLM translation path whenever ANY provider is available.
+    # BUG FIX: the old gate was `if config.ANTHROPIC_API_KEY:` — but
+    # production runs DeepSeek-primary with NO Anthropic key, so it always
+    # fell through to Google Translate (which is unreliable / often fails,
+    # breaking the Hindi toggle on the research page). translate_payload_haiku
+    # routes through route_call("translation") → DeepSeek V3 when Anthropic
+    # is absent, so it works fine in DeepSeek-primary mode.
+    from headnote.llm.client import _deepseek_primary
+    _llm_available = bool(config.ANTHROPIC_API_KEY) or _deepseek_primary()
+
+    if _llm_available:
+        try:
             translated, paise, quality, preserved = translate_payload_haiku(req.payload)
             elapsed = time.time() - t0
             record_query(
                 task_type="translate",
-                primary_model="claude-haiku-4-5",
+                primary_model="deepseek/haiku",
                 escalated=False,
                 total_cost_paise=paise,
                 latency_ms=int(elapsed * 1000),
@@ -2305,16 +2316,21 @@ def _api_translate_impl(req: TranslateRequest):
                 "raw": json.dumps(translated, ensure_ascii=False),
                 "meta": {
                     "elapsed_seconds": round(elapsed, 2),
-                    "model": "claude-haiku-4-5",
+                    "model": "deepseek/haiku",
                     "cost_paise": paise,
                     "cost_inr": round(paise / 100, 4),
                     "cost_usd": round(paise / 100 / config.USD_TO_INR, 6),
                     "quality": quality,
                     "preserved_citations": preserved,
-                    "translator": "haiku",
+                    "translator": "llm",
                 },
             }
-        # No Anthropic key configured — fall back to free Google Translate
+        except Exception as e:
+            print(f"[translate] LLM path failed ({str(e)[:200]}) — falling back to Google")
+            # fall through to Google Translate below
+
+    # Last resort: free Google Translate (only when no LLM, or LLM failed).
+    try:
         translated = translate_payload(req.payload, target=req.target_language)
         elapsed = time.time() - t0
         return {

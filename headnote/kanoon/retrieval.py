@@ -247,33 +247,63 @@ def _is_anonymized(text: str, threshold: int = 2) -> bool:
     return len(_ANON_TOKEN_RE.findall(text)) >= threshold
 
 
-def _hf_clean_title(hj, case_id: str) -> Optional[str]:
-    """Return an identifiable title for an HF judgment, or None to SUPPRESS it.
+def _looks_like_body_sentence(s: str) -> bool:
+    """True if `s` reads like a sentence from the judgment body rather than a
+    case caption. Body sentences start with narrative words and/or run long.
+    """
+    sl = (s or "").strip().lower()
+    _body_starts = (
+        "this ", "the ", "in the ", "leave ", "special leave", "heard ",
+        "on a ", "by this ", "facts ", "brief facts", "certified copy",
+        "it is ", "these ", "by way of", "the present", "this appeal",
+        "this petition", "this is ", "this revision", "as per", "having heard",
+        "learned counsel", "ranganath", "per ", "j. ", "j.-", "delivered by",
+    )
+    if any(sl.startswith(b) for b in _body_starts):
+        return True
+    return False
 
-    A lawyer must be able to recognise and cite the case. We only accept:
-      1. A real party caption ("X v. State of Y") from metadata, or
-      2. A stored title that is itself a caption or a case-number, or
-      3. An extracted case number.
-    Body-sentence titles ("This appeal has been filed...", "Certified copy
-    of the statement...") return None → the case is dropped rather than shown
-    with an unrecognisable title. Better to surface fewer, verifiable IK
-    judgments than messy HF ones.
+
+def _hf_clean_title(hj, case_id: str) -> Optional[str]:
+    """Return an identifiable, SHORT title for an HF judgment, or None to
+    SUPPRESS it.
+
+    A lawyer must be able to recognise and cite the case. We accept only:
+      1. A real party caption ("X v. State of Y") — must contain " v. "/" vs "
+         and be reasonably short (<= 140 chars).
+      2. A pure case-number line ("Criminal Appeal No. 17 of 1951") — short
+         (<= 75 chars), matching the case-number pattern.
+
+    Everything else returns None. Critically, a LONG string that merely
+    *contains* a case-number phrase ("State of Punjab has filed this appeal
+    by special leave against the order dated 14.2.2002...") is a BODY
+    SENTENCE, not a title — it is rejected. Better to surface fewer,
+    verifiable IK judgments than messy HF cards a lawyer can't recognise.
     """
     md = getattr(hj, "case_metadata", None) or {}
-    # 1. Real party caption from extracted metadata
+
+    # 1. Real party caption from extracted metadata (best)
     parties = (md.get("parties") or "").strip()
-    if parties and 5 <= len(parties) <= 200 and _CAPTION_RE.search(parties):
+    if parties and 5 <= len(parties) <= 140 and _CAPTION_RE.search(parties) \
+            and not _looks_like_body_sentence(parties):
         return parties
-    # 2. Stored title IF it is itself an identifiable caption / case number
+
+    # 2. Stored title — only if it's a SHORT caption or a SHORT case-number line
     src = (hj.title or "").strip()
-    if src and 10 <= len(src) <= 200:
-        if _CAPTION_RE.search(src) or _CASENO_RE.search(src):
+    if src and not _looks_like_body_sentence(src):
+        # A caption: has " v. "/" vs " and isn't a runaway body sentence
+        if _CAPTION_RE.search(src) and 8 <= len(src) <= 140:
             return src
-    # 3. Extracted case number
+        # A pure case-number line: short, matches case-number pattern
+        if len(src) <= 75 and _CASENO_RE.search(src):
+            return src
+
+    # 3. Extracted case number from metadata (short)
     case_no = (md.get("case_number") or "").strip()
-    if case_no and _CASENO_RE.search(case_no):
+    if case_no and len(case_no) <= 90 and _CASENO_RE.search(case_no):
         return case_no
-    # Nothing identifiable — suppress.
+
+    # Nothing recognisable — suppress.
     return None
 
 
