@@ -1226,14 +1226,20 @@ def retrieve_for_situation(
     #
     # `hidden` and `famous` modes still ALWAYS run IK so the reranker
     # has fresh non-curated candidates to surface.
-    non_curated_count = sum(1 for c in cases if c.source != "curated")
+    # Count only VERIFIABLE cases (real IK docs) toward the skip threshold.
+    # HF cases get suppressed at display unless cached-resolved, so a pool
+    # "full" of HF cases is NOT actually full of show-able cases — we must
+    # still run IK live to guarantee verifiable results. Counting ik: only
+    # prevents the failure mode where the pool looks full of HF cases, IK
+    # live is skipped, then every HF case is suppressed → empty page.
+    verifiable_count = sum(1 for c in cases if (c.case_id or "").startswith("ik:"))
     if mode in ("hidden", "famous"):
         run_ik_search = True
-    elif non_curated_count >= skip_ik_search_if_cases_at_least:
+    elif verifiable_count >= skip_ik_search_if_cases_at_least:
         run_ik_search = False
         meta.notes.append(
-            f"skipped IK live search — free pool already has "
-            f"{non_curated_count} non-curated cases (>= {skip_ik_search_if_cases_at_least})"
+            f"skipped IK live search — already have {verifiable_count} "
+            f"verifiable IK cases (>= {skip_ik_search_if_cases_at_least})"
         )
     else:
         run_ik_search = True
@@ -1469,14 +1475,35 @@ def retrieve_for_situation(
             # HF→IK resolution step below has runners-up to backfill with when
             # an HF case is suppressed (no verifiable link).
             _rerank_k = top_cases + 8 if _hncfg.ENABLE_HF_IK_RESOLUTION else top_cases
-            scored = rank_candidates(
-                situation,
-                candidates,
-                mode,
-                query_jurisdiction=jurisdiction,
-                result_top_k=_rerank_k,
-                skip_sonnet_rerank=_force_skip_rerank,
-            )
+
+            # RELIABILITY: cap the Sonnet/V3 reranker LLM call with a hard
+            # wall-clock timeout (thread). The reranker is one of three
+            # sequential LLM calls (refine → reranker → main); a slow reranker
+            # under DeepSeek load could eat the budget the main answer needs.
+            # If it doesn't finish in time, fall back to the instant
+            # semantic-only ranking — the lawyer gets a slightly less
+            # fact-aligned order, but the response NEVER hangs on the reranker.
+            def _do_rerank(skip_llm: bool):
+                return rank_candidates(
+                    situation, candidates, mode,
+                    query_jurisdiction=jurisdiction,
+                    result_top_k=_rerank_k,
+                    skip_sonnet_rerank=skip_llm,
+                )
+            if _force_skip_rerank:
+                scored = _do_rerank(True)
+            else:
+                _rr_cap = float(_os.environ.get("RERANK_TIMEOUT_SECONDS", "25"))
+                try:
+                    from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FT
+                    with ThreadPoolExecutor(max_workers=1) as _rp:
+                        scored = _rp.submit(_do_rerank, False).result(timeout=_rr_cap)
+                except Exception as _rr_exc:
+                    meta.notes.append(
+                        f"reranker timed out/failed ({type(_rr_exc).__name__}) "
+                        f"→ semantic-only ranking"
+                    )
+                    scored = _do_rerank(True)  # instant fallback
 
             # Map scored results back to CaseSummary (preserving paragraph data).
             case_by_id = {cs.case_id: cs for cs in cases}
@@ -1490,10 +1517,16 @@ def retrieve_for_situation(
             # SUPPRESSED and the next ranked case takes their place. Result:
             # every displayed case is verifiable on Indian Kanoon.
             if _hncfg.ENABLE_HF_IK_RESOLUTION:
-                _budget = _hncfg.HF_IK_RESOLUTION_BUDGET
+                # CACHED-ONLY resolution in the hot path — every call here is a
+                # SQLite lookup (instant). NO live IK searches block the user's
+                # request. Verifiable cases (ik:/curated) are kept; HF cases are
+                # resolved from cache if a mapping exists, else SUPPRESSED and
+                # backfilled by the next verifiable runner-up. Change A ensures
+                # IK live populated the pool with enough ik: cases.
                 _final: list[CaseSummary] = []
                 _resolved_ev: list[EvidenceParagraph] = []
                 _seen_ids: set[str] = set()
+                _resolved_n = 0
                 for cs in ranked:
                     if len(_final) >= top_cases:
                         break
@@ -1501,23 +1534,23 @@ def retrieve_for_situation(
                         if cs.case_id not in _seen_ids:
                             _final.append(cs); _seen_ids.add(cs.case_id)
                         continue
-                    # HF case → attempt resolution within time + call budget.
-                    _late = (time.time() - t0) > (time_budget_seconds * 0.9)
-                    if _budget <= 0 or _late:
-                        continue  # out of budget/time → suppress unverifiable
-                    _budget -= 1
-                    _res = _resolve_hf_to_ik(cs, client, situation, top_paragraphs_per_case, meta)
+                    # HF case → cached-only resolution (instant). Never live.
+                    _res = _resolve_hf_to_ik(
+                        cs, client, situation, top_paragraphs_per_case, meta,
+                        allow_live=False,
+                    )
                     if _res is not None:
                         ik_cs, ik_ev = _res
                         if ik_cs.case_id not in _seen_ids:
                             _final.append(ik_cs); _seen_ids.add(ik_cs.case_id)
                             _resolved_ev.extend(ik_ev)
+                            _resolved_n += 1
                     # unresolved → suppressed (skip)
                 cases = _final
                 evidence = evidence + _resolved_ev
                 meta.notes.append(
-                    f"hf→ik resolution: {len(cases)} verifiable cases "
-                    f"(budget used {_hncfg.HF_IK_RESOLUTION_BUDGET - _budget})"
+                    f"verifiable-only display: {len(cases)} cases "
+                    f"({_resolved_n} cache-resolved from HF)"
                 )
             else:
                 cases = ranked[:top_cases]
@@ -1675,9 +1708,19 @@ def _ik_case_from_tid(
 def _resolve_hf_to_ik(
     case: "CaseSummary", client: KanoonClient, situation: str,
     top_paragraphs_per_case: int, meta: "RetrievalMeta",
+    *, allow_live: bool = False,
 ) -> tuple["CaseSummary", list[EvidenceParagraph]] | None:
-    """Find the real IK judgment for an HF case. Cached. Returns
-    (ik_case, evidence) on a confident match, else None (and negative-caches)."""
+    """Find the real IK judgment for an HF case.
+
+    DEFAULT IS CACHED-ONLY (allow_live=False): only resolves if a mapping is
+    already in the cache — a pure SQLite lookup + (cached) doc read, so it
+    NEVER blocks the user's request on a live IK round-trip. This is the
+    reliability guarantee: the hot path does zero live IK searches for
+    resolution. Uncached HF cases return None → suppressed → backfilled with
+    verifiable IK-live / IK-semantic cases (which Change A guarantees exist).
+
+    allow_live=True does a live IK search + fuzzy title match (used only by an
+    offline/background cache-warmer, never in the request hot path)."""
     from difflib import SequenceMatcher
     _ensure_hf_ik_cache(client.cache_path)
 
@@ -1686,6 +1729,12 @@ def _resolve_hf_to_ik(
         if cached < 0:
             return None  # known no-match — free, instant
         return _ik_case_from_tid(cached, client, situation, case.relevance_score, top_paragraphs_per_case)
+
+    if not allow_live:
+        # Cached-only hot path: don't search IK live. Suppress (the case will
+        # be backfilled by a verifiable IK case). No cache write — a future
+        # background warmer may still resolve it live.
+        return None
 
     query = _ik_query_from_title(case.title)
     if not query or len(query) < 5:
