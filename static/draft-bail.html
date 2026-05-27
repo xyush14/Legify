@@ -494,7 +494,7 @@
 
 <div class="topbar">
   <div class="topbar__left">
-    <a href="/app" class="topbar__back">←</a>
+    <a href="/app#drafting" class="topbar__back">←</a>
     <div>
       <div class="topbar__title">ज़मानत आवेदन / Bail Application</div>
       <div class="topbar__sub" id="topbar-sub">draft auto-saves · live preview on the right</div>
@@ -1886,7 +1886,7 @@ function showInlineSignInModal() {
       await window.headnoteAuth.signInInline();
     } else {
       // Fallback if signInInline isn't available on older auth.js
-      window.location.href = '/app';
+      window.location.href = '/app#drafting';
     }
   };
   document.getElementById('inline-signin-close').onclick = () => m.remove();

@@ -33,6 +33,15 @@ from deep_translator.exceptions import TranslationNotFound, RequestError
 # ---------- which JSON fields contain prose to translate ----------
 
 TRANSLATABLE_FIELDS: set[str] = {
+    # V2 case-card schema (what the research-mode Hindi toggle actually sends).
+    # These were MISSING — the frontend posts {stinger, held_line, fact_match,
+    # carve_out, ratio} but only `ratio` was whitelisted, so the translator
+    # returned the English text unchanged and the toggle looked broken.
+    "stinger",
+    "held_line",
+    "fact_match",
+    "carve_out",
+    # Legacy / other-mode fields
     "relevance_explanation",
     "bns_note",
     "ratio",

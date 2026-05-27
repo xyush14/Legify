@@ -1403,6 +1403,15 @@
     // successful upgrade. Fires once, then is cleared. Doesn't depend
     // on /api/me — works even if the meter is briefly stale.
     showUpgradeCelebrationIfPending();
+
+    // Honour an initial view from the URL hash, e.g. /app#drafting. This is
+    // what lets the draft editor pages (draft-bail / draft-template /
+    // draft-court) send the user BACK to the drafting home instead of
+    // research — they link to /app#drafting. Default stays research.
+    const _hashView = (location.hash || '').replace(/^#/, '').trim();
+    if (['research', 'browse', 'drafting', 'account'].includes(_hashView)) {
+      switchView(_hashView);
+    }
   }
 
   // Show a one-time celebration toast when the user has just completed a

@@ -324,7 +324,7 @@
 
 <div class="topbar">
   <div class="topbar__left">
-    <a href="/app" class="topbar__back" aria-label="Back">←</a>
+    <a href="/app#drafting" class="topbar__back" aria-label="Back to drafting">←</a>
     <div>
       <div class="topbar__title" id="template-title">Loading…</div>
       <div class="topbar__sub" id="template-sub" data-en="draft auto-saves · live preview" data-hi="ड्राफ्ट स्वतः सहेजेगा · लाइव प्रीव्यू">ड्राफ्ट स्वतः सहेजेगा · लाइव प्रीव्यू</div>
@@ -464,7 +464,7 @@ function showSignInBanner() {
     if (window.headnoteAuth && window.headnoteAuth.signInInline) {
       await window.headnoteAuth.signInInline();
     } else {
-      window.location.href = '/app';
+      window.location.href = '/app#drafting';
     }
   };
   document.getElementById('inline-signin-close').onclick = () => m.remove();
