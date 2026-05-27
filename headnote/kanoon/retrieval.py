@@ -218,6 +218,65 @@ def _hf_court_label(court: str, district: str | None, case_metadata: dict | None
     return base
 
 
+# IL-TUR anonymization tokens. The `lsi` subset (Legal Statute Identification)
+# masks every entity/act/section for its ML benchmark — <ACT>, <ENTITY>,
+# <SECTION>, <COURT>, <PETITIONER>, etc. Such judgments are UNUSABLE for legal
+# display: the lawyer can't identify the case, the law, or cite it. We detect
+# and exclude them from retrieval entirely.
+_ANON_TOKEN_RE = re.compile(r"<[A-Z][A-Z_]{1,20}>")
+
+# A real, identifiable title has a party caption ("X v. Y") OR a recognisable
+# case-number pattern. Anything else (a body sentence) is not show-worthy.
+_CAPTION_RE = re.compile(r"\sv(?:s|\.|s\.)?\s", re.IGNORECASE)
+_CASENO_RE = re.compile(
+    r"(?:criminal|civil)\s+appeal\s+no|appeal\s+no\.?\s*\d|"
+    r"petition\s+no|w\.?\s*p\.?\s*[\(\.]|s\.?\s*l\.?\s*p|cr\.?\s*a\.?\s*no|"
+    r"writ\s+petition|special\s+leave|m\.?cr\.?c|bail\s+appl",
+    re.IGNORECASE,
+)
+
+
+def _is_anonymized(text: str, threshold: int = 2) -> bool:
+    """True if `text` contains IL-TUR anonymization tokens (>= threshold).
+
+    A single stray '<...>' could be legitimate (rare), so we require at least
+    two masking tokens before treating a judgment as anonymized.
+    """
+    if not text:
+        return False
+    return len(_ANON_TOKEN_RE.findall(text)) >= threshold
+
+
+def _hf_clean_title(hj, case_id: str) -> Optional[str]:
+    """Return an identifiable title for an HF judgment, or None to SUPPRESS it.
+
+    A lawyer must be able to recognise and cite the case. We only accept:
+      1. A real party caption ("X v. State of Y") from metadata, or
+      2. A stored title that is itself a caption or a case-number, or
+      3. An extracted case number.
+    Body-sentence titles ("This appeal has been filed...", "Certified copy
+    of the statement...") return None → the case is dropped rather than shown
+    with an unrecognisable title. Better to surface fewer, verifiable IK
+    judgments than messy HF ones.
+    """
+    md = getattr(hj, "case_metadata", None) or {}
+    # 1. Real party caption from extracted metadata
+    parties = (md.get("parties") or "").strip()
+    if parties and 5 <= len(parties) <= 200 and _CAPTION_RE.search(parties):
+        return parties
+    # 2. Stored title IF it is itself an identifiable caption / case number
+    src = (hj.title or "").strip()
+    if src and 10 <= len(src) <= 200:
+        if _CAPTION_RE.search(src) or _CASENO_RE.search(src):
+            return src
+    # 3. Extracted case number
+    case_no = (md.get("case_number") or "").strip()
+    if case_no and _CASENO_RE.search(case_no):
+        return case_no
+    # Nothing identifiable — suppress.
+    return None
+
+
 def _hf_synthesize_title(hj, case_id: str) -> str:
     """Build a presentable title for an HF judgment.
 
@@ -906,6 +965,20 @@ def retrieve_for_situation(
                     if not hj:
                         continue
 
+                    # GATE 1 — anonymized? IL-TUR lsi masks entities/acts/
+                    # sections; such judgments can't be identified or cited.
+                    _hit_text = " ".join((h.text or "") for h in hits_for_case[:3])
+                    if _is_anonymized(_hit_text) or _is_anonymized(getattr(hj, "text", "")[:2000]):
+                        meta.notes.append(f"skipped {case_id} — anonymized (IL-TUR masking)")
+                        continue
+
+                    # GATE 2 — identifiable title? A lawyer must recognise the
+                    # case. Body-sentence titles are suppressed.
+                    fixed_title = _hf_clean_title(hj, case_id)
+                    if not fixed_title:
+                        meta.notes.append(f"skipped {case_id} — no identifiable title")
+                        continue
+
                     top_sim = max(h.similarity for h in hits_for_case)
                     # Build Paragraph objects from the embedding hits — the
                     # embedding store already has the text and our para_id
@@ -929,7 +1002,6 @@ def retrieve_for_situation(
                         hj.court, getattr(hj, "district", None),
                         case_metadata=_md,
                     )
-                    fixed_title = _hf_synthesize_title(hj, case_id)
                     outcome = _hf_label_to_outcome(getattr(hj, "label", None), _subset)
                     # Pull citation from metadata if extractor found one — used
                     # by the LLM prompt + frontend.
@@ -1029,6 +1101,16 @@ def retrieve_for_situation(
                     if len(cases) >= candidate_pool:
                         break
 
+                    # GATE 1 — anonymized judgment (IL-TUR lsi masking)? Skip.
+                    if _is_anonymized((j.text or "")[:2000]):
+                        meta.notes.append(f"skipped {j.doc_id} — anonymized (IL-TUR masking)")
+                        continue
+                    # GATE 2 — identifiable title? Suppress body-sentence titles.
+                    fixed_title = _hf_clean_title(j, j.doc_id)
+                    if not fixed_title:
+                        meta.notes.append(f"skipped {j.doc_id} — no identifiable title")
+                        continue
+
                     # Synthesise paragraph objects from the raw judgment
                     # text. HF rows are flat plaintext (no IK paragraph
                     # ids), so we split on blank lines, filter very short
@@ -1078,7 +1160,7 @@ def retrieve_for_situation(
                     # Subset from doc_id: "hf:<subset>:<id>"
                     _parts = j.doc_id.split(":", 2)
                     _subset = _parts[1] if len(_parts) >= 3 else ""
-                    fixed_title = _hf_synthesize_title(j, j.doc_id)
+                    # fixed_title already set by GATE 2 above
                     outcome = _hf_label_to_outcome(getattr(j, "label", None), _subset)
                     _ext_citation = (_md.get("citation") or "")
                     _ext_date = (_md.get("date") or "")

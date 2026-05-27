@@ -483,10 +483,14 @@ def _maybe_autorebuild_corpus_on_boot() -> None:
         logger.warning("[autorebuild] couldn't read corpus stats (%s); will attempt rebuild", e)
         current_total = 0
 
-    # Target: at least 100K cases (summ 7K + pcr 4K + cjpe 34K + lsi 66K = ~112K).
-    # The full 290K needs bail (176K, 2.5GB) which requires an 8GB volume.
-    # Below 100K means at least one importable subset is missing — rebuild.
-    _MIN_CORPUS_TARGET = int(os.environ.get("MIN_CORPUS_TARGET", "100000"))
+    # Target lowered to 40K (was 100K). We now import ONLY the display-clean
+    # subsets: cjpe (35K, real SC judgments) + summ (7K) + pcr (~4K) = ~46K.
+    # The lsi subset (66K) is DELIBERATELY EXCLUDED — it is anonymized
+    # (<ACT>/<ENTITY>/<SECTION> masking) and unusable for legal display.
+    # bail (176K Hindi district orders) is also excluded — no citations,
+    # not verifiable. IK live retrieval (2.6 crore judgments) is the real
+    # spine for breadth; the HF corpus is just a fast local semantic prior.
+    _MIN_CORPUS_TARGET = int(os.environ.get("MIN_CORPUS_TARGET", "40000"))
     if current_total >= _MIN_CORPUS_TARGET:
         _AUTOREBUILD_STATUS = {
             "state": "healthy",
@@ -570,7 +574,9 @@ def _spawn_full_rebuild_thread(logger) -> None:
             # big ones don't fit. Each run is idempotent (INSERT OR IGNORE).
             _AUTOREBUILD_STATUS["phase"] = "harvest"
             # Priority order: English SC/HC first (most useful), then large
-            _subset_order = ["summ", "pcr", "cjpe", "lsi", "bail"]
+            # ONLY display-clean subsets. lsi (anonymized) and bail (no
+            # citations) are excluded — see _MIN_CORPUS_TARGET comment.
+            _subset_order = ["summ", "pcr", "cjpe"]
             harvested_subsets: list[str] = []
             failed_subsets: list[str] = []
             for subset in _subset_order:
@@ -1005,7 +1011,7 @@ def api_config():
     return {
         "supabase_url":      config.SUPABASE_URL or "",
         "supabase_anon_key": config.SUPABASE_ANON_KEY or "",
-        "code_version":      "20260526n",
+        "code_version":      "20260526o",
     }
 
 
@@ -1519,23 +1525,23 @@ def _api_situation_impl(req: SituationRequest, _record):
     evidence: list = []
     retrieval_cases: list = []
 
-    # Pipeline time budget. The frontend AbortController fires at 270s.
+    # Pipeline time budget. The frontend AbortController fires at 180s.
     # The pipeline makes sequential LLM calls:
     #   - refine_query (capped at 12s thread timeout)
     #   - reranker (~5-15s, skippable by time budget gate)
-    #   - main LLM (R1: typical 60-120s, max 180s — chain-of-thought)
-    # R1 is the default for situation now (was V3) — slower but produces
-    # consistent 3-5 case output. V3 produced 0-1 cases on 30% of queries.
-    # Budget: 240s total, leaves 30s safety buffer before 270s FE abort.
-    _PIPELINE_DEADLINE_SECONDS = 240.0       # total cap (30s buffer before 270s FE abort)
+    #   - main LLM (V3: typical 10-30s; deep_mode R1 60-120s)
+    # V3 is the default again (R1 caused first-attempt timeouts). With the
+    # anonymized-case filter the corpus JSON is smaller → V3 is faster still.
+    # Budget: 150s total, leaves 30s safety buffer before 180s FE abort.
+    _PIPELINE_DEADLINE_SECONDS = 150.0       # total cap (30s buffer before 180s FE abort)
 
     # Dynamic retrieval budget: subtract time already consumed by translate +
-    # refine, then reserve 150s for the main R1 LLM call (chain-of-thought
-    # typical 60-120s, max 180s). Whatever's left is retrieval budget.
+    # refine, then reserve 65s for the main V3 LLM call (typical 10-30s, with
+    # headroom for the Groq fallback). Whatever's left is retrieval budget.
     _elapsed_before_retrieval = time.time() - _t_total
     _RETRIEVAL_TIME_BUDGET = max(
         45.0,  # absolute minimum — IK search + fetch needs 30-45s
-        _PIPELINE_DEADLINE_SECONDS - _elapsed_before_retrieval - 150.0,
+        _PIPELINE_DEADLINE_SECONDS - _elapsed_before_retrieval - 65.0,
     )
     print(
         f"[situation] pipeline budget: {_elapsed_before_retrieval:.1f}s already used "

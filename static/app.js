@@ -980,15 +980,15 @@
     stagePanel = renderStagesPanel(stages);
     target.appendChild(stagePanel);
 
-    // Pacing matches the R1-default pipeline:
+    // Pacing matches the V3-default pipeline:
     //   - understanding (refine): ~8s
-    //   - searching (retrieve): ~30s
-    //   - reasoning (R1 main): 60-120s — chain-of-thought is the slow step
+    //   - searching (retrieve): ~15-30s
+    //   - reasoning (V3 main): 10-30s
     //   - preparing (verify + render): <2s
     // 'preparing case cards' never advances via timer — replaced when results arrive.
     const situationDelays = isHindi
-      ? [4000, 12000, 45000, 100000]   // hindi translate + 4-stage situation
-      : [10000, 40000, 100000];        // 3-stage situation pacing
+      ? [3500, 10000, 28000, 45000]    // hindi translate + 4-stage situation
+      : [8000, 25000, 45000];          // 3-stage situation pacing
     const defaultDelays = stages.slice(0, -1).map((_, i) => 4500 * (i + 1));
     const stageDelays = intent === 'situation' ? situationDelays : defaultDelays;
     const timers = stageDelays.map((delay, i) =>
@@ -1010,13 +1010,11 @@
       decompPromise = post('/api/decompose', { query: input }).catch(() => null);
     }
 
-    // Abort after 4.5 min. R1 (DeepSeek reasoner / Sonnet 4.6) chain-of-thought
-    // takes 60-120s typical, up to 180s on complex queries. Plus refine +
-    // retrieve = realistic worst case 220s. 270s gives 50s safety buffer.
-    // Trade-off: predictable 5-case output worth the wait vs faster 0-case
-    // output users don't trust.
+    // Abort after 3 min. V3 (DeepSeek chat) is the default again — typical
+    // 10-30s, realistic worst case ~90s with refine + retrieve. 180s gives a
+    // generous buffer for the Groq fallback path without an endless spinner.
     const abortCtrl = new AbortController();
-    const abortTimer = setTimeout(() => abortCtrl.abort(), 270000);
+    const abortTimer = setTimeout(() => abortCtrl.abort(), 180000);
 
     try {
       let resp;

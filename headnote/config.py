@@ -109,21 +109,20 @@ INDIAN_KANOON_DAILY_CAP_INR: Optional[float] = (
 #   "sonnet" → deepseek-reasoner (R1)  — slow (60-120s/call), chain-of-thought
 #   "opus"   → deepseek-reasoner (R1)  — same as sonnet under DeepSeek
 #
-# DEFAULT IS SONNET (R1). V3 was the previous default — chosen for speed —
-# but in production it produced inconsistent output: same query, sometimes
-# 5 cases, sometimes 0 cases. V3 is too conservative for legal reasoning:
-# when the corpus pool isn't a perfect statute match, V3 returns empty
-# arrays instead of ranking what's there. R1's chain-of-thought makes it
-# 5-10× more likely to produce 3-5 cases consistently — at the cost of
-# 60-120s latency instead of 10-30s.
-#
-# For a paying advocate, predictability > speed. They will wait 2 minutes
-# for a reliable answer; they will not trust a 30s tool that gives empty
-# pages on 30% of queries.
-SITUATION_MODEL: str = os.environ.get("SITUATION_MODEL", "sonnet").lower().strip()
+# DEFAULT IS HAIKU (V3). We briefly tried R1 (sonnet) for consistency, but
+# R1's 60-120s latency caused first-attempt timeouts (3 of 5 queries failed
+# on the cold call). V3 is fast (10-30s) and — combined with the prompt's
+# MINIMUM-OUTPUT rule and the backend safety-net that injects the top 3
+# retrieval results when the LLM returns 0 — produces consistent output
+# WITHOUT the timeout. The earlier V3 inconsistency was actually the corpus
+# (anonymized lsi cases poisoning the candidate pool); once those are
+# filtered out in retrieval, V3 sees only clean candidates and ranks them
+# reliably. Speed + clean corpus + safety-net beats slow R1 on a paying
+# advocate's first impression.
+SITUATION_MODEL: str = os.environ.get("SITUATION_MODEL", "haiku").lower().strip()
 
-# Deep mode = same as default now (R1). Kept for forward compatibility;
-# can be pointed at "opus" or a future model for premium tier.
+# Deep mode → R1 (chain-of-thought) for users who explicitly opt into the
+# slower, deeper reasoning path. Most queries don't need it.
 SITUATION_DEEP_MODEL: str = os.environ.get("SITUATION_DEEP_MODEL", "sonnet").lower().strip()
 
 # Enable Sonnet fact-pattern reranking inside Hidden Authorities. This is the
