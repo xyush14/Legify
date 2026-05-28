@@ -22,23 +22,29 @@ from headnote.entitlements.plans import PLANS, get_plan
 log = logging.getLogger(__name__)
 
 
-def _founder_sub(user_id: str) -> dict:
-    """Synthetic founder subscription — never persisted, never expires.
-    Returned in place of the DB row when the request's email is in
-    config.FOUNDER_EMAILS."""
+def _synthetic_sub(user_id: str, plan: str) -> dict:
+    """Synthetic founder/partner subscription — never persisted, never
+    expires. Returned in place of the DB row when the request's email is
+    in the hardcoded config whitelists OR the access_grants table."""
     now = datetime.now(timezone.utc)
-    far_future = now + timedelta(days=PLANS["founder"].duration_days)
+    duration = PLANS.get(plan, PLANS["founder"]).duration_days
+    far_future = now + timedelta(days=duration)
     return {
         "user_id": user_id,
-        "plan": "founder",
+        "plan": plan,
         "status": "active",
         "period_start": now.isoformat(),
         "period_end": far_future.isoformat(),
-        "payment_provider": "founder_grant",
+        "payment_provider": f"{plan}_grant",
         "payment_ref": None,
         "weekly_trial_used": False,
         "cancelled_at": None,
     }
+
+
+def _founder_sub(user_id: str) -> dict:
+    """Back-compat alias — some callers still import this name."""
+    return _synthetic_sub(user_id, "founder")
 
 
 def get_active_subscription(user_id: str, email: str | None = None) -> dict | None:
@@ -60,8 +66,24 @@ def get_active_subscription(user_id: str, email: str | None = None) -> dict | No
     """
     if email is None:
         email = current_user_email.get()
-    if email and email.lower() in config.FOUNDER_EMAILS:
-        return _founder_sub(user_id)
+    # Resolution order (most-trusted first):
+    #   1. hardcoded FOUNDER_EMAILS  → founder plan
+    #   2. hardcoded PARTNER_EMAILS  → partner plan
+    #   3. DB access_grants table    → role-defined plan
+    #   4. actual subscriptions row  → user's bought plan
+    if email:
+        e = email.lower()
+        if e in config.FOUNDER_EMAILS:
+            return _synthetic_sub(user_id, "founder")
+        if e in config.PARTNER_EMAILS:
+            return _synthetic_sub(user_id, "partner")
+        try:
+            from headnote.entitlements.grants import get_role as _grant_role
+            role = _grant_role(e)
+            if role in ("founder", "partner"):
+                return _synthetic_sub(user_id, role)
+        except Exception:
+            pass
 
     rows = _supabase.select(
         "subscriptions",

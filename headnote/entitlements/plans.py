@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 
-PlanName = Literal["demo", "weekly", "monthly", "yearly", "founder"]
+PlanName = Literal["demo", "weekly", "monthly", "yearly", "founder", "partner"]
 Period = Literal["lifetime", "day", "week", "month", "year"]
 
 
@@ -178,12 +178,41 @@ FOUNDER = Plan(
 )
 
 
+# Partner plan — functionally identical to FOUNDER (unlimited everything, all
+# features unlocked, 100-year duration) but labelled "Partner" so strategic
+# partners (law publishers, senior chambers, etc.) don't appear as Founders
+# in the UI / audit trail. Granted via the PARTNER_EMAILS whitelist in
+# config.py OR via the access_grants admin dashboard.
+PARTNER = Plan(
+    name="partner",
+    display_name="Partner",
+    price_inr=0,
+    duration_days=36500,
+    limits=[
+        PlanLimit("deep_search",   None, "year"),
+        PlanLimit("draft",         None, "year"),
+        PlanLimit("judgment_read", None, "year"),
+        PlanLimit("export_pdf",    None, "year"),
+        PlanLimit("hindi_export",  None, "year"),
+    ],
+    features={
+        "export_pdf":        True,
+        "hindi_export":      True,
+        "history":           "unlimited",
+        "support":           "whatsapp",
+        "custom_letterhead": True,
+        "priority_queue":    True,
+    },
+)
+
+
 PLANS: dict[str, Plan] = {
     "demo":    DEMO,
     "weekly":  WEEKLY,
     "monthly": MONTHLY,
     "yearly":  YEARLY,
     "founder": FOUNDER,
+    "partner": PARTNER,
 }
 
 

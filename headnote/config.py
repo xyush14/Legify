@@ -187,24 +187,38 @@ ENABLE_OPUS_ESCALATION = os.environ.get(
 ADMIN_TOKEN: Optional[str] = os.environ.get("ADMIN_TOKEN")
 
 # ----------------------------------------------------------------- Founder / partner access
-# Whitelist of email addresses that bypass all plan gates and quotas — every
-# feature unlimited, every flag unlocked, no metering enforcement. Used for
-# the founder + co-founder + strategic-partner accounts. Add via env var
-# FOUNDER_EMAILS (comma-separated) for production, or extend the default
-# tuple below for hard-coded entries. Match is case-insensitive on the
-# local-part + domain.
+# Both whitelists below grant the same UNLIMITED access (no quotas, all
+# features unlocked, no metering) — they differ only in the displayed plan
+# label ("Founder" vs "Partner") so internal team accounts are auditable
+# separately from external strategic-partner accounts (law publishers,
+# senior chambers, etc.).
+#
+# Two ways to add a grant:
+#   1. Hardcoded below (root-tier; survives any DB reset).
+#   2. The /admin admin page → "Access Grants" panel — writes to a SQLite
+#      table, survives normal restarts, removable from the UI.
+#
+# The runtime resolver (entitlements/subscription.py) checks hardcoded
+# lists first, then the DB-backed grants table.
 _FOUNDER_DEFAULT = (
     "20pe3009@rgipt.ac.in",
     "ayushshivhare02@gmail.com",
     "kpal645@gmail.com",
     "vishnushivhare25@gmail.com",
-    # Strategic partners (unlimited access)
+)
+_PARTNER_DEFAULT = (
     "wadhwapublishingco@gmail.com",
 )
 _founder_env = os.environ.get("FOUNDER_EMAILS", "")
+_partner_env = os.environ.get("PARTNER_EMAILS", "")
 FOUNDER_EMAILS: frozenset[str] = frozenset(
     e.strip().lower()
     for e in list(_FOUNDER_DEFAULT) + _founder_env.split(",")
+    if e.strip()
+)
+PARTNER_EMAILS: frozenset[str] = frozenset(
+    e.strip().lower()
+    for e in list(_PARTNER_DEFAULT) + _partner_env.split(",")
     if e.strip()
 )
 

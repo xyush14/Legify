@@ -97,6 +97,38 @@
         <tbody></tbody>
       </table>
     </div>
+
+    <!-- Access Grants — founder + partner whitelist management -->
+    <div class="panel">
+      <h2>Access grants — founders &amp; partners</h2>
+      <p class="sub" style="margin:-6px 0 14px;">Grant unlimited access by email. <strong>Founder</strong> = team. <strong>Partner</strong> = strategic partner (law publishers, senior chambers). Config entries are root-tier and only editable in code; DB entries are removable here.</p>
+
+      <form id="grant-form" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:16px;">
+        <input id="grant-email" type="email" placeholder="email@example.com" required
+               style="flex:1 1 220px; padding:8px 12px; border:1px solid #ccc; border-radius:6px; font-size:13px;" />
+        <select id="grant-role" style="padding:8px 12px; border:1px solid #ccc; border-radius:6px; font-size:13px;">
+          <option value="partner">Partner</option>
+          <option value="founder">Founder</option>
+        </select>
+        <input id="grant-notes" type="text" placeholder="notes (optional, e.g. 'Wadhwa Publishing — 1yr pilot')"
+               style="flex:2 1 260px; padding:8px 12px; border:1px solid #ccc; border-radius:6px; font-size:13px;" />
+        <button type="submit" style="padding:8px 16px; background:#0c0c0a; color:#fdfcf9; border:none; border-radius:6px; cursor:pointer; font-weight:600; font-size:13px;">Grant access</button>
+      </form>
+
+      <table id="grants-table">
+        <thead>
+          <tr>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Source</th>
+            <th>Notes</th>
+            <th>Granted at</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
@@ -141,6 +173,8 @@
   async function boot() {
     await loadUsage();
     await loadUsers();
+    await loadGrants();
+    wireGrantForm();
   }
 
   async function loadUsage() {
@@ -196,6 +230,78 @@
     const r = await api(`/admin/v2/users/${userId}/cancel`, { method: 'POST' });
     if (r && r.ok) { alert('Cancelled.'); loadUsers(); }
     else alert('Failed.');
+  }
+
+  // ---- Access grants -------------------------------------------------
+  function escHTML(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
+  async function loadGrants() {
+    const data = await api('/admin/access-grants');
+    if (!data) return;
+    const tbody = document.querySelector('#grants-table tbody');
+    const grants = data.grants || [];
+    if (!grants.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="color:#5d5b54;text-align:center;padding:18px;">No grants yet. Add one above.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = grants.map(g => {
+      const roleBadge = g.role === 'founder'
+        ? '<span class="badge" style="background:#1f4878;color:#fff;">Founder</span>'
+        : '<span class="badge" style="background:#7d5a1a;color:#fff;">Partner</span>';
+      const srcBadge = g.source === 'config'
+        ? '<span class="badge badge--demo" title="hardcoded in config.py — root tier, read-only">config</span>'
+        : '<span class="badge badge--monthly" title="DB-stored grant — removable from here">DB</span>';
+      const actions = g.source === 'db'
+        ? `<button onclick="removeGrant('${escHTML(g.email)}')">Remove</button>`
+        : '<span style="color:#aaa;font-size:11px;">(edit in code)</span>';
+      return `
+        <tr>
+          <td><code>${escHTML(g.email)}</code></td>
+          <td>${roleBadge}</td>
+          <td>${srcBadge}</td>
+          <td style="font-size:12px;color:#5d5b54;">${escHTML(g.notes)}</td>
+          <td style="font-size:12px;color:#5d5b54;">${escHTML((g.granted_at || '').slice(0,10) || '—')}</td>
+          <td class="actions">${actions}</td>
+        </tr>`;
+    }).join('');
+  }
+
+  function wireGrantForm() {
+    const form = document.getElementById('grant-form');
+    if (!form || form.dataset.wired === '1') return;
+    form.dataset.wired = '1';
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('grant-email').value.trim();
+      const role  = document.getElementById('grant-role').value;
+      const notes = document.getElementById('grant-notes').value.trim();
+      if (!email) return;
+      const r = await api('/admin/access-grants', {
+        method: 'POST',
+        body: JSON.stringify({ email, role, notes }),
+      });
+      if (r && r.ok) {
+        document.getElementById('grant-email').value = '';
+        document.getElementById('grant-notes').value = '';
+        await loadGrants();
+      } else {
+        alert('Failed: ' + ((r && r.detail) || 'unknown error'));
+      }
+    });
+  }
+
+  async function removeGrant(email) {
+    if (!confirm(`Revoke access for ${email}?`)) return;
+    const r = await fetch('/admin/access-grants/' + encodeURIComponent(email), {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + TOKEN },
+    });
+    if (r.ok) { await loadGrants(); }
+    else { const e = await r.json().catch(()=>({})); alert('Failed: ' + (e.detail || r.status)); }
   }
 </script>
 </body>

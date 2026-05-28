@@ -408,6 +408,57 @@ def admin_import_corpus(
         }
 
 
+# ===================================================================== #
+# Access-grants: founder / partner whitelist management from the UI.    #
+# ===================================================================== #
+
+@router.get("/access-grants", summary="List founder + partner access grants")
+def admin_list_grants(authorization: Optional[str] = Header(default=None)):
+    """Returns all access grants: hardcoded config entries (read-only,
+    source='config') AND DB-stored grants (source='db', deletable)."""
+    _require_admin(authorization)
+    from headnote.entitlements.grants import list_grants, list_hardcoded
+    return {"grants": list_hardcoded() + list_grants()}
+
+
+@router.post("/access-grants", summary="Grant founder or partner access")
+def admin_add_grant(
+    payload: dict,
+    authorization: Optional[str] = Header(default=None),
+):
+    """Body: {"email": "...", "role": "founder"|"partner", "notes": "..."}.
+    Refuses if the email is already in the hardcoded config (root tier)."""
+    _require_admin(authorization)
+    from headnote.entitlements.grants import add_grant
+    email = (payload or {}).get("email", "")
+    role  = (payload or {}).get("role", "")
+    notes = (payload or {}).get("notes", "") or ""
+    try:
+        row = add_grant(email, role, notes=notes, granted_by="admin")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"ok": True, "grant": row}
+
+
+@router.delete("/access-grants/{email}", summary="Revoke a DB-stored grant")
+def admin_remove_grant(
+    email: str,
+    authorization: Optional[str] = Header(default=None),
+):
+    """Removes the DB grant for `email`. Hardcoded config entries are NOT
+    removable from here — edit headnote/config.py for those."""
+    _require_admin(authorization)
+    from headnote.entitlements.grants import remove_grant
+    ok = remove_grant(email)
+    if not ok:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No DB-stored grant found for {email!r} "
+                   "(hardcoded entries cannot be removed via this API)",
+        )
+    return {"ok": True}
+
+
 @router.get("/cost-dashboard", summary="HTML dashboard rendering telemetry charts",
             include_in_schema=False)
 def admin_cost_dashboard():
