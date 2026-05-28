@@ -209,8 +209,18 @@ _FOUNDER_DEFAULT = (
 _PARTNER_DEFAULT = (
     "wadhwapublishingco@gmail.com",
 )
+# Time-limited comp grants. Unlike founder/partner (perpetual), these
+# activate to a REAL subscription on the user's first sign-in (365 days
+# yearly / 30 days monthly), then expire normally. One-shot — consumed
+# after activation via the consumed_grants SQLite table.
+_YEARLY_GRANT_DEFAULT = (
+    "dharasinghmeena1991@gmail.com",
+)
+_MONTHLY_GRANT_DEFAULT: tuple[str, ...] = ()
 _founder_env = os.environ.get("FOUNDER_EMAILS", "")
 _partner_env = os.environ.get("PARTNER_EMAILS", "")
+_yearly_grant_env = os.environ.get("YEARLY_GRANT_EMAILS", "")
+_monthly_grant_env = os.environ.get("MONTHLY_GRANT_EMAILS", "")
 FOUNDER_EMAILS: frozenset[str] = frozenset(
     e.strip().lower()
     for e in list(_FOUNDER_DEFAULT) + _founder_env.split(",")
@@ -219,6 +229,16 @@ FOUNDER_EMAILS: frozenset[str] = frozenset(
 PARTNER_EMAILS: frozenset[str] = frozenset(
     e.strip().lower()
     for e in list(_PARTNER_DEFAULT) + _partner_env.split(",")
+    if e.strip()
+)
+YEARLY_GRANT_EMAILS: frozenset[str] = frozenset(
+    e.strip().lower()
+    for e in list(_YEARLY_GRANT_DEFAULT) + _yearly_grant_env.split(",")
+    if e.strip()
+)
+MONTHLY_GRANT_EMAILS: frozenset[str] = frozenset(
+    e.strip().lower()
+    for e in list(_MONTHLY_GRANT_DEFAULT) + _monthly_grant_env.split(",")
     if e.strip()
 )
 

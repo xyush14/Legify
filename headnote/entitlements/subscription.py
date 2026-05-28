@@ -47,6 +47,55 @@ def _founder_sub(user_id: str) -> dict:
     return _synthetic_sub(user_id, "founder")
 
 
+def _activate_paid_grant(user_id: str, plan: str) -> Optional[dict]:
+    """One-shot activation of a time-limited comp grant.
+
+    Creates a REAL Supabase `subscriptions` row for `user_id` with the given
+    plan and a period_end = now + PLANS[plan].duration_days. After this fires,
+    the user has a normal paid-plan subscription that expires on schedule
+    (no perpetual access — this is the difference vs founder/partner).
+
+    Returns None (skips activation) if the user already has an active paid
+    plan — they don't need the comp; the caller still marks the grant
+    consumed so it doesn't keep checking on every sign-in.
+    """
+    p = PLANS.get(plan)
+    if not p:
+        return None
+
+    # Skip if user already has a non-demo active subscription.
+    try:
+        existing = _supabase.select(
+            "subscriptions",
+            params={"user_id": f"eq.{user_id}", "select": "plan,status", "limit": "1"},
+        )
+        if existing and existing[0].get("status") == "active":
+            cur_plan = existing[0].get("plan")
+            if cur_plan in ("weekly", "monthly", "yearly", "founder", "partner"):
+                return None
+    except Exception:
+        # Best-effort check; on any error, proceed with activation rather
+        # than silently swallow the grant.
+        pass
+
+    now = datetime.now(timezone.utc)
+    payload = {
+        "user_id": user_id,
+        "plan": plan,
+        "status": "active",
+        "period_start": now.isoformat(),
+        "period_end": (now + timedelta(days=p.duration_days)).isoformat(),
+        "payment_provider": f"{plan}_comp_grant",
+        "weekly_trial_used": False,
+        "cancelled_at": None,
+    }
+    try:
+        result = _supabase.upsert("subscriptions", payload, on_conflict="user_id")
+        return result[0] if result else payload
+    except Exception:
+        return None
+
+
 def get_active_subscription(user_id: str, email: str | None = None) -> dict | None:
     """Return the user's current subscription row, auto-downgrading to Demo
     if the previous plan has expired.
@@ -67,10 +116,12 @@ def get_active_subscription(user_id: str, email: str | None = None) -> dict | No
     if email is None:
         email = current_user_email.get()
     # Resolution order (most-trusted first):
-    #   1. hardcoded FOUNDER_EMAILS  → founder plan
-    #   2. hardcoded PARTNER_EMAILS  → partner plan
-    #   3. DB access_grants table    → role-defined plan
-    #   4. actual subscriptions row  → user's bought plan
+    #   1. hardcoded FOUNDER_EMAILS    → perpetual synthetic founder sub
+    #   2. hardcoded PARTNER_EMAILS    → perpetual synthetic partner sub
+    #   3. DB founder/partner grant    → perpetual synthetic sub
+    #   4. unconsumed yearly/monthly comp (hardcoded OR DB)
+    #        → ACTIVATE: create a real Supabase subscription, mark consumed
+    #   5. actual subscriptions row    → user's bought plan
     if email:
         e = email.lower()
         if e in config.FOUNDER_EMAILS:
@@ -78,10 +129,34 @@ def get_active_subscription(user_id: str, email: str | None = None) -> dict | No
         if e in config.PARTNER_EMAILS:
             return _synthetic_sub(user_id, "partner")
         try:
-            from headnote.entitlements.grants import get_role as _grant_role
-            role = _grant_role(e)
+            from headnote.entitlements import grants as _grants
+            role = _grants.get_role(e)
             if role in ("founder", "partner"):
                 return _synthetic_sub(user_id, role)
+
+            # Time-limited comp grants — one-shot activation to a real sub.
+            if not _grants.is_consumed(e):
+                comp_plan = None
+                if e in config.YEARLY_GRANT_EMAILS:
+                    comp_plan = "yearly"
+                elif e in config.MONTHLY_GRANT_EMAILS:
+                    comp_plan = "monthly"
+                elif role in ("yearly", "monthly"):
+                    comp_plan = role
+                if comp_plan:
+                    sub = _activate_paid_grant(user_id, comp_plan)
+                    if sub is not None:
+                        _grants.mark_consumed(e, comp_plan, user_id)
+                        # DB grant rows are one-shot — delete after activation.
+                        if role in ("yearly", "monthly"):
+                            _grants.remove_grant(e)
+                        return sub
+                    # _activate_paid_grant returned None — user already has
+                    # an active paid plan; mark consumed anyway so we don't
+                    # keep checking, and fall through to the DB lookup.
+                    _grants.mark_consumed(e, comp_plan, user_id)
+                    if role in ("yearly", "monthly"):
+                        _grants.remove_grant(e)
         except Exception:
             pass
 

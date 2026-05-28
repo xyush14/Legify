@@ -101,14 +101,16 @@
     <!-- Access Grants — founder + partner whitelist management -->
     <div class="panel">
       <h2>Access grants — founders &amp; partners</h2>
-      <p class="sub" style="margin:-6px 0 14px;">Grant unlimited access by email. <strong>Founder</strong> = team. <strong>Partner</strong> = strategic partner (law publishers, senior chambers). Config entries are root-tier and only editable in code; DB entries are removable here.</p>
+      <p class="sub" style="margin:-6px 0 14px;">Grant access by email. <strong>Founder</strong> / <strong>Partner</strong> = perpetual unlimited (synthetic sub). <strong>Yearly</strong> / <strong>Monthly</strong> = one-shot comp — activates to a real subscription on the user's first sign-in, expires normally. Config entries are root-tier; DB entries are removable.</p>
 
       <form id="grant-form" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:16px;">
         <input id="grant-email" type="email" placeholder="email@example.com" required
                style="flex:1 1 220px; padding:8px 12px; border:1px solid #ccc; border-radius:6px; font-size:13px;" />
         <select id="grant-role" style="padding:8px 12px; border:1px solid #ccc; border-radius:6px; font-size:13px;">
-          <option value="partner">Partner</option>
-          <option value="founder">Founder</option>
+          <option value="yearly">Yearly (365-day comp)</option>
+          <option value="monthly">Monthly (30-day comp)</option>
+          <option value="partner">Partner (perpetual)</option>
+          <option value="founder">Founder (perpetual)</option>
         </select>
         <input id="grant-notes" type="text" placeholder="notes (optional, e.g. 'Wadhwa Publishing — 1yr pilot')"
                style="flex:2 1 260px; padding:8px 12px; border:1px solid #ccc; border-radius:6px; font-size:13px;" />
@@ -248,10 +250,14 @@
       tbody.innerHTML = '<tr><td colspan="6" style="color:#5d5b54;text-align:center;padding:18px;">No grants yet. Add one above.</td></tr>';
       return;
     }
+    const roleStyle = {
+      founder: 'background:#1f4878;color:#fff;',
+      partner: 'background:#7d5a1a;color:#fff;',
+      yearly:  'background:#4a6e26;color:#fff;',
+      monthly: 'background:#5e4799;color:#fff;',
+    };
     tbody.innerHTML = grants.map(g => {
-      const roleBadge = g.role === 'founder'
-        ? '<span class="badge" style="background:#1f4878;color:#fff;">Founder</span>'
-        : '<span class="badge" style="background:#7d5a1a;color:#fff;">Partner</span>';
+      const roleBadge = `<span class="badge" style="${roleStyle[g.role] || ''}">${(g.role||'').replace(/^./, c=>c.toUpperCase())}</span>`;
       const srcBadge = g.source === 'config'
         ? '<span class="badge badge--demo" title="hardcoded in config.py — root tier, read-only">config</span>'
         : '<span class="badge badge--monthly" title="DB-stored grant — removable from here">DB</span>';
