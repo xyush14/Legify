@@ -186,17 +186,20 @@ ENABLE_OPUS_ESCALATION = os.environ.get(
 # Bearer token for /admin/* routes. Unset means admin endpoints return 503.
 ADMIN_TOKEN: Optional[str] = os.environ.get("ADMIN_TOKEN")
 
-# ----------------------------------------------------------------- Founder access
+# ----------------------------------------------------------------- Founder / partner access
 # Whitelist of email addresses that bypass all plan gates and quotas — every
 # feature unlimited, every flag unlocked, no metering enforcement. Used for
-# the founder + co-founder accounts. Add via env var FOUNDER_EMAILS (comma-
-# separated) for production, or extend the default tuple below for hard-coded
-# entries. Match is case-insensitive on the local-part + domain.
+# the founder + co-founder + strategic-partner accounts. Add via env var
+# FOUNDER_EMAILS (comma-separated) for production, or extend the default
+# tuple below for hard-coded entries. Match is case-insensitive on the
+# local-part + domain.
 _FOUNDER_DEFAULT = (
     "20pe3009@rgipt.ac.in",
     "ayushshivhare02@gmail.com",
     "kpal645@gmail.com",
     "vishnushivhare25@gmail.com",
+    # Strategic partners (unlimited access)
+    "wadhwapublishingco@gmail.com",
 )
 _founder_env = os.environ.get("FOUNDER_EMAILS", "")
 FOUNDER_EMAILS: frozenset[str] = frozenset(
