@@ -12,7 +12,7 @@
   .pricing-header { text-align: center; margin-bottom: 48px; }
   .pricing-header h1 { font-size: 38px; font-weight: 700; margin: 0 0 12px; letter-spacing: -0.02em; }
   .pricing-header p { color: #5d5b54; font-size: 16px; margin: 0; }
-  .pricing-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+  .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; max-width: 1080px; margin-left: auto; margin-right: auto; }
   @media (max-width: 980px) { .pricing-grid { grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 560px) { .pricing-grid { grid-template-columns: 1fr; } }
 
@@ -122,33 +122,16 @@
     <div class="pcard">
       <h2>Demo</h2>
       <div class="pcard__price">Free</div>
-      <div class="pcard__price-sub">14 days, no card</div>
+      <div class="pcard__price-sub">3 days, no card</div>
       <ul>
-        <li>3 deep searches (lifetime)</li>
-        <li>2 document drafts</li>
-        <li>10 judgment reads / day</li>
-        <li>42K-case corpus</li>
-        <li class="x">No PDF export</li>
-        <li class="x">No Hindi export</li>
+        <li>10 research queries</li>
+        <li>5 document drafts</li>
+        <li>Unlimited judgment reads</li>
+        <li>PDF export (English + Hindi)</li>
+        <li>Full case-law corpus</li>
+        <li>All features unlocked</li>
       </ul>
       <a class="pcard__cta" href="/app">Start free</a>
-    </div>
-
-    <!-- Weekly Trial -->
-    <div class="pcard">
-      <span class="pcard__tag">First-time only</span>
-      <h2>Weekly Trial</h2>
-      <div class="pcard__price">₹120</div>
-      <div class="pcard__price-sub">7 days, one-time</div>
-      <ul>
-        <li>15 deep searches / week</li>
-        <li>30 drafts / week</li>
-        <li>Unlimited judgment reads</li>
-        <li>PDF export (English)</li>
-        <li>7-day history</li>
-        <li class="x">No Hindi export</li>
-      </ul>
-      <button class="pcard__cta" data-plan="weekly">Try for ₹120</button>
     </div>
 
     <!-- Monthly -->
@@ -158,7 +141,7 @@
       <div class="pcard__price">₹499<span style="font-size:14px;color:#5d5b54;">/mo</span></div>
       <div class="pcard__price-sub">30 days, one-time payment</div>
       <ul>
-        <li>100 deep searches / month</li>
+        <li>150 research queries / month</li>
         <li>Unlimited drafts</li>
         <li>Unlimited judgment reads</li>
         <li>PDF export (English + Hindi)</li>
@@ -175,7 +158,7 @@
       <div class="pcard__price">₹4,999<span style="font-size:14px;color:#5d5b54;">/yr</span></div>
       <div class="pcard__price-sub">₹417/mo · save ₹989</div>
       <ul>
-        <li>1,500 deep searches / year</li>
+        <li>Effectively unlimited research (2,000/yr)</li>
         <li>Unlimited drafts</li>
         <li>Unlimited judgment reads</li>
         <li>PDF export (English + Hindi)</li>
@@ -341,7 +324,6 @@
 
       // 4. Plan metadata for the modal.
       const planMeta = {
-        weekly:  { label: 'Headnote Weekly Trial',     amount: 120 },
         monthly: { label: 'Headnote Monthly',          amount: 499 },
         yearly:  { label: 'Headnote Yearly',           amount: 4999 },
       }[plan] || { label: 'Headnote', amount: 0 };
