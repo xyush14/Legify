@@ -194,6 +194,51 @@ CRITICAL RULES
 Return ONLY the JSON object. No commentary, no markdown."""
 
 
+OCR_IMPUGNED_ORDER_PROMPT = """You are reading an Indian government / lower-court / tribunal ORDER that is about to be challenged in a High Court writ petition under Article 226. The order may be from a Revenue authority (Tehsildar, SDO, Collector), Service authority (transfer / suspension / departmental enquiry), Municipal authority, Tribunal (CAT, MAT, Tax Tribunal, MACT), Civil court, Election Commission, or similar.
+
+Multiple pages of the SAME order may be sent — process as one document. May be in Hindi (Devanagari), English, or mixed. Could be typed or printed; stamps and signatures common.
+
+Extract this JSON for use in a writ petition draft. Return ONLY a JSON object — no markdown fences, no prose.
+
+{
+  "authority_name":     "string — full authority/court name as written, e.g. 'Sub Divisional Officer, Vidisha' or 'अनुविभागीय अधिकारी, विदिशा'. Same script as the order.",
+  "authority_role":     "'sdo'|'tehsildar'|'collector'|'district_judge'|'magistrate'|'tribunal'|'commissioner'|'department'|'municipal'|'other'",
+  "case_number":        "string — reference/case number, e.g. '144/B-121/2025-26' or '0358/A-12/2025-26'. null if not found.",
+  "order_date":         "string — DD.MM.YYYY of the order. null if not found.",
+  "passed_by":          "string — name + designation of the officer who signed (often handwritten/stamped at bottom). null if not readable.",
+
+  "petitioner_name":    "string — the AGGRIEVED party (the one likely to file the writ) name, verbatim. Watch for: petitioner/applicant/अनावेदक/प्रतिवादी depending on the order. null if not clear.",
+  "petitioner_relative": "string — father/husband name of petitioner",
+  "petitioner_address": "string or null",
+
+  "respondent_party":   "string — the OTHER side (often a private respondent if any) name. null if not present.",
+  "subject_matter":     "string — 2-4 sentence neutral summary of WHAT the order decided. Cite the statute the order was passed under (e.g. 'Section 129(5) of MP Land Revenue Code', 'Rule 14 of CCS(CCA) Rules'). Max 300 words.",
+  "operative_direction": "string — the OPERATIVE part of the order (the final direction / dismissal / confirmation). 1-3 sentences. Max 150 words.",
+  "outcome":            "'dismissed'|'allowed'|'remanded'|'rejected'|'confirmed'|'modified'|null  — for the petitioner/applicant before this authority.",
+
+  "statutes_cited":     ["array of statute references invoked, e.g. 'Section 129(5) MP Land Revenue Code', 'Article 14 Constitution', 'Rule 25 MP HC Rules 2008'."],
+
+  "lower_proceeding_referenced": "string or null — if THIS order is itself an appeal/revision over an EARLIER order (very common — SDO's order over Tehsildar's, etc.), the earlier order's reference (case no + date + authority). Useful so the writ can challenge BOTH orders.",
+
+  "place":              "string — district / city the authority is located in. null if not found.",
+  "language":           "'hi'|'en'|'mixed'",
+  "confidence":         "'high'|'medium'|'low'",
+  "notes":              "string — caveats (illegible pages, ambiguous outcome, multiple orders in one doc, etc.). null if clean."
+}
+
+CRITICAL RULES
+==============
+1. The PETITIONER in the writ is the AGGRIEVED party before this authority — usually the one whose request was REJECTED or against whom proceedings ran. Identify them correctly.
+2. `subject_matter` and `operative_direction` go straight into the writ petition's facts / grounds — write them in neutral, third-person, "court-tone" language ready to paste.
+3. If the order references an EARLIER order (this is common: a SDO order confirming a Tehsildar order; a CAT order over a departmental order), capture it in `lower_proceeding_referenced` so the writ can challenge both.
+4. Statute citations must be exact — '129(5) MP Land Revenue Code' not 'MPLRC' or 'Land Code'.
+5. Don't transliterate proper names — Hindi names stay in Devanagari.
+6. If a field is absent, return null (not "" or "N/A").
+7. If the image is NOT a government/tribunal/court order (e.g. an FIR or a private letter), set confidence='low', notes='not an impugned order — appears to be <X>', and null the order-specific fields.
+
+Return ONLY the JSON object. No commentary, no markdown."""
+
+
 def _img_block(image_bytes: bytes, media_type: str) -> dict:
     """Build an Anthropic content block for an image or PDF."""
     b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
@@ -443,6 +488,47 @@ def ocr_bail_order_pages(pages: Sequence[tuple[bytes, str]]) -> dict:
     lower court, bail-case number, order date, applicants, crime details,
     outcome, and the court's reasoning. Same provider chain as FIR OCR."""
     return _run_ocr(pages, OCR_BAIL_ORDER_PROMPT, _normalise_bail_order)
+
+
+def _normalise_impugned_order(parsed: dict) -> dict:
+    """Post-process impugned-order extraction into canonical writ-draft form.
+
+    Maps the raw OCR keys onto the writ-petition template field names so the
+    frontend's `fills_fields` array can apply the values directly without a
+    second mapping layer. We keep BOTH the raw keys and the mapped keys so
+    debugging / inspection of the extracted JSON stays readable.
+    """
+    # Statutes_cited from the OCR comes as a list — render it as a string for
+    # the writ's statutory-framework field. Keep the list too in case the FE
+    # wants chips.
+    statutes = parsed.get("statutes_cited") or []
+    if isinstance(statutes, list):
+        parsed["statutes_str"] = "; ".join(str(s) for s in statutes if s)
+    # Build a one-line impugned-order summary (used in writ subject line +
+    # cause-title cross-reference). Format: "<authority>, order dated <date>
+    # in case <no>".
+    bits = []
+    if parsed.get("authority_name"):
+        bits.append(str(parsed["authority_name"]).strip())
+    if parsed.get("order_date"):
+        bits.append(f"order dated {parsed['order_date']}")
+    if parsed.get("case_number"):
+        bits.append(f"in case {parsed['case_number']}")
+    if bits:
+        parsed["impugned_order_line"] = ", ".join(bits)
+    return parsed
+
+
+def ocr_impugned_order_pages(pages: Sequence[tuple[bytes, str]]) -> dict:
+    """OCR + parse a multi-page GOVT / TRIBUNAL / LOWER-COURT order that is
+    about to be challenged in a High Court writ petition under Article 226.
+
+    Extracts: authority, case number, order date, signing officer, petitioner
+    (aggrieved party) particulars, respondent, neutral subject-matter summary,
+    operative direction, statutes cited, lower-proceeding reference (so the
+    writ can challenge both the appellate and the original order in one go).
+    Same provider chain as FIR OCR."""
+    return _run_ocr(pages, OCR_IMPUGNED_ORDER_PROMPT, _normalise_impugned_order)
 
 
 def _format_groq_error(err: Exception) -> str:

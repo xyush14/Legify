@@ -325,6 +325,12 @@ QUASHING_PETITION = {
 
 
 # ---------------------------------------------------------------- Writ Petition
+# Structure mirrors the MP HC Article 226 writ standard (Rule 25 of the MP HC
+# Rules, 2008): Declaration → Particulars → Other-proceedings → Remedies →
+# Delay → Facts (5.x) → Grounds (6.x) → Relief (a,b,c) → Interim Relief →
+# Documents → Caveat → Signature → Affidavit + Verification + List of Documents.
+# Reference: Sandeep Bairagi v. State (MP HC writ challenging an SDO order
+# under Section 129(5) of the MP Land Revenue Code).
 WRIT_PETITION = {
     "id":         "writ_petition",
     "name_en":    "Writ Petition (Article 226)",
@@ -332,85 +338,231 @@ WRIT_PETITION = {
     "category":   "writ",
     "tier":       1,
     "description": "High Court writ — mandamus, certiorari, habeas corpus, prohibition, quo warranto.",
-        "uploads": [
+    "uploads": [
         {
-            "id":            "order_photo",
+            "id":            "impugned_order",
             "label_en":      "Impugned Order (photo or PDF)",
             "label_hi":      "विवादित आदेश (फोटो या PDF)",
-            "sub_en":        "Upload the order being challenged — AI will extract case no, court, date",
-            "sub_hi":        "जिस आदेश को चुनौती दे रहे हैं उसे अपलोड करें",
+            "sub_en":        "Upload the order being challenged · 1-8 pages · AI auto-fills authority, case no, date, subject",
+            "sub_hi":        "जिस आदेश को चुनौती दे रहे हैं उसे अपलोड करें · 1-8 पन्ने · AI स्वतः प्राधिकारी, केस क्र., दिनांक भरेगा",
             "accept":        "image/*,application/pdf",
-            "multiple":      False,
-            "max_files":     4,
-            "endpoint":      None,
-            "fills_fields":  [],
+            "multiple":      True,
+            "max_files":     8,
+            "endpoint":      "/api/draft/ocr-impugned-order",
+            "fills_fields":  [
+                "impugned_authority", "impugned_case_no", "impugned_order_date",
+                "impugned_passed_by", "petitioner_name", "petitioner_father",
+                "petitioner_address", "subject_summary", "operative_direction",
+                "respondent_authority", "statutes_invoked", "earlier_proceeding_ref",
+                "place_district",
+            ],
         }
     ],
     "fields": [
-        {"key": "court_name",        "label_en": "High Court",                 "label_hi": "उच्च न्यायालय",              "type": "text",     "required": True, "section": "court"},
-        {"key": "writ_type",         "label_en": "Type of writ",               "label_hi": "रिट का प्रकार",              "type": "text",     "required": True, "hint": "mandamus / certiorari / habeas corpus / prohibition / quo warranto", "section": "grounds"},
-        {"key": "writ_category",     "label_en": "Civil or Criminal writ",     "label_hi": "सिविल या आपराधिक रिट",     "type": "text",     "required": False, "hint": "WP(C) = Civil, WP(Crl) = Criminal", "section": "grounds"},
-        {"key": "petitioner_name",   "label_en": "Petitioner name",            "label_hi": "याचिकाकर्ता",                "type": "name",     "required": True, "section": "petitioner"},
-        {"key": "petitioner_father", "label_en": "Father's name",              "label_hi": "पिता का नाम",                "type": "name",     "required": True, "section": "petitioner"},
-        {"key": "petitioner_age",    "label_en": "Age",                        "label_hi": "आयु",                         "type": "text",     "required": False, "section": "petitioner"},
-        {"key": "petitioner_occupation","label_en": "Occupation",              "label_hi": "व्यवसाय",                     "type": "text",     "required": False, "section": "petitioner"},
-        {"key": "petitioner_address","label_en": "Address",                    "label_hi": "पता",                         "type": "address",  "required": True, "section": "petitioner"},
-        {"key": "respondent_authority","label_en": "Respondent authority",     "label_hi": "विपक्षी प्राधिकारी",         "type": "longtext", "required": True, "hint": "e.g. 'State of MP through Principal Secretary, Home Dept; Superintendent of Police, Gwalior'", "section": "respondent"},
-        {"key": "impugned_action",   "label_en": "Impugned action / order",    "label_hi": "विवादित कार्य / आदेश",        "type": "longtext", "required": True, "hint": "What is being challenged", "section": "order"},
-        {"key": "subject_summary",   "label_en": "Subject in one line",        "label_hi": "विषय (एक पंक्ति में)",       "type": "text",     "required": True, "hint": "e.g. 'For quashing the arbitrary transfer order dated 01.03.2026'", "section": "grounds"},
-        {"key": "facts_narrative",   "label_en": "Facts of the case",          "label_hi": "मामले के तथ्य",              "type": "longtext", "required": True, "section": "grounds"},
-        {"key": "legal_violation",   "label_en": "Legal / fundamental rights violated", "label_hi": "उल्लंघित अधिकार",   "type": "longtext", "required": True, "hint": "Article 14, 19, 21 etc., or specific statutory rights", "section": "grounds"},
-        {"key": "grounds_for_writ",  "label_en": "Grounds for the writ",       "label_hi": "रिट के आधार",                "type": "longtext", "required": True, "section": "grounds"},
-        {"key": "relief_sought",     "label_en": "Specific relief sought",     "label_hi": "अभीप्सित अनुतोष",            "type": "longtext", "required": True, "section": "grounds"},
-        {"key": "alternative_remedy_exhausted","label_en": "Alternative remedy exhausted?","label_hi": "वैकल्पिक उपचार समाप्त?","type": "text", "required": False, "hint": "Yes/No + brief explanation", "section": "grounds"},
+        # ---- Court & writ identity ----
+        {"key": "court_name",         "label_en": "High Court",                  "label_hi": "उच्च न्यायालय",                 "type": "text",     "required": True,  "hint": "e.g. 'High Court of Madhya Pradesh, Bench at Gwalior'", "section": "court"},
+        {"key": "bench_location",     "label_en": "Bench location",              "label_hi": "खण्डपीठ",                       "type": "text",     "required": False, "hint": "Gwalior / Indore / Jabalpur etc.", "section": "court"},
+        {"key": "writ_type",          "label_en": "Type of writ",                "label_hi": "रिट का प्रकार",                 "type": "text",     "required": True,  "hint": "mandamus / certiorari / habeas corpus / prohibition / quo warranto", "section": "court"},
+        {"key": "writ_category",      "label_en": "Civil or Criminal writ",      "label_hi": "सिविल या आपराधिक रिट",        "type": "text",     "required": False, "hint": "WP(C) = Civil, WP(Crl) = Criminal", "section": "court"},
+        {"key": "subject_summary",    "label_en": "Subject of writ (one line)",  "label_hi": "विषय (एक पंक्ति)",              "type": "text",     "required": True,  "hint": "e.g. 'For quashing the SDO order dated 31.03.2026 under §129(5) MPLRC'", "section": "court"},
+
+        # ---- Petitioner (aggrieved party) ----
+        {"key": "petitioner_name",    "label_en": "Petitioner name",             "label_hi": "याचिकाकर्ता",                   "type": "name",     "required": True, "section": "petitioner"},
+        {"key": "petitioner_father",  "label_en": "Father's / husband's name",   "label_hi": "पिता / पति का नाम",             "type": "name",     "required": True, "section": "petitioner"},
+        {"key": "petitioner_age",     "label_en": "Age",                         "label_hi": "आयु",                            "type": "text",     "required": False, "section": "petitioner"},
+        {"key": "petitioner_occupation","label_en": "Occupation",                "label_hi": "व्यवसाय",                        "type": "text",     "required": False, "section": "petitioner"},
+        {"key": "petitioner_address", "label_en": "Address",                     "label_hi": "पता",                            "type": "address",  "required": True, "section": "petitioner"},
+
+        # ---- Respondents ----
+        {"key": "respondent_authority","label_en": "Respondents (one per line, numbered)", "label_hi": "विपक्षी प्राधिकारी (एक प्रति पंक्ति, क्रमांकित)", "type": "longtext", "required": True, "hint": "e.g.\n1. State of MP, through Principal Secretary, Revenue Department, Vallabh Bhawan, Bhopal\n2. Collector, Vidisha\n3. Sub-Divisional Officer (Revenue), Vidisha", "section": "respondent"},
+
+        # ---- Para 1 — Particulars of the impugned order(s) (Rule 25(2)(a) MP HC Rules) ----
+        {"key": "impugned_authority", "label_en": "Authority that passed the order","label_hi": "आदेश पारित करने वाला प्राधिकारी","type": "text", "required": True, "hint": "e.g. 'Sub-Divisional Officer, Vidisha'", "section": "order"},
+        {"key": "impugned_case_no",   "label_en": "Case / reference number",     "label_hi": "केस / संदर्भ क्रमांक",          "type": "text",     "required": True, "hint": "e.g. '144/B-121/2025-26'", "section": "order"},
+        {"key": "impugned_order_date","label_en": "Order date",                  "label_hi": "आदेश की दिनांक",                "type": "date",     "required": True, "section": "order"},
+        {"key": "impugned_passed_by", "label_en": "Officer who signed",          "label_hi": "हस्ताक्षरकर्ता अधिकारी",         "type": "text",     "required": False, "section": "order"},
+        {"key": "operative_direction","label_en": "Operative direction of the order","label_hi": "आदेश का प्रवर्तनीय भाग",     "type": "longtext", "required": True, "hint": "1-3 sentences — exactly what the order directs", "section": "order"},
+        {"key": "earlier_proceeding_ref","label_en": "Earlier order (if this is an appeal/revision)","label_hi": "पूर्व आदेश (यदि यह अपील/पुनरीक्षण है)","type": "longtext", "required": False, "hint": "Case no + date + authority of the earlier order — so the writ can challenge both", "section": "order"},
+        {"key": "statutes_invoked",   "label_en": "Statutes invoked in the order","label_hi": "प्रयुक्त धाराएँ",                "type": "text",     "required": False, "hint": "e.g. '§129(5) MP Land Revenue Code'", "section": "order"},
+        {"key": "place_district",     "label_en": "Place / district of the authority", "label_hi": "स्थान / जिला",          "type": "text",     "required": False, "section": "order"},
+
+        # ---- Paras 2-4 — declarations required by Rule 25 ----
+        {"key": "other_proceedings",  "label_en": "Other proceedings on this matter?", "label_hi": "क्या इसी मामले में अन्य कार्यवाही?", "type": "longtext", "required": False, "hint": "If yes — court + case no + status. If none, leave blank (template inserts standard declaration).", "section": "grounds"},
+        {"key": "remedies_exhausted", "label_en": "Statutory remedies exhausted",   "label_hi": "वैधानिक उपचार समाप्त",          "type": "longtext", "required": True,  "hint": "Which appeals/revisions were filed (or why an alternative remedy is inadequate / unavailable)", "section": "grounds"},
+        {"key": "delay_explanation",  "label_en": "Delay (if any) and explanation", "label_hi": "विलम्ब (यदि कोई हो)",          "type": "longtext", "required": False, "hint": "If filed beyond 90 days from cause of action, explain", "section": "grounds"},
+
+        # ---- Para 5 — Facts ----
+        {"key": "facts_narrative",    "label_en": "Facts (chronological — will be auto-numbered 5.1, 5.2, …)", "label_hi": "तथ्य (कालक्रम अनुसार — 5.1, 5.2 ... स्वतः क्रमांकित होंगे)", "type": "longtext", "required": True, "section": "grounds"},
+
+        # ---- Para 6 — Grounds ----
+        {"key": "grounds_for_writ",   "label_en": "Grounds (each on its own line — will be auto-numbered 6.1, 6.2, …)", "label_hi": "आधार (हर एक नई पंक्ति में — 6.1, 6.2 ... स्वतः क्रमांकित होंगे)", "type": "longtext", "required": True, "hint": "Statutory infirmity, violation of natural justice, jurisdictional error, breach of Article 14/19/21/300A — one ground per line.", "section": "grounds"},
+
+        # ---- Para 7 — Relief ----
+        {"key": "relief_sought",      "label_en": "Reliefs prayed (a, b, c …)",   "label_hi": "प्रार्थित अनुतोष (अ, ब, स …)", "type": "longtext", "required": True, "section": "grounds"},
+
+        # ---- Para 8 — Interim relief ----
+        {"key": "interim_relief",     "label_en": "Interim relief sought",        "label_hi": "अंतरिम अनुतोष",                  "type": "longtext", "required": False, "hint": "e.g. 'Stay the operation of the impugned order pending hearing'", "section": "grounds"},
+
+        # ---- Para 9-10 — Documents + Caveat ----
+        {"key": "list_of_documents",  "label_en": "List of documents / annexures",  "label_hi": "दस्तावेजों की सूची / अनुलग्नक", "type": "longtext", "required": True,  "hint": "One per line — e.g.\nP-1: Impugned order dated 31.03.2026\nP-2: Tehsildar order dated 20.06.2025\nP-3: Revenue records", "section": "grounds"},
+        {"key": "caveat_filed",       "label_en": "Has the respondent filed a caveat?", "label_hi": "क्या विपक्षी ने केवेट दाखिल किया है?", "type": "text", "required": False, "hint": "Yes / No", "section": "grounds"},
+
+        # ---- Affidavit deponent (Rule 25(3) — verification by affidavit) ----
+        {"key": "affidavit_deponent", "label_en": "Affidavit deponent",           "label_hi": "शपथ-पत्र का प्रस्तुतकर्ता",     "type": "name",     "required": False, "hint": "Usually the petitioner. Leave blank to default to petitioner.", "section": "grounds"},
+
         *_ADVOCATE_FIELDS,
     ],
     "format_spec": (
-        "Generate a complete writ petition under Article 226 of the Constitution "
-        "of India for an Indian High Court. Structure exactly:\n\n"
-        "  1. HEADER: 'IN THE HIGH COURT OF <STATE> AT <BENCH>'\n"
-        "  2. Case block: 'Writ Petition (<writ_category if given, else 'Civil'>) No. ____ of <year>'\n"
-        "  3. 'IN THE MATTER OF:' line followed by\n"
-        "       <Petitioner Name>, S/o <Father>, age ___, occupation ___,\n"
-        "       R/o <Address>                                  ... PETITIONER\n"
-        "                              VERSUS\n"
-        "       <Respondent Authority — one entity per numbered line>\n"
-        "                                                       ... RESPONDENTS\n"
-        "  4. Title: 'PETITION UNDER ARTICLE 226 OF THE CONSTITUTION OF INDIA "
-        "     SEEKING ISSUANCE OF A WRIT IN THE NATURE OF <writ_type> "
-        "     <subject_summary>'\n"
-        "  5. 'MOST RESPECTFULLY SHEWETH:'\n"
-        "  6. SYNOPSIS (one paragraph, ~6 lines, capturing the gravamen)\n"
-        "  7. LIST OF DATES & EVENTS (chronological, tabular feel — date on left, "
-        "     event on right; derive from facts_narrative)\n"
-        "  8. Numbered paragraphs:\n"
-        "     1. Petitioner's profile.\n"
-        "     2-N. Facts of the case (using <facts_narrative>).\n"
-        "     N+1. The impugned action / order being challenged (using <impugned_action>).\n"
-        "     N+2. Legal rights / fundamental rights violated (using <legal_violation>) — "
-        "          cite specific Articles (14 — equality; 19 — freedoms; 21 — life "
-        "          & liberty; 300A — property) or statutes as applicable.\n"
-        "     N+3. Alternative remedy: state whether exhausted or unavailable / "
-        "          inadequate (using <alternative_remedy_exhausted>); for criminal "
-        "          writs, cite *Whirlpool Corp. v. Registrar of Trade Marks* "
-        "          exceptions if remedy exists but inadequate.\n"
-        "  9. GROUNDS (lettered A, B, C…): pinpoint each legal infirmity in the "
-        "     impugned action; tie each ground to a constitutional or statutory "
-        "     provision (using <grounds_for_writ>).\n"
-        " 10. PRAYER:\n"
-        "        a) Issue a writ of <writ_type> directing/quashing <relief_sought>.\n"
-        "        b) Stay the operation of the impugned action during pendency.\n"
-        "        c) Such other relief as this Hon'ble Court may deem fit.\n"
-        " 11. Signature: 'Through' <advocate_name>, Counsel for the Petitioner.\n"
-        " 12. Place + Date.\n"
-        " 13. VERIFICATION paragraph (paras 1–N true to personal knowledge; "
-        "     paras X–Y on legal advice).\n\n"
-        "Tone: formal, Indian High Court legal English. If lang='hi' use "
-        "formal Devanagari with vocabulary: माननीय उच्च न्यायालय, याचिकाकर्ता, "
-        "विपक्षी, परमादेश रिट, मौलिक अधिकार, अनुच्छेद 226. Return plain text."
+        "Generate a complete WRIT PETITION under Article 226 of the Constitution "
+        "of India for the Madhya Pradesh High Court (default) — structured per "
+        "Rule 25 of the MP High Court Rules, 2008. Adapt the bench name if a "
+        "different state's High Court is requested.\n\n"
+        "Output FIVE sections in order, separated by clear page-break lines:\n\n"
+        "════════ PAGE 1 — THE PETITION ════════\n\n"
+        "  HEADER (left-aligned, bold caps):\n"
+        "    IN THE <court_name>\n"
+        "    (PRINCIPAL SEAT / BENCH AT <bench_location>)\n"
+        "    WRIT PETITION (<writ_category or 'C'>) NO. _____ OF <year of filing_date>\n\n"
+        "  CAUSE TITLE (two-column):\n"
+        "    IN THE MATTER OF:\n"
+        "    <petitioner_name>, S/o <petitioner_father>, aged about <petitioner_age> "
+        "    years, occupation <petitioner_occupation>, R/o <petitioner_address>\n"
+        "                                            ... PETITIONER\n"
+        "                          VERSUS\n"
+        "    <respondent_authority — render each numbered line on its own row>\n"
+        "                                            ... RESPONDENTS\n\n"
+        "  TITLE (centred, caps):\n"
+        "    PETITION UNDER ARTICLE 226 OF THE CONSTITUTION OF INDIA SEEKING "
+        "    ISSUANCE OF A WRIT IN THE NATURE OF <writ_type> <subject_summary>\n\n"
+        "  'MAY IT PLEASE YOUR LORDSHIPS:' (then a single-line 'The Petitioner "
+        "  above-named most respectfully begs to submit as under:').\n\n"
+        "  DECLARATION (verbatim, mandatory under Rule 25 MP HC Rules, 2008):\n"
+        "    'The Petitioner has not filed any other Writ Petition before this "
+        "    Hon'ble Court or any other High Court of the country or Hon'ble Supreme "
+        "    Court of India on the same subject matter, except as disclosed in "
+        "    Paragraph 2 below.'\n\n"
+        "  NUMBERED PARAGRAPHS:\n\n"
+        "    1. PARTICULARS OF THE IMPUGNED ORDER\n"
+        "       (a) Date of impugned order ........... <impugned_order_date>\n"
+        "       (b) Case / Reference No. ............ <impugned_case_no>\n"
+        "       (c) Passed by ........................ <impugned_passed_by> "
+        "           (<impugned_authority>)\n"
+        "       (d) Statute invoked .................. <statutes_invoked>\n"
+        "       (e) Subject matter ................... <operative_direction>\n"
+        "       (Annexure P-1: certified copy of the impugned order.)\n"
+        "       If <earlier_proceeding_ref> is filled, add sub-paragraph 1A with the "
+        "       earlier order's particulars (date, case no, authority) AND clarify "
+        "       that the present writ challenges BOTH the impugned order and the "
+        "       said earlier order. Add Annexure P-2 for the earlier order.\n\n"
+        "    2. That the Petitioner has NOT filed any other Writ Petition / "
+        "       proceeding on the same subject before this Court, any other High "
+        "       Court, or the Supreme Court. [If <other_proceedings> is non-empty, "
+        "       replace this paragraph with a candid disclosure of the other "
+        "       proceedings.]\n\n"
+        "    3. STATUTORY REMEDIES — that the Petitioner has exhausted the "
+        "       statutory remedies available under the relevant statute, OR that "
+        "       the alternative remedy is inadequate / illusory / not efficacious "
+        "       in the facts of the present case. Use <remedies_exhausted> verbatim "
+        "       expanded into formal court prose; where the remedy exists but is "
+        "       inadequate, cite *Whirlpool Corporation v. Registrar of Trade "
+        "       Marks*, (1998) 8 SCC 1 (writ maintainable despite alternative "
+        "       remedy when (i) fundamental rights are violated, (ii) natural "
+        "       justice is breached, (iii) action is wholly without jurisdiction).\n\n"
+        "    4. DELAY — that there is no delay in approaching this Hon'ble Court. "
+        "       [If <delay_explanation> is non-empty, expand it into a formal "
+        "       explanation of the cause of action date and the reasons for any "
+        "       delay; cite *Tilokchand Motichand v. H. B. Munshi*, (1969) 1 SCC 110 "
+        "       only if relevant.]\n\n"
+        "    5. FACTS OF THE CASE — expand <facts_narrative> into chronological "
+        "       sub-paragraphs 5.1, 5.2, 5.3 … (one fact / event per sub-paragraph; "
+        "       at least 5 sub-paragraphs; end with the impugned order and the "
+        "       Petitioner's grievance against it). Each sub-paragraph begins 'That'.\n\n"
+        "    6. GROUNDS — expand <grounds_for_writ> into lettered/numbered "
+        "       sub-paragraphs 6.1, 6.2, 6.3 …. Each ground must tie to a "
+        "       constitutional or statutory provision. Cover (where applicable):\n"
+        "       - Jurisdictional error / want of authority\n"
+        "       - Violation of natural justice (audi alteram partem, bias)\n"
+        "       - Article 14 — arbitrariness, non-application of mind\n"
+        "       - Article 19 / 21 / 300A — substantive infirmity\n"
+        "       - Misreading / non-consideration of material on record\n"
+        "       - Mala fides / colourable exercise of power\n"
+        "       Each ground begins 'BECAUSE' (or 'क्योंकि' in Hindi).\n\n"
+        "    7. RELIEF / PRAYER — expand <relief_sought> into lettered prayers:\n"
+        "       (a) Issue a writ in the nature of <writ_type>, or any other "
+        "           appropriate writ, order or direction, quashing / setting aside "
+        "           the impugned order dated <impugned_order_date> passed by "
+        "           <impugned_authority> in Case No. <impugned_case_no>.\n"
+        "       (b) Direct the Respondents to <substantive direction derived from "
+        "           <relief_sought>>.\n"
+        "       (c) Award costs of the petition to the Petitioner.\n"
+        "       (d) Pass such other and further orders as this Hon'ble Court may "
+        "           deem fit in the facts and circumstances of the case.\n\n"
+        "    8. INTERIM RELIEF — render <interim_relief> if non-empty, else a "
+        "       standard line: 'During the pendency of the present writ petition, "
+        "       the operation, execution and implementation of the impugned order "
+        "       dated <impugned_order_date> may kindly be stayed in the interest "
+        "       of justice.'\n\n"
+        "    9. DOCUMENTS — that the documents annexed to this petition (listed "
+        "       separately on the List of Documents page) are true copies of "
+        "       their originals; the Petitioner reserves liberty to file additional "
+        "       documents.\n\n"
+        "   10. CAVEAT — 'No caveat has been received by the Petitioner.' "
+        "       [If <caveat_filed> is 'Yes', invert to 'A caveat has been received "
+        "       and a copy of this petition has been served on the caveator.']\n\n"
+        "  SIGNATURE BLOCK (right-aligned):\n"
+        "    Place: <place>\n"
+        "    Date:  <filing_date>\n"
+        "                                                    PETITIONER\n"
+        "                                          Through, <advocate_name>\n"
+        "                                          Counsel for the Petitioner\n\n"
+        "════════ PAGE 2 — AFFIDAVIT ════════\n\n"
+        "  Title: AFFIDAVIT (centred, bold caps).\n"
+        "  Body: 'I, <affidavit_deponent or petitioner_name>, S/o <petitioner_father>, "
+        "  aged about <petitioner_age> years, R/o <petitioner_address>, do hereby "
+        "  solemnly affirm and declare on oath as under:\n"
+        "  1. That I am the Petitioner in the present writ petition and am fully "
+        "     conversant with the facts and circumstances of the case and am "
+        "     competent to swear this affidavit.\n"
+        "  2. That the contents of paragraphs 1 to 10 of the accompanying writ "
+        "     petition have been read over to me, are true to my personal knowledge "
+        "     and the documents annexed thereto are true copies of their originals.'\n\n"
+        "  DEPONENT signature block (right) + VERIFICATION:\n"
+        "    'Verified at <place> on this ___ day of <month> <year> that the "
+        "    contents of the above affidavit are true and correct to the best of "
+        "    my knowledge; no part of it is false and nothing material has been "
+        "    concealed therefrom.'\n"
+        "                                                       DEPONENT\n\n"
+        "════════ PAGE 3 — LIST OF DOCUMENTS ════════\n\n"
+        "  Title: LIST OF DOCUMENTS (centred, bold caps) + the same court / W.P. "
+        "  No. header from page 1.\n"
+        "  Tabular layout, three columns: S.No. | Description | Annexure / Pages.\n"
+        "  Populate from <list_of_documents> — one entry per line; if a line "
+        "  begins with 'P-N:' use that as the annexure label, else auto-number "
+        "  P-1, P-2, P-3. Always include row 1: 'Writ Petition with Affidavit'.\n\n"
+        "  Footer:\n"
+        "    Place: <place>\n"
+        "    Date:  <filing_date>\n"
+        "                                          Through, <advocate_name>\n"
+        "                                          Counsel for the Petitioner\n\n"
+        "TONE & LANGUAGE RULES\n"
+        "=====================\n"
+        "- Formal Indian High Court legal English.\n"
+        "- If lang='hi', render the ENTIRE document in formal Devanagari court "
+        "  Hindi (माननीय उच्च न्यायालय, याचिकाकर्ता, विपक्षी, अनुच्छेद 226, "
+        "  परमादेश रिट, उत्प्रेषण रिट, मौलिक अधिकार, आदेश दिनांकित, अंतरिम राहत, "
+        "  शपथ-पत्र, सत्यापन). Names of parties / authorities / places stay in "
+        "  the SAME SCRIPT they were entered in; do NOT auto-transliterate.\n"
+        "- Statute citations ('Section 129(5) MP Land Revenue Code', 'Article 14 "
+        "  of the Constitution') stay in the original Roman form even in a Hindi "
+        "  draft — that is the courtroom convention.\n"
+        "- Number every paragraph; sub-number where indicated (5.1, 6.2 etc.).\n"
+        "- Return PLAIN TEXT (no markdown fences, no asterisks for emphasis). "
+        "  Use the literal string '════════ PAGE N — TITLE ════════' on its own "
+        "  line to mark each page break so the renderer can paginate."
     ),
     "example_prompts": [
-        "Writ for transfer order quashing — my client arbitrarily transferred to Bastar",
+        "Writ challenging SDO Vidisha order dated 31.03.2026 under §129(5) MPLRC",
+        "Writ for arbitrary transfer order quashing — client transferred to Bastar with mala fides",
         "Habeas corpus petition — client illegally detained by Murar police for 5 days",
     ],
 }

@@ -376,6 +376,54 @@
   .bail-doc .bd-table .ph { font-style: italic; color: #b4afa3; }
   .bail-doc .xlit { background: #fffbef; padding: 0 2px; border-bottom: 1px dotted #d4b864; }
 
+  /* ── Page break + secondary-page headers (Index, Affidavit, Exemption) ── */
+  .bail-doc .bd-pagebreak {
+    border-top: 1px dashed #c8c1ad;
+    margin: 40px 0 24px;
+    page-break-before: always;
+  }
+  .bail-doc .bd-pagehead { text-align: center; margin-bottom: 22px; }
+  .bail-doc .bd-page-title {
+    margin-top: 12px;
+    font-size: 17px;
+    font-weight: 700;
+    text-decoration: underline;
+    letter-spacing: 0.5px;
+  }
+  .bail-doc .bd-index-table th:first-child,
+  .bail-doc .bd-index-table td:first-child { width: 50px; text-align: center; }
+  .bail-doc .bd-index-table th:last-child,
+  .bail-doc .bd-index-table td:last-child { width: 100px; text-align: center; }
+  .bail-doc .bd-aff-body {
+    margin: 16px 0 12px;
+    text-align: justify;
+    line-height: 1.75;
+  }
+  .bail-doc .bd-aff-paras {
+    padding-left: 40px;
+    counter-reset: ap;
+    list-style: none;
+  }
+  .bail-doc .bd-aff-paras > li {
+    counter-increment: ap;
+    margin-bottom: 10px;
+    position: relative;
+  }
+  .bail-doc .bd-aff-paras > li::before {
+    content: counter(ap) ".";
+    position: absolute;
+    left: -28px;
+    font-weight: 600;
+  }
+  .bail-doc .bd-aff-verify {
+    margin-top: 22px;
+    padding: 12px 16px;
+    background: #f9f6ec;
+    border-left: 3px solid #d4b864;
+    text-align: justify;
+    line-height: 1.7;
+  }
+
   /* OCR drop zone */
   .ocr-zone { border: 2px dashed var(--line-strong); border-radius: 10px; padding: 16px; text-align: center; cursor: pointer; background: var(--panel); transition: all 0.15s; }
   .ocr-zone:hover { border-color: var(--ink); background: var(--soft); }
@@ -1304,6 +1352,91 @@ function renderHi(a) {
     </div>
   </div>`;
 
+  // ─────────────────── Page 2: Index (अनुक्रमणिका) ───────────────────
+  // The MP HC filing standard requires an index page listing every page in
+  // the petition. Successive bail adds annexures for prior orders.
+  html += '<div class="bd-pagebreak"></div>';
+  html += `<div class="bd-pagehead">
+    <h2 class="bd-court">${xlit(courtName, 'hi')}</h2>
+    <div class="bd-caseno">विविध आपराधिक प्रकरण क्रमांक ${ph(caseNo, '.........')} / ${esc(caseYear)}</div>
+    <h3 class="bd-page-title">अनुक्रमणिका</h3>
+  </div>`;
+  html += '<table class="bd-table bd-index-table">';
+  html += '<tr><th>क्र.</th><th>विवरण</th><th>पृष्ठ क्र.</th></tr>';
+  html += '<tr><td>1</td><td>जमानत आवेदन पत्र (अंतर्गत ' + esc(sectionTitle) + ')</td><td>1-_</td></tr>';
+  html += '<tr><td>2</td><td>शपथ-पत्र</td><td>_-_</td></tr>';
+  if (isSuccessive) {
+    let annexN = 0;
+    (priorBail || []).forEach(p => {
+      if (!p.outcome) return;
+      annexN += 1;
+      const courtNm = { sc: 'माननीय उच्चतम न्यायालय', hc: 'माननीय उच्च न्यायालय', lower: 'अधीनस्थ न्यायालय' }[p.court_level || 'hc'];
+      html += `<tr><td>${2 + annexN}</td><td>एनेक्जर ए/${annexN} — ${courtNm} के आदेश दिनांक ${esc(p.disposal_date || '...')} की प्रमाणित प्रतिलिपि</td><td>_-_</td></tr>`;
+    });
+    html += `<tr><td>${3 + annexN}</td><td>प्रमाणित प्रतिलिपि से छूट हेतु आवेदन</td><td>_-_</td></tr>`;
+  }
+  html += '</table>';
+  html += `<div class="bd-sig-right" style="margin-top:24px">
+    <div>द्वारा अभिभाषक</div>
+    <div class="bd-sig-advname">(${xph(a.advocate_name, 'अभिभाषक का नाम', 'hi')})</div>
+  </div>`;
+
+  // ─────────────────── Page 3: Affidavit (शपथ-पत्र) ───────────────────
+  html += '<div class="bd-pagebreak"></div>';
+  html += `<div class="bd-pagehead">
+    <h2 class="bd-court">${xlit(courtName, 'hi')}</h2>
+    <div class="bd-caseno">विविध आपराधिक प्रकरण क्रमांक ${ph(caseNo, '.........')} / ${esc(caseYear)}</div>
+    <h3 class="bd-page-title">शपथ-पत्र</h3>
+  </div>`;
+  html += `<p class="bd-aff-body">मैं, ${xph(a.applicant_name, 'आवेदक का नाम', 'hi')} पुत्र श्री ${xph(a.applicant_father, 'पिता का नाम', 'hi')}, आयु लगभग ${ph(a.applicant_age, '..')} वर्ष, निवासी ${xph(a.applicant_address, 'पता', 'hi')}, जिला ${xph(district, 'जिला', 'hi')} ${xlit(stateName, 'hi')}, ईश्वर को साक्षी मानकर शपथपूर्वक यह कथन करता हूँ कि—</p>`;
+  html += '<ol class="bd-aff-paras">';
+  html += '<li><p>यहकि, मैं उपरोक्त प्रकरण का आवेदक हूँ तथा प्रकरण के तथ्यों एवं परिस्थितियों से भली-भांति परिचित हूँ एवं यह शपथ-पत्र प्रस्तुत करने हेतु सक्षम हूँ।</p></li>';
+  html += '<li><p>यहकि, संलग्न जमानत आवेदन पत्र की पैरा 1 से अंतिम पैरा तक की समस्त बातें मेरी निजी जानकारी से सत्य हैं तथा संलग्न दस्तावेज मूल की सत्य प्रतियाँ हैं।</p></li>';
+  html += '<li><p>यहकि, उक्त आवेदन में कोई बात मिथ्या नहीं है और न ही कोई सारगर्भित बात छुपाई गई है।</p></li>';
+  html += '</ol>';
+  html += `<div class="bd-sig">
+    <div>
+      <div>स्थान: ${xph(a.place, 'स्थान', 'hi')}</div>
+      <div>दिनांक: ${ph(a.filing_date, '...........')}</div>
+    </div>
+    <div class="bd-sig-right">
+      <div>शपथकर्ता</div>
+      <div class="bd-sig-name">${xph(a.applicant_name, 'आवेदक का नाम', 'hi')}</div>
+    </div>
+  </div>`;
+  html += `<p class="bd-aff-verify"><strong>सत्यापन:</strong> मैं शपथकर्ता, सत्यनिष्ठा से सत्यापित करता हूँ कि उपरोक्त शपथ-पत्र के पैरा 1 से 3 की समस्त बातें मेरी निजी जानकारी से सत्य हैं तथा कोई बात मिथ्या नहीं है। सत्यापन ${xph(a.place, 'स्थान', 'hi')} में दिनांक ${ph(a.filing_date, '...........')} को किया गया।</p>`;
+
+  // ───── Page 4: Exemption application (only for successive bail) ─────
+  if (isSuccessive) {
+    html += '<div class="bd-pagebreak"></div>';
+    html += `<div class="bd-pagehead">
+      <h2 class="bd-court">${xlit(courtName, 'hi')}</h2>
+      <div class="bd-caseno">विविध आपराधिक प्रकरण क्रमांक ${ph(caseNo, '.........')} / ${esc(caseYear)}</div>
+      <h3 class="bd-page-title">प्रमाणित प्रतिलिपि से छूट हेतु आवेदन</h3>
+    </div>`;
+    html += '<p class="bd-prelude">माननीय न्यायालय से आवेदक की ओर से विनम्र निवेदन है कि—</p>';
+    html += '<ol class="bd-paras">';
+    html += '<li><p>यहकि, आवेदक का यह जमानत आवेदन पत्र ' + esc(sectionTitle) + ' के तहत प्रस्तुत किया जा रहा है।</p></li>';
+    html += '<li><p>यहकि, पूर्व में निरस्त किये गये जमानत आवेदन पत्र के आदेश की प्रमाणित प्रतिलिपि उपलब्ध कराने हेतु संबंधित न्यायालय में आवेदन प्रस्तुत किया जा चुका है, परन्तु प्रमाणित प्रतिलिपि अभी तक प्राप्त नहीं हुई है।</p></li>';
+    html += '<li><p>यहकि, आवेदक को आदेश की प्रति प्राप्त होने पर माननीय न्यायालय के समक्ष शीघ्र प्रस्तुत कर दी जायेगी।</p></li>';
+    html += '</ol>';
+    html += '<div class="bd-prayer"><h3>प्रार्थना</h3>';
+    html += '<p>अतः माननीय न्यायालय से विनम्र प्रार्थना है कि आवेदक को प्रमाणित प्रतिलिपि प्रस्तुत किये बिना ही जमानत आवेदन पत्र पर सुनवाई की कृपा करने हेतु छूट प्रदान करने का कष्ट करें।</p>';
+    html += '</div>';
+    html += `<div class="bd-sig">
+      <div>
+        <div>स्थान: ${xph(a.place, 'स्थान', 'hi')}</div>
+        <div>दिनांक: ${ph(a.filing_date, '...........')}</div>
+      </div>
+      <div class="bd-sig-right">
+        <div>प्रार्थी</div>
+        <div class="bd-sig-name">${xph(a.applicant_name, 'आवेदक का नाम', 'hi')} (आवेदक)</div>
+        <div class="bd-sig-advocate">द्वारा अभिभाषक</div>
+        <div class="bd-sig-advname">(${xph(a.advocate_name, 'अभिभाषक का नाम', 'hi')})</div>
+      </div>
+    </div>`;
+  }
+
   html += '</div>';
   return html;
 }
@@ -1682,6 +1815,91 @@ function renderEn(a) {
       <div class="bd-sig-advname">(${ph_en(a.advocate_name,'[Advocate Name]')})</div>
     </div>
   </div>`;
+
+  // ─────────────────── Page 2: Index ───────────────────
+  const caseYear_en = a.case_year || new Date().getFullYear();
+  const caseNo_en = a.case_number || '';
+  html += '<div class="bd-pagebreak"></div>';
+  html += `<div class="bd-pagehead">
+    <h2 class="bd-court">${esc(courtName)}</h2>
+    <div class="bd-caseno">M.Cr.C. No. ${ph_en(caseNo_en,'________')} / ${esc(caseYear_en)}</div>
+    <h3 class="bd-page-title">INDEX</h3>
+  </div>`;
+  html += '<table class="bd-table bd-index-table">';
+  html += '<tr><th>S.No.</th><th>Particulars</th><th>Page Nos.</th></tr>';
+  html += `<tr><td>1</td><td>Bail Application under ${esc(sectionTitle)} with Memo of Appearance</td><td>1-_</td></tr>`;
+  html += '<tr><td>2</td><td>Affidavit in support of the Application</td><td>_-_</td></tr>';
+  if (isSuccessive) {
+    let annexN = 0;
+    (priorBail || []).forEach(p => {
+      if (!p.outcome) return;
+      annexN += 1;
+      const courtNm = { sc: "Hon'ble Supreme Court", hc: "Hon'ble High Court", lower: 'Subordinate Court' }[p.court_level || 'hc'];
+      html += `<tr><td>${2 + annexN}</td><td>Annexure A/${annexN} — Certified copy of order of ${courtNm} dated ${esc(p.disposal_date || '...')}</td><td>_-_</td></tr>`;
+    });
+    html += `<tr><td>${3 + annexN}</td><td>Application for exemption from filing certified copy</td><td>_-_</td></tr>`;
+  }
+  html += '</table>';
+  html += `<div class="bd-sig-right" style="margin-top:24px">
+    <div>Through Advocate</div>
+    <div class="bd-sig-advname">(${ph_en(a.advocate_name,'[Advocate Name]')})</div>
+  </div>`;
+
+  // ─────────────────── Page 3: Affidavit ───────────────────
+  html += '<div class="bd-pagebreak"></div>';
+  html += `<div class="bd-pagehead">
+    <h2 class="bd-court">${esc(courtName)}</h2>
+    <div class="bd-caseno">M.Cr.C. No. ${ph_en(caseNo_en,'________')} / ${esc(caseYear_en)}</div>
+    <h3 class="bd-page-title">AFFIDAVIT</h3>
+  </div>`;
+  html += `<p class="bd-aff-body">I, ${ph_en(a.applicant_name, '[Applicant Name]')}, S/o ${ph_en(a.applicant_father, '[Father]')}, aged about ${ph_en(a.applicant_age, '__')} years, R/o ${ph_en(a.applicant_address, '[Address]')}, District ${ph_en(district, '[District]')}, ${xlit(stateName, 'en')}, do hereby solemnly affirm and declare on oath as under:</p>`;
+  html += '<ol class="bd-aff-paras">';
+  html += '<li><p>That I am the Applicant in the present bail application and am fully conversant with the facts and circumstances of the case and am competent to swear this affidavit.</p></li>';
+  html += '<li><p>That the contents of paragraphs 1 to the last of the accompanying bail application have been read over to me, are true to my personal knowledge, and the documents annexed thereto are true copies of their originals.</p></li>';
+  html += '<li><p>That nothing material has been concealed therefrom and no part of it is false.</p></li>';
+  html += '</ol>';
+  html += `<div class="bd-sig">
+    <div>
+      <div>Place: ${ph_en(a.place,'_______')}</div>
+      <div>Date: ${ph_en(a.filing_date,'___________')}</div>
+    </div>
+    <div class="bd-sig-right">
+      <div>DEPONENT</div>
+      <div class="bd-sig-name">${ph_en(a.applicant_name, '[Applicant Name]')}</div>
+    </div>
+  </div>`;
+  html += `<p class="bd-aff-verify"><strong>Verification:</strong> I, the deponent above-named, do hereby verify that the contents of paragraphs 1 to 3 of the above affidavit are true and correct to the best of my knowledge; no part of it is false and nothing material has been concealed therefrom. Verified at ${ph_en(a.place,'_______')} on this ${ph_en(a.filing_date,'___________')}.</p>`;
+
+  // ─────── Page 4: Exemption application (only for successive bail) ───────
+  if (isSuccessive) {
+    html += '<div class="bd-pagebreak"></div>';
+    html += `<div class="bd-pagehead">
+      <h2 class="bd-court">${esc(courtName)}</h2>
+      <div class="bd-caseno">M.Cr.C. No. ${ph_en(caseNo_en,'________')} / ${esc(caseYear_en)}</div>
+      <h3 class="bd-page-title">APPLICATION FOR EXEMPTION FROM FILING CERTIFIED COPY</h3>
+    </div>`;
+    html += `<p class="bd-prelude">The Applicant most respectfully begs to submit as under:</p>`;
+    html += '<ol class="bd-paras">';
+    html += `<li><p>That the present bail application is being filed under ${esc(sectionTitle)} before this Hon'ble Court.</p></li>`;
+    html += `<li><p>That an application for the certified copy of the order dismissing the earlier bail application has already been filed before the concerned Court, but the certified copy has not yet been issued.</p></li>`;
+    html += `<li><p>That the Applicant undertakes to file the certified copy as and when it is received from the said Court.</p></li>`;
+    html += '</ol>';
+    html += '<div class="bd-prayer"><h3>PRAYER</h3>';
+    html += `<p>It is therefore most respectfully prayed that this Hon'ble Court may be pleased to exempt the Applicant from filing the certified copy of the impugned order at this stage, in the interest of justice.</p>`;
+    html += '</div>';
+    html += `<div class="bd-sig">
+      <div>
+        <div>Place: ${ph_en(a.place,'_______')}</div>
+        <div>Date: ${ph_en(a.filing_date,'___________')}</div>
+      </div>
+      <div class="bd-sig-right">
+        <div>Applicant</div>
+        <div class="bd-sig-name">${ph_en(a.applicant_name,'[Applicant Name]')}</div>
+        <div class="bd-sig-advocate">Through Advocate</div>
+        <div class="bd-sig-advname">(${ph_en(a.advocate_name,'[Advocate Name]')})</div>
+      </div>
+    </div>`;
+  }
 
   html += '</div>';
   return html;

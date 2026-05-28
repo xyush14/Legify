@@ -905,27 +905,89 @@ async function runExtract(u) {
 
 function applyExtracted(extracted, u) {
   if (!extracted) return;
-  // Map FIR-OCR fields to our template fields
-  const mapping = {
-    fir_number: extracted.fir_number_full || extracted.fir_number,
-    fir_date: extracted.fir_date,
-    police_station: extracted.police_station,
-    district: extracted.district,
-    state_name: extracted.state,
-    sections_str: Array.isArray(extracted.sections) ? extracted.sections.join(', ') : extracted.sections,
-    facts_narrative: extracted.narrative_hi || extracted.narrative || extracted.narrative_raw,
-    brief_facts_alleged: extracted.narrative_hi || extracted.narrative || extracted.narrative_raw,
-  };
-  // For accused-based templates (anticipatory bail, default bail), populate applicant from accused[0]
-  if (Array.isArray(extracted.accused_details) && extracted.accused_details[0]) {
-    const a = extracted.accused_details[0];
-    mapping.applicant_name = a.name;
-    mapping.applicant_father = a.relative;
-    mapping.applicant_address = a.address;
-    mapping.petitioner_name = a.name;
-    mapping.petitioner_father = a.relative;
-    mapping.petitioner_address = a.address;
+  // Detect which OCR schema produced this — each endpoint returns a different
+  // shape. FIR has `fir_number` + `accused_details`; bail order has
+  // `bail_case_number` + `applicants`; impugned order (writ) has
+  // `authority_name` + `petitioner_name`.
+  let mapping = {};
+
+  // ---- Impugned-order OCR (writ petition) ----
+  if (extracted.authority_name || extracted.operative_direction || extracted.passed_by) {
+    mapping = {
+      impugned_authority:     extracted.authority_name,
+      impugned_case_no:       extracted.case_number,
+      impugned_order_date:    extracted.order_date,
+      impugned_passed_by:     extracted.passed_by,
+      operative_direction:    extracted.operative_direction,
+      subject_summary:        extracted.subject_matter,
+      respondent_authority:   extracted.authority_name
+        ? `1. State of ${extracted.place || 'MP'}, through Principal Secretary, concerned Department\n2. ${extracted.authority_name}`
+        : null,
+      earlier_proceeding_ref: extracted.lower_proceeding_referenced,
+      statutes_invoked:       Array.isArray(extracted.statutes_cited)
+        ? extracted.statutes_cited.join('; ')
+        : extracted.statutes_cited,
+      place_district:         extracted.place,
+      petitioner_name:        extracted.petitioner_name,
+      petitioner_father:      extracted.petitioner_relative,
+      petitioner_address:     extracted.petitioner_address,
+      // Seed the facts narrative with the subject + operative direction so the
+      // lawyer has a starting point to expand into 5.1, 5.2 ... etc.
+      facts_narrative: (extracted.subject_matter || extracted.operative_direction)
+        ? `5.1 That the impugned order dated ${extracted.order_date || '___'} was passed by ${extracted.authority_name || 'the said authority'} in Case No. ${extracted.case_number || '___'}.\n5.2 ${extracted.subject_matter || ''}\n5.3 ${extracted.operative_direction || ''}\n5.4 That the said order is illegal, arbitrary and contrary to the statutory scheme.`
+        : null,
+    };
   }
+  // ---- Bail-order OCR (successive HC bail) ----
+  else if (extracted.bail_case_number || Array.isArray(extracted.applicants)) {
+    mapping = {
+      lower_court_name:     extracted.court_name,
+      lower_court_judge:    extracted.presiding_judge,
+      lower_bail_case_no:   extracted.bail_case_number,
+      lower_order_date:     extracted.order_date,
+      lower_outcome:        extracted.outcome,
+      lower_court_history:  extracted.outcome_reasoning,
+      fir_number:           extracted.fir_number,
+      fir_date:             extracted.fir_date,
+      police_station:       extracted.police_station,
+      district:             extracted.district,
+      state_name:           extracted.state_name,
+      sections_str:         Array.isArray(extracted.sections) ? extracted.sections.join(', ') : extracted.sections,
+      facts_narrative:      extracted.facts_narrative_hi || extracted.facts_narrative_en,
+      brief_facts_alleged:  extracted.facts_narrative_hi || extracted.facts_narrative_en,
+      application_number:   extracted.application_number,
+    };
+    if (Array.isArray(extracted.applicants) && extracted.applicants[0]) {
+      const a = extracted.applicants[0];
+      mapping.applicant_name    = a.name;
+      mapping.applicant_father  = a.relative;
+      mapping.applicant_address = a.address;
+      mapping.applicant_age     = a.age;
+    }
+  }
+  // ---- FIR OCR (default — bail templates) ----
+  else {
+    mapping = {
+      fir_number: extracted.fir_number_full || extracted.fir_number,
+      fir_date: extracted.fir_date,
+      police_station: extracted.police_station,
+      district: extracted.district,
+      state_name: extracted.state,
+      sections_str: Array.isArray(extracted.sections) ? extracted.sections.join(', ') : extracted.sections,
+      facts_narrative: extracted.narrative_hi || extracted.narrative || extracted.narrative_raw,
+      brief_facts_alleged: extracted.narrative_hi || extracted.narrative || extracted.narrative_raw,
+    };
+    if (Array.isArray(extracted.accused_details) && extracted.accused_details[0]) {
+      const a = extracted.accused_details[0];
+      mapping.applicant_name = a.name;
+      mapping.applicant_father = a.relative;
+      mapping.applicant_address = a.address;
+      mapping.petitioner_name = a.name;
+      mapping.petitioner_father = a.relative;
+      mapping.petitioner_address = a.address;
+    }
+  }
+
   let filled = 0;
   Object.entries(mapping).forEach(([k, v]) => {
     if (v == null || (typeof v === 'string' && !v.trim())) return;

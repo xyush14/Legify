@@ -426,6 +426,70 @@ async def ocr_bail_order(
         return {"ok": True, "page_count": len(pages), "extracted": parsed}
 
 
+@router.post("/ocr-impugned-order", summary="OCR a govt / tribunal / lower-court order → structured writ-draft fields")
+async def ocr_impugned_order(
+    file: Optional[UploadFile] = File(None),
+    files: Optional[List[UploadFile]] = File(None),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """Vision reads the IMPUGNED ORDER being challenged in a writ petition
+    under Article 226 (a SDO/Tehsildar/Collector order, a tribunal order, a
+    departmental enquiry order, a service-side authority order — anything an
+    aggrieved party brings to a High Court writ court) and returns the fields
+    needed to draft the writ.
+
+    Pulls out: authority, case number, order date, signing officer, the
+    petitioner's particulars, the respondent, a neutral subject-matter
+    summary, the operative direction, statutes cited, and — if THIS order is
+    itself an appeal / revision over an EARLIER order (very common) — that
+    earlier order's reference, so the writ can challenge both.
+
+    Accepts a single `file` or a list of `files` (multi-page order).
+    Supported: JPEG, PNG, WebP, GIF, PDF. Max 20 MB/file, 8 pages.
+    Gated: draft feature.
+    """
+    from headnote.drafter.ocr import ocr_impugned_order_pages
+
+    uploads: List[UploadFile] = []
+    if files:
+        uploads.extend(files)
+    if file:
+        uploads.append(file)
+    if not uploads:
+        raise HTTPException(status_code=400, detail="upload 'file' or 'files'")
+    if len(uploads) > _OCR_MAX_PAGES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"too many pages ({len(uploads)}); max {_OCR_MAX_PAGES}",
+        )
+
+    pages: list[tuple[bytes, str]] = []
+    for idx, up in enumerate(uploads, start=1):
+        mt = up.content_type or ""
+        if mt not in _OCR_ALLOWED_MIME:
+            raise HTTPException(
+                status_code=400,
+                detail=f"page {idx}: unsupported file type {mt!r}; use JPEG, PNG, WebP, GIF, or PDF",
+            )
+        data = await up.read()
+        if not data:
+            raise HTTPException(status_code=400, detail=f"page {idx}: empty file")
+        if len(data) > _OCR_MAX_BYTES:
+            raise HTTPException(status_code=400, detail=f"page {idx}: too large; max 20 MB")
+        pages.append((data, mt))
+
+    with check_and_record(user.id, "draft", endpoint="ocr_impugned_order", email=user.email) as _record:
+        try:
+            parsed = ocr_impugned_order_pages(pages)
+        except ValueError as e:
+            raise HTTPException(status_code=502, detail=f"OCR failed: {e}")
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"OCR error: {e}")
+
+        _record(cost_paise=300 * len(pages), model="claude-sonnet-4-6-vision")
+        return {"ok": True, "page_count": len(pages), "extracted": parsed}
+
+
 # ----------------------------------------------------------- Voice transcription
 
 # Audio formats Whisper accepts. Web's MediaRecorder typically produces
