@@ -19,7 +19,7 @@
 // version doesn't match, the browser is running stale JS (old tab, aggressive
 // cache). We force ONE reload to pick up the new code. This prevents the
 // "sign-in loop" and "missing features" bugs caused by cached old files.
-const _CODE_VERSION = '20260526a';
+const _CODE_VERSION = '20260527a';
 
 /* ------------------------------------------------------------------ state */
 
@@ -97,10 +97,11 @@ async function initAuth() {
     try { sessionStorage.removeItem('_headnote_reloaded'); } catch {}
   }
 
-  // Periodic version check — every 5 min, re-fetch /api/config and check
-  // if the server has deployed newer code. If so, show a friendly banner
-  // asking the user to refresh. This catches the "I left my tab open for
-  // hours" scenario that one-shot version checks miss.
+  // Periodic version check — every 30 min, re-fetch /api/config and check
+  // if the server has deployed newer code. If so, show a friendly banner.
+  // (Was 5 min — too aggressive; the banner came back every 5 min even
+  // after the user dismissed it. The banner itself now per-version-snoozes
+  // dismissals, so this poll is just a long-tab safety net.)
   setInterval(async () => {
     try {
       const fresh = await _fetchWithTimeout('/api/config', 4000);
@@ -108,7 +109,7 @@ async function initAuth() {
         _showUpdateBanner(fresh.code_version);
       }
     } catch {}
-  }, 5 * 60 * 1000);
+  }, 30 * 60 * 1000);
 
   if (!cfg.supabase_url || !cfg.supabase_anon_key) {
     console.log('[auth] Supabase not configured — auth skipped (dev mode)');
@@ -770,20 +771,36 @@ function _surfaceOAuthErrorFromUrl() {
 // matters (and they do).
 function _showUpdateBanner(newVersion) {
   if (document.getElementById('hn-update-banner')) return;
+  // PER-VERSION SNOOZE: if the user already dismissed this exact server
+  // version, don't show the banner again until a *new* version ships.
+  // Without this the banner came back every poll cycle for the same version.
+  try {
+    const snoozed = localStorage.getItem('_hn_update_snoozed_for_version');
+    if (snoozed && snoozed === newVersion) return;
+  } catch {}
   const b = document.createElement('div');
   b.id = 'hn-update-banner';
   b.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#c9a96e;color:#0a0a0f;padding:10px 16px;font-size:14px;font-weight:600;text-align:center;z-index:99999;box-shadow:0 2px 12px rgba(0,0,0,0.2);display:flex;gap:12px;align-items:center;justify-content:center;font-family:system-ui,sans-serif';
   b.innerHTML = `
     <span>New version available — refresh to get the latest fixes</span>
     <button id="hn-update-reload" style="background:#0a0a0f;color:#c9a96e;border:none;padding:6px 14px;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px">Refresh now</button>
-    <button id="hn-update-dismiss" style="background:transparent;border:none;color:#0a0a0f;font-size:18px;cursor:pointer;padding:0 4px">×</button>
+    <button id="hn-update-dismiss" style="background:transparent;border:none;color:#0a0a0f;font-size:18px;cursor:pointer;padding:0 4px" aria-label="Dismiss">×</button>
   `;
   document.body.appendChild(b);
   document.getElementById('hn-update-reload').onclick = () => {
     try { sessionStorage.removeItem('_headnote_reloaded'); } catch {}
+    // After a refresh-now, the new auth.js will (correctly) match the server
+    // version; clear any stale snooze so genuinely-newer deploys still notify.
+    try { localStorage.removeItem('_hn_update_snoozed_for_version'); } catch {}
     window.location.reload();
   };
-  document.getElementById('hn-update-dismiss').onclick = () => b.remove();
+  document.getElementById('hn-update-dismiss').onclick = () => {
+    // Remember which version they dismissed. Future polls for the SAME
+    // version stay silent; a genuinely-newer deploy clears the snooze
+    // (because the version string changes) and the banner shows again.
+    try { localStorage.setItem('_hn_update_snoozed_for_version', newVersion); } catch {}
+    b.remove();
+  };
 }
 
 function _waitFor(cond, timeoutMs) {
