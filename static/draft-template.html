@@ -311,10 +311,15 @@
     .topbar__right .btn .btn-long { display: none; }
   }
   @media print {
-    .topbar, .form-pane { display: none !important; }
-    .split { grid-template-columns: 1fr !important; }
-    .doc-pane { background: #fff !important; padding: 0 !important; }
-    .doc-page { box-shadow: none !important; padding: 0 !important; }
+    @page { size: A4 portrait; margin: 12mm 14mm 14mm 14mm; }
+    .topbar, .form-pane, .toast, .modal,
+    .ocr-zone, .ocr-cta, .ocr-pages, .lang-toggle,
+    button, .btn { display: none !important; }
+    html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; font-size: 11pt; color: #000 !important; }
+    .split, .doc-pane { display: block !important; grid-template-columns: 1fr !important; background: #fff !important; padding: 0 !important; margin: 0 !important; overflow: visible !important; }
+    .doc-page { box-shadow: none !important; border: none !important; padding: 0 !important; margin: 0 !important; max-width: none !important; width: 100% !important; overflow: visible !important; }
+    .doc-page .ph { color: #555 !important; font-style: normal !important; }
+    table { page-break-inside: avoid; border-collapse: collapse; }
   }
 </style>
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
@@ -337,6 +342,8 @@
       <button id="lang-hi" class="active">हिं</button>
     </div>
     <button class="btn" id="btn-pdf" title="Download PDF">⬇ <span class="btn-long">PDF</span></button>
+    <button class="btn" id="btn-print" title="Print" data-en="🖨 Print" data-hi="🖨 प्रिंट">🖨 <span class="btn-long">प्रिंट</span></button>
+    <button class="btn" id="btn-share" title="Share on WhatsApp">📱 <span class="btn-long">WhatsApp</span></button>
   </div>
 </div>
 
@@ -1256,34 +1263,158 @@ async function setLang(newLang) {
 $('#lang-en').addEventListener('click', () => setLang('en'));
 $('#lang-hi').addEventListener('click', () => setLang('hi'));
 
-// ---- Generate + PDF ----
+// ---- Generate + PDF + Print + WhatsApp ----
+// Shared pipeline: build a single print-canvas (A4-sized clone of #doc-page
+// with embedded font + page-break overrides), then save / print / share
+// from the same blob so all three buttons produce visually identical output.
 $('#btn-generate').addEventListener('click', () => generateDocument());
-$('#btn-pdf').addEventListener('click', () => {
-  if (!state.document) { toast(state.lang === 'hi' ? 'पहले दस्तावेज़ बनाएं' : 'Refresh draft first', 'warn'); return; }
-  const el = $('#doc-page').cloneNode(true);
-  el.style.maxWidth = 'none'; el.style.boxShadow = 'none';
-  const wrap = document.createElement('div');
-  wrap.style.padding = '40px';
-  wrap.appendChild(el);
+
+function _tplFilename() {
   const applicantRaw = (state.fields && (
     state.fields.petitioner_name || state.fields.applicant_name ||
     state.fields.appellant_name  || state.fields.accused_name   || ''
   )) || '';
   const applicantSlug = applicantRaw.trim().split(/\s+/)[0].toLowerCase().replace(/[^a-z]/g, '');
-  const tplSlug = state.template.name_en.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+  const tplSlug = (state.template?.name_en || 'document').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
   const dateStr = new Date().toISOString().slice(0, 10);
-  const filename = applicantSlug
+  return applicantSlug
     ? `${tplSlug}-${applicantSlug}-${dateStr}.pdf`
     : `${tplSlug}-${dateStr}.pdf`;
+}
+
+function _tplBuildPrintCanvas() {
+  const src = $('#doc-page');
+  if (!src) return null;
+  const clone = src.cloneNode(true);
+  const wrap = document.createElement('div');
+  wrap.className = 'print-canvas';
+  wrap.style.cssText = [
+    'width:210mm', 'min-height:297mm', 'padding:14mm',
+    'box-sizing:border-box', 'background:#fff', 'color:#000',
+    "font-family:'Noto Sans Devanagari','Geist','Inter',sans-serif",
+    'font-size:11pt', 'line-height:1.55',
+  ].join(';');
+  clone.style.cssText = 'background:#fff;color:#000;box-shadow:none;padding:0;margin:0;max-width:none;';
+  wrap.appendChild(clone);
+  const style = document.createElement('style');
+  style.textContent = `
+    .print-canvas, .print-canvas * { color:#000 !important; background:transparent !important; }
+    .print-canvas .ph { color:#555 !important; font-style:normal !important; }
+    .print-canvas table { page-break-inside:avoid; border-collapse:collapse; }
+    .print-canvas th, .print-canvas td { border:1px solid #444; padding:6px 8px; vertical-align:top; }
+  `;
+  wrap.insertBefore(style, wrap.firstChild);
+  return wrap;
+}
+
+async function _tplGeneratePdfBlob() {
+  const wrap = _tplBuildPrintCanvas();
+  if (!wrap) throw new Error('Document not ready');
+  wrap.style.position = 'fixed';
+  wrap.style.left = '-99999px';
+  wrap.style.top = '0';
+  document.body.appendChild(wrap);
+  const filename = _tplFilename();
   const opt = {
-    margin: [10, 12, 14, 12], filename,
-    image: { type: 'jpeg', quality: 0.95 },
-    html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+    margin: 0, filename,
+    image: { type: 'jpeg', quality: 0.97 },
+    html2canvas: { scale: 2, useCORS: true, letterRendering: true, backgroundColor: '#fff', windowWidth: wrap.offsetWidth },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
+    pagebreak: { mode: ['css', 'legacy'], avoid: ['table'] },
   };
-  html2pdf().set(opt).from(wrap).save();
+  try {
+    const blob = await html2pdf().set(opt).from(wrap).outputPdf('blob');
+    return { blob, filename };
+  } finally {
+    if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
+  }
+}
+
+$('#btn-pdf').addEventListener('click', async () => {
+  if (!state.document) {
+    toast(state.lang === 'hi' ? 'पहले दस्तावेज़ बनाएं' : 'Refresh draft first', 'warn');
+    return;
+  }
+  const btn = $('#btn-pdf');
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '⏳ ' + (state.lang === 'hi' ? 'बनाया जा रहा है' : 'Generating');
+  toast(state.lang === 'hi' ? 'PDF बना रहे हैं — फॉर्मेटिंग सुरक्षित' : 'Generating PDF — formatting preserved', 'ok');
+  try {
+    const { blob, filename } = await _tplGeneratePdfBlob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    toast(state.lang === 'hi' ? 'सहेजा गया ✓' : 'Saved · check Downloads', 'ok');
+  } catch (e) {
+    console.error(e);
+    toast('PDF failed — ' + (e.message || 'try again'), 'err', 4000);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
 });
+
+$('#btn-print').addEventListener('click', () => {
+  if (!state.document) {
+    toast(state.lang === 'hi' ? 'पहले दस्तावेज़ बनाएं' : 'Refresh draft first', 'warn');
+    return;
+  }
+  toast(state.lang === 'hi' ? 'प्रिंट डायलॉग खोल रहे हैं' : 'Opening print dialog…', 'ok');
+  requestAnimationFrame(() => window.print());
+});
+
+$('#btn-share').addEventListener('click', async () => {
+  if (!state.document) {
+    toast(state.lang === 'hi' ? 'पहले दस्तावेज़ बनाएं' : 'Refresh draft first', 'warn');
+    return;
+  }
+  const btn = $('#btn-share');
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '⏳ ' + (state.lang === 'hi' ? 'तैयार कर रहे हैं' : 'Preparing');
+  toast(state.lang === 'hi' ? 'WhatsApp के लिए PDF बना रहे हैं' : 'Preparing PDF for WhatsApp', 'ok');
+  let blob, filename;
+  try {
+    ({ blob, filename } = await _tplGeneratePdfBlob());
+  } catch (e) {
+    btn.disabled = false; btn.innerHTML = orig;
+    toast('PDF failed — ' + (e.message || 'try again'), 'err', 4000);
+    return;
+  }
+  const file = new File([blob], filename, { type: 'application/pdf' });
+  const shareData = {
+    files: [file], title: filename,
+    text: `${state.template?.name_en || 'Document'} — prepared via Headnote`,
+  };
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share(shareData);
+      toast('Shared ✓', 'ok');
+    } catch (e) {
+      if (e.name !== 'AbortError') {
+        _tplDownloadAndOpenWA(blob, filename);
+      }
+    }
+  } else {
+    _tplDownloadAndOpenWA(blob, filename);
+  }
+  btn.disabled = false;
+  btn.innerHTML = orig;
+});
+
+function _tplDownloadAndOpenWA(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+  const msg = `${state.template?.name_en || 'Document'} — prepared via Headnote`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+  toast(state.lang === 'hi' ? 'PDF डाउनलोड हो गया — WhatsApp में attach करें' : 'PDF downloaded — drag into WhatsApp Web', 'ok', 5000);
+}
 
 // ---- Boot ----
 applyLang();

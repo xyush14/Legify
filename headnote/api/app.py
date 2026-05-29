@@ -771,6 +771,12 @@ app.include_router(_payments_router)
 from headnote.api.onboarding import router as _onboarding_router
 app.include_router(_onboarding_router)
 
+# Personal-assist escape hatches: /api/assist/{research,draft}
+# Fired by the "Not satisfied? / Not finding what you need?" CTAs in the UI.
+# Sends a Resend email to the founder inbox — SLA enforced manually.
+from headnote.api.assist import router as _assist_router
+app.include_router(_assist_router)
+
 # Lawyer persona auto-fill: /api/lawyer-profile (GET, PATCH)
 from headnote.api.lawyer_profile import router as _lawyer_profile_router
 app.include_router(_lawyer_profile_router)

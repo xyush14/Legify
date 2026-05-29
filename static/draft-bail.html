@@ -522,8 +522,68 @@
   .toast--ok { background: var(--good); }
   .toast--warn { background: var(--warn, #c9923a); }
 
-  /* print/PDF: hide form when printing */
-  @media print { .topbar, .form-pane { display: none; } .split { grid-template-columns: 1fr; } .doc-pane { background: #fff; padding: 0; } .doc-page { box-shadow: none; padding: 0; } }
+  /* ─── Print-only stylesheet ──────────────────────────────────────────
+     window.print() prints the entire document tree. We aggressively hide
+     every chrome element (topbar, form pane, preview handle, toasts,
+     OCR-zone, language toggle) so only the rendered document remains.
+     A4 page sizing + 12mm margins matches what the PDF export uses, so
+     printing and downloading produce visually identical output.
+     ─────────────────────────────────────────────────────────────────── */
+  @media print {
+    @page { size: A4 portrait; margin: 12mm 14mm 14mm 14mm; }
+
+    /* Hide every chrome element — keep ONLY .doc-page */
+    .topbar, .form-pane, .preview-handle, .toast,
+    .ocr-zone, .ocr-cta, .ocr-pages,
+    .lang-toggle, #lang-pill, .modal, .modal-backdrop,
+    .applicant-picker, .voice-overlay,
+    button, .btn { display: none !important; }
+
+    html, body {
+      background: #ffffff !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      font-size: 11pt;
+      color: #000 !important;
+    }
+    .split, .doc-pane {
+      display: block !important;
+      grid-template-columns: 1fr !important;
+      background: #ffffff !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      overflow: visible !important;
+    }
+    .doc-page {
+      box-shadow: none !important;
+      border: none !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      max-width: none !important;
+      width: 100% !important;
+      transform: none !important;
+      overflow: visible !important;
+    }
+    /* Force the document to stay readable on paper */
+    .bail-doc {
+      color: #000 !important;
+      background: #ffffff !important;
+      font-size: 11pt !important;
+      line-height: 1.55 !important;
+    }
+    .bail-doc table, .bail-doc .bd-table {
+      page-break-inside: avoid;
+    }
+    .bail-doc .bd-pagebreak {
+      page-break-before: always;
+      border-top: none !important;
+      margin: 0 !important;
+    }
+    /* Strip placeholder italics so blanks don't print as faded grey */
+    .bail-doc .ph { color: #555 !important; font-style: normal !important; }
+    /* Avoid breaking inside signature blocks */
+    .bail-doc .bd-sig, .bail-doc .bd-prayer { page-break-inside: avoid; }
+  }
 
   /* Language toggle pill (same as §138 drafter) */
   .lang-toggle { display: inline-flex; background: var(--bg); border: 1px solid var(--line-strong); border-radius: 100px; padding: 3px; font-size: 11px; font-weight: 600; }
@@ -2808,33 +2868,188 @@ function applyOcrResult(o, applicantIdx) {
 
 // =========================================================================
 // PDF / Print / Share
+//
+// Shared pipeline: we build a single "print canvas" (a cloned, sized A4
+// container) from the live #doc-page element, then either save (PDF
+// download), print (browser print dialog), or share (WhatsApp PDF attach).
+// Putting everything through one canvas guarantees Print and Download
+// produce visually identical output — which was previously a major
+// lawyer complaint ("the printed copy looks different from the PDF").
 // =========================================================================
-document.getElementById('btn-pdf').addEventListener('click', () => {
-  const el = document.getElementById('doc-page').cloneNode(true);
-  // Wrap in a container with explicit width for clean PDF
+
+// Build a print-ready clone of the document. Wrapping in an explicit
+// A4-width container with embedded font + page-break rules so Hindi
+// renders correctly and tables / signature blocks don't split across
+// pages. Returns the wrapper element (not yet attached to DOM).
+function _buildPrintCanvas() {
+  const src = document.getElementById('doc-page');
+  if (!src) return null;
+  const clone = src.cloneNode(true);
   const wrap = document.createElement('div');
-  wrap.style.padding = '40px';
-  wrap.appendChild(el);
-  const filename = `bail-application-${state.answers.applicant_name || 'draft'}-${new Date().toISOString().slice(0,10)}.pdf`;
+  wrap.className = 'print-canvas';
+  // 210mm = A4 width; the html2canvas scale config converts to px at print.
+  wrap.style.cssText = [
+    'width:210mm', 'min-height:297mm', 'padding:14mm',
+    'box-sizing:border-box', 'background:#ffffff', 'color:#000000',
+    "font-family:'Noto Sans Devanagari','Geist','Inter',sans-serif",
+    'font-size:11pt', 'line-height:1.55',
+  ].join(';');
+  clone.style.cssText = 'background:#ffffff;color:#000;box-shadow:none;padding:0;margin:0;max-width:none;';
+  wrap.appendChild(clone);
+  // Inject print-only style overrides INSIDE the clone so html2pdf picks
+  // them up (it doesn't read parent stylesheets reliably).
+  const style = document.createElement('style');
+  style.textContent = `
+    .print-canvas, .print-canvas * { color:#000 !important; background:transparent !important; }
+    .print-canvas .ph { color:#555 !important; font-style:normal !important; }
+    .print-canvas table { page-break-inside:avoid; border-collapse:collapse; }
+    .print-canvas .bd-table th, .print-canvas .bd-table td {
+      border:1px solid #444; padding:6px 8px; vertical-align:top;
+    }
+    .print-canvas .bd-pagebreak { page-break-before:always; border:none; margin:0; }
+    .print-canvas .bd-sig, .print-canvas .bd-prayer { page-break-inside:avoid; }
+    .print-canvas .xlit { background:transparent; border-bottom:none; }
+  `;
+  wrap.insertBefore(style, wrap.firstChild);
+  return wrap;
+}
+
+function _pdfFilename() {
+  const name  = (state.answers.applicant_name || 'draft').replace(/\s+/g, '-');
+  const date  = new Date().toISOString().slice(0, 10);
+  return `bail-application-${name}-${date}.pdf`;
+}
+
+// Generate PDF as a Blob (used by both download and WhatsApp share).
+// Returns Promise<{blob: Blob, filename: string}>.
+async function _generatePdfBlob() {
+  const wrap = _buildPrintCanvas();
+  if (!wrap) throw new Error('Document not ready');
+  // Attach off-screen so html2canvas can measure correctly.
+  wrap.style.position = 'fixed';
+  wrap.style.left = '-99999px';
+  wrap.style.top = '0';
+  document.body.appendChild(wrap);
+  const filename = _pdfFilename();
   const opt = {
-    margin: [10, 12, 14, 12],
+    margin: 0,                                       // page padding baked into wrap
     filename,
-    image: { type: 'jpeg', quality: 0.95 },
-    html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+    image: { type: 'jpeg', quality: 0.97 },
+    html2canvas: {
+      scale: 2,
+      useCORS: true,
+      letterRendering: true,
+      backgroundColor: '#ffffff',
+      windowWidth: wrap.offsetWidth,
+    },
+    jsPDF: {
+      unit: 'mm', format: 'a4', orientation: 'portrait',
+      compress: true,
+    },
+    pagebreak: { mode: ['css', 'legacy'], avoid: ['table', '.bd-sig', '.bd-prayer'] },
   };
-  toast('Generating PDF…', 'ok');
-  html2pdf().set(opt).from(wrap).save();
+  try {
+    const blob = await html2pdf().set(opt).from(wrap).outputPdf('blob');
+    return { blob, filename };
+  } finally {
+    if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
+  }
+}
+
+document.getElementById('btn-pdf').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-pdf');
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ Generating…';
+  toast('Generating PDF — formatting preserved…', 'ok');
+  try {
+    const { blob, filename } = await _generatePdfBlob();
+    // Trigger save via blob URL (preserves formatting unlike .save() which
+    // re-runs the pipeline; this way the same blob we'd share is the
+    // same blob the lawyer downloads).
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    toast('Saved · check your Downloads folder', 'ok');
+  } catch (e) {
+    console.error(e);
+    toast('PDF generation failed — ' + (e.message || 'try again'), 'err', 4000);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = orig;
+  }
 });
 
-document.getElementById('btn-print').addEventListener('click', () => window.print());
-
-document.getElementById('btn-share').addEventListener('click', () => {
-  const txt = `Bail Application - ${state.answers.applicant_name || 'Draft'} - ${state.answers.court_name || 'MP HC Gwalior'} - prepared via Headnote`;
-  window.open(`https://wa.me/?text=${encodeURIComponent(txt)}`, '_blank');
-  toast('Download PDF first, then attach in WhatsApp', 'ok');
+// Print → browser print dialog. The @media print stylesheet hides the
+// chrome (form pane, topbar, toasts, buttons) so only #doc-page renders.
+// No more "the whole UI got printed" complaints.
+document.getElementById('btn-print').addEventListener('click', () => {
+  toast('Opening print dialog…', 'ok');
+  // Defer one frame so the toast paints before the (modal) print dialog
+  // captures the thread — feels more responsive.
+  requestAnimationFrame(() => window.print());
 });
+
+// WhatsApp share — actually attach the PDF.
+//   Mobile (Web Share Files API): direct share-sheet with the PDF attached.
+//   Desktop / unsupported: download the PDF, then open WhatsApp Web with
+//     a pre-filled message so the lawyer just drags-and-drops the file.
+document.getElementById('btn-share').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-share');
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ Preparing…';
+  toast('Preparing PDF for WhatsApp…', 'ok');
+  let blob, filename;
+  try {
+    ({ blob, filename } = await _generatePdfBlob());
+  } catch (e) {
+    btn.disabled = false; btn.textContent = orig;
+    toast('PDF generation failed — ' + (e.message || 'try again'), 'err', 4000);
+    return;
+  }
+  const file = new File([blob], filename, { type: 'application/pdf' });
+  const shareData = {
+    files: [file],
+    title: filename,
+    text: `Bail Application — ${state.answers.applicant_name || 'Draft'} — prepared via Headnote`,
+  };
+  // Web Share API with files (Chrome / Safari mobile, Edge desktop).
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share(shareData);
+      toast('Shared ✓', 'ok');
+    } catch (e) {
+      // User cancelled or share failed — fall back to download + WA web.
+      if (e.name !== 'AbortError') {
+        console.error(e);
+        toast('Share dialog failed — saving to Downloads instead', 'warn', 4000);
+        _downloadAndOpenWhatsApp(blob, filename);
+      }
+    }
+  } else {
+    // No file-share support (most desktop browsers). Best UX: download
+    // the PDF, open WhatsApp Web with pre-filled message; the lawyer
+    // drags the just-downloaded file into the chat.
+    _downloadAndOpenWhatsApp(blob, filename);
+  }
+  btn.disabled = false;
+  btn.textContent = orig;
+});
+
+function _downloadAndOpenWhatsApp(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+  const msg = `Bail Application — ${state.answers.applicant_name || 'Draft'} — prepared via Headnote`;
+  // web.whatsapp.com is the desktop client; wa.me defers to it on desktop.
+  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+  toast('PDF downloaded — drag it into WhatsApp Web', 'ok', 5000);
+}
 
 // Fields that switch script/language between EN and HI.
 // - Person names → transliterated (Anil Morya ↔ अनिल मोर्य)

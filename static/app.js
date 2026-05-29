@@ -944,16 +944,103 @@
           ce('h2', { text: 'no cases survived verification' }),
           ce('p', { text: 'every candidate was either fabricated or unverifiable. try rephrasing with more specific statute references.' }),
         ]}));
+        // Still offer the personal-assist escape hatch — this is exactly
+        // the situation where the lawyer needs us most.
+        target.appendChild(renderAssistCta('research', query));
         return;
       }
       target.appendChild(renderResultsHeader(cases.length, true));
       target.appendChild(state.resultView === 'table' ? renderCasesAsTable(cases) : renderCasesAsCards(cases));
+      // CTA after every successful research response — even when results
+      // look good. Drives the 15-min personal-assist flow.
+      target.appendChild(renderAssistCta('research', query));
     } else if (autoMode === 'digest') {
       target.appendChild(renderDigest(parsed));
+      target.appendChild(renderAssistCta('research', query));
     } else if (autoMode === 'headnote') {
       target.appendChild(renderHeadnotes(parsed));
+      target.appendChild(renderAssistCta('research', query));
     }
   }
+
+  // ---------------------------------------------------------------
+  // Personal-assist CTA — the "Not satisfied? our team will help"
+  // escape hatch that fires under every research response.
+  //
+  // Promise: case-law within 15 minutes (research mode) / template
+  // uploaded within 2 hours (draft mode — same component, the draft
+  // screen instantiates it with mode='draft' via a thin wrapper).
+  // ---------------------------------------------------------------
+  function renderAssistCta(mode, sourceContext) {
+    const cfg = mode === 'draft' ? {
+      eyebrow:  'Need a different template?',
+      headline: "Tell us — we'll upload it within 2 hours.",
+      sub:      "Free for paid users. Drop the template name + a one-line use case. Goes straight to the founder, not a queue.",
+      placeholder: "e.g. 'POCSO bail at Sessions Court — need the standard MP HC format with parity table'",
+      submitLabel: "Send request",
+      successMsg:  "Got it — we'll have it live within 2 hours.",
+      endpoint: '/api/assist/draft',
+    } : {
+      eyebrow:  'Not satisfied with this response?',
+      headline: "Let our team find the case-law for you, personally.",
+      sub:      "We'll WhatsApp / email you three judgments with paragraph anchors within 15 minutes. Just describe what you need.",
+      placeholder: "e.g. 'High Court bail under 304B IPC — co-accused already granted, parity ground, MP HC preferred'",
+      submitLabel: "Get personal help",
+      successMsg:  "Got it — our team will reach out within 15 minutes.",
+      endpoint: '/api/assist/research',
+    };
+
+    const wrap = ce('div', { cls: 'assist-cta' });
+
+    const head = ce('div', { cls: 'assist-cta__head' });
+    head.appendChild(ce('div', { cls: 'assist-cta__eyebrow', text: cfg.eyebrow }));
+    head.appendChild(ce('div', { cls: 'assist-cta__title',   text: cfg.headline }));
+    head.appendChild(ce('div', { cls: 'assist-cta__sub',     text: cfg.sub }));
+    wrap.appendChild(head);
+
+    // Inline form (no modal — modals on mobile hide the keyboard handoff)
+    const form = ce('div', { cls: 'assist-cta__form' });
+    const ta = document.createElement('textarea');
+    ta.className = 'assist-cta__input';
+    ta.placeholder = cfg.placeholder;
+    ta.rows = 3;
+    form.appendChild(ta);
+
+    const row = ce('div', { cls: 'assist-cta__row' });
+    const sla = ce('span', { cls: 'assist-cta__sla',
+      text: mode === 'draft' ? '⏱ 2-hour SLA · permanent upload' : '⏱ 15-minute SLA · WhatsApp + email' });
+    const btn = document.createElement('button');
+    btn.className = 'assist-cta__submit';
+    btn.textContent = cfg.submitLabel;
+    btn.addEventListener('click', async () => {
+      const q = ta.value.trim();
+      if (q.length < 3) { toast('Add a few words first', 'error'); ta.focus(); return; }
+      btn.disabled = true;
+      const prev = btn.textContent;
+      btn.textContent = 'Sending…';
+      try {
+        await post(cfg.endpoint, { query: q, source_context: sourceContext || '' });
+        wrap.classList.add('assist-cta--sent');
+        wrap.innerHTML = '';
+        const done = ce('div', { cls: 'assist-cta__done' });
+        done.appendChild(ce('div', { cls: 'assist-cta__done-icon', text: '✓' }));
+        done.appendChild(ce('div', { cls: 'assist-cta__done-msg', text: cfg.successMsg }));
+        wrap.appendChild(done);
+      } catch (e) {
+        btn.disabled = false;
+        btn.textContent = prev;
+        toast('Could not send — ' + (e.message || 'try again'), 'error', 4000);
+      }
+    });
+    row.appendChild(sla);
+    row.appendChild(btn);
+    form.appendChild(row);
+    wrap.appendChild(form);
+
+    return wrap;
+  }
+  // Expose so the drafting pages (different HTML host) can call it too.
+  window.renderAssistCta = renderAssistCta;
 
   // -------------------------------------------------------------- submit
   async function submitResearch() {

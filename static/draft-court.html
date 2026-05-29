@@ -99,60 +99,105 @@
 
   .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
   }
   .tile {
-    display: flex; flex-direction: column; gap: 6px;
-    padding: 18px;
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 22px 22px 18px;
     background: var(--card);
     border: 1px solid var(--line);
-    border-radius: 12px;
+    border-radius: 14px;
     cursor: pointer;
-    transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
     color: var(--ink);
     text-align: left;
-    min-height: 100px;
+    min-height: 124px;
     font-family: inherit;
+    position: relative;
+    overflow: hidden;
+  }
+  .tile::before {
+    /* Subtle left gold rail — keeps the eye locked to the tile title */
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--gold);
+    opacity: 0;
+    transition: opacity 0.18s ease;
   }
   .tile:hover {
-    transform: translateY(-2px);
+    transform: translateY(-3px);
     border-color: var(--gold);
-    box-shadow: 0 10px 24px -12px rgba(201,169,110,0.25);
+    box-shadow: 0 14px 32px -16px rgba(140,117,73,0.28);
   }
+  .tile:hover::before { opacity: 0.7; }
   .tile.tile--popular {
-    background: linear-gradient(180deg, var(--gold-tint), #fff 70%);
+    background: linear-gradient(180deg, var(--gold-tint), #fff 65%);
   }
+  .tile.tile--popular::before { opacity: 0.85; }
+
   .tile__name {
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 600;
     color: var(--ink);
-    letter-spacing: -0.01em;
+    letter-spacing: -0.015em;
+    line-height: 1.25;
   }
   .tile__name-hi {
     font-family: 'Noto Sans Devanagari', sans-serif;
-    font-size: 12.5px;
+    font-size: 13px;
     color: var(--ink-3);
-    margin-top: 2px;
+    margin-top: 3px;
+    line-height: 1.35;
   }
   .tile__desc {
-    font-family: 'Geist Mono', monospace;
-    font-size: 11.5px;
-    color: var(--ink-4);
-    margin-top: 8px;
-    line-height: 1.45;
+    /* Geist for body — easier to scan than mono, less visual noise */
+    font-family: inherit;
+    font-size: 12.5px;
+    color: var(--ink-3);
+    margin-top: 10px;
+    line-height: 1.5;
   }
   .tile__tag {
     margin-top: auto;
+    padding-top: 12px;
     align-self: flex-start;
     font-family: 'Geist Mono', monospace;
     font-size: 9.5px; font-weight: 600;
-    background: var(--gold-tint);
-    color: var(--gold-deep);
-    padding: 3px 7px;
-    border-radius: 4px;
+    color: var(--ink-4);
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
+  }
+
+  /* "Coming soon" tiles — disabled state. Used for Supreme Court for now */
+  .tile.tile--soon {
+    background: #faf8f3;
+    border-style: dashed;
+    cursor: not-allowed;
+    opacity: 0.78;
+  }
+  .tile.tile--soon:hover {
+    transform: none;
+    border-color: var(--line);
+    box-shadow: none;
+  }
+  .tile.tile--soon:hover::before { opacity: 0; }
+  .tile.tile--soon .tile__name { color: var(--ink-3); }
+  .tile.tile--soon .tile__soon-badge {
+    position: absolute;
+    top: 14px; right: 14px;
+    background: #fff;
+    color: var(--gold-deep);
+    border: 1px solid #e8dcbb;
+    font-family: 'Geist Mono', monospace;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 4px 9px;
+    border-radius: 100px;
   }
 
   .empty-state {
@@ -204,6 +249,73 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 10px;
+  }
+
+  /* ─── Personal-assist CTA ─────────────────────────────────────── */
+  .assist-cta {
+    background: #faf7ed;
+    border: 1px solid #ece3c8;
+    border-left: 3px solid var(--gold);
+    border-radius: 14px;
+    padding: 26px 28px;
+    margin: 40px 0 0;
+  }
+  .assist-cta__head { margin-bottom: 16px; }
+  .assist-cta__eyebrow {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px; font-weight: 600;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--gold-deep);
+    margin-bottom: 6px;
+  }
+  .assist-cta__title {
+    font-size: 19px; font-weight: 600;
+    color: var(--ink); letter-spacing: -0.015em;
+    line-height: 1.3; margin-bottom: 6px;
+  }
+  .assist-cta__sub {
+    font-size: 14px; line-height: 1.6;
+    color: var(--ink-3);
+  }
+  .assist-cta__form { margin-top: 14px; }
+  .assist-cta__input {
+    width: 100%; padding: 12px 14px;
+    border: 1px solid #ddd5b8;
+    background: #fffdf6;
+    border-radius: 10px;
+    font-family: inherit; font-size: 14px;
+    color: var(--ink); line-height: 1.5;
+    resize: vertical; min-height: 78px;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .assist-cta__input:focus { outline: none; border-color: var(--gold); background: #fff; }
+  .assist-cta__input::placeholder { color: #b5ad95; }
+  .assist-cta__row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; margin-top: 10px; flex-wrap: wrap;
+  }
+  .assist-cta__sla {
+    font-family: 'Geist Mono', monospace; font-size: 11.5px;
+    color: var(--gold-deep); letter-spacing: 0.04em;
+  }
+  .assist-cta__submit {
+    padding: 10px 20px; background: var(--ink); color: #fff;
+    border: 1px solid var(--ink); border-radius: 8px;
+    font-family: inherit; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: background 0.12s, transform 0.08s;
+  }
+  .assist-cta__submit:hover:not(:disabled) { background: #1f1f1c; transform: translateY(-1px); }
+  .assist-cta__submit:disabled { opacity: 0.6; cursor: wait; }
+  .assist-cta--sent { background: #f0f7ea; border-color: #cfe0b8; border-left-color: #6b9237; }
+  .assist-cta__done { display: flex; align-items: center; gap: 16px; }
+  .assist-cta__done-icon {
+    flex-shrink: 0; width: 36px; height: 36px;
+    border-radius: 50%; background: #6b9237; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 19px; font-weight: 700;
+  }
+  .assist-cta__done-msg {
+    font-size: 15px; font-weight: 500; color: #2f4d12; line-height: 1.4;
   }
   .pr-tile {
     background: #faf8f3;
@@ -264,6 +376,9 @@
       <p>We're building these in waves. Reach out at <a href="mailto:hello@headnote.in" style="color:var(--gold-deep)">hello@headnote.in</a> to vote up what we ship next.</p>
     </div>
   </div>
+
+  <!-- "Not finding what you need?" personal-assist CTA — rendered by JS -->
+  <div id="draft-assist"></div>
 </main>
 
 <script>
@@ -402,19 +517,98 @@ function renderGrid(elId, templates, popular) {
   const wrap = document.getElementById(elId);
   if (!wrap) return;
   wrap.innerHTML = templates.map(t => {
-    const href = t.redirect_url || ('/draft/template/' + esc(t.id));
+    // Supreme Court drafting is not production-ready yet — mark as coming
+    // soon, disable the click, surface the visual badge.
+    const isComingSoon = (t.court === 'sc');
+    const href = isComingSoon ? '#' : (t.redirect_url || ('/draft/template/' + esc(t.id)));
+    const cls  = [
+      'tile',
+      popular && !isComingSoon ? 'tile--popular' : '',
+      isComingSoon ? 'tile--soon' : '',
+    ].filter(Boolean).join(' ');
+    const onClick = isComingSoon ? ' onclick="event.preventDefault(); return false;"' : '';
+    const badge = isComingSoon ? `<span class="tile__soon-badge">Coming soon</span>` : '';
+    // Trim the noisy "Tier N" tag for popular templates — it added visual
+    // clutter without informing the lawyer's choice.
+    const showTier = !popular && !isComingSoon && t.tier;
     return `
-    <a href="${href}" class="tile ${popular ? 'tile--popular' : ''}">
+    <a href="${href}"${onClick} class="${cls}">
+      ${badge}
       <div class="tile__name">${esc(t.name_en)}</div>
       <div class="tile__name-hi">${esc(t.name_hi || '')}</div>
-      ${t.description ? `<div class="tile__desc">${esc(t.description.slice(0, 110))}${t.description.length > 110 ? '…' : ''}</div>` : ''}
-      ${t.tier ? `<span class="tile__tag">Tier ${t.tier}</span>` : ''}
+      ${t.description ? `<div class="tile__desc">${esc(t.description.slice(0, 100))}${t.description.length > 100 ? '…' : ''}</div>` : ''}
+      ${showTier ? `<span class="tile__tag">Tier ${t.tier}</span>` : ''}
     </a>
   `;
   }).join('');
 }
 
-load();
+// ─── Personal-assist CTA ("not finding what you need?") ──────────────
+// Mirrors the research-mode CTA in app.js but hosted on this page since
+// it has its own <script> context. Promises 2-hour template upload.
+function renderDraftAssistCta() {
+  const host = document.getElementById('draft-assist');
+  if (!host) return;
+  host.innerHTML = `
+    <div class="assist-cta" id="assist-cta-block">
+      <div class="assist-cta__head">
+        <div class="assist-cta__eyebrow">Need a different template?</div>
+        <div class="assist-cta__title">Tell us — we'll upload it within 2 hours.</div>
+        <div class="assist-cta__sub">Free for paid users. Drop the template name + a one-line use case. Goes straight to the founder, not a queue.</div>
+      </div>
+      <div class="assist-cta__form">
+        <textarea class="assist-cta__input" id="assist-input" rows="3"
+          placeholder="e.g. 'POCSO bail at Sessions Court — need MP HC format with parity table'"></textarea>
+        <div class="assist-cta__row">
+          <span class="assist-cta__sla">⏱ 2-hour SLA · permanent upload</span>
+          <button class="assist-cta__submit" id="assist-submit">Send request</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('assist-submit').addEventListener('click', async () => {
+    const ta  = document.getElementById('assist-input');
+    const btn = document.getElementById('assist-submit');
+    const q = ta.value.trim();
+    if (q.length < 3) { ta.focus(); return; }
+    btn.disabled = true;
+    const prev = btn.textContent;
+    btn.textContent = 'Sending…';
+    try {
+      let headers = { 'Content-Type': 'application/json' };
+      if (window.headnoteAuth && typeof window.headnoteAuth.getAccessToken === 'function') {
+        try {
+          const token = await window.headnoteAuth.getAccessToken();
+          if (token) headers['Authorization'] = `Bearer ${token}`;
+        } catch (_e) { /* anon — backend will 401 if needed */ }
+      }
+      const r = await fetch('/api/assist/draft', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ query: q, source_context: 'court=' + _activeCourt }),
+      });
+      if (!r.ok) {
+        if (r.status === 401) { alert('Please sign in to send this request.'); return; }
+        throw new Error('HTTP ' + r.status);
+      }
+      // Swap the form for a success card
+      const block = document.getElementById('assist-cta-block');
+      block.classList.add('assist-cta--sent');
+      block.innerHTML = `
+        <div class="assist-cta__done">
+          <div class="assist-cta__done-icon">✓</div>
+          <div class="assist-cta__done-msg">Got it — we'll have it live within 2 hours.</div>
+        </div>
+      `;
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = prev;
+      alert('Could not send — ' + (e.message || 'please try again'));
+    }
+  });
+}
+
+load().then(() => renderDraftAssistCta());
 </script>
 </body>
 </html>
