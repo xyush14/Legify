@@ -186,6 +186,13 @@
   .field--row { flex-direction: row; gap: 10px; }
   .field--row > .field { flex: 1; }
   .field__hint { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  /* Plain-words banner that explains what the chosen bail type asks for. */
+  .bail-type-note {
+    margin-top: 14px; padding: 10px 12px; border-radius: 8px;
+    background: var(--bg); border: 1px solid var(--line-strong);
+    font-size: 12.5px; line-height: 1.5; color: var(--ink);
+  }
+  .bail-type-note:empty { display: none; }
 
   .checkboxes { display: flex; flex-direction: column; gap: 6px; }
   .checkboxes label { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; padding: 4px 0; }
@@ -422,6 +429,40 @@
     border-left: 3px solid #d4b864;
     text-align: justify;
     line-height: 1.7;
+  }
+  /* Labelled deponent block (NAME : / FATHER'S NAME : …) above the oath. */
+  .bail-doc .bd-aff-deponent {
+    margin: 14px 0 6px;
+    border-collapse: collapse;
+    line-height: 1.7;
+  }
+  .bail-doc .bd-aff-deponent td {
+    border: none;
+    padding: 1px 0;
+    vertical-align: top;
+  }
+  .bail-doc .bd-aff-deponent td:first-child {
+    width: 150px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  /* Advocate "IDENTIFIED BY ME" + Oaths Commissioner attestation, side by side. */
+  .bail-doc .bd-aff-attest {
+    display: flex;
+    justify-content: space-between;
+    gap: 32px;
+    margin-top: 40px;
+  }
+  .bail-doc .bd-aff-identified,
+  .bail-doc .bd-aff-oaths {
+    line-height: 2.1;
+  }
+  .bail-doc .bd-aff-oaths {
+    text-align: right;
+  }
+  .bail-doc .bd-aff-attest .bd-sig-line {
+    margin-top: 24px;
+    font-weight: 600;
   }
 
   /* OCR drop zone */
@@ -684,9 +725,16 @@
         <div class="field">
           <label data-en="Bail Section" data-hi="धारा">धारा</label>
           <select data-field="bail_section">
-            <option value="439">439 CrPC (Sessions/HC — regular)</option>
-            <option value="437">437 CrPC (Magistrate — regular)</option>
-            <option value="438">438 CrPC (Anticipatory)</option>
+            <optgroup label="BNSS 2023" data-en="BNSS 2023 (new cases)" data-hi="बी.एन.एस.एस. 2023 (नए प्रकरण)">
+              <option value="483">483 BNSS — Sessions/HC (regular · नियमित)</option>
+              <option value="482">482 BNSS — Anticipatory (अग्रिम)</option>
+              <option value="480">480 BNSS — Magistrate (regular · नियमित)</option>
+            </optgroup>
+            <optgroup label="CrPC 1973" data-en="CrPC 1973 (older cases)" data-hi="दं.प्र.सं. 1973 (पुराने प्रकरण)">
+              <option value="439">439 CrPC — Sessions/HC (regular · नियमित)</option>
+              <option value="438">438 CrPC — Anticipatory (अग्रिम)</option>
+              <option value="437">437 CrPC — Magistrate (regular · नियमित)</option>
+            </optgroup>
           </select>
         </div>
         <div class="field">
@@ -699,6 +747,7 @@
           </select>
         </div>
       </div>
+      <div class="bail-type-note" id="bail-type-note"></div>
     </div>
 
     <!-- 2. Applicant -->
@@ -777,8 +826,8 @@
 
     <!-- 4. Trial Court (only for HC successive) -->
     <div class="section" id="section-trial-court">
-      <div class="section__eyebrow" data-en="SECTION 4" data-hi="अनुभाग 4">अनुभाग 4</div>
-      <h3 class="section__title" data-en="Trial Court Below" data-hi="विचारण न्यायालय">विचारण न्यायालय</h3>
+      <div class="section__eyebrow" data-en="SECTION 4 · ORDER CHALLENGED" data-hi="अनुभाग 4 · चुनौती आदेश">अनुभाग 4 · चुनौती आदेश</div>
+      <h3 class="section__title" data-en="Lower Court &amp; Bail-Rejection Order" data-hi="अधीनस्थ न्यायालय एवं जमानत-निरस्तीकरण आदेश">अधीनस्थ न्यायालय एवं जमानत-निरस्तीकरण आदेश</h3>
       <div class="field field--row">
         <div class="field">
           <label data-en="Sessions Case No." data-hi="सत्र केस नं.">सत्र केस नं.</label>
@@ -885,9 +934,55 @@
       </div>
     </div>
 
-    <!-- 9. Filing -->
+    <!-- 9. Custom clauses (add-your-own) -->
     <div class="section">
       <div class="section__eyebrow" data-en="SECTION 9" data-hi="अनुभाग 9">अनुभाग 9</div>
+      <h3 class="section__title" data-en="Your own clauses" data-hi="अपने अतिरिक्त बिंदु">अपने अतिरिक्त बिंदु</h3>
+      <p class="field__hint" data-en="Need something the form doesn't ask? Add your own paragraphs — they'll appear as numbered points in the facts or grounds." data-hi="फॉर्म में जो नहीं पूछा गया, वह यहाँ जोड़ें — आपके बिंदु तथ्यों या आधार में क्रमांकित पैरा के रूप में जुड़ जाएंगे।">फॉर्म में जो नहीं पूछा गया, वह यहाँ जोड़ें — आपके बिंदु तथ्यों या आधार में क्रमांकित पैरा के रूप में जुड़ जाएंगे।</p>
+      <div id="custom-para-rows"></div>
+    </div>
+
+    <!-- 10. Affidavit / deponent -->
+    <div class="section">
+      <div class="section__eyebrow" data-en="SECTION 10" data-hi="अनुभाग 10">अनुभाग 10</div>
+      <h3 class="section__title" data-en="Affidavit (deponent)" data-hi="शपथ-पत्र (शपथकर्ता)">शपथ-पत्र (शपथकर्ता)</h3>
+      <p class="field__hint" data-en="By default the applicant swears the affidavit. If a relative deposes instead (e.g. the applicant is in custody), fill the relation and the deponent's details below." data-hi="सामान्यतः आवेदक स्वयं शपथ-पत्र देता है। यदि कोई परिजन शपथकर्ता है (जैसे आवेदक हिरासत में है), तो नीचे संबंध एवं शपथकर्ता का विवरण भरें।">सामान्यतः आवेदक स्वयं शपथ-पत्र देता है। यदि कोई परिजन शपथकर्ता है (जैसे आवेदक हिरासत में है), तो नीचे संबंध एवं शपथकर्ता का विवरण भरें।</p>
+      <div class="field">
+        <label data-en="Relation to applicant (leave blank if applicant himself)" data-hi="आवेदक से संबंध (आवेदक स्वयं हो तो खाली छोड़ें)">आवेदक से संबंध (आवेदक स्वयं हो तो खाली छोड़ें)</label>
+        <input type="text" data-field="deponent_relation"
+          data-ph-en="e.g., nephew / brother / father"
+          data-ph-hi="जैसे: भतीजा / भाई / पिता"
+          placeholder="जैसे: भतीजा / भाई / पिता">
+      </div>
+      <div class="field field--row">
+        <div class="field">
+          <label data-en="Deponent name" data-hi="शपथकर्ता का नाम">शपथकर्ता का नाम</label>
+          <input type="text" data-field="deponent_name" data-ph-en="same as applicant" data-ph-hi="आवेदक के समान">
+        </div>
+        <div class="field">
+          <label data-en="Father's name" data-hi="पिता का नाम">पिता का नाम</label>
+          <input type="text" data-field="deponent_father" data-ph-en="same as applicant" data-ph-hi="आवेदक के समान">
+        </div>
+      </div>
+      <div class="field field--row">
+        <div class="field">
+          <label data-en="Age" data-hi="आयु">आयु</label>
+          <input type="number" data-field="deponent_age" data-ph-en="same as applicant" data-ph-hi="आवेदक के समान">
+        </div>
+        <div class="field">
+          <label data-en="Occupation" data-hi="व्यवसाय">व्यवसाय</label>
+          <input type="text" data-field="deponent_occupation" data-ph-en="same as applicant" data-ph-hi="आवेदक के समान">
+        </div>
+      </div>
+      <div class="field">
+        <label data-en="Address" data-hi="पता">पता</label>
+        <input type="text" data-field="deponent_address" data-ph-en="same as applicant" data-ph-hi="आवेदक के समान">
+      </div>
+    </div>
+
+    <!-- 11. Filing -->
+    <div class="section">
+      <div class="section__eyebrow" data-en="SECTION 11" data-hi="अनुभाग 11">अनुभाग 11</div>
       <h3 class="section__title" data-en="Filing Details" data-hi="हस्ताक्षर">हस्ताक्षर</h3>
       <div class="field field--row">
         <div class="field">
@@ -947,11 +1042,21 @@ const state = {
   answers: {
     state_name: 'मध्य प्रदेश',
     application_number: '1',
-    bail_section: '439',
+    bail_section: '483',
     prior_bail_history: [],
     co_accused: [],
     grounds: { innocence: true, local_resident: true },
     custom_grounds: [],
+    custom_paras: [],
+    // Affidavit deponent. Empty = self (the applicant deposes); fill these
+    // only when a relative deposes on the applicant's behalf (e.g. the
+    // applicant is in custody and a family member swears the affidavit).
+    deponent_relation: '',
+    deponent_name: '',
+    deponent_father: '',
+    deponent_age: '',
+    deponent_occupation: '',
+    deponent_address: '',
     filing_date: new Date().toLocaleDateString('en-GB').replace(/\//g, '.'),
   },
   draftId: null,
@@ -1215,13 +1320,18 @@ function renderHi(a) {
   const appNum = parseInt(a.application_number) || 1;
   const appNumHi = HINDI_ORDINAL[appNum] || `${appNum}वाँ`;
   const isSuccessive = appNum >= 2;
-  const bailSection = a.bail_section || '439';
-  const isAnticipatory = bailSection === '438';
+  const bailSection = a.bail_section || '483';
+  const isAnticipatory = bailSection === '438' || bailSection === '482';
+  const isMagistrate  = bailSection === '437' || bailSection === '480';
+  const isBnss = bailSection === '480' || bailSection === '482' || bailSection === '483';
   const sectionTitle = {
     '437': 'धारा 437 दण्ड प्रकिया संहिता',
     '438': 'धारा 438 दण्ड प्रकिया संहिता',
     '439': 'धारा 439 दण्ड प्रकिया संहिता',
-  }[bailSection];
+    '480': 'धारा 480 भारतीय नागरिक सुरक्षा संहिता, 2023',
+    '482': 'धारा 482 भारतीय नागरिक सुरक्षा संहिता, 2023',
+    '483': 'धारा 483 भारतीय नागरिक सुरक्षा संहिता, 2023',
+  }[bailSection] || 'धारा 483 भारतीय नागरिक सुरक्षा संहिता, 2023';
 
   const sideLabel = isAnticipatory ? 'आवेदक की ओर से' : 'बंदी की ओर से';
   const courtName = a.court_name || 'माननीय उच्च न्यायालय मध्यप्रदेश खण्डपीठ, ग्वालियर';
@@ -1278,12 +1388,14 @@ function renderHi(a) {
   // Prior bail summary table (always show)
   html += renderPriorBailSummary(priorBail);
 
-  // Crime + trial court table
+  // Crime + (for regular bail) lower-court table. Anticipatory bail is
+  // pre-arrest, so we drop the arrest-date row and the trial-court column.
   html += renderCrimeTable({
     fir_number: a.fir_number, ps_name: a.police_station, district,
     sections: sectionsList, arrest_date: arrestDate,
     trial_case_no: a.trial_case_no, trial_judge: a.trial_judge,
     trial_court: a.trial_court, trial_location: a.trial_location || district,
+    anticipatory: isAnticipatory,
   });
 
   html += '<p class="bd-prelude">आवेदक की ओर से आवेदन पत्र निम्न प्रकार प्रस्तुत है:—</p>';
@@ -1330,8 +1442,13 @@ function renderHi(a) {
   }
   if (a.fir_number || arrestDate) {
     const secStr = sectionsList.length ? sectionsList.map(esc).join(', ') : '...............';
-    const arrestStr = arrestDate ? `दिनांक ${esc(arrestDate)} को` : 'दिनांक ......... को';
-    html += `<li><p>यहकि, उक्त रिपोर्ट पर से पुलिस थाना ${xph(a.police_station, 'थाना', 'hi')} पर अपराध क्रं. ${ph(a.fir_number, '..../....')} अन्तर्गत ${secStr} के तहत आवेदक के विरुद्ध अपराध पंजीबद्ध किया गया जिसमें आवेदक को ${arrestStr} गिरफ्तार किया गया तथा पुलिस द्वारा अभियोग पत्र प्रस्तुत कर दिया गया।</p></li>`;
+    if (isAnticipatory) {
+      // Pre-arrest: an FIR exists and the applicant apprehends arrest under it.
+      html += `<li><p>यहकि, पुलिस थाना ${xph(a.police_station, 'थाना', 'hi')} पर अपराध क्रं. ${ph(a.fir_number, '..../....')} अन्तर्गत ${secStr} के तहत आवेदक के विरुद्ध प्रथम सूचना रिपोर्ट पंजीबद्ध की गई है, जिसके आधार पर पुलिस द्वारा आवेदक को इस प्रकरण में किसी भी समय गिरफ्तार किये जाने की प्रबल आशंका है।</p></li>`;
+    } else {
+      const arrestStr = arrestDate ? `दिनांक ${esc(arrestDate)} को` : 'दिनांक ......... को';
+      html += `<li><p>यहकि, उक्त रिपोर्ट पर से पुलिस थाना ${xph(a.police_station, 'थाना', 'hi')} पर अपराध क्रं. ${ph(a.fir_number, '..../....')} अन्तर्गत ${secStr} के तहत आवेदक के विरुद्ध अपराध पंजीबद्ध किया गया जिसमें आवेदक को ${arrestStr} गिरफ्तार किया गया तथा पुलिस द्वारा अभियोग पत्र प्रस्तुत कर दिया गया।</p></li>`;
+    }
   }
   if (a.cancellation_history) {
     html += `<li><p>यहकि, ${esc(a.cancellation_history)}</p></li>`;
@@ -1339,8 +1456,9 @@ function renderHi(a) {
   if (isSuccessive && a.lower_court_history) {
     html += `<li><p>यहकि, ${esc(a.lower_court_history)}</p></li>`;
   } else if (isSuccessive) {
-    html += '<li><p>यहकि, आवेदक ने अधीनस्थ न्यायालय के समक्ष एक आवेदन अन्तर्गत धारा 439 दण्ड प्रकिया संहिता के तहत प्रस्तुत किया, जो अधीनस्थ न्यायालय द्वारा निरस्त किया गया।</p></li>';
+    html += `<li><p>यहकि, आवेदक ने अधीनस्थ न्यायालय के समक्ष एक आवेदन अन्तर्गत ${esc(sectionTitle)} के तहत प्रस्तुत किया, जो अधीनस्थ न्यायालय द्वारा निरस्त किया गया।</p></li>`;
   }
+  renderCustomParas(a, 'facts', 'hi').forEach(p => { html += p; });
   html += '</ol></li>';
 
   // Para 6 — grounds
@@ -1349,10 +1467,10 @@ function renderHi(a) {
   if (grounds.innocence) {
     html += '<li><p>यहकि, आवेदक ने कोई अपराध नहीं किया है, आवेदक को इस प्रकरण में फरियादी पक्ष द्वारा झूठा फंसाया गया है, उसका उक्त अपराध से प्रत्यक्ष अथवा अप्रत्यक्ष रूप से कोई संबंध नहीं है।</p></li>';
   }
-  if (grounds.long_custody && cust) {
+  if (!isAnticipatory && grounds.long_custody && cust) {
     html += `<li><p>यहकि, आवेदक दिनांक ${esc(arrestDate)} से न्यायिक निरोध में है तथा आवेदक को निरोध में रहते हुये ${custodyHi(cust)} का समय हो चुका है।</p></li>`;
   }
-  if (grounds.trial_delay && a.witnesses_total && a.witnesses_examined !== undefined && a.witnesses_examined !== '') {
+  if (!isAnticipatory && grounds.trial_delay && a.witnesses_total && a.witnesses_examined !== undefined && a.witnesses_examined !== '') {
     const nh = { 1: 'एक', 2: 'दो', 3: 'तीन', 4: 'चार', 5: 'पाँच', 6: 'छह', 7: 'सात', 8: 'आठ', 9: 'नौ', 10: 'दस' };
     const tot = nh[a.witnesses_total] || a.witnesses_total;
     const ex = nh[a.witnesses_examined] || a.witnesses_examined;
@@ -1377,13 +1495,22 @@ function renderHi(a) {
   if (grounds.no_prior_record) {
     html += '<li><p>यहकि, आवेदक का कोई पूर्व आपराधिक इतिहास नहीं है तथा आवेदक प्रथम बार आरोपी बनाया गया है।</p></li>';
   }
+  // Anticipatory-specific: applicant offers full cooperation, no flight /
+  // tampering risk — the standard 438/482 footing in place of custody grounds.
+  if (isAnticipatory) {
+    html += '<li><p>यहकि, आवेदक विवेचना में पूर्ण सहयोग करने तथा जाँच अधिकारी के समक्ष आवश्यकतानुसार उपस्थित होने हेतु सदैव तैयार है, तथा आवेदक के फरार होने अथवा साक्ष्य को प्रभावित करने की कोई संभावना नहीं है।</p></li>';
+  }
   if (a.custom_ground_1 && a.custom_ground_1.trim()) {
     html += `<li><p>यहकि, ${esc(a.custom_ground_1)}</p></li>`;
   }
+  renderCustomParas(a, 'grounds', 'hi').forEach(p => { html += p; });
   html += '</ol></li>';
 
-  // Para 7
-  html += '<li><p>यहकि, आवेदक के विरुद्ध लम्बित प्रकरण के अंतिम निराकरण में काफी विलंब की सम्भावना है।</p></li>';
+  // Para 7 — pendency / delay. Custody-delay framing only fits a post-arrest
+  // (regular) applicant; for anticipatory we drop it entirely.
+  if (!isAnticipatory) {
+    html += '<li><p>यहकि, आवेदक के विरुद्ध लम्बित प्रकरण के अंतिम निराकरण में काफी विलंब की सम्भावना है।</p></li>';
+  }
   // Para 9
   html += '<li><p>यहकि, आवेदक माननीय न्यायालय के आदेश के पालन में अपनी जमानत एवं मुचलका प्रस्तुत करने हेतु तैयार है तथा माननीय न्यायालय द्वारा निर्देशित समस्त शर्तों का पालन करने हेतु तैयार है।</p></li>';
 
@@ -1448,10 +1575,34 @@ function renderHi(a) {
     <div class="bd-caseno">विविध आपराधिक प्रकरण क्रमांक ${ph(caseNo, '.........')} / ${esc(caseYear)}</div>
     <h3 class="bd-page-title">शपथ-पत्र</h3>
   </div>`;
-  html += `<p class="bd-aff-body">मैं, ${xph(a.applicant_name, 'आवेदक का नाम', 'hi')} पुत्र श्री ${xph(a.applicant_father, 'पिता का नाम', 'hi')}, आयु लगभग ${ph(a.applicant_age, '..')} वर्ष, निवासी ${xph(a.applicant_address, 'पता', 'hi')}, जिला ${xph(district, 'जिला', 'hi')} ${xlit(stateName, 'hi')}, ईश्वर को साक्षी मानकर शपथपूर्वक यह कथन करता हूँ कि—</p>`;
+  // Deponent: defaults to the applicant (self-affidavit). When a relative
+  // deposes (e.g. applicant in custody), the deponent_* fields + relation
+  // take over and the competence para shifts to "I am the <relation> of the
+  // applicant". Matches the document(25).pdf labelled-block format.
+  const depName = a.deponent_name || a.applicant_name;
+  const depFather = a.deponent_father || a.applicant_father;
+  const depAge = a.deponent_age || a.applicant_age;
+  const depOcc = a.deponent_occupation || a.applicant_occupation;
+  const depAddr = a.deponent_address || a.applicant_address;
+  const depRel = (a.deponent_relation || '').trim();
+  const isSelfDeponent = !depRel || depRel === 'स्वयं' || depRel.toLowerCase() === 'self';
+  html += `<table class="bd-aff-deponent"><tbody>
+    <tr><td>नाम</td><td>: ${xph(depName, 'शपथकर्ता का नाम', 'hi')}</td></tr>
+    <tr><td>पिता का नाम</td><td>: श्री ${xph(depFather, 'पिता का नाम', 'hi')}</td></tr>
+    <tr><td>आयु</td><td>: लगभग ${ph(depAge, '..')} वर्ष</td></tr>
+    <tr><td>व्यवसाय</td><td>: ${xph(depOcc, 'व्यवसाय', 'hi')}</td></tr>
+    <tr><td>पता</td><td>: ${xph(depAddr, 'पता', 'hi')}, जिला ${xph(district, 'जिला', 'hi')} ${xlit(stateName, 'hi')}</td></tr>
+  </tbody></table>`;
+  html += `<p class="bd-aff-body">मैं, उपरोक्त शपथकर्ता, ईश्वर को साक्षी मानकर शपथपूर्वक यह कथन करता हूँ कि—</p>`;
   html += '<ol class="bd-aff-paras">';
-  html += '<li><p>यहकि, मैं उपरोक्त प्रकरण का आवेदक हूँ तथा प्रकरण के तथ्यों एवं परिस्थितियों से भली-भांति परिचित हूँ एवं यह शपथ-पत्र प्रस्तुत करने हेतु सक्षम हूँ।</p></li>';
+  if (isSelfDeponent) {
+    html += '<li><p>यहकि, मैं उपरोक्त प्रकरण का आवेदक हूँ तथा प्रकरण के तथ्यों एवं परिस्थितियों से भली-भांति परिचित हूँ एवं यह शपथ-पत्र प्रस्तुत करने हेतु सक्षम हूँ।</p></li>';
+  } else {
+    html += `<li><p>यहकि, मैं उपरोक्त प्रकरण के आवेदक का ${esc(depRel)} हूँ तथा प्रकरण के तथ्यों एवं परिस्थितियों से भली-भांति परिचित होकर आवेदक की ओर से यह शपथ-पत्र प्रस्तुत करने हेतु सक्षम एवं अधिकृत हूँ।</p></li>`;
+  }
+  html += `<li><p>यहकि, यह शपथ-पत्र आवेदक द्वारा प्रस्तुत ${esc(appNumHi)} जमानत आवेदन पत्र अन्तर्गत ${esc(sectionTitle)} के समर्थन में प्रस्तुत किया जा रहा है।</p></li>`;
   html += '<li><p>यहकि, संलग्न जमानत आवेदन पत्र की पैरा 1 से अंतिम पैरा तक की समस्त बातें मेरी निजी जानकारी से सत्य हैं तथा संलग्न दस्तावेज मूल की सत्य प्रतियाँ हैं।</p></li>';
+  html += `<li><p>यहकि, आवेदक द्वारा प्रस्तुत प्रकरण की पैरवी हेतु अभिभाषक श्री ${xph(a.advocate_name, 'अभिभाषक का नाम', 'hi')} को नियुक्त किया गया है।</p></li>`;
   html += '<li><p>यहकि, उक्त आवेदन में कोई बात मिथ्या नहीं है और न ही कोई सारगर्भित बात छुपाई गई है।</p></li>';
   html += '</ol>';
   html += `<div class="bd-sig">
@@ -1461,10 +1612,23 @@ function renderHi(a) {
     </div>
     <div class="bd-sig-right">
       <div>शपथकर्ता</div>
-      <div class="bd-sig-name">${xph(a.applicant_name, 'आवेदक का नाम', 'hi')}</div>
+      <div class="bd-sig-name">${xph(depName, 'शपथकर्ता का नाम', 'hi')}</div>
     </div>
   </div>`;
-  html += `<p class="bd-aff-verify"><strong>सत्यापन:</strong> मैं शपथकर्ता, सत्यनिष्ठा से सत्यापित करता हूँ कि उपरोक्त शपथ-पत्र के पैरा 1 से 3 की समस्त बातें मेरी निजी जानकारी से सत्य हैं तथा कोई बात मिथ्या नहीं है। सत्यापन ${xph(a.place, 'स्थान', 'hi')} में दिनांक ${ph(a.filing_date, '...........')} को किया गया।</p>`;
+  html += `<p class="bd-aff-verify"><strong>सत्यापन:</strong> मैं शपथकर्ता, सत्यनिष्ठा से सत्यापित करता हूँ कि उपरोक्त शपथ-पत्र की समस्त बातें मेरी निजी जानकारी से सत्य हैं तथा कोई बात मिथ्या नहीं है। सत्यापन ${xph(a.place, 'स्थान', 'hi')} में दिनांक ${ph(a.filing_date, '...........')} को किया गया।</p>`;
+  // Advocate identification + Oaths Commissioner attestation block.
+  html += `<div class="bd-aff-attest">
+    <div class="bd-aff-identified">
+      <div>मेरे द्वारा अभिनिर्धारित—</div>
+      <div class="bd-sig-advname">(${xph(a.advocate_name, 'अभिभाषक का नाम', 'hi')})</div>
+      <div>अभिभाषक</div>
+    </div>
+    <div class="bd-aff-oaths">
+      <div>मेरे समक्ष शपथपूर्वक सत्यापित—</div>
+      <div class="bd-sig-line">शपथ आयुक्त</div>
+      <div>${xlit(courtName, 'hi')}</div>
+    </div>
+  </div>`;
 
   // ───── Page 4: Exemption application (only for successive bail) ─────
   if (isSuccessive) {
@@ -1518,6 +1682,20 @@ function renderPriorBailSummary(priorBail) {
 function renderCrimeTable(d) {
   const secStr = (d.sections && d.sections.length) ? d.sections.join(', ') : '...............';
   const lang = state.lang === 'en' ? 'en' : 'hi';
+  // Anticipatory (438 CrPC / 482 BNSS): the applicant is NOT yet arrested and
+  // there is no trial-court proceeding. Collapse to a single FIR-details
+  // column and drop the arrest-date row entirely.
+  if (d.anticipatory) {
+    return `<table class="bd-table">
+      <tr><th>${lang === 'hi' ? 'अपराध संबंधी विवरण' : 'Crime Details'}</th></tr>
+      <tr><td>
+        ${lang === 'hi' ? 'अपराध क्रमांक' : 'FIR No.'} ${ph(d.fir_number, '..../....')}<br>
+        ${lang === 'hi' ? 'पुलिस थाना—' : 'P.S.—'} ${xph(d.ps_name, lang === 'hi' ? 'थाना' : 'PS', lang)}<br>
+        ${lang === 'hi' ? 'जिला' : 'District'} ${xph(d.district, lang === 'hi' ? 'जिला' : 'District', lang)}<br>
+        ${lang === 'hi' ? 'अन्तर्गत धारा' : 'Under Sections'} ${esc(secStr)}
+      </td></tr>
+    </table>`;
+  }
   return `<table class="bd-table">
     <tr><th>${lang === 'hi' ? 'अपराध संबंधी विवरण' : 'Crime Details'}</th><th>${lang === 'hi' ? 'विचाराधीन आदेश का विवरण' : 'Trial Court Details'}</th></tr>
     <tr><td>
@@ -1533,6 +1711,22 @@ function renderCrimeTable(d) {
       ${lang === 'hi' ? 'स्थान—' : 'Location—'} ${xph(d.trial_location, lang === 'hi' ? 'स्थान' : 'Location', lang)}
     </td></tr>
   </table>`;
+}
+
+// Custom user-authored paragraphs. Each entry is { where:'facts'|'grounds',
+// text } — the lawyer adds their own clauses where the standard template has
+// no slot. Rendered as ordinary "That, …" sub-paras in the chosen block. The
+// text is printed verbatim in both language drafts (same convention as the
+// existing single custom_ground_1 field), so a clause typed in Hindi appears
+// in the English draft too and vice-versa.
+function renderCustomParas(a, where, lang) {
+  const list = (a.custom_paras || []).filter(p => (p.where || 'grounds') === where);
+  const lead = lang === 'hi' ? 'यहकि, ' : 'That, ';
+  return list.map(p => {
+    const txt = (p.text || '').trim();
+    if (!txt) return '';
+    return `<li><p>${lead}${esc(txt)}</p></li>`;
+  }).filter(Boolean);
 }
 
 function renderPriorBailDetail(priorBail) {
@@ -1591,6 +1785,7 @@ function syncUIToState() {
   });
   renderPriorBailRows();
   renderCoAccusedRows();
+  renderCustomParaRows();
 }
 
 // =========================================================================
@@ -1692,6 +1887,48 @@ function renderCoAccusedRows() {
   `).join('') || `<div class="trow__add" onclick="addCoAccused()">${L.add}</div>`;
 }
 
+// ── Custom clauses: lawyer-authored extra paragraphs ──────────────────────
+function addCustomPara() {
+  state.answers.custom_paras = state.answers.custom_paras || [];
+  state.answers.custom_paras.push({ where: 'grounds', text: '' });
+  renderCustomParaRows();
+  onChange();
+}
+
+function delCustomPara(i) {
+  state.answers.custom_paras.splice(i, 1);
+  renderCustomParaRows();
+  onChange();
+}
+
+function renderCustomParaRows() {
+  const rows = state.answers.custom_paras || [];
+  const isHi = state.lang === 'hi';
+  const container = document.getElementById('custom-para-rows');
+  if (!container) return;
+  const L = {
+    facts:   isHi ? 'तथ्यों में' : 'In facts',
+    grounds: isHi ? 'आधार में'   : 'In grounds',
+    ph:      isHi ? 'अपना बिंदु यहाँ लिखें (हिंदी या अंग्रेज़ी)…' : 'Type your clause here (Hindi or English)…',
+    add:     isHi ? '+ बिंदु जोड़ें' : '+ Add a clause',
+  };
+  const rowsHtml = rows.map((r, i) => `
+    <div class="trow">
+      <button class="trow__del" onclick="delCustomPara(${i})">×</button>
+      <div class="trow__grid">
+        <select onchange="state.answers.custom_paras[${i}].where = this.value; onChange()">
+          <option value="grounds" ${r.where !== 'facts' ? 'selected' : ''}>${L.grounds}</option>
+          <option value="facts"   ${r.where === 'facts' ? 'selected' : ''}>${L.facts}</option>
+        </select>
+        <textarea rows="2" placeholder="${L.ph}" oninput="state.answers.custom_paras[${i}].text = this.value; onChange()">${esc(r.text || '')}</textarea>
+      </div>
+    </div>
+  `).join('');
+  // Always offer an add affordance (not only when empty) so multiple clauses
+  // can be stacked.
+  container.innerHTML = rowsHtml + `<div class="trow__add" onclick="addCustomPara()">${L.add}</div>`;
+}
+
 // =========================================================================
 // Language system — same pattern as §138 drafter.html
 // =========================================================================
@@ -1714,6 +1951,7 @@ function applyLang() {
   // Rebuild dynamic rows (they render lang-aware labels)
   renderPriorBailRows();
   renderCoAccusedRows();
+  renderCustomParaRows();
 }
 
 // =========================================================================
@@ -1723,9 +1961,14 @@ function renderEn(a) {
   const appNum = parseInt(a.application_number) || 1;
   const ordinal = ['', 'FIRST', 'SECOND', 'THIRD', 'FOURTH', 'FIFTH'][appNum] || `${appNum}th`;
   const isSuccessive = appNum >= 2;
-  const bailSection = a.bail_section || '439';
-  const isAnticipatory = bailSection === '438';
-  const sectionTitle = { '437': 'Section 437 CrPC', '438': 'Section 438 CrPC', '439': 'Section 439 CrPC' }[bailSection];
+  const bailSection = a.bail_section || '483';
+  const isAnticipatory = bailSection === '438' || bailSection === '482';
+  const isMagistrate  = bailSection === '437' || bailSection === '480';
+  const isBnss = bailSection === '480' || bailSection === '482' || bailSection === '483';
+  const sectionTitle = {
+    '437': 'Section 437 CrPC', '438': 'Section 438 CrPC', '439': 'Section 439 CrPC',
+    '480': 'Section 480 BNSS, 2023', '482': 'Section 482 BNSS, 2023', '483': 'Section 483 BNSS, 2023',
+  }[bailSection] || 'Section 483 BNSS, 2023';
   const courtName = a.court_name || 'IN THE HIGH COURT OF MADHYA PRADESH, GWALIOR BENCH';
   const stateName = a.state_name || 'Madhya Pradesh';
   const district = a.district || '';
@@ -1781,23 +2024,36 @@ function renderEn(a) {
     <tr><td>Lower Court</td><td>${cell(byLevel.lower,'case_no')}</td><td>${cell(byLevel.lower,'disposal_date')}</td><td>${cell(byLevel.lower,'outcome')}</td></tr>
   </table>`;
 
-  // Crime table
+  // Crime table — anticipatory (438/482) collapses to FIR details only (no
+  // arrest, no trial-court proceeding yet); regular keeps both columns.
   const secStr = sectionsList.length ? sectionsList.join(', ') : '_______';
-  html += `<table class="bd-table">
-    <tr><th>Crime Details</th><th>Trial Court Details</th></tr>
-    <tr><td>
-      FIR No. ${ph_en(a.fir_number, '__/__')}<br>
-      P.S.— ${ph_en(a.police_station, '[PS]')}<br>
-      District ${ph_en(district, '[District]')}<br>
-      Under Sections: ${esc(secStr)}<br>
-      Arrest Date: ${ph_en(a.arrest_date, '___________')}
-    </td><td>
-      Sessions Case No. ${ph_en(a.trial_case_no, '__/__')}<br>
-      Judge— ${ph_en(a.trial_judge, '[Judge]')}<br>
-      Court— ${ph_en(a.trial_court, '[Court Name]')}<br>
-      Location— ${ph_en(district, '[District]')}
-    </td></tr>
-  </table>`;
+  if (isAnticipatory) {
+    html += `<table class="bd-table">
+      <tr><th>Crime Details</th></tr>
+      <tr><td>
+        FIR No. ${ph_en(a.fir_number, '__/__')}<br>
+        P.S.— ${ph_en(a.police_station, '[PS]')}<br>
+        District ${ph_en(district, '[District]')}<br>
+        Under Sections: ${esc(secStr)}
+      </td></tr>
+    </table>`;
+  } else {
+    html += `<table class="bd-table">
+      <tr><th>Crime Details</th><th>Trial Court Details</th></tr>
+      <tr><td>
+        FIR No. ${ph_en(a.fir_number, '__/__')}<br>
+        P.S.— ${ph_en(a.police_station, '[PS]')}<br>
+        District ${ph_en(district, '[District]')}<br>
+        Under Sections: ${esc(secStr)}<br>
+        Arrest Date: ${ph_en(a.arrest_date, '___________')}
+      </td><td>
+        Sessions Case No. ${ph_en(a.trial_case_no, '__/__')}<br>
+        Judge— ${ph_en(a.trial_judge, '[Judge]')}<br>
+        Court— ${ph_en(a.trial_court, '[Court Name]')}<br>
+        Location— ${ph_en(district, '[District]')}
+      </td></tr>
+    </table>`;
+  }
 
   html += '<p class="bd-prelude">The applicant most respectfully submits as under:—</p>';
   html += '<ol class="bd-paras">';
@@ -1828,18 +2084,24 @@ function renderEn(a) {
     html += '<li><p class="ph">[Upload FIR photo above — Claude vision will fill this automatically]</p></li>';
   }
   if (a.fir_number || a.arrest_date) {
-    const arrestStr = a.arrest_date ? `on ${esc(a.arrest_date)}` : 'on ___________';
-    html += `<li><p>That FIR No. ${ph(a.fir_number,'__/__')} was registered at P.S. ${ph_en(a.police_station,'[PS]')} under Sections ${esc(secStr)} and the applicant was arrested ${arrestStr} and a charge-sheet has been filed.</p></li>`;
+    if (isAnticipatory) {
+      // Pre-arrest: FIR exists, applicant apprehends arrest under it.
+      html += `<li><p>That FIR No. ${ph(a.fir_number,'__/__')} has been registered against the applicant at P.S. ${ph_en(a.police_station,'[PS]')} under Sections ${esc(secStr)}, on the basis of which the applicant has a strong apprehension of being arrested by the police in this matter at any time.</p></li>`;
+    } else {
+      const arrestStr = a.arrest_date ? `on ${esc(a.arrest_date)}` : 'on ___________';
+      html += `<li><p>That FIR No. ${ph(a.fir_number,'__/__')} was registered at P.S. ${ph_en(a.police_station,'[PS]')} under Sections ${esc(secStr)} and the applicant was arrested ${arrestStr} and a charge-sheet has been filed.</p></li>`;
+    }
   }
   if (a.cancellation_history) html += `<li><p>That ${esc(a.cancellation_history)}</p></li>`;
   if (isSuccessive && a.lower_court_history) html += `<li><p>That ${esc(a.lower_court_history)}</p></li>`;
-  else if (isSuccessive) html += `<li><p>That the applicant had filed a bail application before the lower court under Section 439 CrPC, which was dismissed.</p></li>`;
+  else if (isSuccessive) html += `<li><p>That the applicant had filed a bail application before the lower court under ${esc(sectionTitle)}, which was dismissed.</p></li>`;
+  renderCustomParas(a, 'facts', 'en').forEach(p => { html += p; });
   html += '</ol></li>';
 
   html += '<li class="bd-grounds-block"><p class="bd-section-label">GROUNDS:—</p><ol class="bd-subparas">';
   if (grounds.innocence) html += `<li><p>That the applicant has not committed any offence and has been falsely implicated in this case by the complainant party. The applicant has no direct or indirect connection with the alleged offence.</p></li>`;
-  if (grounds.long_custody && cust) html += `<li><p>That the applicant has been in judicial custody since ${esc(a.arrest_date)} and has undergone custody for approximately ${Math.floor(cust/365)} year(s) and ${Math.floor((cust%365)/30)} month(s), which is a violation of his fundamental right to speedy trial under Article 21 of the Constitution.</p></li>`;
-  if (grounds.trial_delay && a.witnesses_total && a.witnesses_examined !== undefined) {
+  if (!isAnticipatory && grounds.long_custody && cust) html += `<li><p>That the applicant has been in judicial custody since ${esc(a.arrest_date)} and has undergone custody for approximately ${Math.floor(cust/365)} year(s) and ${Math.floor((cust%365)/30)} month(s), which is a violation of his fundamental right to speedy trial under Article 21 of the Constitution.</p></li>`;
+  if (!isAnticipatory && grounds.trial_delay && a.witnesses_total && a.witnesses_examined !== undefined) {
     html += `<li><p>That the prosecution has filed a list of ${esc(a.witnesses_total)} witnesses before the trial court, out of which only ${esc(a.witnesses_examined)} have been examined. The completion of trial is likely to take considerable further time.</p></li>`;
   }
   const hasCoAccusedBail = coAccused.some(c => (c.outcome||'').toLowerCase().includes('allowed') || (c.outcome||'').toLowerCase().includes('granted'));
@@ -1848,10 +2110,13 @@ function renderEn(a) {
   if (a.grounds_medical) html += `<li><p>That the applicant ${esc(a.grounds_medical)} and requires proper medical attention which is not available in jail.</p></li>`;
   if (grounds.sole_breadwinner) html += `<li><p>That the applicant is the sole breadwinner of his family and his continued detention has caused serious economic hardship to his dependants.</p></li>`;
   if (grounds.no_prior_record) html += `<li><p>That the applicant has no previous criminal antecedents and is being tried for the first time.</p></li>`;
+  // Anticipatory-specific: cooperation + no flight/tampering risk.
+  if (isAnticipatory) html += `<li><p>That the applicant is always ready and willing to fully cooperate with the investigation and to appear before the Investigating Officer as and when required, and there is no possibility of the applicant absconding or tampering with the evidence.</p></li>`;
   if (a.custom_ground_1 && a.custom_ground_1.trim()) html += `<li><p>That ${esc(a.custom_ground_1)}</p></li>`;
+  renderCustomParas(a, 'grounds', 'en').forEach(p => { html += p; });
   html += '</ol></li>';
 
-  html += `<li><p>That the final disposal of the case pending against the applicant is likely to take considerable time.</p></li>`;
+  if (!isAnticipatory) html += `<li><p>That the final disposal of the case pending against the applicant is likely to take considerable time.</p></li>`;
   html += `<li><p>That the applicant is ready and willing to furnish surety and bail bond as directed by this Hon'ble Court and undertakes to comply with all conditions imposed.</p></li>`;
   html += '</ol>';
 
@@ -1912,10 +2177,31 @@ function renderEn(a) {
     <div class="bd-caseno">M.Cr.C. No. ${ph_en(caseNo_en,'________')} / ${esc(caseYear_en)}</div>
     <h3 class="bd-page-title">AFFIDAVIT</h3>
   </div>`;
-  html += `<p class="bd-aff-body">I, ${ph_en(a.applicant_name, '[Applicant Name]')}, S/o ${ph_en(a.applicant_father, '[Father]')}, aged about ${ph_en(a.applicant_age, '__')} years, R/o ${ph_en(a.applicant_address, '[Address]')}, District ${ph_en(district, '[District]')}, ${xlit(stateName, 'en')}, do hereby solemnly affirm and declare on oath as under:</p>`;
+  // Deponent: defaults to applicant (self); relative deposes when filled.
+  const depName = a.deponent_name || a.applicant_name;
+  const depFather = a.deponent_father || a.applicant_father;
+  const depAge = a.deponent_age || a.applicant_age;
+  const depOcc = a.deponent_occupation || a.applicant_occupation;
+  const depAddr = a.deponent_address || a.applicant_address;
+  const depRel = (a.deponent_relation || '').trim();
+  const isSelfDeponent = !depRel || depRel === 'स्वयं' || depRel.toLowerCase() === 'self';
+  html += `<table class="bd-aff-deponent"><tbody>
+    <tr><td>MY NAME</td><td>: ${ph_en(depName, '[Deponent Name]')}</td></tr>
+    <tr><td>FATHER'S NAME</td><td>: ${ph_en(depFather, '[Father]')}</td></tr>
+    <tr><td>AGE</td><td>: ${ph_en(depAge, '__')} years</td></tr>
+    <tr><td>OCCUPATION</td><td>: ${ph_en(depOcc, '[Occupation]')}</td></tr>
+    <tr><td>ADDRESS</td><td>: ${ph_en(depAddr, '[Address]')}, District ${ph_en(district, '[District]')}, ${xlit(stateName, 'en')}</td></tr>
+  </tbody></table>`;
+  html += `<p class="bd-aff-body">I, the above-named deponent, do hereby solemnly affirm and declare on oath as under:</p>`;
   html += '<ol class="bd-aff-paras">';
-  html += '<li><p>That I am the Applicant in the present bail application and am fully conversant with the facts and circumstances of the case and am competent to swear this affidavit.</p></li>';
+  if (isSelfDeponent) {
+    html += '<li><p>That I am the Applicant in the present bail application and am fully conversant with the facts and circumstances of the case and am competent to swear this affidavit.</p></li>';
+  } else {
+    html += `<li><p>That I am the ${esc(depRel)} of the Applicant in the present bail application, am fully conversant with the facts and circumstances of the case, and am competent and duly authorised to swear this affidavit on his behalf.</p></li>`;
+  }
+  html += `<li><p>That this affidavit is being filed in support of the ${ordinal} bail application under ${esc(sectionTitle)} submitted by the applicant.</p></li>`;
   html += '<li><p>That the contents of paragraphs 1 to the last of the accompanying bail application have been read over to me, are true to my personal knowledge, and the documents annexed thereto are true copies of their originals.</p></li>';
+  html += `<li><p>That the applicant has engaged Shri ${ph_en(a.advocate_name, '[Advocate Name]')}, Advocate, to conduct and represent the present case.</p></li>`;
   html += '<li><p>That nothing material has been concealed therefrom and no part of it is false.</p></li>';
   html += '</ol>';
   html += `<div class="bd-sig">
@@ -1925,10 +2211,23 @@ function renderEn(a) {
     </div>
     <div class="bd-sig-right">
       <div>DEPONENT</div>
-      <div class="bd-sig-name">${ph_en(a.applicant_name, '[Applicant Name]')}</div>
+      <div class="bd-sig-name">${ph_en(depName, '[Deponent Name]')}</div>
     </div>
   </div>`;
-  html += `<p class="bd-aff-verify"><strong>Verification:</strong> I, the deponent above-named, do hereby verify that the contents of paragraphs 1 to 3 of the above affidavit are true and correct to the best of my knowledge; no part of it is false and nothing material has been concealed therefrom. Verified at ${ph_en(a.place,'_______')} on this ${ph_en(a.filing_date,'___________')}.</p>`;
+  html += `<p class="bd-aff-verify"><strong>Verification:</strong> I, the deponent above-named, do hereby verify that the contents of the above affidavit are true and correct to the best of my knowledge; no part of it is false and nothing material has been concealed therefrom. Verified at ${ph_en(a.place,'_______')} on this ${ph_en(a.filing_date,'___________')}.</p>`;
+  // Advocate identification + Oaths Commissioner attestation.
+  html += `<div class="bd-aff-attest">
+    <div class="bd-aff-identified">
+      <div>IDENTIFIED BY ME—</div>
+      <div class="bd-sig-advname">(${ph_en(a.advocate_name, '[Advocate Name]')})</div>
+      <div>Advocate</div>
+    </div>
+    <div class="bd-aff-oaths">
+      <div>Solemnly affirmed before me—</div>
+      <div class="bd-sig-line">Oaths Commissioner</div>
+      <div>${xlit(courtName, 'en')}</div>
+    </div>
+  </div>`;
 
   // ─────── Page 4: Exemption application (only for successive bail) ───────
   if (isSuccessive) {
@@ -2049,23 +2348,64 @@ function onChange() {
         : `Custody: ${cust} days (${(cust/365).toFixed(1)} years)`)
     : '';
 
-  // Hide trial-court section for anticipatory or 1st application
-  const showTrial = state.answers.bail_section === '439' && parseInt(state.answers.application_number) >= 2;
-  document.getElementById('section-trial-court').style.display = showTrial ? '' : 'none';
+  // ── Field visibility by bail type ──────────────────────────────────────
+  // Anticipatory (438 CrPC / 482 BNSS) is PRE-arrest: no custody, no jail, no
+  // arrest date, and there is no subordinate-court order yet — the reference
+  // point is the FIR the applicant apprehends arrest under. Regular bail
+  // (439 CrPC / 483 BNSS, or 437/480 before a Magistrate) is POST-arrest: the
+  // applicant is in custody and a lower court has refused bail, so we ask for
+  // that order.
+  const _bs     = state.answers.bail_section || '483';
+  const _isAntic = _bs === '438' || _bs === '482';
+  const _isMag   = _bs === '437' || _bs === '480';
+  const _isReg   = !_isAntic;                       // 439/483/437/480 = regular
+  const _appNum  = parseInt(state.answers.application_number) || 1;
+  const _isHi    = state.lang === 'hi';
 
-  // Hide prior-bail section for 1st application
-  const showPrior = parseInt(state.answers.application_number) >= 2;
-  document.getElementById('section-prior-bail').style.display = showPrior ? '' : 'none';
+  // Lower / trial court order — asked for regular bail (the order being
+  // challenged). Hidden for anticipatory, where no prior order exists.
+  document.getElementById('section-trial-court').style.display = _isReg ? '' : 'none';
 
-  // Hide jail section for anticipatory
-  document.getElementById('field-current-jail').style.display = state.answers.bail_section === '438' ? 'none' : '';
-  document.getElementById('field-arrest-date').style.display = state.answers.bail_section === '438' ? 'none' : '';
+  // Prior-bail history — only for successive applications.
+  document.getElementById('section-prior-bail').style.display = (_appNum >= 2) ? '' : 'none';
 
-  // Sessions-order OCR zone — show for regular bail (439/483 BNSS), where a
-  // lower-court order is the best source. Hidden for anticipatory (438), which
-  // has no prior order yet.
+  // Jail + arrest date — only when the applicant is actually in custody.
+  document.getElementById('field-current-jail').style.display = _isAntic ? 'none' : '';
+  document.getElementById('field-arrest-date').style.display  = _isAntic ? 'none' : '';
+
+  // Witness-math powers the trial-delay ground — a custody concept, so it is
+  // shown for regular bail only.
+  const _wm = document.getElementById('field-witness-math');
+  if (_wm) _wm.style.display = _isAntic ? 'none' : '';
+
+  // Custody-only grounds make no sense pre-arrest — hide those checkboxes.
+  ['long_custody', 'trial_delay'].forEach(g => {
+    const cb = document.querySelector(`[data-ground="${g}"]`);
+    if (cb) { const lbl = cb.closest('label'); if (lbl) lbl.style.display = _isAntic ? 'none' : ''; }
+  });
+
+  // Sessions-order OCR zone — best source for a regular HC bail; nothing to
+  // upload for anticipatory (no prior order yet).
   const _boEl = document.getElementById('section-bail-order-ocr');
-  if (_boEl) _boEl.style.display = (state.answers.bail_section === '439') ? '' : 'none';
+  if (_boEl) _boEl.style.display = _isReg ? '' : 'none';
+
+  // Contextual note: tell the lawyer, in plain words, what THIS bail type asks.
+  const _note = document.getElementById('bail-type-note');
+  if (_note) {
+    if (_isAntic) {
+      _note.textContent = _isHi
+        ? 'अग्रिम जमानत (गिरफ्तारी पूर्व): आवेदक अभी गिरफ्तार नहीं हुआ है — नीचे वह FIR भरें जिसमें गिरफ्तारी की आशंका है।'
+        : 'Anticipatory bail (pre-arrest): the applicant is not yet arrested — fill in the FIR below that arrest is apprehended under.';
+    } else if (_isMag) {
+      _note.textContent = _isHi
+        ? 'नियमित जमानत (मजिस्ट्रेट न्यायालय): आवेदक हिरासत में है — FIR एवं गिरफ्तारी विवरण भरें।'
+        : 'Regular bail (Magistrate): the applicant is in custody — fill in the FIR and arrest details.';
+    } else {
+      _note.textContent = _isHi
+        ? 'नियमित जमानत (गिरफ्तारी पश्चात): नीचे अधीनस्थ न्यायालय का जमानत-निरस्तीकरण आदेश एवं गिरफ्तारी विवरण भरें।'
+        : "Regular bail (post-arrest): fill in the subordinate court's bail-rejection order and arrest details below.";
+    }
+  }
 
   // Suggestions
   renderHints();
@@ -2769,10 +3109,10 @@ function showAccusedPicker(ext) {
 function suggestCourtName(district, stateName, bailSection) {
   const dist = (district || '').trim();
   if (!dist) return null;
-  if (bailSection === '437') {
+  if (bailSection === '437' || bailSection === '480') {
     return `Court of the Chief Judicial Magistrate, ${dist}`;
   }
-  // 439 / 438 default
+  // 439 / 483 / 438 / 482 default
   return `Court of the Sessions Judge, ${dist}`;
 }
 
@@ -2780,7 +3120,7 @@ function suggestCourtName(district, stateName, bailSection) {
 function suggestCourtNameHi(district, stateName, bailSection) {
   const dist = (district || '').trim();
   if (!dist) return null;
-  if (bailSection === '437') {
+  if (bailSection === '437' || bailSection === '480') {
     return `मुख्य न्यायिक मजिस्ट्रेट न्यायालय, ${dist}`;
   }
   return `सत्र न्यायालय, ${dist}`;
