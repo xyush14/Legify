@@ -60,6 +60,19 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # isolates this from the host. No real security regression for our scale.
 RUN mkdir -p /data && chmod 777 /data
 
+# WeasyPrint runtime libs + fonts for server-side PDF export (/api/draft/pdf).
+# WeasyPrint >=53 dropped Cairo/GDK — it needs Pango (+ HarfBuzz, FontConfig,
+# FreeType, GLib, pulled transitively) to shape text and emit a real, text-
+# selectable PDF. Fonts: fonts-noto-core supplies Noto Serif/Sans Devanagari
+# (correct Hindi conjuncts); fonts-liberation gives a Times-metric serif for
+# the Latin / statute text. Kept as its own layer (rarely changes → caches).
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz0b \
+      libfontconfig1 libfreetype6 libglib2.0-0 \
+      fonts-liberation fonts-noto-core \
+ && rm -rf /var/lib/apt/lists/*
+
 COPY --from=builder /opt/venv /opt/venv
 
 WORKDIR /app

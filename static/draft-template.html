@@ -380,7 +380,7 @@
 <div class="toast" id="toast"></div>
 
 <script src="/static/auth.js?v=20260527a"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<!-- PDFs now render server-side via POST /api/draft/pdf (replaced html2pdf.js) -->
 <script>
 // =========================================================================
 // Universal Template Drafter — visually matched to /draft/bail.
@@ -1264,9 +1264,9 @@ $('#lang-en').addEventListener('click', () => setLang('en'));
 $('#lang-hi').addEventListener('click', () => setLang('hi'));
 
 // ---- Generate + PDF + Print + WhatsApp ----
-// Shared pipeline: build a single print-canvas (A4-sized clone of #doc-page
-// with embedded font + page-break overrides), then save / print / share
-// from the same blob so all three buttons produce visually identical output.
+// Download + WhatsApp share fetch one real PDF from POST /api/draft/pdf
+// (WeasyPrint renders it server-side with correct Devanagari + A4 breaks).
+// Print stays browser-native (window.print) — the @media print CSS is right.
 $('#btn-generate').addEventListener('click', () => generateDocument());
 
 function _tplFilename() {
@@ -1282,52 +1282,36 @@ function _tplFilename() {
     : `${tplSlug}-${dateStr}.pdf`;
 }
 
-function _tplBuildPrintCanvas() {
-  const src = $('#doc-page');
-  if (!src) return null;
-  const clone = src.cloneNode(true);
-  const wrap = document.createElement('div');
-  wrap.className = 'print-canvas';
-  wrap.style.cssText = [
-    'width:210mm', 'min-height:297mm', 'padding:14mm',
-    'box-sizing:border-box', 'background:#fff', 'color:#000',
-    "font-family:'Noto Sans Devanagari','Geist','Inter',sans-serif",
-    'font-size:11pt', 'line-height:1.55',
-  ].join(';');
-  clone.style.cssText = 'background:#fff;color:#000;box-shadow:none;padding:0;margin:0;max-width:none;';
-  wrap.appendChild(clone);
-  const style = document.createElement('style');
-  style.textContent = `
-    .print-canvas, .print-canvas * { color:#000 !important; background:transparent !important; }
-    .print-canvas .ph { color:#555 !important; font-style:normal !important; }
-    .print-canvas table { page-break-inside:avoid; border-collapse:collapse; }
-    .print-canvas th, .print-canvas td { border:1px solid #444; padding:6px 8px; vertical-align:top; }
-  `;
-  wrap.insertBefore(style, wrap.firstChild);
-  return wrap;
+// Serialize #doc-page + every <style> on the page into a standalone HTML
+// document the server can render. We DON'T rasterize here — WeasyPrint shapes
+// the Devanagari and honours the @media print / @page CSS server-side, so the
+// PDF is real selectable text with clean A4 breaks.
+function _tplExportHtml() {
+  const docEl = $('#doc-page');
+  if (!docEl) throw new Error('Document not ready');
+  const styles = Array.from(document.querySelectorAll('style'))
+    .map(s => s.textContent).join('\n');
+  return '<!doctype html><html><head><meta charset="utf-8"><style>'
+    + styles + '</style></head><body class="' + document.body.className
+    + '">' + docEl.outerHTML + '</body></html>';
 }
 
-async function _tplGeneratePdfBlob() {
-  const wrap = _tplBuildPrintCanvas();
-  if (!wrap) throw new Error('Document not ready');
-  wrap.style.position = 'fixed';
-  wrap.style.left = '-99999px';
-  wrap.style.top = '0';
-  document.body.appendChild(wrap);
-  const filename = _tplFilename();
-  const opt = {
-    margin: 0, filename,
-    image: { type: 'jpeg', quality: 0.97 },
-    html2canvas: { scale: 2, useCORS: true, letterRendering: true, backgroundColor: '#fff', windowWidth: wrap.offsetWidth },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
-    pagebreak: { mode: ['css', 'legacy'], avoid: ['table'] },
-  };
-  try {
-    const blob = await html2pdf().set(opt).from(wrap).outputPdf('blob');
-    return { blob, filename };
-  } finally {
-    if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
+// Fetch the server-rendered PDF as a Blob (powers download + WhatsApp share).
+async function _tplFetchPdfBlob() {
+  const filename = _tplFilename();                 // e.g. writ-...-2026-05-30.pdf
+  const base = filename.replace(/\.pdf$/i, '');     // server re-appends .pdf
+  const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
+  const r = await fetch('/api/draft/pdf', {
+    method: 'POST', headers,
+    body: JSON.stringify({ html: _tplExportHtml(), filename: base }),
+  });
+  if (!r.ok) {
+    let detail = '';
+    try { detail = (await r.json()).detail || ''; } catch (_) {}
+    throw new Error(detail || ('server error ' + r.status));
   }
+  const blob = await r.blob();
+  return { blob, filename };
 }
 
 $('#btn-pdf').addEventListener('click', async () => {
@@ -1339,9 +1323,9 @@ $('#btn-pdf').addEventListener('click', async () => {
   const orig = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = '⏳ ' + (state.lang === 'hi' ? 'बनाया जा रहा है' : 'Generating');
-  toast(state.lang === 'hi' ? 'PDF बना रहे हैं — फॉर्मेटिंग सुरक्षित' : 'Generating PDF — formatting preserved', 'ok');
+  toast(state.lang === 'hi' ? 'PDF बना रहे हैं…' : 'Generating PDF…', 'ok');
   try {
-    const { blob, filename } = await _tplGeneratePdfBlob();
+    const { blob, filename } = await _tplFetchPdfBlob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = filename;
@@ -1378,7 +1362,7 @@ $('#btn-share').addEventListener('click', async () => {
   toast(state.lang === 'hi' ? 'WhatsApp के लिए PDF बना रहे हैं' : 'Preparing PDF for WhatsApp', 'ok');
   let blob, filename;
   try {
-    ({ blob, filename } = await _tplGeneratePdfBlob());
+    ({ blob, filename } = await _tplFetchPdfBlob());
   } catch (e) {
     btn.disabled = false; btn.innerHTML = orig;
     toast('PDF failed — ' + (e.message || 'try again'), 'err', 4000);

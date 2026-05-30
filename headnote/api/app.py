@@ -785,6 +785,12 @@ app.include_router(_lawyer_profile_router)
 from headnote.api.memorandum import router as _memorandum_router
 app.include_router(_memorandum_router)
 
+# Server-side PDF export: /api/draft/pdf — renders the drafted document to a
+# real, text-selectable PDF (WeasyPrint). One blob powers Download, WhatsApp
+# share, and the print fallback; replaces the broken html2canvas path.
+from headnote.api.pdf import router as _draft_pdf_router
+app.include_router(_draft_pdf_router)
+
 # Pre-extract universal facts for the 42 curated cases at boot. ~50ms
 # one-time cost that removes a per-query latency spike for the first user.
 # Safe to skip via env var if the curated corpus changes at runtime (which

@@ -77,6 +77,15 @@ tqdm>=4.66
 # cleanly on Railway with no extra system packages.
 PyMuPDF>=1.24
 
+# ---- Server-side PDF export (Print / Download / WhatsApp).
+# WeasyPrint renders the drafted document (HTML+CSS) to a REAL, selectable-
+# text PDF with correct Devanagari shaping via Pango — replacing the old
+# html2canvas client path that rasterized the doc to a broken image (mangled
+# conjuncts, busted page breaks). Needs system libs (Pango + Noto/Liberation
+# fonts) baked into the Docker image; see Dockerfile. Pin >=60 for stable
+# flexbox + CSS-grid handling of the bilingual draft layout.
+weasyprint>=60
+
 # ---- Py 3.9 backport for Pydantic v2 evaluation of `str | None` style hints.
 # No-op on 3.10+. Render uses 3.11; safe to keep.
 eval_type_backport>=0.2; python_version < "3.10"

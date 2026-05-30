@@ -18,7 +18,7 @@
      document preview puts Times first so digits + statute refs (S.302 etc)
      stay in Times even mid-Hindi sentence — browser picks per character. -->
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Tiro+Devanagari+Hindi:ital@0;1&family=Noto+Serif+Devanagari:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<!-- PDFs now render server-side via POST /api/draft/pdf (replaced html2pdf.js) -->
 <style>
   /* Kruti Dev 010 — self-hosted (static/fonts/KrutiDev010.ttf).
      Loaded but NOT applied yet to the preview. To render Unicode Hindi
@@ -2869,91 +2869,55 @@ function applyOcrResult(o, applicantIdx) {
 // =========================================================================
 // PDF / Print / Share
 //
-// Shared pipeline: we build a single "print canvas" (a cloned, sized A4
-// container) from the live #doc-page element, then either save (PDF
-// download), print (browser print dialog), or share (WhatsApp PDF attach).
-// Putting everything through one canvas guarantees Print and Download
-// produce visually identical output — which was previously a major
-// lawyer complaint ("the printed copy looks different from the PDF").
+// One real PDF, rendered on the server (WeasyPrint), powers all three
+// buttons. We serialise the live document (every <style> on the page + the
+// #doc-page markup) and POST it to /api/draft/pdf, which returns a real,
+// text-selectable PDF with correct Devanagari shaping and clean A4 page
+// breaks. The same blob is what we download AND what we attach to WhatsApp,
+// so they're always identical. (Replaces the old html2canvas pipeline that
+// rasterised the doc to an image and mangled Hindi + page breaks.)
+// Print stays on the browser's own engine via window.print() — the @media
+// print stylesheet already renders #doc-page perfectly with no round-trip.
 // =========================================================================
 
-// Build a print-ready clone of the document. Wrapping in an explicit
-// A4-width container with embedded font + page-break rules so Hindi
-// renders correctly and tables / signature blocks don't split across
-// pages. Returns the wrapper element (not yet attached to DOM).
-function _buildPrintCanvas() {
-  const src = document.getElementById('doc-page');
-  if (!src) return null;
-  const clone = src.cloneNode(true);
-  const wrap = document.createElement('div');
-  wrap.className = 'print-canvas';
-  // 210mm = A4 width; the html2canvas scale config converts to px at print.
-  wrap.style.cssText = [
-    'width:210mm', 'min-height:297mm', 'padding:14mm',
-    'box-sizing:border-box', 'background:#ffffff', 'color:#000000',
-    "font-family:'Noto Sans Devanagari','Geist','Inter',sans-serif",
-    'font-size:11pt', 'line-height:1.55',
-  ].join(';');
-  clone.style.cssText = 'background:#ffffff;color:#000;box-shadow:none;padding:0;margin:0;max-width:none;';
-  wrap.appendChild(clone);
-  // Inject print-only style overrides INSIDE the clone so html2pdf picks
-  // them up (it doesn't read parent stylesheets reliably).
-  const style = document.createElement('style');
-  style.textContent = `
-    .print-canvas, .print-canvas * { color:#000 !important; background:transparent !important; }
-    .print-canvas .ph { color:#555 !important; font-style:normal !important; }
-    .print-canvas table { page-break-inside:avoid; border-collapse:collapse; }
-    .print-canvas .bd-table th, .print-canvas .bd-table td {
-      border:1px solid #444; padding:6px 8px; vertical-align:top;
-    }
-    .print-canvas .bd-pagebreak { page-break-before:always; border:none; margin:0; }
-    .print-canvas .bd-sig, .print-canvas .bd-prayer { page-break-inside:avoid; }
-    .print-canvas .xlit { background:transparent; border-bottom:none; }
-  `;
-  wrap.insertBefore(style, wrap.firstChild);
-  return wrap;
+// Serialise the live document into a standalone HTML string for the server:
+// all page <style> blocks (so the .bd-* layout + @media print CSS travel
+// with it) plus the populated #doc-page. The server substitutes its own
+// installed Devanagari / serif fonts, so we ship no @font-face or web-font
+// <link> here.
+function _exportHtml() {
+  const docEl = document.getElementById('doc-page');
+  if (!docEl) throw new Error('Document not ready');
+  const styles = Array.from(document.querySelectorAll('style'))
+    .map(s => s.textContent).join('\n');
+  return '<!doctype html><html><head><meta charset="utf-8"><style>'
+    + styles + '</style></head><body class="' + document.body.className
+    + '">' + docEl.outerHTML + '</body></html>';
 }
 
-function _pdfFilename() {
-  const name  = (state.answers.applicant_name || 'draft').replace(/\s+/g, '-');
-  const date  = new Date().toISOString().slice(0, 10);
-  return `bail-application-${name}-${date}.pdf`;
+function _pdfBaseName() {
+  const name = (state.answers.applicant_name || 'draft').replace(/\s+/g, '-');
+  const date = new Date().toISOString().slice(0, 10);
+  return `bail-application-${name}-${date}`;   // no extension — added on save
 }
 
-// Generate PDF as a Blob (used by both download and WhatsApp share).
-// Returns Promise<{blob: Blob, filename: string}>.
-async function _generatePdfBlob() {
-  const wrap = _buildPrintCanvas();
-  if (!wrap) throw new Error('Document not ready');
-  // Attach off-screen so html2canvas can measure correctly.
-  wrap.style.position = 'fixed';
-  wrap.style.left = '-99999px';
-  wrap.style.top = '0';
-  document.body.appendChild(wrap);
-  const filename = _pdfFilename();
-  const opt = {
-    margin: 0,                                       // page padding baked into wrap
-    filename,
-    image: { type: 'jpeg', quality: 0.97 },
-    html2canvas: {
-      scale: 2,
-      useCORS: true,
-      letterRendering: true,
-      backgroundColor: '#ffffff',
-      windowWidth: wrap.offsetWidth,
-    },
-    jsPDF: {
-      unit: 'mm', format: 'a4', orientation: 'portrait',
-      compress: true,
-    },
-    pagebreak: { mode: ['css', 'legacy'], avoid: ['table', '.bd-sig', '.bd-prayer'] },
-  };
-  try {
-    const blob = await html2pdf().set(opt).from(wrap).outputPdf('blob');
-    return { blob, filename };
-  } finally {
-    if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
+// Fetch the server-rendered PDF as a Blob (used by both download and the
+// WhatsApp share). Returns Promise<{blob: Blob, filename: string}>.
+async function _fetchPdfBlob() {
+  const base = _pdfBaseName();
+  const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
+  const r = await fetch('/api/draft/pdf', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ html: _exportHtml(), filename: base }),
+  });
+  if (!r.ok) {
+    let detail = '';
+    try { detail = (await r.json()).detail || ''; } catch (_) {}
+    throw new Error(detail || ('server error ' + r.status));
   }
+  const blob = await r.blob();
+  return { blob, filename: base + '.pdf' };
 }
 
 document.getElementById('btn-pdf').addEventListener('click', async () => {
@@ -2961,9 +2925,9 @@ document.getElementById('btn-pdf').addEventListener('click', async () => {
   const orig = btn.textContent;
   btn.disabled = true;
   btn.textContent = '⏳ Generating…';
-  toast('Generating PDF — formatting preserved…', 'ok');
+  toast('Generating PDF…', 'ok');
   try {
-    const { blob, filename } = await _generatePdfBlob();
+    const { blob, filename } = await _fetchPdfBlob();
     // Trigger save via blob URL (preserves formatting unlike .save() which
     // re-runs the pipeline; this way the same blob we'd share is the
     // same blob the lawyer downloads).
@@ -3004,7 +2968,7 @@ document.getElementById('btn-share').addEventListener('click', async () => {
   toast('Preparing PDF for WhatsApp…', 'ok');
   let blob, filename;
   try {
-    ({ blob, filename } = await _generatePdfBlob());
+    ({ blob, filename } = await _fetchPdfBlob());
   } catch (e) {
     btn.disabled = false; btn.textContent = orig;
     toast('PDF generation failed — ' + (e.message || 'try again'), 'err', 4000);

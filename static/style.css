@@ -36,6 +36,27 @@
   --main-pad:  40px;
   --radius:    6px;
   --radius-lg: 10px;
+
+  /* ---- warm, connected layer ----------------------------------------------
+     Gold is promoted from draft-only to the product-wide primary-action
+     colour: CTAs, active/done states, card hover, input focus. The goal is the
+     warm, trustworthy feel of an Indian consumer product — not a clinical
+     monochrome tool. */
+  --gold:      #c9a96e;
+  --gold-deep: #b4894b;
+  --gold-soft: #faf7ed;
+  --gold-line: #ece3c8;
+  --gold-ink:  #8c7549;
+  --gold-grad: linear-gradient(135deg, #d8b878, #c08f4d);
+
+  /* Gold-tinted elevation — warmer + deeper than a flat black shadow. */
+  --shadow-card: 0 1px 2px rgba(140, 117, 73, 0.05);
+  --shadow-lift: 0 14px 34px -14px rgba(140, 117, 73, 0.34);
+
+  /* One shared motion curve so every lift / fade feels like one system. */
+  --ease:   cubic-bezier(0.16, 1, 0.3, 1);
+  --t-fast: 0.16s;
+  --t-med:  0.26s;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -159,10 +180,11 @@ button { font-family: inherit; }
   gap: 8px;
 }
 .sidebar__label {
-  font-family: 'Geist Mono', monospace;
-  font-size: 10px;
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: 600;
   color: var(--ink-3);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   padding: 0 12px;
 }
@@ -508,13 +530,18 @@ button { font-family: inherit; }
   cursor: not-allowed;
 }
 .btn--primary {
-  background: var(--ink);
-  color: var(--surface);
+  background: var(--gold-grad);
+  color: #2a2012;
+  border-color: var(--gold-deep);
+  font-weight: 600;
+  box-shadow: 0 6px 16px -9px rgba(140, 117, 73, 0.55);
 }
 .btn--primary:hover {
-  background: #2a2a26;
+  background: var(--gold-grad);
+  filter: brightness(1.05);
+  box-shadow: 0 11px 24px -9px rgba(140, 117, 73, 0.6);
 }
-.btn--primary:disabled { background: var(--ink-3); border-color: var(--ink-3); }
+.btn--primary:disabled { background: var(--ink-3); border-color: var(--ink-3); color: var(--surface); filter: none; box-shadow: none; }
 .btn__icon {
   font-weight: 600;
   transition: transform 0.12s ease;
@@ -569,7 +596,9 @@ button { font-family: inherit; }
 }
 .select:focus, .input:focus {
   outline: none;
-  border-color: var(--ink);
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(201, 169, 110, 0.18);
+  background: #fffdf8;
 }
 .input--year    { width: 78px;  font-family: 'Geist Mono', monospace; }
 .input--judge   { width: 160px; }
@@ -636,10 +665,11 @@ button { font-family: inherit; }
   margin-bottom: 16px;
 }
 .stages__label {
-  font-family: 'Geist Mono', monospace;
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  text-transform: capitalize;
   color: var(--ink-3);
   margin-bottom: 4px;
 }
@@ -664,22 +694,22 @@ button { font-family: inherit; }
 }
 .stage__label { letter-spacing: -0.005em; }
 .stage--active .stage__icon {
-  border-color: var(--ink);
+  border-color: var(--gold);
   position: relative;
 }
 .stage--active .stage__icon::after {
   content: '';
   position: absolute; inset: 2px;
-  border: 1.5px solid var(--ink);
+  border: 1.5px solid var(--gold-deep);
   border-top-color: transparent;
   border-radius: 50%;
   animation: spinner 0.8s linear infinite;
 }
 .stage--active .stage__label { color: var(--ink); font-weight: 500; }
 .stage--done .stage__icon {
-  background: #e6efff;
-  border-color: #b9d3ff;
-  color: #1e4fb5;
+  background: var(--gold-soft);
+  border-color: var(--gold-line);
+  color: var(--gold-deep);
 }
 .stage--done .stage__icon::before { content: '✓'; }
 .stage--done .stage__label { color: var(--ink-2); }
@@ -774,10 +804,33 @@ button { font-family: inherit; }
   display: flex;
   flex-direction: column;
   gap: 12px;
-  transition: border-color 0.12s ease;
+  box-shadow: var(--shadow-card);
+  transition: transform var(--t-med) var(--ease),
+              box-shadow var(--t-med) var(--ease),
+              border-color var(--t-fast) var(--ease);
 }
 .case-card:hover {
-  border-color: var(--ink-3);
+  border-color: var(--gold-line);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lift);
+}
+
+/* Staggered fade-in as results land — feels alive, not dumped on screen.
+   `backwards` (not `both`) so the entrance transform is released afterwards
+   and the :hover lift above stays free to animate. */
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.results > .case-card { animation: cardIn 0.5s var(--ease) backwards; }
+.results > .case-card:nth-child(1) { animation-delay: 0.03s; }
+.results > .case-card:nth-child(2) { animation-delay: 0.09s; }
+.results > .case-card:nth-child(3) { animation-delay: 0.15s; }
+.results > .case-card:nth-child(4) { animation-delay: 0.21s; }
+.results > .case-card:nth-child(5) { animation-delay: 0.27s; }
+.results > .case-card:nth-child(n+6) { animation-delay: 0.32s; }
+@media (prefers-reduced-motion: reduce) {
+  .results > .case-card { animation: none; }
 }
 
 .case-card__head {
@@ -826,11 +879,12 @@ button { font-family: inherit; }
   line-height: 1.55;
 }
 .case-card__rowlabel {
-  font-family: 'Geist Mono', monospace;
-  font-size: 11px;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
   color: var(--ink-3);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  text-transform: capitalize;
   padding-top: 2px;
 }
 .case-card__rowtext { color: var(--ink); }
@@ -881,15 +935,15 @@ button { font-family: inherit; }
   color: var(--ink-2);
 }
 .badge--verified {
-  background: #e6efff;
-  color: #1e4fb5;
-  border-color: #b9d3ff;
+  background: var(--gold-soft);
+  color: var(--gold-ink);
+  border-color: var(--gold-line);
   font-weight: 600;
 }
 .badge--verified::before {
   content: '✓';
   font-weight: 700;
-  color: #1e4fb5;
+  color: var(--gold-deep);
 }
 .badge--outcome-good { color: var(--good); background: rgba(45, 106, 45, 0.07); border-color: rgba(45, 106, 45, 0.20); font-weight: 600; }
 .badge--outcome-bad  { color: var(--bad);  background: rgba(155, 44, 44, 0.07); border-color: rgba(155, 44, 44, 0.20); font-weight: 600; }
@@ -2248,12 +2302,12 @@ body:not(.auth-ready) .shell { display: none !important; }
 }
 .assist-cta__head { margin-bottom: 14px; }
 .assist-cta__eyebrow {
-  font-family: 'Geist Mono', monospace;
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #8c7549;
+  color: var(--gold-ink);
   margin-bottom: 6px;
 }
 .assist-cta__title {
@@ -2308,27 +2362,34 @@ body:not(.auth-ready) .shell { display: none !important; }
 }
 .assist-cta__submit {
   padding: 9px 18px;
-  background: #0c0c0a;
-  color: #fdfcf9;
-  border: 1px solid #0c0c0a;
+  background: var(--gold-grad);
+  color: #2a2012;
+  border: 1px solid var(--gold-deep);
   border-radius: 8px;
   font-family: inherit;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  transition: background 0.12s, transform 0.08s;
+  box-shadow: 0 6px 16px -9px rgba(140, 117, 73, 0.55);
+  transition: filter var(--t-fast), transform 0.08s, box-shadow var(--t-fast);
 }
 .assist-cta__submit:hover:not(:disabled) {
-  background: #1f1f1c;
+  filter: brightness(1.05);
   transform: translateY(-1px);
+  box-shadow: 0 10px 22px -9px rgba(140, 117, 73, 0.6);
 }
-.assist-cta__submit:disabled { opacity: 0.6; cursor: wait; }
+.assist-cta__submit:disabled { opacity: 0.6; cursor: wait; filter: none; box-shadow: none; }
 
 .assist-cta--sent { background: #f0f7ea; border-color: #cfe0b8; border-left-color: #6b9237; }
 .assist-cta__done {
   display: flex;
   align-items: center;
   gap: 14px;
+}
+@keyframes popIn {
+  0%   { transform: scale(0); }
+  60%  { transform: scale(1.18); }
+  100% { transform: scale(1); }
 }
 .assist-cta__done-icon {
   flex-shrink: 0;
@@ -2341,6 +2402,7 @@ body:not(.auth-ready) .shell { display: none !important; }
   justify-content: center;
   font-size: 17px;
   font-weight: 700;
+  animation: popIn 0.42s var(--ease) both;
 }
 .assist-cta__done-msg {
   font-size: 14px;
