@@ -37,11 +37,11 @@
   --radius:    6px;
   --radius-lg: 10px;
 
-  /* ---- warm, connected layer ----------------------------------------------
-     Gold is promoted from draft-only to the product-wide primary-action
-     colour: CTAs, active/done states, card hover, input focus. The goal is the
-     warm, trustworthy feel of an Indian consumer product — not a clinical
-     monochrome tool. */
+  /* ---- gold accent (scoped to the drafting surface) -----------------------
+     Gold is the signature of the *draft* pages (draft-court.html + statute
+     labels) — warm, paper-like. It is deliberately NOT used for product-wide
+     CTAs / inputs / stages: the work surface stays calm monochrome per the
+     premise at the top of this file. Kept here so the draft pages resolve. */
   --gold:      #c9a96e;
   --gold-deep: #b4894b;
   --gold-soft: #faf7ed;
@@ -49,9 +49,9 @@
   --gold-ink:  #8c7549;
   --gold-grad: linear-gradient(135deg, #d8b878, #c08f4d);
 
-  /* Gold-tinted elevation — warmer + deeper than a flat black shadow. */
-  --shadow-card: 0 1px 2px rgba(140, 117, 73, 0.05);
-  --shadow-lift: 0 14px 34px -14px rgba(140, 117, 73, 0.34);
+  /* Neutral elevation — soft, cool, barely-there depth. Minimal, not heavy. */
+  --shadow-card: 0 1px 2px rgba(12, 12, 10, 0.04);
+  --shadow-lift: 0 12px 28px -14px rgba(12, 12, 10, 0.18);
 
   /* One shared motion curve so every lift / fade feels like one system. */
   --ease:   cubic-bezier(0.16, 1, 0.3, 1);
@@ -60,7 +60,9 @@
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 html, body { height: 100%; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 body {
   font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
   font-size: var(--t-md);
@@ -92,6 +94,7 @@ button { font-family: inherit; }
   display: grid;
   grid-template-columns: var(--sidebar-w) 1fr;
   min-height: 100vh;
+  min-height: 100dvh;   /* dynamic viewport: no jump as mobile chrome hides */
 }
 
 /* ============================================================================
@@ -107,7 +110,10 @@ button { font-family: inherit; }
   position: sticky;
   top: 0;
   height: 100vh;
+  height: 100dvh;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .sidebar__brand .brand {
@@ -530,18 +536,20 @@ button { font-family: inherit; }
   cursor: not-allowed;
 }
 .btn--primary {
-  background: var(--gold-grad);
-  color: #2a2012;
-  border-color: var(--gold-deep);
+  background: var(--ink);
+  color: var(--surface);
   font-weight: 600;
-  box-shadow: 0 6px 16px -9px rgba(140, 117, 73, 0.55);
+  transition: background var(--t-fast) var(--ease),
+              transform var(--t-fast) var(--ease),
+              box-shadow var(--t-fast) var(--ease);
 }
 .btn--primary:hover {
-  background: var(--gold-grad);
-  filter: brightness(1.05);
-  box-shadow: 0 11px 24px -9px rgba(140, 117, 73, 0.6);
+  background: #1f1f1c;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px -10px rgba(12, 12, 10, 0.45);
 }
-.btn--primary:disabled { background: var(--ink-3); border-color: var(--ink-3); color: var(--surface); filter: none; box-shadow: none; }
+.btn--primary:active { transform: translateY(0); box-shadow: none; }
+.btn--primary:disabled { background: var(--ink-3); border-color: var(--ink-3); color: var(--surface); transform: none; box-shadow: none; }
 .btn__icon {
   font-weight: 600;
   transition: transform 0.12s ease;
@@ -596,9 +604,8 @@ button { font-family: inherit; }
 }
 .select:focus, .input:focus {
   outline: none;
-  border-color: var(--gold);
-  box-shadow: 0 0 0 3px rgba(201, 169, 110, 0.18);
-  background: #fffdf8;
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px rgba(12, 12, 10, 0.08);
 }
 .input--year    { width: 78px;  font-family: 'Geist Mono', monospace; }
 .input--judge   { width: 160px; }
@@ -694,22 +701,22 @@ button { font-family: inherit; }
 }
 .stage__label { letter-spacing: -0.005em; }
 .stage--active .stage__icon {
-  border-color: var(--gold);
+  border-color: var(--ink);
   position: relative;
 }
 .stage--active .stage__icon::after {
   content: '';
   position: absolute; inset: 2px;
-  border: 1.5px solid var(--gold-deep);
+  border: 1.5px solid var(--ink);
   border-top-color: transparent;
   border-radius: 50%;
   animation: spinner 0.8s linear infinite;
 }
 .stage--active .stage__label { color: var(--ink); font-weight: 500; }
 .stage--done .stage__icon {
-  background: var(--gold-soft);
-  border-color: var(--gold-line);
-  color: var(--gold-deep);
+  background: var(--soft);
+  border-color: var(--line);
+  color: var(--ink);
 }
 .stage--done .stage__icon::before { content: '✓'; }
 .stage--done .stage__label { color: var(--ink-2); }
@@ -810,8 +817,8 @@ button { font-family: inherit; }
               border-color var(--t-fast) var(--ease);
 }
 .case-card:hover {
-  border-color: var(--gold-line);
-  transform: translateY(-3px);
+  border-color: var(--ink-3);
+  transform: translateY(-2px);
   box-shadow: var(--shadow-lift);
 }
 
@@ -935,15 +942,15 @@ button { font-family: inherit; }
   color: var(--ink-2);
 }
 .badge--verified {
-  background: var(--gold-soft);
-  color: var(--gold-ink);
-  border-color: var(--gold-line);
+  background: #eef3ec;
+  color: var(--good);
+  border-color: #cfe0c6;
   font-weight: 600;
 }
 .badge--verified::before {
   content: '✓';
   font-weight: 700;
-  color: var(--gold-deep);
+  color: var(--good);
 }
 .badge--outcome-good { color: var(--good); background: rgba(45, 106, 45, 0.07); border-color: rgba(45, 106, 45, 0.20); font-weight: 600; }
 .badge--outcome-bad  { color: var(--bad);  background: rgba(155, 44, 44, 0.07); border-color: rgba(155, 44, 44, 0.20); font-weight: 600; }
@@ -2307,7 +2314,7 @@ body:not(.auth-ready) .shell { display: none !important; }
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--gold-ink);
+  color: var(--ink-3);
   margin-bottom: 6px;
 }
 .assist-cta__title {
@@ -2362,23 +2369,22 @@ body:not(.auth-ready) .shell { display: none !important; }
 }
 .assist-cta__submit {
   padding: 9px 18px;
-  background: var(--gold-grad);
-  color: #2a2012;
-  border: 1px solid var(--gold-deep);
+  background: var(--ink);
+  color: var(--surface);
+  border: 1px solid var(--ink);
   border-radius: 8px;
   font-family: inherit;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 6px 16px -9px rgba(140, 117, 73, 0.55);
-  transition: filter var(--t-fast), transform 0.08s, box-shadow var(--t-fast);
+  transition: background var(--t-fast) var(--ease), transform 0.08s, box-shadow var(--t-fast);
 }
 .assist-cta__submit:hover:not(:disabled) {
-  filter: brightness(1.05);
+  background: #1f1f1c;
   transform: translateY(-1px);
-  box-shadow: 0 10px 22px -9px rgba(140, 117, 73, 0.6);
+  box-shadow: 0 8px 18px -10px rgba(12, 12, 10, 0.45);
 }
-.assist-cta__submit:disabled { opacity: 0.6; cursor: wait; filter: none; box-shadow: none; }
+.assist-cta__submit:disabled { opacity: 0.6; cursor: wait; box-shadow: none; }
 
 .assist-cta--sent { background: #f0f7ea; border-color: #cfe0b8; border-left-color: #6b9237; }
 .assist-cta__done {
