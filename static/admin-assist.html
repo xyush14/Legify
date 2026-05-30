@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+<script>if(location.protocol==='http:'&&location.hostname!=='localhost'&&!location.hostname.startsWith('127.')){location.replace(location.href.replace(/^http:/,'https:'));}</script>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Headnote — Assist Queue</title>
+  <style>
+    :root {
+      --bg: #fafaf7; --card: #fff; --text: #1f2937; --muted: #6b7280;
+      --border: #e5e7eb; --accent: #2c5282; --good: #2d6a2d; --bad: #9b2c2c;
+      --warn: #b7791f; --shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Inter",sans-serif;
+      background:var(--bg); color:var(--text); padding:2rem; }
+    h1 { font-size:1.6rem; margin:0 0 .5rem; }
+    .subtitle { color:var(--muted); font-size:.9rem; margin-bottom:1.5rem; }
+    .auth-gate { max-width:520px; margin:4rem auto; background:var(--card);
+      padding:2rem; border-radius:8px; box-shadow:var(--shadow); }
+    .auth-gate input { width:100%; padding:.7rem; font-family:monospace; font-size:.9rem;
+      border:1px solid var(--border); border-radius:4px; }
+    .auth-gate button { margin-top:1rem; padding:.6rem 1.2rem; background:var(--accent);
+      color:#fff; border:0; border-radius:4px; cursor:pointer; font-weight:500; }
+    .auth-gate button:hover { background:#1e3a5f; }
+    .auth-error { color:var(--bad); margin-top:.6rem; font-size:.85rem; }
+    .toolbar { display:flex; gap:.5rem; margin-bottom:1.25rem; align-items:center; flex-wrap:wrap; }
+    .toolbar select, .toolbar button { padding:.4rem .8rem; border:1px solid var(--border);
+      border-radius:4px; background:#fff; font-size:.85rem; cursor:pointer; }
+    .toolbar .spacer { flex:1; }
+
+    .queue { display:flex; flex-direction:column; gap:1rem; max-width:760px; }
+    .req { background:var(--card); border:1px solid var(--border); border-radius:10px;
+      box-shadow:var(--shadow); padding:1.1rem 1.25rem; }
+    .req__top { display:flex; gap:.5rem; align-items:center; margin-bottom:.7rem; flex-wrap:wrap; }
+    .badge { font-size:.7rem; text-transform:uppercase; letter-spacing:.05em; font-weight:600;
+      padding:.18rem .5rem; border-radius:999px; }
+    .badge--research { background:#eef4fb; color:var(--accent); }
+    .badge--draft    { background:#f3eefb; color:#5b3a9b; }
+    .badge--open     { background:#fdf6e3; color:#92400e; }
+    .badge--answered { background:#e9f5e9; color:var(--good); }
+    .badge--closed   { background:#f1f1f1; color:var(--muted); }
+    .req__time { color:var(--muted); font-size:.78rem; margin-left:auto; }
+    .req__noemail { color:var(--bad); font-size:.72rem; font-weight:600; }
+
+    .req__query { font-size:1.02rem; line-height:1.5; white-space:pre-wrap;
+      word-break:break-word; margin:0 0 .6rem; }
+    .req__ctx { background:#fafafa; border-left:3px solid #c9a96e; border-radius:0 6px 6px 0;
+      padding:.55rem .8rem; margin:0 0 .7rem; }
+    .req__ctx .k { font-size:.66rem; text-transform:uppercase; letter-spacing:.08em;
+      color:#8c7549; margin-bottom:.2rem; }
+    .req__ctx .v { font-size:.85rem; color:var(--text); white-space:pre-wrap; word-break:break-word; }
+
+    .who { display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; font-size:.85rem;
+      padding:.55rem .7rem; background:#fafafa; border:1px solid var(--border);
+      border-radius:6px; margin-bottom:.8rem; }
+    .who__name { font-weight:600; }
+    .who a { color:var(--accent); text-decoration:none; }
+    .who a:hover { text-decoration:underline; }
+    .who .wa { color:#1f8a4c; }
+
+    .resolved { font-size:.82rem; color:var(--muted); margin-bottom:.6rem; }
+    .resolved .note { display:block; margin-top:.3rem; color:var(--text); white-space:pre-wrap;
+      word-break:break-word; background:#f6fbf6; border:1px solid #dcefdc; border-radius:6px;
+      padding:.5rem .65rem; }
+
+    .resolve textarea { width:100%; min-height:64px; padding:.55rem .7rem; font-size:.88rem;
+      font-family:inherit; border:1px solid var(--border); border-radius:6px; resize:vertical; }
+    .resolve__row { display:flex; gap:.5rem; margin-top:.55rem; flex-wrap:wrap; }
+    .btn { padding:.45rem 1rem; border-radius:6px; border:1px solid var(--border);
+      background:#fff; font-size:.85rem; cursor:pointer; font-weight:500; }
+    .btn--primary { background:var(--good); border-color:var(--good); color:#fff; }
+    .btn--primary:hover { background:#235423; }
+    .btn--muted:hover { background:#f3f4f6; }
+    .btn:disabled { opacity:.55; cursor:default; }
+
+    .empty { color:var(--muted); text-align:center; padding:3rem 1rem; background:var(--card);
+      border:1px dashed var(--border); border-radius:10px; }
+    .footer { color:var(--muted); font-size:.75rem; margin-top:2rem; max-width:760px; }
+    @media (max-width:600px) { body { padding:1rem; } }
+  </style>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/static/favicon.svg">
+</head>
+<body>
+  <div id="auth-gate" class="auth-gate">
+    <h1>Assist Queue</h1>
+    <p style="color:var(--muted);font-size:.9rem;">
+      Enter the ADMIN_TOKEN from your environment to work the lawyer help queue.
+    </p>
+    <input type="password" id="token-input" placeholder="ADMIN_TOKEN" autocomplete="off" />
+    <button id="auth-submit">Open queue</button>
+    <div id="auth-error" class="auth-error" style="display:none"></div>
+  </div>
+
+  <div id="app" style="display:none">
+    <h1>Assist Queue</h1>
+    <div class="subtitle" id="count-label">Loading…</div>
+
+    <div class="toolbar">
+      <label>Show:</label>
+      <select id="status-select">
+        <option value="open" selected>Open</option>
+        <option value="answered">Answered</option>
+        <option value="closed">Closed</option>
+        <option value="all">All</option>
+      </select>
+      <button id="refresh-btn">Refresh</button>
+      <span class="spacer"></span>
+      <button id="logout-btn">Lock</button>
+    </div>
+
+    <div class="queue" id="queue"></div>
+
+    <div class="footer">
+      Lawyers fire these from the in-product "Not satisfied? our team will help" CTA.
+      Reply to the lawyer over WhatsApp / email, then mark the request answered with a note
+      of the case-law you sent. Served by headnote/api/admin.py — protected by ADMIN_TOKEN.
+    </div>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const TOKEN_KEY = "headnote_admin_token";   // shared with the cost dashboard
+    let token = localStorage.getItem(TOKEN_KEY) || "";
+
+    function showAuth() { $("auth-gate").style.display = "block"; $("app").style.display = "none"; }
+    function showApp()  { $("auth-gate").style.display = "none"; $("app").style.display = "block"; }
+
+    function el(tag, opts = {}) {
+      const n = document.createElement(tag);
+      if (opts.cls) n.className = opts.cls;
+      if (opts.text != null) n.textContent = opts.text;   // text only — never inject user data as HTML
+      if (opts.href != null) n.href = opts.href;
+      if (opts.attrs) for (const [k, v] of Object.entries(opts.attrs)) n.setAttribute(k, v);
+      if (opts.on) for (const [k, v] of Object.entries(opts.on)) n.addEventListener(k, v);
+      (opts.children || []).forEach(c => c && n.appendChild(c));
+      return n;
+    }
+
+    const digits = s => String(s || "").replace(/\D/g, "");
+
+    function relTime(iso) {
+      if (!iso) return "";
+      const t = new Date(iso).getTime();
+      if (isNaN(t)) return "";
+      const s = Math.round((Date.now() - t) / 1000);
+      if (s < 60) return "just now";
+      const m = Math.round(s / 60);
+      if (m < 60) return m + "m ago";
+      const h = Math.round(m / 60);
+      if (h < 24) return h + "h ago";
+      const d = Math.round(h / 24);
+      if (d < 7) return d + "d ago";
+      return new Date(iso).toLocaleDateString();
+    }
+
+    $("auth-submit").addEventListener("click", () => {
+      const t = $("token-input").value.trim();
+      if (!t) { authErr("Enter the token."); return; }
+      token = t; localStorage.setItem(TOKEN_KEY, t); $("auth-error").style.display = "none";
+      load();
+    });
+    $("logout-btn").addEventListener("click", () => {
+      localStorage.removeItem(TOKEN_KEY); token = ""; showAuth();
+    });
+    $("status-select").addEventListener("change", load);
+    $("refresh-btn").addEventListener("click", load);
+
+    function authErr(msg) {
+      $("auth-error").textContent = msg; $("auth-error").style.display = "block"; showAuth();
+    }
+
+    async function load() {
+      const st = $("status-select").value;
+      try {
+        const r = await fetch(`/admin/assist/requests?status=${st}&limit=200`, {
+          headers: { "Authorization": `Bearer ${token}` },
+        });
+        if (r.status === 401 || r.status === 403) return authErr("Token rejected.");
+        if (r.status === 503) return authErr("ADMIN_TOKEN not configured on the server.");
+        if (!r.ok) { authErr(`Server error ${r.status}`); return; }
+        const data = await r.json();
+        showApp();
+        render(data);
+      } catch (e) {
+        authErr("Network error: " + e.message);
+      }
+    }
+
+    async function resolve(id, status, note, btn) {
+      if (btn) { btn.disabled = true; }
+      try {
+        const r = await fetch(`/admin/assist/requests/${id}/resolve`, {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ status, note: note ?? null }),
+        });
+        if (!r.ok) {
+          if (btn) btn.disabled = false;
+          alert(`Could not update (HTTP ${r.status}).`);
+          return;
+        }
+        load();
+      } catch (e) {
+        if (btn) btn.disabled = false;
+        alert("Network error: " + e.message);
+      }
+    }
+
+    function render(data) {
+      const rows = data.requests || [];
+      const st = data.status || $("status-select").value;
+      $("count-label").textContent =
+        `${rows.length} ${st === "all" ? "total" : st} request${rows.length === 1 ? "" : "s"}`;
+
+      const q = $("queue");
+      q.innerHTML = "";
+      if (!rows.length) {
+        q.appendChild(el("div", { cls: "empty", text: "Nothing here. When a lawyer taps the assist CTA, it lands in this queue." }));
+        return;
+      }
+      rows.forEach(rq => q.appendChild(renderCard(rq)));
+    }
+
+    function renderCard(rq) {
+      const top = el("div", { cls: "req__top", children: [
+        el("span", { cls: `badge badge--${rq.mode === "draft" ? "draft" : "research"}`,
+                     text: rq.mode === "draft" ? "Draft" : "Research" }),
+        el("span", { cls: `badge badge--${rq.status}`, text: rq.status }),
+        rq.email_sent === false
+          ? el("span", { cls: "req__noemail", text: "⚠ email alert failed — found via DB only" })
+          : null,
+        el("span", { cls: "req__time", text: relTime(rq.created_at) }),
+      ]});
+
+      const children = [top, el("p", { cls: "req__query", text: rq.query || "(no query)" })];
+
+      if (rq.source_context) {
+        children.push(el("div", { cls: "req__ctx", children: [
+          el("div", { cls: "k", text: "Their last query / page context" }),
+          el("div", { cls: "v", text: rq.source_context }),
+        ]}));
+      }
+
+      // Lawyer contact — mailto + WhatsApp deep links.
+      const who = [ el("span", { cls: "who__name", text: rq.user_name || "(no name)" }) ];
+      if (rq.user_email) who.push(el("a", { text: "📧 " + rq.user_email, href: "mailto:" + rq.user_email }));
+      if (rq.user_phone) {
+        who.push(el("a", { cls: "wa", text: "📱 WhatsApp", href: "https://wa.me/" + digits(rq.user_phone) }));
+        who.push(el("span", { text: rq.user_phone, cls: "" }));
+      }
+      children.push(el("div", { cls: "who", children: who }));
+
+      // Already-resolved summary.
+      if (rq.status !== "open" && (rq.answered_at || rq.answer_note)) {
+        const resolved = el("div", { cls: "resolved", children: [
+          el("span", { text: (rq.status === "answered" ? "Answered " : "Closed ") + relTime(rq.answered_at || rq.updated_at) }),
+        ]});
+        if (rq.answer_note) resolved.appendChild(el("span", { cls: "note", text: rq.answer_note }));
+        children.push(resolved);
+      }
+
+      // Action row — work the request.
+      const ta = el("textarea", { attrs: { placeholder: "What case-law / notes did you send? (logged on the record)" } });
+      if (rq.answer_note) ta.value = rq.answer_note;
+
+      const answerBtn = el("button", { cls: "btn btn--primary",
+        text: rq.status === "answered" ? "Update answer" : "Mark answered" });
+      answerBtn.addEventListener("click", () => resolve(rq.id, "answered", ta.value.trim(), answerBtn));
+
+      const row = el("div", { cls: "resolve__row", children: [answerBtn] });
+      if (rq.status !== "closed") {
+        const closeBtn = el("button", { cls: "btn btn--muted", text: "Close (no answer)" });
+        closeBtn.addEventListener("click", () => resolve(rq.id, "closed", null, closeBtn));
+        row.appendChild(closeBtn);
+      }
+      if (rq.status !== "open") {
+        const reopenBtn = el("button", { cls: "btn btn--muted", text: "Reopen" });
+        reopenBtn.addEventListener("click", () => resolve(rq.id, "open", null, reopenBtn));
+        row.appendChild(reopenBtn);
+      }
+      children.push(el("div", { cls: "resolve", children: [ta, row] }));
+
+      return el("div", { cls: "req", children });
+    }
+
+    // Boot. No auto-refresh: it would clobber a note being typed.
+    if (token) load(); else showAuth();
+  </script>
+</body>
+</html>

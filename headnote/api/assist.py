@@ -59,23 +59,61 @@ def _profile(user_id: str) -> dict:
         return {}
 
 
+def _persist(
+    *, mode: str, user: CurrentUser, user_name: str, user_phone: str,
+    query: str, source_context: Optional[str], email_sent: bool,
+) -> None:
+    """Store the request as a queue item the founder can work from /admin/assist.
+
+    Best-effort and independent of the email: a request must survive a missed
+    Resend send (and an email must still fire if Supabase is down). On any
+    failure we log and move on — the lawyer's UX never depends on this write.
+    """
+    try:
+        _supabase.upsert("assist_requests", {
+            "user_id": user.id,
+            "user_email": user.email,
+            "user_name": user_name or None,
+            "user_phone": user_phone or None,
+            "mode": mode,
+            "query": query,
+            "source_context": source_context,
+            "status": "open",
+            "email_sent": email_sent,
+        })
+    except Exception as e:  # noqa: BLE001 — never let persistence break the request
+        log.warning("assist: persist failed for user=%.8s mode=%s: %s", user.id, mode, e)
+
+
 def _handle(mode: Literal["research", "draft"], body: AssistBody, user: CurrentUser) -> dict:
     if not user.email:
         raise HTTPException(status_code=400, detail="No email on account — cannot route reply.")
     profile = _profile(user.id)
+    query = body.query.strip()
+    source_context = (body.source_context or "").strip() or None
+    user_name = profile.get("name") or ""
+    user_phone = profile.get("phone") or ""
+
+    # 1. Fire the founder alert (best-effort) — short SLA, must reach a human now.
     sent = send_assist_request(
         mode=mode,
-        query=body.query.strip(),
+        query=query,
         user_email=user.email,
-        user_name=profile.get("name") or "",
-        user_phone=profile.get("phone") or "",
-        source_context=(body.source_context or "").strip() or None,
+        user_name=user_name,
+        user_phone=user_phone,
+        source_context=source_context,
     )
-    # Always 2xx — the lawyer's UX shouldn't depend on whether Resend was
-    # configured. If `sent` is False we still log it server-side.
     if not sent:
         log.warning("assist: send_assist_request returned False for user=%.8s mode=%s",
                     user.id, mode)
+
+    # 2. Persist as a worked queue item (best-effort, records whether the alert fired).
+    _persist(
+        mode=mode, user=user, user_name=user_name, user_phone=user_phone,
+        query=query, source_context=source_context, email_sent=sent,
+    )
+
+    # Always 2xx — the lawyer's UX shouldn't depend on Resend or Supabase being up.
     return {"ok": True, "sent": sent}
 
 

@@ -13,6 +13,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Header, HTTPException, Query, status
 from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field
 
 from headnote import config
 from headnote.api.telemetry import get_summary
@@ -472,3 +473,93 @@ def admin_cost_dashboard():
     Open in browser: https://<your-deploy>/admin/cost-dashboard
     """
     return FileResponse(config.STATIC_DIR / "admin-dashboard.html")
+
+
+# ---------------------------------------------------------------------------
+# Personal-assist queue — the backend workspace for "Not satisfied? our team
+# will help" requests. Lawyers fire these from /api/assist/*; the founder works
+# them here: see the open queries, WhatsApp/email the lawyer the case-law, then
+# mark the request answered with a note of what was sent.
+# ---------------------------------------------------------------------------
+
+@router.get("/assist/requests", summary="List personal-assist requests (the lawyer help queue)")
+def admin_list_assist_requests(
+    authorization: Optional[str] = Header(default=None),
+    status_filter: str = Query(
+        default="open", alias="status", pattern="^(open|answered|closed|all)$",
+        description="Filter by status, or 'all'. Defaults to the open queue.",
+    ),
+    limit: int = Query(default=100, ge=1, le=500),
+):
+    """Return assist requests newest-first. Authentication: Bearer ADMIN_TOKEN."""
+    _require_admin(authorization)
+    from headnote.entitlements import _supabase
+
+    params = {"select": "*", "order": "created_at.desc", "limit": str(limit)}
+    if status_filter != "all":
+        params["status"] = f"eq.{status_filter}"
+    rows = _supabase.select("assist_requests", params=params)
+    return {"requests": rows, "count": len(rows), "status": status_filter}
+
+
+class _ResolveAssistBody(BaseModel):
+    status: str = Field(
+        default="answered", pattern="^(answered|closed|open)$",
+        description="answered = case-law delivered; closed = dismissed; open = reopen.",
+    )
+    note: Optional[str] = Field(
+        default=None, max_length=4000,
+        description="What case-law / notes you delivered, logged on the record.",
+    )
+
+
+@router.post("/assist/requests/{request_id}/resolve",
+             summary="Mark an assist request answered/closed (logs the delivered note)")
+def admin_resolve_assist_request(
+    request_id: int,
+    body: _ResolveAssistBody,
+    authorization: Optional[str] = Header(default=None),
+):
+    """Move a request along its lifecycle and log what was sent.
+
+    answered -> stamps answered_at/answered_by and stores `note`.
+    Authentication: Bearer ADMIN_TOKEN.
+    """
+    _require_admin(authorization)
+    from datetime import datetime, timezone
+    from headnote.entitlements import _supabase
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    payload: dict = {"status": body.status, "updated_at": now_iso}
+    if body.status == "answered":
+        payload["answered_at"] = now_iso
+        payload["answered_by"] = "admin"
+    elif body.status == "open":
+        # Reopening clears the resolution stamps so the queue reads cleanly.
+        payload["answered_at"] = None
+        payload["answered_by"] = None
+    if body.note is not None:
+        payload["answer_note"] = body.note.strip() or None
+
+    rows = _supabase.update("assist_requests", payload, params={"id": f"eq.{request_id}"})
+    if not rows:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=(f"No assist request id={request_id} updated "
+                    "(unknown id, or Supabase not configured on this deploy)."),
+        )
+    return {"ok": True, "request": rows[0]}
+
+
+@router.get("/assist", summary="HTML queue for personal-assist requests",
+            include_in_schema=False)
+def admin_assist_page():
+    """Serve the assist-queue HTML page.
+
+    Same auth model as the cost dashboard: the shell is inert and asks for the
+    ADMIN_TOKEN in-browser (stored in localStorage, shared with the cost
+    dashboard), then calls /admin/assist/* with it as a Bearer header.
+
+    Open in browser: https://<your-deploy>/admin/assist
+    """
+    return FileResponse(config.STATIC_DIR / "admin-assist.html")
