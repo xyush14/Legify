@@ -45,34 +45,56 @@ _MAX_HTML = 800_000
 # Tags that are dropped before rendering: active content + remote resources.
 _STRIP_TAGS = ("script", "iframe", "object", "embed", "link", "base")
 
-# Injected as an author stylesheet AFTER the document's own <style> (so these
-# !important rules win the cascade). Intentionally tiny:
-#   1. Scope the font stack to the document so the *installed* server fonts
-#      are used — the page's own stack names 'Times New Roman' / Google fonts
-#      that don't exist in the container. Per-glyph fallback then routes Latin
-#      to Liberation Serif (Times metrics) and Devanagari to Noto Serif
-#      Devanagari (correct conjuncts).
-#   2. Pin the grid-based party block (page CSS: grid 110px 16px 1fr) to a CSS
-#      table — WeasyPrint's table support is rock-solid, so the label / dots /
-#      detail columns never collapse.
-#   3. Strip any screen-only card chrome (max-width, shadow, centering) off
-#      #doc-page so it fills the printable page.
-# We deliberately do NOT set @page here — the document's print CSS already
-# defines A4 size + tuned margins, and we want to respect those.
+# Injected as an author stylesheet AFTER the document's own <style>, so every
+# !important rule here wins the cascade — including over inline style="" attrs,
+# which `!important` outranks. The posted HTML is a *fragment*: #doc-page lifted
+# out of its live .split/.doc-pane parents and shipped with the page's ENTIRE
+# <style> (screen rules, @media(max-width:880px), @media print, flex/grid,
+# fixed positioning, 85vh/60vh/100vh heights, and — on the template page — an
+# inline `display:none` that JS clears only while the page is live). WeasyPrint
+# renders in print media, so the chrome-hiding rules already apply; but to
+# *guarantee* the document itself paints in normal flow we forcibly neutralise
+# everything that could hide it, collapse its height, clip it, or shove it
+# off-page. This is what makes Download / WhatsApp stop coming out blank.
+#
+# It also:
+#   - Scopes the font stack to installed server fonts (the page names 'Times
+#     New Roman' / Google web-fonts absent in the container); per-glyph
+#     fallback routes Latin → Liberation Serif and Devanagari → Noto Serif
+#     Devanagari (correct conjuncts).
+#   - Pins the grid party block to a CSS table (WeasyPrint table layout is
+#     rock-solid; a collapsed grid would drop the parties entirely).
+#   - Borders real <table>s and prints the transliteration highlight plain.
+# We deliberately do NOT set @page — the document's print CSS already defines
+# A4 size + tuned margins, and we respect those.
 _EXPORT_CSS = """
+/* ── Hard render reset: force the document visible & in normal flow ── */
+html, body {
+  margin: 0 !important; padding: 0 !important;
+  width: auto !important; height: auto !important;
+  min-height: 0 !important; max-height: none !important;
+  background: #fff !important; color: #000 !important;
+  overflow: visible !important;
+}
+#doc-page {
+  display: block !important; position: static !important;
+  visibility: visible !important; opacity: 1 !important;
+  float: none !important; clip: auto !important;
+  width: auto !important; max-width: none !important;
+  height: auto !important; min-height: 0 !important; max-height: none !important;
+  margin: 0 !important; padding: 0 !important;
+  transform: none !important; overflow: visible !important;
+  box-shadow: none !important; border: none !important;
+  background: #fff !important; color: #000 !important;
+}
+/* Nothing inside the document may stay hidden or collapsed by a screen rule. */
+#doc-page * { visibility: visible !important; }
 #doc-page, #doc-page * {
   font-family: 'Liberation Serif', 'Noto Serif Devanagari',
                'Noto Sans Devanagari', 'DejaVu Serif', serif !important;
 }
-#doc-page {
-  width: auto !important; max-width: none !important;
-  margin: 0 !important; padding: 0 !important;
-  box-shadow: none !important; background: #fff !important;
-}
 /* Real data tables print with crisp borders. Scoped to <table> so it never
-   touches the party block below (rendered AS a table out of <div>s). The
-   bail page already borders its tables; the template page does not, so this
-   also fixes borderless template tables. */
+   touches the party block below (rendered AS a table out of <div>s). */
 #doc-page table { border-collapse: collapse !important; }
 #doc-page table th, #doc-page table td {
   border: 1px solid #444 !important; padding: 6px 8px !important;
@@ -117,8 +139,15 @@ def _no_network_fetcher(url: str):
     raise ValueError("external resource blocked")
 
 
-def _clean_html(raw: str) -> str:
-    """Drop active/remote content but keep <style> + the document markup."""
+def _clean_html(raw: str) -> tuple[str, int]:
+    """Drop active/remote content but keep <style> + the document markup.
+
+    Returns ``(clean_html, doc_text_len)`` where ``doc_text_len`` is the count
+    of visible characters inside #doc-page. That length is logged on render so
+    a blank PDF can be told apart from empty input: lots of text + a tiny PDF
+    means a layout/CSS collapse (server-side), whereas zero text means the
+    client serialised an empty document.
+    """
     from bs4 import BeautifulSoup
 
     soup = BeautifulSoup(raw, "html.parser")
@@ -128,7 +157,9 @@ def _clean_html(raw: str) -> str:
     for el in soup.find_all(True):
         for attr in [a for a in el.attrs if a.lower().startswith("on")]:
             del el[attr]
-    return str(soup)
+    doc = soup.find(id="doc-page")
+    doc_text_len = len(doc.get_text(strip=True)) if doc else 0
+    return str(soup), doc_text_len
 
 
 def _render_pdf(raw_html: str) -> bytes:
@@ -140,9 +171,16 @@ def _render_pdf(raw_html: str) -> bytes:
         log.error("weasyprint import failed (system libs missing?): %s", e)
         raise HTTPException(status_code=503, detail="PDF service unavailable")
 
-    cleaned = _clean_html(raw_html)
+    cleaned, doc_text_len = _clean_html(raw_html)
+    if doc_text_len == 0:
+        # The page sent us a document with no text — render will be blank, but
+        # the cause is upstream (client serialisation), not WeasyPrint.
+        log.warning(
+            "draft/pdf: #doc-page empty/missing after clean (input=%d chars)",
+            len(raw_html),
+        )
     try:
-        return HTML(
+        pdf = HTML(
             string=cleaned, base_url=None, url_fetcher=_no_network_fetcher,
         ).write_pdf(stylesheets=[CSS(string=_EXPORT_CSS)])
     except HTTPException:
@@ -150,6 +188,22 @@ def _render_pdf(raw_html: str) -> bytes:
     except Exception as e:
         log.exception("weasyprint render failed: %s", e)
         raise HTTPException(status_code=500, detail="Could not render the PDF")
+
+    # Diagnostics: if the document carried real text but the PDF came back
+    # tiny, a screen-only CSS rule collapsed the layout — surface it in the
+    # logs instead of shipping a silent blank page.
+    n = len(pdf)
+    if doc_text_len > 200 and n < 3000:
+        log.warning(
+            "draft/pdf: suspiciously small PDF (%d bytes) for %d chars of "
+            "document text — possible blank render", n, doc_text_len,
+        )
+    else:
+        log.info(
+            "draft/pdf rendered: input=%d chars, doc_text=%d chars, pdf=%d bytes",
+            len(raw_html), doc_text_len, n,
+        )
+    return pdf
 
 
 @router.post("/pdf", summary="Render the drafted document to a real-text PDF")
