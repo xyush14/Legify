@@ -1194,6 +1194,232 @@ GENERAL_AFFIDAVIT = {
 
 
 # ============================================================================
+# REFERENCE-GRADE (v2-ref) — structures decoded verbatim from real filings
+# (advocate's actual .docx drafts). These three close the biggest catalogue
+# gaps: Notice (~89 filings), Private Complaint (~48), Reply/Jawab (~40).
+# ============================================================================
+
+# ── 1. LEGAL NOTICE (सूचना पत्र) — pre-litigation demand notice ───────────────
+# Sent by the advocate on the client's instructions, by Registered A.D., before
+# any suit. Covers §138 NI Act cheque-demand, HMA §9 restitution demand, money
+# recovery, and general legal/demand notices. Cross-court → "procedural" rail.
+LEGAL_NOTICE = {
+    "id":              "legal_notice",
+    "name_en":         "Legal Notice (Demand Notice)",
+    "name_hi":         "सूचना पत्र (विधिक नोटिस)",
+    "court":           "procedural",
+    "court_label_en":  "Common",
+    "court_label_hi":  "सामान्य",
+    "category":        "procedural",
+    "tier":            1,
+    "popularity":      5,
+    "quality":         "v2-ref",
+    "description":     "Pre-litigation demand notice sent by the advocate, by Registered A.D., on the client's instructions — §138 cheque-bounce demand, HMA §9 restitution, recovery of money, or any general legal demand. Gives the addressee 15 days to comply before suit.",
+    "fields": [
+        {"key": "advocate_name",     "label_en": "Sending advocate's name",        "label_hi": "प्रेषक अधिवक्ता का नाम",    "type": "name",     "required": True,  "section": "letterhead"},
+        {"key": "advocate_address",  "label_en": "Advocate office / residence",    "label_hi": "अधिवक्ता कार्यालय / निवास",  "type": "address",  "required": True,  "section": "letterhead"},
+        {"key": "advocate_court",    "label_en": "Practising court line",          "label_hi": "न्यायालय पंक्ति",            "type": "text",     "required": False, "section": "letterhead", "hint": "e.g. उच्च न्यायालय खण्डपीठ ग्वालियर म.प्र."},
+        {"key": "advocate_mobile",   "label_en": "Advocate mobile",                "label_hi": "अधिवक्ता मोबाइल",            "type": "text",     "required": False, "section": "letterhead"},
+        {"key": "notice_type",       "label_en": "Type of notice",                 "label_hi": "नोटिस का प्रकार",            "type": "text",     "required": True,  "section": "facts", "hint": "138 cheque bounce / HMA §9 restitution / money recovery / general demand"},
+        {"key": "noticee_name",      "label_en": "Noticee (addressee)",            "label_hi": "नोटिसी (बनाम)",             "type": "name",     "required": True,  "section": "respondent"},
+        {"key": "noticee_details",   "label_en": "Noticee parentage / age / residence", "label_hi": "नोटिसी पिता / आयु / निवास", "type": "longtext", "required": True, "section": "respondent"},
+        {"key": "client_name",       "label_en": "Client (पक्षकार)",               "label_hi": "पक्षकार का नाम",             "type": "name",     "required": True,  "section": "applicant"},
+        {"key": "client_details",    "label_en": "Client parentage / age / occupation / residence", "label_hi": "पक्षकार पिता / आयु / व्यवसाय / निवास", "type": "longtext", "required": True, "section": "applicant"},
+        {"key": "facts_narrative",   "label_en": "What happened (the grievance)",  "label_hi": "क्या हुआ (शिकायत का आधार)",   "type": "longtext", "required": True,  "section": "facts", "hint": "For 138: loan amount, date, cheque no., bank, deposit & return dates, return reason. For HMA-9: marriage date, desertion, what is demanded back."},
+        {"key": "demand",            "label_en": "What is demanded",               "label_hi": "क्या माँगा जा रहा है",        "type": "longtext", "required": True,  "section": "prayer", "hint": "Pay ₹X / return wife & jewellery / restore possession etc."},
+        {"key": "compliance_days",   "label_en": "Days to comply",                 "label_hi": "पालन हेतु दिवस",             "type": "text",     "required": False, "section": "prayer", "hint": "Default 15"},
+        {"key": "notice_cost",       "label_en": "Notice cost (₹, optional)",      "label_hi": "नोटिस व्यय (₹, वैकल्पिक)",   "type": "text",     "required": False, "section": "prayer"},
+        {"key": "copy_to",           "label_en": "Copies marked to (नोट)",         "label_hi": "प्रतिलिपि (नोट)",            "type": "longtext", "required": False, "section": "filing", "hint": "e.g. महिला थाना / SP — for matrimonial notices"},
+        {"key": "notice_date",       "label_en": "Date of notice",                 "label_hi": "नोटिस दिनांक",               "type": "date",     "required": True,  "section": "filing"},
+    ],
+    "format_spec": (
+        "Generate a Hindi सूचना पत्र (legal demand notice) in the exact letter format Indian advocates "
+        "use. Output Hindi (Devanagari) by default; add an English mirror only if the user asks. "
+        "Plain text, no markdown. Structure — follow precisely:\n"
+        "1. LETTERHEAD (top): advocate name on the left with 'एडवोकेट' beneath it; on the right the "
+        "office/residence address (<advocate_address>); a line for the practising court "
+        "(<advocate_court>, e.g. 'उच्च न्यायालय खण्डपीठ ग्वालियर म.प्र.'); and 'मोबा- <advocate_mobile>'. "
+        "Then a full-width separator line of dashes '-----------------------------------------------------'.\n"
+        "2. TITLE (centred): '// सूचना पत्र मय रजिस्टर्ड ए.डी. //'.\n"
+        "3. ADDRESSEE: 'बनाम:- <noticee_name> <noticee_details>' (parentage, age, full residence).\n"
+        "4. OPENING: 'मैं अपने पक्षकार <client_name> <client_details> द्वारा दी गई जानकारी एवं उनके "
+        "निर्देशानुसार आप नोटिसी को निम्न आशय का सूचना पत्र प्रेषित कर रहा हूँ :-'.\n"
+        "5. BODY — numbered fact paragraphs, EACH beginning 'यह कि' — build the cause from "
+        "<facts_narrative> in chronological order. For a §138 cheque notice the chain MUST be: "
+        "(a) relationship / liability; (b) loan or debt amount & date; (c) accused issued cheque no. ___ "
+        "dated ___ for ₹___ drawn on <bank>; (d) cheque presented on ___; (e) returned unpaid on ___ "
+        "with memo 'अपर्याप्त निधि' (insufficient funds) via the client's bank; (f) 'इस प्रकार से आप "
+        "नोटिसी का उक्त कृत्य धारा 138 परक्राम्य लिखत अधिनियम के तहत दण्डनीय अपराध की श्रेणी में आता है।' "
+        "For an HMA §9 / matrimonial notice: marriage facts, cohabitation, desertion/cause, demand to "
+        "return and resume cohabitation.\n"
+        "6. DEMAND PARAGRAPH (begins 'अत:'): 'अत: ज़रिये सूचना पत्र आप नोटिसी को सूचित किया जाता है कि "
+        "आप सूचना पत्र प्राप्ति के <compliance_days, default 15> दिवस के अन्दर मेरे पक्षकार को <demand> "
+        "[for 138 add: व ₹<notice_cost> नोटिस व्यय पृथक से] अदा कर / पूर्ण कर रसीद प्राप्त करें अन्यथा "
+        "वाद गुजरने मियाद आप नोटिसी के विरुद्ध सक्षम न्यायालय में वैधानिक कार्यवाही करने के लिए विवश होना "
+        "पड़ेगा जिसमें होने वाले समस्त हर्जे-खर्चे के लिए आप नोटिसी स्वयं उत्तरदायी होंगे। सूचित हों।'\n"
+        "7. CLOSING: left 'दिनांक:- <notice_date>'; right (signature block) 'प्रेषक' then advocate "
+        "name and 'एडवोकेट'.\n"
+        "8. If <copy_to> given, append 'नोट :-' footnote listing the offices a copy is endorsed to.\n"
+        "Tone: firm, formal, single-letter (NOT a court petition — no court header, no 'माननीय "
+        "न्यायालय'). Numbers, dates, cheque & bank details must be exact."
+    ),
+    "example_prompts": [
+        "138 नोटिस — संजीव शिवहरे का ₹14 लाख का चेक बाउंस हुआ, अपर्याप्त निधि",
+        "HMA धारा 9 नोटिस — पत्नी की वापसी व जेवरात की माँग",
+        "Money-recovery notice — friend took ₹2 lakh hand-loan, refusing to repay",
+    ],
+}
+
+
+# ── 2. PRIVATE COMPLAINT (परिवाद पत्र — §223 BNSS / 200 CrPC, direct) ─────────
+# The DIRECT route: Magistrate takes cognizance, records the complainant's
+# statement (§200 CrPC / §223 BNSS) and issues process (§204 / §227). Distinct
+# from complaint_156_3 (which only asks the Magistrate to DIRECT the police to
+# register an FIR). Used where 156(3) is unavailable — e.g. accused are the
+# police themselves — or the complainant wishes to lead evidence directly.
+PRIVATE_COMPLAINT_200 = {
+    "id":              "private_complaint_200",
+    "name_en":         "Private Complaint — Direct (S.223 BNSS / 200 CrPC)",
+    "name_hi":         "परिवाद पत्र — प्रत्यक्ष (धारा 223 BNSS / 200 दं.प्र.सं.)",
+    "court":           "magistrate",
+    "court_label_en":  "Magistrate Court",
+    "court_label_hi":  "मजिस्ट्रेट न्यायालय",
+    "category":        "procedural",
+    "tier":            1,
+    "popularity":      4,
+    "quality":         "v2-ref",
+    "description":     "Direct private complaint where the Magistrate takes cognizance, records the complainant's statement (S.200 CrPC / S.223 BNSS) and summons the accused — used when 156(3) won't work (e.g. accused are police) or the complainant will lead evidence. Carries a sworn affidavit (शपथपत्र).",
+    "fields": [
+        {"key": "court_name",        "label_en": "Court (JMFC / CJM + place)",     "label_hi": "न्यायालय (न्यायिक मजिस्ट्रेट + स्थान)", "type": "text", "required": True, "section": "court", "hint": "e.g. न्यायिक दण्डाधिकारी प्रथम श्रेणी, ग्वालियर"},
+        {"key": "complainant_name",  "label_en": "Complainant (परिवादी)",          "label_hi": "परिवादी का नाम",            "type": "name",     "required": True,  "section": "applicant"},
+        {"key": "complainant_father","label_en": "Father's name",                  "label_hi": "पिता का नाम",               "type": "name",     "required": True,  "section": "applicant"},
+        {"key": "complainant_address","label_en": "Complainant address + age",     "label_hi": "परिवादी का पता + आयु",       "type": "address",  "required": True,  "section": "applicant"},
+        {"key": "accused_names",     "label_en": "Accused (names, roles, address)", "label_hi": "आरोपीगण (नाम, भूमिका, पता)", "type": "longtext", "required": True,  "section": "respondent", "hint": "One per line; include 'नामालूम' if parentage unknown"},
+        {"key": "offence_sections",  "label_en": "Offence sections (BNS / IPC)",   "label_hi": "अपराध की धाराएं (BNS/IPC)",  "type": "text",     "required": True,  "section": "facts", "hint": "Substantive offences, e.g. 342, 327, 323, 324, 504, 506बी, 34 भा.द.वि."},
+        {"key": "incident_date",     "label_en": "Date of incident",               "label_hi": "घटना दिनांक",                "type": "date",     "required": True,  "section": "facts"},
+        {"key": "incident_place",    "label_en": "Place / police-station area",    "label_hi": "घटना स्थल / थाना क्षेत्र",   "type": "text",     "required": True,  "section": "facts"},
+        {"key": "facts_narrative",   "label_en": "Detailed facts (the full story)","label_hi": "विस्तृत तथ्य (पूरी घटना)",    "type": "longtext", "required": True,  "section": "facts"},
+        {"key": "police_approach",   "label_en": "Approach to police / authorities","label_hi": "पुलिस / अधिकारियों से संपर्क", "type": "longtext", "required": False, "section": "grounds", "hint": "Dates of complaints to PS, SP, SDOP, CM cell, Human Rights Commission and their inaction"},
+        {"key": "witnesses",         "label_en": "Witnesses (name + address)",     "label_hi": "साक्षीगण (नाम + पता)",        "type": "longtext", "required": False, "section": "facts"},
+        {"key": "relief_compensation","label_en": "Compensation / relief sought",  "label_hi": "प्रतिकर / अनुतोष",           "type": "longtext", "required": False, "section": "prayer"},
+        {"key": "advocate_name",     "label_en": "Advocate name",                  "label_hi": "अधिवक्ता का नाम",             "type": "name",     "required": True,  "section": "filing"},
+        {"key": "filing_date",       "label_en": "Date",                           "label_hi": "दिनांक",                      "type": "date",     "required": True,  "section": "filing"},
+    ],
+    "format_spec": (
+        "Generate a Hindi परिवाद पत्र (direct private complaint) in the exact court format. Output "
+        "Hindi (Devanagari); add English only if asked. Plain text, no markdown. Map IPC sections to "
+        "their BNS equivalents if the user gives BNS. Procedural section: §200 CrPC → §223 BNSS "
+        "(examination of complainant), §204 → §227 (issue of process). Structure:\n"
+        "1. COURT HEADER (centred): 'न्यायालय माननीय <court_name> महोदय'.\n"
+        "2. CASE BLOCK: 'प्रकरण क्रमांक       /<वर्ष>          परिवाद पत्र'.\n"
+        "3. COMPLAINANT: '<complainant_name> पुत्र/पुत्री श्री <complainant_father>, आयु- __ वर्ष, "
+        "निवासी- <complainant_address>' then right-aligned '--- परिवादी'.\n"
+        "4. 'बनाम' (centred).\n"
+        "5. ACCUSED: each from <accused_names> with parentage/role + residence; then right-aligned "
+        "'--- आरोपी' (or '--- आरोपीगण' if more than one).\n"
+        "6. TITLE (centred): 'परिवाद पत्र अन्तर्गत धारा <offence_sections>' — the SUBSTANTIVE offence "
+        "sections (NOT 156(3); this is the direct route).\n"
+        "7. 'माननीय न्यायालय,' then 'परिवादी की ओर से परिवाद पत्र निम्न प्रकार प्रस्तुत है :-'.\n"
+        "8. BODY — numbered paragraphs EACH beginning 'यह कि': (1) complainant's standing / good "
+        "repute; (2..n) the incident in full chronological detail from <facts_narrative> — date, time, "
+        "place, each accused's specific role, injuries/loss; then (if <police_approach> given) approach "
+        "to the police and their refusal, written applications to SP/SDOP/CM cell/Human Rights "
+        "Commission with dates and continued inaction; then 'यह कि परिवादी के विरुद्ध प्रथम दृष्टया धारा "
+        "<offence_sections> का अपराध बनता है।'; then jurisdiction 'यह कि घटना स्थल पुलिस थाना "
+        "<incident_place> के क्षेत्राधिकार में होने से माननीय न्यायालय को परिवाद का श्रवणाधिकार एवं "
+        "क्षेत्राधिकार प्राप्त है।'; then 'यह कि परिवादी द्वारा उक्त घटना के सम्बन्ध में भारत वर्ष के किसी भी "
+        "थाने या न्यायालय में आज दिनांक तक इस परिवाद के अलावा अन्य कोई कार्यवाही नहीं की है न ही कोई प्रकरण "
+        "लंबित है।'.\n"
+        "9. PRAYER (begins 'अत:'): 'अत: श्रीमान जी से निवेदन है कि परिवादी का परिवाद पत्र स्वीकार कर "
+        "आरोपीगण के विरुद्ध धारा <offence_sections> के तहत अपराध पंजीबद्ध कर एवं आरोपीगण को समन/शक्ति "
+        "पत्र से तलब कर अधिकतम दण्ड से दण्डित कर परिवादी को <relief_compensation, e.g. प्रतिकर> दिलाने का "
+        "आदेश पारित करने की कृपा करें।'.\n"
+        "10. 'दिनांक:- <filing_date>' (left) and 'परिवादी / प्रार्थी' + complainant name (right).\n"
+        "11. 'साक्षीगण :-' — numbered list from <witnesses> (if given).\n"
+        "12. AFFIDAVIT (शपथपत्र) BLOCK at the end: repeat the court header + case-number + short parties "
+        "('<complainant> --- परिवादी / बनाम / <accused> --- आरोपी'); heading 'शपथपत्र'; a "
+        "नाम/पिता/आयु/व्यवसाय/निवासी key-value block of the deponent; 'मैं उक्त शपथकर्ता शपथपूर्वक सत्य "
+        "कथन करता/करती हूँ कि:-'; numbered 'यह कि' paragraphs swearing the complaint's contents are "
+        "true to personal knowledge; then verification + deponent signature + date.\n"
+        "Tone: factual, chronological, names everything specific."
+    ),
+    "example_prompts": [
+        "थाना सुभाषपुरा के पुलिसवालों ने मेरे मुवक्किल को अवैध हिरासत में पीटा — 342, 323, 324 में परिवाद",
+        "Direct private complaint — defamation 356 BNS, complainant will lead evidence",
+        "परिवाद 200 — पुलिस ने FIR नहीं ली, अब सीधे कोर्ट से समन चाहते हैं",
+    ],
+}
+
+
+# ── 3. REPLY / COUNTER TO APPLICATION (जबाव) — general para-wise reply ────────
+# Filed by the non-applicant (अनावेदक) answering ANY application para-by-para:
+# maintenance (§125 CrPC / §144 BNSS), domestic violence (§12 DV Act), a claim
+# petition, §311 recall, etc. Distinct from reply_to_bail_sessions (which is the
+# prosecution's bail-opposing counter only). Cross-court → "procedural" rail.
+REPLY_APPLICATION = {
+    "id":              "reply_application",
+    "name_en":         "Reply / Counter to Application (Jawab)",
+    "name_hi":         "जबाव / प्रत्युत्तर (आवेदन पर)",
+    "court":           "procedural",
+    "court_label_en":  "Common",
+    "court_label_hi":  "सामान्य",
+    "category":        "procedural",
+    "tier":            1,
+    "popularity":      4,
+    "quality":         "v2-ref",
+    "description":     "Para-wise reply (जबाव) by the non-applicant to any pending application — maintenance (§125 CrPC / §144 BNSS), domestic violence (§12 DV Act), a claim petition, §311 recall, etc. Admits/denies each numbered paragraph and adds a 'विशेष निवेदन' affirmative defence.",
+    "fields": [
+        {"key": "court_name",        "label_en": "Court (where application is pending)", "label_hi": "न्यायालय (जहाँ आवेदन लंबित है)", "type": "text", "required": True, "section": "court", "hint": "e.g. न्यायिक दण्डाधिकारी प्रथम श्रेणी, ग्वालियर / कुटुम्ब न्यायालय"},
+        {"key": "case_no",           "label_en": "Case / application number",      "label_hi": "प्रकरण क्रमांक",             "type": "text",     "required": True,  "section": "court"},
+        {"key": "application_section","label_en": "Application section + Act",      "label_hi": "आवेदन की धारा + अधिनियम",     "type": "text",     "required": True,  "section": "court", "hint": "e.g. 125 दं.प्र.सं. (144 BNSS) / धारा 12 घरेलू हिंसा अधिनियम"},
+        {"key": "applicant_name",    "label_en": "Applicant (आवेदक / आवेदकगण)",    "label_hi": "आवेदक का नाम",              "type": "name",     "required": True,  "section": "applicant"},
+        {"key": "respondent_name",   "label_en": "Respondent filing reply (अनावेदक)", "label_hi": "अनावेदक (जबाव देने वाला)",  "type": "name",     "required": True,  "section": "respondent"},
+        {"key": "original_paras",    "label_en": "The application's numbered allegations", "label_hi": "आवेदन की क्रमांकित कण्डिकाएं", "type": "longtext", "required": True, "section": "facts", "hint": "Paste/summarise the original application para-by-para (पद क्रमांक 1, 2, 3 …) so each can be answered"},
+        {"key": "defence_narrative", "label_en": "Respondent's version (admit / deny each para)", "label_hi": "अनावेदक का पक्ष (हर पद पर स्वीकार/अस्वीकार)", "type": "longtext", "required": True, "section": "grounds", "hint": "Which paras are admitted, which denied, and the counter-facts"},
+        {"key": "special_submissions","label_en": "Special submissions (विशेष निवेदन)", "label_hi": "विशेष निवेदन",            "type": "longtext", "required": False, "section": "grounds", "hint": "Affirmative defence — e.g. already paying maintenance in another case, willing to keep applicant, applicant left voluntarily"},
+        {"key": "advocate_name",     "label_en": "Advocate name(s)",               "label_hi": "अधिवक्ता का नाम",             "type": "name",     "required": True,  "section": "filing"},
+        {"key": "filing_date",       "label_en": "Date",                           "label_hi": "दिनांक",                      "type": "date",     "required": True,  "section": "filing"},
+    ],
+    "format_spec": (
+        "Generate a Hindi जबाव (para-wise reply / counter) to a pending application. Output Hindi "
+        "(Devanagari); add English only if asked. Plain text, no markdown. Map CrPC→BNSS if user gives "
+        "BNSS (e.g. §125 CrPC → §144 BNSS). Structure:\n"
+        "1. COURT HEADER (centred): 'न्यायालय माननीय <court_name>'.\n"
+        "2. 'प्रकरण क्रमांक- <case_no>'.\n"
+        "3. APPLICANT: '<applicant_name> आदि' then right-aligned '- आवेदकगण' (or '- आवेदक' if single).\n"
+        "4. 'बनाम' (centred).\n"
+        "5. RESPONDENT: '<respondent_name>' then right-aligned '-- अनावेदक'.\n"
+        "6. TITLE (centred): 'जबाव आवेदन पत्र अन्तर्गत धारा <application_section>'.\n"
+        "7. 'माननीय महोदय,' then 'अनावेदक की ओर से जबाव निम्न प्रकार प्रस्तुत है :-'.\n"
+        "8. BODY — numbered paragraphs EACH beginning 'यह कि' and addressing the corresponding "
+        "'पद क्रमांक- <N>' of the application (use <original_paras> for the numbering and "
+        "<defence_narrative> for the stance). Use the authentic register:\n"
+        "   • admit: 'पद क्रमांक- <N> में वर्णित तथ्य सही लिखा होने से स्वीकार है परन्तु <qualification>।'\n"
+        "   • deny: 'पद क्रमांक- <N> में वर्णित समस्त तथ्य मिथ्या व असत्य होने से पूरी तरह से अस्वीकार है। "
+        "<counter-narrative>।'\n"
+        "   • legal/no-reply: 'पद क्रमांक- <N> कानून का विषय होने से जबाव की आवश्यकता नहीं।'\n"
+        "   • the prayer para of the application: 'प्रार्थना मिथ्या होने से स्वीकार नहीं है।'\n"
+        "   Reply to EVERY numbered para of the application in order; never leave a para unanswered.\n"
+        "9. 'विशेष निवेदन :-' — additional 'यह कि' paragraphs of affirmative defence from "
+        "<special_submissions> (e.g. maintenance already ordered in another case, respondent willing "
+        "to keep the applicant, applicant left voluntarily with her belongings, respondent's actual "
+        "income/means).\n"
+        "10. PRAYER (begins 'अत:'): 'अत: निवेदन है कि अनावेदक का जबाव स्वीकार कर आवेदकगण द्वारा "
+        "प्रस्तुत आवेदन निरस्त करने की कृपा करें।'.\n"
+        "11. CLOSING: 'दिनांक:- <filing_date>' (left); right side 'प्रार्थी' + respondent name + "
+        "'-- अनावेदक', then 'द्वारा अभिभाषक' + advocate name(s) + 'एडवोकेट'.\n"
+        "Tone: measured, point-by-point, denies the applicant's narrative while asserting the "
+        "respondent's own version. Mirror the application's paragraph count exactly."
+    ),
+    "example_prompts": [
+        "125 का जबाव — पत्नी खुद मायके चली गई, अनावेदक रखने को तैयार, आय ₹5000/माह",
+        "Reply to §12 DV application — deny all allegations, no dowry demand, willing to cohabit",
+        "जबाव — claim petition में हर पद का खण्डन करना है",
+    ],
+}
+
+
+# ============================================================================
 # AGGREGATE — used by compose_templates.py to merge into TEMPLATES dict
 # ============================================================================
 
@@ -1222,4 +1448,8 @@ NEW_TEMPLATES_V2: dict[str, dict] = {
     HMA_9_RESTITUTION["id"]:          HMA_9_RESTITUTION,
     HMA_13_DIVORCE["id"]:             HMA_13_DIVORCE,
     GENERAL_AFFIDAVIT["id"]:          GENERAL_AFFIDAVIT,
+    # v2-ref — decoded from real filings (close the biggest catalogue gaps)
+    LEGAL_NOTICE["id"]:               LEGAL_NOTICE,
+    PRIVATE_COMPLAINT_200["id"]:      PRIVATE_COMPLAINT_200,
+    REPLY_APPLICATION["id"]:          REPLY_APPLICATION,
 }

@@ -35,23 +35,28 @@
     .mono { font-family:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,monospace; }
     a { color:inherit; }
 
-    /* ---------------- top bar ---------------- */
-    .top {
+    /* ---------------- top bar (matches the app's standalone pages) ------- */
+    .topbar {
       display:flex; align-items:center; justify-content:space-between;
-      padding:16px 22px; border-bottom:1px solid var(--line);
+      padding:12px 22px; border-bottom:1px solid var(--line);
       position:sticky; top:0; background:rgba(250,250,249,.86);
       backdrop-filter:saturate(180%) blur(10px); z-index:20;
     }
-    .top__brand { display:flex; align-items:center; gap:9px; text-decoration:none; }
-    .top__dot { width:9px; height:9px; border-radius:50%; background:var(--ink); }
-    .top__name { font-size:13px; font-weight:600; letter-spacing:.02em; }
-    .top__name span { color:var(--ink-3); font-weight:500; }
-    .top__cta {
-      font-size:12.5px; font-weight:500; text-decoration:none; color:var(--ink-2);
-      border:1px solid var(--line); padding:7px 13px; border-radius:100px;
-      transition:all .15s ease; white-space:nowrap;
+    .topbar__left { display:flex; align-items:center; gap:14px; min-width:0; }
+    .topbar__back {
+      display:inline-flex; align-items:center; justify-content:center;
+      width:34px; height:34px; flex:none; border-radius:50%;
+      color:var(--ink-2); text-decoration:none; font-size:18px; line-height:1;
+      border:1px solid var(--line); background:var(--surface);
+      transition:all .15s ease;
     }
-    .top__cta:hover { border-color:var(--ink); color:var(--ink); }
+    .topbar__back:hover { border-color:var(--ink); color:var(--ink); transform:translateX(-1px); }
+    .topbar__titles { min-width:0; }
+    .topbar__title { font-size:15px; font-weight:600; letter-spacing:-.01em; white-space:nowrap; }
+    .topbar__sub { font-size:12px; color:var(--ink-3); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .topbar__brand { display:inline-flex; align-items:center; gap:8px; text-decoration:none; flex:none; }
+    .topbar__dot { width:9px; height:9px; border-radius:50%; background:var(--ink); }
+    .topbar__name { font-size:13px; font-weight:600; letter-spacing:.02em; color:var(--ink-2); }
 
     .wrap { max-width:780px; margin:0 auto; padding:0 22px; }
 
@@ -156,9 +161,11 @@
     .dot--same { background:var(--ink-3); opacity:.4; }
     .dot--changed { background:var(--warn); }
     .dot--verify { background:transparent; border:1.5px solid var(--warn); }
+    .dot--new { background:var(--good); }
     .diff__v { padding:12px 16px; font-size:13px; color:var(--ink-2); border-left:1px solid var(--line-2); }
     .diff__v--new { color:var(--ink); font-weight:500; }
     .diff__v--changed { background:rgba(183,121,31,.05); }
+    .diff__v--newrow { background:rgba(45,106,45,.05); }
     .diffhdr { display:grid; grid-template-columns:130px 1fr 1fr; border-bottom:1px solid var(--line-2); background:var(--bg); }
     .diffhdr div { padding:9px 20px; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); font-weight:600; }
     .diffhdr div+div { border-left:1px solid var(--line-2); padding-left:16px; }
@@ -167,6 +174,10 @@
     .card__summary { padding:15px 20px; font-size:13.5px; color:var(--ink-2); border-top:1px solid var(--line-2); background:var(--bg); }
     .card__verify { padding:11px 20px; font-size:12px; color:var(--warn); background:var(--warn-soft); border-top:1px solid var(--line-2); display:flex; gap:8px; align-items:flex-start; }
     .card__verify svg { width:15px; height:15px; flex:none; margin-top:1px; }
+
+    /* why-no-table note (definitions / procedure / evidence) */
+    .card__context { display:flex; gap:10px; align-items:flex-start; padding:15px 20px; border-top:1px solid var(--line-2); background:var(--bg); font-size:13px; color:var(--ink-2); line-height:1.55; }
+    .card__context svg { width:16px; height:16px; flex:none; margin-top:1px; color:var(--ink-3); }
 
     /* secondary matches */
     .more { margin-top:26px; }
@@ -188,6 +199,9 @@
     .foot b { color:var(--ink-2); font-weight:600; }
 
     @media (max-width:600px) {
+      .topbar { padding:10px 14px; }
+      .topbar__sub { display:none; }
+      .topbar__name { display:none; }
       .hero { padding:34px 0 16px; }
       .hero h1 { font-size:26px; }
       .map { grid-template-columns:1fr; }
@@ -201,12 +215,18 @@
 </head>
 
 <body>
-  <header class="top">
-    <a href="/" class="top__brand">
-      <span class="top__dot"></span>
-      <span class="top__name">Headnote <span>· law converter</span></span>
+  <header class="topbar">
+    <div class="topbar__left">
+      <a href="/app" class="topbar__back" id="back" aria-label="Back to previous screen">←</a>
+      <div class="topbar__titles">
+        <div class="topbar__title">IPC → BNS · Section finder</div>
+        <div class="topbar__sub">Old code ↔ new code · in force since 1 Jul 2024</div>
+      </div>
+    </div>
+    <a href="/" class="topbar__brand" aria-label="Headnote home">
+      <span class="topbar__dot"></span>
+      <span class="topbar__name">Headnote</span>
     </a>
-    <a href="/app" class="top__cta">Open Headnote →</a>
   </header>
 
   <div class="wrap">
@@ -259,17 +279,21 @@
     return '<span class="badge badge--' + esc(t) + '">' + esc(map[t] || t) + "</span>";
   }
 
-  function renderDiff(diff) {
+  function renderDiff(diff, isNew) {
     if (!diff || !diff.length) return "";
     var rows = diff.map(function (d) {
+      var newCls = "diff__v diff__v--new";
+      if (d.status === "changed") newCls += " diff__v--changed";
+      else if (d.status === "new") newCls += " diff__v--newrow";
       return '<div class="diff__row">' +
         '<div class="diff__k"><span class="dot dot--' + esc(d.status) + '"></span>' + esc(d.label) + "</div>" +
         '<div class="diff__v">' + esc(d.old || "—") + "</div>" +
-        '<div class="diff__v diff__v--new' + (d.status === "changed" ? " diff__v--changed" : "") + '">' + esc(d.new || "—") + "</div>" +
+        '<div class="' + newCls + '">' + esc(d.new || "—") + "</div>" +
       "</div>";
     }).join("");
+    var oldHdr = isNew ? "No prior law" : "Old";
     return '<div class="diff">' +
-      '<div class="diffhdr"><div></div><div>Old</div><div>New</div></div>' +
+      '<div class="diffhdr"><div></div><div>' + oldHdr + '</div><div>New</div></div>' +
       rows + "</div>";
   }
 
@@ -308,6 +332,9 @@
     var changedStrip;
     if (omitted) {
       changedStrip = "";
+    } else if (r.kind === "new") {
+      changedStrip = '<div class="changed"><span class="changed__lead">New offence —</span>' +
+        '<span class="changed__none">no prior provision to compare; the classification below is under the new code.</span></div>';
     } else if (r.changed_fields && r.changed_fields.length) {
       changedStrip = '<div class="changed"><span class="changed__lead">What changed:</span>' +
         r.changed_fields.map(function (f) { return '<span class="cfield">' + esc(f) + "</span>"; }).join("") + "</div>";
@@ -317,6 +344,11 @@
       changedStrip = "";
     }
 
+    // why-no-table note, for cards that legitimately have no grid
+    var context = r.context_note
+      ? '<div class="card__context"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg><span>' + esc(r.context_note) + "</span></div>"
+      : "";
+
     var summary = r.summary ? '<div class="card__summary">' + esc(r.summary) + "</div>" : "";
     var verifyNote = r.confidence === "verify-classification"
       ? '<div class="card__verify"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>' +
@@ -325,7 +357,7 @@
 
     return '<div class="card">' +
       '<div class="card__top">' + topBits.join("") + "</div>" +
-      mapRow + changedStrip + renderDiff(r.diff) + summary + verifyNote + "</div>";
+      mapRow + changedStrip + context + renderDiff(r.diff, r.kind === "new") + summary + verifyNote + "</div>";
   }
 
   function renderMoreRow(r) {
@@ -418,6 +450,20 @@
     debounceT = setTimeout(function () { run(true); }, 220);
   });
   qEl.addEventListener("keydown", function (e) { if (e.key === "Enter") { clearTimeout(debounceT); run(true); } });
+
+  // Back arrow returns to the exact previous in-app screen when we arrived
+  // from one; direct (e.g. search-engine) visitors fall through to href="/app".
+  var backEl = document.getElementById("back");
+  if (backEl) {
+    backEl.addEventListener("click", function (e) {
+      try {
+        if (document.referrer && new URL(document.referrer).origin === location.origin && history.length > 1) {
+          e.preventDefault();
+          history.back();
+        }
+      } catch (_) {}
+    });
+  }
 
   // boot: read ?q= for shareable links
   var params = new URLSearchParams(location.search);

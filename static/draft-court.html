@@ -244,6 +244,25 @@
     border-color: var(--ink);
     color: #fff;
   }
+  /* Supreme Court "Soon" chip — always shown, dashed until it goes live */
+  .filter-chip--soon { border-style: dashed; color: var(--ink-4); }
+  .filter-chip--soon:hover { border-color: var(--gold); color: var(--gold-deep); }
+  .filter-chip--soon.active {
+    background: var(--gold-tint);
+    border-color: var(--gold);
+    border-style: solid;
+    color: var(--gold-deep);
+  }
+  .filter-chip__soon {
+    margin-left: 7px;
+    font-size: 9px; font-weight: 700;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--gold-deep);
+    background: var(--gold-tint);
+    border-radius: 100px;
+    padding: 1px 6px;
+  }
+  .filter-chip--soon.active .filter-chip__soon { background: #fff; }
 
   .procedural-rail {
     display: grid;
@@ -251,72 +270,172 @@
     gap: 10px;
   }
 
-  /* ─── Personal-assist CTA ─────────────────────────────────────── */
+  /* ─── "Need a different template?" 2-hour assist CTA ──────────── */
   .assist-cta {
-    background: #faf7ed;
-    border: 1px solid #ece3c8;
+    background: #fff;
+    border: 1px solid var(--line);
     border-left: 3px solid var(--gold);
-    border-radius: 14px;
-    padding: 26px 28px;
-    margin: 40px 0 0;
+    border-radius: 16px;
+    padding: 28px 30px;
+    margin: 48px 0 0;
   }
-  .assist-cta__head { margin-bottom: 16px; }
-  .assist-cta__eyebrow {
-    font-family: 'Geist Mono', monospace;
-    font-size: 11px; font-weight: 600;
-    letter-spacing: 0.14em; text-transform: uppercase;
+  .assist-cta__head {
+    display: flex; align-items: flex-start; gap: 16px;
+    margin-bottom: 18px; position: relative;
+  }
+  .assist-cta__icon {
+    flex-shrink: 0;
+    width: 42px; height: 42px; border-radius: 11px;
+    background: var(--gold-tint);
+    border: 1px solid #ece1c2;
+    display: flex; align-items: center; justify-content: center;
     color: var(--gold-deep);
-    margin-bottom: 6px;
+  }
+  .assist-cta__head-text { flex: 1; }
+  .assist-cta__eyebrow {
+    font-size: 11.5px; font-weight: 600;
+    letter-spacing: 0.05em; text-transform: uppercase;
+    color: var(--gold-deep);
+    margin-bottom: 5px;
   }
   .assist-cta__title {
-    font-size: 19px; font-weight: 600;
-    color: var(--ink); letter-spacing: -0.015em;
-    line-height: 1.3; margin-bottom: 6px;
+    font-size: 21px; font-weight: 600;
+    color: var(--ink); letter-spacing: -0.02em;
+    line-height: 1.25; margin-bottom: 7px;
   }
   .assist-cta__sub {
     font-size: 14px; line-height: 1.6;
-    color: var(--ink-3);
+    color: var(--ink-3); max-width: 580px;
   }
-  .assist-cta__form { margin-top: 14px; }
+  .assist-cta__sub strong { color: var(--ink-2); font-weight: 600; }
+  .assist-cta__form { margin-top: 4px; position: relative; }
   .assist-cta__input {
-    width: 100%; padding: 12px 14px;
-    border: 1px solid #ddd5b8;
-    background: #fffdf6;
-    border-radius: 10px;
+    width: 100%; padding: 13px 15px;
+    border: 1px solid var(--line);
+    background: #fcfbf6;
+    border-radius: 12px;
     font-family: inherit; font-size: 14px;
-    color: var(--ink); line-height: 1.5;
-    resize: vertical; min-height: 78px;
-    transition: border-color 0.15s, background 0.15s;
+    color: var(--ink); line-height: 1.55;
+    resize: vertical; min-height: 82px;
+    transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
   }
-  .assist-cta__input:focus { outline: none; border-color: var(--gold); background: #fff; }
+  .assist-cta__input:focus {
+    outline: none; border-color: var(--gold); background: #fff;
+    box-shadow: 0 0 0 4px rgba(201,169,110,0.16);
+  }
   .assist-cta__input::placeholder { color: #b5ad95; }
   .assist-cta__row {
     display: flex; align-items: center; justify-content: space-between;
-    gap: 12px; margin-top: 10px; flex-wrap: wrap;
+    gap: 14px; margin-top: 14px; flex-wrap: wrap;
   }
   .assist-cta__sla {
-    font-family: 'Geist Mono', monospace; font-size: 11.5px;
-    color: var(--gold-deep); letter-spacing: 0.04em;
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 12.5px; font-weight: 500;
+    color: var(--gold-deep);
   }
+  .assist-cta__sla svg { opacity: 0.85; flex-shrink: 0; }
   .assist-cta__submit {
-    padding: 10px 20px; background: var(--ink); color: #fff;
-    border: 1px solid var(--ink); border-radius: 8px;
-    font-family: inherit; font-size: 13px; font-weight: 600;
-    cursor: pointer; transition: background 0.12s, transform 0.08s;
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 12px 22px;
+    background: var(--ink);
+    color: #fff; border: 1px solid var(--ink); border-radius: 9px;
+    font-family: inherit; font-size: 13.5px; font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.1s, background 0.15s, opacity 0.15s;
   }
-  .assist-cta__submit:hover:not(:disabled) { background: #1f1f1c; transform: translateY(-1px); }
+  .assist-cta__submit:hover:not(:disabled) {
+    transform: translateY(-1px);
+    background: #1f1f1c;
+  }
+  .assist-cta__submit:active:not(:disabled) { transform: translateY(0); }
   .assist-cta__submit:disabled { opacity: 0.6; cursor: wait; }
-  .assist-cta--sent { background: #f0f7ea; border-color: #cfe0b8; border-left-color: #6b9237; }
+
+  /* Success state — warm celebratory confirmation */
+  .assist-cta--sent {
+    background: #f3f8ec;
+    border-color: #cfe0b8;
+    border-left: 3px solid #6b9237;
+  }
   .assist-cta__done { display: flex; align-items: center; gap: 16px; }
   .assist-cta__done-icon {
-    flex-shrink: 0; width: 36px; height: 36px;
-    border-radius: 50%; background: #6b9237; color: #fff;
+    flex-shrink: 0; width: 42px; height: 42px; border-radius: 11px;
+    background: #6b9237;
+    color: #fff;
     display: flex; align-items: center; justify-content: center;
-    font-size: 19px; font-weight: 700;
+    animation: assist-pop 0.42s cubic-bezier(0.34,1.56,0.64,1);
   }
-  .assist-cta__done-msg {
-    font-size: 15px; font-weight: 500; color: #2f4d12; line-height: 1.4;
+  @keyframes assist-pop {
+    0% { transform: scale(0.4); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
   }
+  .assist-cta__done-text { flex: 1; }
+  .assist-cta__done-title {
+    font-size: 16px; font-weight: 600; color: #2f4d12;
+    line-height: 1.3; margin-bottom: 2px;
+  }
+  .assist-cta__done-sub { font-size: 13px; color: #4d6b2b; line-height: 1.45; }
+
+  /* ─── Supreme Court coming-soon hero ──────────────────────────── */
+  .sc-soon {
+    position: relative; overflow: hidden;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 36px 36px 34px;
+    margin-bottom: 12px;
+  }
+  .sc-soon__badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: #fff; border: 1px solid #ecdfba;
+    color: var(--gold-deep);
+    font-size: 11px; font-weight: 600;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 6px 13px; border-radius: 100px;
+    margin-bottom: 18px; position: relative;
+  }
+  .sc-soon__badge-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--gold);
+    box-shadow: 0 0 0 3px rgba(201,169,110,0.25);
+  }
+  .sc-soon__title {
+    font-size: clamp(22px, 3vw, 30px);
+    font-weight: 600; letter-spacing: -0.02em;
+    line-height: 1.15; color: var(--ink);
+    max-width: 620px; position: relative;
+  }
+  .sc-soon__hi {
+    font-family: 'Noto Sans Devanagari', sans-serif;
+    font-size: 15px; color: var(--gold-deep);
+    margin-top: 8px; font-weight: 500;
+  }
+  .sc-soon__body {
+    font-size: 14.5px; line-height: 1.65;
+    color: var(--ink-3); margin-top: 16px;
+    max-width: 580px; position: relative;
+  }
+  .sc-soon__list {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin-top: 20px; position: relative;
+  }
+  .sc-soon__pill {
+    background: rgba(255,255,255,0.72);
+    border: 1px solid #ecdfba;
+    border-radius: 100px;
+    padding: 6px 13px;
+    font-size: 12.5px; color: var(--ink-2); font-weight: 500;
+  }
+  .sc-soon__cta {
+    display: inline-flex; align-items: center; gap: 8px;
+    margin-top: 26px;
+    background: var(--ink); color: #fff;
+    border: none; border-radius: 10px;
+    padding: 12px 20px;
+    font-family: inherit; font-size: 13.5px; font-weight: 600;
+    cursor: pointer; position: relative;
+    transition: transform 0.12s, background 0.12s;
+  }
+  .sc-soon__cta:hover { transform: translateY(-1px); background: #1f1f1c; }
   .pr-tile {
     background: #faf8f3;
     border: 1px solid #ece6d3;
@@ -360,6 +479,31 @@
   <!-- Court filter chips — rendered by JS once courts are loaded -->
   <div class="filter-strip" id="filter-strip"></div>
 
+  <!-- Supreme Court coming-soon hero — shown only when the SC filter is active -->
+  <div id="sc-soon" hidden>
+    <div class="sc-soon">
+      <div class="sc-soon__badge">
+        <span class="sc-soon__badge-dot"></span>
+        Supreme Court · Coming soon
+      </div>
+      <div class="sc-soon__title">Supreme Court drafting is on its way.</div>
+      <div class="sc-soon__hi">उच्चतम न्यायालय के प्रारूप जल्द ही आ रहे हैं</div>
+      <div class="sc-soon__body">
+        We're building Supreme Court formats with the same fidelity as our High Court templates — real cause titles, the correct paragraph structure, and Hindi + English side by side. No guesswork, no hallucinated formats.
+      </div>
+      <div class="sc-soon__list">
+        <span class="sc-soon__pill">SLP (Criminal)</span>
+        <span class="sc-soon__pill">Criminal Appeal</span>
+        <span class="sc-soon__pill">Bail via SLP</span>
+        <span class="sc-soon__pill">Transfer Petition</span>
+      </div>
+      <button class="sc-soon__cta" id="sc-soon-cta" type="button">
+        Browse High Court templates
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </button>
+    </div>
+  </div>
+
   <div id="popular-section" hidden>
     <div class="section-label">Most filed</div>
     <div class="grid" id="popular-grid"></div>
@@ -396,6 +540,12 @@ function getInitialCourt() {
 let _allCourts = [];   // full response from /api/draft/courts
 let _activeCourt = 'all';
 
+// Supreme Court drafting is not launched yet. The backend registry already
+// carries a few SC scaffolds, so we can't infer "coming soon" from the data —
+// this flag is the single switch that keeps the SC chip showing a "Soon" pill
+// and routes the SC tab to the coming-soon hero. Flip to true when SC is live.
+const SC_LIVE = false;
+
 // Chip display names (English, short)
 const CHIP_LABELS = {
   all:         'All templates',
@@ -418,12 +568,18 @@ async function load() {
     const strip = document.getElementById('filter-strip');
     const courtOrder = ['all', 'sc', 'hc', 'sessions', 'magistrate', 'family', 'procedural'];
     const availableIds = new Set(_allCourts.map(c => c.id));
+    // 'all' and 'sc' always render: 'sc' shows a "Soon" pill until the
+    // backend serves Supreme Court templates, so the roadmap is visible.
+    const ALWAYS_SHOW = new Set(['all', 'sc']);
     courtOrder.forEach(id => {
-      if (id !== 'all' && !availableIds.has(id)) return;
+      if (!ALWAYS_SHOW.has(id) && !availableIds.has(id)) return;
       const btn = document.createElement('button');
       btn.className = 'filter-chip';
       btn.dataset.court = id;
-      btn.textContent = CHIP_LABELS[id] || id;
+      const isSoon = (id === 'sc' && !SC_LIVE);
+      if (isSoon) btn.classList.add('filter-chip--soon');
+      btn.innerHTML = esc(CHIP_LABELS[id] || id)
+        + (isSoon ? ' <span class="filter-chip__soon">Soon</span>' : '');
       btn.addEventListener('click', () => setFilter(id));
       strip.appendChild(btn);
     });
@@ -452,6 +608,21 @@ function renderFilter(courtId) {
   document.querySelectorAll('.filter-chip').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.court === courtId);
   });
+
+  // Supreme Court: dedicated coming-soon hero until SC_LIVE is flipped on.
+  // Signals roadmap rather than a dead "no templates" state.
+  const scSoonSec = document.getElementById('sc-soon');
+  if (courtId === 'sc' && !SC_LIVE) {
+    if (scSoonSec) scSoonSec.hidden = false;
+    document.getElementById('popular-section').hidden = true;
+    document.getElementById('all-section').hidden = true;
+    document.getElementById('empty-state').hidden = true;
+    document.getElementById('court-count').textContent = 'Launching soon';
+    document.getElementById('crumb-court').textContent = 'supreme court';
+    document.title = 'Supreme Court (coming soon) — Drafting — Headnote';
+    return;
+  }
+  if (scSoonSec) scSoonSec.hidden = true;
 
   // Collect templates to show
   let templates = [];
@@ -552,16 +723,27 @@ function renderDraftAssistCta() {
   host.innerHTML = `
     <div class="assist-cta" id="assist-cta-block">
       <div class="assist-cta__head">
-        <div class="assist-cta__eyebrow">Need a different template?</div>
-        <div class="assist-cta__title">Tell us — we'll upload it within 2 hours.</div>
-        <div class="assist-cta__sub">Free for paid users. Drop the template name + a one-line use case. Goes straight to the founder, not a queue.</div>
+        <div class="assist-cta__icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        </div>
+        <div class="assist-cta__head-text">
+          <div class="assist-cta__eyebrow">Can't find your template?</div>
+          <div class="assist-cta__title">Tell us — it's live within 2 hours.</div>
+          <div class="assist-cta__sub">Free for paying members. Drop the template name and a one-line use case. It goes <strong>straight to the founder</strong> — no ticket queue, no bot.</div>
+        </div>
       </div>
       <div class="assist-cta__form">
         <textarea class="assist-cta__input" id="assist-input" rows="3"
-          placeholder="e.g. 'POCSO bail at Sessions Court — need MP HC format with parity table'"></textarea>
+          placeholder="e.g. 'POCSO bail at Sessions Court — need the MP HC format with a parity table'"></textarea>
         <div class="assist-cta__row">
-          <span class="assist-cta__sla">⏱ 2-hour SLA · permanent upload</span>
-          <button class="assist-cta__submit" id="assist-submit">Send request</button>
+          <span class="assist-cta__sla">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>
+            Within 2 hours · added permanently to your library
+          </span>
+          <button class="assist-cta__submit" id="assist-submit" type="button">
+            Send request
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </button>
         </div>
       </div>
     </div>
@@ -596,8 +778,13 @@ function renderDraftAssistCta() {
       block.classList.add('assist-cta--sent');
       block.innerHTML = `
         <div class="assist-cta__done">
-          <div class="assist-cta__done-icon">✓</div>
-          <div class="assist-cta__done-msg">Got it — we'll have it live within 2 hours.</div>
+          <div class="assist-cta__done-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div class="assist-cta__done-text">
+            <div class="assist-cta__done-title">Got it — we're on it.</div>
+            <div class="assist-cta__done-sub">Your template will be live in your library within 2 hours.</div>
+          </div>
         </div>
       `;
     } catch (e) {
@@ -608,7 +795,16 @@ function renderDraftAssistCta() {
   });
 }
 
-load().then(() => renderDraftAssistCta());
+load().then(() => {
+  renderDraftAssistCta();
+  // SC hero "Browse High Court templates" → jump to HC (or all) filter.
+  const scCta = document.getElementById('sc-soon-cta');
+  if (scCta) scCta.addEventListener('click', () => {
+    const hasHc = _allCourts.some(c => c.id === 'hc' && (c.templates || []).length);
+    setFilter(hasHc ? 'hc' : 'all');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+});
 </script>
 </body>
 </html>

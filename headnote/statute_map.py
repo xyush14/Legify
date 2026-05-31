@@ -133,6 +133,14 @@ def _extract_section(q: str) -> str | None:
     return (m.group(1) + (m.group(2) or "")).lower()
 
 
+def _subsection(s: str | None) -> str:
+    """Parenthesised sub-section, lower-cased: '103(2)'→'2', '23(2) proviso'
+    →'2', '304A'→''. Used only as a tie-breaker so 'BNS 103(2)' (mob lynching)
+    is not swallowed by 'BNS 103(1)' (murder)."""
+    m = re.search(r"\(\s*(\d+[A-Za-z]?)\s*\)", str(s or ""))
+    return m.group(1).lower() if m else ""
+
+
 def _name_tokens(q: str) -> list[str]:
     """Lower-cased word tokens for offence-name search, minus stopwords,
     pure numbers, and code tokens."""
@@ -140,8 +148,9 @@ def _name_tokens(q: str) -> list[str]:
     return [t for t in toks if t not in _STOPWORDS and len(t) > 1]
 
 
-def _struct_score(entry: dict, sec: str, code: str | None) -> int:
-    """Score a candidate on section-number match (+ code agreement)."""
+def _struct_score(entry: dict, sec: str, code: str | None, sub: str = "") -> int:
+    """Score a candidate on section-number match (+ code agreement, + an exact
+    sub-section tie-break)."""
     old = entry.get("old") or {}
     new = entry.get("new") or {}
     old_base = _section_base(old.get("section"))
@@ -162,6 +171,15 @@ def _struct_score(entry: dict, sec: str, code: str | None) -> int:
             s += 40
         elif code in _NEW_CODES and code != new_c:
             s -= 70
+
+    # Sub-section tie-break: 'BNS 103(2)' should win over 'BNS 103(1)'.
+    if sub and (sec == old_base or sec == new_base):
+        subs = {_subsection(new.get("section")), _subsection(old.get("section"))}
+        subs.discard("")
+        if sub in subs:
+            s += 20
+        elif subs:
+            s -= 12            # entry carries a different explicit sub-section
     return s
 
 
@@ -188,10 +206,43 @@ def _name_score(entry: dict, tokens: list[str]) -> int:
     return s
 
 
+# In-card explanations for entries that legitimately carry no offence-
+# classification grid — so a missing table reads as intentional, not broken.
+_CONTEXT_NOTES = {
+    "procedure": ("Procedural provision — it governs criminal process "
+                  "(investigation, arrest, bail, trial), not an offence, so the "
+                  "cognizable / bailable / triable-by grid does not apply."),
+    "evidence": ("Rule of evidence — it governs what is admissible and how facts "
+                 "are proved, not an offence, so there is no punishment or bail "
+                 "classification."),
+    "definition": ("Definition / general clause — it defines a term or principle "
+                   "used across the code and carries no punishment or trial "
+                   "classification of its own. The section that punishes it has "
+                   "the grid."),
+}
+
+
+def _classify(entry: dict, has_grid: bool) -> tuple[str, str]:
+    """Decide a card 'kind' and, where no offence grid applies, an in-card note
+    explaining the absence honestly rather than leaving a blank card."""
+    if entry.get("change_type") == "omitted":
+        return "omitted", ""           # map row + summary already explain it
+    if has_grid:
+        return ("new" if entry.get("change_type") == "new" else "offence"), ""
+    domain = entry.get("domain")
+    if domain == "procedure":
+        return "procedure", _CONTEXT_NOTES["procedure"]
+    if domain == "evidence":
+        return "evidence", _CONTEXT_NOTES["evidence"]
+    return "definition", _CONTEXT_NOTES["definition"]
+
+
 def _augment(entry: dict) -> dict:
-    """Project a raw entry into the API shape: per-field diff + a list of the
-    fields that materially changed."""
+    """Project a raw entry into the API shape: per-field diff, the fields that
+    materially changed, and a 'kind' + context note that lets the UI explain why
+    a card has no comparison grid."""
     data = entry.get("data") or {}
+    is_new = entry.get("change_type") == "new"
     diff = []
     changed = []
     for key, label in _FIELD_LABELS:
@@ -204,6 +255,8 @@ def _augment(entry: dict) -> dict:
             continue
         if not new_v or new_v.lower() == "verify":
             status = "verify"
+        elif is_new and not old_v:
+            status = "new"             # brand-new offence — nothing to compare
         elif old_v.lower() == new_v.lower():
             status = "same"
         else:
@@ -215,6 +268,7 @@ def _augment(entry: dict) -> dict:
         })
 
     new = entry.get("new") or {}
+    kind, context_note = _classify(entry, bool(diff))
     return {
         "id": entry.get("id"),
         "domain": entry.get("domain"),
@@ -228,6 +282,8 @@ def _augment(entry: dict) -> dict:
         "tags": entry.get("tags", []),
         "diff": diff,
         "changed_fields": changed,
+        "kind": kind,
+        "context_note": context_note,
     }
 
 
@@ -250,13 +306,14 @@ def lookup(raw_query: str, limit: int = 8) -> dict:
     q = raw.translate(_HINDI_DIGITS)
     code = _detect_code(q)
     sec = _extract_section(q)
+    sub = _subsection(q)
     tokens = _name_tokens(q)
 
     scored = []
     for entry in _mappings():
         s = 0
         if sec:
-            s += _struct_score(entry, sec, code)
+            s += _struct_score(entry, sec, code, sub)
         s += _name_score(entry, tokens)
         if s > 0:
             scored.append((s, entry))
