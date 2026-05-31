@@ -179,6 +179,12 @@
     .card__context { display:flex; gap:10px; align-items:flex-start; padding:15px 20px; border-top:1px solid var(--line-2); background:var(--bg); font-size:13px; color:var(--ink-2); line-height:1.55; }
     .card__context svg { width:16px; height:16px; flex:none; margin-top:1px; color:var(--ink-3); }
 
+    /* punishment grid borrowed from the section that punishes this definition */
+    .borrowed { padding:13px 20px; border-top:1px solid var(--line-2); background:var(--bg); display:flex; gap:8px; align-items:baseline; flex-wrap:wrap; }
+    .borrowed__lead { font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); font-weight:600; }
+    .borrowed__txt { font-size:13px; color:var(--ink-2); line-height:1.55; }
+    .borrowed strong { color:var(--ink); font-weight:600; }
+
     /* secondary matches */
     .more { margin-top:26px; }
     .more__label { font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); font-weight:600; margin-bottom:10px; }
@@ -349,6 +355,13 @@
       ? '<div class="card__context"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg><span>' + esc(r.context_note) + "</span></div>"
       : "";
 
+    // this section only defines the offence; the grid below is borrowed from
+    // the sibling that actually carries the punishment
+    var punishFrom = r.punishment_from
+      ? '<div class="borrowed"><span class="borrowed__lead">Punishment</span>' +
+        '<span class="borrowed__txt">This section defines the offence — the grid below is the punishment under <strong>' + esc(r.punishment_from.new) + "</strong>.</span></div>"
+      : "";
+
     var summary = r.summary ? '<div class="card__summary">' + esc(r.summary) + "</div>" : "";
     var verifyNote = r.confidence === "verify-classification"
       ? '<div class="card__verify"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>' +
@@ -357,7 +370,7 @@
 
     return '<div class="card">' +
       '<div class="card__top">' + topBits.join("") + "</div>" +
-      mapRow + changedStrip + context + renderDiff(r.diff, r.kind === "new") + summary + verifyNote + "</div>";
+      mapRow + changedStrip + context + punishFrom + renderDiff(r.diff, r.kind === "new") + summary + verifyNote + "</div>";
   }
 
   function renderMoreRow(r) {

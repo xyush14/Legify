@@ -75,6 +75,12 @@ def _mappings() -> list[dict]:
     return _load().get("mappings", [])
 
 
+@functools.lru_cache(maxsize=1)
+def _by_id() -> dict:
+    """id → entry index, for resolving a definition's `punished_by` sibling."""
+    return {e["id"]: e for e in _mappings() if e.get("id")}
+
+
 def _norm_code(code: str | None) -> str:
     """Collapse any code spelling to a canonical token (order matters:
     bnss before bns; 'Evidence Act'/'IEA' → evidence; 'Sakshya' → bsa)."""
@@ -242,6 +248,21 @@ def _augment(entry: dict) -> dict:
     materially changed, and a 'kind' + context note that lets the UI explain why
     a card has no comparison grid."""
     data = entry.get("data") or {}
+    # A definition / general clause carries no punishment of its own, but the
+    # section that punishes it does. Borrow that sibling's grid so a lookup of
+    # the famous number (IPC 375 rape, 300 murder, 415 cheating) still shows the
+    # punishment — labelled with where it actually lives — instead of a bare
+    # "this is only a definition" note.
+    punishment_from = None
+    if not data:
+        sib = _by_id().get(entry.get("punished_by"))
+        if sib and sib.get("data"):
+            data = sib["data"]
+            so, sn = sib.get("old") or {}, sib.get("new") or {}
+            punishment_from = {
+                "old": f"{so.get('code', '')} {so.get('section', '')}".strip(),
+                "new": f"{sn.get('code', '')} {sn.get('section', '')}".strip(),
+            }
     is_new = entry.get("change_type") == "new"
     diff = []
     changed = []
@@ -284,6 +305,7 @@ def _augment(entry: dict) -> dict:
         "changed_fields": changed,
         "kind": kind,
         "context_note": context_note,
+        "punishment_from": punishment_from,
     }
 
 
