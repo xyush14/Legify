@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#fafaf9" />
+  <meta name="description" content="Free IPC→BNS, CrPC→BNSS and Evidence→BSA section finder. Enter any old or new section and instantly see the mapping, punishment, cognizability, bailability, trial court — and exactly what changed under the 2024 criminal law codes." />
+  <script>if(location.protocol==='http:'&&location.hostname!=='localhost'&&!location.hostname.startsWith('127.')){location.replace(location.href.replace(/^http:/,'https:'));}</script>
+  <title>IPC → BNS Section Finder · Headnote</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+
+  <style>
+    :root {
+      --bg:#fafaf9; --surface:#ffffff;
+      --ink:#0c0c0a; --ink-2:#4b4b48; --ink-3:#8a8a82;
+      --line:#e8e6e0; --line-2:#f1efea;
+      --accent:#d4ff3a;
+      --warn:#b7791f; --warn-soft:#fbf3e2;
+      --bad:#9b2c2c;  --bad-soft:#f8ecec;
+      --good:#2d6a2d; --good-soft:#ecf3ec;
+      --radius:8px; --radius-lg:12px;
+      --shadow:0 1px 2px rgba(0,0,0,.04), 0 8px 30px rgba(0,0,0,.05);
+    }
+    * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    html,body { margin:0; padding:0; }
+    body {
+      font-family:'Geist',-apple-system,BlinkMacSystemFont,'Inter',sans-serif;
+      background:var(--bg); color:var(--ink);
+      -webkit-font-smoothing:antialiased; line-height:1.5;
+    }
+    .mono { font-family:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,monospace; }
+    a { color:inherit; }
+
+    /* ---------------- top bar ---------------- */
+    .top {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:16px 22px; border-bottom:1px solid var(--line);
+      position:sticky; top:0; background:rgba(250,250,249,.86);
+      backdrop-filter:saturate(180%) blur(10px); z-index:20;
+    }
+    .top__brand { display:flex; align-items:center; gap:9px; text-decoration:none; }
+    .top__dot { width:9px; height:9px; border-radius:50%; background:var(--ink); }
+    .top__name { font-size:13px; font-weight:600; letter-spacing:.02em; }
+    .top__name span { color:var(--ink-3); font-weight:500; }
+    .top__cta {
+      font-size:12.5px; font-weight:500; text-decoration:none; color:var(--ink-2);
+      border:1px solid var(--line); padding:7px 13px; border-radius:100px;
+      transition:all .15s ease; white-space:nowrap;
+    }
+    .top__cta:hover { border-color:var(--ink); color:var(--ink); }
+
+    .wrap { max-width:780px; margin:0 auto; padding:0 22px; }
+
+    /* ---------------- hero ---------------- */
+    .hero { padding:48px 0 22px; }
+    .hero h1 {
+      font-size:34px; line-height:1.12; font-weight:600; letter-spacing:-.02em;
+      margin:0 0 12px;
+    }
+    .hero h1 b { font-weight:600; border-bottom:3px solid var(--accent); }
+    .hero p { font-size:15.5px; color:var(--ink-2); margin:0; max-width:60ch; }
+    .hero .asof {
+      display:inline-flex; align-items:center; gap:7px; margin-top:14px;
+      font-size:12px; color:var(--ink-3); font-weight:500;
+    }
+    .hero .asof::before { content:""; width:6px; height:6px; border-radius:50%; background:var(--good); }
+
+    /* ---------------- search ---------------- */
+    .searchbar {
+      position:relative; margin-top:26px;
+    }
+    .searchbar svg { position:absolute; left:18px; top:50%; transform:translateY(-50%); width:20px; height:20px; color:var(--ink-3); pointer-events:none; }
+    #q {
+      width:100%; font-family:inherit; font-size:18px; color:var(--ink);
+      background:var(--surface); border:1.5px solid var(--line);
+      border-radius:var(--radius-lg); padding:18px 18px 18px 50px;
+      box-shadow:var(--shadow); transition:border-color .15s ease, box-shadow .15s ease;
+    }
+    #q::placeholder { color:var(--ink-3); }
+    #q:focus { outline:none; border-color:var(--ink); box-shadow:0 0 0 4px rgba(212,255,58,.35); }
+    .hint { margin-top:10px; font-size:12.5px; color:var(--ink-3); }
+    .hint b { color:var(--ink-2); font-weight:500; }
+
+    /* ---------------- chips ---------------- */
+    .chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:18px; }
+    .chip {
+      font-size:12.5px; font-weight:500; color:var(--ink-2);
+      background:var(--surface); border:1px solid var(--line);
+      padding:8px 13px; border-radius:100px; cursor:pointer;
+      transition:all .14s ease; font-family:inherit;
+    }
+    .chip:hover { border-color:var(--ink); color:var(--ink); transform:translateY(-1px); }
+    .chips__label { font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); width:100%; margin-bottom:2px; font-weight:600; }
+
+    /* ---------------- results ---------------- */
+    #results { padding:8px 0 60px; }
+    .status-line { font-size:12.5px; color:var(--ink-3); margin:22px 0 12px; }
+
+    /* disambiguation */
+    .didyoumean { margin:18px 0 22px; padding:16px 18px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg); }
+    .didyoumean__title { font-size:12px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-3); margin-bottom:11px; }
+    .dym-pill {
+      display:flex; align-items:center; gap:10px; width:100%; text-align:left;
+      font-family:inherit; font-size:14px; color:var(--ink);
+      background:var(--bg); border:1px solid var(--line); border-radius:var(--radius);
+      padding:11px 13px; margin-bottom:8px; cursor:pointer; transition:all .14s ease;
+    }
+    .dym-pill:last-child { margin-bottom:0; }
+    .dym-pill:hover { border-color:var(--ink); }
+    .dym-pill .code { font-weight:600; }
+    .dym-pill .ttl { color:var(--ink-2); font-size:13px; }
+    .dym-pill .dom { margin-left:auto; font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3); }
+
+    /* primary card */
+    .card { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg); box-shadow:var(--shadow); overflow:hidden; margin-bottom:18px; }
+    .card__top { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:15px 20px; border-bottom:1px solid var(--line-2); }
+    .badge { font-size:11px; font-weight:600; letter-spacing:.03em; padding:4px 9px; border-radius:100px; text-transform:uppercase; }
+    .badge--renumbered { background:var(--line-2); color:var(--ink-2); }
+    .badge--substantive { background:var(--warn-soft); color:var(--warn); }
+    .badge--new { background:var(--good-soft); color:var(--good); }
+    .badge--omitted { background:var(--bad-soft); color:var(--bad); }
+    .badge--material { background:var(--ink); color:#fff; }
+    .badge--verify { background:transparent; color:var(--warn); border:1px solid var(--warn); }
+    .badge__conf-high { margin-left:auto; font-size:11px; font-weight:500; color:var(--ink-3); display:inline-flex; align-items:center; gap:6px; }
+    .badge__conf-high::before { content:""; width:6px; height:6px; border-radius:50%; background:var(--good); }
+
+    /* the mapping row */
+    .map { display:grid; grid-template-columns:1fr auto 1fr; align-items:stretch; }
+    .map__side { padding:22px 20px; }
+    .map__side--new { background:linear-gradient(180deg, rgba(212,255,58,.06), transparent); }
+    .map__tag { font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3); font-weight:600; margin-bottom:8px; }
+    .map__code { font-size:13px; font-weight:600; color:var(--ink-2); margin-bottom:2px; }
+    .map__sec { font-size:30px; font-weight:600; letter-spacing:-.02em; line-height:1.05; }
+    .map__sec small { font-size:16px; color:var(--ink-3); font-weight:500; }
+    .map__title { font-size:13.5px; color:var(--ink-2); margin-top:7px; }
+    .map__arrow { display:flex; align-items:center; justify-content:center; padding:0 6px; color:var(--ink-3); border-left:1px solid var(--line-2); border-right:1px solid var(--line-2); background:var(--bg); }
+    .map__arrow svg { width:22px; height:22px; }
+    .map__side--omitted .map__sec { color:var(--bad); font-size:18px; }
+
+    /* what changed */
+    .changed { padding:14px 20px; border-top:1px solid var(--line-2); display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+    .changed__lead { font-size:12.5px; font-weight:600; color:var(--ink); margin-right:2px; }
+    .changed__none { font-size:13px; color:var(--ink-2); }
+    .cfield { font-size:11.5px; font-weight:500; color:var(--warn); background:var(--warn-soft); padding:4px 9px; border-radius:100px; }
+
+    /* diff table */
+    .diff { border-top:1px solid var(--line-2); }
+    .diff__row { display:grid; grid-template-columns:130px 1fr 1fr; gap:0; border-bottom:1px solid var(--line-2); }
+    .diff__row:last-child { border-bottom:none; }
+    .diff__k { padding:12px 20px; font-size:12.5px; font-weight:500; color:var(--ink-3); display:flex; align-items:center; gap:8px; }
+    .diff__k .dot { width:7px; height:7px; border-radius:50%; flex:none; }
+    .dot--same { background:var(--ink-3); opacity:.4; }
+    .dot--changed { background:var(--warn); }
+    .dot--verify { background:transparent; border:1.5px solid var(--warn); }
+    .diff__v { padding:12px 16px; font-size:13px; color:var(--ink-2); border-left:1px solid var(--line-2); }
+    .diff__v--new { color:var(--ink); font-weight:500; }
+    .diff__v--changed { background:rgba(183,121,31,.05); }
+    .diffhdr { display:grid; grid-template-columns:130px 1fr 1fr; border-bottom:1px solid var(--line-2); background:var(--bg); }
+    .diffhdr div { padding:9px 20px; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); font-weight:600; }
+    .diffhdr div+div { border-left:1px solid var(--line-2); padding-left:16px; }
+
+    /* summary + footnote on card */
+    .card__summary { padding:15px 20px; font-size:13.5px; color:var(--ink-2); border-top:1px solid var(--line-2); background:var(--bg); }
+    .card__verify { padding:11px 20px; font-size:12px; color:var(--warn); background:var(--warn-soft); border-top:1px solid var(--line-2); display:flex; gap:8px; align-items:flex-start; }
+    .card__verify svg { width:15px; height:15px; flex:none; margin-top:1px; }
+
+    /* secondary matches */
+    .more { margin-top:26px; }
+    .more__label { font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); font-weight:600; margin-bottom:10px; }
+    .mrow { display:flex; align-items:center; gap:12px; width:100%; text-align:left; font-family:inherit; padding:12px 14px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); margin-bottom:8px; cursor:pointer; transition:all .14s ease; }
+    .mrow:hover { border-color:var(--ink); }
+    .mrow__map { font-size:13.5px; font-weight:600; white-space:nowrap; }
+    .mrow__map span { color:var(--ink-3); font-weight:400; }
+    .mrow__ttl { font-size:13px; color:var(--ink-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .mrow__chg { margin-left:auto; font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; font-weight:600; color:var(--ink-3); white-space:nowrap; }
+
+    /* empty / no-result */
+    .empty { padding:30px 0; }
+    .noresult { padding:40px 0; text-align:center; color:var(--ink-3); }
+    .noresult b { color:var(--ink-2); font-weight:500; }
+
+    /* footnote */
+    .foot { border-top:1px solid var(--line); padding:24px 0 50px; font-size:12px; color:var(--ink-3); line-height:1.6; }
+    .foot b { color:var(--ink-2); font-weight:600; }
+
+    @media (max-width:600px) {
+      .hero { padding:34px 0 16px; }
+      .hero h1 { font-size:26px; }
+      .map { grid-template-columns:1fr; }
+      .map__arrow { border:none; border-top:1px solid var(--line-2); border-bottom:1px solid var(--line-2); padding:6px 0; }
+      .map__arrow svg { transform:rotate(90deg); }
+      .diff__row, .diffhdr { grid-template-columns:96px 1fr 1fr; }
+      .diff__k, .diffhdr div { padding-left:13px; padding-right:8px; }
+      .diff__v { padding-left:11px; }
+    }
+  </style>
+</head>
+
+<body>
+  <header class="top">
+    <a href="/" class="top__brand">
+      <span class="top__dot"></span>
+      <span class="top__name">Headnote <span>· law converter</span></span>
+    </a>
+    <a href="/app" class="top__cta">Open Headnote →</a>
+  </header>
+
+  <div class="wrap">
+    <section class="hero">
+      <h1>New code, new number.<br><b>Find it instantly.</b></h1>
+      <p>Type any IPC, CrPC or Evidence Act section — or the new BNS, BNSS or BSA number — and see the mapping, punishment, bailability, trial court, and exactly what changed.</p>
+      <div class="asof">In force since 1 July 2024 · IPC→BNS · CrPC→BNSS · Evidence→BSA</div>
+
+      <div class="searchbar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>
+        <input id="q" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"
+               placeholder="e.g.  420  ·  IPC 302  ·  BNS 318  ·  anticipatory bail" />
+      </div>
+      <div class="hint">Works both ways — old → new and new → old. Try <b>438 CrPC</b>, <b>65B Evidence</b>, or just an offence name.</div>
+    </section>
+
+    <section id="results"><div class="empty" id="empty"></div></section>
+
+    <footer class="foot" id="foot"></footer>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+  var qEl = document.getElementById("q");
+  var resultsEl = document.getElementById("results");
+  var footEl = document.getElementById("foot");
+  var META = null;
+  var debounceT = null;
+
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  function secLabel(side) {
+    if (!side) return "";
+    return esc(side.code) + " " + esc(side.section == null ? "—" : side.section);
+  }
+  // "103(1)" -> big "103" + small "(1)"
+  function splitSec(sec) {
+    if (sec == null) return { main: "—", sub: "" };
+    var m = String(sec).match(/^(\d+[A-Za-z]?)(.*)$/);
+    if (!m) return { main: String(sec), sub: "" };
+    return { main: m[1], sub: m[2] || "" };
+  }
+
+  function changeBadge(t) {
+    var map = { renumbered: "Renumbered", substantive: "Substantive change", "new": "New offence", omitted: "Omitted", merged: "Merged" };
+    return '<span class="badge badge--' + esc(t) + '">' + esc(map[t] || t) + "</span>";
+  }
+
+  function renderDiff(diff) {
+    if (!diff || !diff.length) return "";
+    var rows = diff.map(function (d) {
+      return '<div class="diff__row">' +
+        '<div class="diff__k"><span class="dot dot--' + esc(d.status) + '"></span>' + esc(d.label) + "</div>" +
+        '<div class="diff__v">' + esc(d.old || "—") + "</div>" +
+        '<div class="diff__v diff__v--new' + (d.status === "changed" ? " diff__v--changed" : "") + '">' + esc(d.new || "—") + "</div>" +
+      "</div>";
+    }).join("");
+    return '<div class="diff">' +
+      '<div class="diffhdr"><div></div><div>Old</div><div>New</div></div>' +
+      rows + "</div>";
+  }
+
+  function renderCard(r) {
+    var omitted = !r.has_successor;
+    var topBits = [changeBadge(r.change_type)];
+    if (r.material_change) topBits.push('<span class="badge badge--material">Material change</span>');
+    if (r.confidence === "verify-classification") topBits.push('<span class="badge badge--verify">Verify classification</span>');
+    else topBits.push('<span class="badge__conf-high">Verified mapping</span>');
+
+    var oldS = splitSec(r.old && r.old.section);
+    var newSide;
+    if (omitted) {
+      newSide = '<div class="map__side map__side--omitted">' +
+        '<div class="map__tag">New code</div>' +
+        '<div class="map__sec">No direct successor</div>' +
+        '<div class="map__title">' + esc((r.new && r.new.title) || "Omitted in the new code") + "</div></div>";
+    } else {
+      var nS = splitSec(r.new.section);
+      newSide = '<div class="map__side map__side--new">' +
+        '<div class="map__tag">New · ' + esc(r.new.code) + '</div>' +
+        '<div class="map__code">Section</div>' +
+        '<div class="map__sec">' + esc(nS.main) + (nS.sub ? '<small>' + esc(nS.sub) + "</small>" : "") + "</div>" +
+        '<div class="map__title">' + esc(r.new.title || "") + "</div></div>";
+    }
+
+    var mapRow = '<div class="map">' +
+      '<div class="map__side"><div class="map__tag">Old · ' + esc(r.old.code) + '</div>' +
+        '<div class="map__code">Section</div>' +
+        '<div class="map__sec">' + esc(oldS.main) + (oldS.sub ? '<small>' + esc(oldS.sub) + "</small>" : "") + "</div>" +
+        '<div class="map__title">' + esc(r.old.title || "") + "</div></div>" +
+      '<div class="map__arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>' +
+      newSide + "</div>";
+
+    // "what changed" strip
+    var changedStrip;
+    if (omitted) {
+      changedStrip = "";
+    } else if (r.changed_fields && r.changed_fields.length) {
+      changedStrip = '<div class="changed"><span class="changed__lead">What changed:</span>' +
+        r.changed_fields.map(function (f) { return '<span class="cfield">' + esc(f) + "</span>"; }).join("") + "</div>";
+    } else if (r.diff && r.diff.length) {
+      changedStrip = '<div class="changed"><span class="changed__none">Renumbered only — punishment & classification unchanged.</span></div>';
+    } else {
+      changedStrip = "";
+    }
+
+    var summary = r.summary ? '<div class="card__summary">' + esc(r.summary) + "</div>" : "";
+    var verifyNote = r.confidence === "verify-classification"
+      ? '<div class="card__verify"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>' +
+        '<span>Section number is verified. The offence-classification fields (bailable / cognizable / triable-by) for this entry should be confirmed against the BNSS First Schedule before you rely on them in court.</span></div>'
+      : "";
+
+    return '<div class="card">' +
+      '<div class="card__top">' + topBits.join("") + "</div>" +
+      mapRow + changedStrip + renderDiff(r.diff) + summary + verifyNote + "</div>";
+  }
+
+  function renderMoreRow(r) {
+    var newTxt = r.has_successor ? secLabel(r.new) : "Omitted";
+    var chg = r.material_change ? "Material" : (r.change_type === "new" ? "New" : "Renumbered");
+    return '<button class="mrow" data-q="' + esc((r.old && r.old.section ? r.old.code + " " + r.old.section : (r.new.code + " " + r.new.section))) + '">' +
+      '<span class="mrow__map">' + (r.old && r.old.section ? secLabel(r.old) : "—") + ' <span>→</span> ' + esc(newTxt) + "</span>" +
+      '<span class="mrow__ttl">' + esc((r.old && r.old.title) || (r.new && r.new.title) || "") + "</span>" +
+      '<span class="mrow__chg">' + chg + "</span></button>";
+  }
+
+  function renderChips(suggestions) {
+    if (!suggestions || !suggestions.length) return "";
+    var chips = suggestions.map(function (s) {
+      return '<button class="chip" data-q="' + esc(s.query) + '">' + esc(s.label) + "</button>";
+    }).join("");
+    return '<div class="empty"><div class="chips"><span class="chips__label">Popular lookups</span>' + chips + "</div></div>";
+  }
+
+  function renderResults(data) {
+    META = data.meta || META;
+    renderFoot();
+
+    if (!data.query) { resultsEl.innerHTML = renderChips(data.suggestions); bindClicks(); return; }
+    if (!data.results.length) {
+      resultsEl.innerHTML = '<div class="noresult">No match for <b>' + esc(data.query) + "</b>.<br>Try a bare section number, add the code (IPC / CrPC / Evidence), or search by offence name.</div>" + renderChips(data.suggestions);
+      bindClicks(); return;
+    }
+
+    var html = "";
+    var rest = data.results.slice();
+
+    if (data.ambiguous) {
+      html += '<div class="didyoumean"><div class="didyoumean__title">Did you mean…</div>' +
+        data.results.map(function (r) {
+          var newTxt = r.has_successor ? secLabel(r.new) : "Omitted";
+          var qv = r.old && r.old.section ? r.old.code + " " + r.old.section : r.new.code + " " + r.new.section;
+          return '<button class="dym-pill" data-q="' + esc(qv) + '">' +
+            '<span class="code">' + (r.old && r.old.section ? secLabel(r.old) : secLabel(r.new)) + " → " + esc(newTxt) + "</span>" +
+            '<span class="ttl">' + esc((r.old && r.old.title) || (r.new && r.new.title) || "") + "</span>" +
+            '<span class="dom">' + esc(r.domain) + "</span></button>";
+        }).join("") + "</div>";
+    } else {
+      html += '<div class="status-line">' + data.count + ' match' + (data.count === 1 ? "" : "es") + ' for “' + esc(data.query) + '”</div>';
+      html += renderCard(rest.shift());
+      if (rest.length) {
+        html += '<div class="more"><div class="more__label">Other matches</div>' + rest.map(renderMoreRow).join("") + "</div>";
+      }
+    }
+    resultsEl.innerHTML = html;
+    bindClicks();
+  }
+
+  function renderFoot() {
+    if (!META) return;
+    footEl.innerHTML =
+      "<b>Reference aid, not legal advice.</b> " + esc(META.disclaimer || "") +
+      "<br>" + esc(META.verification_status || "") +
+      "<br><br>Covers " + esc(META.total_entries || "") + " high-frequency sections across the three new codes. " +
+      "Mappings cross-checked against official government concordances. Built by <a href=\"/\">Headnote</a> · the research tool for Indian criminal advocates.";
+  }
+
+  function bindClicks() {
+    var nodes = resultsEl.querySelectorAll("[data-q]");
+    for (var i = 0; i < nodes.length; i++) {
+      nodes[i].addEventListener("click", function () {
+        qEl.value = this.getAttribute("data-q");
+        run(true);
+        qEl.focus();
+      });
+    }
+  }
+
+  function run(pushUrl) {
+    var q = qEl.value.trim();
+    if (pushUrl) {
+      var u = q ? "?q=" + encodeURIComponent(q) : location.pathname;
+      history.replaceState(null, "", u);
+    }
+    fetch("/api/mapping/lookup?q=" + encodeURIComponent(q) + "&limit=8")
+      .then(function (r) { return r.json(); })
+      .then(renderResults)
+      .catch(function () {
+        resultsEl.innerHTML = '<div class="noresult">Something went wrong. Please try again.</div>';
+      });
+  }
+
+  qEl.addEventListener("input", function () {
+    clearTimeout(debounceT);
+    debounceT = setTimeout(function () { run(true); }, 220);
+  });
+  qEl.addEventListener("keydown", function (e) { if (e.key === "Enter") { clearTimeout(debounceT); run(true); } });
+
+  // boot: read ?q= for shareable links
+  var params = new URLSearchParams(location.search);
+  var initial = params.get("q") || "";
+  if (initial) qEl.value = initial;
+  run(false);
+  qEl.focus();
+})();
+</script>
+</body>
+</html>

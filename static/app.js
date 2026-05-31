@@ -1264,6 +1264,7 @@
     // Sidebar nav
     $$('.navitem').forEach(b => {
       if (b.disabled) return;
+      if (!b.dataset.view) return;   // plain <a> links (e.g. /sections) navigate natively
       b.addEventListener('click', () => switchView(b.dataset.view));
     });
 

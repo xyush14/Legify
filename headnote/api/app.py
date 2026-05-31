@@ -42,6 +42,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from headnote import __version__, config
+from headnote import statute_map
 from headnote.refine import refine_query, shallow_refine
 from headnote.ranking import prerank_candidates
 from headnote.api.models import (
@@ -104,7 +105,7 @@ _BNS_MAP = [
     # (regex matching old code section, new code equivalent, short subject)
     (r"\bS(?:ection)?\.?\s*420\b.*?\bIPC\b",     "Section 318, BNS",   "cheating"),
     (r"\bS(?:ection)?\.?\s*406\b.*?\bIPC\b",     "Section 316, BNS",   "criminal breach of trust"),
-    (r"\bS(?:ection)?\.?\s*376\b.*?\bIPC\b",     "Section 63, BNS",    "rape"),
+    (r"\bS(?:ection)?\.?\s*376\b.*?\bIPC\b",     "Section 64, BNS",    "rape"),
     (r"\bS(?:ection)?\.?\s*498A\b.*?\bIPC\b",    "Section 85, BNS",    "cruelty by husband"),
     (r"\bS(?:ection)?\.?\s*302\b.*?\bIPC\b",     "Section 103, BNS",   "murder"),
     (r"\bS(?:ection)?\.?\s*304B\b.*?\bIPC\b",    "Section 80, BNS",    "dowry death"),
@@ -932,6 +933,19 @@ def drafter_standalone():
     return FileResponse(config.STATIC_DIR / "drafter.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
+@app.get("/sections", include_in_schema=False)
+@app.get("/sections/", include_in_schema=False)
+@app.get("/bns", include_in_schema=False)
+@app.get("/ipc-to-bns", include_in_schema=False)
+def sections_lookup_page():
+    """Public IPC→BNS / CrPC→BNSS / Evidence→BSA section finder. Standalone
+    page (no auth wrapper) — a free, shareable utility that doubles as an SEO
+    funnel into the product. Data comes from the curated concordance via
+    /api/mapping/lookup."""
+    return FileResponse(config.STATIC_DIR / "sections.html",
+                        headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
 # ---- Payment return pages (after Cashfree hosted checkout) ----
 @app.get("/payments/return", include_in_schema=False)
 @app.get("/payment-success", include_in_schema=False)
@@ -1313,6 +1327,20 @@ def api_corpus():
             for c in cases
         ],
     }
+
+
+@app.get("/api/mapping/lookup", summary="IPC↔BNS / CrPC↔BNSS / Evidence↔BSA section finder")
+def api_mapping_lookup(q: str = "", limit: int = 8):
+    """Resolve a free-text query ('420', 'IPC 302', 'BNS 318', 'cheating',
+    '438 crpc', Devanagari digits) to ranked concordance entries with a
+    side-by-side diff. Pure curated-data lookup — no LLM, no network."""
+    limit = max(1, min(limit, 25))
+    return statute_map.lookup(q, limit=limit)
+
+
+@app.get("/api/mapping/popular", summary="Most-looked-up section chips for the empty state")
+def api_mapping_popular():
+    return {"suggestions": statute_map.popular(), "meta": statute_map._public_meta()}
 
 
 @app.get("/api/hf_search", summary="Search the HuggingFace IL-TUR local corpus")

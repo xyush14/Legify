@@ -30,6 +30,12 @@ PROJECT_ROOT = PACKAGE_DIR.parent
 
 CASES_PATH = PACKAGE_DIR / "data" / "cases.json"
 
+# IPC↔BNS / CrPC↔BNSS / Evidence↔BSA concordance (curated, hand-verified).
+# Powers the public /sections lookup tool. Highest-trust data: the section
+# mappings are cross-checked against official government concordances; the
+# LLM never sources these.
+STATUTE_MAP_PATH = PACKAGE_DIR / "data" / "statute_mappings.json"
+
 # Static frontend served by FastAPI. Path is relative to project root, not
 # package root, because the frontend is intentionally outside the package.
 STATIC_DIR = PROJECT_ROOT / "static"
@@ -306,6 +312,11 @@ def load_curated_corpus() -> list[dict]:
     """Read cases.json from its canonical location. Cached per-process via
     functools.lru_cache to avoid repeated disk reads in hot paths."""
     return json.loads(CASES_PATH.read_text(encoding="utf-8"))
+
+
+def load_statute_mappings() -> dict:
+    """Read the IPC/CrPC/Evidence → BNS/BNSS/BSA concordance JSON."""
+    return json.loads(STATUTE_MAP_PATH.read_text(encoding="utf-8"))
 
 
 def summary() -> dict:
