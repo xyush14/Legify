@@ -104,16 +104,23 @@ def _stem(name: str) -> str:
     return name[:-4]
 
 
-def flush(c: sqlite3.Connection, has_fts: bool, text_rows: list, fts_rows: list) -> None:
+def flush(c: sqlite3.Connection, has_fts: bool, fts_external: bool,
+          text_rows: list, fts_rows: list) -> None:
     if not text_rows:
         return
+    # Explicit DELETE+INSERT (never INSERT OR REPLACE) so the external-content
+    # FTS sync triggers fire deterministically regardless of recursive_triggers.
+    c.executemany("DELETE FROM sc_text WHERE path = ?",
+                  [(r[0],) for r in text_rows])
     c.executemany(
-        "INSERT OR REPLACE INTO sc_text "
+        "INSERT INTO sc_text "
         "(path, year, n_chars, n_pages, extracted_at, text) "
         "VALUES (?,?,?,?,datetime('now'),?)",
         text_rows,
     )
-    if has_fts:
+    if has_fts and not fts_external:
+        # Legacy contentful index (no triggers) — maintain it by hand. On the
+        # modern external-content schema the sc_text triggers do this for us.
         c.executemany("DELETE FROM sc_fts WHERE path = ?",
                       [(r[0],) for r in fts_rows])
         c.executemany("INSERT INTO sc_fts (path, body) VALUES (?, ?)", fts_rows)
@@ -125,7 +132,7 @@ def flush(c: sqlite3.Connection, has_fts: bool, text_rows: list, fts_rows: list)
 # ----------------------------------------------------------------- per-year
 
 def extract_year(c: sqlite3.Connection, year: int, *, force: bool,
-                 has_fts: bool, remaining: int | None) -> int:
+                 has_fts: bool, fts_external: bool, remaining: int | None) -> int:
     """Extract one year's PDFs. Returns count extracted this run."""
     n_judg = c.execute("SELECT COUNT(*) FROM sc_judgments WHERE year=?",
                         (year,)).fetchone()[0]
@@ -176,13 +183,13 @@ def extract_year(c: sqlite3.Connection, year: int, *, force: bool,
             if remaining is not None:
                 remaining -= 1
             if len(text_rows) >= BATCH:
-                flush(c, has_fts, text_rows, fts_rows)
+                flush(c, has_fts, fts_external, text_rows, fts_rows)
                 print(f"  [{year}] … {n_ok} extracted "
                       f"({time.time()-t0:.0f}s)", flush=True)
     except Exception as e:
         print(f"  [{year}] walk interrupted after {n_ok} ({e})")
     finally:
-        flush(c, has_fts, text_rows, fts_rows)
+        flush(c, has_fts, fts_external, text_rows, fts_rows)
 
     print(f"  [{year}] done: {n_ok} extracted, {n_skip} already had text, "
           f"{n_empty} empty/no-text-layer in {time.time()-t0:.0f}s")
@@ -210,6 +217,11 @@ def main() -> int:
     print(f"DB: {args.db}")
     c = open_db(args.db)
     has_fts = opendata._table_exists(c, "sc_fts")
+    # External-content (modern) vs legacy contentful sc_fts. Controls whether
+    # flush() lets triggers maintain the index or writes sc_fts(path, body) itself.
+    fts_external = has_fts and not opendata._fts_is_contentful(c)
+    if has_fts:
+        print(f"FTS5 schema: {'external-content (triggers)' if fts_external else 'legacy contentful'}")
 
     available = db_years(c)
     if not available:
@@ -227,7 +239,7 @@ def main() -> int:
         if remaining is not None and remaining <= 0:
             break
         got = extract_year(c, y, force=args.force, has_fts=has_fts,
-                           remaining=remaining)
+                           fts_external=fts_external, remaining=remaining)
         total += got
         if remaining is not None:
             remaining -= got

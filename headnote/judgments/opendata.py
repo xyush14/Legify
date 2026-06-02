@@ -150,10 +150,25 @@ def get_metadata(doc_id: str) -> Optional[SCJudgment]:
         return None
 
 
+# Boilerplate caption tokens that carry no discriminating signal — dropped from
+# the party-name token match so "STATE", "UNION", "OF" etc. don't force matches.
+_SEARCH_STOP = {
+    "THE", "AND", "ORS", "ANR", "ETC", "VS", "VERSUS", "STATE", "UNION",
+    "INDIA", "GOVT", "GOVERNMENT", "REP", "THROUGH", "OTHERS", "ANOTHER",
+}
+
+
 def search(query: str, limit: int = 25) -> list[SCJudgment]:
     """Keyword search over parties + citations. Good enough for browse; the
-    LLM retrieval pipeline can wrap this later. Matches on party names,
-    neutral citation, and SCR citation."""
+    LLM retrieval pipeline can wrap this later.
+
+    Matching is whitespace- and punctuation-insensitive so a lawyer's
+    full-name search resolves against the terse, OCR-noisy SCR captions the
+    corpus actually stores. e.g. the corpus holds "SHARAD BIRDHI CHAND SARDA"
+    (note the space) — a search for "Sharad Birdhichand Sarda" still matches
+    because we compare the space-collapsed forms and require every significant
+    name token (collapsed) to appear in the caption. Citation forms
+    (neutral / SCR / spaced neutral case_id) match independently."""
     q = (query or "").strip()
     if not q:
         return []
@@ -161,21 +176,46 @@ def search(query: str, limit: int = 25) -> list[SCJudgment]:
         with _conn() as c:
             if not _table_exists(c, "sc_judgments"):
                 return []
-            like = f"%{q}%"
-            # Compact neutral-citation match too (user types "2024 INSC 735").
             compact = re.sub(r"\s+", "", q).upper()
+            # Significant name tokens (collapsed, upper-cased), boilerplate dropped.
+            tokens = [
+                t.upper() for t in re.findall(r"[A-Za-z0-9]+", q)
+                if len(t) >= 3 and t.upper() not in _SEARCH_STOP
+            ]
+            clauses: list[str] = []
+            params: list = []
+            # Citation matches (always tried, independent of name tokens):
+            #   - SCR citation substring ("[2014] 8 S.C.R. 128")
+            #   - compact neutral citation ("2014INSC463", user may type spaced)
+            #   - spaced neutral stored in case_id ("2014 INSC 463")
+            clauses.append("scr_citation LIKE ?")
+            params.append(f"%{q}%")
+            clauses.append("REPLACE(UPPER(neutral_citation),' ','') LIKE ?")
+            params.append(f"%{compact}%")
+            clauses.append("REPLACE(UPPER(COALESCE(case_id,'')),' ','') LIKE ?")
+            params.append(f"%{compact}%")
+            if tokens:
+                # Name match: every token must appear in the space-collapsed
+                # caption (title + petitioner + respondent). The collapse makes
+                # "BIRDHI CHAND" match "Birdhichand"; the AND keeps precision.
+                cap = (
+                    "REPLACE(UPPER(COALESCE(title,'')||' '||"
+                    "COALESCE(petitioner,'')||' '||COALESCE(respondent,'')),' ','')"
+                )
+                token_and = " AND ".join([f"{cap} LIKE ?"] * len(tokens))
+                clauses.append(f"({token_and})")
+                params.extend(f"%{t}%" for t in tokens)
+            else:
+                # No usable name tokens (e.g. a bare citation) — fall back to a
+                # raw substring on the caption fields.
+                like = f"%{q}%"
+                clauses.append("(title LIKE ? OR petitioner LIKE ? OR respondent LIKE ?)")
+                params.extend([like, like, like])
+            params.append(limit)
             rows = c.execute(
-                """
-                SELECT * FROM sc_judgments
-                WHERE title LIKE ?
-                   OR petitioner LIKE ?
-                   OR respondent LIKE ?
-                   OR scr_citation LIKE ?
-                   OR REPLACE(UPPER(neutral_citation),' ','') LIKE ?
-                ORDER BY year DESC
-                LIMIT ?
-                """,
-                (like, like, like, like, f"%{compact}%", limit),
+                f"SELECT * FROM sc_judgments WHERE {' OR '.join(clauses)} "
+                f"ORDER BY year DESC LIMIT ?",
+                params,
             ).fetchall()
         return [_row_to_judgment(r) for r in rows]
     except sqlite3.OperationalError:
@@ -642,17 +682,65 @@ _FTS_SANITISE = re.compile(r"[^0-9a-z ]+")
 _NUM_PARA_RX = re.compile(r"(?m)^\s*(\d{1,3})\.\s")
 
 
+def _fts_is_contentful(c: sqlite3.Connection) -> bool:
+    """True if an existing ``sc_fts`` is the LEGACY *contentful* shape
+    (``fts5(path UNINDEXED, body)``) that stores a second verbatim copy of every
+    judgment body. The modern *external-content* shape exposes only a ``text``
+    column and keeps no copy (the body lives once in ``sc_text``).
+
+    Lets one code path serve both: dev DBs / a mid-extraction DB are still
+    contentful; freshly built / shipped DBs are external-content. Returns False
+    if ``sc_fts`` is absent (caller guards on _table_exists first anyway)."""
+    try:
+        cols = {r[1] for r in c.execute("PRAGMA table_info(sc_fts)").fetchall()}
+    except sqlite3.OperationalError:
+        return False
+    return "body" in cols
+
+
 def _ensure_text_schema(c: sqlite3.Connection) -> bool:
-    """Create the text + FTS tables. Returns True if FTS5 is available."""
+    """Create the text table + an FTS5 index over it. Returns True if FTS5 is
+    available.
+
+    Fresh DBs get the modern *external-content* ``sc_fts`` (no duplicated body)
+    plus three triggers that keep the index in lock-step with ``sc_text`` on
+    INSERT/DELETE/UPDATE. A pre-existing LEGACY contentful ``sc_fts`` is left
+    untouched (its rows are maintained explicitly by ``store_text``) — converting
+    it is a one-shot offline job (scripts/build_shippable_corpus.py), never done
+    on the serving path."""
     c.execute(
         """CREATE TABLE IF NOT EXISTS sc_text (
                path TEXT PRIMARY KEY, year INTEGER, n_chars INTEGER,
                n_pages INTEGER, extracted_at TEXT, text TEXT)"""
     )
+    legacy = _table_exists(c, "sc_fts") and _fts_is_contentful(c)
     try:
+        if legacy:
+            return True  # keep the legacy contentful index as-is
         c.execute(
-            "CREATE VIRTUAL TABLE IF NOT EXISTS sc_fts "
-            "USING fts5(path UNINDEXED, body, tokenize='porter unicode61')"
+            "CREATE VIRTUAL TABLE IF NOT EXISTS sc_fts USING fts5("
+            "text, content='sc_text', content_rowid='rowid', "
+            "tokenize='porter unicode61')"
+        )
+        # Sync triggers. External-content FTS keeps NO copy of the body, so the
+        # index must be told about every row change. Explicit DELETE+INSERT in
+        # store_text (never INSERT OR REPLACE) means these fire deterministically
+        # without depending on PRAGMA recursive_triggers.
+        c.execute(
+            "CREATE TRIGGER IF NOT EXISTS sc_text_ai AFTER INSERT ON sc_text "
+            "BEGIN INSERT INTO sc_fts(rowid, text) VALUES (new.rowid, new.text); "
+            "END"
+        )
+        c.execute(
+            "CREATE TRIGGER IF NOT EXISTS sc_text_ad AFTER DELETE ON sc_text "
+            "BEGIN INSERT INTO sc_fts(sc_fts, rowid, text) "
+            "VALUES('delete', old.rowid, old.text); END"
+        )
+        c.execute(
+            "CREATE TRIGGER IF NOT EXISTS sc_text_au AFTER UPDATE ON sc_text "
+            "BEGIN INSERT INTO sc_fts(sc_fts, rowid, text) "
+            "VALUES('delete', old.rowid, old.text); "
+            "INSERT INTO sc_fts(rowid, text) VALUES (new.rowid, new.text); END"
         )
         return True
     except sqlite3.OperationalError as e:  # FTS5 not compiled in
@@ -694,13 +782,20 @@ def store_text(path: str, year: int, text: str, n_pages: int,
     try:
         with _conn() as c:
             has_fts = _ensure_text_schema(c)
+            legacy = has_fts and _fts_is_contentful(c)
+            # Explicit DELETE+INSERT (never INSERT OR REPLACE): on the modern
+            # external-content schema this makes the sync triggers fire
+            # deterministically (REPLACE wouldn't fire the delete trigger unless
+            # recursive_triggers is on). On the plain table it's equivalent.
+            c.execute("DELETE FROM sc_text WHERE path = ?", (path,))
             c.execute(
-                "INSERT OR REPLACE INTO sc_text "
+                "INSERT INTO sc_text "
                 "(path, year, n_chars, n_pages, extracted_at, text) "
                 "VALUES (?,?,?,?,datetime('now'),?)",
                 (path, year, len(text), n_pages, text),
             )
-            if has_fts:
+            if legacy:
+                # Legacy contentful index has no triggers — maintain it by hand.
                 c.execute("DELETE FROM sc_fts WHERE path = ?", (path,))
                 c.execute("INSERT INTO sc_fts (path, body) VALUES (?, ?)",
                           (path, text))
@@ -772,11 +867,21 @@ def search_fulltext(tokens, limit: int = 12) -> list[SCJudgment]:
         with _conn() as c:
             if not _table_exists(c, "sc_fts"):
                 return []
-            rows = c.execute(
-                "SELECT path FROM sc_fts WHERE sc_fts MATCH ? "
-                "ORDER BY bm25(sc_fts) LIMIT ?",
-                (q, limit),
-            ).fetchall()
+            if _fts_is_contentful(c):
+                # Legacy: path is a stored column on the FTS table.
+                rows = c.execute(
+                    "SELECT path FROM sc_fts WHERE sc_fts MATCH ? "
+                    "ORDER BY bm25(sc_fts) LIMIT ?",
+                    (q, limit),
+                ).fetchall()
+            else:
+                # External-content: the FTS rowid maps 1:1 to sc_text.rowid.
+                rows = c.execute(
+                    "SELECT t.path FROM sc_fts "
+                    "JOIN sc_text t ON t.rowid = sc_fts.rowid "
+                    "WHERE sc_fts MATCH ? ORDER BY bm25(sc_fts) LIMIT ?",
+                    (q, limit),
+                ).fetchall()
             out: list[SCJudgment] = []
             for r in rows:
                 jr = c.execute("SELECT * FROM sc_judgments WHERE path = ?",

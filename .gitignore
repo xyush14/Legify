@@ -21,6 +21,10 @@ feedback.db-journal
 *.sqlite3
 *.sqlite-wal
 *.sqlite-shm
+# Compressed corpus artifacts (the shippable full DB, built by
+# scripts/build_shippable_corpus.py and uploaded to a host — never committed).
+*.sqlite.gz
+*.sqlite.zst
 # EXCEPTION: the ~14MB core judgments DB (sc_judgments metadata + sc_tar_offsets,
 # NO extracted text) is tracked + baked into the Docker image so the app can
 # seed /data/judgments.sqlite on first boot. Rebuild it with:

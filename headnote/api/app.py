@@ -810,24 +810,81 @@ def _maybe_bootstrap_judgments_on_boot() -> None:
         logger.warning("[sc-bootstrap] %s is ephemeral — skipping seed", sdb)
         return
 
-    # Already populated → nothing to do (this is the steady state).
+    # Two seed sources, in priority order:
+    #   JUDGMENTS_FULL_URL — the heavy text-bearing DB (metadata + offsets +
+    #       extracted text + deduped external-content FTS). Lights up full-text
+    #       fact-pattern discovery (retrieval Stage 2.6). May be a .gz (streamed
+    #       + gunzipped on the fly). Built by scripts/build_shippable_corpus.py.
+    #   JUDGMENTS_CORE_URL / baked judgments_core.sqlite — the ~14MB metadata+
+    #       offsets core (SC-first ordering, cross-resolution, tap→official PDF;
+    #       full-text stays dark).
+    full_url = _os.environ.get("JUDGMENTS_FULL_URL", "").strip()
+    core_url = _os.environ.get("JUDGMENTS_CORE_URL", "").strip()
+
+    # Inspect the current volume DB so we know what (if anything) to fetch.
     try:
         stats = _od.corpus_stats()
-        if int(stats.get("judgments", 0) or 0) > 0:
-            _SC_BOOTSTRAP_STATUS = {
-                "state": "healthy",
-                "detail": (f"corpus present — {stats.get('judgments')} judgments, "
-                           f"{stats.get('offsets')} offsets, {stats.get('texts')} texts"),
-                "judgments": stats.get("judgments"),
-                "texts": stats.get("texts"),
-            }
-            logger.info("[sc-bootstrap] corpus already has %s judgments — no seed needed",
-                        stats.get("judgments"))
-            return
+        judg = int(stats.get("judgments", 0) or 0)
+        texts = int(stats.get("texts", 0) or 0)
     except Exception as e:
+        judg = texts = 0
         logger.warning("[sc-bootstrap] stats check failed (%s); will attempt seed", e)
 
-    core_url = _os.environ.get("JUDGMENTS_CORE_URL", "").strip()
+    # Steady state: full corpus already present (metadata + extracted text).
+    if judg > 0 and texts > 0:
+        _SC_BOOTSTRAP_STATUS = {
+            "state": "healthy",
+            "detail": f"corpus present — {judg} judgments, {texts} texts (full-text live)",
+            "judgments": judg, "texts": texts,
+        }
+        logger.info("[sc-bootstrap] full corpus present (%s judgments, %s texts) — no seed",
+                    judg, texts)
+        return
+
+    # Core present but NO text, and no source to upgrade from → serve degraded
+    # (SC-first + official copies still work; only full-text discovery is dark).
+    if judg > 0 and texts == 0 and not full_url:
+        _SC_BOOTSTRAP_STATUS = {
+            "state": "healthy",
+            "detail": f"core present — {judg} judgments, 0 texts "
+                      f"(full-text dark; set JUDGMENTS_FULL_URL to enable)",
+            "judgments": judg, "texts": 0,
+        }
+        logger.info("[sc-bootstrap] core present, no text, no JUDGMENTS_FULL_URL — degraded")
+        return
+
+    # Otherwise seed/upgrade. Prefer the full DB (a superset of core) when a URL
+    # is configured; else fall back to the remote/baked core.
+    want = "full" if full_url else "core"
+    cold = judg == 0  # brand-new volume → no SC capability at all yet
+
+    def _download(url: str, tmp: _Path) -> None:
+        """Stream a seed to ``tmp``; transparently gunzip when the URL ends .gz."""
+        import requests as _rq
+        import gzip as _gz
+        with _rq.get(url, stream=True, timeout=(10, 120)) as r:
+            r.raise_for_status()
+            try:
+                r.raw.decode_content = False  # we handle .gz ourselves
+            except Exception:
+                pass
+            with open(tmp, "wb") as f:
+                if url.endswith(".gz"):
+                    with _gz.GzipFile(fileobj=r.raw) as gz:
+                        _shutil.copyfileobj(gz, f, length=1 << 20)
+                else:
+                    for chunk in r.iter_content(chunk_size=1 << 20):
+                        if chunk:
+                            f.write(chunk)
+
+    def _install(tmp: _Path) -> None:
+        """Atomically swap ``tmp`` into place (drops stale wal/shm sidecars)."""
+        for p in (db_path, _Path(sdb + "-wal"), _Path(sdb + "-shm")):
+            try:
+                p.unlink()
+            except FileNotFoundError:
+                pass
+        _os.replace(tmp, db_path)
 
     def _seed() -> None:
         global _SC_BOOTSTRAP_STATUS
@@ -840,60 +897,82 @@ def _maybe_bootstrap_judgments_on_boot() -> None:
             except FileNotFoundError:
                 pass
 
-            if core_url:
-                _SC_BOOTSTRAP_STATUS = {"state": "running", "detail": f"downloading core from {core_url}"}
+            # Cold start + going for the (slow) full DB: install the baked core
+            # FIRST so SC-first / official copies work within seconds, then
+            # upgrade to full-text when the big download lands.
+            if want == "full" and cold and baked.exists():
+                _SC_BOOTSTRAP_STATUS = {"state": "running",
+                    "detail": f"installing baked core {baked.name} before full download"}
+                logger.warning("[sc-bootstrap] cold start — installing baked core first")
+                _shutil.copyfile(baked, tmp)
+                try:
+                    cx = _sq.connect(f"file:{tmp.as_posix()}?mode=ro", uri=True)
+                    nj0 = cx.execute("SELECT COUNT(*) FROM sc_judgments").fetchone()[0]
+                    cx.close()
+                except Exception:
+                    nj0 = 0
+                if nj0 > 0:
+                    _install(tmp)
+                    logger.warning("[sc-bootstrap] baked core live (%s judgments); "
+                                   "downloading full corpus next", nj0)
+
+            if want == "full":
+                _SC_BOOTSTRAP_STATUS = {"state": "running",
+                    "detail": f"downloading full corpus from {full_url}"}
+                logger.warning("[sc-bootstrap] downloading FULL corpus from %s", full_url)
+                _download(full_url, tmp)
+                src_desc = full_url
+            elif core_url:
+                _SC_BOOTSTRAP_STATUS = {"state": "running",
+                    "detail": f"downloading core from {core_url}"}
                 logger.warning("[sc-bootstrap] downloading core DB from %s", core_url)
-                import requests as _rq
-                with _rq.get(core_url, stream=True, timeout=180) as r:
-                    r.raise_for_status()
-                    with open(tmp, "wb") as f:
-                        for chunk in r.iter_content(chunk_size=1 << 20):
-                            if chunk:
-                                f.write(chunk)
+                _download(core_url, tmp)
                 src_desc = core_url
             elif baked.exists():
-                _SC_BOOTSTRAP_STATUS = {"state": "running", "detail": f"copying baked-in {baked.name}"}
+                _SC_BOOTSTRAP_STATUS = {"state": "running",
+                    "detail": f"copying baked-in {baked.name}"}
                 logger.warning("[sc-bootstrap] copying baked-in core %s", baked)
                 _shutil.copyfile(baked, tmp)
                 src_desc = str(baked)
             else:
                 _SC_BOOTSTRAP_STATUS = {
                     "state": "skipped",
-                    "detail": "no JUDGMENTS_CORE_URL set and no baked-in judgments_core.sqlite found",
+                    "detail": "no JUDGMENTS_FULL_URL / JUDGMENTS_CORE_URL and no baked-in core",
                 }
                 logger.warning("[sc-bootstrap] no seed source available — skipping")
                 return
 
-            # Validate the seed has rows BEFORE swapping it in.
+            # Validate BEFORE swapping in. The full DB must also carry text.
+            nj = nt = 0
             try:
                 cx = _sq.connect(f"file:{tmp.as_posix()}?mode=ro", uri=True)
-                n = cx.execute("SELECT COUNT(*) FROM sc_judgments").fetchone()[0]
+                nj = cx.execute("SELECT COUNT(*) FROM sc_judgments").fetchone()[0]
+                try:
+                    nt = cx.execute("SELECT COUNT(*) FROM sc_text").fetchone()[0]
+                except Exception:
+                    nt = 0
                 cx.close()
             except Exception as e:
-                n = 0
                 logger.warning("[sc-bootstrap] seed validation failed: %s", e)
-            if n <= 0:
-                _SC_BOOTSTRAP_STATUS = {"state": "error", "detail": "seed had 0 judgments; not installed"}
+            ok = nj > 0 and (nt > 0 if want == "full" else True)
+            if not ok:
+                _SC_BOOTSTRAP_STATUS = {"state": "error",
+                    "detail": f"seed invalid (judgments={nj}, texts={nt}, want={want}); not installed"}
                 try:
                     tmp.unlink()
                 except FileNotFoundError:
                     pass
                 return
 
-            # Install: drop any empty stub + stale WAL/SHM sidecars, then move.
-            for p in (db_path, _Path(sdb + "-wal"), _Path(sdb + "-shm")):
-                try:
-                    p.unlink()
-                except FileNotFoundError:
-                    pass
-            _os.replace(tmp, db_path)
+            _install(tmp)
             _SC_BOOTSTRAP_STATUS = {
                 "state": "seeded",
-                "detail": f"installed {n} judgments from {src_desc} in {_time.time()-t0:.1f}s",
-                "judgments": n,
+                "detail": f"installed {nj} judgments / {nt} texts from {src_desc} "
+                          f"in {_time.time()-t0:.1f}s",
+                "judgments": nj, "texts": nt,
             }
-            logger.warning("[sc-bootstrap] seeded %s judgments → %s in %.1fs",
-                           n, db_path, _time.time() - t0)
+            logger.warning("[sc-bootstrap] seeded %s judgments, %s texts → %s in %.1fs",
+                           nj, nt, db_path, _time.time() - t0)
         except Exception as e:
             _SC_BOOTSTRAP_STATUS = {"state": "error", "detail": f"seed failed: {e}"}
             logger.exception("[sc-bootstrap] seed crashed: %s", e)
@@ -902,7 +981,7 @@ def _maybe_bootstrap_judgments_on_boot() -> None:
             except Exception:
                 pass
 
-    _SC_BOOTSTRAP_STATUS = {"state": "running", "detail": "seed scheduled"}
+    _SC_BOOTSTRAP_STATUS = {"state": "running", "detail": f"{want} seed scheduled"}
     _threading.Thread(target=_seed, daemon=True, name="sc-bootstrap").start()
 
 
