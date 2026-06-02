@@ -877,6 +877,28 @@ def _maybe_bootstrap_judgments_on_boot() -> None:
                         if chunk:
                             f.write(chunk)
 
+    def _fetch(url: str, tmp: _Path, attempts: int = 4) -> None:
+        """Download with retry + backoff. The multi-GB full-corpus pull is a
+        once-per-volume event; a transient network blip mid-stream must
+        self-heal rather than strand prod in degraded until the next redeploy."""
+        last: Exception | None = None
+        for i in range(1, attempts + 1):
+            try:
+                _download(url, tmp)
+                return
+            except Exception as e:  # noqa: BLE001 — retry any transport/IO error
+                last = e
+                try:
+                    tmp.unlink()
+                except FileNotFoundError:
+                    pass
+                if i < attempts:
+                    wait = min(30, 2 ** i)
+                    logger.warning("[sc-bootstrap] download attempt %s/%s failed "
+                                   "(%s); retrying in %ss", i, attempts, e, wait)
+                    _time.sleep(wait)
+        raise last if last else RuntimeError("download failed")
+
     def _install(tmp: _Path) -> None:
         """Atomically swap ``tmp`` into place (drops stale wal/shm sidecars)."""
         for p in (db_path, _Path(sdb + "-wal"), _Path(sdb + "-shm")):
@@ -920,13 +942,13 @@ def _maybe_bootstrap_judgments_on_boot() -> None:
                 _SC_BOOTSTRAP_STATUS = {"state": "running",
                     "detail": f"downloading full corpus from {full_url}"}
                 logger.warning("[sc-bootstrap] downloading FULL corpus from %s", full_url)
-                _download(full_url, tmp)
+                _fetch(full_url, tmp)
                 src_desc = full_url
             elif core_url:
                 _SC_BOOTSTRAP_STATUS = {"state": "running",
                     "detail": f"downloading core from {core_url}"}
                 logger.warning("[sc-bootstrap] downloading core DB from %s", core_url)
-                _download(core_url, tmp)
+                _fetch(core_url, tmp)
                 src_desc = core_url
             elif baked.exists():
                 _SC_BOOTSTRAP_STATUS = {"state": "running",
@@ -942,8 +964,12 @@ def _maybe_bootstrap_judgments_on_boot() -> None:
                 logger.warning("[sc-bootstrap] no seed source available — skipping")
                 return
 
-            # Validate BEFORE swapping in. The full DB must also carry text.
+            # Validate BEFORE swapping in. The full DB must carry text AND a
+            # queryable FTS index — a truncated/corrupt download can yield a
+            # structurally valid SQLite file whose sc_fts raises on MATCH, which
+            # would 500 the research endpoint. Catch that here, stay degraded.
             nj = nt = 0
+            fts_ok = (want != "full")  # core seeds carry no FTS — not required
             try:
                 cx = _sq.connect(f"file:{tmp.as_posix()}?mode=ro", uri=True)
                 nj = cx.execute("SELECT COUNT(*) FROM sc_judgments").fetchone()[0]
@@ -951,13 +977,26 @@ def _maybe_bootstrap_judgments_on_boot() -> None:
                     nt = cx.execute("SELECT COUNT(*) FROM sc_text").fetchone()[0]
                 except Exception:
                     nt = 0
+                if want == "full" and nt > 0:
+                    try:
+                        hits = cx.execute(
+                            "SELECT COUNT(*) FROM sc_fts WHERE sc_fts MATCH 'evidence'"
+                        ).fetchone()[0]
+                        fts_ok = True  # queryable — hits count is informational
+                        logger.warning("[sc-bootstrap] FTS probe ok — 'evidence' "
+                                       "matches %s judgments", hits)
+                    except Exception as fe:
+                        fts_ok = False
+                        logger.warning("[sc-bootstrap] FTS probe failed (%s) — "
+                                       "rejecting seed as full-text-broken", fe)
                 cx.close()
             except Exception as e:
                 logger.warning("[sc-bootstrap] seed validation failed: %s", e)
-            ok = nj > 0 and (nt > 0 if want == "full" else True)
+            ok = nj > 0 and (nt > 0 if want == "full" else True) and fts_ok
             if not ok:
                 _SC_BOOTSTRAP_STATUS = {"state": "error",
-                    "detail": f"seed invalid (judgments={nj}, texts={nt}, want={want}); not installed"}
+                    "detail": f"seed invalid (judgments={nj}, texts={nt}, "
+                              f"fts_ok={fts_ok}, want={want}); not installed"}
                 try:
                     tmp.unlink()
                 except FileNotFoundError:
