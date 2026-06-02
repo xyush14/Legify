@@ -498,7 +498,9 @@
       // identifiers
       case_id: cid,
       title: c.title || c.case_title || c.case_id || 'untitled',
-      citation: c.citation || '',
+      // Prefer the court-accepted neutral/SCR citation when we matched this
+      // case to our official Supreme Court corpus.
+      citation: c.official_citation || c.citation || '',
       court: c.court || '',
       year: c.year || '',
       bench: c.bench || jh.per_judge_attribution || '',
@@ -507,6 +509,11 @@
       kanoon_paragraph_url: c.kanoon_paragraph_url,
       kanoon_doc_id: c.kanoon_doc_id,
       internal_url: internalUrl,                  // NEW — /case/<doc_id>
+      // Official Supreme Court open-data copy, cross-resolved from the IK hit.
+      official_doc_id: c.official_doc_id || '',
+      official_pdf_url: c.official_pdf_url || (c.official_doc_id ? '/api/judgment/pdf/' + c.official_doc_id : ''),
+      official_citation: c.official_citation || '',
+      is_official_copy: !!c.is_official_copy,
       fame_indicator: c.fame_indicator,
       source: c.source,
       source_language: c.source_language || (c.source && String(c.source).startsWith('hf') ? null : 'en'),
@@ -686,7 +693,24 @@
     const ob = outcomeBadge(c); if (ob) badges.appendChild(ob);
     const fb = fameBadge(c);    if (fb) badges.appendChild(fb);
     badges.appendChild(verifiedBadge());
+    // Official Supreme Court copy badge — this case was matched to our
+    // court-accepted open-data corpus (neutral citation + signed PDF).
+    if (c.is_official_copy) {
+      badges.appendChild(ce('span', { cls: 'badge badge--official', text: '⚖ official SC copy' }));
+    }
     const j = judgmentLink(c);  if (j) badges.appendChild(j);
+    // Link to the official signed judgment copy, embedded in our in-app viewer.
+    if (c.official_doc_id) {
+      badges.appendChild(ce('a', {
+        cls: 'judgment-link judgment-link--official',
+        text: (c.official_citation ? c.official_citation + ' — ' : '') + 'official copy (PDF) ⚖',
+        attrs: {
+          href: '/case/' + encodeURIComponent(c.official_doc_id),
+          target: '_blank', rel: 'noopener',
+          title: 'Official Supreme Court judgment copy — court-accepted neutral citation',
+        },
+      }));
+    }
 
     // Hindi toggle button (per-card back-translation of ratio + quote)
     const hindiBtn = ce('button', { cls: 'btn--ghost', text: 'हिंदी में दिखाएँ' });

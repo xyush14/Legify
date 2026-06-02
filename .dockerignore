@@ -30,6 +30,16 @@ feedback.db
 feedback.db-journal
 *.sqlite
 *.sqlite3
+# SQLite WAL/SHM sidecars must never enter the image (the 950MB judgments
+# corpus carries a ~130MB -wal during extraction).
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite3-wal
+*.sqlite3-shm
+# EXCEPTION: the ~14MB core judgments DB (metadata + tar offsets, NO text) IS
+# baked in so the app can seed /data/judgments.sqlite on first boot. Rebuild
+# with: python scripts/build_judgments_core.py --force
+!judgments_core.sqlite
 
 # Tests + dev-only
 tests

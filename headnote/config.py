@@ -69,6 +69,42 @@ FEEDBACK_DB = _writable_path(
     "FEEDBACK_DB", PROJECT_ROOT / "feedback.db",
 )
 
+# Official open-data judgment corpus (Supreme Court e-SCR / AWS Open Data,
+# CC-BY-4.0). A SEPARATE sqlite from kanoon_cache so the multi-hour offset
+# ingest never risks the 899MB IK cache. Holds two tables:
+#   sc_judgments    — one row per reported judgment (neutral + SCR citation,
+#                     parties, judges, date, disposal, path). Powers browse /
+#                     search and the case-viewer header.
+#   sc_tar_offsets  — filename → (year, byte offset, size) inside the per-year
+#                     english.tar on S3. Lets us serve the real official PDF
+#                     with a single HTTP Range request and ZERO local PDF
+#                     storage (only an LRU cache of opened PDFs).
+# Built by scripts/ingest_opendata_sc.py; read by headnote/judgments/opendata.py.
+JUDGMENTS_DB = _writable_path(
+    "JUDGMENTS_DB", PROJECT_ROOT / "judgments.sqlite",
+)
+
+# Where the on-demand PDF resolver caches the actual judgment PDFs it has
+# served (LRU, capped). On Render point this at the persistent disk. Defaults
+# under the project root so local dev "just works".
+JUDGMENTS_PDF_CACHE = _writable_path(
+    "JUDGMENTS_PDF_CACHE", PROJECT_ROOT / ".pdf_cache" / "x",
+).parent
+# Soft cap on the PDF cache directory size (MB). When exceeded, the resolver
+# evicts least-recently-used PDFs. Sized for a small Render disk by default.
+JUDGMENTS_PDF_CACHE_MB = int(os.environ.get("JUDGMENTS_PDF_CACHE_MB", "2048"))
+
+# Base URLs for the AWS Open Data buckets (plain HTTPS — no AWS credentials,
+# no boto3; egress is sponsored by the Open Data program). region ap-south-1.
+OPENDATA_SC_BUCKET = os.environ.get(
+    "OPENDATA_SC_BUCKET",
+    "https://indian-supreme-court-judgments.s3.ap-south-1.amazonaws.com",
+)
+OPENDATA_HC_BUCKET = os.environ.get(
+    "OPENDATA_HC_BUCKET",
+    "https://indian-high-court-judgments.s3.ap-south-1.amazonaws.com",
+)
+
 
 # ----------------------------------------------------------------- LLM / Claude
 

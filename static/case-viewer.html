@@ -181,6 +181,32 @@
     }
     .provenance .copy-btn:hover { background: #f5f5f7; }
 
+    /* Official PDF embed (Supreme Court open-data judgments) */
+    .pdf-actions {
+      display: flex; gap: 10px; flex-wrap: wrap;
+      align-items: center; margin: 4px 0 16px;
+    }
+    .pdf-actions .pdf-btn {
+      display: inline-block; padding: 10px 16px; border-radius: 6px;
+      font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer;
+      border: none;
+    }
+    .pdf-actions .pdf-btn.primary { background: #0066cc; color: #fff; }
+    .pdf-actions .pdf-btn.primary:hover { background: #0052a3; }
+    .pdf-actions .pdf-btn.ghost {
+      background: #fff; color: #0066cc; border: 1px solid #0066cc;
+    }
+    .pdf-actions .pdf-btn.ghost:hover { background: #f0f6ff; }
+    .pdf-note { font-size: 12.5px; color: var(--muted); margin-left: auto; }
+    .pdf-frame {
+      width: 100%; height: 82vh; min-height: 520px;
+      border: 1px solid #dcdce0; border-radius: 8px; background: #f7f7f8;
+    }
+    .pdf-fallback {
+      padding: 16px; border: 1px dashed #cfcfd4; border-radius: 8px;
+      color: var(--muted); font-size: 14px;
+    }
+
     /* Loading + error states */
     .loading, .error {
       text-align: center;
@@ -253,16 +279,33 @@
         `<span class="badge confidence">${esc(data.metadata_confidence || '')} confidence</span>`,
       ].filter(Boolean).join('');
 
-      // Body: paragraphs
+      // Body: an embedded OFFICIAL PDF when we have one (Supreme Court
+      // open-data judgments), otherwise the stored paragraph text.
+      const pdfUrl = data.pdf_url || null;
       const paragraphs = data.paragraphs || [];
-      const bodyHtml = paragraphs.length
-        ? paragraphs.map(p =>
-            `<div class="para ${p.numbered ? 'numbered' : ''}" id="${esc(p.id)}">${esc(p.text)}</div>`
-          ).join('')
-        : (data.holding
-            ? `<h2>Holding</h2><div class="para">${esc(data.holding)}</div>` +
-              (data.facts ? `<h2>Facts</h2><div class="para">${esc(data.facts)}</div>` : '')
-            : '<p class="loading">No judgment text available.</p>');
+      let bodyTitle = 'Judgment text';
+      let bodyHtml;
+      if (pdfUrl) {
+        bodyTitle = 'Official judgment';
+        bodyHtml = `
+          <div class="pdf-actions">
+            <a class="pdf-btn primary" href="${esc(pdfUrl)}" target="_blank" rel="noopener">Open official PDF ↗</a>
+            <a class="pdf-btn ghost" href="${esc(pdfUrl)}" download>Download copy</a>
+            <span class="pdf-note">Official copy · Supreme Court of India</span>
+          </div>
+          <iframe class="pdf-frame" src="${esc(pdfUrl)}" title="Official judgment PDF"></iframe>
+          <p class="pdf-fallback">If the PDF doesn't load above,
+            <a href="${esc(pdfUrl)}" target="_blank" rel="noopener">open it in a new tab</a>.</p>`;
+      } else if (paragraphs.length) {
+        bodyHtml = paragraphs.map(p =>
+          `<div class="para ${p.numbered ? 'numbered' : ''}" id="${esc(p.id)}">${esc(p.text)}</div>`
+        ).join('');
+      } else if (data.holding) {
+        bodyHtml = `<h2>Holding</h2><div class="para">${esc(data.holding)}</div>` +
+          (data.facts ? `<h2>Facts</h2><div class="para">${esc(data.facts)}</div>` : '');
+      } else {
+        bodyHtml = '<p class="loading">No judgment text available.</p>';
+      }
 
       // Provenance footer
       const prov = data.provenance || {};
@@ -285,7 +328,7 @@
           ${badges ? `<div class="badge-row">${badges}</div>` : ''}
         </div>
         <div class="body">
-          <h2>Judgment text</h2>
+          <h2>${esc(bodyTitle)}</h2>
           ${bodyHtml}
         </div>
         <div class="provenance">

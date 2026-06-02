@@ -49,7 +49,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     # Persistent cache location — mount a volume here in production so the
     # IK doc cache and embedding index survive restarts.
     KANOON_CACHE_PATH=/data/kanoon_cache.sqlite \
-    FEEDBACK_DB=/data/feedback.db
+    FEEDBACK_DB=/data/feedback.db \
+    # Official SC judgment corpus lives on the SAME persistent volume so the
+    # metadata + offset index (and, later, extracted text) survive deploys.
+    # On first boot the app seeds this from the ~14MB core baked into the
+    # image (see _maybe_bootstrap_judgments_on_boot in app.py). The PDF LRU
+    # cache is left at its ephemeral default (/app/.pdf_cache) on purpose —
+    # PDFs re-fetch in one Range GET on a miss, so it needn't burn volume space.
+    JUDGMENTS_DB=/data/judgments.sqlite
 
 # Set up /data with permissive permissions for the persistent volume.
 # We run as root in this image — the security trade-off (non-root user vs

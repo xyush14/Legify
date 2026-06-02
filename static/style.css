@@ -970,6 +970,25 @@ button { font-family: inherit; }
   border-bottom-color: var(--ink);
 }
 
+/* Official Supreme Court copy — court-accepted source, styled authoritatively */
+.badge--official {
+  background: rgba(30, 58, 95, 0.08);
+  color: var(--navy);
+  border-color: rgba(30, 58, 95, 0.22);
+  font-weight: 600;
+  text-transform: none;
+}
+.judgment-link--official {
+  color: var(--navy);
+  font-weight: 600;
+  border-bottom: 1px solid rgba(30, 58, 95, 0.35);
+  text-transform: none;
+}
+.judgment-link--official:hover {
+  color: var(--navy);
+  border-bottom-color: var(--navy);
+}
+
 /* ============================================================================
    Comparison table view
    ============================================================================ */

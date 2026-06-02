@@ -151,6 +151,15 @@ class CaseSummary:
     # frontend can render a real disposition badge + jurisdiction.
     outcome: str = ""           # "bail-granted" | "bail-denied" | "acquittal" | ...
     district: str = ""          # Only for BAIL subset cases (e.g., "agra")
+    # All parallel citations (used to cross-resolve to our official SC corpus).
+    citations_all: list[str] = field(default_factory=list)
+    # Official Supreme Court open-data copy — filled by _attach_official_copies()
+    # when this (IK/curated) SC case is matched to our court-accepted corpus.
+    official_doc_id: str = ""        # "sc:2024_10_108_125"
+    official_pdf_url: str = ""       # "/api/judgment/pdf/sc:2024_10_108_125"
+    neutral_citation: str = ""       # "2024INSC735"  (court-accepted anchor)
+    scr_citation: str = ""           # "[2024] 10 S.C.R. 108"
+    is_official_copy: bool = False
 
 
 # ----------------------------------------------------------------- HF helpers
@@ -1216,6 +1225,21 @@ def retrieve_for_situation(
         except Exception as e:
             meta.notes.append(f"hf_corpus search failed: {e}")
 
+    # 2.6. Official Supreme Court corpus — full-text fact-pattern search over our
+    # court-accepted open-data judgments (FTS5/BM25). Surfaces SC precedent WITH
+    # its neutral/SCR citation + the official signed PDF, and real extracted
+    # paragraphs that clear the verbatim/anchor verifier. Runs BEFORE paid IK
+    # live: an official, free SC hit beats an aggregator fetch. No-op until text
+    # has been extracted (search_fulltext returns []), so it's safe pre-index.
+    if not _rebuild_active and len(cases) < candidate_pool:
+        try:
+            _sc_fulltext_cases(
+                cases, evidence, meta, situation, refined_query,
+                candidate_pool, top_paragraphs_per_case,
+            )
+        except Exception as e:
+            meta.notes.append(f"sc_corpus stage failed: {e}")
+
     # 3. IK live search (paid) — conditional on the free local pool size.
     #
     # The free local pool is: curated (42 vetted) + semantic (cached IK
@@ -1381,6 +1405,7 @@ def retrieve_for_situation(
                 relevance_score=score,
                 paragraphs=top_paras,
                 statutes=parsed.statutes,
+                citations_all=parsed.parallel_citations,
             ))
             for p in top_paras:
                 evidence.append(EvidenceParagraph(
@@ -1697,6 +1722,7 @@ def _ik_case_from_tid(
             relevance_score=base_score,
             paragraphs=top_paras,
             statutes=parsed.statutes,
+            citations_all=parsed.parallel_citations,
         )
         ev = [EvidenceParagraph(case_id=case_id, para_id=p.id, para_num=p.num, text=p.text)
               for p in top_paras]
@@ -1766,6 +1792,191 @@ def _resolve_hf_to_ik(
     return None
 
 
+_KW_STOP = {"the", "and", "for", "with", "from", "that", "this", "into",
+            "what", "when", "where", "which", "have", "has", "been", "will",
+            "must", "should", "could", "would", "case", "matter", "client",
+            "your", "their", "they", "court", "section", "under"}
+
+
+def _keyword_tokens(situation: str, refined_query: Optional[dict],
+                    limit: int = 12) -> list[str]:
+    """High-signal search tokens from the refined query's factual/doctrinal
+    facets (curated noun phrases), falling back to the raw situation. Mirrors
+    the HF keyword stage so SC full-text search keys off the same language."""
+    tokens: list[str] = []
+    if refined_query:
+        seeds: list[str] = []
+        if refined_query.get("factual_archetype"):
+            seeds.append(str(refined_query["factual_archetype"]))
+        seeds.extend(refined_query.get("core_circumstances") or [])
+        seeds.extend(refined_query.get("legal_concepts") or [])
+        seeds.extend(refined_query.get("doctrines_at_issue") or [])
+        for s in seeds:
+            for w in str(s).lower().replace("_", " ").split():
+                w = re.sub(r"[^a-z0-9]", "", w)
+                if len(w) > 3 and w not in _KW_STOP and w not in tokens:
+                    tokens.append(w)
+                if len(tokens) >= limit:
+                    break
+            if len(tokens) >= limit:
+                break
+    if len(tokens) < 6:
+        for w in (situation or "").lower().split():
+            w = re.sub(r"[^a-z0-9]", "", w)
+            if len(w) > 3 and w not in _KW_STOP and w not in tokens:
+                tokens.append(w)
+            if len(tokens) >= limit:
+                break
+    return tokens
+
+
+def _sc_fulltext_cases(
+    cases: list[CaseSummary],
+    evidence: list[EvidenceParagraph],
+    meta: RetrievalMeta,
+    situation: str,
+    refined_query: Optional[dict],
+    candidate_pool: int,
+    top_paragraphs_per_case: int,
+) -> None:
+    """Stage 2.6 — surface Supreme Court judgments from our OFFICIAL open-data
+    corpus by full-text (FTS5/BM25) fact-pattern search, mutating cases/evidence
+    in place.
+
+    Unlike the IK→corpus cross-resolution (which upgrades an aggregator hit to
+    its official copy), this is *discovery*: the corpus itself proposes SC
+    precedent for the fact pattern. Each hit carries the court-accepted
+    neutral/SCR citation + the official signed PDF, and its paragraphs are real
+    extracted text — so the verbatim/anchor verifier can clear it.
+
+    No-op until judgment text has been extracted (search_fulltext returns []),
+    so this is safe to ship before/while the corpus is being indexed."""
+    try:
+        from headnote.judgments import opendata
+    except Exception:
+        return
+    tokens = _keyword_tokens(situation, refined_query, limit=12)
+    if not tokens:
+        return
+    try:
+        hits = opendata.search_fulltext(tokens, limit=12)
+    except Exception as e:                              # pragma: no cover
+        meta.notes.append(f"sc fulltext search failed: {str(e)[:80]}")
+        return
+    if not hits:
+        return
+    meta.notes.append(f"sc_corpus surfaced {len(hits)} official SC judgments")
+    have = {c.case_id for c in cases}
+    needles = [t for t in tokens if len(t) > 3]
+
+    def _score(s: str) -> int:
+        sl = s.lower()
+        return sum(1 for t in needles if t in sl)
+
+    for rank, j in enumerate(hits):
+        if len(cases) >= candidate_pool:
+            break
+        if j.doc_id in have:
+            continue
+        paras = opendata.paragraphs_for(j.doc_id)       # stored text — fast
+        if not paras:
+            continue
+        scored = sorted(paras, key=lambda p: -_score(p["text"]))
+        scored = scored[:top_paragraphs_per_case] or paras[:top_paragraphs_per_case]
+        para_objs: list = []
+        for p in scored:
+            para_objs.append(Paragraph(
+                id=p["id"], num=p["num"], structure="other", text=p["text"],
+            ))
+            evidence.append(EvidenceParagraph(
+                case_id=j.doc_id, para_id=p["id"],
+                para_num=p["num"], text=p["text"],
+            ))
+        cites = [c for c in (j.neutral_citation, j.scr_citation) if c]
+        cases.append(CaseSummary(
+            case_id=j.doc_id,
+            title=j.title or j.doc_id,
+            court="Supreme Court of India",     # _court_tier 0 → sorts first
+            year=str(j.year or ""),
+            citation=j.best_citation or "",
+            bench=(j.judge or j.author_judge or ""),
+            source="sc",
+            numcitedby=0,
+            # BM25 rank → a high, descending score (floored) so official SC
+            # copies survive any score-based rerank/truncation; _finalise still
+            # pins them first by court tier regardless.
+            relevance_score=round(max(0.5, 1.0 - 0.04 * rank), 2),
+            paragraphs=para_objs,
+            statutes=[],
+            outcome="",
+            district="",
+            citations_all=cites,
+            official_doc_id=j.doc_id,
+            official_pdf_url=f"/api/judgment/pdf/{j.doc_id}",
+            neutral_citation=j.neutral_citation or "",
+            scr_citation=j.scr_citation or "",
+            is_official_copy=True,
+        ))
+        have.add(j.doc_id)
+
+
+def _court_tier(court: str) -> int:
+    """0 = Supreme Court, 1 = High Court, 2 = everything else. Used to force
+    Supreme Court precedent to the top of every result set, then High Court."""
+    c = (court or "").lower()
+    if "supreme court" in c:
+        return 0
+    if "high court" in c:
+        return 1
+    return 2
+
+
+def _attach_official_copies(cases: list[CaseSummary], meta: RetrievalMeta) -> None:
+    """For every Supreme Court case in the result, try to match it to our
+    official open-data corpus and attach the court-accepted neutral/SCR citation
+    + the official signed PDF. This is the IK→corpus cross-resolution: the case
+    the model found on an aggregator is returned WITH its official copy. Mutates
+    cases in place; best-effort and never raises into the hot path."""
+    try:
+        from headnote.judgments import opendata
+    except Exception:
+        return
+    for cs in cases:
+        if _court_tier(cs.court) != 0:                 # Supreme Court only
+            continue
+        if getattr(cs, "official_doc_id", "") or str(cs.case_id).startswith("sc:"):
+            continue
+        cites = list(getattr(cs, "citations_all", []) or [])
+        if cs.citation:
+            cites.append(cs.citation)
+        try:
+            j = opendata.match_ik_case(
+                citations=cites,
+                title=cs.title or "",
+                year=cs.year,
+                court=cs.court or "",
+            )
+        except Exception as e:                          # pragma: no cover
+            meta.notes.append(f"official-copy lookup failed for {cs.case_id}: {str(e)[:60]}")
+            continue
+        if j:
+            cs.official_doc_id  = j.doc_id
+            cs.official_pdf_url = f"/api/judgment/pdf/{j.doc_id}"
+            cs.neutral_citation = j.neutral_citation or ""
+            cs.scr_citation     = j.scr_citation or ""
+            cs.is_official_copy = True
+            meta.notes.append(
+                f"official copy matched: {cs.case_id} → {j.doc_id} ({j.best_citation})"
+            )
+
+
+def _enforce_court_priority(cases: list[CaseSummary]) -> list[CaseSummary]:
+    """Stable sort so Supreme Court precedents always come first, then High
+    Court, then the rest — preserving the existing relevance order within each
+    tier (Python's sort is stable)."""
+    return sorted(cases, key=lambda cs: _court_tier(cs.court))
+
+
 def _finalise(
     cases: list[CaseSummary],
     evidence: list[EvidenceParagraph],
@@ -1774,6 +1985,28 @@ def _finalise(
     client: KanoonClient,
     spend_before: dict,
 ) -> RetrievalResult:
+    # Cross-resolve SC cases to our official corpus (attach neutral citation +
+    # official PDF), then force Supreme-Court-first / High-Court-second ordering.
+    # Both run on every exit path because every return routes through _finalise.
+    try:
+        _attach_official_copies(cases, meta)
+    except Exception as e:                              # pragma: no cover
+        meta.notes.append(f"official-copy step error: {str(e)[:80]}")
+    # Drop aggregator (IK/curated) duplicates of a judgment we ALREADY carry as
+    # a native official SC card (same official PDF) — e.g. Stage 2.6 surfaced it
+    # natively AND IK live fetched it. Keep the official copy, drop the dupe.
+    native_sc = {c.case_id for c in cases if str(c.case_id).startswith("sc:")}
+    if native_sc:
+        kept: list[CaseSummary] = []
+        for c in cases:
+            od = getattr(c, "official_doc_id", "")
+            if not str(c.case_id).startswith("sc:") and od and od in native_sc:
+                meta.notes.append(f"deduped {c.case_id} → native {od}")
+                continue
+            kept.append(c)
+        cases = kept
+    cases = _enforce_court_priority(cases)
+
     meta.elapsed_seconds = round(time.time() - t0, 3)
     spend_after = client.spend_summary()
     meta.inr_spent_this_call = round(
@@ -1877,6 +2110,12 @@ Each case in the corpus has a `_source` field:
     has an `id` (like "p_24"), a human paragraph `num` (may be null for
     older judgments), a `structure` tag (facts/issue/conclusion/...), and
     the verbatim `text` from the judgment.
+  - `_source: "sc"`: a Supreme Court judgment from our OFFICIAL court-accepted
+    open-data corpus. Treat it EXACTLY like an `ik` entry for quoting — the
+    authoritative evidence is the `_ik_paragraphs` array (real extracted text
+    from the signed PDF). Prefer the `citation` field as given: it is the
+    court-accepted neutral citation (e.g. "2024INSC735") and SCR citation.
+    Never substitute an aggregator citation for it.
 
 For IK-sourced cases:
   - Treat `_ik_paragraphs` as your evidence. NEVER quote anything that

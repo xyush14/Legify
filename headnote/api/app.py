@@ -257,6 +257,18 @@ def _enrich_case(case: dict, meta_by_id: dict, refined_dual_map: list[dict] | No
                 case["kanoon_paragraph_url"] = f"https://indiankanoon.org/doc/{kdoc}/#{tok}"
     if "numcitedby" not in case and "numcitedby" in meta:
         case["numcitedby"] = meta["numcitedby"]
+
+    # Official Supreme Court copy — when retrieval cross-resolved this case to
+    # our court-accepted open-data corpus, surface the official PDF + neutral
+    # citation so the card can show the signed copy a court will accept (not
+    # just the aggregator link).
+    if meta.get("official_doc_id"):
+        case["official_doc_id"]  = meta["official_doc_id"]
+        case["official_pdf_url"] = (meta.get("official_pdf_url")
+                                    or f"/api/judgment/pdf/{meta['official_doc_id']}")
+        case["is_official_copy"] = True
+        if meta.get("official_citation"):
+            case["official_citation"] = meta["official_citation"]
     if "fame_indicator" not in case:
         # Curated cases have no IK citation count, so the "obscure" bucket would
         # be misleading. Label them as curated to signal editorial provenance.
@@ -739,8 +751,164 @@ def _spawn_backfill_thread(logger) -> None:
     t.start()
 
 
+# -----------------------------------------------------------------------
+# SC OFFICIAL CORPUS: seed the persistent volume on first boot
+# -----------------------------------------------------------------------
+# The full judgments DB (metadata + offsets + extracted text + FTS) is ~950MB
+# and grows; we DON'T ship that. What goes INSIDE the image is the ~14MB
+# "core" (sc_judgments metadata + sc_tar_offsets) — enough to power the
+# court-accepted moat the moment we go live:
+#   • Supreme-Court-first ordering in research output
+#   • IK→corpus cross-resolution (hand back the official neutral/SCR citation)
+#   • tap → the REAL signed PDF (one HTTP Range GET, zero PDF storage)
+# Full-text fact-pattern discovery (retrieval Stage 2.6) degrades gracefully to
+# empty until the heavier text tables arrive later, so shipping core-only loses
+# no correctness — only that one discovery feature.
+#
+# On boot, if the volume DB is absent/empty (and storage is a real volume, not
+# ephemeral /tmp), we seed it from JUDGMENTS_CORE_URL (if set) or the baked-in
+# judgments_core.sqlite. Backgrounded so it never blocks boot/healthcheck;
+# never crashes the process. Gated by SC_BOOTSTRAP_ON_BOOT (default on).
+_SC_BOOTSTRAP_STATUS: dict = {"state": "not_started", "detail": ""}
+
+
+def _maybe_bootstrap_judgments_on_boot() -> None:
+    import os as _os
+    import shutil as _shutil
+    import sqlite3 as _sq
+    import threading as _threading
+    import time as _time
+    import logging as _log
+    from pathlib import Path as _Path
+
+    global _SC_BOOTSTRAP_STATUS
+    logger = _log.getLogger("sc-bootstrap")
+
+    if _os.environ.get("SC_BOOTSTRAP_ON_BOOT", "true").lower() not in ("1", "true", "yes"):
+        _SC_BOOTSTRAP_STATUS = {"state": "disabled", "detail": "SC_BOOTSTRAP_ON_BOOT is off"}
+        logger.info("[sc-bootstrap] disabled via SC_BOOTSTRAP_ON_BOOT env")
+        return
+
+    try:
+        from headnote import config as _cfg
+        from headnote.judgments import opendata as _od
+        db_path = _Path(str(_cfg.JUDGMENTS_DB))
+        baked = _Path(_cfg.PROJECT_ROOT) / "judgments_core.sqlite"
+    except Exception as e:
+        _SC_BOOTSTRAP_STATUS = {"state": "error", "detail": f"import/config failed: {e}"}
+        logger.warning("[sc-bootstrap] config import failed: %s", e)
+        return
+
+    # Ephemeral storage (volume not attached) → a seed is wiped on next restart.
+    # Don't bother; the app runs on curated + IK live + (degraded) SC anyway.
+    sdb = str(db_path)
+    if sdb.startswith("/tmp") or "/tmp/" in sdb:
+        _SC_BOOTSTRAP_STATUS = {
+            "state": "skipped",
+            "detail": f"JUDGMENTS_DB at {sdb} (ephemeral /tmp). Attach a Railway volume at /data.",
+        }
+        logger.warning("[sc-bootstrap] %s is ephemeral — skipping seed", sdb)
+        return
+
+    # Already populated → nothing to do (this is the steady state).
+    try:
+        stats = _od.corpus_stats()
+        if int(stats.get("judgments", 0) or 0) > 0:
+            _SC_BOOTSTRAP_STATUS = {
+                "state": "healthy",
+                "detail": (f"corpus present — {stats.get('judgments')} judgments, "
+                           f"{stats.get('offsets')} offsets, {stats.get('texts')} texts"),
+                "judgments": stats.get("judgments"),
+                "texts": stats.get("texts"),
+            }
+            logger.info("[sc-bootstrap] corpus already has %s judgments — no seed needed",
+                        stats.get("judgments"))
+            return
+    except Exception as e:
+        logger.warning("[sc-bootstrap] stats check failed (%s); will attempt seed", e)
+
+    core_url = _os.environ.get("JUDGMENTS_CORE_URL", "").strip()
+
+    def _seed() -> None:
+        global _SC_BOOTSTRAP_STATUS
+        t0 = _time.time()
+        tmp = _Path(sdb + ".seed-tmp")
+        try:
+            db_path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                tmp.unlink()
+            except FileNotFoundError:
+                pass
+
+            if core_url:
+                _SC_BOOTSTRAP_STATUS = {"state": "running", "detail": f"downloading core from {core_url}"}
+                logger.warning("[sc-bootstrap] downloading core DB from %s", core_url)
+                import requests as _rq
+                with _rq.get(core_url, stream=True, timeout=180) as r:
+                    r.raise_for_status()
+                    with open(tmp, "wb") as f:
+                        for chunk in r.iter_content(chunk_size=1 << 20):
+                            if chunk:
+                                f.write(chunk)
+                src_desc = core_url
+            elif baked.exists():
+                _SC_BOOTSTRAP_STATUS = {"state": "running", "detail": f"copying baked-in {baked.name}"}
+                logger.warning("[sc-bootstrap] copying baked-in core %s", baked)
+                _shutil.copyfile(baked, tmp)
+                src_desc = str(baked)
+            else:
+                _SC_BOOTSTRAP_STATUS = {
+                    "state": "skipped",
+                    "detail": "no JUDGMENTS_CORE_URL set and no baked-in judgments_core.sqlite found",
+                }
+                logger.warning("[sc-bootstrap] no seed source available — skipping")
+                return
+
+            # Validate the seed has rows BEFORE swapping it in.
+            try:
+                cx = _sq.connect(f"file:{tmp.as_posix()}?mode=ro", uri=True)
+                n = cx.execute("SELECT COUNT(*) FROM sc_judgments").fetchone()[0]
+                cx.close()
+            except Exception as e:
+                n = 0
+                logger.warning("[sc-bootstrap] seed validation failed: %s", e)
+            if n <= 0:
+                _SC_BOOTSTRAP_STATUS = {"state": "error", "detail": "seed had 0 judgments; not installed"}
+                try:
+                    tmp.unlink()
+                except FileNotFoundError:
+                    pass
+                return
+
+            # Install: drop any empty stub + stale WAL/SHM sidecars, then move.
+            for p in (db_path, _Path(sdb + "-wal"), _Path(sdb + "-shm")):
+                try:
+                    p.unlink()
+                except FileNotFoundError:
+                    pass
+            _os.replace(tmp, db_path)
+            _SC_BOOTSTRAP_STATUS = {
+                "state": "seeded",
+                "detail": f"installed {n} judgments from {src_desc} in {_time.time()-t0:.1f}s",
+                "judgments": n,
+            }
+            logger.warning("[sc-bootstrap] seeded %s judgments → %s in %.1fs",
+                           n, db_path, _time.time() - t0)
+        except Exception as e:
+            _SC_BOOTSTRAP_STATUS = {"state": "error", "detail": f"seed failed: {e}"}
+            logger.exception("[sc-bootstrap] seed crashed: %s", e)
+            try:
+                tmp.unlink()
+            except Exception:
+                pass
+
+    _SC_BOOTSTRAP_STATUS = {"state": "running", "detail": "seed scheduled"}
+    _threading.Thread(target=_seed, daemon=True, name="sc-bootstrap").start()
+
+
 # Fire the check at module import (uvicorn loads this before serving requests)
 _maybe_autorebuild_corpus_on_boot()
+_maybe_bootstrap_judgments_on_boot()
 
 # Drafting engine (10 document types, story-first). Per-type templates
 # ship one at a time; the API surface lives here from v0 so the FE can
@@ -791,6 +959,14 @@ app.include_router(_memorandum_router)
 # share, and the print fallback; replaces the broken html2canvas path.
 from headnote.api.pdf import router as _draft_pdf_router
 app.include_router(_draft_pdf_router)
+
+# Official judgment corpus: /api/judgment/* — search the Supreme Court
+# open-data set (court-accepted neutral + SCR citations) and stream the ACTUAL
+# official judgment PDF on demand (single HTTP Range fetch from AWS Open Data,
+# CC-BY-4.0; LRU-cached). This is the court-accepted-source layer that
+# supplements Indian Kanoon's discovery aggregation.
+from headnote.api.judgments import router as _judgments_router
+app.include_router(_judgments_router)
 
 # Pre-extract universal facts for the 42 curated cases at boot. ~50ms
 # one-time cost that removes a per-query latency spike for the first user.
@@ -1294,6 +1470,15 @@ def health():
     rebuild_block["hf_token_configured"] = bool(_os2.environ.get("HF_TOKEN", "").strip())
     rebuild_block["rebuild_flag_active"] = autorebuild_in_progress()
 
+    # Official SC corpus — seed/bootstrap status + live counts (judgments,
+    # offset coverage, extracted-text coverage). The answer to "is the SC
+    # official-source layer live, and how much of it?"
+    try:
+        from headnote.judgments import opendata as _od_h
+        sc_corpus_block = {"bootstrap": dict(_SC_BOOTSTRAP_STATUS), **_od_h.corpus_stats()}
+    except Exception as e:
+        sc_corpus_block = {"bootstrap": dict(_SC_BOOTSTRAP_STATUS), "error": str(e)[:200]}
+
     return {
         "ok":         True,
         **config.summary(),
@@ -1301,6 +1486,7 @@ def health():
         "embeddings": emb,
         "llm_backend": llm_block,
         "autorebuild": rebuild_block,
+        "sc_corpus":  sc_corpus_block,
     }
 
 
@@ -2047,6 +2233,12 @@ def _api_situation_impl(req: SituationRequest, _record):
             "court":         cs.court,                              # NEW
             "outcome":       getattr(cs, "outcome", "") or "",      # NEW
             "district":      getattr(cs, "district", "") or "",     # NEW
+            # Official SC open-data copy (cross-resolved in retrieval) — NEW
+            "official_doc_id":  getattr(cs, "official_doc_id", "") or "",
+            "official_pdf_url": getattr(cs, "official_pdf_url", "") or "",
+            "official_citation": (getattr(cs, "neutral_citation", "")
+                                  or getattr(cs, "scr_citation", "") or ""),
+            "is_official_copy": bool(getattr(cs, "is_official_copy", False)),
         }
     for c in curated:
         if c.get("id"):
@@ -2058,6 +2250,18 @@ def _api_situation_impl(req: SituationRequest, _record):
     refined_dual_map = (refined.dual_statute_map if hasattr(refined, "dual_statute_map") else []) or []
     for case in parsed.get("cases", []):
         _enrich_case(case, meta_by_id, refined_dual_map=refined_dual_map)
+
+    # Supreme Court precedent always shows first, then High Court, then the
+    # rest. Stable sort preserves the model's within-tier relevance ordering.
+    if isinstance(parsed.get("cases"), list):
+        def _court_tier_for_sort(c: dict) -> int:
+            crt = (c.get("court") or "").lower()
+            if "supreme court" in crt:
+                return 0
+            if "high court" in crt:
+                return 1
+            return 2
+        parsed["cases"].sort(key=_court_tier_for_sort)
 
     # Telemetry — fire-and-forget, never blocks the response
     record_query(

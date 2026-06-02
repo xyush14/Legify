@@ -125,7 +125,55 @@ def serve_case_viewer_html(doc_id: str, request: Request):
 @router.get("/api/case/{doc_id:path}", summary="Full judgment data for the in-app viewer")
 def get_case_data(doc_id: str) -> dict:
     """Return parties, citation, court, judges, full text, and paragraphs
-    for a single judgment by its doc_id (curated or HF)."""
+    for a single judgment by its doc_id (curated, HF, or SC open-data)."""
+    # Supreme Court open-data judgment → metadata + a link to the ACTUAL
+    # official PDF (served by /api/judgment/pdf/<doc_id>). No paragraph text:
+    # the viewer embeds the real signed judgment copy instead.
+    if doc_id.startswith("sc:"):
+        from headnote.judgments import opendata
+        j = opendata.get_metadata(doc_id)
+        if not j:
+            raise HTTPException(status_code=404, detail=f"Judgment {doc_id} not found")
+        parties = (
+            j.title
+            if j.title
+            else (f"{j.petitioner} v. {j.respondent}"
+                  if j.petitioner and j.respondent else doc_id)
+        )
+        judges = [s.strip() for s in (j.judge or "").split(",") if s.strip()]
+        # Readable paragraphs from the EXTRACTED official text (empty until
+        # scripts/extract_sc_text.py has run for this year). The embedded PDF
+        # remains the canonical copy; these let the lawyer select/quote text
+        # and give the viewer real anchors.
+        sc_paras = [
+            {"id": p["id"], "num": p["num"], "text": p["text"],
+             "numbered": p["text"][:5].rstrip(".)").rstrip().isdigit()}
+            for p in opendata.paragraphs_for(doc_id)
+        ]
+        return {
+            "doc_id":           j.doc_id,
+            "source":           "supreme-court-opendata",
+            "language":         "en",
+            "title":            parties,
+            "parties":          parties,
+            "petitioner":       j.petitioner,
+            "respondent":       j.respondent,
+            "citation":         j.best_citation,
+            "neutral_citation": j.neutral_citation,
+            "scr_citation":     j.scr_citation,
+            "court":            j.court,
+            "bench":            j.judge,
+            "judges":           judges,
+            "author_judge":     j.author_judge,
+            "date":             j.decision_date,
+            "case_number":      j.cnr,
+            "outcome":          j.disposal_nature,
+            "paragraphs":       sc_paras,
+            "pdf_url":          f"/api/judgment/pdf/{j.doc_id}",
+            "provenance":       opendata.provenance(j),
+            "metadata_confidence": "high",
+        }
+
     # HF case
     if doc_id.startswith("hf:"):
         hj = _hf_get(doc_id)
