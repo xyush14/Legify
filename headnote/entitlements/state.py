@@ -34,7 +34,11 @@ from __future__ import annotations
 
 from headnote.entitlements.meters import get_user_meters
 from headnote.entitlements.plans import PLANS, get_plan
-from headnote.entitlements.subscription import get_active_subscription, is_admin
+from headnote.entitlements.subscription import (
+    get_active_subscription,
+    has_sections_pro,
+    is_admin,
+)
 
 
 def get_user_state(user_id: str, email: str | None = None) -> dict:
@@ -45,6 +49,8 @@ def get_user_state(user_id: str, email: str | None = None) -> dict:
     return {
         "user": {"id": user_id, "email": email},
         "is_admin": is_admin(user_id),
+        # one-time ₹99 add-on OR bundled with monthly/yearly/founder/partner
+        "sections_pro": has_sections_pro(user_id, plan_name),
         "subscription": {
             "plan":              plan_name,
             "display_name":      plan.display_name,

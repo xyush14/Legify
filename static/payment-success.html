@@ -59,6 +59,21 @@ function showFailure(msg) {
 function showSuccess(data) {
   $('icon').className = 'icon success';
   $('icon').textContent = '✓';
+
+  // Add-on: the ₹99 lifetime Section Finder unlock. Route back to /sections,
+  // not /app — that's where the user was and what they just paid to unlock.
+  if ((data.plan || '') === 'sections') {
+    $('title').textContent = 'Unlocked — the Section Finder is yours';
+    $('msg').textContent = 'You now have lifetime access to every section mapping, punishment grid and old→new breakdown.';
+    $('meta').style.display = '';
+    $('meta').innerHTML =
+      `<div><strong>Lifetime unlock</strong> · Section Finder</div>` +
+      (data.amount ? `<div><strong>Amount paid:</strong> ₹${data.amount}</div>` : '') +
+      (data.order_id ? `<div><strong>Order ID:</strong> <code style="font-size:11px">${data.order_id}</code></div>` : '');
+    $('actions').innerHTML = `<a class="btn" href="/sections">Open the Section Finder →</a>`;
+    return;
+  }
+
   $('title').textContent = 'Payment successful — you\'re upgraded!';
   $('msg').textContent = 'Every Headnote feature is now unlocked on your account.';
   if (data.plan) {

@@ -40,11 +40,13 @@ PLAN_AMOUNTS: dict[str, int] = {
     "weekly":  120,
     "monthly": 499,
     "yearly":  4999,
+    "sections": 99,   # one-time lifetime unlock for the Section Finder (add-on)
 }
 _PLAN_LABELS: dict[str, str] = {
     "weekly":  "Headnote Weekly Trial (7 days)",
     "monthly": "Headnote Monthly Subscription",
     "yearly":  "Headnote Yearly Subscription",
+    "sections": "Headnote — Section Finder (lifetime unlock)",
 }
 
 

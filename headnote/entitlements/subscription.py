@@ -282,6 +282,39 @@ def is_admin(user_id: str) -> bool:
     return bool(rows)
 
 
+# ---------------------------------------------------------------- add-ons
+
+# Subscription tiers that bundle the Section-Finder premium view for free.
+_SECTIONS_BUNDLED_PLANS = ("monthly", "yearly", "founder", "partner")
+
+
+def has_sections_unlock(user_id: str) -> bool:
+    """True iff the user bought the one-time, lifetime Section-Finder unlock.
+
+    Reads public.sections_unlocks. Fail-safe: returns False when the table is
+    absent or Supabase is unreachable (the _supabase wrapper swallows HTTP
+    errors and returns []), so this never 500s the entitlement check.
+    """
+    if not user_id:
+        return False
+    try:
+        rows = _supabase.select(
+            "sections_unlocks",
+            params={"user_id": f"eq.{user_id}", "select": "user_id", "limit": "1"},
+        )
+        return bool(rows)
+    except Exception:
+        return False
+
+
+def has_sections_pro(user_id: str, plan_name: str | None) -> bool:
+    """Whether the Section-Finder premium view is unlocked for this user —
+    either bundled with their subscription tier, or bought as the ₹99 add-on."""
+    if plan_name in _SECTIONS_BUNDLED_PLANS:
+        return True
+    return has_sections_unlock(user_id)
+
+
 # ---------------------------------------------------------------- helpers
 
 def _parse_ts(s: Optional[str]) -> datetime | None:

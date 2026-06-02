@@ -185,6 +185,92 @@
     .borrowed__txt { font-size:13px; color:var(--ink-2); line-height:1.55; }
     .borrowed strong { color:var(--ink); font-weight:600; }
 
+    /* ---------------- freemium: free-count pill ---------------- */
+    .freecount {
+      display:flex; align-items:center; gap:9px; flex-wrap:wrap;
+      margin:20px 0 2px; padding:11px 16px;
+      background:var(--surface); border:1px solid var(--line);
+      border-radius:100px; font-size:13px; color:var(--ink-2);
+    }
+    .freecount__n { font-weight:600; color:var(--ink); }
+    .freecount__sep { color:var(--ink-3); }
+    .freecount a { color:var(--ink); font-weight:600; cursor:pointer; text-decoration:none; border-bottom:2px solid var(--accent); white-space:nowrap; }
+    .freecount a:hover { background:var(--accent); }
+    .freecount--low { border-color:var(--warn); background:var(--warn-soft); color:var(--warn); }
+    .freecount--low .freecount__n { color:var(--warn); }
+
+    /* ---------------- freemium: locked / blurred premium block ---------------- */
+    .locked-wrap { position:relative; }
+    .locked-blur {
+      filter:blur(7px); pointer-events:none; user-select:none;
+      -webkit-mask-image:linear-gradient(180deg,#000 0%,#000 30%,rgba(0,0,0,.2) 100%);
+              mask-image:linear-gradient(180deg,#000 0%,#000 30%,rgba(0,0,0,.2) 100%);
+    }
+    .locked-cta {
+      position:absolute; inset:0; display:flex; flex-direction:column;
+      align-items:center; justify-content:center; text-align:center;
+      gap:9px; padding:26px 22px;
+      background:linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,.88) 55%);
+    }
+    .locked-cta__icon {
+      width:42px; height:42px; border-radius:50%; flex:none; margin-bottom:2px;
+      display:flex; align-items:center; justify-content:center;
+      background:var(--ink); color:#fff;
+    }
+    .locked-cta__icon svg { width:20px; height:20px; }
+    .locked-cta__title { font-size:17px; font-weight:600; letter-spacing:-.01em; color:var(--ink); }
+    .locked-cta__sub { font-size:13px; color:var(--ink-2); max-width:42ch; line-height:1.5; }
+    .locked-cta__btn {
+      margin-top:6px; font-family:inherit; font-size:14.5px; font-weight:600;
+      color:var(--ink); background:var(--accent); border:1px solid var(--ink);
+      padding:12px 22px; border-radius:100px; cursor:pointer;
+      box-shadow:var(--shadow); transition:transform .14s ease;
+    }
+    .locked-cta__btn:hover { transform:translateY(-1px); }
+    .locked-cta__foot { font-size:11.5px; color:var(--ink-3); }
+
+    /* ---------------- freemium: unlock modal ---------------- */
+    .umodal { position:fixed; inset:0; z-index:50; display:none; }
+    .umodal.is-open { display:block; }
+    .umodal__backdrop { position:absolute; inset:0; background:rgba(12,12,10,.5); backdrop-filter:blur(2px); }
+    .umodal__panel {
+      position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+      width:calc(100% - 36px); max-width:420px; max-height:calc(100vh - 36px); overflow:auto;
+      background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg);
+      box-shadow:0 20px 60px rgba(0,0,0,.28); padding:26px 24px 22px;
+    }
+    .umodal__x { position:absolute; top:12px; right:14px; width:30px; height:30px; border-radius:50%;
+      border:1px solid var(--line); background:var(--surface); color:var(--ink-3);
+      font-size:18px; line-height:1; cursor:pointer; }
+    .umodal__x:hover { color:var(--ink); border-color:var(--ink); }
+    .umodal__badge { display:inline-block; font-size:11px; font-weight:600; letter-spacing:.06em;
+      text-transform:uppercase; color:var(--ink); background:var(--accent);
+      padding:4px 10px; border-radius:100px; }
+    .umodal__title { font-size:21px; font-weight:600; letter-spacing:-.01em; margin:13px 0 6px; }
+    .umodal__lede { font-size:13.5px; color:var(--ink-2); margin:0 0 14px; line-height:1.5; }
+    .umodal__list { list-style:none; margin:0 0 16px; padding:0; }
+    .umodal__list li { position:relative; padding:6px 0 6px 26px; font-size:13.5px; color:var(--ink); border-bottom:1px solid var(--line-2); }
+    .umodal__list li:last-child { border-bottom:none; }
+    .umodal__list li::before { content:""; position:absolute; left:3px; top:10px; width:13px; height:7px;
+      border-left:2px solid var(--good); border-bottom:2px solid var(--good); transform:rotate(-45deg); }
+    .umodal__phone { margin:0 0 14px; }
+    .umodal__phone label { display:block; font-size:12px; color:var(--ink-2); font-weight:500; margin-bottom:6px; }
+    .umodal__phone input { width:100%; font-family:inherit; font-size:15px; color:var(--ink);
+      border:1.5px solid var(--line); border-radius:var(--radius); padding:11px 13px; }
+    .umodal__phone input:focus { outline:none; border-color:var(--ink); }
+    .umodal__price { display:flex; align-items:baseline; gap:8px; margin-bottom:14px; }
+    .umodal__amt { font-size:30px; font-weight:600; letter-spacing:-.02em; }
+    .umodal__per { font-size:13px; color:var(--ink-3); }
+    .umodal__go { width:100%; font-family:inherit; font-size:15.5px; font-weight:600;
+      color:var(--ink); background:var(--accent); border:1px solid var(--ink);
+      padding:14px; border-radius:var(--radius-lg); cursor:pointer; transition:transform .14s ease; }
+    .umodal__go:hover:not(:disabled) { transform:translateY(-1px); }
+    .umodal__go:disabled { opacity:.6; cursor:default; }
+    .umodal__status { min-height:18px; font-size:12.5px; color:var(--ink-3); margin-top:10px; text-align:center; line-height:1.45; }
+    .umodal__secure { display:flex; align-items:center; justify-content:center; gap:7px;
+      margin-top:12px; font-size:11.5px; color:var(--ink-3); }
+    .umodal__secure svg { width:14px; height:14px; }
+
     /* secondary matches */
     .more { margin-top:26px; }
     .more__label { font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); font-weight:600; margin-bottom:10px; }
@@ -254,6 +340,37 @@
     <footer class="foot" id="foot"></footer>
   </div>
 
+  <!-- ───────── unlock modal (₹99 lifetime) ───────── -->
+  <div class="umodal" id="umodal" aria-hidden="true">
+    <div class="umodal__backdrop" data-uclose="1"></div>
+    <div class="umodal__panel" role="dialog" aria-modal="true" aria-labelledby="umodalTitle">
+      <button class="umodal__x" data-uclose="1" aria-label="Close">×</button>
+      <span class="umodal__badge">Lifetime access</span>
+      <h2 class="umodal__title" id="umodalTitle">Unlock every section change</h2>
+      <p class="umodal__lede">One payment, used forever. See exactly what changed between the old and new codes — no subscription, no renewals.</p>
+      <ul class="umodal__list">
+        <li>Exactly what changed, old law → new law</li>
+        <li>Full punishment grid &amp; offence classification</li>
+        <li>Plain-English summary for every section</li>
+        <li>Unlimited searches across IPC/BNS, CrPC/BNSS &amp; Evidence/BSA</li>
+      </ul>
+      <div class="umodal__phone" id="umodalPhone" style="display:none;">
+        <label for="umodalPhoneInput">Mobile number (for your payment receipt)</label>
+        <input id="umodalPhoneInput" type="tel" inputmode="numeric" autocomplete="tel"
+               placeholder="10-digit mobile number" maxlength="14" />
+      </div>
+      <div class="umodal__price"><span class="umodal__amt">₹99</span><span class="umodal__per">one-time · lifetime access</span></div>
+      <button class="umodal__go" id="umodalGo">Pay ₹99 &amp; unlock</button>
+      <div class="umodal__status" id="umodalStatus"></div>
+      <div class="umodal__secure">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Secure payment via Cashfree
+      </div>
+    </div>
+  </div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
 <script>
 (function () {
   "use strict";
@@ -262,6 +379,27 @@
   var footEl = document.getElementById("foot");
   var META = null;
   var debounceT = null;
+
+  // ── freemium gate state ──────────────────────────────────────────
+  var FREE_LIMIT = 5;
+  var LS_USED = "hn_sec_free_used_v1";
+  var ENTITLED = false;     // paid (sections_pro) OR monthly/yearly/founder/partner
+  var LOCKED = false;       // current render should blur the premium block
+  var LAST_COUNTED = null;  // normalized query we last metered (avoids double-count)
+
+  // modal + auth handles (assigned at boot)
+  var modalEl = null, modalStatusEl = null, modalPhoneWrap = null,
+      modalPhoneInput = null, modalGoBtn = null;
+  var _supaClient = null, _cfg = null, _checkoutBusy = false;
+
+  function freeUsed() {
+    try { return parseInt(localStorage.getItem(LS_USED) || "0", 10) || 0; }
+    catch (e) { return 0; }
+  }
+  function setFreeUsed(n) {
+    try { localStorage.setItem(LS_USED, String(n)); } catch (e) {}
+  }
+  function freeLeft() { return Math.max(0, FREE_LIMIT - freeUsed()); }
 
   function esc(s) {
     return String(s == null ? "" : s)
@@ -368,9 +506,28 @@
         '<span>Section number is verified. The offence-classification fields (bailable / cognizable / triable-by) for this entry should be confirmed against the BNSS First Schedule before you rely on them in court.</span></div>'
       : "";
 
+    // everything below the mapping is the "premium" payload we gate
+    var premium = changedStrip + context + punishFrom +
+                  renderDiff(r.diff, r.kind === "new") + summary + verifyNote;
+
+    if (LOCKED && !ENTITLED) {
+      var lock = '<div class="locked-wrap">' +
+        '<div class="locked-blur" aria-hidden="true">' + (premium || mapRow) + "</div>" +
+        '<div class="locked-cta">' +
+          '<div class="locked-cta__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>' +
+          '<div class="locked-cta__title">Unlock the full breakdown</div>' +
+          '<div class="locked-cta__sub">See exactly what changed, the punishment grid, classification and a plain-English summary — for every section.</div>' +
+          '<button class="locked-cta__btn" data-unlock="1">Unlock everything · ₹99 lifetime</button>' +
+          '<div class="locked-cta__foot">One-time payment · no subscription</div>' +
+        "</div></div>";
+      return '<div class="card">' +
+        '<div class="card__top">' + topBits.join("") + "</div>" +
+        mapRow + lock + "</div>";
+    }
+
     return '<div class="card">' +
       '<div class="card__top">' + topBits.join("") + "</div>" +
-      mapRow + changedStrip + context + punishFrom + renderDiff(r.diff, r.kind === "new") + summary + verifyNote + "</div>";
+      mapRow + premium + "</div>";
   }
 
   function renderMoreRow(r) {
@@ -388,6 +545,36 @@
       return '<button class="chip" data-q="' + esc(s.query) + '">' + esc(s.label) + "</button>";
     }).join("");
     return '<div class="empty"><div class="chips"><span class="chips__label">Popular lookups</span>' + chips + "</div></div>";
+  }
+
+  // Count a distinct successful lookup against the free quota. Same-query
+  // re-renders (entitlement check, blur refresh) do NOT re-count.
+  function meter(data) {
+    if (ENTITLED) { LOCKED = false; return; }
+    var nk = String(data.normalized || data.query || "").toLowerCase();
+    if (nk && nk !== LAST_COUNTED) {
+      var prior = freeUsed();
+      if (prior >= FREE_LIMIT) {
+        LOCKED = true;                 // quota already spent → blur from here on
+      } else {
+        setFreeUsed(prior + 1);        // consume one free search
+        LOCKED = false;
+      }
+      LAST_COUNTED = nk;
+    }
+    // unchanged query → leave LOCKED as-is
+  }
+
+  function freeCountHtml() {
+    if (ENTITLED || LOCKED) return "";
+    var left = freeLeft();
+    if (left <= 0) return "";
+    var low = left <= 2 ? " freecount--low" : "";
+    return '<div class="freecount' + low + '">' +
+      '<span><span class="freecount__n">' + left + '</span> free ' +
+        (left === 1 ? "search" : "searches") + ' left</span>' +
+      '<span class="freecount__sep">·</span>' +
+      '<a data-unlock="1">Unlock unlimited for ₹99</a></div>';
   }
 
   function renderResults(data) {
@@ -414,6 +601,8 @@
             '<span class="dom">' + esc(r.domain) + "</span></button>";
         }).join("") + "</div>";
     } else {
+      meter(data);
+      html += freeCountHtml();
       html += '<div class="status-line">' + data.count + ' match' + (data.count === 1 ? "" : "es") + ' for “' + esc(data.query) + '”</div>';
       html += renderCard(rest.shift());
       if (rest.length) {
@@ -442,6 +631,13 @@
         qEl.focus();
       });
     }
+    var unlockers = resultsEl.querySelectorAll("[data-unlock]");
+    for (var j = 0; j < unlockers.length; j++) {
+      unlockers[j].addEventListener("click", function (e) {
+        e.preventDefault();
+        openModal();
+      });
+    }
   }
 
   function run(pushUrl) {
@@ -456,6 +652,160 @@
       .catch(function () {
         resultsEl.innerHTML = '<div class="noresult">Something went wrong. Please try again.</div>';
       });
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  //  entitlement + checkout. SDKs load lazily; the Supabase session is
+  //  shared with the rest of headnote.in via the default storage key,
+  //  so a user signed in elsewhere is recognised here with no re-login.
+  // ────────────────────────────────────────────────────────────────
+  function loadCfg() {
+    if (_cfg) return Promise.resolve(_cfg);
+    return fetch("/api/config")
+      .then(function (r) { return r.json(); })
+      .then(function (c) { _cfg = c || {}; return _cfg; })
+      .catch(function () { _cfg = {}; return _cfg; });
+  }
+
+  function supa() {
+    if (_supaClient) return Promise.resolve(_supaClient);
+    return loadCfg().then(function (c) {
+      if (!window.supabase || !window.supabase.createClient || !c.supabase_url) return null;
+      _supaClient = window.supabase.createClient(c.supabase_url, c.supabase_anon_key, {
+        auth: {
+          flowType: "implicit",
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+          storage: (typeof window !== "undefined" && window.localStorage) || undefined,
+        },
+      });
+      return _supaClient;
+    });
+  }
+
+  function getToken() {
+    return supa().then(function (client) {
+      if (!client) return null;
+      return client.auth.getSession().then(function (res) {
+        return (res && res.data && res.data.session && res.data.session.access_token) || null;
+      });
+    }).catch(function () { return null; });
+  }
+
+  // True if the signed-in user already owns the feature (paid add-on OR a
+  // subscription tier that bundles it). Anonymous / free → false.
+  function checkEntitlement() {
+    return getToken().then(function (token) {
+      if (!token) return false;
+      return fetch("/api/me", { headers: { Authorization: "Bearer " + token } })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (me) {
+          if (!me) return false;
+          if (me.sections_pro === true) return true;
+          var plan = me.subscription && me.subscription.plan;
+          return ["monthly", "yearly", "founder", "partner"].indexOf(plan) !== -1;
+        });
+    }).catch(function () { return false; });
+  }
+
+  // ── modal controls ──
+  function openModal() {
+    if (!modalEl) return;
+    modalEl.classList.add("is-open");
+    modalEl.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+  }
+  function closeModal() {
+    if (!modalEl) return;
+    modalEl.classList.remove("is-open");
+    modalEl.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+  }
+  function setModalStatus(msg, isErr) {
+    if (!modalStatusEl) return;
+    modalStatusEl.textContent = msg || "";
+    modalStatusEl.style.color = isErr ? "var(--bad)" : "var(--ink-3)";
+  }
+
+  // Pay button → sign in (if needed) → create order → Cashfree checkout.
+  function startCheckout() {
+    if (_checkoutBusy) return;
+    _checkoutBusy = true;
+    setModalStatus("");
+    if (modalGoBtn) modalGoBtn.disabled = true;
+
+    function unbusy() { _checkoutBusy = false; if (modalGoBtn) modalGoBtn.disabled = false; }
+
+    getToken().then(function (token) {
+      if (!token) {
+        setModalStatus("Redirecting you to sign in with Google…");
+        return supa().then(function (client) {
+          if (!client) {
+            setModalStatus("Sign-in is unavailable right now. Please try again shortly.", true);
+            unbusy();
+            return;
+          }
+          var params2 = new URLSearchParams(location.search);
+          params2.set("unlock", "1");
+          var back = location.origin + location.pathname + "?" + params2.toString();
+          return client.auth.signInWithOAuth({
+            provider: "google",
+            options: { redirectTo: back },
+          }).then(function (res) {
+            if (res && res.error) {
+              setModalStatus("Sign-in failed: " + res.error.message, true);
+              unbusy();
+            }
+            // on success the browser navigates away to Google
+          });
+        });
+      }
+      return createOrderAndPay(token, unbusy);
+    }).catch(function () {
+      setModalStatus("Something went wrong. Please try again.", true);
+      unbusy();
+    });
+  }
+
+  function createOrderAndPay(token, unbusy) {
+    setModalStatus("Creating your secure order…");
+    var body = { plan: "sections" };
+    var phone = ((modalPhoneInput && modalPhoneInput.value) || "").trim();
+    if (phone) body.phone = phone;
+
+    return fetch("/api/payments/create-order", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+      body: JSON.stringify(body),
+    }).then(function (r) {
+      return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; });
+    }).then(function (res) {
+      if (!res.ok) {
+        var d = res.data && res.data.detail;
+        var code = d && d.code;
+        if (code === "phone_required" || (res.status === 400 && d && typeof d === "object")) {
+          if (modalPhoneWrap) modalPhoneWrap.style.display = "block";
+          if (modalPhoneInput) modalPhoneInput.focus();
+          setModalStatus((d && d.message) || "Enter a valid 10-digit Indian mobile number to continue.", true);
+        } else {
+          var msg = (d && d.message) || (typeof d === "string" ? d : "") || "Could not start payment. Please try again.";
+          setModalStatus(msg, true);
+        }
+        if (unbusy) unbusy();
+        return;
+      }
+      var sessionId = res.data.payment_session_id;
+      var env = res.data.env;
+      if (!sessionId || typeof window.Cashfree !== "function") {
+        setModalStatus("Payment SDK failed to load. Disable ad-blockers and retry.", true);
+        if (unbusy) unbusy();
+        return;
+      }
+      setModalStatus("Opening secure checkout…");
+      var cf = window.Cashfree({ mode: env === "production" ? "production" : "sandbox" });
+      cf.checkout({ paymentSessionId: sessionId, redirectTarget: "_self" });
+    });
   }
 
   qEl.addEventListener("input", function () {
@@ -484,6 +834,35 @@
   if (initial) qEl.value = initial;
   run(false);
   qEl.focus();
+
+  // wire the unlock modal (static DOM)
+  modalEl         = document.getElementById("umodal");
+  modalStatusEl   = document.getElementById("umodalStatus");
+  modalPhoneWrap  = document.getElementById("umodalPhone");
+  modalPhoneInput = document.getElementById("umodalPhoneInput");
+  modalGoBtn      = document.getElementById("umodalGo");
+  if (modalGoBtn) modalGoBtn.addEventListener("click", startCheckout);
+  if (modalEl) {
+    var closers = modalEl.querySelectorAll("[data-uclose]");
+    for (var ci = 0; ci < closers.length; ci++) closers[ci].addEventListener("click", closeModal);
+  }
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && modalEl && modalEl.classList.contains("is-open")) closeModal();
+  });
+
+  // entitlement check + return-from-checkout handling. If the user owns the
+  // feature, drop the blur (re-render unlocked). If they bounced back from a
+  // sign-in we triggered (?unlock=1) and still don't own it, reopen the modal.
+  checkEntitlement().then(function (ent) {
+    if (ent) {
+      ENTITLED = true;
+      LOCKED = false;
+      LAST_COUNTED = null;
+      if (qEl.value.trim()) run(false);
+    } else if (params.get("unlock") === "1") {
+      openModal();
+    }
+  });
 })();
 </script>
 </body>

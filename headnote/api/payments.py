@@ -71,8 +71,13 @@ log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/payments", tags=["payments"])
 
 
-# Map our plan ids to Cashfree note labels for the order_note field
-_SELLABLE_PLANS = {"weekly", "monthly", "yearly"}
+# Plans the user can buy.
+#   - subscription plans flip the single public.subscriptions row (change_plan)
+#   - add-on plans grant a permanent, SEPARATE entitlement and must never
+#     touch the subscriptions row (single-plan model)
+_SUBSCRIPTION_PLANS = {"weekly", "monthly", "yearly"}
+_ADDON_PLANS = {"sections"}             # one-time, lifetime unlocks
+_SELLABLE_PLANS = _SUBSCRIPTION_PLANS | _ADDON_PLANS
 
 
 # ---------------------------------------------------------------- models
@@ -110,6 +115,12 @@ def _upgrade_from_paid_order(order: dict) -> dict:
         log.warning("paid order has unsellable plan: %s", plan_id)
         return {}
 
+    # Add-on purchases (e.g. the ₹99 Section Finder) are NOT subscriptions —
+    # they grant a permanent, separate entitlement and must never overwrite
+    # the user's single subscriptions row.
+    if plan_id in _ADDON_PLANS:
+        return _grant_addon(plan_id, user_id, order)
+
     sub = change_plan(
         user_id,
         plan_id,
@@ -121,6 +132,35 @@ def _upgrade_from_paid_order(order: dict) -> dict:
         user_id, plan_id, order.get("order_id"),
     )
     return sub
+
+
+def _grant_addon(plan_id: str, user_id: str, order: dict) -> dict:
+    """Record a one-time, lifetime add-on entitlement. Idempotent: the upsert
+    is keyed on user_id, so re-firing the webhook/verify just merges.
+
+    Currently the only add-on is "sections" → a row in public.sections_unlocks.
+    """
+    if plan_id != "sections":
+        return {}
+    payload = {
+        "user_id":    user_id,
+        "order_id":   order.get("order_id"),
+        "source":     "cashfree",
+        "amount_inr": int(float(order.get("order_amount") or 0)),
+    }
+    try:
+        result = _supabase.upsert("sections_unlocks", payload, on_conflict="user_id")
+        log.info(
+            "sections unlock granted: user=%.8s order=%s",
+            user_id, order.get("order_id"),
+        )
+        return result[0] if result else payload
+    except Exception:
+        log.exception(
+            "failed to grant sections unlock user=%.8s order=%s",
+            user_id, order.get("order_id"),
+        )
+        return {}
 
 
 # ---------------------------------------------------------------- endpoints
@@ -167,7 +207,7 @@ def payments_config() -> dict:
                 "amount_inr":   cashfree.PLAN_AMOUNTS.get(p, 0),
                 "display_name": get_plan(p).display_name,
             }
-            for p in _SELLABLE_PLANS
+            for p in _SUBSCRIPTION_PLANS
         },
     }
 
