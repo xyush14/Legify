@@ -200,16 +200,17 @@
     .freecount--low .freecount__n { color:var(--warn); }
 
     /* ---------------- freemium: locked / blurred premium block ---------------- */
-    .locked-wrap { position:relative; }
+    .locked-wrap { position:relative; overflow:hidden; }
     .locked-blur {
+      position:absolute; inset:0; z-index:0; overflow:hidden;
       filter:blur(7px); pointer-events:none; user-select:none;
       -webkit-mask-image:linear-gradient(180deg,#000 0%,#000 30%,rgba(0,0,0,.2) 100%);
               mask-image:linear-gradient(180deg,#000 0%,#000 30%,rgba(0,0,0,.2) 100%);
     }
     .locked-cta {
-      position:absolute; inset:0; display:flex; flex-direction:column;
+      position:relative; z-index:1; display:flex; flex-direction:column;
       align-items:center; justify-content:center; text-align:center;
-      gap:9px; padding:26px 22px;
+      gap:9px; padding:30px 22px; min-height:188px;
       background:linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,.88) 55%);
     }
     .locked-cta__icon {
@@ -235,7 +236,8 @@
     .umodal__backdrop { position:absolute; inset:0; background:rgba(12,12,10,.5); backdrop-filter:blur(2px); }
     .umodal__panel {
       position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-      width:calc(100% - 36px); max-width:420px; max-height:calc(100vh - 36px); overflow:auto;
+      width:calc(100% - 32px); max-width:420px; overflow:auto;
+      max-height:calc(100vh - 32px); max-height:calc(100dvh - 32px);
       background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-lg);
       box-shadow:0 20px 60px rgba(0,0,0,.28); padding:26px 24px 22px;
     }
@@ -302,6 +304,23 @@
       .diff__row, .diffhdr { grid-template-columns:96px 1fr 1fr; }
       .diff__k, .diffhdr div { padding-left:13px; padding-right:8px; }
       .diff__v { padding-left:11px; }
+
+      /* tighten the unlock modal so it fits short viewports without the Pay button getting cut off */
+      .umodal__panel { padding:22px 18px 18px; }
+      .umodal__title { font-size:19px; margin:11px 0 6px; }
+      .umodal__lede { font-size:13px; margin-bottom:12px; }
+      .umodal__list { margin-bottom:13px; }
+      .umodal__list li { padding:5px 0 5px 24px; font-size:13px; }
+      .umodal__phone { margin-bottom:12px; }
+      .umodal__price { margin-bottom:12px; }
+      .umodal__amt { font-size:27px; }
+      .umodal__secure { margin-top:10px; }
+
+      /* locked-card CTA: a touch more breathing room, smaller sub-text */
+      .locked-cta { padding:26px 18px; min-height:172px; }
+      .locked-cta__title { font-size:16px; }
+      .locked-cta__sub { font-size:12.5px; }
+      .locked-cta__btn { font-size:14px; padding:12px 20px; }
     }
   </style>
 </head>
