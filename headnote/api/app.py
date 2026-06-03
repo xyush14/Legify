@@ -1549,6 +1549,35 @@ def debug_deepseek_direct():
     return results
 
 
+def _effective_situation_model(deep_mode: bool) -> str:
+    """The model alias the situation call will ACTUALLY use, after the latency
+    guard.
+
+    Under DeepSeek-primary (production), `sonnet`/`opus` map to
+    deepseek-reasoner (R1) which runs 60-120s (up to its 180s client timeout).
+    Stacked on IK retrieval that alone takes 30-70s, the request blows past
+    Railway's edge proxy timeout and the user sees a 502/504 ("server took too
+    long"). R1 is correct ONLY for the explicit deep-mode opt-in. For the
+    DEFAULT (non-deep) first attempt we clamp to the fast model
+    (haiku -> deepseek-chat / V3, ~10-30s) so a normal research query ALWAYS
+    lands inside the budget. This keeps the code safe even when the Railway
+    env var SITUATION_MODEL is left at `sonnet`.
+
+    Returns a short alias: 'haiku' | 'sonnet' | 'opus' (or a full claude- id
+    if an operator pinned one).
+    """
+    if deep_mode:
+        return config.SITUATION_DEEP_MODEL
+    choice = config.SITUATION_MODEL
+    try:
+        from headnote.llm.client import _deepseek_primary
+        if _deepseek_primary() and choice in ("sonnet", "opus"):
+            return "haiku"
+    except Exception:
+        pass
+    return choice
+
+
 @app.get("/api/health", summary="Liveness check + config summary")
 def health():
     # Add HF corpus stats so we can confirm the import landed without
@@ -1569,9 +1598,26 @@ def health():
         "has_groq_key":        bool(_os.environ.get("GROQ_API_KEY", "").strip()),
     }
     try:
-        from headnote.llm.client import _deepseek_primary, _CLAUDE_TO_DEEPSEEK
-        llm_block["deepseek_primary"] = _deepseek_primary()
+        from headnote.llm.client import (
+            _deepseek_primary, _CLAUDE_TO_DEEPSEEK, _to_deepseek_model,
+        )
+        from headnote.llm.router import _resolve_force_model
+        _dp = _deepseek_primary()
+        llm_block["deepseek_primary"] = _dp
         llm_block["claude_to_deepseek_map"] = dict(_CLAUDE_TO_DEEPSEEK)
+        # Which model research ACTUALLY runs on right now — the single most
+        # important field for diagnosing "research is slow / times out". Under
+        # DeepSeek-primary, sonnet/opus -> deepseek-reasoner (R1, slow);
+        # haiku -> deepseek-chat (V3, fast). `*_effective` reflects the
+        # non-deep latency-guard clamp (see _effective_situation_model).
+        llm_block["situation_model_env"] = config.SITUATION_MODEL
+        llm_block["situation_deep_model_env"] = config.SITUATION_DEEP_MODEL
+        for _key, _alias in (
+            ("situation_effective", _effective_situation_model(False)),
+            ("situation_deep_effective", _effective_situation_model(True)),
+        ):
+            _claude_id = _resolve_force_model(_alias) or _alias
+            llm_block[_key] = _to_deepseek_model(_claude_id) if _dp else _claude_id
     except Exception as e:
         llm_block["error"] = str(e)[:200]
 
@@ -2012,12 +2058,20 @@ def _api_situation_impl(req: SituationRequest, _record):
         prerank_scores = prerank_scores,
         style          = req.style,
     )
-    # Model selection is env-var driven so the same code runs on Render
-    # free (set SITUATION_MODEL=haiku) AND Railway / Pro (SITUATION_MODEL
-    # defaults to sonnet) without redeploying.
-    force_model_choice = (
-        config.SITUATION_DEEP_MODEL if req.deep_mode else config.SITUATION_MODEL
-    )
+    # Model selection (env-var driven via SITUATION_MODEL / SITUATION_DEEP_MODEL)
+    # with a hard LATENCY GUARD: under DeepSeek-primary, sonnet/opus map to
+    # deepseek-reasoner (R1, 60-120s, 180s client timeout). Stacked on IK
+    # retrieval (30-70s) that exceeds Railway's edge proxy timeout -> the user
+    # sees a 502/504 ("server took too long"). So the DEFAULT (non-deep) first
+    # attempt is clamped to the fast model (haiku -> V3); R1 is reserved for the
+    # explicit deep-mode opt-in. See _effective_situation_model().
+    force_model_choice = _effective_situation_model(req.deep_mode)
+    if not req.deep_mode and force_model_choice != config.SITUATION_MODEL:
+        print(
+            f"[situation] latency-guard: SITUATION_MODEL='{config.SITUATION_MODEL}' "
+            f"clamped -> '{force_model_choice}' for the non-deep first attempt "
+            f"(R1 too slow under DeepSeek; use deep_mode for reasoning)"
+        )
 
     # Extended thinking gives Sonnet/Opus a scratch space to actually execute
     # the four-dimension scoring rubric in the v2 prompt before writing JSON.
