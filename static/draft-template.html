@@ -1242,8 +1242,12 @@ async function setLang(newLang) {
   });
   // Translate prose fields
   const toTranslate = {};
+  // Translate every free-text field type — `text` is the most common type in
+  // the templates, so omitting it left most fields untranslated and produced
+  // mixed-language documents. Dates / numbers / selects are deliberately left
+  // alone (they carry no language).
   (state.template.fields || []).forEach(f => {
-    if (f.type === 'longtext' || f.type === 'address' || f.type === 'name') {
+    if (['longtext', 'address', 'name', 'text'].includes(f.type)) {
       const v = state.fields[f.key];
       if (v && String(v).trim()) toTranslate[f.key] = v;
     }

@@ -210,12 +210,16 @@ def list_drafts(
 
 # ----------------------------------------------------------- field translation
 
-@router.post("/translate-fields", summary="Translate bail-form prose fields EN↔HI")
+@router.post("/translate-fields", summary="Translate legal-form prose fields EN↔HI")
 async def translate_fields(
     body: TranslateFieldsBody,
     user: CurrentUser = Depends(get_current_user),
 ):
-    """Translate the prose fields of a bail application form in either direction.
+    """Translate the prose fields of any legal drafting form in either direction.
+
+    Used by the bail drafter AND the universal template drafter, so the prompt
+    is document-type-agnostic and routes each value by what it is (name →
+    transliterate, court → translate, prose → translate).
 
     Only non-empty string values are translated. Proper nouns (names, case
     numbers, dates, statute refs) are preserved by the prompt instruction.
@@ -236,25 +240,27 @@ async def translate_fields(
     fields_json = json.dumps(to_translate, ensure_ascii=False, indent=2)
 
     system = (
-        "You are a bilingual converter for Indian bail-application form fields. "
-        "Your job: for each value in the given JSON, OUTPUT THE SAME CONTENT in the "
-        "target script/language. Use these rules per field:\n"
-        "• Person names (applicant_name, applicant_father, advocate_name, "
-        "trial_judge): TRANSLITERATE phonetically to the target script. "
+        "You are a bilingual converter for Indian legal-document form fields "
+        "(bail, vakalatnama, writ, maintenance, appeals, notices — any "
+        "petition or application). Your job: for each value in the given JSON, "
+        "OUTPUT THE SAME CONTENT in the target script/language. Decide per "
+        "value by WHAT IT IS (the JSON key hints at it):\n"
+        "• Person names (applicant/petitioner/accused/father/advocate/judge "
+        "names): TRANSLITERATE phonetically to the target script. "
         "E.g., 'Anil Verma' → 'अनिल वर्मा'; 'श्री राम सिंह' → 'Shri Ram Singh'.\n"
         "• Place names, addresses, district, state, police station, jail names: "
         "TRANSLITERATE to the target script (use the conventional Indian-English "
         "spelling for places, e.g. 'Lucknow' ↔ 'लखनऊ', 'Uttar Pradesh' ↔ "
         "'उत्तर प्रदेश').\n"
-        "• Court names + judge titles: TRANSLATE using standard Indian legal "
-        "vocabulary (e.g. 'Allahabad High Court Lucknow Bench' ↔ "
+        "• Court names, designations + judge titles: TRANSLATE using standard "
+        "Indian legal vocabulary (e.g. 'Allahabad High Court Lucknow Bench' ↔ "
         "'माननीय उच्च न्यायालय इलाहाबाद खण्डपीठ, लखनऊ'; "
         "'2nd Additional Sessions Judge' ↔ 'द्वितीय अपर सत्र न्यायाधीश').\n"
         "• Occupation: TRANSLATE ('Shopkeeper' ↔ 'दुकानदारी').\n"
-        "• Long prose (facts_narrative, cancellation_history, lower_court_history, "
-        "custom_ground_1, grounds_medical): TRANSLATE naturally using formal legal "
-        "Hindi/English. Keep statute refs (IPC, CrPC, BNS, §138, S.302 etc.), "
-        "FIR/case numbers, and dates unchanged within the prose.\n"
+        "• Any long prose (facts, grounds, narratives, histories, prayers, "
+        "relief sought): TRANSLATE naturally using formal legal Hindi/English. "
+        "Keep statute refs (IPC, CrPC, BNS, BNSS, §138, S.302 etc.), "
+        "FIR/case/cheque/account numbers, and dates unchanged within the prose.\n"
         "Always return ONLY a JSON object with the same keys as input. No prose, "
         "no markdown fences, no commentary."
     )
