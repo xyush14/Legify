@@ -225,6 +225,12 @@ _CONTEXT_NOTES = {
                    "used across the code and carries no punishment or trial "
                    "classification of its own. The section that punishes it has "
                    "the grid."),
+    "penal": ("Penal Code provision. The section-number mapping is verified "
+              "against the official concordance, but the punishment / cognizable "
+              "/ bailable / triable-by grid for this entry has not been compiled "
+              "yet — confirm the offence's classification against the Bharatiya "
+              "Nyaya Sanhita and its First Schedule before relying on it in "
+              "court."),
 }
 
 
@@ -240,6 +246,14 @@ def _classify(entry: dict, has_grid: bool) -> tuple[str, str]:
         return "procedure", _CONTEXT_NOTES["procedure"]
     if domain == "evidence":
         return "evidence", _CONTEXT_NOTES["evidence"]
+    if domain == "penal":
+        # A true definition / general clause (rape, theft, common intention) is
+        # tagged explicitly and reads as such; everything else gridless is a real
+        # offence whose classification grid simply isn't compiled yet — say so
+        # honestly instead of mislabelling it a "definition".
+        if entry.get("penal_role") == "definition":
+            return "definition", _CONTEXT_NOTES["definition"]
+        return "penal", _CONTEXT_NOTES["penal"]
     return "definition", _CONTEXT_NOTES["definition"]
 
 
