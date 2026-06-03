@@ -62,11 +62,11 @@ DEMO = Plan(
     name="demo",
     display_name="Demo",
     price_inr=0,
-    duration_days=14,
+    duration_days=3,
     limits=[
         PlanLimit("deep_search",   3,    "lifetime"),
         PlanLimit("draft",         2,    "lifetime"),
-        PlanLimit("judgment_read", 10,   "day"),
+        PlanLimit("judgment_read", None, "day"),    # unlimited browsing
         PlanLimit("export_pdf",    0,    "lifetime"),  # gated, count always 0
         PlanLimit("hindi_export",  0,    "lifetime"),
     ],
@@ -108,10 +108,10 @@ WEEKLY = Plan(
 MONTHLY = Plan(
     name="monthly",
     display_name="Monthly",
-    price_inr=499,
+    price_inr=599,
     duration_days=30,
     limits=[
-        PlanLimit("deep_search",   100,  "month"),
+        PlanLimit("deep_search",   None, "month"),                # unlimited research
         PlanLimit("draft",         None, "month",  soft_cap=80),  # >80 = silent Haiku downgrade
         PlanLimit("judgment_read", None, "month"),
         PlanLimit("export_pdf",    None, "month"),
@@ -131,10 +131,10 @@ MONTHLY = Plan(
 YEARLY = Plan(
     name="yearly",
     display_name="Yearly",
-    price_inr=4999,
+    price_inr=5999,
     duration_days=365,
     limits=[
-        PlanLimit("deep_search",   1500, "year",  soft_cap=1200),
+        PlanLimit("deep_search",   None, "year"),                 # unlimited research
         PlanLimit("draft",         None, "year",  soft_cap=1000),
         PlanLimit("judgment_read", None, "year"),
         PlanLimit("export_pdf",    None, "year"),

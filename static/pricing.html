@@ -1,180 +1,16 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0c0b09" />
 <script>if(location.protocol==='http:'&&location.hostname!=='localhost'&&!location.hostname.startsWith('127.')){location.replace(location.href.replace(/^http:/,'https:'));}</script>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pricing — Headnote</title>
-<link rel="stylesheet" href="/static/style.css">
-<style>
-  body { background: #fdfcf9; color: #0c0c0a; font-family: -apple-system, BlinkMacSystemFont, "Inter", sans-serif; margin: 0; }
-  .pricing-shell { max-width: 1180px; margin: 0 auto; padding: 60px 28px 80px; }
-  .pricing-header { text-align: center; margin-bottom: 48px; }
-  .pricing-header h1 { font-size: 38px; font-weight: 700; margin: 0 0 12px; letter-spacing: -0.02em; }
-  .pricing-header p { color: #5d5b54; font-size: 16px; margin: 0; }
-  .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; max-width: 1080px; margin-left: auto; margin-right: auto; }
-  @media (max-width: 980px) { .pricing-grid { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 560px) { .pricing-grid { grid-template-columns: 1fr; } }
+<meta name="description" content="Honest pricing for India's criminal advocates. Free 3-day demo, ₹599/mo or ₹5,999/yr unlimited — no auto-renew, no hidden caps. ₹99 lifetime Section Finder add-on." />
 
-  .pcard {
-    background: #fff;
-    border: 1px solid rgba(12,12,10,0.08);
-    border-radius: 16px;
-    padding: 28px 24px;
-    display: flex;
-    flex-direction: column;
-    position: relative;
-  }
-  .pcard--featured {
-    border-color: #0c0c0a;
-    box-shadow: 0 10px 30px rgba(12,12,10,0.08);
-  }
-  .pcard__tag {
-    position: absolute;
-    top: -10px;
-    right: 16px;
-    padding: 4px 10px;
-    background: #0c0c0a;
-    color: #fdfcf9;
-    border-radius: 12px;
-    font-size: 10px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    font-weight: 600;
-  }
-  .pcard h2 {
-    font-size: 14px;
-    font-weight: 600;
-    color: #5d5b54;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin: 0 0 14px;
-  }
-  .pcard__price {
-    font-size: 32px;
-    font-weight: 700;
-    color: #0c0c0a;
-    line-height: 1;
-    margin-bottom: 4px;
-  }
-  .pcard__price-sub {
-    font-size: 12px;
-    color: #918d80;
-    margin-bottom: 20px;
-  }
-  .pcard ul {
-    list-style: none;
-    padding: 0;
-    margin: 0 0 24px;
-    flex: 1;
-  }
-  .pcard li {
-    font-size: 13px;
-    color: #2b2a26;
-    padding: 7px 0;
-    border-bottom: 1px solid rgba(12,12,10,0.04);
-    display: flex;
-    gap: 8px;
-  }
-  .pcard li::before {
-    content: '✓';
-    color: #6b8e3d;
-    font-weight: 700;
-    flex-shrink: 0;
-  }
-  .pcard li.x::before { content: '×'; color: #c0392b; }
-  .pcard__cta {
-    display: block;
-    text-align: center;
-    padding: 12px;
-    background: #fdfcf9;
-    color: #0c0c0a;
-    border: 1px solid #0c0c0a;
-    border-radius: 8px;
-    text-decoration: none;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    width: 100%;
-  }
-  .pcard__cta:hover { background: #0c0c0a; color: #fdfcf9; }
-  .pcard--featured .pcard__cta { background: #0c0c0a; color: #fdfcf9; }
-  .pcard--featured .pcard__cta:hover { background: #1f1f1c; }
-
-  .pricing-foot { text-align: center; margin-top: 48px; color: #5d5b54; font-size: 13px; }
-  .pricing-foot a { color: #0c0c0a; }
-  .pricing-back { display: inline-block; margin-bottom: 24px; color: #5d5b54; text-decoration: none; font-size: 14px; }
-  .pricing-back:hover { color: #0c0c0a; }
-</style>
-<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="/static/favicon.svg">
-</head>
-<body>
-<div class="pricing-shell">
-  <a href="/app" class="pricing-back">← back to app</a>
-  <div class="pricing-header">
-    <h1>One simple price. Real legal AI.</h1>
-    <p>Built for Indian criminal advocates. Start free, upgrade when you find your matter.</p>
-  </div>
-
-  <div class="pricing-grid">
-    <!-- Demo -->
-    <div class="pcard">
-      <h2>Demo</h2>
-      <div class="pcard__price">Free</div>
-      <div class="pcard__price-sub">3 days, no card</div>
-      <ul>
-        <li>10 research queries</li>
-        <li>5 document drafts</li>
-        <li>Unlimited judgment reads</li>
-        <li>PDF export (English + Hindi)</li>
-        <li>Full case-law corpus</li>
-        <li>All features unlocked</li>
-      </ul>
-      <a class="pcard__cta" href="/app">Start free</a>
-    </div>
-
-    <!-- Monthly -->
-    <div class="pcard pcard--featured">
-      <span class="pcard__tag">Most popular</span>
-      <h2>Monthly</h2>
-      <div class="pcard__price">₹499<span style="font-size:14px;color:#5d5b54;">/mo</span></div>
-      <div class="pcard__price-sub">30 days, one-time payment</div>
-      <ul>
-        <li>150 research queries / month</li>
-        <li>Unlimited drafts</li>
-        <li>Unlimited judgment reads</li>
-        <li>PDF export (English + Hindi)</li>
-        <li>Unlimited history</li>
-        <li>Email support</li>
-      </ul>
-      <button class="pcard__cta" data-plan="monthly">Start ₹499/mo</button>
-    </div>
-
-    <!-- Yearly -->
-    <div class="pcard">
-      <span class="pcard__tag">Best value</span>
-      <h2>Yearly</h2>
-      <div class="pcard__price">₹4,999<span style="font-size:14px;color:#5d5b54;">/yr</span></div>
-      <div class="pcard__price-sub">₹417/mo · save ₹989</div>
-      <ul>
-        <li>Effectively unlimited research (2,000/yr)</li>
-        <li>Unlimited drafts</li>
-        <li>Unlimited judgment reads</li>
-        <li>PDF export (English + Hindi)</li>
-        <li>Custom letterhead</li>
-        <li>WhatsApp support</li>
-      </ul>
-      <button class="pcard__cta" data-plan="yearly">Save with ₹4,999</button>
-    </div>
-  </div>
-
-  <div class="pricing-foot">
-    <p id="env-badge" style="display:none;background:#fde68a;color:#7c5e1a;padding:6px 14px;border-radius:8px;display:inline-block;font-size:12px;font-weight:600;margin-bottom:12px"></p>
-    <p>Secure payments via Cashfree — UPI, cards, netbanking, wallets. GST invoice on request.</p>
-    <p>Already have an account? <a href="/app">Open Headnote →</a></p>
-  </div>
-</div>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">
 
 <!-- Supabase JS (auth) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -183,7 +19,470 @@
 <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
 <script src="/static/auth.js?v=20260527a" defer></script>
 
+<style>
+  /* =====================================================================
+     Headnote — Pricing (matches Landing v4 "Bench")
+     Warm paper + ink + single gold accent. Honest, upfront, no asterisks.
+  ===================================================================== */
+  :root {
+    --bg:        #faf8f4;
+    --bg-2:      #f3f0ea;
+    --card:      #ffffff;
+    --ink:       #0a0a0a;
+    --ink-2:     #4a4844;
+    --ink-3:     #8a877f;
+    --ink-4:     #b6b2a8;
+    --line:      #e9e5dc;
+    --line-2:    #ddd8cc;
+    --gold:      #bd9a5f;
+    --gold-2:    #d9bd86;
+    --gold-deep: #8a6d3a;
+    --gold-tint: #f6efdf;
+    --gold-glow: rgba(189,154,95,0.22);
+    --emerald:   #1c7a44;
+    --emerald-soft:#e7f2eb;
+    --night:     #0c0b09;
+    --night-2:   #16140f;
+    --shadow-sm: 0 1px 2px rgba(20,16,8,0.05), 0 1px 1px rgba(20,16,8,0.03);
+    --shadow-md: 0 10px 30px -12px rgba(20,16,8,0.14), 0 3px 8px rgba(20,16,8,0.05);
+    --shadow-lg: 0 30px 70px -24px rgba(20,16,8,0.22), 0 10px 24px -10px rgba(20,16,8,0.10);
+    --rad: 16px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 14px; line-height: 1.55; color: var(--ink); background: var(--bg);
+    -webkit-font-smoothing: antialiased; overflow-x: hidden;
+  }
+  h1, h2, h3, h4, .sans { font-family: 'Geist', system-ui, sans-serif; letter-spacing: -0.025em; }
+  .hi { font-family: 'Noto Sans Devanagari', 'Geist Mono', monospace; }
+  a { color: inherit; text-decoration: none; }
+  img { display: block; max-width: 100%; }
+  ::selection { background: var(--gold); color: #fff; }
+  .wrap { max-width: 1200px; margin: 0 auto; padding-left: 24px; padding-right: 24px; }
+
+  /* reveal-on-scroll */
+  .reveal { opacity: 0; transform: translateY(22px); transition: opacity 0.7s cubic-bezier(.22,1,.36,1), transform 0.7s cubic-bezier(.22,1,.36,1); }
+  .reveal.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { opacity: 1; transform: none; transition: none; }
+    * { animation: none !important; }
+  }
+
+  /* ============= NAV ============= */
+  .nav {
+    position: sticky; top: 0; z-index: 60;
+    background: rgba(250,248,244,0.72);
+    backdrop-filter: saturate(180%) blur(18px);
+    -webkit-backdrop-filter: saturate(180%) blur(18px);
+    border-bottom: 1px solid transparent; transition: border-color 0.3s, background 0.3s;
+  }
+  .nav.scrolled { border-bottom-color: var(--line); background: rgba(250,248,244,0.9); }
+  .nav-inner { max-width: 1200px; margin: 0 auto; padding: 13px 24px; display: flex; align-items: center; gap: 30px; font-size: 13px; }
+  .nav-brand img { height: 17px; width: auto; }
+  .nav-links { display: flex; gap: 26px; color: var(--ink-2); }
+  .nav-links a { position: relative; transition: color 0.15s; }
+  .nav-links a::after { content: ""; position: absolute; left: 0; bottom: -4px; height: 1.5px; width: 0; background: var(--gold); transition: width 0.22s ease; }
+  .nav-links a:hover, .nav-links a.active { color: var(--ink); }
+  .nav-links a:hover::after, .nav-links a.active::after { width: 100%; }
+  @media (max-width: 820px) { .nav-links { display: none; } }
+  .nav-spacer { flex: 1; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-family: 'Geist Mono', monospace; font-size: 13px; font-weight: 500;
+    padding: 9px 17px; background: var(--ink); color: #faf8f4;
+    border: 1px solid var(--ink); border-radius: 10px; cursor: pointer; white-space: nowrap;
+    transition: transform 0.15s, box-shadow 0.2s, background 0.2s, color 0.2s; box-shadow: var(--shadow-sm);
+  }
+  .btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+  .btn--ghost { background: transparent; color: var(--ink); border-color: var(--line-2); box-shadow: none; }
+  .btn--ghost:hover { background: var(--card); border-color: var(--ink); }
+  .btn--gold { background: linear-gradient(135deg, var(--gold-2), var(--gold)); color: #2a200c; border-color: var(--gold); }
+  .btn--gold:hover { background: linear-gradient(135deg, var(--gold), var(--gold-deep)); color: #fff; }
+  .btn--lg { padding: 14px 24px; font-size: 14px; border-radius: 12px; }
+  .btn--light { background: #fff; color: var(--ink); border-color: #fff; }
+  .btn--light:hover { background: var(--gold-2); border-color: var(--gold-2); color: #2a200c; }
+
+  /* ============= PAGE HEADER (dark) ============= */
+  .page-hero {
+    position: relative; background: var(--night); color: #fff;
+    padding: 104px 24px 72px; text-align: center; overflow: hidden; isolation: isolate;
+  }
+  .page-hero::before {
+    content: ""; position: absolute; inset: 0; z-index: 0;
+    background:
+      radial-gradient(60% 60% at 50% -10%, rgba(189,154,95,0.30), transparent 60%),
+      radial-gradient(45% 40% at 12% 40%, rgba(189,154,95,0.10), transparent 60%);
+    pointer-events: none;
+  }
+  .page-hero::after {
+    content: ""; position: absolute; inset: 0; z-index: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse 80% 80% at center 30%, black, transparent 80%);
+    pointer-events: none;
+  }
+  .page-hero > * { position: relative; z-index: 1; }
+  .ph-pill {
+    display: inline-flex; align-items: center; gap: 8px; margin-bottom: 22px;
+    padding: 7px 15px; border-radius: 999px;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+    font-size: 12px; color: rgba(255,255,255,0.82); backdrop-filter: blur(8px);
+  }
+  .ph-pill svg { color: var(--gold-2); }
+  .page-hero h1 {
+    font-family: 'Geist', sans-serif; font-weight: 600;
+    font-size: clamp(38px, 6vw, 70px); line-height: 1.0; letter-spacing: -0.04em; margin-bottom: 18px;
+  }
+  .page-hero h1 .gold {
+    background: linear-gradient(135deg, var(--gold-2) 0%, var(--gold) 60%, var(--gold-deep) 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent;
+  }
+  .page-hero p { font-size: 16px; color: rgba(255,255,255,0.62); max-width: 600px; margin: 0 auto; line-height: 1.6; }
+  #env-badge {
+    display: none; margin: 22px auto 0; max-width: max-content;
+    background: rgba(253,230,138,0.14); color: #f3d98a; border: 1px solid rgba(243,217,138,0.3);
+    padding: 7px 14px; border-radius: 9px; font-size: 12px; font-weight: 500;
+  }
+
+  /* ============= PRICING ============= */
+  .pricing-sec { padding: 64px 24px 96px; background: linear-gradient(180deg, var(--bg) 0%, var(--gold-tint) 160%); }
+  .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; max-width: 1080px; margin: 0 auto; align-items: stretch; }
+  @media (max-width: 1000px) { .pricing-grid { grid-template-columns: 1fr; max-width: 460px; } }
+  .price {
+    background: var(--card); border: 1px solid var(--line); border-radius: 18px;
+    padding: 30px 26px; position: relative; display: flex; flex-direction: column;
+    box-shadow: var(--shadow-sm); transition: transform 0.22s, box-shadow 0.22s;
+  }
+  .price:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+  .price.featured { border-color: var(--gold); background: linear-gradient(180deg, var(--gold-tint), #fff 55%); box-shadow: 0 26px 60px -20px var(--gold-glow), var(--shadow-md); }
+  .price .ribbon {
+    position: absolute; top: -11px; left: 50%; transform: translateX(-50%);
+    background: linear-gradient(135deg, var(--gold-2), var(--gold)); color: #2a200c;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.08em; padding: 5px 14px; border-radius: 999px;
+    text-transform: uppercase; white-space: nowrap;
+  }
+  .price .pname { font-family: 'Geist Mono', monospace; font-size: 11px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 14px; }
+  .price.featured .pname { color: var(--gold-deep); }
+  .price .pval-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 5px; }
+  .price .pval { font-family: 'Geist', sans-serif; font-size: 44px; font-weight: 600; letter-spacing: -0.035em; color: var(--ink); line-height: 1; }
+  .price .pval small { font-size: 15px; font-weight: 500; color: var(--ink-3); }
+  .price .pdash { color: var(--ink-3); font-size: 13px; text-decoration: line-through; }
+  .price .pmeta { font-size: 11.5px; color: var(--ink-3); margin-bottom: 22px; }
+  .price .pmeta b { color: var(--emerald); }
+  .price .pfeatures { list-style: none; display: flex; flex-direction: column; gap: 11px; font-size: 12.5px; color: var(--ink-2); flex: 1; margin-bottom: 24px; }
+  .price .pfeatures li { display: flex; gap: 10px; align-items: flex-start; line-height: 1.45; }
+  .price .pfeatures .tick { width: 15px; height: 15px; flex-shrink: 0; margin-top: 1px; border-radius: 50%; background: var(--gold-tint); color: var(--gold-deep); font-size: 9px; font-weight: 700; display: grid; place-items: center; }
+  .price.featured .pfeatures .tick { background: linear-gradient(135deg, var(--gold-2), var(--gold)); color: #2a200c; }
+  .price .pfeatures .muted { color: var(--ink-3); }
+  .price .pfeatures strong { color: var(--ink); font-weight: 600; }
+  .price .pcta {
+    display: block; width: 100%; text-align: center; padding: 13px 14px; border-radius: 11px;
+    font-family: 'Geist Mono', monospace; font-size: 12.5px; font-weight: 500;
+    border: 1px solid var(--line-2); color: var(--ink); background: transparent; cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.15s;
+  }
+  .price .pcta:hover { background: var(--ink); color: var(--bg); border-color: var(--ink); transform: translateY(-1px); }
+  .price .pcta:disabled { opacity: 0.6; cursor: progress; }
+  .price.featured .pcta { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .price.featured .pcta:hover { background: var(--gold-deep); border-color: var(--gold-deep); color: #fff; }
+
+  .price-trust {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    max-width: 1080px; margin: 0 auto 26px; text-align: center;
+    font-size: 12px; color: var(--emerald);
+  }
+  .price-trust svg { flex: none; }
+
+  /* add-on banner */
+  .addon {
+    max-width: 1080px; margin: 18px auto 0;
+    display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+    padding: 20px 26px; border-radius: 16px; background: var(--night); color: #fff;
+    box-shadow: var(--shadow-md); position: relative; overflow: hidden;
+  }
+  .addon::before { content: ""; position: absolute; inset: 0; background: radial-gradient(60% 120% at 100% 0%, rgba(189,154,95,0.22), transparent 60%); }
+  .addon > * { position: relative; z-index: 1; }
+  .addon .a-left { display: flex; align-items: center; gap: 16px; }
+  .addon .a-ic { width: 44px; height: 44px; flex: none; border-radius: 12px; background: linear-gradient(135deg, var(--gold-2), var(--gold-deep)); color: #2a200c; display: grid; place-items: center; font-weight: 700; font-size: 18px; }
+  .addon .a-ttl { font-family: 'Geist', sans-serif; font-size: 17px; font-weight: 600; }
+  .addon .a-sub { font-size: 12.5px; color: rgba(255,255,255,0.62); margin-top: 2px; max-width: 460px; line-height: 1.5; }
+  .addon .a-sub b { color: var(--gold-2); }
+  .addon .a-price { display: flex; align-items: baseline; gap: 8px; }
+  .addon .a-price .amt { font-family: 'Geist', sans-serif; font-size: 30px; font-weight: 600; }
+  .addon .a-price .per { font-size: 12px; color: rgba(255,255,255,0.5); }
+
+  .pricing-note { margin: 30px auto 0; max-width: 1080px; text-align: center; font-size: 12px; color: var(--ink-3); line-height: 1.7; }
+
+  /* ============= FAQ ============= */
+  .faq-sec { padding: 30px 24px 110px; background: var(--gold-tint); }
+  .faq-head { text-align: center; margin-bottom: 40px; }
+  .faq-head .section-eyebrow { justify-content: center; }
+  .section-eyebrow { font-size: 12px; color: var(--ink-3); margin-bottom: 14px; display: flex; align-items: center; gap: 10px; letter-spacing: 0.04em; }
+  .section-eyebrow .num { color: var(--gold-deep); font-weight: 600; font-family: 'Geist Mono', monospace; }
+  .faq-head h2 { font-family: 'Geist', sans-serif; font-size: clamp(28px, 4.4vw, 46px); font-weight: 600; letter-spacing: -0.035em; line-height: 1.05; }
+  .faq-grid { max-width: 880px; margin: 0 auto; display: grid; gap: 12px; }
+  .faq {
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 22px 24px; box-shadow: var(--shadow-sm);
+  }
+  .faq h3 { font-family: 'Geist', sans-serif; font-size: 15.5px; font-weight: 600; color: var(--ink); margin-bottom: 8px; display: flex; gap: 10px; align-items: baseline; }
+  .faq h3 .q { color: var(--gold-deep); font-family: 'Geist Mono', monospace; font-size: 12px; flex: none; }
+  .faq p { font-size: 13px; color: var(--ink-2); line-height: 1.66; }
+  .faq p a { color: var(--gold-deep); border-bottom: 1px solid var(--gold-glow); }
+  .faq p b { color: var(--ink); font-weight: 600; }
+
+  /* ============= FINAL CTA ============= */
+  .cta-section { background: var(--night); color: #fff; padding: 110px 24px; text-align: center; position: relative; overflow: hidden; isolation: isolate; }
+  .cta-section::before {
+    content: ""; position: absolute; inset: 0; z-index: 0;
+    background:
+      radial-gradient(50% 65% at 50% 0%, rgba(189,154,95,0.28), transparent 70%),
+      radial-gradient(60% 60% at 50% 100%, rgba(189,154,95,0.14), transparent 70%);
+  }
+  .cta-section > * { position: relative; z-index: 1; }
+  .cta-section h2 { font-family: 'Geist', sans-serif; font-size: clamp(32px, 4.8vw, 58px); font-weight: 600; letter-spacing: -0.04em; line-height: 1.05; margin-bottom: 18px; }
+  .cta-section h2 .gold { background: linear-gradient(135deg, var(--gold-2), var(--gold)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .cta-section p { color: rgba(255,255,255,0.6); font-size: 15px; margin-bottom: 34px; max-width: 500px; margin-left: auto; margin-right: auto; }
+
+  /* ============= FOOTER ============= */
+  footer { padding: 72px 24px 38px; background: var(--bg); border-top: 1px solid var(--line); }
+  .foot-inner { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 48px; }
+  @media (max-width: 720px) { .foot-inner { grid-template-columns: 1fr 1fr; gap: 32px; } }
+  .foot-brand img { height: 15px; width: auto; margin-bottom: 14px; }
+  .foot-tag { font-size: 12px; color: var(--ink-2); max-width: 320px; line-height: 1.65; }
+  .foot-col h5 { font-size: 10.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 14px; font-weight: 500; }
+  .foot-col ul { list-style: none; display: grid; gap: 10px; }
+  .foot-col a { font-size: 12.5px; color: var(--ink-2); transition: color 0.15s; }
+  .foot-col a:hover { color: var(--ink); }
+  .foot-base { max-width: 1200px; margin: 56px auto 0; padding-top: 24px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 11px; color: var(--ink-3); }
+</style>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/static/favicon.svg">
+</head>
+<body>
+
+<!-- ============ NAV ============ -->
+<nav class="nav" id="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-brand" aria-label="Headnote">
+      <img src="/static/headnote-logo.svg" alt="Headnote" />
+    </a>
+    <div class="nav-links">
+      <a href="/#research">Research</a>
+      <a href="/#drafting">Drafting</a>
+      <a href="/sections">Section Finder</a>
+      <a href="/pricing" class="active">Pricing</a>
+    </div>
+    <div class="nav-spacer"></div>
+    <a href="/app" class="btn btn--ghost" id="nav-cta">Sign in</a>
+  </div>
+</nav>
+
+<!-- ============ HEADER ============ -->
+<section class="page-hero">
+  <div class="ph-pill">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg>
+    What you see is what's enforced — no asterisks, no hidden caps
+  </div>
+  <h1>Honest pricing.<br><span class="gold">No auto-renew.</span></h1>
+  <p>The free demo is the real product. Upgrade only if you'd file what Headnote drafts — and never pay for a renewal you didn't ask for.</p>
+  <p id="env-badge"></p>
+</section>
+
+<!-- ============ PRICING ============ -->
+<section class="pricing-sec">
+  <div class="price-trust">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2l7 4v6c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6l7-4z"/></svg>
+    One-time payments · GST included · Secured by Cashfree (RBI-licensed)
+  </div>
+
+  <div class="pricing-grid">
+    <!-- Demo -->
+    <div class="price reveal">
+      <div class="pname">Demo</div>
+      <div class="pval-row"><span class="pval">Free</span></div>
+      <div class="pmeta">3 days · no card</div>
+      <ul class="pfeatures">
+        <li><span class="tick">✓</span>3 research queries</li>
+        <li><span class="tick">✓</span>2 document drafts</li>
+        <li><span class="tick">✓</span><strong>Unlimited</strong> judgment reads</li>
+        <li><span class="tick">✓</span>5 Section Finder lookups</li>
+        <li><span class="tick">✓</span>Full case-law corpus</li>
+        <li><span class="muted">Export &amp; Hindi PDF on a paid plan</span></li>
+      </ul>
+      <a href="/app" class="pcta">Start free →</a>
+    </div>
+
+    <!-- Monthly -->
+    <div class="price featured reveal">
+      <div class="ribbon">Most popular</div>
+      <div class="pname">Monthly</div>
+      <div class="pval-row"><span class="pval">₹599<small>/mo</small></span><span class="pdash">₹699</span></div>
+      <div class="pmeta">30 days · <b>no auto-renew</b></div>
+      <ul class="pfeatures">
+        <li><span class="tick">✓</span><strong>Unlimited</strong> research</li>
+        <li><span class="tick">✓</span><strong>Unlimited</strong> drafts</li>
+        <li><span class="tick">✓</span><strong>Unlimited</strong> judgment reads &amp; Section Finder</li>
+        <li><span class="tick">✓</span>PDF export — English + Hindi</li>
+        <li><span class="tick">✓</span>Unlimited saved history</li>
+        <li><span class="tick">✓</span><strong>15-min instant support</strong></li>
+      </ul>
+      <button class="pcta" data-plan="monthly">Get Monthly — ₹599</button>
+    </div>
+
+    <!-- Yearly -->
+    <div class="price reveal">
+      <div class="pname">Yearly</div>
+      <div class="pval-row"><span class="pval">₹5,999<small>/yr</small></span></div>
+      <div class="pmeta">₹500/mo · <b>save ₹1,189</b></div>
+      <ul class="pfeatures">
+        <li><span class="tick">✓</span>Everything in Monthly, unlimited</li>
+        <li><span class="tick">✓</span>Custom letterhead on PDFs</li>
+        <li><span class="tick">✓</span>Priority drafting queue</li>
+        <li><span class="tick">✓</span>Custom format requests</li>
+        <li><span class="tick">✓</span><strong>15-min instant support</strong></li>
+        <li><span class="tick">✓</span>Two months free vs monthly</li>
+      </ul>
+      <button class="pcta" data-plan="yearly">Get Yearly — ₹5,999</button>
+    </div>
+  </div>
+
+  <!-- Add-on -->
+  <div class="addon reveal">
+    <div class="a-left">
+      <div class="a-ic">§</div>
+      <div>
+        <div class="a-ttl">Just need the Section Finder?</div>
+        <div class="a-sub"><b>5 lookups free</b>, then unlock IPC↔BNS · CrPC↔BNSS · Evidence↔BSA for life. Already included in Monthly &amp; Yearly.</div>
+      </div>
+    </div>
+    <div class="a-right" style="display:flex;align-items:center;gap:18px;">
+      <div class="a-price"><span class="amt">₹99</span><span class="per">once · lifetime</span></div>
+      <a href="/sections" class="btn btn--light">Unlock</a>
+    </div>
+  </div>
+
+  <div class="pricing-note">
+    One-time payment · no auto-renew · all prices include GST · pay by UPI, cards, netbanking or wallets · GST invoice on request<br>
+    Already have an account? <a href="/app" style="color:var(--gold-deep)">Open Headnote →</a>
+  </div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section class="faq-sec">
+  <div class="faq-head">
+    <div class="section-eyebrow"><span class="num">?</span> Straight answers</div>
+    <h2>No surprises. Everything upfront.</h2>
+  </div>
+  <div class="faq-grid">
+    <div class="faq reveal">
+      <h3><span class="q">01</span>Is the demo really free?</h3>
+      <p>Yes — 3 days, no card. You get <b>3 research queries, 2 drafts, 5 Section Finder lookups</b> and unlimited judgment reads. When the demo ends your saved work stays put; upgrade only if you'd actually file what Headnote drafts.</p>
+    </div>
+    <div class="faq reveal">
+      <h3><span class="q">02</span>Does "unlimited" have a catch?</h3>
+      <p>No. On Monthly and Yearly, research, drafts, judgment reads and the Section Finder run <b>without caps</b>. The number you see is the number that's enforced in the backend — there are no fair-use asterisks or throttles hidden in the fine print.</p>
+    </div>
+    <div class="faq reveal">
+      <h3><span class="q">03</span>What's the ₹99 Section Finder?</h3>
+      <p>A one-time, <b>lifetime</b> unlock of the IPC↔BNS, CrPC↔BNSS and Evidence↔BSA finder — what changed, the punishment grid, classification and a plain-English summary. Everyone gets 5 lookups free; it's included at no extra cost in Monthly and Yearly.</p>
+    </div>
+    <div class="faq reveal">
+      <h3><span class="q">04</span>Will I be auto-charged?</h3>
+      <p><b>Never.</b> Monthly and Yearly are one-time payments that unlock 30 or 365 days of access. Nothing renews on its own — you come back and buy again only when you need it.</p>
+    </div>
+    <div class="faq reveal">
+      <h3><span class="q">05</span>How do I pay, and what about refunds?</h3>
+      <p>UPI, cards, netbanking or wallets via <b>Cashfree</b> (RBI-licensed). Prices include GST and an invoice is available on request. See our <a href="/refund">Refund Policy</a> for details.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FINAL CTA ============ -->
+<section class="cta-section">
+  <h2>Try it on a real matter.<br><span class="gold">Decide after.</span></h2>
+  <p>Two minutes to sign in. No card. Your first matter working in under a minute.</p>
+  <a href="/app" class="btn btn--gold btn--lg" id="final-cta">Start free — no card</a>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer>
+  <div class="foot-inner">
+    <div>
+      <div class="foot-brand"><img src="/static/headnote-logo.svg" alt="Headnote" /></div>
+      <div class="foot-tag">AI co-counsel for India's criminal advocates. Built with practising advocates, for every court in the country — Supreme Court to district bench.</div>
+    </div>
+    <div class="foot-col">
+      <h5>Product</h5>
+      <ul>
+        <li><a href="/app">Open app</a></li>
+        <li><a href="/pricing">Pricing</a></li>
+        <li><a href="/#research">Research</a></li>
+        <li><a href="/#drafting">Drafting</a></li>
+        <li><a href="/sections">Section Finder</a></li>
+      </ul>
+    </div>
+    <div class="foot-col">
+      <h5>Legal</h5>
+      <ul>
+        <li><a href="/terms">Terms of Service</a></li>
+        <li><a href="/privacy">Privacy Policy</a></li>
+        <li><a href="/refund">Refund Policy</a></li>
+        <li><a href="/contact">Contact us</a></li>
+      </ul>
+    </div>
+    <div class="foot-col">
+      <h5>Reach us</h5>
+      <ul>
+        <li><a href="mailto:hello@headnote.in">hello@headnote.in</a></li>
+        <li><a href="https://wa.me/918815621916" target="_blank" rel="noopener">+91 88156 21916</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot-base">
+    <div>© 2026 Headnote Private Limited</div>
+    <div>Made in India · for Indian courts</div>
+  </div>
+</footer>
+
 <script>
+  // ---- Nav shadow on scroll ----
+  (function navScroll() {
+    const nav = document.getElementById('nav');
+    if (!nav) return;
+    const onScroll = () => nav.classList.toggle('scrolled', window.scrollY > 8);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+
+  // ---- Reveal on scroll ----
+  (function revealInit() {
+    const els = document.querySelectorAll('.reveal');
+    if (!('IntersectionObserver' in window)) { els.forEach(e => e.classList.add('in')); return; }
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+    els.forEach(e => io.observe(e));
+  })();
+
+  // ---- Auth-aware CTAs ----
+  (async function navAuth() {
+    try { if (window.headnoteAuth && window.headnoteAuth.ready) await window.headnoteAuth.ready(); } catch {}
+    const uid = window.headnoteAuth && window.headnoteAuth.userId && window.headnoteAuth.userId();
+    if (uid) {
+      const nav = document.getElementById('nav-cta');
+      const finalBtn = document.getElementById('final-cta');
+      if (nav) nav.textContent = 'Open app →';
+      if (finalBtn) finalBtn.textContent = 'Open Headnote →';
+    }
+  })();
+
   let _cashfreeEnv = 'sandbox';  // updated from /api/payments/config
 
   // Show env badge if backend is in sandbox mode (so we don't accidentally
@@ -212,7 +511,7 @@
     wrap.innerHTML = `
       <style>
         @keyframes cfFade { from { opacity:0 } to { opacity:1 } }
-        #cf-confirm-card { background:#fff;border-radius:18px;max-width:440px;width:100%;padding:28px;box-shadow:0 30px 80px rgba(0,0,0,0.25);font-family:'Inter','Geist',system-ui,sans-serif }
+        #cf-confirm-card { background:#fff;border-radius:18px;max-width:440px;width:100%;padding:28px;box-shadow:0 30px 80px rgba(0,0,0,0.25);font-family:'Geist','Inter',system-ui,sans-serif }
         #cf-confirm-card h3 { font-size:20px;font-weight:700;margin:0 0 6px;color:#0c0c0a;letter-spacing:-0.01em }
         #cf-confirm-card .sub { font-size:13px;color:#5d5b54;margin-bottom:20px }
         #cf-confirm-card .row { margin-bottom:14px }
@@ -324,8 +623,8 @@
 
       // 4. Plan metadata for the modal.
       const planMeta = {
-        monthly: { label: 'Headnote Monthly',          amount: 499 },
-        yearly:  { label: 'Headnote Yearly',           amount: 4999 },
+        monthly: { label: 'Headnote Monthly',          amount: 599 },
+        yearly:  { label: 'Headnote Yearly',           amount: 5999 },
       }[plan] || { label: 'Headnote', amount: 0 };
 
       btn.disabled = false;

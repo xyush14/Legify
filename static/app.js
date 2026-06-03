@@ -1000,7 +1000,7 @@
       eyebrow:  'Need a different template?',
       headline: "Tell us — we'll upload it within 2 hours.",
       sub:      "Free for paid users. Drop the template name + a one-line use case. Goes straight to the founder, not a queue.",
-      placeholder: "e.g. 'POCSO bail at Sessions Court — need the standard MP HC format with parity table'",
+      placeholder: "e.g. 'POCSO bail at Sessions Court — need the standard High Court format with parity table'",
       submitLabel: "Send request",
       successMsg:  "Got it — we'll have it live within 2 hours.",
       endpoint: '/api/assist/draft',
@@ -1008,7 +1008,7 @@
       eyebrow:  'Not satisfied with this response?',
       headline: "Let our team find the case-law for you, personally.",
       sub:      "We'll WhatsApp / email you three judgments with paragraph anchors within 15 minutes. Just describe what you need.",
-      placeholder: "e.g. 'High Court bail under 304B IPC — co-accused already granted, parity ground, MP HC preferred'",
+      placeholder: "e.g. 'High Court bail under 304B IPC — co-accused already granted, parity ground'",
       submitLabel: "Get personal help",
       successMsg:  "Got it — our team will reach out within 15 minutes.",
       endpoint: '/api/assist/research',
@@ -1084,7 +1084,7 @@
     const stages = intent === 'situation' ? [
       ...(isHindi ? ['translating hindi → english'] : []),
       'understanding the matter',
-      'searching across 2.6 crore judgments',
+      'searching across 3.5 crore judgments',
       'reasoning through candidates',
       'preparing case cards',
     ] : intent === 'headnote' ? [
@@ -1683,8 +1683,8 @@
       : `You've hit your limit`;
     const planCopy = ({
       weekly:  { name: 'Weekly Trial', price: '₹120', tag: '7-day trial' },
-      monthly: { name: 'Monthly',     price: '₹499/mo', tag: 'Most popular' },
-      yearly:  { name: 'Yearly',       price: '₹4,999/yr', tag: 'Best value' },
+      monthly: { name: 'Monthly',     price: '₹599/mo', tag: 'Most popular' },
+      yearly:  { name: 'Yearly',       price: '₹5,999/yr', tag: 'Best value' },
     })[upgradeTo] || { name: 'Pro', price: '', tag: '' };
 
     modal.querySelector('.upgrade-modal__title').textContent = title;

@@ -38,8 +38,8 @@ _API_VERSION  = "2023-08-01"
 
 PLAN_AMOUNTS: dict[str, int] = {
     "weekly":  120,
-    "monthly": 499,
-    "yearly":  4999,
+    "monthly": 599,
+    "yearly":  5999,
     "sections": 99,   # one-time lifetime unlock for the Section Finder (add-on)
 }
 _PLAN_LABELS: dict[str, str] = {
