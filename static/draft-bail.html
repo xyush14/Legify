@@ -2399,7 +2399,11 @@ function _extractErrorMessage(err) {
     // FastAPI 422: [{loc:[...], msg:'...', type:'...'}, ...]
     return d.map(e => (e && (e.msg || e.message)) || JSON.stringify(e)).join('; ');
   }
-  if (d && typeof d === 'object') return JSON.stringify(d);
+  if (d && typeof d === 'object') {
+    // 402 quota / feature-lock detail carries a human-readable `message`.
+    if (typeof d.message === 'string' && d.message) return d.message;
+    return JSON.stringify(d);
+  }
   if (typeof err.error === 'string') return err.error;
   if (typeof err.message === 'string') return err.message;
   try { return JSON.stringify(err); } catch { return String(err); }

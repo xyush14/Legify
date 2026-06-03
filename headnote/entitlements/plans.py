@@ -65,7 +65,11 @@ DEMO = Plan(
     duration_days=3,
     limits=[
         PlanLimit("deep_search",   3,    "lifetime"),
-        PlanLimit("draft",         2,    "lifetime"),
+        # Shared bucket: OCR (FIR / bail-order / impugned-order) + start +
+        # translate-fields + compose + transcribe all draw from "draft".
+        # One full OCR-assisted bail draft is ~5-6 actions, so keep this
+        # ample enough for a lawyer to complete a couple of drafts in a demo.
+        PlanLimit("draft",         15,   "lifetime"),
         PlanLimit("judgment_read", None, "day"),    # unlimited browsing
         PlanLimit("export_pdf",    0,    "lifetime"),  # gated, count always 0
         PlanLimit("hindi_export",  0,    "lifetime"),
