@@ -253,14 +253,14 @@
   .bail-doc .bd-parties { margin: 26px 0 14px; }
   .bail-doc .bd-party {
     display: grid;
-    grid-template-columns: 110px 16px 1fr;
+    grid-template-columns: auto 1fr 50%;
     gap: 6px;
     margin-bottom: 10px;
-    align-items: flex-start;
+    align-items: start;
   }
-  .bail-doc .bd-party-label { font-weight: 500; }
-  .bail-doc .bd-party-dots { color: #555; text-align: center; }
-  .bail-doc .bd-party-detail { text-align: justify; }
+  .bail-doc .bd-party-label { font-weight: 500; white-space: nowrap; }
+  .bail-doc .bd-party-dots { color: #555; overflow: hidden; white-space: nowrap; }
+  .bail-doc .bd-party-detail { text-align: left; }
   .bail-doc .bd-versus {
     text-align: center; font-weight: 700;
     margin: 10px 0;
@@ -322,6 +322,11 @@
     text-align: right;
     padding-right: 6px;
   }
+  /* Manually-labelled sub-points (3अ, 3ब …) — keep the hanging indent but use
+     a literal label and DON'T advance the main paragraph counter, so the
+     section that follows still lands on its expected number. */
+  .bail-doc .bd-paras > li.bd-li-manual { counter-increment: none; }
+  .bail-doc .bd-paras > li.bd-li-manual::before { content: attr(data-label); }
   /* Sub-paragraphs (4.1, 4.2, 5.1 etc.) — same hanging-indent pattern */
   .bail-doc .bd-subparas {
     padding-left: 0;
@@ -1345,7 +1350,7 @@ function renderHi(a) {
   html += `<div class="bd-parties">
     <div class="bd-party">
       <span class="bd-party-label">आवेदक</span>
-      <span class="bd-party-dots">.............</span>
+      <span class="bd-party-dots">............................................................</span>
       <div class="bd-party-detail">
         ${xph(a.applicant_name, 'नाम', 'hi')} पुत्र श्री ${xph(a.applicant_father, 'पिता का नाम', 'hi')},
         आयु— ${ph(a.applicant_age, '..')} वर्ष,
@@ -1357,7 +1362,7 @@ function renderHi(a) {
     <div class="bd-versus">विरूद्ध</div>
     <div class="bd-party">
       <span class="bd-party-label">अनावेदक</span>
-      <span class="bd-party-dots">.............</span>
+      <span class="bd-party-dots">............................................................</span>
       <div class="bd-party-detail">
         ${xlit(stateName, 'hi')} राज्य द्वारा पुलिस थाना ${xph(a.police_station, 'थाना', 'hi')}
         जिला ${xph(district, 'जिला', 'hi')} ${xlit(stateName, 'hi')}
@@ -1398,23 +1403,27 @@ function renderHi(a) {
   // Para 2
   html += '<li><p>यहकि, आवेदक की ओर से समान प्रकृति का अन्य कोई आवेदन पत्र माननीय न्यायालय के समक्ष अथवा माननीय उच्चतम न्यायालय के समक्ष प्रस्तुत नहीं किया गया, न ही निरस्त हुआ और न ही वर्तमान में विचाराधीन है।</p></li>';
 
-  // Para 3 — co-accused
+  // Para 3 — co-accused. ALWAYS present (with a nil table when there are none),
+  // matching the standard MP HC bail format. Dropping it shifts every later
+  // paragraph up — which is why grounds was landing on para 4 instead of 6.
   if (coAccused.length) {
     html += '<li><p>यहकि, प्रकरण में सहअभियुक्तगण के जमानत आवेदन का विवरण प्रार्थी की जानकारी के अनुसार निम्नानुसार है :—</p>';
     html += renderCoAccusedTable(coAccused);
     html += '</li>';
+  } else {
+    html += '<li><p>यहकि, प्रकरण में सहअभियुक्त के सम्बन्ध में प्रार्थी की जानकारी के अनुसार कोई जानकारी नहीं है।</p>';
+    html += renderCoAccusedTable([]);
+    html += '</li>';
   }
 
-  // Para 4 — annexures (successive)
-  if (isSuccessive) {
-    let annexCount = 0;
-    priorBail.forEach(p => {
-      if (!p.outcome) return;
-      annexCount += 1;
-      const label = { 'sc': 'माननीय उच्चतम न्यायालय', 'hc': 'माननीय उच्च न्यायालय', 'lower': 'अधीनस्थ न्यायालय' }[p.court_level || 'hc'];
-      html += `<li><p>यहकि, ${label} के आदेश दिनांक ${esc(p.disposal_date || '...')} की प्रमाणित प्रतिलिपि माननीय न्यायालय के अवलोकनार्थ प्रस्तुत की जा रही है, जिसे एनेक्जर ए/${annexCount} से चिन्हित किया गया है।</p></li>`;
-    });
-  }
+  // Para 3अ / 3ब — cross-case. Manually-labelled sub-points of para 3 that do
+  // NOT advance the main counter (see .bd-li-manual), so the count stays at 3.
+  html += '<li class="bd-li-manual" data-label="3अ"><p>यहकि, आवेदक के विरुद्ध कोई क्रॉस केस पंजीबद्ध नहीं है और न ही आवेदक द्वारा किसी क्रॉस केस में कोई आवेदन प्रस्तुत किया गया है।</p></li>';
+  html += '<li class="bd-li-manual" data-label="3ब"><p>यहकि, क्रॉस केस के जमानत आवेदन पत्र का विवरण निम्नानुसार है :—</p>' + renderCrossCaseTable() + '</li>';
+
+  // Para 4 — annexures. ALWAYS present; one combined paragraph listing the
+  // order(s) being filed (ए-1 [तथा ए-2 …]), mirroring the index page.
+  html += `<li><p>${renderAnnexurePara(isSuccessive, priorBail, isAnticipatory)}</p></li>`;
 
   // Para 5 — facts
   html += '<li class="bd-facts-block"><p class="bd-section-label">प्रकरण के संक्षिप्त तथ्य :—</p><ol class="bd-subparas">';
@@ -1693,10 +1702,51 @@ function renderPriorBailDetail(priorBail) {
 
 function renderCoAccusedTable(coAccused) {
   let html = '<table class="bd-table"><tr><th>क्र.</th><th>केस नं./दिनांक</th><th>पक्षकार</th><th>निचली अदालत</th><th>थाना</th><th>स्थिति</th><th>क्रम</th><th>दिनांक</th><th>परिणाम</th><th>न्यायाधीश</th></tr>';
+  if (!coAccused.length) {
+    html += '<tr><td colspan="10" style="text-align:center">निल</td></tr>';
+  }
   coAccused.forEach((p, i) => {
     html += `<tr><td>${i + 1}</td><td>${esc(p.case_no || '')}<br><small>${esc(p.filing_date || '')}</small></td><td>${esc(p.parties || '')}</td><td>${esc(p.lower_case_no || '')}</td><td>${esc(p.police_station || '')}</td><td>${esc(p.status || 'Disposed')}</td><td>${esc(p.bail_number || '')}</td><td>${esc(p.disposal_date || '')}</td><td>${esc(p.outcome || '')}</td><td>${esc(p.justice || '')}</td></tr>`;
   });
   return html + '</table>';
+}
+
+// Cross-case bail detail (para 3ब). The standard format always carries this
+// table; in the overwhelming majority of cases there is no cross-case, so we
+// render a single nil row.
+function renderCrossCaseTable() {
+  return '<table class="bd-table">'
+    + '<tr><th>अभियुक्त का नाम</th><th>क्रॉस केस का अ.क्र.</th><th>आवेदन दिनांक</th><th>संस्थापना क्रमांक</th><th>आदेश दिनांक</th><th>न्यायाधीश का नाम</th></tr>'
+    + '<tr><td>निल</td><td>निल</td><td>निल</td><td>निल</td><td>निल</td><td>निल</td></tr>'
+    + '</table>';
+}
+
+// Annexure paragraph (para 4). One combined sentence listing every order being
+// filed as ए-1 [तथा ए-2 …], in index order: prior bail orders first (successive
+// only), then the trial-court order. Anticipatory has no trial-court order, so
+// it falls back to the FIR copy.
+function renderAnnexurePara(isSuccessive, priorBail, isAnticipatory) {
+  const items = [];
+  if (isSuccessive) {
+    (priorBail || []).forEach(p => {
+      if (!(p.disposal_date || p.outcome || p.case_no)) return;
+      const label = { sc: 'माननीय उच्चतम न्यायालय', hc: 'माननीय उच्च न्यायालय', lower: 'माननीय अधीनस्थ न्यायालय' }[p.court_level || 'hc'];
+      const dt = p.disposal_date ? ` दिनांक ${esc(p.disposal_date)}` : '';
+      items.push(`${label} के आदेश${dt} की प्रति`);
+    });
+  }
+  if (!isAnticipatory) {
+    items.push('माननीय विचारण न्यायालय के आदेश की प्रति');
+  } else if (!items.length) {
+    items.push('प्रथम सूचना रिपोर्ट की प्रति');
+  }
+  if (!items.length) items.push('संबंधित आदेश की प्रति');
+  const parts = items.map((t, i) => `${t} एनेक्जर ए-${i + 1}`);
+  const joined = parts.length === 1
+    ? parts[0]
+    : `${parts.slice(0, -1).join(', ')} तथा ${parts[parts.length - 1]}`;
+  const verb = parts.length === 1 ? 'प्रस्तुत की जा रही है' : 'प्रस्तुत की जा रही हैं';
+  return `यहकि, ${joined} माननीय न्यायालय के अवलोकनार्थ ${verb}।`;
 }
 
 // =========================================================================
