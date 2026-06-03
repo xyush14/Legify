@@ -100,14 +100,21 @@ html, body {
   border: 1px solid #444 !important; padding: 6px 8px !important;
   vertical-align: top;
 }
+/* Mirror the browser grid (auto 1fr 50%): label shrinks, dots fill the
+   middle, and the party detail (name + parentage + address) is pinned to
+   the RIGHT HALF. Without the explicit 50% the detail cell grabbed all the
+   leftover width and the names printed nearly full-page — the very bug the
+   browser grid already fixed on screen. table-layout:fixed makes WeasyPrint
+   honour these column widths regardless of content length. */
 #doc-page .bd-party {
   display: table !important; width: 100%; table-layout: fixed;
 }
-#doc-page .bd-party-label  { display: table-cell !important; width: 110px;
-                             vertical-align: top; }
-#doc-page .bd-party-dots   { display: table-cell !important; width: 16px;
-                             vertical-align: top; text-align: center; }
-#doc-page .bd-party-detail { display: table-cell !important;
+#doc-page .bd-party-label  { display: table-cell !important; width: 18%;
+                             white-space: nowrap; vertical-align: top; }
+#doc-page .bd-party-dots   { display: table-cell !important; width: 32%;
+                             vertical-align: top; overflow: hidden;
+                             white-space: nowrap; }
+#doc-page .bd-party-detail { display: table-cell !important; width: 50%;
                              vertical-align: top; }
 /* The transliteration highlight is a screen aid — print it plain. */
 #doc-page .xlit { background: transparent !important; border-bottom: none !important; }
