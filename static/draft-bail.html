@@ -645,6 +645,7 @@
     </div>
     <button class="btn" id="btn-pdf">⬇ PDF</button>
     <button class="btn" id="btn-print" data-en="🖨 Print" data-hi="🖨 प्रिंट">🖨 प्रिंट</button>
+    <button class="btn" id="btn-edit" data-en="✏️ Edit" data-hi="✏️ संपादन">✏️ संपादन</button>
     <button class="btn btn--primary" id="btn-share">📱 WhatsApp</button>
   </div>
 </div>
@@ -821,7 +822,7 @@
           <label data-en="Sessions Case No." data-hi="सत्र केस नं.">सत्र केस नं.</label>
           <input type="text" data-field="trial_case_no" data-ph-en="27/2016" data-ph-hi="27/2016" placeholder="27/2016">
         </div>
-        <div class="field">
+        <div class="field" style="display:none">
           <label data-en="Judge's Name" data-hi="न्यायाधीश का नाम">न्यायाधीश का नाम</label>
           <input type="text" data-field="trial_judge" data-ph-en="Sri Sudeep Kumar Srivastava" data-ph-hi="श्री सुदीप कुमार श्रीवास्तव" placeholder="श्री सुदीप कुमार श्रीवास्तव">
         </div>
@@ -1665,7 +1666,6 @@ function renderCrimeTable(d) {
       ${lang === 'hi' ? 'गिरफ्तारी दिनांक —' : 'Arrest Date —'} ${ph(d.arrest_date, '...........')}
     </td><td>
       ${lang === 'hi' ? 'विशेष सत्रवाद कं.' : 'Sessions Case No.'} ${ph(d.trial_case_no, '..../....')}<br>
-      ${lang === 'hi' ? 'न्यायाधीश का नाम— श्री' : 'Judge—'} ${xph(d.trial_judge, lang === 'hi' ? 'न्यायाधीश' : 'Judge', lang)}<br>
       ${lang === 'hi' ? 'न्यायालय का नाम—' : 'Court—'} ${xph(d.trial_court, lang === 'hi' ? 'न्यायालय' : 'Court', lang)}<br>
       ${lang === 'hi' ? 'स्थान—' : 'Location—'} ${xph(d.trial_location, lang === 'hi' ? 'स्थान' : 'Location', lang)}
     </td></tr>
@@ -2048,7 +2048,6 @@ function renderEn(a) {
         Arrest Date: ${ph_en(a.arrest_date, '___________')}
       </td><td>
         Sessions Case No. ${ph_en(a.trial_case_no, '__/__')}<br>
-        Judge— ${ph_en(a.trial_judge, '[Judge]')}<br>
         Court— ${ph_en(a.trial_court, '[Court Name]')}<br>
         Location— ${ph_en(district, '[District]')}
       </td></tr>
@@ -2298,9 +2297,12 @@ function renderHints() {
 // Auto-save + render loop
 // =========================================================================
 function onChange() {
-  // Re-render document in selected language
-  document.getElementById('doc-page').innerHTML =
-    state.lang === 'en' ? renderEn(state.answers) : renderHi(state.answers);
+  // Re-render document in selected language — unless the lawyer is editing the
+  // document text directly (editMode), where re-rendering would clobber edits.
+  if (!state.editMode) {
+    document.getElementById('doc-page').innerHTML =
+      state.lang === 'en' ? renderEn(state.answers) : renderHi(state.answers);
+  }
   // Update the page-count badge on the mobile preview handle
   if (typeof updatePreviewPageCount === 'function') updatePreviewPageCount();
 
@@ -2331,8 +2333,9 @@ function onChange() {
   // challenged). Hidden for anticipatory, where no prior order exists.
   document.getElementById('section-trial-court').style.display = _isReg ? '' : 'none';
 
-  // Prior-bail history — only for successive applications.
-  document.getElementById('section-prior-bail').style.display = (_appNum >= 2) ? '' : 'none';
+  // Other-court bail status — always available, so the lawyer can record the
+  // subordinate court's bail rejection even on a first High Court application.
+  document.getElementById('section-prior-bail').style.display = '';
 
   // Jail + arrest date — only when the applicant is actually in custody.
   document.getElementById('field-current-jail').style.display = _isAntic ? 'none' : '';
@@ -2901,6 +2904,23 @@ function applyBailOrderResult(o) {
   set('trial_judge',  o.presiding_judge);
   set('trial_case_no', o.main_case_number || o.bail_case_number);
 
+  // Arrest / judicial-custody date, if the order recites it.
+  set('arrest_date', o.arrest_date);
+
+  // Record the subordinate court's bail decision as an "other court" row so it
+  // populates the prior-bail status table (क्या जमानत आवेदन पत्र ... विचाराधीन/निराकृत).
+  if (o.bail_case_number || o.order_date || o.outcome) {
+    const outMap = { rejected: 'अस्वीकार', dismissed: 'निरस्त', withdrawn: 'वापस', granted: 'स्वीकृत', allowed: 'स्वीकृत' };
+    const oc = outMap[String(o.outcome || '').toLowerCase()] || o.outcome || 'अस्वीकार';
+    ans.prior_bail_history = (ans.prior_bail_history || []).filter(r => r.court_level !== 'lower');
+    ans.prior_bail_history.push({
+      court_level: 'lower',
+      case_no: o.bail_case_number || '',
+      disposal_date: o.order_date || '',
+      outcome: oc,
+    });
+  }
+
   // Successive bail: the HC application follows a lower-court rejection.
   ans.application_number = Math.max(2, parseInt(o.application_number || 1) + (
     (o.outcome && /reject|dismiss/i.test(o.outcome)) ? 1 : 0
@@ -3263,6 +3283,38 @@ document.getElementById('btn-print').addEventListener('click', () => {
   // Defer one frame so the toast paints before the (modal) print dialog
   // captures the thread — feels more responsive.
   requestAnimationFrame(() => window.print());
+});
+
+// Direct in-document editing. ON → #doc-page becomes contentEditable and the
+// form→doc re-render freezes (state.editMode) so manual edits survive; PDF /
+// print / WhatsApp all read the current #doc-page, so edits flow into output.
+// OFF → rebuild from the form (after a confirm, since direct edits are lost).
+document.getElementById('btn-edit').addEventListener('click', () => {
+  const docEl = document.getElementById('doc-page');
+  const btn = document.getElementById('btn-edit');
+  const isHi = state.lang === 'hi';
+  if (!state.editMode) {
+    state.editMode = true;
+    docEl.setAttribute('contenteditable', 'true');
+    docEl.style.outline = '2px dashed #b8860b';
+    docEl.style.outlineOffset = '6px';
+    docEl.focus();
+    btn.classList.add('btn--primary');
+    btn.textContent = isHi ? '✓ पूर्ण' : '✓ Done';
+    toast(isHi ? 'दस्तावेज़ में सीधे टाइप करें — आपके बदलाव डाउनलोड/प्रिंट में आएंगे' : 'Type directly in the document — edits flow into download/print', 'ok');
+  } else {
+    const ok = confirm(isHi
+      ? 'फॉर्म मोड पर लौटें? दस्तावेज़ फिर फॉर्म से बनेगा और सीधे किए गए बदलाव हट जाएंगे।'
+      : 'Return to form mode? The document rebuilds from your form fields and direct edits will be lost.');
+    if (!ok) return;
+    state.editMode = false;
+    docEl.removeAttribute('contenteditable');
+    docEl.style.outline = '';
+    docEl.style.outlineOffset = '';
+    btn.classList.remove('btn--primary');
+    btn.textContent = isHi ? '✏️ संपादन' : '✏️ Edit';
+    onChange();
+  }
 });
 
 // WhatsApp share — actually attach the PDF.

@@ -87,6 +87,7 @@ Extract the following structured JSON. Return ONLY a JSON object — no markdown
 
   "gd_entry_no":       "string — General Diary entry number (field 3c)",
   "gd_date":           "string — DD.MM.YYYY of GD entry. null if not present",
+  "arrest_date":       "string — DD.MM.YYYY the accused was arrested, ONLY if explicitly stated (action-taken / GD / narrative, e.g. 'गिरफ्तारी दिनांक' / 'गिरफ्तार किया'). Most FIRs do NOT record an arrest date — return null if not clearly stated. Never infer it from the FIR or occurrence date.",
   "type_of_info":      "'oral' | 'written' | null",
   "reasons_for_delay": "string — field 8, often blank. null if blank",
 
@@ -156,6 +157,7 @@ Extract this JSON. Return ONLY the JSON object — no markdown fences, no prose.
   "fir_number":        "string — crime/FIR number, e.g. '409/2021'. null if not found.",
   "fir_date":          "string — DD.MM.YYYY. null if not found.",
   "incident_date":     "string — DD.MM.YYYY of the alleged offence. null if not found.",
+  "arrest_date":       "string — DD.MM.YYYY the applicant/accused was arrested or first taken into judicial custody, as recited anywhere in the order (e.g. 'दिनांक ... को गिरफ्तार', 'दिनांक ... से न्यायिक अभिरक्षा में'). null if not stated.",
   "sections":          ["array — statute refs combining section + Act, e.g. '34(2) Excise Act', '49(a) Excise Act', '302 IPC', '420 BNS'. Same script for act names is fine but prefer roman act abbreviations."],
 
   "bail_provision":    "string — the section the application was filed under, e.g. '482 BNSS' or '438 CrPC' or '439 CrPC'. null if not found.",
@@ -405,6 +407,36 @@ def _rasterize_pdfs(
     return out
 
 
+def _ocr_result_is_empty(parsed: dict) -> bool:
+    """True when a RAW (pre-normalise) extraction carries no usable content —
+    every field is null/blank/empty, ignoring the meta fields.
+
+    Groq's free vision model sometimes returns syntactically-valid JSON with
+    all fields null on hard or handwritten Devanagari scans. That parses fine,
+    so the exception-based fallback never fires and the user just sees a blank
+    form ("works on my clean docs, fails on theirs"). We use this to fall
+    through to Anthropic in that case. Checked on the raw parse so the
+    defaults that normalise_fn injects (application_number=1, *_count, …) don't
+    mask an otherwise-empty result.
+    """
+    if not isinstance(parsed, dict):
+        return True
+    meta = {"confidence", "notes"}
+    nullish = {"n/a", "null", "none", "nil", "-", "—"}
+    for key, val in parsed.items():
+        if key in meta or val is None:
+            continue
+        if isinstance(val, str):
+            if val.strip() and val.strip().lower() not in nullish:
+                return False
+        elif isinstance(val, (list, dict)):
+            if len(val) > 0:
+                return False
+        else:  # numbers, bools — a present scalar is real content
+            return False
+    return True
+
+
 def _run_ocr(pages, prompt, normalise_fn):
     """Generic multi-page OCR runner. Provider priority: Groq (free/fast) →
     Anthropic Sonnet (when a real key is set). `prompt` selects the schema;
@@ -424,10 +456,17 @@ def _run_ocr(pages, prompt, normalise_fn):
 
     groq_err: Optional[Exception] = None
     anthropic_err: Optional[Exception] = None
+    groq_empty_result: Optional[dict] = None  # valid-but-empty Groq parse, kept as last resort
 
     if groq_key:
         try:
-            return normalise_fn(_ocr_via_groq(pages, prompt))
+            groq_raw = _ocr_via_groq(pages, prompt)
+            if not _ocr_result_is_empty(groq_raw):
+                return normalise_fn(groq_raw)
+            # Syntactically valid but content-empty — the silent-failure mode.
+            # Keep it as a last resort, but try Anthropic for a real read first.
+            groq_empty_result = normalise_fn(groq_raw)
+            log.warning("Groq OCR returned an empty extraction — trying Anthropic fallback")
         except Exception as e:
             log.warning("Groq OCR failed: %s", e)
             groq_err = e
@@ -438,6 +477,12 @@ def _run_ocr(pages, prompt, normalise_fn):
         except Exception as e:
             log.warning("Anthropic OCR failed: %s", e)
             anthropic_err = e
+
+    # Groq parsed but came back empty, and Anthropic was unavailable or also
+    # failed: return the empty Groq result rather than hard-erroring — a blank
+    # form the lawyer can fill by hand beats a red error mid-demo.
+    if groq_empty_result is not None:
+        return groq_empty_result
 
     # All configured providers exhausted. Build a clear, user-facing
     # message that names the actual failure(s) instead of leaking
