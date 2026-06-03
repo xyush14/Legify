@@ -220,7 +220,7 @@ async def translate_fields(
     Only non-empty string values are translated. Proper nouns (names, case
     numbers, dates, statute refs) are preserved by the prompt instruction.
 
-    Backend: Groq Llama-3.3-70b (free tier) primary, Anthropic Haiku fallback.
+    Backend: DeepSeek V3 (deepseek-chat) primary, Groq llama as last resort.
 
     Gated: draft feature (same quota as draft_start).
     """
@@ -241,14 +241,14 @@ async def translate_fields(
         "target script/language. Use these rules per field:\n"
         "• Person names (applicant_name, applicant_father, advocate_name, "
         "trial_judge): TRANSLITERATE phonetically to the target script. "
-        "E.g., 'Anil Morya' → 'अनिल मोर्य'; 'श्री राम सिंह' → 'Shri Ram Singh'.\n"
+        "E.g., 'Anil Verma' → 'अनिल वर्मा'; 'श्री राम सिंह' → 'Shri Ram Singh'.\n"
         "• Place names, addresses, district, state, police station, jail names: "
         "TRANSLITERATE to the target script (use the conventional Indian-English "
-        "spelling for places, e.g. 'Gwalior' ↔ 'ग्वालियर', 'Madhya Pradesh' ↔ "
-        "'मध्य प्रदेश').\n"
+        "spelling for places, e.g. 'Lucknow' ↔ 'लखनऊ', 'Uttar Pradesh' ↔ "
+        "'उत्तर प्रदेश').\n"
         "• Court names + judge titles: TRANSLATE using standard Indian legal "
-        "vocabulary (e.g. 'MP High Court Gwalior Bench' ↔ "
-        "'माननीय उच्च न्यायालय मध्यप्रदेश खण्डपीठ, ग्वालियर'; "
+        "vocabulary (e.g. 'Allahabad High Court Lucknow Bench' ↔ "
+        "'माननीय उच्च न्यायालय इलाहाबाद खण्डपीठ, लखनऊ'; "
         "'2nd Additional Sessions Judge' ↔ 'द्वितीय अपर सत्र न्यायाधीश').\n"
         "• Occupation: TRANSLATE ('Shopkeeper' ↔ 'दुकानदारी').\n"
         "• Long prose (facts_narrative, cancellation_history, lower_court_history, "
@@ -288,8 +288,8 @@ async def translate_fields(
             else:
                 translated = to_translate
 
-        cost_paise = 50  # Groq free tier; flat estimate for the cost meter
-        _record(cost_paise=cost_paise, model="llama-3.3-70b-versatile")
+        cost_paise = 40  # DeepSeek V3; flat estimate for the cost meter
+        _record(cost_paise=cost_paise, model="deepseek-chat")
         return {"translated": translated}
 
 
@@ -621,9 +621,9 @@ def compose(
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"compose failed: {e}")
 
-        # Cost estimate: asking = ~haiku (50p), generating = ~sonnet (600p)
-        cost = 600 if result.get("status") == "ready" else 50
-        _record(cost_paise=cost, model="sonnet+haiku-compose")
+        # Cost estimate (DeepSeek V3): asking ~30p, full generation ~80p
+        cost = 80 if result.get("status") == "ready" else 30
+        _record(cost_paise=cost, model="deepseek-chat")
         return result
 
 
@@ -740,5 +740,5 @@ def render_template(
             doc = _generate_document(template, body.fields or {}, body.lang)
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"render failed: {e}")
-        _record(cost_paise=600, model="llama-3.3-70b-versatile")
+        _record(cost_paise=80, model="deepseek-chat")
         return {"ok": True, "document": doc}

@@ -1047,11 +1047,11 @@ function renderBody(body, sec) {
 
     case 'court': {
       body.innerHTML = `
-        <div class="field"><label>${state.lang === 'hi' ? 'न्यायालय' : 'Court'}</label><input type="text" data-k="court_name" placeholder="${state.lang === 'hi' ? 'जैसे: न्यायिक दण्डाधिकारी प्रथम श्रेणी, ग्वालियर' : 'e.g. JMFC, Gwalior'}" value="${ans('court_name')}" /></div>
-        <div class="field"><label>${state.lang === 'hi' ? 'क्षेत्राधिकार का आधार' : 'Jurisdiction basis'}</label><input type="text" data-k="jurisdiction_reason" placeholder="${state.lang === 'hi' ? 'जैसे: अभियोगी का बैंक ग्वालियर में' : 'e.g. complainant bank in Gwalior'}" value="${ans('jurisdiction_reason')}" /></div>
+        <div class="field"><label>${state.lang === 'hi' ? 'न्यायालय' : 'Court'}</label><input type="text" data-k="court_name" placeholder="${state.lang === 'hi' ? 'जैसे: न्यायिक दण्डाधिकारी प्रथम श्रेणी' : 'e.g. JMFC / Sessions Court'}" value="${ans('court_name')}" /></div>
+        <div class="field"><label>${state.lang === 'hi' ? 'क्षेत्राधिकार का आधार' : 'Jurisdiction basis'}</label><input type="text" data-k="jurisdiction_reason" placeholder="${state.lang === 'hi' ? 'जैसे: अभियोगी का बैंक इसी जिले में' : 'e.g. complainant bank in this district'}" value="${ans('jurisdiction_reason')}" /></div>
         <div class="field field-row">
           <div><label>${state.lang === 'hi' ? 'दाखिल तिथि' : 'Filing date'}</label><input type="date" data-k="filing_date" value="${ans('filing_date')}" /></div>
-          <div><label>${state.lang === 'hi' ? 'स्थान' : 'Place'}</label><input type="text" data-k="filing_place" placeholder="${state.lang === 'hi' ? 'ग्वालियर' : 'Gwalior'}" value="${ans('filing_place')}" /></div>
+          <div><label>${state.lang === 'hi' ? 'स्थान' : 'Place'}</label><input type="text" data-k="filing_place" placeholder="${state.lang === 'hi' ? 'स्थान' : 'Place'}" value="${ans('filing_place')}" /></div>
         </div>
       `;
       bind(body);

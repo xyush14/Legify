@@ -229,7 +229,7 @@
     font-size: 14.5px;
   }
 
-  /* Document styles — matches Vishnu ji's MP HC Gwalior bail filings */
+  /* Document styles — standard Indian court-paper bail filing format */
   .bail-doc { font-size: 14.5px; }
   .bail-doc--hi { /* same fonts — handled by stack at .doc-page */ }
 
@@ -690,9 +690,9 @@
       <div class="field">
         <label data-en="Court" data-hi="न्यायालय">न्यायालय</label>
         <input type="text" data-field="court_name"
-          data-ph-en="MP High Court Gwalior Bench"
-          data-ph-hi="माननीय उच्च न्यायालय मध्यप्रदेश खण्डपीठ, ग्वालियर"
-          placeholder="माननीय उच्च न्यायालय मध्यप्रदेश खण्डपीठ, ग्वालियर">
+          data-ph-en="e.g. High Court / Sessions Court"
+          data-ph-hi="जैसे: उच्च न्यायालय / सत्र न्यायालय"
+          placeholder="जैसे: उच्च न्यायालय / सत्र न्यायालय">
       </div>
       <div class="field field--row">
         <div class="field">
@@ -740,11 +740,11 @@
       <div class="field field--row">
         <div class="field">
           <label data-en="Name" data-hi="नाम">नाम</label>
-          <input type="text" data-field="applicant_name" data-ph-en="Anil Morya" data-ph-hi="अनिल मोर्य" placeholder="अनिल मोर्य">
+          <input type="text" data-field="applicant_name" data-ph-en="Anil Verma" data-ph-hi="अनिल वर्मा" placeholder="अनिल वर्मा">
         </div>
         <div class="field">
           <label data-en="Father's Name" data-hi="पिता">पिता</label>
-          <input type="text" data-field="applicant_father" data-ph-en="Sri Ramji Das Morya" data-ph-hi="श्री रामजी दास मोर्य" placeholder="श्री रामजी दास मोर्य">
+          <input type="text" data-field="applicant_father" data-ph-en="Sri Ramji Das Verma" data-ph-hi="श्री रामजी दास वर्मा" placeholder="श्री रामजी दास वर्मा">
         </div>
       </div>
       <div class="field field--row">
@@ -764,16 +764,16 @@
       <div class="field field--row">
         <div class="field">
           <label data-en="District" data-hi="जिला">जिला</label>
-          <input type="text" data-field="district" data-ph-en="Gwalior" data-ph-hi="ग्वालियर" placeholder="ग्वालियर">
+          <input type="text" data-field="district" data-ph-en="District" data-ph-hi="जिला" placeholder="जिला">
         </div>
         <div class="field">
           <label data-en="State" data-hi="राज्य">राज्य</label>
-          <input type="text" data-field="state_name" data-ph-en="Madhya Pradesh" data-ph-hi="मध्य प्रदेश" placeholder="मध्य प्रदेश" value="मध्य प्रदेश">
+          <input type="text" data-field="state_name" data-ph-en="State" data-ph-hi="राज्य" placeholder="राज्य">
         </div>
       </div>
       <div class="field" id="field-current-jail">
         <label data-en="Current Jail" data-hi="वर्तमान कारागार">वर्तमान कारागार</label>
-        <input type="text" data-field="current_jail" data-ph-en="Central Jail Gwalior" data-ph-hi="केन्द्रीय कारागार ग्वालियर" placeholder="केन्द्रीय कारागार ग्वालियर">
+        <input type="text" data-field="current_jail" data-ph-en="Central Jail" data-ph-hi="केन्द्रीय कारागार" placeholder="केन्द्रीय कारागार">
       </div>
     </div>
 
@@ -970,7 +970,7 @@
       <div class="field field--row">
         <div class="field">
           <label data-en="Place" data-hi="स्थान">स्थान</label>
-          <input type="text" data-field="place" data-ph-en="Gwalior" data-ph-hi="ग्वालियर" placeholder="ग्वालियर">
+          <input type="text" data-field="place" data-ph-en="City" data-ph-hi="स्थान" placeholder="स्थान">
         </div>
         <div class="field">
           <label data-en="Date" data-hi="दिनांक">दिनांक</label>
@@ -1023,7 +1023,7 @@
 const state = {
   lang: 'hi',
   answers: {
-    state_name: 'मध्य प्रदेश',
+    state_name: '',
     application_number: '1',
     bail_section: '483',
     prior_bail_history: [],
@@ -1317,10 +1317,10 @@ function renderHi(a) {
   }[bailSection] || 'धारा 483 भारतीय नागरिक सुरक्षा संहिता, 2023';
 
   const sideLabel = isAnticipatory ? 'आवेदक की ओर से' : 'बंदी की ओर से';
-  const courtName = a.court_name || 'माननीय उच्च न्यायालय मध्यप्रदेश खण्डपीठ, ग्वालियर';
+  const courtName = a.court_name || '(न्यायालय का नाम)';
   const caseNo = a.case_number || '';
   const caseYear = a.case_year || new Date().getFullYear();
-  const stateName = a.state_name || 'मध्य प्रदेश';
+  const stateName = a.state_name || '(राज्य)';
   const district = a.district || '';
 
   const sections = (a.sections_str || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -1919,8 +1919,8 @@ function renderEn(a) {
     '437': 'Section 437 CrPC', '438': 'Section 438 CrPC', '439': 'Section 439 CrPC',
     '480': 'Section 480 BNSS, 2023', '482': 'Section 482 BNSS, 2023', '483': 'Section 483 BNSS, 2023',
   }[bailSection] || 'Section 483 BNSS, 2023';
-  const courtName = a.court_name || 'IN THE HIGH COURT OF MADHYA PRADESH, GWALIOR BENCH';
-  const stateName = a.state_name || 'Madhya Pradesh';
+  const courtName = a.court_name || 'IN THE COURT OF [NAME OF COURT]';
+  const stateName = a.state_name || '[State]';
   const district = a.district || '';
   const sections = (a.sections_str || '').split(',').map(s => s.trim()).filter(Boolean);
   const sectionsList = a.sections || sections;
@@ -3271,7 +3271,7 @@ function _downloadAndOpenWhatsApp(blob, filename) {
 }
 
 // Fields that switch script/language between EN and HI.
-// - Person names → transliterated (Anil Morya ↔ अनिल मोर्य)
+// - Person names → transliterated (Anil Verma ↔ अनिल वर्मा)
 // - Place / court / occupation / address → translated/transliterated
 // - Prose narrative + grounds → translated
 // Fields explicitly NOT in this list: dates, FIR/case/year numbers,

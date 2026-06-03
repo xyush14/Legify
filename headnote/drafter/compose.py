@@ -69,47 +69,36 @@ def _next_field(template: dict, collected: dict) -> dict | None:
 
 
 def _llm_call(system: str, user: str, *, max_tokens: int = 1200, model: str = "fast") -> str:
-    """Single dispatch for all LLM calls in the conductor.
+    """Single dispatch for all drafter LLM calls (question-asking, answer
+    parsing, document generation, field translation, prose polish).
 
-    Backend priority:
-      1. Groq (free, fast)  — preferred for both Q-asking and document gen
-      2. Anthropic Claude   — fallback if GROQ_API_KEY not set
+    Routes to DeepSeek V3 (deepseek-chat) with Groq llama as last-resort
+    fallback, via the shared client in headnote.llm.client. We deliberately
+    do NOT use Groq llama-3.3-70b as the PRIMARY drafter anymore: it ignored
+    the Hindi format_spec (re-introducing the forbidden 'गैर-न्यायिक स्टांप
+    पेपर' / 'समक्ष' lines on the affidavit) and leaked English structural
+    words (e.g. 'VERIFICATION') into otherwise-Devanagari output. That weak
+    model — not the spec — was the root cause of the broken, wrong-format,
+    half-translated drafts.
 
-    `model='fast'` → Groq llama-3.1-8b-instant / Haiku  (question generation)
-    `model='quality'` → Groq llama-3.3-70b-versatile / Sonnet  (document drafting)
+    Why V3 (deepseek-chat) and not R1 (deepseek-reasoner): the template
+    drafter regenerates the WHOLE document on every debounced edit (live
+    preview). R1's chain-of-thought runs 60-180s — unusable for that. V3 is
+    5-15s and follows the spec cleanly. Claude is intentionally not used here
+    (cost); if DeepSeek is unconfigured/down, _call_deepseek_or_groq degrades
+    to Groq llama rather than erroring.
+
+    `model='fast'`    → cheap calls (ask question, parse answer)
+    `model='quality'` → document generation / field translation
+    Both currently map to V3; the knob is kept for future routing.
     """
-    import os
-    if os.environ.get("GROQ_API_KEY"):
-        from groq import Groq
-        client = Groq(api_key=os.environ["GROQ_API_KEY"])
-        m = (
-            os.environ.get("GROQ_TEXT_FAST", "llama-3.1-8b-instant")
-            if model == "fast" else
-            os.environ.get("GROQ_TEXT_QUALITY", "llama-3.3-70b-versatile")
-        )
-        try:
-            resp = client.chat.completions.create(
-                model=m,
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user},
-                ],
-                max_tokens=max_tokens,
-                temperature=0.2 if model == "quality" else 0.4,
-            )
-            return resp.choices[0].message.content or ""
-        except Exception as e:
-            log.warning("Groq %s failed (%s); trying Anthropic", m, e)
-
-    # Anthropic fallback
-    # TEMPORARY (demo 2026-05-24): force Sonnet for both fast + quality
-    # because Haiku 4.5 isn't yet subscribed in Bedrock Sydney. Revert the
-    # ternary once Haiku Bedrock access is approved.
-    from headnote.llm.client import call_claude_cached
-    anthr_model = "claude-sonnet-4-6"   # was: "claude-haiku-4-5" if model == "fast" else "claude-sonnet-4-6"
-    text, _ = call_claude_cached(
-        system_prompt=system, user_prompt=user,
-        model=anthr_model, max_tokens=max_tokens, cache=False,
+    from headnote.llm.client import _call_deepseek_or_groq
+    # claude_model picks the DeepSeek tier: 'claude-haiku-4-5' → deepseek-chat
+    # (V3). _call_deepseek_or_groq tries DeepSeek first, then Groq llama.
+    text, _ = _call_deepseek_or_groq(
+        system, user,
+        max_tokens=max_tokens,
+        claude_model="claude-haiku-4-5",
     )
     return text
 
@@ -204,7 +193,7 @@ def _ask_question(template: dict, field: dict, collected: dict, lang: str) -> st
 
     The conductor doesn't just print 'Enter <field>?' — it phrases the
     question with reference to previously-collected context. E.g. after
-    the lawyer says the client is 'Anil Morya', the next question becomes
+    the lawyer says the client is 'Anil Verma', the next question becomes
     'And what's Anil's father's name?' not 'Enter applicant_father:'.
     """
     label = field["label_hi"] if lang == "hi" else field["label_en"]
@@ -255,9 +244,9 @@ def _parse_answer(template: dict, field_key: str, question: str | None,
                   answer: str, collected: dict, lang: str) -> dict:
     """Extract the structured value from the lawyer's free-form answer.
 
-    Most answers are simple ('Anil Morya') and can be stored directly.
-    But voice answers often contain noise ('um, the name is Anil Morya'
-    or 'मेरे क्लाइंट का नाम है अनिल मोर्य') — the LLM extracts the clean value.
+    Most answers are simple ('Anil Verma') and can be stored directly.
+    But voice answers often contain noise ('um, the name is Anil Verma'
+    or 'मेरे क्लाइंट का नाम है अनिल वर्मा') — the LLM extracts the clean value.
     """
     field = next((f for f in template["fields"] if f["key"] == field_key), None)
     if not field:
@@ -304,11 +293,44 @@ def _parse_answer(template: dict, field_key: str, question: str | None,
 
 def _generate_document(template: dict, collected: dict, lang: str) -> str:
     """Generate the final document using the high-quality LLM + format_spec."""
-    lang_clause = (
-        "The document must be entirely in formal court Hindi (Devanagari). "
-        "Names and places stay in Devanagari."
+    if lang == "hi":
+        lang_clause = (
+            "OUTPUT LANGUAGE — HINDI (DEVANAGARI). THIS OVERRIDES THE FORMAT "
+            "SPEC.\n"
+            "The ENTIRE document must be written in formal court Hindi in the "
+            "Devanagari script — the court name, the case-number line, every "
+            "party block, the title, every numbered paragraph, every heading, "
+            "the prayer, the witness list, the date line and the signature "
+            "block. There must be ZERO English words or Latin-script "
+            "structural text anywhere.\n"
+            "If the FORMAT SPEC below quotes any English (for example 'IN THE "
+            "COURT OF ...', 'COMPLAINT UNDER SECTION ...', 'PRAYER', "
+            "'VERIFICATION', 'That ...'), treat that English ONLY as a "
+            "structural reference telling you WHAT the line is — you MUST "
+            "render its proper Hindi equivalent and NEVER copy the English "
+            "verbatim. For instance write 'परिवाद पत्र अन्तर्गत धारा 138 "
+            "परक्राम्य लिखित अधिनियम', NOT 'COMPLAINT UNDER SECTION 138'.\n"
+            "The ONLY things allowed in Latin letters / Arabic numerals are "
+            "bare statute numbers (e.g. धारा 138), cheque or account numbers, "
+            "and monetary figures. Proper names and place names stay in "
+            "Devanagari."
+        )
+    else:
+        lang_clause = (
+            "The document must be entirely in formal Indian legal English."
+        )
+
+    title_clause = (
+        "Output the document title as a plain Hindi line in Devanagari (for "
+        "example 'याचिका अन्तर्गत धारा 9 हिन्दू विवाह अधिनियम, 1955') — the "
+        "frontend automatically renders it centred + underlined + bold from "
+        "the CSS. Never wrap the title in markup and never force Latin "
+        "uppercase or English."
         if lang == "hi" else
-        "The document must be entirely in formal Indian legal English."
+        "Output PLAIN UPPERCASE for titles (e.g. 'PETITION UNDER S.9 OF THE "
+        "HINDU MARRIAGE ACT, 1955') — the frontend automatically renders "
+        "centred + underlined + bold styling from the CSS. Never wrap titles "
+        "in markup."
     )
 
     sys = (
@@ -327,10 +349,7 @@ def _generate_document(template: dict, collected: dict, lang: str) -> str:
         "as literal text on the page and look unprofessional:\n"
         "  - HTML tags: <u>, <b>, <i>, <em>, <strong>\n"
         "  - Markdown: **bold**, _italic_, *emphasis*, # headings\n"
-        "Output PLAIN UPPERCASE for titles (e.g. 'PETITION UNDER S.9 OF THE "
-        "HINDU MARRIAGE ACT, 1955') — the frontend automatically renders "
-        "centred + underlined + bold styling from the CSS. Never wrap titles "
-        "in markup."
+        f"{title_clause}"
     )
     fields_dump = "\n".join(
         f"- {f['label_en']} ({f['key']}): {collected.get(f['key']) or '[BLANK]'}"

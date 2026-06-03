@@ -1,8 +1,7 @@
-"""Bail Application template — MP / North India court Hindi format.
+"""Bail Application template — Indian court Hindi/English format.
 
-Models the structure of the sample document Ayush shared: a successive
-bail application under Section 439 CrPC at MP High Court (Gwalior Bench)
-in a dacoity-murder case.
+Models the structure of a successive bail application under Section 439
+CrPC / Section 483 BNSS before a High Court or Sessions Court.
 
 The same renderer handles all three bail types:
   - anticipatory (Section 438 CrPC / 482 BNSS)
@@ -90,11 +89,11 @@ def _ph(s: Optional[str], placeholder: str = "............") -> str:
 # ----------------------------------------------------------- main renders
 
 def render_hi(a: dict) -> str:
-    """Hindi (MP court format) bail application."""
+    """Hindi-format bail application."""
     a = a or {}
 
     # ---- court header ----
-    court_name = a.get("court_name") or "माननीय उच्च न्यायालय मध्यप्रदेश खण्डपीठ, ग्वालियर"
+    court_name = a.get("court_name") or "(न्यायालय का नाम)"
     side_label = a.get("side_label") or "बंदी की ओर से"  # or 'आवेदक की ओर से' if anticipatory
     case_label = a.get("case_label") or "विविध आपराधिक प्रकरण क्रमांक"
     case_number = a.get("case_number") or ""
@@ -122,7 +121,7 @@ def render_hi(a: dict) -> str:
     address = a.get("applicant_address") or ""
 
     # ---- non-applicant ----
-    state_name = a.get("state_name") or "मध्य प्रदेश"
+    state_name = a.get("state_name") or "(राज्य)"
     ps_name = a.get("police_station") or ""
     district = a.get("district") or ""
 
@@ -162,7 +161,7 @@ def render_hi(a: dict) -> str:
     custom_grounds = a.get("custom_grounds") or []  # list of free-text grounds
 
     # ---- signature ----
-    place = a.get("place") or "ग्वालियर"
+    place = a.get("place") or "(स्थान)"
     filing_date = a.get("filing_date") or date.today().strftime("%d.%m.%Y")
     advocate_name = a.get("advocate_name") or ""
 
@@ -454,9 +453,9 @@ def render_en(a: dict) -> str:
     occupation = a.get("applicant_occupation") or "(occupation)"
     address = a.get("applicant_address") or "(address)"
     district = a.get("district") or "(district)"
-    state_name = a.get("state_name") or "Madhya Pradesh"
+    state_name = a.get("state_name") or "(state)"
     ps_name = a.get("police_station") or "(police station)"
-    court_name = a.get("court_name") or "Hon'ble High Court of Madhya Pradesh, Gwalior Bench"
+    court_name = a.get("court_name") or "(name of court)"
     case_no = a.get("case_number") or "...."
     case_year = a.get("case_year") or str(date.today().year)
     bail_section = a.get("bail_section") or "439"
@@ -535,7 +534,7 @@ def render_en(a: dict) -> str:
     )
 
     out.append('<div class="bd-sig">')
-    out.append(f'<div>Place: {_esc(a.get("place") or "Gwalior")}</div>')
+    out.append(f'<div>Place: {_esc(a.get("place") or "(place)")}</div>')
     out.append(f'<div>Date: {_esc(a.get("filing_date") or date.today().strftime("%d.%m.%Y"))}</div>')
     out.append(f'<div class="bd-sig-right">Through Counsel<br>'
                f'<b>{_esc(a.get("advocate_name") or "(Advocate)")}</b></div>')

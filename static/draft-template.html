@@ -156,7 +156,7 @@
   .ocr-cta button.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 
   /* ============================================================================
-     Court-paper document preview — matches Vishnu ji's MP HC Gwalior filings.
+     Court-paper document preview — standard Indian court-paper filing format.
      Font stack: Times New Roman first (for digits + statute refs like S.302),
      then Tiro Devanagari Hindi (serif court-style) for Devanagari, falling
      back to Noto Serif Devanagari. Browser auto-picks per character.
@@ -312,13 +312,28 @@
   }
   @media print {
     @page { size: A4 portrait; margin: 12mm 14mm 14mm 14mm; }
+    html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; font-size: 11pt; color: #000 !important; }
+    /* Hide every piece of UI chrome — only the court-paper document should print. */
     .topbar, .form-pane, .toast, .modal,
     .ocr-zone, .ocr-cta, .ocr-pages, .lang-toggle,
+    .preview-handle, .regen-indicator, .doc-empty,
     button, .btn { display: none !important; }
-    html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; font-size: 11pt; color: #000 !important; }
-    .split, .doc-pane { display: block !important; grid-template-columns: 1fr !important; background: #fff !important; padding: 0 !important; margin: 0 !important; overflow: visible !important; }
-    .doc-page { box-shadow: none !important; border: none !important; padding: 0 !important; margin: 0 !important; max-width: none !important; width: 100% !important; overflow: visible !important; }
-    .doc-page .ph { color: #555 !important; font-style: normal !important; }
+    /* Force the wrapper chain back into normal flow. The mobile
+       @media(max-width:880px) rules also match the ~793px A4 print viewport,
+       so without these the document stays hidden/clipped while printing. */
+    .split, .doc-pane { display: block !important; grid-template-columns: 1fr !important; background: #fff !important; padding: 0 !important; margin: 0 !important; height: auto !important; max-height: none !important; overflow: visible !important; }
+    /* The document itself. The #id selector + !important beats both the
+       `.doc-pane > .doc-page{display:none}` mobile rule and the inline
+       style="display:none" so the document always renders when printing. */
+    #doc-page, .doc-page {
+      display: block !important;
+      box-shadow: none !important; border: none !important;
+      padding: 0 !important; margin: 0 !important;
+      max-width: none !important; width: 100% !important;
+      min-height: 0 !important; overflow: visible !important;
+      background: #fff !important;
+    }
+    #doc-page .ph { color: #555 !important; font-style: normal !important; }
     table { page-break-inside: avoid; border-collapse: collapse; }
   }
 </style>
@@ -1161,7 +1176,7 @@ function parseDocToHtml(text) {
     }
     // 4. "PETITION/APPLICATION/APPEAL UNDER …" — title line, all caps or starts with these
     if (/^(PETITION|APPLICATION|APPEAL|MEMO|VAKALATNAMA|REPLY|COUNTER)\s+(UNDER|FOR|TO|ON|—)/i.test(line)
-        || /^(आवेदन\s+पत्र|अपील|प्रार्थना\s*पत्र|वकालतनामा|प्रत्यावेदन|मेमो|शपथपत्र)/.test(line)) {
+        || /^(आवेदन\s+पत्र|अपील|प्रार्थना\s*पत्र|वकालतनामा|प्रत्यावेदन|मेमो|शपथ\s*पत्र|सूचना\s*पत्र|परिवाद\s*पत्र)/.test(line)) {
       out.push(`<div class="doc-title">${e}</div>`);
       continue;
     }

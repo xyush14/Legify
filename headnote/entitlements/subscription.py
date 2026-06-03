@@ -16,7 +16,7 @@ from typing import Optional
 from headnote import config
 from headnote.entitlements import _supabase
 from headnote.entitlements.auth import current_user_email
-from headnote.entitlements.plans import PLANS, get_plan
+from headnote.entitlements.plans import DEMO, PLANS, get_plan
 
 
 log = logging.getLogger(__name__)
@@ -186,7 +186,7 @@ def _create_demo(user_id: str) -> dict:
 
 def _check_and_expire(sub: dict) -> dict:
     """If subscription period_end has passed, mark as expired and downgrade
-    to Demo (with a fresh 14-day window so the user can re-evaluate)."""
+    to Demo (with a fresh demo window so the user can re-evaluate)."""
     if sub.get("status") != "active":
         return sub
     period_end = _parse_ts(sub.get("period_end"))
@@ -197,7 +197,7 @@ def _check_and_expire(sub: dict) -> dict:
     if sub.get("plan") == "demo":
         # Demo already, just extend the window so the user keeps a usable trial
         # (their lifetime quotas are already consumed; this only resets day-window).
-        new_end = datetime.now(timezone.utc) + timedelta(days=14)
+        new_end = datetime.now(timezone.utc) + timedelta(days=DEMO.duration_days)
         update = {
             "period_start": datetime.now(timezone.utc).isoformat(),
             "period_end": new_end.isoformat(),
@@ -207,7 +207,7 @@ def _check_and_expire(sub: dict) -> dict:
             "plan": "demo",
             "status": "active",
             "period_start": datetime.now(timezone.utc).isoformat(),
-            "period_end": (datetime.now(timezone.utc) + timedelta(days=14)).isoformat(),
+            "period_end": (datetime.now(timezone.utc) + timedelta(days=DEMO.duration_days)).isoformat(),
         }
     _supabase.update(
         "subscriptions", update,

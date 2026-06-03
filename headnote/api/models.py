@@ -92,7 +92,7 @@ class MemorandumRequest(BaseModel):
     )
     jurisdiction: Optional[str] = Field(
         "India",
-        description="Court/state hint (e.g. 'Madhya Pradesh High Court').",
+        description="Court/state hint (e.g. 'Delhi High Court').",
     )
     stage: Optional[str] = Field(
         "pre-trial",

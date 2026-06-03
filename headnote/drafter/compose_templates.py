@@ -68,15 +68,15 @@ VAKALATNAMA = {
     "tier":       1,
     "description": "Authorisation for advocate to appear on behalf of the party. Required for every matter.",
     "fields": [
-        {"key": "court_name",          "label_en": "Court name",                "label_hi": "न्यायालय का नाम",        "type": "text",      "required": True,  "hint": "e.g. 'Court of the Sessions Judge, Gwalior' or 'MP High Court, Gwalior Bench'", "section": "court"},
+        {"key": "court_name",          "label_en": "Court name",                "label_hi": "न्यायालय का नाम",        "type": "text",      "required": True,  "hint": "e.g. 'Court of the Sessions Judge, Lucknow' or 'High Court of Delhi'", "section": "court"},
         {"key": "case_no",             "label_en": "Case / Crime number",       "label_hi": "केस / अपराध क्रमांक",   "type": "text",      "required": False, "hint": "If a case number is assigned", "section": "court"},
         {"key": "client_name",         "label_en": "Client (party) name",       "label_hi": "मुवक्किल का नाम",       "type": "name",      "required": True, "section": "client"},
         {"key": "client_father",       "label_en": "Client father's name",      "label_hi": "मुवक्किल के पिता का नाम", "type": "name",      "required": True, "section": "client"},
         {"key": "client_address",      "label_en": "Client address",            "label_hi": "मुवक्किल का पता",         "type": "address",   "required": True, "section": "client"},
         {"key": "party_role",          "label_en": "Party role",                "label_hi": "पक्षकार की भूमिका",        "type": "text",      "required": True,  "hint": "applicant / petitioner / respondent / accused / plaintiff", "section": "client"},
-        {"key": "opposite_party",      "label_en": "Opposite party",            "label_hi": "विपक्षी पक्ष",            "type": "text",      "required": False, "hint": "e.g. 'State of MP' for criminal matters", "section": "client"},
+        {"key": "opposite_party",      "label_en": "Opposite party",            "label_hi": "विपक्षी पक्ष",            "type": "text",      "required": False, "hint": "e.g. 'State of Maharashtra' for criminal matters", "section": "client"},
         {"key": "advocate_name",       "label_en": "Advocate name",             "label_hi": "अधिवक्ता का नाम",         "type": "name",      "required": True, "section": "filing"},
-        {"key": "advocate_enrollment", "label_en": "Bar Council enrolment no.", "label_hi": "बार काउंसिल पंजीयन क्रमांक","type": "text",      "required": False, "hint": "e.g. 'MP/1234/2018'", "section": "advocate"},
+        {"key": "advocate_enrollment", "label_en": "Bar Council enrolment no.", "label_hi": "बार काउंसिल पंजीयन क्रमांक","type": "text",      "required": False, "hint": "e.g. 'D/1234/2018'", "section": "advocate"},
         {"key": "advocate_address",    "label_en": "Advocate chamber address",  "label_hi": "अधिवक्ता का पता",          "type": "address",   "required": True, "section": "filing"},
         {"key": "place",               "label_en": "Place of execution",        "label_hi": "स्थान",                    "type": "text",      "required": True, "section": "filing"},
         {"key": "date",                "label_en": "Date",                      "label_hi": "दिनांक",                    "type": "date",      "required": True, "section": "filing"},
@@ -98,8 +98,8 @@ VAKALATNAMA = {
         "if lang='en'. Do NOT add markdown — return plain text with line breaks."
     ),
     "example_prompts": [
-        "मुझे ग्वालियर सेशन कोर्ट के लिए वकालतनामा चाहिए, मेरे मुवक्किल अनिल मोर्य के लिए",
-        "Need a vakalatnama for my client Vivek Sharma in MP HC Gwalior bench",
+        "मुझे लखनऊ सेशन कोर्ट के लिए वकालतनामा चाहिए, मेरे मुवक्किल अनिल वर्मा के लिए",
+        "Need a vakalatnama for my client Vivek Sharma in the Delhi High Court",
     ],
 }
 
@@ -113,9 +113,9 @@ MENTION_MEMO = {
     "tier":       1,
     "description": "Oral mention before the bench requesting urgent listing of a pending matter.",
     "fields": [
-        {"key": "court_name",      "label_en": "Court",                       "label_hi": "न्यायालय",                "type": "text",  "required": True,  "hint": "e.g. 'Supreme Court of India' or 'MP High Court, Gwalior Bench'", "section": "court"},
+        {"key": "court_name",      "label_en": "Court",                       "label_hi": "न्यायालय",                "type": "text",  "required": True,  "hint": "e.g. 'Supreme Court of India' or 'High Court of Delhi'", "section": "court"},
         {"key": "case_no",         "label_en": "Case number",                 "label_hi": "केस क्रमांक",             "type": "text",  "required": True,  "hint": "e.g. 'Crl. Appeal 1234/2025' or 'WP(C) 567/2026'", "section": "court"},
-        {"key": "case_title",      "label_en": "Case title (parties)",        "label_hi": "केस शीर्षक (पक्षकार)",    "type": "text",  "required": True,  "hint": "e.g. 'Vikesh Sharma vs State of MP'", "section": "court"},
+        {"key": "case_title",      "label_en": "Case title (parties)",        "label_hi": "केस शीर्षक (पक्षकार)",    "type": "text",  "required": True,  "hint": "e.g. 'Vikesh Sharma vs State of Maharashtra'", "section": "court"},
         {"key": "bench",           "label_en": "Bench / Court no.",           "label_hi": "बेंच / कोर्ट क्रमांक",     "type": "text",  "required": False, "hint": "e.g. 'Hon'ble Chief Justice's Bench' or 'Court No. 5'", "section": "court"},
         {"key": "mention_reason",  "label_en": "Reason for urgent mention",   "label_hi": "अर्जेंट मेंशन का कारण",    "type": "longtext", "required": True, "hint": "Why the matter needs urgent attention", "section": "mention"},
         {"key": "proposed_date",   "label_en": "Proposed listing date",       "label_hi": "प्रस्तावित सुनवाई दिनांक","type": "date",  "required": False, "section": "mention"},
@@ -150,7 +150,7 @@ MENTION_MEMO = {
     ),
     "example_prompts": [
         "Crl appeal 1234/2025 ko urgent list karwana hai, accused was acquitted but state hasn't taken steps",
-        "Need to mention WP 567/2026 before HC Gwalior — stay order is expiring tomorrow",
+        "Need to mention WP 567/2026 before the High Court — stay order is expiring tomorrow",
     ],
 }
 
@@ -218,8 +218,8 @@ ANTICIPATORY_BAIL = {
         "lang='en'. Return plain text — no markdown fences."
     ),
     "example_prompts": [
-        "अग्रिम जमानत चाहिए, मुवक्किल विकेश शर्मा, धारा 420, FIR नंबर 95/2025, थाना मुरार",
-        "Anticipatory bail for Anil Morya, S.420 IPC, FIR 95/2025 PS Murar Gwalior",
+        "अग्रिम जमानत चाहिए, मुवक्किल विकेश शर्मा, धारा 420, FIR नंबर 95/2025, थाना कोतवाली",
+        "Anticipatory bail for Anil Verma, S.420 IPC, FIR 95/2025 PS Sadar",
     ],
 }
 
@@ -247,7 +247,7 @@ QUASHING_PETITION = {
         }
     ],
     "fields": [
-        {"key": "court_name",        "label_en": "High Court",                 "label_hi": "उच्च न्यायालय",              "type": "text",     "required": True, "hint": "e.g. 'MP High Court, Gwalior Bench'", "section": "court"},
+        {"key": "court_name",        "label_en": "High Court",                 "label_hi": "उच्च न्यायालय",              "type": "text",     "required": True, "hint": "e.g. 'High Court of Delhi'", "section": "court"},
         {"key": "petitioner_name",   "label_en": "Petitioner name",            "label_hi": "याचिकाकर्ता का नाम",         "type": "name",     "required": True, "section": "petitioner"},
         {"key": "petitioner_father", "label_en": "Father's name",              "label_hi": "पिता का नाम",                "type": "name",     "required": True, "section": "petitioner"},
         {"key": "petitioner_age",    "label_en": "Age",                        "label_hi": "आयु",                         "type": "text",     "required": False, "section": "petitioner"},
@@ -318,7 +318,7 @@ QUASHING_PETITION = {
         "अंतर्निहित अधिकार क्षेत्र. Return plain text only — no markdown."
     ),
     "example_prompts": [
-        "MP HC Gwalior bench ke liye quashing chahiye, FIR 95/2025 PS Murar, S 420 IPC, civil dispute",
+        "High Court ke liye quashing chahiye, FIR 95/2025 PS Sadar, S 420 IPC, civil dispute",
         "Need to quash FIR 234/2025 — false complaint by complainant, my client has settled",
     ],
 }
@@ -360,8 +360,8 @@ WRIT_PETITION = {
     ],
     "fields": [
         # ---- Court & writ identity ----
-        {"key": "court_name",         "label_en": "High Court",                  "label_hi": "उच्च न्यायालय",                 "type": "text",     "required": True,  "hint": "e.g. 'High Court of Madhya Pradesh, Bench at Gwalior'", "section": "court"},
-        {"key": "bench_location",     "label_en": "Bench location",              "label_hi": "खण्डपीठ",                       "type": "text",     "required": False, "hint": "Gwalior / Indore / Jabalpur etc.", "section": "court"},
+        {"key": "court_name",         "label_en": "High Court",                  "label_hi": "उच्च न्यायालय",                 "type": "text",     "required": True,  "hint": "e.g. 'High Court of Delhi' or 'High Court of Judicature at Bombay'", "section": "court"},
+        {"key": "bench_location",     "label_en": "Bench location",              "label_hi": "खण्डपीठ",                       "type": "text",     "required": False, "hint": "e.g. 'Lucknow Bench' / 'Aurangabad Bench' — if the High Court has one", "section": "court"},
         {"key": "writ_type",          "label_en": "Type of writ",                "label_hi": "रिट का प्रकार",                 "type": "text",     "required": True,  "hint": "mandamus / certiorari / habeas corpus / prohibition / quo warranto", "section": "court"},
         {"key": "writ_category",      "label_en": "Civil or Criminal writ",      "label_hi": "सिविल या आपराधिक रिट",        "type": "text",     "required": False, "hint": "WP(C) = Civil, WP(Crl) = Criminal", "section": "court"},
         {"key": "subject_summary",    "label_en": "Subject of writ (one line)",  "label_hi": "विषय (एक पंक्ति)",              "type": "text",     "required": True,  "hint": "e.g. 'For quashing the SDO order dated 31.03.2026 under §129(5) MPLRC'", "section": "court"},
@@ -414,9 +414,9 @@ WRIT_PETITION = {
     ],
     "format_spec": (
         "Generate a complete WRIT PETITION under Article 226 of the Constitution "
-        "of India for the Madhya Pradesh High Court (default) — structured per "
-        "Rule 25 of the MP High Court Rules, 2008. Adapt the bench name if a "
-        "different state's High Court is requested.\n\n"
+        "of India for the High Court named by the user — structured per that "
+        "High Court's writ rules. Use the court name and bench exactly as "
+        "provided.\n\n"
         "Output FIVE sections in order, separated by clear page-break lines:\n\n"
         "════════ PAGE 1 — THE PETITION ════════\n\n"
         "  HEADER (left-aligned, bold caps):\n"
@@ -436,7 +436,7 @@ WRIT_PETITION = {
         "    ISSUANCE OF A WRIT IN THE NATURE OF <writ_type> <subject_summary>\n\n"
         "  'MAY IT PLEASE YOUR LORDSHIPS:' (then a single-line 'The Petitioner "
         "  above-named most respectfully begs to submit as under:').\n\n"
-        "  DECLARATION (verbatim, mandatory under Rule 25 MP HC Rules, 2008):\n"
+        "  DECLARATION (verbatim, as required by the High Court's writ rules):\n"
         "    'The Petitioner has not filed any other Writ Petition before this "
         "    Hon'ble Court or any other High Court of the country or Hon'ble Supreme "
         "    Court of India on the same subject matter, except as disclosed in "
@@ -563,7 +563,7 @@ WRIT_PETITION = {
     "example_prompts": [
         "Writ challenging SDO Vidisha order dated 31.03.2026 under §129(5) MPLRC",
         "Writ for arbitrary transfer order quashing — client transferred to Bastar with mala fides",
-        "Habeas corpus petition — client illegally detained by Murar police for 5 days",
+        "Habeas corpus petition — client illegally detained by the local police for 5 days",
     ],
 }
 
@@ -909,7 +909,7 @@ REVISION_PETITION = {
         "विवेकाधिकार का दुरुपयोग. Return plain text."
     ),
     "example_prompts": [
-        "Revision against JM Class 1 Gwalior's order dt 10.01.2026 dismissing my discharge plea",
+        "Revision against JM Class 1's order dt 10.01.2026 dismissing my discharge plea",
         "Sessions Court ne maintenance kharij kiya — revision file karna hai",
     ],
 }

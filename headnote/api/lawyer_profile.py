@@ -9,10 +9,10 @@ court-default field. Stored as extra columns on public.user_profiles (see
 | Column            | Example                                       |
 | ----------------- | --------------------------------------------- |
 | advocate_name     | "Vishnu Shivhare"                             |
-| enrolment_number  | "MP/2349/2010"                                |
-| bar_council       | "Bar Council of Madhya Pradesh"               |
-| chamber_address   | "Chamber No. 47, MP HC Premises, Gwalior"     |
-| home_court        | "MP HC Gwalior Bench"                         |
+| enrolment_number  | "D/2349/2010"                                 |
+| bar_council       | "Bar Council of Delhi"                        |
+| chamber_address   | "Chamber No. 47, High Court Premises"         |
+| home_court        | "High Court of Delhi"                         |
 
 The phone + email already live in user_profiles from onboarding.
 

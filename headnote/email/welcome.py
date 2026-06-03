@@ -160,7 +160,7 @@ def _build_html(name: str) -> str:
               Open Headnote
             </a>
             <p style="margin:14px 0 0;font-size:12px;color:#8a8a8a;font-family:'Geist Mono',monospace;">
-              You're on the <span style="color:#0a0a0a;">Demo plan</span> — 14 days, no card required.
+              You're on the <span style="color:#0a0a0a;">Demo plan</span> — 3 days, no card required.
             </p>
           </td>
         </tr>
@@ -224,7 +224,7 @@ def _build_text(name: str) -> str:
         f"   Tap the mic, speak Hindi/English/the mix lawyers actually speak.\n"
         f"   → {APP_BASE_URL}/draft/smart\n\n"
         f"Open Headnote:\n{APP_BASE_URL}/app\n\n"
-        f"You're on the Demo plan — 14 days, no card required.\n\n"
+        f"You're on the Demo plan — 3 days, no card required.\n\n"
         f"Reply to this email if something's broken or missing. It lands on\n"
         f"the founder's phone, not a ticket queue.\n\n"
         f"— Ayush, founder @ Headnote · Bhopal\n\n"

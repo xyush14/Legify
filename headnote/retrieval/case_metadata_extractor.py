@@ -8,7 +8,7 @@ extracts what goes on the COVER of a judgment:
     - parties           : "Sunil Bharti Mittal v. Central Bureau of Investigation"
     - petitioner / respondent : separated for downstream display
     - citation          : "(2024) 5 SCC 123", "AIR 2023 SC 456", etc.
-    - court             : "Supreme Court of India", "MP High Court, Gwalior Bench"
+    - court             : "Supreme Court of India", "Allahabad High Court, Lucknow Bench"
     - judges            : ["A.B. Sharma, J.", "C.D. Verma, J."]
     - date              : "14 Aug 2024" / "2024-08-14"
     - case_number       : "Criminal Appeal No. 1234 of 2023"
@@ -60,7 +60,7 @@ class CaseMetadata:
     citation:       Optional[str] = None      # "(2024) 5 SCC 123"
     citations_all:  list[str] = field(default_factory=list)  # all citations found
     court:          Optional[str] = None      # "Supreme Court of India"
-    bench:          Optional[str] = None      # "Gwalior Bench" / "Division Bench"
+    bench:          Optional[str] = None      # "Lucknow Bench" / "Division Bench"
     judges:         list[str] = field(default_factory=list)
     date:           Optional[str] = None      # ISO format YYYY-MM-DD
     case_number:    Optional[str] = None      # "Criminal Appeal No. 1234 of 2023"
@@ -162,7 +162,7 @@ _COURT_PATTERNS = [
      "Family Court", "family"),
 ]
 
-# Match bench info: "Jabalpur Bench" / "Gwalior Bench" / "Lucknow Bench"
+# Match bench info: "Aurangabad Bench" / "Madurai Bench" / "Lucknow Bench"
 _BENCH_PATTERN = re.compile(
     r"\b(?:AT\s+)?([A-Z][a-z]+(?:pur|abad|bagh|gar|ganj|gaon|bad|nagar|patnam))\s+(?:Bench|BENCH)\b",
     re.MULTILINE,

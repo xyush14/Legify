@@ -202,7 +202,7 @@ def _hf_court_label(court: str, district: str | None, case_metadata: dict | None
     """Build a properly-formatted court label.
 
     Priority:
-      1. Extracted court from case_metadata_json (e.g., "High Court of Madhya Pradesh, Gwalior Bench")
+      1. Extracted court from case_metadata_json (e.g., "Allahabad High Court, Lucknow Bench")
       2. district + subset-court combination (BAIL: "Agra District Court")
       3. Hardcoded subset-to-label map
     """

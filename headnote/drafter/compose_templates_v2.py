@@ -80,7 +80,7 @@ SLP_CRIMINAL = {
         "if user prefers. Plain text output, no markdown."
     ),
     "example_prompts": [
-        "SLP against MP HC order in Cr.A. 234/2025 — appeal dismissed, conviction confirmed under S.302 IPC",
+        "SLP against a High Court order in Cr.A. 234/2025 — appeal dismissed, conviction confirmed under S.302 IPC",
         "Special leave petition for my client whose anticipatory bail was rejected by Allahabad HC",
     ],
 }
@@ -88,44 +88,76 @@ SLP_CRIMINAL = {
 
 TRANSFER_PETITION_CRI = {
     "id":              "transfer_petition_cri",
-    "name_en":         "Transfer Petition (Criminal)",
-    "name_hi":         "स्थानांतरण याचिका (दण्ड)",
-    "court":           "sc",
-    "court_label_en":  "Supreme Court",
-    "court_label_hi":  "उच्चतम न्यायालय",
+    "name_en":         "Transfer Application (Criminal — §448 BNSS / §408 CrPC)",
+    "name_hi":         "प्रकरण अंतरण आवेदन (धारा 448 BNSS / 408 दं.प्र.सं.)",
+    "court":           "sessions",
+    "court_label_en":  "Sessions Court",
+    "court_label_hi":  "सत्र न्यायालय",
     "category":        "procedural",
     "tier":            2,
     "popularity":      2,
-    "quality":         "v1-ai",
-    "description":     "Petition under S.448 BNSS / S.406 CrPC seeking transfer of a criminal case from one State to another.",
+    "quality":         "v2-ref",
+    "description":     "Application u/s 448 BNSS (408 CrPC) before the Principal District & Sessions Judge to transfer a criminal case from one court to another within the sessions division. Decoded verbatim from a real MP filing — आवेदक/अनावेदक(राज्य) caption, short single-ground यहकि para (e.g. presiding officer on long medical leave while accused is in continuous judicial custody), prayer to 'तलब कर ... किसी अन्य सक्षम न्यायालय द्वारा सुनवाई'. Forum variants of the SAME prayer (transfer chapter maps CrPC+40→BNSS): HC transfer within State = §407 CrPC / §447 BNSS; SC inter-State transfer = §406 CrPC / §446 BNSS.",
     "fields": [
-        {"key": "petitioner_name",   "label_en": "Petitioner name",                "label_hi": "याचिकाकर्ता",              "type": "name",     "required": True,  "section": "applicant"},
-        {"key": "respondent_name",   "label_en": "Respondent",                     "label_hi": "प्रतिवादी",                "type": "text",     "required": True,  "section": "respondent"},
-        {"key": "case_no",           "label_en": "Case to be transferred (no.)",   "label_hi": "स्थानांतरित करवाने वाला प्रकरण","type": "text", "required": True, "section": "matter"},
-        {"key": "current_court",     "label_en": "Current court / state",          "label_hi": "वर्तमान न्यायालय / राज्य",   "type": "text",     "required": True,  "section": "matter"},
-        {"key": "proposed_court",    "label_en": "Proposed transferee court / state","label_hi": "प्रस्तावित न्यायालय / राज्य","type": "text", "required": True, "section": "matter"},
-        {"key": "transfer_grounds",  "label_en": "Grounds for transfer",           "label_hi": "स्थानांतरण के आधार",         "type": "longtext", "required": True,  "section": "grounds", "hint": "Threat to safety / hardship / fair trial concerns"},
+        {"key": "petitioner_name",   "label_en": "Applicant (accused) name",       "label_hi": "आवेदक (अभियुक्त) का नाम",   "type": "name",     "required": True,  "section": "applicant"},
+        {"key": "respondent_name",   "label_en": "Respondent (State via PS)",      "label_hi": "अनावेदक (राज्य द्वारा थाना)","type": "text",    "required": True,  "section": "respondent", "hint": "Default: <राज्य> शासन द्वारा पुलिस थाना <name>"},
+        {"key": "case_no",           "label_en": "Case to be transferred (no.)",   "label_hi": "अंतरित करवाने वाला प्रकरण क्र.","type": "text", "required": True, "section": "matter"},
+        {"key": "current_court",     "label_en": "Court to transfer FROM",         "label_hi": "किस न्यायालय से (वर्तमान)",   "type": "text",     "required": True,  "section": "matter", "hint": "Name + presiding officer, e.g. 'द्वितीय अपर सत्र न्यायाधीश (श्री ___)'"},
+        {"key": "proposed_court",    "label_en": "Transferee court (optional)",    "label_hi": "प्रस्तावित न्यायालय (वैकल्पिक)","type": "text", "required": False, "section": "matter", "hint": "Leave blank → 'किसी अन्य सक्षम न्यायालय'"},
+        {"key": "transfer_grounds",  "label_en": "Grounds for transfer",           "label_hi": "अंतरण के आधार",              "type": "longtext", "required": True,  "section": "grounds", "hint": "Presiding officer on long leave / apprehension of bias / accused in custody & trial stalled / safety / convenience"},
         {"key": "advocate_name",     "label_en": "Advocate name",                  "label_hi": "अधिवक्ता का नाम",            "type": "name",     "required": True,  "section": "filing"},
-        {"key": "place",             "label_en": "Place",                          "label_hi": "स्थान",                      "type": "text",     "required": True,  "section": "filing"},
         {"key": "filing_date",       "label_en": "Date",                           "label_hi": "दिनांक",                      "type": "date",     "required": True,  "section": "filing"},
     ],
     "format_spec": (
-        "Generate a Transfer Petition (Criminal) under S.448 BNSS / S.406 CrPC for SC filing. Structure:\n"
-        "1. 'IN THE SUPREME COURT OF INDIA — CRIMINAL ORIGINAL JURISDICTION' header.\n"
-        "2. 'Transfer Petition (Crl.) No. ____ of ____' case block.\n"
-        "3. Petitioner / Respondent block.\n"
-        "4. Title: 'PETITION UNDER S.448 BNSS / S.406 CrPC FOR TRANSFER OF CRIMINAL CASE' (centred, underlined).\n"
-        "5. Numbered paras: (a) details of the case sought to be transferred (no., court, state); "
-        "(b) procedural history; (c) specific grounds: threat to petitioner's safety, inconvenience to "
-        "witnesses, distance, language barrier, apprehension of unfair trial, etc.; (d) why proposed "
-        "court is appropriate.\n"
-        "6. 'PRAYER': transfer case from X court / State to Y court / State.\n"
-        "7. Signed by advocate + petitioner. Place + Date.\n"
-        "Tone: formal English, deferential. Plain text output."
+        "यह धारा 448 भा.ना.सु.सं./BNSS (408 दं.प्र.सं./CrPC) का प्रकरण अंतरण (transfer) आवेदन है, जो "
+        "प्रधान जिला एवं सत्र न्यायाधीश के समक्ष प्रस्तुत होता है — असली MP फाइलिंग से verbatim decode "
+        "किया गया। यह दस्तावेज़ छोटा व सीधा है (कोई शपथपत्र/सत्यापन भीतर नहीं)। हिन्दी में बिल्कुल इसी "
+        "ढाँचे में लिखें:\n\n"
+        "1. न्यायालय शीर्षक (केन्द्र में): 'न्यायालय माननीय प्रधान जिला एवं सत्र न्यायाधीश महोदय <जिला>'।\n"
+        "2. प्रकरण पंक्ति: 'प्रकरण क्रमांक- ____ /<वर्ष>' (यह transfer आवेदन का क्रमांक है, अंतरित होने "
+        "वाले मूल प्रकरण का नहीं)।\n"
+        "3. पक्षकार खण्ड (आवेदक=अभियुक्त पहले):\n"
+        "   '<petitioner_name> पुत्र श्री ____, निवासी- ____' .......... आवेदक\n"
+        "   'बनाम'\n"
+        "   '<respondent_name>' (जैसे '<राज्य> शासन द्वारा पुलिस थाना ____ जिला ____') .......... अनावेदक\n"
+        "4. शीर्षक (केन्द्र, रेखांकित): 'आवेदन पत्र अन्तर्गत धारा 448 भा.ना.सु.सं.' (पुरानी संहिता में "
+        "'धारा 408 दं.प्र.सं.')। शीर्षक में इससे अधिक न जोड़ें।\n"
+        "5. सम्बोधन + आरम्भ: 'माननीय महोदय,' फिर 'प्रार्थी की ओर से आवेदन पत्र निम्न प्रकार प्रस्तुत है :-'\n"
+        "6. 'यहकि,' पैरा (प्राय: एक ही, संक्षिप्त — मूल प्रकरण का विवरण + अंतरण का आधार एक साथ):\n"
+        "   प्रार्थी का प्रकरण [विशेष सत्र प्रकरण क्रमांक- <case_no>] '<current_court>' के न्यायालय में "
+        "[दिनांक ____ को अभियुक्त परीक्षण/सुनवाई हेतु] नियत है; [यदि लागू हो: प्रार्थी उक्त प्रकरण में "
+        "निरंतर न्यायिक अभिरक्षा में है]; फिर अंतरण का ठोस आधार <transfer_grounds> को बुनें (जैसे — उक्त "
+        "न्यायालय के पीठासीन अधिकारी का स्वास्थ्य खराब होने से ऑपरेशन हुआ है व वे लम्बी छुट्टी पर हैं; "
+        "अथवा पक्षपात की आशंका; अथवा सुनवाई में अनुचित विलम्ब); निष्कर्ष: 'इस कारण उपरोक्त प्रकरण "
+        "<current_court> के न्यायालय से बुलाया जाकर किसी अन्य न्यायालय में अंतरित किया जाना न्याय संगत "
+        "व आवश्यक है।'\n"
+        "7. प्रार्थना (बिना 'प्रार्थना' शीर्षक के, सीधे 'अत:' से): 'अत: प्रार्थना है कि आवेदन पत्र "
+        "स्वीकार कर प्रकरण क्रमांक- <case_no> उनमान [<respondent_name> बनाम <petitioner_name> आदि व अन्य] "
+        "[नियत दिनांक ____ को] माननीय <current_court> के न्यायालय से तलब कर उपरोक्त प्रकरण की सुनवाई "
+        "<proposed_court या 'किसी अन्य सक्षम न्यायालय'> द्वारा की जाने की कृपा करें।'\n"
+        "8. हस्ताक्षर: 'दिनांक :- <filing_date>' दाहिनी ओर 'प्रार्थी' फिर '<petitioner_name> ---- आवेदक', "
+        "फिर 'द्वारा अभिभाषक' और '<advocate_name> (एडवोकेट)'।\n"
+        "(NOTE: यदि उच्च न्यायालय में राज्यांतर्गत अंतरण हो तो धारा 407 दं.प्र.सं./447 BNSS व 'माननीय "
+        "उच्च न्यायालय' शीर्षक; अन्तर्राज्यीय अंतरण उच्चतम न्यायालय में धारा 406 दं.प्र.सं./446 BNSS — "
+        "ढाँचा वही, केवल मंच व धारा बदलें।)\n\n"
+        "ENGLISH MODE (only if lang=en): mirror the SAME structure in English — 'IN THE COURT OF THE "
+        "PRINCIPAL DISTRICT & SESSIONS JUDGE, <district>' header; 'Case No. ___ / <year>'; "
+        "applicant-first caption '<petitioner_name> S/o ___, R/o ___ …Applicant / Versus / "
+        "<respondent_name> (State of <State> through P.S. ___) …Non-applicant'; centred underlined title "
+        "'APPLICATION UNDER SECTION 448 BNSS (408 CrPC)'; 'To the Hon'ble Court,' + 'The following "
+        "application is submitted on behalf of the applicant:-'; a short 'That,' paragraph stating the "
+        "case number, the court where it is pending and the next date, that the applicant is in "
+        "continuous judicial custody (if applicable), the concrete ground for transfer (from "
+        "<transfer_grounds> — e.g. the presiding officer is on long medical leave, apprehension of "
+        "bias, undue delay), and the conclusion that transferring the case to another competent court "
+        "is just and necessary; prayer 'It is therefore prayed that the application be allowed, case "
+        "no. <case_no> be called from the court of <current_court> and its hearing be entrusted to "
+        "<proposed_court or 'any other competent court'>'; signature 'Applicant, through counsel "
+        "<advocate_name>'. Plain text output, no markdown."
     ),
     "example_prompts": [
-        "Transfer petition to move 376 IPC case from district court Lucknow to Delhi due to safety threats",
-        "Need transfer petition — wife filed 498A in Pune, husband works in Bangalore",
+        "धारा 448 BNSS अंतरण — द्वितीय अपर सत्र न्यायाधीश के पीठासीन अधिकारी लम्बी मेडिकल छुट्टी पर, आरोपी न्यायिक अभिरक्षा में, प्रकरण किसी अन्य न्यायालय भेजा जाए",
+        "सत्र न्यायाधीश से प्रकरण अंतरण आवेदन — विचारण न्यायाधीश के प्रति पक्षपात की आशंका, निष्पक्ष सुनवाई हेतु दूसरे न्यायालय में अंतरण",
     ],
 }
 
@@ -227,7 +259,7 @@ HABEAS_CORPUS_226 = {
         "Tone: urgent + formal — habeas matters get same-day listing. Plain text output."
     ),
     "example_prompts": [
-        "Habeas corpus — my brother taken by Murar police 3 days ago, no FIR, no production",
+        "Habeas corpus — my brother taken by the local police 3 days ago, no FIR, no production",
         "बंदी प्रत्यक्षीकरण — मेरे पति को थाना मक्सी ने 5 दिन से बिठा रखा है, कोई FIR नहीं",
     ],
 }
@@ -243,16 +275,16 @@ SUSPENSION_OF_SENTENCE = {
     "category":        "bail",
     "tier":            1,
     "popularity":      4,
-    "quality":         "v1-ai",
-    "description":     "Application under S.430 BNSS / 389 CrPC to suspend execution of sentence pending appeal, and grant bail to the convicted appellant.",
+    "quality":         "v2-ref",
+    "description":     "Application under S.389 CrPC (S.430 BNSS) to suspend execution of sentence pending appeal and release the convicted appellant on security. Format decoded verbatim from real High Court criminal-side filings — अपीलार्थी/प्रतिअपीलार्थी party blocks, ordinal successive-application title, 'दुखित होकर' prior-application recital, सी.आर.ए. case line.",
     "fields": [
-        {"key": "court_name",       "label_en": "Court",                          "label_hi": "न्यायालय",                  "type": "text",     "required": True,  "section": "court", "hint": "Usually 'MP HC <bench>'"},
+        {"key": "court_name",       "label_en": "Court",                          "label_hi": "न्यायालय",                  "type": "text",     "required": True,  "section": "court", "hint": "Usually 'High Court, <bench>'"},
         {"key": "appeal_no",        "label_en": "Appeal number",                  "label_hi": "अपील क्रमांक",                "type": "text",     "required": True,  "section": "court", "hint": "e.g. Crl. Appeal No. ___ / 2026"},
-        {"key": "appellant_name",   "label_en": "Appellant (convicted accused)",  "label_hi": "अपीलकर्ता (दण्डित अभियुक्त)", "type": "name",     "required": True,  "section": "applicant"},
+        {"key": "appellant_name",   "label_en": "Appellant (convicted accused)",  "label_hi": "अपीलार्थी (दण्डित बन्दी)", "type": "name",     "required": True,  "section": "applicant"},
         {"key": "appellant_father", "label_en": "Father's name",                  "label_hi": "पिता का नाम",                "type": "name",     "required": True,  "section": "applicant"},
         {"key": "appellant_age",    "label_en": "Age",                            "label_hi": "आयु",                        "type": "text",     "required": False, "section": "applicant"},
         {"key": "current_jail",     "label_en": "Currently lodged at (jail)",     "label_hi": "वर्तमान निरोध स्थान (जेल)",   "type": "text",     "required": True,  "section": "applicant"},
-        {"key": "trial_court",      "label_en": "Trial court whose conviction is challenged","label_hi": "विचारण न्यायालय",   "type": "text", "required": True, "section": "matter"},
+        {"key": "trial_court",      "label_en": "Trial court whose conviction is challenged","label_hi": "विचारण न्यायालय (जिसके निर्णय को चुनौती)",   "type": "text", "required": True, "section": "matter"},
         {"key": "sections",         "label_en": "Sections of conviction",         "label_hi": "दण्डादेश की धाराएं",          "type": "text",     "required": True,  "section": "matter"},
         {"key": "sentence",         "label_en": "Sentence imposed",               "label_hi": "लगाया गया दण्ड",              "type": "text",     "required": True,  "section": "matter", "hint": "e.g. 7 years RI + ₹5,000 fine"},
         {"key": "sentence_date",    "label_en": "Date of judgment",               "label_hi": "निर्णय दिनांक",                "type": "date",     "required": True,  "section": "matter"},
@@ -262,72 +294,159 @@ SUSPENSION_OF_SENTENCE = {
         {"key": "filing_date",      "label_en": "Date",                           "label_hi": "दिनांक",                       "type": "date",     "required": True,  "section": "filing"},
     ],
     "format_spec": (
-        "Generate an Application for Suspension of Sentence under S.430 BNSS / 389 CrPC, filed in the "
-        "criminal appeal pending before the High Court. Structure:\n"
-        "1. Court header centred + underlined.\n"
-        "2. 'IA No. ____ IN Criminal Appeal No. <appeal_no>' block.\n"
-        "3. Appellant block: name, s/o father, age, currently lodged at <jail>.\n"
-        "4. 'Versus' centred.\n"
-        "5. 'State of <state>' as respondent.\n"
-        "6. Title: 'APPLICATION UNDER S.430 BNSS / 389 CrPC FOR SUSPENSION OF SENTENCE AND GRANT OF "
-        "BAIL DURING PENDENCY OF APPEAL' centred, underlined, bold.\n"
-        "7. Numbered paras: (1) the appeal is admitted/pending; (2) appellant was convicted by trial "
-        "court for <sections>, sentenced to <sentence> on <sentence_date>; (3) appeal has been preferred "
-        "against conviction; (4) grounds why sentence should be suspended (use <grounds> field); "
-        "(5) appellant has no other criminal antecedents (if true); (6) appellant undertakes to abide by "
-        "all conditions imposed.\n"
-        "8. 'PRAYER': (a) suspend execution of sentence dated <date>; (b) release appellant on bail "
-        "on furnishing personal bond + sureties; (c) such other reliefs.\n"
-        "9. Verification + signature + place + date.\n"
-        "Tone: formal, focused on appeal-merits + appellant's track record. Plain text output."
+        "यह §389 द.प्र.सं. 1973 (अब धारा 430 भा.ना.सु.सं.) का आवेदन है — दण्डादेश का "
+        "क्रियान्वयन अपील के निराकरण तक स्थगित कराकर दोषसिद्ध अपीलार्थी को उचित "
+        "प्रतिभूति पर रिहा कराने हेतु, उच्च न्यायालय में लंबित दाण्डिक अपील के साथ। "
+        "नीचे की संरचना वास्तविक न्यायालयीन filings से ली गई है — इसी क्रम व शब्दावली "
+        "का कड़ाई से पालन करें।\n\n"
+        "1. न्यायालय शीर्ष (केन्द्रित): 'माननीय उच्च न्यायालय <राज्य> खण्डपीठ "
+        "<स्थान>' — court_name से।\n"
+        "2. प्रकरण पंक्ति: 'सी.आर.ए. क्रमांक ____ / <वर्ष>' — appeal_no से।\n"
+        "3. पक्षकार ब्लॉक (बहता हुआ गद्य, फॉर्म जैसा नहीं):\n"
+        "   '<appellant_name> पुत्र <appellant_father>, आयु <appellant_age> वर्ष, "
+        "निवासी ____, वर्तमान में <current_jail> में निरुद्ध ............ अपीलार्थी'\n"
+        "   अगली पंक्ति केन्द्र में: 'वि0'\n"
+        "   '<राज्य> शासन द्वारा पुलिस थाना ____ ............ प्रतिअपीलार्थी'\n"
+        "4. शीर्षक (केन्द्रित — frontend स्वतः रेखांकित+बोल्ड करता है, कोई markup नहीं): "
+        "'<क्रमसूचक> आवेदन पत्र अन्तर्गत धारा 389 द.प्र.सं. 1973' — जहाँ <क्रमसूचक> = "
+        "प्रथम/द्वितीय/तृतीय/चतुर्थ/पंचम/षष्टम् दर्शाता है कि अपीलार्थी की ओर से यह "
+        "कौन-सा क्रमिक आवेदन है (यदि पहला है तो 'प्रथम')।\n"
+        "5. प्रस्तावना पंक्ति: 'बन्दी/अपीलार्थी की ओर से आवेदन पत्र निम्न प्रकार "
+        "प्रस्तुत है :-'\n"
+        "6. क्रमांकित अनुच्छेद, प्रत्येक 'यहकि,' से प्रारम्भ:\n"
+        "   (1) यह अपीलार्थी की ओर से <क्रमसूचक> आवेदन है; पूर्व आवेदन (यदि कोई) "
+        "उनकी दिनांकों सहित — माननीय न्यायालय द्वारा 'बल न देने से निरस्त किये जाने "
+        "से दुखित होकर' यह आवेदन प्रस्तुत किया जा रहा है। (यदि यह प्रथम आवेदन है तो: "
+        "इसके पूर्व कोई आवेदन प्रस्तुत नहीं किया गया है।)\n"
+        "   (2) इस सम्बन्ध में माननीय उच्चतम न्यायालय अथवा किसी अन्य न्यायालय में "
+        "कोई आवेदन लंबित नहीं है।\n"
+        "   (3) अपीलार्थी ने विचारण न्यायालय <trial_court> के दोषसिद्धि निर्णय के "
+        "विरुद्ध पूर्ण सफलता की आशा से प्रस्तुत अपील की है तथा अधिरोपित अर्थदण्ड जमा "
+        "कर दिया है।\n"
+        "   (4) प्रकरण संक्षेप में — अभियोजन कथानक/घटना का संक्षिप्त विवरण।\n"
+        "   (5) विचारण न्यायालय ने अपीलार्थी को धारा <sections> में दोषी सिद्ध मानते "
+        "हुए दिनांक <sentence_date> को <sentence> से दण्डित किया।\n"
+        "   (6 आगे) निलंबन के आधार (grounds field) — पृथक-पृथक अनुच्छेदों में: विचारण "
+        "न्यायालय द्वारा साक्ष्य की अनदेखी, पक्षद्रोही साक्षी, चिकित्सीय विरोधाभास, "
+        "अस्त्र की बरामदगी न होना आदि गम्भीर विधिक त्रुटियाँ; अपीलार्थी लगभग ____ से "
+        "निरुद्ध है; अपील के शीघ्र निराकरण की सम्भावना नहीं; विचारण के दौरान जमानत पर "
+        "रहते हुए कोई दुरुपयोग नहीं किया; स्थायी निवासी है, सम्पत्ति है, फरार होने की "
+        "कोई आशंका नहीं; न्यायालय द्वारा अधिरोपित समस्त शर्तों का पालन करने को तैयार "
+        "है।\n"
+        "   (अन्तिम) 'यहकि, अन्य तर्क वक्त बहस मौखिक रूप से निवेदित किये जावेंगे।'\n"
+        "7. प्रार्थना (बिना किसी 'PRAYER'/'प्रार्थना' शीर्षक के, सीधे अनुच्छेद रूप में): "
+        "'अत: माननीय न्यायालय से विनम्र निवेदन है कि आवेदक अपीलार्थी का आवेदन पत्र "
+        "स्वीकार किया जाकर विद्वान विचारण न्यायालय के निर्णय एवं दण्डाज्ञा दिनांक "
+        "<sentence_date> का क्रियान्वयन अपील के अन्तिम निराकरण तक स्थगित किया जाकर "
+        "आवेदक अपीलार्थी को अपील के अन्तिम निराकरण तक उचित प्रतिभूति पर उन्मुक्त किये "
+        "जाने का आदेश पारित करने की कृपा करें।'\n"
+        "8. हस्ताक्षर ब्लॉक (दायें): स्थान <place>, दिनांक <filing_date>; नीचे "
+        "'-बन्दी/आवेदक अपीलार्थी' तथा अधिवक्ता <advocate_name>।\n"
+        "नोट: शपथपत्र इस आवेदन के साथ संलग्न होता है पर वह एक पृथक दस्तावेज़ है — उसे "
+        "इस आवेदन के मुख्य भाग में न जोड़ें।\n\n"
+        "ENGLISH MODE (only if lang=en): mirror the exact same structure and order "
+        "in formal Indian legal English — 'IN THE HIGH COURT OF MADHYA PRADESH, "
+        "BENCH AT <place>'; 'Cr.A. No. ___ / <year>'; flowing appellant block "
+        "ending '... Appellant', then 'Versus', then 'State of <State> through P.S. "
+        "____ ... Respondent'; title '<ORDINAL> APPLICATION UNDER SECTION 389 "
+        "CrPC, 1973'; 'That ...' numbered paragraphs covering the "
+        "successive-application declaration with prior dates (or that this is the "
+        "first application), no application pending in the Supreme Court or any "
+        "other court, appeal preferred against conviction with fine deposited, "
+        "brief facts, conviction & sentence particulars, then the grounds "
+        "(evidence ignored, hostile witnesses, medical contradictions, no "
+        "recovery, long custody, appeal unlikely to be heard soon, no misuse of "
+        "bail during trial, permanent resident, ready to abide by conditions), "
+        "closing 'That further arguments will be advanced orally at the time of "
+        "hearing'; the prayer as a flowing paragraph (NO 'PRAYER' heading) to "
+        "suspend execution of the judgment & sentence dated <sentence_date> till "
+        "final disposal of the appeal and release the appellant on suitable "
+        "security; signature '- Convict/Applicant Appellant' + advocate."
     ),
     "example_prompts": [
-        "Suspension of sentence — client convicted 7 years u/s 304-II IPC, appeal admitted last week, has been in jail 14 months",
-        "Sentence suspension after Sessions Court conviction in 376 IPC — appeal pending in HC",
+        "Suspension of sentence — client convicted to life + ₹2,000 fine u/s 302 IPC, appeal pending in HC, in custody ~6 years",
+        "षष्टम् 389 आवेदन — पूर्व आवेदन निरस्त, अपील शीघ्र निराकृत होने की सम्भावना नहीं, अपीलार्थी स्थायी निवासी",
     ],
 }
 
 
 STAY_PETITION_HC = {
     "id":              "stay_petition_hc",
-    "name_en":         "Stay Petition (Interim Order)",
-    "name_hi":         "स्थगन आवेदन (अंतरिम)",
+    "name_en":         "Stay / Interim Application (in HC Revision · §482)",
+    "name_hi":         "अंतरिम स्थगन आवेदन (उच्च न्यायालय पुनरीक्षण / धारा 482)",
     "court":           "hc",
     "court_label_en":  "High Court",
     "court_label_hi":  "उच्च न्यायालय",
     "category":        "procedural",
     "tier":            2,
     "popularity":      3,
-    "quality":         "v1-ai",
-    "description":     "Interim application seeking stay of proceedings / execution of order / further investigation in a pending criminal matter before the High Court.",
+    "quality":         "v2-ref",
+    "description":     "Interim application for अंतरिम स्थगन (stay) of the impugned order / further proceedings, riding on a pending HC criminal revision or §482 (528 BNSS) petition. Modeled on real High Court criminal-side idiom — 'माननीय उच्च न्यायालय <राज्य> खण्डपीठ <स्थान>' header, पुनरीक्षणकर्ता/प्रतिपुनरीक्षणकर्ता(राज्य) caption, purpose-line title naming the impugned order, 'प्रार्थी की ओर से आवेदन पत्र निम्न प्रकार प्रस्तुत है' opening, यहकि paras, 'अत: ... स्थगित किये जाने की कृपा करें' prayer. Verified revision mapping: §397/401 CrPC = §438/442 BNSS. A stay is NOT a standalone suit — it is an I.A. inside the main matter.",
     "fields": [
-        {"key": "court_name",      "label_en": "Court",                          "label_hi": "न्यायालय",                "type": "text",     "required": True,  "section": "court"},
-        {"key": "main_petition_no","label_en": "Main petition / case no.",      "label_hi": "मुख्य प्रकरण क्रमांक",       "type": "text",     "required": True,  "section": "court"},
-        {"key": "petitioner_name", "label_en": "Petitioner / Applicant",         "label_hi": "याचिकाकर्ता",             "type": "name",     "required": True,  "section": "applicant"},
-        {"key": "respondent_name", "label_en": "Respondent",                     "label_hi": "प्रतिवादी",               "type": "text",     "required": True,  "section": "respondent"},
-        {"key": "what_to_stay",    "label_en": "What is sought to be stayed",    "label_hi": "किसका स्थगन चाहिए",        "type": "longtext", "required": True,  "section": "matter", "hint": "Trial court proceedings / coercive action / execution of impugned order / further investigation"},
-        {"key": "stay_grounds",    "label_en": "Grounds for stay",               "label_hi": "स्थगन के आधार",            "type": "longtext", "required": True,  "section": "grounds", "hint": "Irreparable injury / prima facie case / balance of convenience"},
+        {"key": "court_name",      "label_en": "High Court + bench",             "label_hi": "उच्च न्यायालय + खण्डपीठ",   "type": "text",     "required": True,  "section": "court", "hint": "e.g. माननीय उच्च न्यायालय <राज्य> खण्डपीठ <स्थान>"},
+        {"key": "main_petition_no","label_en": "Main revision / §482 case no.",  "label_hi": "मुख्य पुनरीक्षण / 482 प्रकरण क्र.","type": "text",  "required": True,  "section": "court"},
+        {"key": "petitioner_name", "label_en": "Applicant (revisionist)",        "label_hi": "आवेदक (पुनरीक्षणकर्ता)",     "type": "name",     "required": True,  "section": "applicant"},
+        {"key": "respondent_name", "label_en": "Respondent (State via PS)",      "label_hi": "अनावेदक (राज्य द्वारा थाना)","type": "text",    "required": True,  "section": "respondent", "hint": "Default: <राज्य> राज्य द्वारा आरक्षी केन्द्र <name>"},
+        {"key": "impugned_order",  "label_en": "Impugned order (date + court)",  "label_hi": "विवादित आदेश (दिनांक + न्यायालय)","type": "text", "required": True,  "section": "matter", "hint": "e.g. आदेश दिनांक 29-10-2025, प्रथम अपर सत्र न्यायाधीश"},
+        {"key": "what_to_stay",    "label_en": "What is sought to be stayed",    "label_hi": "किसका स्थगन चाहिए",        "type": "longtext", "required": True,  "section": "matter", "hint": "Execution of the impugned order / further trial-court proceedings / coercive action / further investigation"},
+        {"key": "stay_grounds",    "label_en": "Grounds for stay",               "label_hi": "स्थगन के आधार",            "type": "longtext", "required": True,  "section": "grounds", "hint": "Prima facie case + irreparable injury if not stayed + balance of convenience; revision likely to succeed"},
         {"key": "advocate_name",   "label_en": "Advocate name",                  "label_hi": "अधिवक्ता का नाम",          "type": "name",     "required": True,  "section": "filing"},
-        {"key": "place",           "label_en": "Place",                          "label_hi": "स्थान",                    "type": "text",     "required": True,  "section": "filing"},
         {"key": "filing_date",     "label_en": "Date",                           "label_hi": "दिनांक",                    "type": "date",     "required": True,  "section": "filing"},
     ],
     "format_spec": (
-        "Generate an Interim Application for stay, filed alongside or in a pending main petition. Structure:\n"
-        "1. Court header centred + underlined.\n"
-        "2. 'IA No. ____ IN <main_petition_no>' block.\n"
-        "3. Parties matching main petition.\n"
-        "4. Title: 'INTERIM APPLICATION FOR STAY OF PROCEEDINGS / EXECUTION / COERCIVE ACTION' centred, underlined.\n"
-        "5. Numbered paras: (1) the main petition is pending before this Court; (2) what is sought to be stayed "
-        "(use <what_to_stay>); (3) grounds — three classical limbs: prima facie case, balance of convenience, "
-        "irreparable injury (use <stay_grounds>); (4) urgency.\n"
-        "6. 'PRAYER': (a) stay <what_to_stay> till disposal of main petition; (b) ex-parte ad-interim "
-        "stay if appropriate; (c) such other reliefs.\n"
-        "7. Verification + signature + place + date.\n"
-        "Tone: focused, urgent. Cite the three classical stay grounds explicitly. Plain text."
+        "यह अंतरिम स्थगन (interim stay) हेतु आवेदन पत्र है, जो किसी लंबित उच्च न्यायालय आपराधिक "
+        "पुनरीक्षण अथवा धारा 482 दं.प्र.सं. (528 भा.ना.सु.सं.) याचिका के साथ प्रस्तुत होता है — "
+        "स्थगन कोई स्वतंत्र वाद नहीं, यह मुख्य प्रकरण के भीतर का I.A. है। इसे असली MP उच्च न्यायालय "
+        "पुनरीक्षण की शैली में हिन्दी में लिखें:\n\n"
+        "1. न्यायालय शीर्षक (केन्द्र में): 'माननीय उच्च न्यायालय <राज्य> खण्डपीठ <स्थान>' "
+        "(<court_name> के अनुसार)।\n"
+        "2. प्रकरण पंक्ति: मुख्य प्रकरण का क्रमांक — 'पुनरीक्षण याचिका क्रमांक- <main_petition_no>' "
+        "(या 'विविध आपराधिक प्रकरण/M.Cr.C. क्रमांक- <main_petition_no>' यदि धारा 482 है)।\n"
+        "3. पक्षकार खण्ड (पुनरीक्षण शैली):\n"
+        "   'पुनरीक्षणकर्ता/आवेदक ----- <petitioner_name> पुत्र श्री ____, आयु- __ वर्ष, निवासी- ____'\n"
+        "   'विरुद्ध'\n"
+        "   'प्रतिपुनरीक्षणकर्ता/अनावेदक --- <respondent_name>' (जैसे '<राज्य> राज्य द्वारा आरक्षी केन्द्र "
+        "____ जिला ____')।\n"
+        "4. शीर्षक (purpose-line शैली, केन्द्र, रेखांकित): 'आवेदन पत्र वास्ते अंतरिम स्थगन — <impugned_order> "
+        "[तथा <what_to_stay>] के स्थगन के सम्बन्ध में।' (विवादित आदेश/कार्यवाही का स्पष्ट उल्लेख करें; "
+        "मुख्य मामला पुनरीक्षण हो तो धारा संदर्भ '438 एवं 442 भा.ना.सु.सं. (397 एवं 401 द.प्र.सं.)' दे "
+        "सकते हैं — सत्यापित mapping)।\n"
+        "5. सम्बोधन + आरम्भ: 'माननीय महोदय,' फिर 'प्रार्थी की ओर से आवेदन पत्र निम्न प्रकार प्रस्तुत है :-'\n"
+        "6. 'यहकि,' से शुरू होने वाले क्रमांकित पैरा:\n"
+        "   (1) प्रार्थी/पुनरीक्षणकर्ता की ओर से माननीय न्यायालय के समक्ष मुख्य पुनरीक्षण/धारा 482 याचिका "
+        "क्रमांक- <main_petition_no> विचाराधीन/लंबित है;\n"
+        "   (2) विवादित आदेश <impugned_order> का संक्षिप्त विवरण तथा वर्तमान में जो कार्यवाही/निष्पादन "
+        "चल रहा है (<what_to_stay>) उसका उल्लेख;\n"
+        "   (3) आधार पैरा — <stay_grounds> को बुनें: प्रथम दृष्ट्या प्रबल मामला (prima facie), यदि स्थगन "
+        "न दिया गया तो प्रार्थी को अपूरणीय क्षति होगी (irreparable injury), तथा सुविधा का संतुलन "
+        "(balance of convenience) प्रार्थी के पक्ष में है; मुख्य पुनरीक्षण के सफल होने की प्रबल "
+        "सम्भावना है अतः उसके निराकरण तक यथास्थिति आवश्यक है;\n"
+        "   (4) 'अन्य आधार वक्त बहस मौखिक रूप से निवेदित किये जावेंगे।'\n"
+        "7. प्रार्थना (बिना 'प्रार्थना' शीर्षक के, सीधे 'अत:' से): 'अत: श्रीमान न्यायालय से निवेदन है कि "
+        "मुख्य पुनरीक्षण/याचिका क्रमांक- <main_petition_no> के अन्तिम निराकरण तक विवादित आदेश "
+        "<impugned_order> के निष्पादन / <what_to_stay> पर रोक लगाते हुए उसे स्थगित किये जाने की कृपा करें।' "
+        "(अति-आवश्यक हो तो एकपक्षीय अंतरिम स्थगन की प्रार्थना भी जोड़ें।)\n"
+        "8. हस्ताक्षर: 'दिनांक - <filing_date>' दाहिनी ओर 'प्रार्थी/पुनरीक्षणकर्ता', फिर 'द्वारा अभिभाषक' "
+        "और '<advocate_name> (एडवोकेट)'।\n"
+        "(NOTE: यदि शपथपत्र संलग्न हो तो वह पृथक दस्तावेज़ है — इस आवेदन के मुख्य भाग में न जोड़ें।)\n\n"
+        "ENGLISH MODE (only if lang=en): mirror the SAME structure in English — 'IN THE HIGH COURT OF "
+        "MADHYA PRADESH, BENCH AT <place>' header; main-matter case line 'Criminal Revision No. "
+        "<main_petition_no>' (or 'M.Cr.C. No. <main_petition_no>' for §482); revisionist/respondent "
+        "caption ('Revisionist/Applicant … Versus … State of <State> through P.S. ___ … Respondent'); a "
+        "purpose-line title 'INTERLOCUTORY APPLICATION FOR INTERIM STAY of <impugned_order> / "
+        "<what_to_stay>'; 'To the Hon'ble Court,' + 'The following application is submitted on behalf "
+        "of the applicant:-'; 'That,'-numbered paragraphs (main revision/§482 petition is pending → "
+        "the impugned order and the proceedings/execution sought to be stayed → grounds: prima facie "
+        "case, irreparable injury if not stayed, balance of convenience, strong likelihood of success "
+        "in the main revision → further grounds to be urged orally); prayer 'It is therefore prayed "
+        "that, pending final disposal of <main_petition_no>, the execution of the impugned order "
+        "<impugned_order> / <what_to_stay> be stayed' (add ex-parte ad-interim stay if urgent); "
+        "signature 'Applicant / Revisionist, through counsel <advocate_name>'. Plain text output, no "
+        "markdown."
     ),
     "example_prompts": [
-        "Stay of trial court proceedings during pending quashing petition before HC",
-        "Interim stay of further investigation in FIR 95/2025 till main quashing petition is decided",
+        "अंतरिम स्थगन — प्रथम अपर सत्र न्यायाधीश के आदेश दिनांक 29-10-2025 के निष्पादन पर रोक, मुख्य पुनरीक्षण लंबित",
+        "धारा 482 याचिका के साथ अंतरिम स्थगन — विचारण न्यायालय की आगे की कार्यवाही याचिका के निराकरण तक स्थगित की जाए",
     ],
 }
 
@@ -361,7 +480,7 @@ REGULAR_BAIL_SESSIONS = {
 
 # Wrapper — links to the standalone bail page UX for High Court bail.
 # Follows the structure of the reference PDF (Rashmi Kanjar / Section 483
-# BNSS / 439 CrPC successive bail before MP HC Gwalior Bench):
+# BNSS / 439 CrPC successive bail before a High Court):
 #   • Index page with annexure list
 #   • Front page: parties + prior bail history table + crime details table
 #     + criminal record table
@@ -393,7 +512,7 @@ REGULAR_BAIL_HC = {
     "example_prompts": [
         "उच्च न्यायालय में द्वितीय जमानत आवेदन — सत्र न्यायालय से निरस्त, धारा 302/34 IPC",
         "High Court bail under 439 CrPC after Sessions Court rejection in 376 IPC matter",
-        "Successive bail at MP HC Gwalior bench after first bail withdrawn",
+        "Successive bail at the High Court after first bail withdrawn",
     ],
 }
 
@@ -431,10 +550,10 @@ CRIMINAL_REVISION_SESSIONS = {
     "category":        "appeal",
     "tier":            2,
     "popularity":      3,
-    "quality":         "v1-ai",
-    "description":     "Criminal revision under S.438 BNSS / 397 CrPC before Sessions Court — against an order of the Magistrate.",
+    "quality":         "v2-ref",
+    "description":     "Criminal revision under §397/401 CrPC (§438/442 BNSS) before the Court of Session / High Court — structure decoded verbatim from real MP filings (पुनरीक्षणकर्ता/प्रतिपुनरीक्षणकर्ता idiom, 'दुखित होकर' impugned-order line, प्रकरण का संक्षिप्त विवरण then पुनरीक्षण याचिका के आधार, prayer to अपास्त the order).",
     "fields": [
-        {"key": "court_name",        "label_en": "Sessions Court",                "label_hi": "सत्र न्यायालय",            "type": "text",     "required": True,  "section": "court"},
+        {"key": "court_name",        "label_en": "Court (Session / High Court)",  "label_hi": "न्यायालय (सत्र / उच्च)",    "type": "text",     "required": True,  "section": "court"},
         {"key": "revisionist_name",  "label_en": "Revisionist (applicant)",       "label_hi": "पुनरीक्षणकर्ता",            "type": "name",     "required": True,  "section": "applicant"},
         {"key": "revisionist_father","label_en": "Father's name",                  "label_hi": "पिता का नाम",              "type": "name",     "required": True,  "section": "applicant"},
         {"key": "revisionist_address","label_en": "Address",                      "label_hi": "पता",                       "type": "address",  "required": True,  "section": "applicant"},
@@ -449,25 +568,61 @@ CRIMINAL_REVISION_SESSIONS = {
         {"key": "filing_date",       "label_en": "Date",                          "label_hi": "दिनांक",                        "type": "date",     "required": True,  "section": "filing"},
     ],
     "format_spec": (
-        "Generate a Criminal Revision Petition under S.438 BNSS / 397 CrPC before Sessions Court. Structure:\n"
-        "1. 'IN THE COURT OF SESSIONS JUDGE, <district>' centred + underlined.\n"
-        "2. 'Criminal Revision No. ____ of <year>' case block.\n"
-        "3. Revisionist block (name, s/o, address).\n"
-        "4. 'Versus' centred.\n"
-        "5. Respondent block.\n"
-        "6. Title: 'PETITION UNDER S.438 BNSS / 397 CrPC FOR REVISION OF ORDER DATED <date> "
-        "PASSED BY <magistrate_court>' centred, underlined.\n"
-        "7. Numbered paras: (1) brief background; (2) impugned order summary (use <impugned_summary>); "
-        "(3) grounds — focus on jurisdictional error, perversity, illegality, propriety (use <revision_grounds>); "
-        "(4) why the order causes injustice.\n"
-        "8. 'PRAYER': (a) set aside the order dated <date>; (b) pass such fresh order as deemed fit; "
-        "(c) costs; (d) other reliefs.\n"
-        "9. Verification + signature + place + date.\n"
-        "Plain text output."
+        "यह आपराधिक पुनरीक्षण याचिका धारा 397/401 द.प्र.सं. (438/442 भा.ना.सु.सं.) के अंतर्गत "
+        "सत्र न्यायालय अथवा उच्च न्यायालय के समक्ष प्रस्तुत होती है। नीचे दी गई वास्तविक न्यायालयीन "
+        "फाइलिंग संरचना का अक्षरशः पालन करें:\n\n"
+        "शीर्ष (केन्द्र में):\n"
+        "  <court_name> — सत्र हेतु 'न्यायालय माननीय सत्र न्यायाधीश <जिला>', उच्च न्यायालय हेतु "
+        "'माननीय उच्च न्यायालय <राज्य> खण्डपीठ <स्थान>'\n"
+        "  पुनरीक्षण याचिका क्रमांक- ______ /<वर्ष>\n\n"
+        "पक्षकार (बायीं ओर पदनाम, दाहिनी ओर विवरण):\n"
+        "  पुनरीक्षणकर्ता -----  <revisionist_name> पुत्र श्री <revisionist_father>, आयु- __ वर्ष, "
+        "व्यवसाय- ___, निवासी- <revisionist_address>\n"
+        "  केन्द्र में:  वि0रू0 (विरुद्ध)\n"
+        "  प्रतिपुनरीक्षणकर्ता ---  <respondent_name> (पूर्ण विवरण सहित)\n\n"
+        "विवादित-आदेश पंक्ति (शीर्षक के स्थान पर — यही इस दस्तावेज़ का 'title' है):\n"
+        "  'प्रथम पुनरीक्षण याचिका अन्तर्गत धारा 397, 401 द0प्र0सं0/438, 442 भा0ना0सु0सं0 [सहपठित "
+        "सम्बन्धित अधिनियम] विरुद्ध आदेश दिनांक <impugned_date> न्यायालय <magistrate_court> द्वारा "
+        "प्रकरण क्रमांक- <impugned_case_no> में पारित आदेश से दुखित होकर।'\n\n"
+        "प्रथम-पुनरीक्षण घोषणा (अनिवार्य):\n"
+        "  'पुनरीक्षणकर्ता की ओर से यह प्रथम विविध पुनरीक्षण याचिका है। उक्त पुनरीक्षण याचिका के "
+        "अतिरिक्त पुनरीक्षणकर्ता की ओर से अन्य कोई पुनरीक्षण याचिका माननीय उच्च न्यायालय अथवा "
+        "माननीय उच्चतम न्यायालय में न ही विचाराधीन है, न ही निराकृत की गई है।'\n"
+        "  'पुनरीक्षणकर्ता की ओर से पुनरीक्षण याचिका निम्न प्रकार प्रस्तुत है :-'\n\n"
+        "प्रकरण का संक्षिप्त विवरण :- (विचारण न्यायालय में क्या हुआ, आदेश किस बारे में था — "
+        "<impugned_summary> से 'यहकि,' अनुच्छेदों में संक्षेप; विवादित आदेश की प्रति एनेक्जर ए-1 "
+        "बताएँ।)\n\n"
+        "पुनरीक्षण याचिका के आधार:- (यह याचिका का हृदय है — <revision_grounds> से प्रत्येक आधार "
+        "एक 'यहकि,' अनुच्छेद में):\n"
+        "  • पहला आधार सदैव: 'यहकि, विचारण न्यायालय द्वारा पारित आदेश न्याय के विपरीत होने से "
+        "अपास्त किये जाने योग्य है।'\n"
+        "  • इसके बाद क्षेत्राधिकार-त्रुटि / विधि की त्रुटि / साक्ष्य की अनदेखी / एकपक्षीय विवेक / "
+        "जल्दबाजी आदि आधार — तिथि व प्रदर्श/एनेक्जर संदर्भ सहित।\n"
+        "  • अंतिम आधार सदैव: 'यहकि, अन्य आधार वक्त बहस रिकार्ड उपलब्ध होने पर मौखिक रूप से "
+        "निवेदित किये जावेंगे।'\n\n"
+        "प्रार्थना (कोई अलग 'PRAYER' शीर्षक नहीं) — सीधे:\n"
+        "  'अत: माननीय न्यायालय से निवेदन है कि पुनरीक्षणकर्ता की ओर से प्रस्तुत पुनरीक्षण याचिका "
+        "स्वीकार कर विचारण न्यायालय द्वारा प्रकरण क्रमांक- <impugned_case_no> में पारित आदेश दिनांक "
+        "<impugned_date> को अपास्त करने की कृपा करें।'\n\n"
+        "अंत में:\n"
+        "  दिनांक :- <filing_date>                          प्रार्थी\n"
+        "                                          <revisionist_name> - पुनरीक्षणकर्ता\n"
+        "                                                   द्वारा अभिभाषक\n"
+        "                                          <advocate_name> --- एडवोकेट\n\n"
+        "महत्वपूर्ण: 'पुनरीक्षणकर्ता' व 'प्रतिपुनरीक्षणकर्ता' तथा निचली अदालत हेतु 'विचारण न्यायालय' "
+        "शब्दों का ही प्रयोग करें। इण्डेक्स (अनुक्रमणिका) पृष्ठ पृथक होता है — इसे यहाँ न जोड़ें।\n\n"
+        "ENGLISH MODE (only if lang=en): mirror the same structure — 'IN THE COURT OF SESSIONS JUDGE, "
+        "<district>' or 'IN THE HIGH COURT OF MADHYA PRADESH, BENCH AT <place>', 'Criminal Revision No. "
+        "___/<year>', Revisionist / Non-applicant blocks, the impugned-order line ('Being aggrieved by "
+        "the order dated <date> passed by <court> in Case No. <no>…'), the first-revision declaration, "
+        "'BRIEF FACTS OF THE CASE', 'GROUNDS' (numbered, the first being that the order is against law "
+        "and liable to be set aside, the last reserving additional grounds at the time of arguments), "
+        "and a prayer to set aside the impugned order. Use 'Revisionist', 'Non-applicant', 'trial "
+        "court'."
     ),
     "example_prompts": [
         "Revision against JMFC order rejecting our discharge application",
-        "Revision against magistrate's order taking cognizance",
+        "Revision against family court maintenance order under §144 BNSS",
     ],
 }
 
@@ -542,7 +697,7 @@ TRIAL_BAIL_437 = {
     "fields": [],
     "format_spec":     "",
     "example_prompts": [
-        "Trial court bail u/s 437 — accused in 379 IPC theft case at PS Murar",
+        "Trial court bail u/s 437 — accused in 379 IPC theft case at the local PS",
         "जमानत JMFC में, धारा 323, 504 IPC",
     ],
 }
@@ -558,8 +713,8 @@ COMPLAINT_156_3 = {
     "category":        "procedural",
     "tier":            1,
     "popularity":      4,
-    "quality":         "v1-ai",
-    "description":     "Complaint to the Magistrate when police refuses to register an FIR. Magistrate can direct PS to register and investigate.",
+    "quality":         "v2-ref",
+    "description":     "Application u/s 156(3) CrPC (175(3) BNSS) to the Magistrate when police refuses to register an FIR — structure decoded verbatim from real MP JMFC filings (आवेदक/आरोपी idiom, यहकि narrative built around the police-inaction sequence — थाना approached, registered-post applications, no action — title 'आवेदन पत्र अन्तर्गत धारा 156(3) द.प्र.सं.', mandatory accompanying शपथपत्र).",
     "fields": [
         {"key": "court_name",        "label_en": "Court (JMFC / CJM)",             "label_hi": "न्यायालय (न्यायिक मजिस्ट्रेट)","type":"text","required": True, "section": "court"},
         {"key": "complainant_name",  "label_en": "Complainant",                    "label_hi": "परिवादी",                  "type": "name",     "required": True,  "section": "applicant"},
@@ -578,28 +733,61 @@ COMPLAINT_156_3 = {
         {"key": "filing_date",       "label_en": "Date",                           "label_hi": "दिनांक",                       "type": "date",     "required": True,  "section": "filing"},
     ],
     "format_spec": (
-        "Generate a S.175(3) BNSS / 156(3) CrPC complaint to the Magistrate seeking direction to "
-        "register an FIR. Structure (Hindi preferred, English if asked):\n"
-        "1. 'न्यायिक मजिस्ट्रेट प्रथम श्रेणी, <district>' / 'IN THE COURT OF THE JMFC, <district>' centred.\n"
-        "2. 'परिवाद क्रमांक ____ / <वर्ष>' / 'Complaint No. ____ of ____' block.\n"
-        "3. परिवादी (complainant) block: name, father, address.\n"
-        "4. 'बनाम' / 'Versus' centred.\n"
-        "5. अभियुक्तगण (accused) block — all accused with parental/role info.\n"
-        "6. Title: 'धारा 175(3) भा.ना.सु.सं. / 156(3) दं.प्र.सं. अन्तर्गत परिवाद - प्रथम सूचना रिपोर्ट दर्ज "
-        "कराने हेतु' centred + underlined.\n"
-        "7. 'महामहोदय, परिवादी निवेदन करता है कि:' opening line.\n"
-        "8. Numbered paras: (1) परिवादी का परिचय; (2) घटना का विस्तृत विवरण — दिनांक, स्थान, समय, अभियुक्तों "
-        "की भूमिका; (3) चोट / नुकसान / क्षति; (4) साक्षीगण; (5) लागू धाराएं (use <sections_invoked>); "
-        "(6) थाने में जाकर रिपोर्ट दर्ज कराने का प्रयास — पुलिस ने मना किया / FIR दर्ज नहीं की; "
-        "(7) SP / DSP को लिखित आवेदन (तारीख); (8) अब तक कोई कार्रवाई नहीं; (9) माननीय न्यायालय से "
-        "हस्तक्षेप की अपेक्षा है।\n"
-        "9. 'प्रार्थना' (Prayer): (a) थाना <ps> को निर्देश दिया जावे कि लागू धाराओं में FIR दर्ज करे; "
-        "(b) विवेचना उच्च अधिकारी से कराई जावे; (c) ऐसी अन्य राहत जो न्यायालय उचित समझे।\n"
-        "10. Verification + signature of complainant + advocate + place + date.\n"
-        "Tone: factual, chronological, names everything specific. Plain text."
+        "यह आवेदन धारा 156(3) द.प्र.सं. (175(3) भा.ना.सु.सं.) के अंतर्गत न्यायिक दण्डाधिकारी प्रथम "
+        "श्रेणी के समक्ष प्रस्तुत होता है, जिसमें पुलिस द्वारा प्रथम सूचना रिपोर्ट दर्ज न करने पर "
+        "न्यायालय से थाने को FIR पंजीबद्ध करने का निर्देश माँगा जाता है। नीचे दी गई वास्तविक न्यायालयीन "
+        "फाइलिंग संरचना का अक्षरशः पालन करें:\n\n"
+        "शीर्ष (केन्द्र में):\n"
+        "  न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी <court_name>\n"
+        "  प्रकरण क्रमांक- ______ /<वर्ष> परिवाद पत्र\n\n"
+        "पक्षकार-ब्लॉक (बहती पंक्तियों में):\n"
+        "  <complainant_name> पुत्र श्री <complainant_father>, आयु- __ वर्ष, व्यवसाय- ___, निवासी- "
+        "<complainant_address> (<राज्य>)\n"
+        "  दाहिनी ओर:  --- आवेदक\n"
+        "  केन्द्र में:  बनाम\n"
+        "  <accused_names> में दिये प्रत्येक आरोपी का पूर्ण विवरण (पुत्र/आयु/व्यवसाय/निवासी); फिर "
+        "दाहिनी ओर:  --- आरोपी\n\n"
+        "शीर्षक (केन्द्र में):\n"
+        "  आवेदन पत्र अन्तर्गत धारा 156(3) द.प्र.सं.\n\n"
+        "प्रस्तावना:\n"
+        "  माननीय न्यायालय,\n"
+        "  आवेदक की ओर से आवेदन पत्र निम्न प्रकार प्रस्तुत है :-\n\n"
+        "कथानक — प्रत्येक अनुच्छेद 'यहकि,' से प्रारम्भ हो; वास्तविक प्रवाह इस क्रम में:\n"
+        "  • यहकि, आवेदक का परिचय व निवास।\n"
+        "  • यहकि, घटना का विस्तृत विवरण — दिनांक <incident_date>, स्थान <incident_place>, आरोपी की "
+        "भूमिका (<facts_narrative> से)।\n"
+        "  • यहकि, उक्त कृत्य धारा <sections_invoked> से दण्डनीय संज्ञेय (व अजमानतीय) अपराध की श्रेणी "
+        "में आता है।\n"
+        "  • पुलिस-निष्क्रियता का क्रम (156(3) का विधिक आधार — अनिवार्य): यहकि, आवेदक थाना "
+        "<police_station> गया व लिखित आवेदन दिया, किन्तु प्राप्ति/कार्यवाही नहीं हुई; पुनः रजिस्टर्ड "
+        "डाक से आवेदन भेजे; पुलिस अधीक्षक/वरिष्ठ अधिकारी को भी आवेदन दिया (<police_refusal> से तिथियाँ "
+        "सहित); आज दिनांक तक कोई कार्यवाही नहीं की गई।\n"
+        "  • यहकि, साक्षीगण <witnesses> (यदि उपलब्ध हो)।\n"
+        "  • यहकि, घटना-स्थल व पक्षकारों के निवास के आधार पर माननीय न्यायालय को श्रवणाधिकार प्राप्त है।\n"
+        "  • यहकि, आवेदक द्वारा इस परिवाद के अतिरिक्त भारत वर्ष के किसी थाने/न्यायालय में अन्य कोई "
+        "कार्यवाही न तो की गई है, न लंबित है।\n\n"
+        "प्रार्थना (कोई अलग 'प्रार्थना/PRAYER' शीर्षक नहीं) — सीधे:\n"
+        "  अत: श्रीमान जी से निवेदन है कि पुलिस थाना <police_station> को इस आशय का निर्देश देने की "
+        "कृपा करें कि वह आरोपी के विरुद्ध धारा <sections_invoked> की प्रथम सूचना रिपोर्ट पंजीबद्ध कर "
+        "अनुसंधान पश्चात् पुलिस रिपोर्ट प्रस्तुत करें।\n\n"
+        "अंत में:\n"
+        "  दिनांक :- <filing_date>                          प्रार्थी\n"
+        "                                          <complainant_name> -- आवेदक\n"
+        "                                                   द्वारा अभिभाषक\n"
+        "                                          <advocate_name> -- एडवोकेट\n\n"
+        "महत्वपूर्ण: 'आवेदक' (शिकायतकर्ता) व 'आरोपी' शब्दों का प्रयोग करें। 156(3) आवेदन के साथ "
+        "शपथपत्र (Priyanka Srivastava निर्णय अनुसार अनिवार्य) संलग्न होता है — किन्तु वह पृथक भाग है, "
+        "इसे यहाँ न जोड़ें।\n\n"
+        "ENGLISH MODE (only if lang=en): mirror the same structure — 'IN THE COURT OF THE JUDICIAL "
+        "MAGISTRATE FIRST CLASS, <district>', 'Complaint No. ___/<year>', complainant and accused "
+        "blocks, title 'APPLICATION UNDER SECTION 156(3) Cr.P.C. (175(3) BNSS)', numbered 'That…' "
+        "paragraphs in the same order with the police-inaction sequence (approached PS, written/"
+        "registered-post applications, application to SP, no action taken) as the core, jurisdiction, "
+        "and a prayer directing the police station to register the FIR and investigate. Use "
+        "'complainant' and 'accused'."
     ),
     "example_prompts": [
-        "थाना मुरार ने मेरी FIR दर्ज नहीं की 420, 406 IPC में, अब मजिस्ट्रेट कोर्ट जाना है",
+        "थाना कोतवाली ने मेरी FIR दर्ज नहीं की 420, 406 IPC में, अब मजिस्ट्रेट कोर्ट जाना है",
         "Complaint u/s 156(3) — neighbours threatened with deadly weapons, police refused FIR",
     ],
 }
@@ -607,16 +795,16 @@ COMPLAINT_156_3 = {
 
 PRODUCTION_WARRANT_91 = {
     "id":              "production_warrant_91",
-    "name_en":         "Production Warrant (S.94 BNSS / 91 CrPC)",
-    "name_hi":         "हाजिर वारंट (धारा 94 BNSS / 91 दं.प्र.सं.)",
+    "name_en":         "Jail Production Warrant (Produce Accused from Custody)",
+    "name_hi":         "जेल प्रोडक्शन वारंट आवेदन",
     "court":           "magistrate",
     "court_label_en":  "Magistrate Court",
     "court_label_hi":  "मजिस्ट्रेट न्यायालय",
     "category":        "procedural",
     "tier":            1,
     "popularity":      5,
-    "quality":         "v1-ai",
-    "description":     "Application to bring the accused (lodged in another jail / case) to the present court for proceedings.",
+    "quality":         "v2-ref",
+    "description":     "Short application to produce an accused lodged in another jail / another case before the present court via a jail production warrant (पेशी वारंट), or for early hearing so he can appear from custody. Decoded verbatim from real MP filings — State-first अभियोगी/अभियुक्त caption, प्रार्थी voice, 'जेल प्रोडक्शन वारंट से तलब' / 'अभिलेखागार से तलब' idiom. NOTE: no §91 citation — that was a misnomer; §91 document-production is the separate production_documents_91_94 template.",
     "fields": [
         {"key": "court_name",        "label_en": "Court",                          "label_hi": "न्यायालय",                  "type": "text",     "required": True,  "section": "court"},
         {"key": "case_no",           "label_en": "Case number",                    "label_hi": "प्रकरण क्रमांक",              "type": "text",     "required": True,  "section": "court"},
@@ -629,22 +817,63 @@ PRODUCTION_WARRANT_91 = {
         {"key": "filing_date",       "label_en": "Date",                           "label_hi": "दिनांक",                       "type": "date",     "required": True,  "section": "filing"},
     ],
     "format_spec": (
-        "Generate a short Production Warrant application — procedural, half-page. Structure:\n"
-        "1. Court header.\n"
-        "2. 'IN <case_no>' block.\n"
-        "3. State of <state> Vs <accused_name>.\n"
-        "4. Title: 'आवेदन धारा 94 BNSS / 91 दं.प्र.सं. अन्तर्गत' / 'APPLICATION UNDER S.94 BNSS / 91 CrPC' "
-        "centred + underlined.\n"
-        "5. Two-three short paras: (1) accused is presently lodged at <currently_at> in some other "
-        "matter; (2) presence required before this Court on <hearing_date> for <purpose>; (3) request "
-        "Court to issue production warrant to Superintendent of <currently_at> directing production.\n"
-        "6. 'प्रार्थना' / 'PRAYER': production warrant be issued.\n"
-        "7. Signature of advocate + place + date.\n"
-        "Tone: short, mechanical, no theatre. Plain text."
+        "यह जेल प्रोडक्शन वारंट / पेशी वारंट हेतु एक संक्षिप्त प्रार्थना पत्र है — जब "
+        "अभियुक्त किसी अन्य प्रकरण में दूसरी जेल/कारागार में निरुद्ध है और उसे वर्तमान "
+        "प्रकरण में न्यायालय के समक्ष पेश कराना है। यह §91 द.प्र.सं. (दस्तावेज़ तलबी) "
+        "नहीं है — शीर्षक में कोई धारा-संख्या न लिखें। नीचे की संरचना वास्तविक MP "
+        "filings से ली गई है — इसी क्रम व शब्दावली का कड़ाई से पालन करें।\n\n"
+        "1. न्यायालय शीर्ष (केन्द्रित): court_name से — जैसे 'न्यायालय माननीय न्यायिक "
+        "दण्डाधिकारी प्रथम श्रेणी <स्थान>' अथवा 'न्यायालय माननीय <क्रम> अपर सत्र "
+        "न्यायाधीश महोदय <स्थान>'।\n"
+        "2. प्रकरण पंक्ति: 'प्रकरण क्रमांक - <case_no>' (रजिस्टर-प्रकार सहित जैसे "
+        "आर.सी.टी./एस.सी., यदि दिया हो)।\n"
+        "3. पक्षकार ब्लॉक — राज्य पहले (दाण्डिक प्रकरण में अभियोजन प्रथम पक्ष):\n"
+        "   '<राज्य> राज्य .......... अभियोगी'\n"
+        "   केन्द्र में 'बनाम'\n"
+        "   '<accused_name> [आदि] .......... अभियुक्त/अभियुक्तगण'\n"
+        "4. शीर्षक — आवेदन का प्रयोजन-कथन (केन्द्रित, बिना किसी धारा-संख्या के): यदि "
+        "अभियुक्त पहले से जेल में है व स्थाई वारंट पर स्वयं पेश होना चाहता है तो "
+        "'आवेदन पत्र वास्ते शीघ्र सुनवाई।'; यदि उसे दूसरी जेल से तलब कराना है तो "
+        "'आवेदन पत्र वास्ते जेल प्रोडक्शन वारंट से तलब किये जाने बावत्।' — purpose "
+        "field के अनुसार उपयुक्त कथन चुनें।\n"
+        "5. 'माननीय न्यायालय,' फिर 'प्रार्थी की ओर से प्रार्थना पत्र निम्न प्रकार "
+        "प्रस्तुत है :-'\n"
+        "6. क्रमांकित अनुच्छेद, प्रत्येक 'यहकि,' से प्रारम्भ:\n"
+        "   (1) प्रार्थी का प्रकरण माननीय न्यायालय के समक्ष विचाराधीन है जिसमें दिनांक "
+        "____ को प्रार्थी के विरुद्ध स्थाई/गिरफ्तारी वारंट जारी किया गया है।\n"
+        "   (2) प्रार्थी वर्तमान में अन्य प्रकरण में <currently_at> में निरुद्ध है तथा "
+        "उक्त प्रकरण में जेल प्रोडक्शन वारंट के माध्यम से न्यायालय के समक्ष उपस्थित होना "
+        "चाहता है (अथवा उसी कारण नियत दिनांक को उपस्थित नहीं हो सका था)।\n"
+        "   (3) उपरोक्त स्थिति में प्रार्थी को <currently_at> से जेल प्रोडक्शन वारंट "
+        "द्वारा तलब किया जाकर/अभिरक्षा में लिया जाकर सुनवाई में लिया जाना न्यायोचित व "
+        "न्याय संगत है।\n"
+        "   (अन्तिम, यदि उपयुक्त) 'यहकि, शेष तर्क बहस के समय मौखिक रूप से निवेदित "
+        "होंगे।'\n"
+        "7. प्रार्थना (बिना किसी 'प्रार्थना'/'PRAYER' शीर्षक के, सीधे अनुच्छेद रूप में): "
+        "'अत: श्रीमान न्यायालय से प्रार्थना है कि प्रार्थी की ओर से प्रस्तुत प्रार्थना "
+        "पत्र स्वीकार कर <currently_at> से जेल प्रोडक्शन वारंट द्वारा प्रार्थी को तलब "
+        "किया जाकर अभिरक्षा में लिये जाने (अथवा उक्त प्रकरण का अभिलेख अभिलेखागार से तलब "
+        "कर आज दिनांक को सुनवाई में लिये जाने) का आदेश पारित करने की कृपा करें।'\n"
+        "8. हस्ताक्षर ब्लॉक: 'दिनांक:- <filing_date>      प्रार्थी' फिर '<accused_name> "
+        "पुत्र <accused_father>, आयु ___ वर्ष, निवासी ___ --- अभियुक्त' फिर 'द्वारा "
+        "अभिभाषक <advocate_name>'।\n"
+        "यह आवेदन आधे पृष्ठ का संक्षिप्त, यांत्रिक दस्तावेज़ है — कोई अतिरिक्त नाटकीयता "
+        "नहीं।\n\n"
+        "ENGLISH MODE (only if lang=en): mirror the same structure (a short, "
+        "half-page application, NO section number in the title) — court header; "
+        "'Case No. <case_no>'; State-first party block 'State of <State> ... Prosecution' "
+        "/ 'Versus' / '<accused> ... Accused'; purpose-line title 'APPLICATION FOR "
+        "EARLY HEARING' or 'APPLICATION TO SUMMON THE ACCUSED THROUGH JAIL PRODUCTION "
+        "WARRANT'; 'That ...' paragraphs (a standing/arrest warrant was issued; the "
+        "accused is presently lodged in <currently_at> in another case; he be summoned "
+        "from that jail through a jail production warrant and taken into custody, or "
+        "the record be called and the matter taken up today); a flowing prayer (NO "
+        "'PRAYER' heading); signature 'Applicant' + accused particulars + 'through "
+        "Advocate <advocate_name>'."
     ),
     "example_prompts": [
-        "Production warrant — accused Rajesh Singh lodged in Gwalior Central Jail, needed for statement on 12.07",
-        "हाजिर वारंट — मेरा मुवक्किल भिंड जेल में बंद है, मुख्य परिवाद में पेशी चाहिए",
+        "जेल प्रोडक्शन वारंट — मुवक्किल सेंट्रल जेल में अन्य प्रकरण में बंद, इस केस में पेशी हेतु तलब करना है",
+        "Accused lodged in Mathura jail in another case; summon him here via jail production warrant and take into custody",
     ],
 }
 
@@ -659,8 +888,8 @@ PRODUCTION_DOCUMENTS_91_94 = {
     "category":        "procedural",
     "tier":            2,
     "popularity":      3,
-    "quality":         "v1-ai",
-    "description":     "Application seeking court direction to a third party (bank / hospital / company) to produce documents relevant to the case.",
+    "quality":         "v2-ref",
+    "description":     "Application u/s 91 CrPC (94 BNSS) to call for / produce a document, CCTV footage, case diary, or other thing into the court record. Decoded verbatim from real MP filings — applicant-first आवेदक/अनावेदक caption, यहकि narrative, 'तलब किये जाने बावत्' purpose-line, prayer to तलब the item. Supporting शपथपत्र is a separate doc (general_affidavit).",
     "fields": [
         {"key": "court_name",        "label_en": "Court",                          "label_hi": "न्यायालय",                "type": "text",     "required": True,  "section": "court"},
         {"key": "case_no",           "label_en": "Case number",                    "label_hi": "प्रकरण क्रमांक",            "type": "text",     "required": True,  "section": "court"},
@@ -673,21 +902,49 @@ PRODUCTION_DOCUMENTS_91_94 = {
         {"key": "filing_date",       "label_en": "Date",                           "label_hi": "दिनांक",                     "type": "date",     "required": True,  "section": "filing"},
     ],
     "format_spec": (
-        "Generate a S.94 BNSS / 91 CrPC application to produce documents. Structure:\n"
-        "1. Court header + case number.\n"
-        "2. Parties.\n"
-        "3. Title: 'APPLICATION UNDER S.94 BNSS / 91 CrPC FOR PRODUCTION OF DOCUMENTS'.\n"
-        "4. Numbered paras: (1) case is pending; (2) certain documents in custody of <custodian> at "
-        "<custodian_address> are necessary for just decision — list them (use <documents_sought>); "
-        "(3) relevance — how each document supports applicant's case (use <relevance>); "
-        "(4) custodian unlikely to produce without court order.\n"
-        "5. 'PRAYER': direct <custodian> to produce listed documents on next hearing.\n"
-        "6. Signature + place + date.\n"
-        "Plain text output."
+        "यह §91 द.प्र.सं. / §94 भा.ना.सु.सं. का आवेदन है — किसी दस्तावेज़, सी.सी.टी.वी. "
+        "फुटेज, केस डायरी अथवा अन्य वस्तु को न्यायालय के अभिलेख में तलब (call/produce) "
+        "कराने हेतु। नीचे की संरचना वास्तविक MP filings से ली गई है — इसी क्रम व "
+        "शब्दावली का कड़ाई से पालन करें।\n\n"
+        "1. न्यायालय शीर्ष (केन्द्रित): court_name से — जैसे 'न्यायालय माननीय न्यायिक "
+        "दण्डाधिकारी प्रथम श्रेणी <स्थान>' अथवा 'न्यायालय माननीय विशेष सत्र न्यायाधीश "
+        "महोदय <(विशेष अधिनियम)> <स्थान>'।\n"
+        "2. प्रकरण पंक्ति: 'प्रकरण क्रमांक- <case_no>'।\n"
+        "3. पक्षकार ब्लॉक — आवेदक पहले (यह आवेदन आवेदक की ओर से है):\n"
+        "   '<applicant_name> पुत्र/पुत्री श्री ____, आयु- ___ वर्ष, व्यवसाय- ____, "
+        "निवासी- ____ .......... आवेदक/आवेदिका'\n"
+        "   केन्द्र में 'बनाम'\n"
+        "   '<राज्य> राज्य द्वारा पुलिस थाना ____ जिला ____ .......... अनावेदक'\n"
+        "4. शीर्षक (केन्द्रित — कोई markup नहीं): या तो धारा-कथन 'आवेदन पत्र अन्तर्गत "
+        "धारा 94 भा.ना.सु.सं. (91 द.प्र.सं.)' अथवा प्रयोजन-कथन 'आवेदन पत्र वास्ते "
+        "<वस्तु> तलब किये जाने बावत्।'\n"
+        "5. 'माननीय न्यायालय,' (या 'माननीय महोदय,') फिर 'आवेदक/आवेदिका की ओर से आवेदन "
+        "पत्र निम्न प्रकार प्रस्तुत है :-'\n"
+        "6. क्रमांकित अनुच्छेद, प्रत्येक 'यहकि,' से प्रारम्भ — प्रकरण का संदर्भ; कौन-सा "
+        "दस्तावेज़/फुटेज/केस-डायरी (documents_sought) किसके आधिपत्य में है (<custodian>, "
+        "<custodian_address>); वह न्याय-निर्णय हेतु क्यों आवश्यक/प्रासंगिक है (relevance "
+        "field); धारक उसे न्यायालयीन आदेश के बिना प्रस्तुत नहीं करेगा।\n"
+        "7. प्रार्थना (बिना किसी 'प्रार्थना'/'PRAYER' शीर्षक के, सीधे अनुच्छेद रूप में): "
+        "'अत: माननीय न्यायालय से निवेदन है कि <custodian> से <documents_sought> को तलब "
+        "कर ... का आदेश पारित करने की कृपा करें।'\n"
+        "8. हस्ताक्षर ब्लॉक: 'दिनांक:- <filing_date>      प्रार्थी/प्रार्थिनी' फिर "
+        "'<applicant_name> - आवेदक/आवेदिका' फिर 'द्वारा अभिभाषक <advocate_name>'।\n"
+        "नोट: इस आवेदन के समर्थन में शपथपत्र संलग्न होता है पर वह एक पृथक दस्तावेज़ है "
+        "(general_affidavit) — इस आवेदन के मुख्य भाग में न जोड़ें।\n\n"
+        "ENGLISH MODE (only if lang=en): mirror the same structure — court header; "
+        "'Case No. <case_no>'; applicant-first party block '<applicant> ... Applicant' "
+        "/ 'Versus' / 'State of <State> through P.S. ____ ... Non-applicant'; title "
+        "'APPLICATION UNDER SECTION 94 BNSS (91 CrPC) TO CALL FOR <documents>'; 'That "
+        "...' numbered paragraphs (case context; the documents/CCTV footage/case diary "
+        "sought; that they are in the custody of <custodian> at <custodian_address>; "
+        "their relevance to a just decision; the custodian will not produce them "
+        "without a court order); a flowing prayer (NO 'PRAYER' heading) directing "
+        "<custodian> to produce the listed documents/record; signature 'Applicant' + "
+        "'through Advocate <advocate_name>'."
     ),
     "example_prompts": [
-        "Application to call bank statements of accused from SBI Murar branch in 420 IPC case",
-        "Production of CCTV footage from hotel where alleged offence took place",
+        "धारा 91 — पुलिस थाना से घटना के समय की सी.सी.टी.वी. फुटेज तलब कराना है, बचाव हेतु आवश्यक",
+        "Call the case diary with the IO and bank statements from an SBI branch into the record in a 420 IPC case",
     ],
 }
 
@@ -702,8 +959,8 @@ EXAMINATION_311 = {
     "category":        "procedural",
     "tier":            2,
     "popularity":      3,
-    "quality":         "v1-ai",
-    "description":     "Application to summon and examine an additional witness (or re-call a previously examined witness) at any stage of inquiry / trial.",
+    "quality":         "v2-ref",
+    "description":     "Application u/s 311 CrPC (348 BNSS) to summon / recall a material witness at the evidence stage — structure decoded verbatim from real MP filings (अभियोगी/अभियुक्तगण party block, प्रार्थी voice, यहकि paras: case fixed for evidence → witness material → bona fide, not for delay; title 'आवेदन पत्र अन्तर्गत धारा 311 द.प्र.सं.').",
     "fields": [
         {"key": "court_name",        "label_en": "Court",                          "label_hi": "न्यायालय",                "type": "text",     "required": True,  "section": "court"},
         {"key": "case_no",           "label_en": "Case number",                    "label_hi": "प्रकरण क्रमांक",            "type": "text",     "required": True,  "section": "court"},
@@ -717,18 +974,45 @@ EXAMINATION_311 = {
         {"key": "filing_date",       "label_en": "Date",                           "label_hi": "दिनांक",                       "type": "date",     "required": True,  "section": "filing"},
     ],
     "format_spec": (
-        "Generate a S.348 BNSS / 311 CrPC application to examine an additional witness. Structure:\n"
-        "1. Court header + case number.\n"
-        "2. Parties.\n"
-        "3. Title: 'APPLICATION UNDER S.348 BNSS / 311 CrPC FOR SUMMONING AND EXAMINATION OF "
-        "ADDITIONAL WITNESS' centred + underlined.\n"
-        "4. Numbered paras: (1) case stage; (2) the witness <witness_name> r/o <witness_address> "
-        "is material to the just decision of the case; (3) what he/she will depose (use "
-        "<evidence_summary>); (4) why this evidence is essential and could not be brought earlier "
-        "(use <necessity>); (5) the application is not for delay but for a just decision.\n"
-        "5. 'PRAYER': summon <witness_name> and permit examination at the cost of applicant.\n"
-        "6. Signature + place + date.\n"
-        "Plain text output. Cite Mohanlal Shamji Soni v. Union (1991) on need for just decision."
+        "यह धारा 311 द.प्र.सं. (348 भा.ना.सु.सं.) के अंतर्गत साक्षी को समन/पुनः बुलाकर साक्ष्य कराने "
+        "हेतु एक संक्षिप्त आवेदन है। नीचे दी गई वास्तविक न्यायालयीन फाइलिंग संरचना का अक्षरशः पालन करें:\n\n"
+        "शीर्ष (केन्द्र में):\n"
+        "  न्यायालय माननीय <court_name> महोदय <जिला>  (सत्र हेतु '<क्रम> अपर सत्र न्यायाधीश', "
+        "मजिस्ट्रेट हेतु 'न्यायिक दण्डाधिकारी प्रथम श्रेणी')\n"
+        "  प्रकरण क्रमांक- <case_no> सत्रवाद/परिवाद\n\n"
+        "पक्षकार-ब्लॉक (आपराधिक प्रकरण का मानक रूप):\n"
+        "  <राज्य> शासन  ----  अभियोगी\n"
+        "  केन्द्र में:  बनाम\n"
+        "  <अभियुक्त का नाम> -----  अभियुक्तगण\n"
+        "  (<applicant_role> के अनुसार आवेदन 'प्रार्थी' की ओर से होगा — अभियोजन हो तो शासन, बचाव हो "
+        "तो अभियुक्त/आवेदक।)\n\n"
+        "शीर्षक (केन्द्र में):\n"
+        "  आवेदन पत्र अन्तर्गत धारा 311 द.प्र.सं.\n\n"
+        "प्रस्तावना:\n"
+        "  माननीय महोदय,\n"
+        "  प्रार्थी की ओर से आवेदन पत्र निम्न प्रकार प्रस्तुत है :-\n\n"
+        "कथानक — प्रत्येक अनुच्छेद 'यहकि,' से (वास्तविक, संक्षिप्त प्रवाह):\n"
+        "  • यहकि, प्रार्थी का प्रकरण माननीय न्यायालय के समक्ष साक्ष्य हेतु नियत है।\n"
+        "  • यहकि, साक्षी <witness_name> [निवासी <witness_address>] का परीक्षण आवश्यक है — कारण "
+        "<necessity> (उदा. धारा 161 का कथन अभियोग पत्र में संलग्न है किन्तु ट्रायल प्रोग्राम में नाम "
+        "त्रुटिवश रह गया / पुनः परीक्षण आवश्यक / दस्तावेज़ साबित कराना है)।\n"
+        "  • यहकि, उक्त साक्षी प्रकरण का महत्वपूर्ण साक्षी है, जो <evidence_summary> बाबत् साक्ष्य "
+        "देगा; प्रकरण के न्यायपूर्ण निराकरण हेतु उसकी साक्ष्य कराया जाना न्यायोचित व न्याय संगत है।\n"
+        "  • यहकि, यह आवेदन सद्भावना पर आधारित है तथा विलम्ब हेतु नहीं, अत: स्वीकार किये जाने योग्य "
+        "है।\n\n"
+        "प्रार्थना (कोई अलग शीर्षक नहीं) — सीधे:\n"
+        "  अत: श्रीमान जी से निवेदन है कि साक्षी <witness_name> की साक्ष्य कराये जाने हेतु आदेश पारित "
+        "करने की कृपा करें।\n\n"
+        "अंत में:\n"
+        "  दिनांक :- <filing_date>                          प्रार्थी\n"
+        "                                                   द्वारा अभिभाषक\n"
+        "                                          <advocate_name> -- एडवोकेट\n\n"
+        "ENGLISH MODE (only if lang=en): mirror the same short structure — court header + case number, "
+        "'State of <State> … Prosecution / Versus / … Accused', title 'APPLICATION UNDER SECTION 311 "
+        "Cr.P.C. (348 BNSS)', numbered 'That…' paragraphs (case fixed for evidence; the witness "
+        "<witness_name> is material; what he/she will depose; the application is bona fide and not for "
+        "delay — cf. Mohanlal Shamji Soni v. Union of India, (1991) 3 SCC), and a prayer to permit the "
+        "witness's evidence. Use 'applicant/Prosecution/accused'."
     ),
     "example_prompts": [
         "311 application to call the doctor who examined the victim — missed in original list",
@@ -747,8 +1031,8 @@ COMPROMISE_320 = {
     "category":        "procedural",
     "tier":            1,
     "popularity":      4,
-    "quality":         "v1-ai",
-    "description":     "Joint application by complainant and accused to compound the offence and seek closure. Available for compoundable offences listed in S.320 CrPC / S.359 BNSS.",
+    "quality":         "v2-ref",
+    "description":     "Application u/s 320 CrPC (359 BNSS) for permission to compound an offence on the basis of a राजीनामा (compromise). Decoded verbatim from real MP filings — filed from the फरियादी side, 'समाज के प्रतिष्ठित लोगों द्वारा आपसी सहमति' recital, prayer for 'राजीनामा किये जाने की अनुमति', distinctive dual-signature block ('मुझे राजीनामा स्वीकार है' + accused). For non-compoundable offences it rides with a §482 HC quashing petition.",
     "fields": [
         {"key": "court_name",        "label_en": "Court",                          "label_hi": "न्यायालय",                "type": "text",     "required": True,  "section": "court"},
         {"key": "case_no",           "label_en": "Case number",                    "label_hi": "प्रकरण क्रमांक",            "type": "text",     "required": True,  "section": "court"},
@@ -762,24 +1046,57 @@ COMPROMISE_320 = {
         {"key": "filing_date",       "label_en": "Date",                           "label_hi": "दिनांक",                       "type": "date",     "required": True,  "section": "filing"},
     ],
     "format_spec": (
-        "Generate a Compromise / Rajinama application under S.359 BNSS / 320 CrPC. Structure:\n"
-        "1. Court header + case number.\n"
-        "2. Parties — both complainant AND accused are joint applicants.\n"
-        "3. Title: 'राजीनामा आवेदन धारा 359 BNSS / 320 दं.प्र.सं. अन्तर्गत' / 'COMPROMISE PETITION "
-        "UNDER S.359 BNSS / 320 CrPC' centred + underlined.\n"
-        "4. Numbered paras: (1) parties to the case; (2) the offence is compoundable under S.320 (1) "
-        "/ S.320 (2) (specify which sub-section); (3) parties have voluntarily settled the matter — "
-        "describe terms (use <compromise_summary>); (4) there is no pressure or coercion; "
-        "(5) parties wish to bury the dispute.\n"
-        "5. 'PRAYER': (a) accept the compromise; (b) acquit / discharge the accused under "
-        "S.320 / S.359 BNSS; (c) close the proceedings.\n"
-        "6. Signature of BOTH complainant + accused + their advocates.\n"
-        "7. Verification by both parties separately.\n"
-        "Tone: balanced, dignified. Plain text output."
+        "यह राजीनामा (compromise) आवेदन पत्र है — असली MP फाइलिंग से verbatim decode किया गया। "
+        "इसे फरियादी (complainant/शिकायतकर्ता) की ओर से प्रस्तुत किया जाता है, दोनों पक्षों की ओर से नहीं। "
+        "बिल्कुल इसी ढाँचे में हिन्दी में लिखें:\n\n"
+        "1. न्यायालय शीर्षक — केन्द्र में, जैसा <court_name> में दिया है "
+        "(जैसे 'न्यायालय श्रीमान् मुख्य न्यायिक मजिस्ट्रेट महोदय, <स्थान>' या उच्च न्यायालय राजीनामे के साथ "
+        "धारा 482 quashing के लिए हो तो 'उच्च न्यायालय <राज्य> खण्डपीठ <स्थान>')।\n"
+        "2. प्रकरण पंक्ति — '<case_no>' तथा अपराध की धाराएँ '<sections>' (जैसे 'अपराध धारा 323, 294, 506 भा.द.वि.')।\n"
+        "3. पक्षकार खण्ड (HC शैली, बहती हुई पंक्तियाँ) :\n"
+        "   '<accused_name>' .......... आवेदक\n"
+        "   'वि0)' (विरुद्ध)\n"
+        "   '<राज्य> शासन व अन्य' .......... अनावेदकगण\n"
+        "   (परिवादी <complainant_name> का नाम अनावेदक/फरियादी के रूप में पक्षकारों में रखें।)\n"
+        "4. आरम्भिक पंक्ति : 'फरियादी की ओर से आवेदन पत्र निम्न प्रकार प्रस्तुत है :-'\n"
+        "5. शीर्षक — केन्द्र में, रेखांकित : 'आवेदन पत्र अन्तर्गत धारा 320 दं0 प्रक्रिया संहिता 1973' "
+        "(यदि उपधारा लागू हो तो '320(2)')।\n"
+        "6. 'यहकि,' से शुरू होने वाले क्रमांकित पैरा :\n"
+        "   (1) उक्त प्रकरण फरियादी की रिपोर्ट पर पंजीबद्ध हुआ था / न्यायालय में विचाराधीन है;\n"
+        "   (2) अब समाज के प्रतिष्ठित लोगों के बीच-बचाव/समझाइश से उभय पक्षों ने आपसी सहमति के आधार पर "
+        "राजीनामा कर लिया है (<compromise_summary> के तथ्य यहाँ बुनें);\n"
+        "   (3) फरियादी/पीड़ित पक्ष को आवेदक/अभियुक्त के विरुद्ध अब कोई शिकायत या आपत्ति शेष नहीं है, "
+        "तथा वह स्वेच्छा से, बिना किसी दबाव या प्रलोभन के, राजीनामा कर रहा है (<voluntary_decl>);\n"
+        "   (4) उभय पक्ष आपसी विवाद समाप्त कर शान्तिपूर्वक रहना चाहते हैं, अतः राजीनामा सद्भावना पर "
+        "आधारित होकर स्वीकार योग्य है।\n"
+        "7. प्रार्थना (बिना 'प्रार्थना' शीर्षक के, सीधे 'अतः' से) : माननीय न्यायालय से निवेदन है कि "
+        "उभय पक्ष के मध्य हुए राजीनामे को स्वीकार कर राजीनामा किये जाने की अनुमति प्रदान करने की कृपा करें। "
+        "(NOTE: prayer केवल 'राजीनामा किये जाने की अनुमति' की है — सीधे 'दोषमुक्त/उन्मोचित करें' मत लिखें; "
+        "वह परिणाम न्यायालय राजीनामा स्वीकार होने पर स्वयं देता है।)\n"
+        "8. विशिष्ट दोहरा-हस्ताक्षर खण्ड (यही इस दस्तावेज़ की पहचान है) — प्रार्थना के बाद यह पंक्ति : "
+        "'मुझे उपरोक्त राजीनामा स्वीकार है।' फिर हस्ताक्षर :\n"
+        "   1- (अभियोक्त्री/पीड़िता/परिवादी '<complainant_name>')\n"
+        "   2- / 3- (अन्य फरियादीगण, यदि हों)\n"
+        "   तदुपरान्त पृथक से अभियुक्त के हस्ताक्षर : '<accused_name> - अभियुक्त'\n"
+        "   तथा 'अधिवक्ता <advocate_name>', स्थान '<place>', दिनांक '<filing_date>'।\n"
+        "9. यदि अपराध असंज्ञेय/non-compoundable है (जैसे 376/POCSO/गम्भीर धाराएँ) तो यह राजीनामा अकेले "
+        "मजिस्ट्रेट के समक्ष चलने योग्य नहीं — इसे उच्च न्यायालय में धारा 482 दं.प्र.सं. (528 BNSS) "
+        "quashing याचिका के साथ संलग्न कर प्रस्तुत करें, यह आवेदन में स्पष्ट उल्लेख करें।\n\n"
+        "ENGLISH MODE (only if lang=en): mirror the SAME structure in English — court header, case "
+        "line with offence sections, applicant(=accused)/respondent(=State) party block, opening "
+        "'The following application is submitted on behalf of the complainant:-', centred underlined "
+        "title 'APPLICATION UNDER SECTION 320 CrPC 1973', 'That,'-numbered paragraphs (FIR/case "
+        "registered → reputable members of society mediated → parties have compromised mutually of "
+        "their own free will without coercion → complainant has no grievance left → compromise is "
+        "bona fide and fit to be accepted), prayer ONLY to 'permit the compromise between the "
+        "parties' (do NOT directly draft 'acquit/discharge'), then the same dual-endorsement block "
+        "('I accept the above compromise.' signed by complainant/victim, then separately by the "
+        "accused), advocate, place, date; and the same §482 HC-quashing note for non-compoundable "
+        "offences. Plain text output, no markdown."
     ),
     "example_prompts": [
-        "Rajinama between Sharma and Verma in 323, 504 IPC — money repaid, dispute settled",
-        "Compromise application in 138 NI Act — accused paid the full cheque amount + interest",
+        "राजीनामा 323, 294, 506 भा.द.वि. में — मोहल्ले के बुजुर्गों की समझाइश से फरियादी और अभियुक्त में सुलह हो गई",
+        "138 NI Act में राजीनामा आवेदन — अभियुक्त ने पूरी चेक राशि ब्याज सहित चुका दी, फरियादी को आपत्ति नहीं",
     ],
 }
 
@@ -794,8 +1111,8 @@ DISPENSE_ATTENDANCE_205 = {
     "category":        "procedural",
     "tier":            2,
     "popularity":      3,
-    "quality":         "v1-ai",
-    "description":     "Application by an accused (typically in non-serious / summons cases) to be permitted to appear through an advocate instead of in person.",
+    "quality":         "v2-ref",
+    "description":     "Application u/s 205 CrPC (228 BNSS) by an accused to be exempted from personal attendance and appear through counsel. Decoded verbatim from a real MP JMFC filing — state-first criminal caption (राज्य …अभियोगी / आरोपीगण), 'प्रार्थीगण/आरोपी की ओर से' opening, यहकि hardship narrative (age/illness/distance/dependant care), the key undertakings (अधिवक्ता प्रत्येक कार्यवाही हेतु तत्पर + 'जब भी आदेशित तब शब्दानुसार उपस्थित होंगे'), prayer 'व्यक्तिगत उपस्थिति माफ कर जरिये अभिभाषक उपस्थित मान्य'. No section number in the Hindi title beyond धारा 205 द.प्र.सं.",
     "fields": [
         {"key": "court_name",        "label_en": "Court",                          "label_hi": "न्यायालय",                "type": "text",     "required": True,  "section": "court"},
         {"key": "case_no",           "label_en": "Case number",                    "label_hi": "प्रकरण क्रमांक",            "type": "text",     "required": True,  "section": "court"},
@@ -808,19 +1125,53 @@ DISPENSE_ATTENDANCE_205 = {
         {"key": "filing_date",       "label_en": "Date",                           "label_hi": "दिनांक",                       "type": "date",     "required": True,  "section": "filing"},
     ],
     "format_spec": (
-        "Generate a S.228 BNSS / 205 CrPC application to dispense with personal appearance. Structure:\n"
-        "1. Court header + case number + parties.\n"
-        "2. Title: 'APPLICATION UNDER S.228 BNSS / 205 CrPC FOR EXEMPTION FROM PERSONAL ATTENDANCE'.\n"
-        "3. Numbered paras: (1) summons issued; (2) offence is bailable / summons-triable / minor; "
-        "(3) accused is willing to be represented by counsel for all proceedings; (4) hardship "
-        "(use <hardship> field); (5) accused undertakes to appear when required.\n"
-        "4. 'PRAYER': dispense with personal attendance under S.228 BNSS / 205 CrPC.\n"
-        "5. Signature + place + date.\n"
-        "Plain text output."
+        "यह धारा 205 द.प्र.सं. (228 भा.ना.सु.सं./BNSS) का व्यक्तिगत उपस्थिति से छूट हेतु आवेदन है — "
+        "असली MP JMFC फाइलिंग से verbatim decode किया गया। हिन्दी में बिल्कुल इसी ढाँचे में लिखें:\n\n"
+        "1. न्यायालय शीर्षक (केन्द्र में): 'न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी <स्थान>' "
+        "(<court_name> के अनुसार)।\n"
+        "2. प्रकरण पंक्ति: 'प्रकरण क्रमांक- <case_no>' (जैसे '129/2023 आर.सी.टी.')।\n"
+        "3. पक्षकार खण्ड (criminal — राज्य पहले):\n"
+        "   '<राज्य> राज्य' .......... अभियोगी\n"
+        "   'बनाम'\n"
+        "   '<accused_name> आदि' .......... आरोपीगण  (एक ही आरोपी हो तो 'आरोपी', एकवचन)\n"
+        "4. शीर्षक (केन्द्र, रेखांकित): 'आवेदन पत्र अन्तर्गत धारा 205 द.प्र.सं.' (BNSS में 'धारा 228 "
+        "भा.ना.सु.सं.')। शीर्षक में इससे अधिक अंग्रेज़ी न जोड़ें।\n"
+        "5. सम्बोधन + आरम्भ: 'माननीय महोदय,' फिर 'प्रार्थीगण/आरोपी की ओर से आवेदन पत्र निम्नानुसार "
+        "प्रस्तुत है :-' (एक आरोपी हो तो 'प्रार्थी/आरोपी की ओर से')।\n"
+        "6. 'यहकि,' से शुरू होने वाले क्रमांकित पैरा (असली क्रम):\n"
+        "   (1) प्रार्थीगण के विरुद्ध उक्त प्रकरण विचाराधीन है जो [आज दिनांक को] साक्ष्य हेतु नियत है;\n"
+        "   (2) कठिनाई का विस्तृत वर्णन — <hardship> को यहाँ बुनें (वृद्धावस्था/<accused_age>, गम्भीर "
+        "बीमारी जैसे कैंसर/पैरालाइसिस, इलाजरत होना, आश्रित की 24-घंटे देखभाल, न्यायालय की दूरी "
+        "जैसे दूरस्थ नगर से न्यायालय आना-जाना कठिन/जोखिमभरा); निष्कर्ष: 'ऐसी स्थिति में प्रार्थीगण को "
+        "न्यायालय श्रीमान के समक्ष व्यक्तिगत उपस्थिति से उन्मुक्त किया जाना न्यायहित में आवश्यक है';\n"
+        "   (3) UNDERTAKING-1: 'प्रार्थीगण के अधिवक्ता प्रत्येक कार्यवाही करने हेतु तत्पर हैं, प्रार्थीगण "
+        "की अनुपस्थिति में न्यायालय द्वारा दिये जाने वाले आदेश का पालन नियत दिनांक को होता रहेगा';\n"
+        "   (4) UNDERTAKING-2 (मुख्य): 'जब भी माननीय न्यायालय द्वारा प्रार्थीगण को व्यक्तिगत रूप से "
+        "उपस्थित होने हेतु आदेशित किया जावेगा तब प्रार्थीगण द्वारा आदेश का पालन शब्दानुसार किया जावेगा';\n"
+        "   (5) 'प्रस्तुत प्रार्थना पत्र सद्भावना पर आधारित होकर स्वीकार किये जाने योग्य है';\n"
+        "   (6) 'उपरोक्त परिस्थिति और प्रकरण की प्रकृति को देखते हुये प्रार्थीगण को व्यक्तिगत उपस्थिति से "
+        "[स्थाई रूप से] अभिमुक्ति प्रदान किया जाना न्याय संगत है'।\n"
+        "7. प्रार्थना (बिना 'प्रार्थना' शीर्षक के, सीधे 'अत:' से): 'अत: श्रीमान जी से निवेदन है कि "
+        "प्रार्थीगण के आवेदन पर सद्भावनापूर्वक विचार कर प्रार्थीगण की व्यक्तिगत उपस्थिति माफ कर जरिये "
+        "अभिभाषक उपस्थित मान्य किये जाने का आदेश पारित करने की कृपा करें।'\n"
+        "8. हस्ताक्षर: 'दिनांक- <filing_date>' दाहिनी ओर 'प्रार्थीगण' फिर सभी आरोपियों के नाम पंक्तिवार, "
+        "'-- आरोपीगण', फिर 'द्वारा अभिभाषक' और '<advocate_name> - एडवोकेट'।\n\n"
+        "ENGLISH MODE (only if lang=en): mirror the SAME structure in English — 'IN THE COURT OF THE "
+        "JUDICIAL MAGISTRATE FIRST CLASS, <place>' header; 'Case No. <case_no>'; state-first caption "
+        "'State of <State> …Prosecution / Versus / <accused_name> & ors …Accused'; centred underlined "
+        "title 'APPLICATION UNDER SECTION 205 CrPC'; 'To the Hon'ble Court,' + 'The following "
+        "application is submitted on behalf of the applicant-accused:-'; 'That,'-numbered paragraphs "
+        "(case pending and fixed for evidence → detailed hardship from <hardship> → conclusion that "
+        "exemption is necessary in the interest of justice → undertaking that counsel is ready for "
+        "every proceeding and orders will be complied with in the applicant's absence → undertaking "
+        "to appear in person whenever directed → application is bona fide → permanent exemption is "
+        "just); prayer 'It is therefore prayed that the personal attendance of the applicant be "
+        "exempted and appearance through counsel be permitted'; signature 'Applicant / Accused, "
+        "through counsel <advocate_name>'. Plain text output, no markdown."
     ),
     "example_prompts": [
-        "S.205 application — client is 78 years old, lives in Mumbai, case in Gwalior — health issues",
-        "Dispense with attendance in NI Act 138 case, accused runs business in Bangalore",
+        "धारा 205 आवेदन — आरोपी 68 वर्ष का, कैंसर पीड़ित, पत्नी पैरालाइसिस से ग्रस्त, दूरस्थ नगर से न्यायालय आना असंभव",
+        "धारा 205 — 138 NI Act प्रकरण, आरोपी बैंगलोर में व्यवसाय करता है, हर तारीख पर आना कठिन, जरिये अभिभाषक उपस्थिति की छूट चाहिए",
     ],
 }
 
@@ -835,8 +1186,8 @@ SUPURDGI_451_457 = {
     "category":        "procedural",
     "tier":            2,
     "popularity":      4,
-    "quality":         "v1-ai",
-    "description":     "Application for interim custody (supurdgi) of a vehicle / property seized by police and lying in malkhana, pending disposal of the case.",
+    "quality":         "v2-ref",
+    "description":     "Application u/s 451/457 CrPC (497/503 BNSS) for interim custody (सुपुर्दगी) of a vehicle / property / jewellery seized by police and lying at the थाना, pending disposal. Decoded verbatim from real MP filings — applicant-first आवेदक/अनावेदक caption, 'सुपुर्दगी' case-line suffix, deterioration ground, Sundarbhai Ambalal Desai (AIR 2003 SC 638) authority, undertakings (no sale/alteration, produce on demand) — NOT a bail bond.",
     "fields": [
         {"key": "court_name",        "label_en": "Court",                          "label_hi": "न्यायालय",                "type": "text",     "required": True,  "section": "court"},
         {"key": "case_no_or_fir",    "label_en": "Case / FIR number",              "label_hi": "प्रकरण / FIR क्रमांक",       "type": "text",     "required": True,  "section": "court"},
@@ -850,25 +1201,70 @@ SUPURDGI_451_457 = {
         {"key": "filing_date",       "label_en": "Date",                           "label_hi": "दिनांक",                       "type": "date",     "required": True,  "section": "filing"},
     ],
     "format_spec": (
-        "Generate a Supurdgi application for interim release of seized property. Structure:\n"
-        "1. Court header + case/FIR number.\n"
-        "2. Applicant block + address + 'owner' status.\n"
-        "3. State of <state> as non-applicant.\n"
-        "4. Title: 'सुपुर्दगी आवेदन धारा 497/503 BNSS / 451/457 दं.प्र.सं.' / 'APPLICATION FOR "
-        "INTERIM CUSTODY UNDER S.497 / 503 BNSS / 451 / 457 CrPC' centred + underlined.\n"
-        "5. Numbered paras: (1) applicant is registered owner of <property_desc>; (2) the property "
-        "was seized on <seizure_date> by <police_station> in connection with <case_no_or_fir>; "
-        "(3) ownership proofs — RC / sale deed (use <ownership_proof>); (4) prolonged custody in "
-        "malkhana causes depreciation / deterioration; (5) Sunderbhai Ambalal Desai v. State of Gujarat "
-        "(2002) settles right to interim custody; (6) applicant undertakes to produce property when "
-        "directed + not alienate.\n"
-        "6. 'PRAYER': release <property_desc> on supurdgi to applicant on furnishing bond + sureties.\n"
-        "7. Signature + place + date.\n"
-        "Plain text output."
+        "यह §451/§457 द.प्र.सं. (§497/§503 भा.ना.सु.सं.) का सुपुर्दगी आवेदन है — किसी "
+        "अपराध में पुलिस द्वारा जप्त वाहन/संपत्ति/आभूषण को प्रकरण के निराकरण तक स्वामी "
+        "को अंतरिम सुपुर्दगी पर दिलाने हेतु। नीचे की संरचना वास्तविक MP filings से ली "
+        "गई है — इसी क्रम व शब्दावली का कड़ाई से पालन करें।\n\n"
+        "1. न्यायालय शीर्ष (केन्द्रित): court_name से — जैसे 'न्यायालय माननीय न्यायिक "
+        "दण्डाधिकारी प्रथम श्रेणी <स्थान>' अथवा 'न्यायालय माननीय विशेष न्यायाधीश महोदय "
+        "<(विशेष अधिनियम)> <स्थान>'।\n"
+        "2. प्रकरण पंक्ति: 'अपराध क्रमांक- <case_no_or_fir> सुपुर्दगी आवेदन' (case-line के "
+        "अंत में 'सुपुर्दगी' अवश्य लिखें)।\n"
+        "3. पक्षकार ब्लॉक — आवेदक पहले:\n"
+        "   '<applicant_name> पुत्र/पत्नी श्री ____, आयु- ___ वर्ष, व्यवसाय- ____, "
+        "निवासी- <applicant_address> .......... आवेदक/आवेदिका'\n"
+        "   केन्द्र में 'बनाम'\n"
+        "   '<राज्य> शासन द्वारा पुलिस थाना <police_station> जिला ____ .......... अनावेदक'\n"
+        "4. शीर्षक (केन्द्रित — कोई markup नहीं): 'आवेदन पत्र अन्तर्गत धारा 451, 457 "
+        "द0प्र0सं0' (यदि BNSS शैली अपेक्षित हो तो 'धारा 497, 503 भा0ना0सु0सं0')।\n"
+        "5. 'माननीय महोदय,' फिर 'आवेदक/आवेदिका की ओर से आवेदन पत्र निम्न प्रकार प्रस्तुत "
+        "है :-'\n"
+        "6. क्रमांकित अनुच्छेद, प्रत्येक 'यहकि,' से प्रारम्भ:\n"
+        "   (1) प्रार्थी <property_desc> का पंजीकृत/वैध स्वामी है (ownership_proof — आर.सी./"
+        "विक्रय-पत्र/दस्तावेज़ प्रार्थी के पास मौजूद)।\n"
+        "   (2) उक्त संपत्ति को पुलिस थाना <police_station> द्वारा अपराध क्रमांक "
+        "<case_no_or_fir> अन्तर्गत धारा ____ में दिनांक <seizure_date> को जप्त कर थाने पर "
+        "रखा गया है।\n"
+        "   (3) प्रार्थी की उक्त अपराध में कोई संलिप्तता नहीं है / संपत्ति झूठा फंसाई गई है "
+        "(प्रकरण के तथ्यानुसार)।\n"
+        "   (4) जप्तशुदा संपत्ति थाने पर खुली अवस्था में पड़ी है जिसके दिन-प्रतिदिन खराब/"
+        "नष्ट होने व साक्ष्यिक मूल्य समाप्त होने की पूर्ण संभावना है (वाहन मूल्यहीन हो "
+        "जाएगा / आभूषण खुर्द-बुर्द हो सकते हैं)।\n"
+        "   (5) माननीय सर्वोच्च न्यायालय द्वारा सुन्दरभाई अम्बालाल देसाई बनाम गुजरात राज्य, "
+        "ए.आई.आर. 2003 एस.सी. 638 में प्रतिपादित सिद्धांतानुसार जप्तशुदा वाहन/संपत्ति "
+        "प्रकरण के निराकरण तक स्वामी को सुपुर्दगी पर दी जा सकती है।\n"
+        "   (6) सुपुर्दगी पर दिये जाने की दशा में प्रार्थी संपत्ति का विक्रय नहीं करेगा, न "
+        "ही रंग-रूप में कोई परिवर्तन करेगा, तथा न्यायालय द्वारा तलब करने पर स्वयं के व्यय "
+        "पर उसे प्रस्तुत करेगा एवं समस्त अधिरोपित शर्तों का अक्षरश: पालन करेगा।\n"
+        "   (अन्तिम) 'यहकि, अन्य तर्क वक्त बहस मौखिक रूप से निवेदित किये जावेंगे।'\n"
+        "7. प्रार्थना (बिना किसी 'प्रार्थना'/'PRAYER' शीर्षक के, सीधे अनुच्छेद रूप में): 'अत: "
+        "श्रीमान न्यायालय से निवेदन है कि आवेदन स्वीकार कर [पुलिस थाना <police_station> से "
+        "अपराध क्रमांक <case_no_or_fir> की केस डायरी मय कैफियत तलब कर] जप्तशुदा "
+        "<property_desc> को प्रकरण के निराकरण तक प्रार्थी को सुपुर्दगी पर दिये जाने का आदेश "
+        "पारित करने की कृपा करें।'\n"
+        "8. हस्ताक्षर ब्लॉक: 'दिनांक:- <filing_date>      प्रार्थी' फिर '<applicant_name> -- "
+        "आवेदक/आवेदिका' फिर 'द्वारा अभिभाषक <advocate_name>'।\n"
+        "नोट: समर्थन में शपथपत्र पृथक दस्तावेज़ है (general_affidavit) — इसमें न जोड़ें। "
+        "सुपुर्दगी प्रतिभूति/जमानत-बंध पर नहीं, बल्कि शर्तों/वचनबद्धता पर दी जाती है।\n\n"
+        "ENGLISH MODE (only if lang=en): mirror the same structure — court header; "
+        "'Crime No. <case_no_or_fir> — Supurdgi Application'; applicant-first party block "
+        "'<applicant> ... Applicant' / 'Versus' / 'State of <State> through P.S. "
+        "<police_station> ... Non-applicant'; title 'APPLICATION UNDER SECTION 451, 457 "
+        "CrPC (497, 503 BNSS)'; 'That ...' numbered paragraphs (applicant is the registered "
+        "owner of <property_desc> with valid documents <ownership_proof>; seized by "
+        "<police_station> in Crime No. <case_no_or_fir> on <seizure_date>; no involvement / "
+        "falsely implicated; the property lies open at the police station and is "
+        "deteriorating / losing evidentiary value; per Sundarbhai Ambalal Desai v. State of "
+        "Gujarat, AIR 2003 SC 638 seized property may be released on supurdgi to the owner "
+        "pending trial; undertakings — will not sell or alter it, will produce it whenever "
+        "the court directs, and will abide by all conditions); a flowing prayer (NO 'PRAYER' "
+        "heading) to release the property on supurdgi pending disposal; signature "
+        "'Applicant' + 'through Advocate <advocate_name>'. Supurdgi rests on "
+        "undertakings/conditions, NOT on a bail-style bond + sureties."
     ),
     "example_prompts": [
-        "Supurdgi of motorcycle seized in 379 IPC theft case — I'm the registered owner",
-        "Release of seized truck — Rs 15 lakh value, depreciating in police custody for 8 months",
+        "सुपुर्दगी — 34(2) आबकारी में जप्त बुलेरो, मुवक्किल पंजीकृत स्वामी, वाहन थाने पर खराब हो रहा",
+        "Release seized gold mangalsutra & earrings to the complainant-owner on supurdgi — lying in the malkhana",
     ],
 }
 
@@ -883,8 +1279,8 @@ NI_ACT_138 = {
     "category":        "commercial",
     "tier":            1,
     "popularity":      5,
-    "quality":         "v1-ai",
-    "description":     "Criminal complaint under §138 of the Negotiable Instruments Act for dishonour of cheque. Filed in the Magistrate / Commercial Court.",
+    "quality":         "v2-ref",
+    "description":     "Criminal complaint under §138 of the Negotiable Instruments Act for dishonour of cheque — structure decoded verbatim from real MP JMFC filings (अभियोगी/अभियुक्त idiom, full यहकि narrative, साक्ष्य सूची).",
     "fields": [
         {"key": "court_name",        "label_en": "Court",                          "label_hi": "न्यायालय",                "type": "text",     "required": True,  "section": "court", "hint": "JMFC / Special NI Act court / Commercial court"},
         {"key": "complainant_name",  "label_en": "Complainant",                    "label_hi": "परिवादी",                  "type": "name",     "required": True,  "section": "applicant"},
@@ -907,47 +1303,74 @@ NI_ACT_138 = {
         {"key": "filing_date",       "label_en": "Date",                           "label_hi": "दिनांक",                       "type": "date",     "required": True,  "section": "filing"},
     ],
     "format_spec": (
-        "Generate a S.138 NI Act criminal complaint. Critical: get the timeline right — cheque "
-        "presentation within 3 months of date; bank return; notice within 30 days of return; "
-        "complaint within 30 days after 15-day notice period expires. Structure:\n"
-        "1. Court header — 'IN THE COURT OF JMFC <district>' OR Special NI Act court if applicable.\n"
-        "2. Case block: 'Complaint Case No. ____ of <year>' / 'परिवाद क्रमांक ____'.\n"
-        "3. Complainant block: name / business / authorised signatory; address.\n"
-        "4. 'Versus' centred.\n"
-        "5. Accused block: name + address.\n"
-        "6. Title: 'COMPLAINT UNDER SECTION 138 READ WITH SECTION 142 OF THE NEGOTIABLE INSTRUMENTS "
-        "ACT, 1881' centred + underlined + bold.\n"
-        "7. 'The above-named complainant most respectfully submits as follows:'\n"
-        "8. Numbered paras:\n"
-        "   (1) Complainant is engaged in <business> at <address>.\n"
-        "   (2) Accused is well-known to the complainant and resides at <accused_address>.\n"
-        "   (3) The accused was liable to pay the complainant <cheque_amount> being <underlying_debt> "
-        "       — a legally enforceable debt/liability.\n"
-        "   (4) Towards discharge of the said liability, the accused issued cheque no. <cheque_no> "
-        "       dated <cheque_date> for <cheque_amount> drawn on <drawee_bank>.\n"
-        "   (5) Complainant presented the said cheque for collection on <deposit_date> through "
-        "       <his/her> banker.\n"
-        "   (6) The cheque was returned unpaid on <return_date> with the endorsement <return_reason>. "
-        "       The return memo is filed as Annex A-1.\n"
-        "   (7) Complainant issued a statutory legal notice dated <notice_date> to the accused calling "
-        "       upon him to pay the cheque amount within 15 days. Notice delivered on <notice_delivery>. "
-        "       Notice + postal proof at Annex A-2.\n"
-        "   (8) Despite receipt, the accused failed and neglected to make payment within 15 days.\n"
-        "   (9) The accused has thereby committed an offence punishable under S.138 NI Act.\n"
-        "   (10) Cause of action arose on the expiry of 15 days from the notice date i.e. <date>; "
-        "       this complaint is filed within 30 days thereof, hence within limitation under S.142.\n"
-        "9. 'LIST OF DOCUMENTS': original cheque, return memo, statutory notice, postal proof, "
-        "   ledger / invoice / loan note evidencing the underlying liability.\n"
-        "10. 'LIST OF WITNESSES': complainant, banker (if needed).\n"
-        "11. 'PRAYER': (a) take cognizance under S.138 NI Act read with S.142; (b) summon the accused "
-        "    and try him in accordance with law; (c) on conviction, sentence him to imprisonment up "
-        "    to 2 years and / or fine up to twice the cheque amount; (d) award compensation under "
-        "    S.357 CrPC / S.395 BNSS to make good the cheque amount with interest.\n"
-        "12. Verification: 'I, <complainant>, do hereby verify that the contents of this complaint "
-        "    are true to my personal knowledge.' + signature + place + date.\n"
-        "13. Below: 'Through Advocate: <advocate_name>, <enrolment_no>'.\n"
-        "Tone: methodical, dates and amounts precise — judges throw out complaints with timeline "
-        "errors. Plain text output."
+        "Reproduce the EXACT structure of a real MP Judicial-Magistrate §138 परिवाद पत्र "
+        "(decoded verbatim from the advocate's filings). In Hindi mode the whole document is "
+        "Devanagari; refer to the complainant as 'अभियोगी' and the accused as 'अभियुक्त'. "
+        "Do NOT write any English heading (no 'IN THE COURT OF', no 'COMPLAINT UNDER SECTION', "
+        "no 'PRAYER'/'VERIFICATION'/'LIST OF DOCUMENTS'). Structure:\n"
+        "1. Court header, centred: 'न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी <जिला>' "
+        "   (from court_name; if blank use a blank line — never invent).\n"
+        "2. Case line: 'प्रकरण क्रमांक- ________ /<वर्ष>            परिवाद पत्र'.\n"
+        "3. Complainant block (flowing line, NOT label:value): "
+        "'<अभियोगी का नाम> पुत्र <पिता>, आयु- ____ वर्ष, व्यवसाय- ________, निवासी- <पता> (<राज्य>)' "
+        "   then on the right '----- अभियोगी'.\n"
+        "4. Centred 'बनाम'.\n"
+        "5. Accused block (flowing): '<अभियुक्त का नाम> पुत्र ________, निवासी- <अभियुक्त का पता> "
+        "(<राज्य>)' then on the right '--- अभियुक्त'.\n"
+        "6. Centred title: 'परिवाद पत्र अन्तर्गत धारा 138 परक्राम्य लिखित अधिनियम' "
+        "   (no §142, no English — the frontend styles it bold/underlined).\n"
+        "7. 'माननीय न्यायालय,' then 'अभियोगी की ओर से अभियोग पत्र निम्न प्रकार प्रस्तुत है :-'\n"
+        "8. Numbered paragraphs, each opening 'यहकि,' — follow the real fact-flow:\n"
+        "   (1) पक्षकारों के मध्य सम्बन्ध (पारिवारिक/मित्रवत/व्यावसायिक) तथा मूल लेन-देन — अभियुक्त ने "
+        "       अभियोगी से <underlying_debt के अनुसार तिथि> को नगद <cheque_amount> (शब्दों में भी) "
+        "       प्राप्त की व नियत तिथि पर लौटाने का वादा किया.\n"
+        "   (2) मांग पर अभियुक्त ने भुगतान दायित्व स्वीकार करते हुये अपने खाते वाली बैंक <drawee_bank> "
+        "       का चैक क्रमांक <cheque_no> राशि <cheque_amount> दिनांकित <cheque_date>, स्वयं के "
+        "       हस्ताक्षरयुक्त, इस आश्वासन के साथ प्रदान किया कि वैध अवधि में प्रस्तुत करने पर भुगतान "
+        "       प्राप्त हो जाएगा.\n"
+        "   (3) अभियोगी ने उक्त चैक अपने खाते वाली बैंक ________ में दिनांक <deposit_date> को भुगतान "
+        "       हेतु प्रस्तुत किया, परन्तु चैक बिना भुगतान के दिनांक <return_date> को, मय रिटर्न मेमो, "
+        "       '<return_reason>' (अपर्याप्त निधि / खाता बन्द आदि) की टीप सहित वापिस प्राप्त हुआ.\n"
+        "   (4) अनादरण पर अभियोगी ने अपने अभिभाषक के माध्यम से दिनांक <notice_date> को अभियुक्त के पते "
+        "       पर रजिस्टर्ड ए.डी. से सूचना पत्र भेजा कि प्राप्ति के 15 दिवस के अन्दर चैक राशि का "
+        "       भुगतान करे.\n"
+        "   (5) सूचना पत्र अभियुक्त को दिनांक <notice_delivery> को प्राप्त/तामील हुआ "
+        "       (यदि अभियुक्त ने तामील से बचने हेतु लौटवाया हो तो डाक टीप 'तलाश करने पर व्यक्ति नहीं मिला' "
+        "       सहित विधिक रूप से तामील/deemed-service का उल्लेख करें); फिर भी भुगतान नहीं किया.\n"
+        "   (6) वाद कारण: नोटिस की 15-दिवसीय अवधि <notice_delivery + 15 दिन> को पूर्ण हुई, अगले दिन से "
+        "       वाद कारण उत्पन्न होकर आज दिनांक तक निरन्तर जारी है; अभियुक्त ने आज तक भुगतान नहीं किया.\n"
+        "   (7) अभियुक्त ने उक्त चैक अपने विधिक दायित्वों के उन्मोचन में दिया था व भुगतान हेतु विधिक "
+        "       रूप से उत्तरदायी है.\n"
+        "   (8) अभियुक्त ने अवैध हानि पहुँचाने व स्वयं को अवैध लाभ के उद्देश्य से, यह जानते हुये कि खाते "
+        "       में पर्याप्त राशि नहीं है (या चैक पर खाते से भिन्न हस्ताक्षर हैं), छलपूर्वक चैक दिया; उक्त "
+        "       कृत्य निगोसियेबल इंस्ट्रूमेंट एक्ट की धारा 138 के तहत दण्डनीय अपराध की श्रेणी में आता है.\n"
+        "   (9) क्षेत्राधिकार: अभियोगी का बैंक खाता <अभियोगी की प्रस्तुतकर्ता बैंक/शाखा — blank रखें यदि "
+        "       उपलब्ध न हो> में होने के कारण श्रीमान न्यायालय को श्रवणाधिकार एवं विचारण क्षेत्राधिकार "
+        "       प्राप्त है तथा उक्त अपराध श्रीमान न्यायालय के विचारण योग्य है.\n"
+        "   (10) उक्त विवादित चैक के सम्बन्ध में अभियोगी ने अभियुक्त के विरुद्ध भारत वर्ष के किसी भी अन्य "
+        "        न्यायालय में कोई अभियोग पत्र प्रस्तुत नहीं किया है, न लंबित है, न विचाराधीन है.\n"
+        "9. Prayer — NO separate heading; begin 'अत: माननीय महोदय से निवेदन है कि' — अभियुक्त के विरुद्ध "
+        "   धारा 138 निगोसियेबल इंस्ट्रूमेंट एक्ट के तहत अपराध का संज्ञान लेकर अभियुक्त को तलब कर, "
+        "   सख्त से सख्त अधिकतम दण्ड से दण्डित करने तथा चैक क्रमांक <cheque_no> दिनांकित <cheque_date> "
+        "   राशि <cheque_amount> से दुगनी राशि क्षतिपूर्ति के रूप में अभियोगी को अभियुक्त से दिलाये जाने "
+        "   का आदेश पारित करने की कृपा करें.\n"
+        "10. 'दिनांक:- <filing_date>' (बाएँ) तथा दाहिनी ओर 'प्रार्थी' / '<advocate_name>' / "
+        "    '<अभियोगी का नाम> --- अभियोगी'.\n"
+        "11. 'साक्ष्य सूची' heading, then witnesses, one per line: 'अभियोगी स्वयं कथन करेगा।' / "
+        "    'अभियोगी की बैंक से सम्बन्धित अधिकारी/कर्मचारी मय रिकॉर्ड' / 'अभियुक्त की बैंक से सम्बन्धित "
+        "    अधिकारी' / 'सूचना पत्र को पोस्ट करने वाला एवं रजिस्ट्री की डिलेवरी रिपोर्ट देने वाला सम्बन्धित "
+        "    डाक विभाग अधिकारी' / 'अन्य साक्षी प्रकरण के विचारण के दौरान श्रीमान न्यायालय की अनुमति से "
+        "    प्रस्तुत किये जावेंगे।'\n"
+        "12. Repeat 'दिनांक:- <filing_date>' (बाएँ) तथा दाहिनी ओर 'प्रार्थी' / "
+        "    '<अभियोगी का नाम> -- अभियोगी'.\n"
+        "Note: the affidavit (शपथपत्र) is a SEPARATE document in real practice — do NOT append it here. "
+        "Dates and amounts must be exact. Plain-text output only.\n"
+        "ENGLISH MODE: produce the faithful English equivalent of this same structure — 'IN THE COURT "
+        "OF THE JUDICIAL MAGISTRATE FIRST CLASS, <district>'; Complainant '... COMPLAINANT' / 'Versus' "
+        "/ Accused '... ACCUSED'; title 'COMPLAINT UNDER SECTION 138 OF THE NEGOTIABLE INSTRUMENTS ACT, "
+        "1881'; 'The complainant most respectfully submits as under:'; numbered 'That ...' paragraphs in "
+        "the same order; 'LIST OF WITNESSES'; prayer to take cognizance, summon and try the accused, "
+        "award maximum sentence and compensation of twice the cheque amount; date + 'Complainant' twice."
     ),
     "example_prompts": [
         "Cheque bounce — Rs 5 lakh cheque from Mukesh Sharma, returned 'insufficient funds' on 12.03.2026",
@@ -970,17 +1393,17 @@ DV_ACT_12 = {
     "category":        "family",
     "tier":            1,
     "popularity":      5,
-    "quality":         "v1-ai",
-    "description":     "Application under §12 of the Protection of Women from Domestic Violence Act, 2005 — seeking protection / residence / monetary / custody / compensation orders.",
+    "quality":         "v2-ref",
+    "description":     "Application under §12 of the Protection of Women from Domestic Violence Act, 2005 — structure decoded verbatim from real MP JMFC filings (व्यथित/प्रत्यर्थीगण idiom, यहकि narrative, the five section-wise reliefs §17/§18/§19/§20/§22, पूर्व मुकदमेंबाजी का ब्योरा, §19(8) स्त्रीधन वापसी).",
     "fields": [
-        {"key": "court_name",        "label_en": "Court (JMFC / Family)",          "label_hi": "न्यायालय",                "type": "text",     "required": True,  "section": "court"},
-        {"key": "aggrieved_name",    "label_en": "Aggrieved person (woman)",       "label_hi": "पीड़िता",                  "type": "name",     "required": True,  "section": "applicant"},
+        {"key": "court_name",        "label_en": "Court (JMFC / district)",        "label_hi": "न्यायालय / जिला",          "type": "text",     "required": True,  "section": "court"},
+        {"key": "aggrieved_name",    "label_en": "Aggrieved woman (व्यथिता)",       "label_hi": "व्यथिता (पीड़ित महिला)",     "type": "name",     "required": True,  "section": "applicant"},
         {"key": "aggrieved_father",  "label_en": "Father's name",                  "label_hi": "पिता का नाम",              "type": "name",     "required": True,  "section": "applicant"},
         {"key": "aggrieved_age",     "label_en": "Age",                            "label_hi": "आयु",                      "type": "text",     "required": False, "section": "applicant"},
         {"key": "aggrieved_address", "label_en": "Current address",                "label_hi": "वर्तमान पता",                "type": "address",  "required": True,  "section": "applicant"},
-        {"key": "respondent_name",   "label_en": "Respondent (husband / in-laws)", "label_hi": "अनावेदक",                  "type": "name",     "required": True,  "section": "respondent"},
-        {"key": "respondent_relation","label_en": "Relationship with aggrieved",   "label_hi": "पीड़िता से संबंध",          "type": "text",     "required": True,  "section": "respondent"},
-        {"key": "respondent_address","label_en": "Respondent address",             "label_hi": "अनावेदक का पता",            "type": "address",  "required": True,  "section": "respondent"},
+        {"key": "respondent_name",   "label_en": "Respondent(s) — husband + in-laws", "label_hi": "प्रत्यर्थीगण (पति व ससुरालीजन)", "type": "name",  "required": True,  "section": "respondent"},
+        {"key": "respondent_relation","label_en": "Relationship with aggrieved",   "label_hi": "व्यथिता से संबंध",          "type": "text",     "required": True,  "section": "respondent"},
+        {"key": "respondent_address","label_en": "Respondent address",             "label_hi": "प्रत्यर्थीगण का पता",        "type": "address",  "required": True,  "section": "respondent"},
         {"key": "marriage_date",     "label_en": "Marriage date",                  "label_hi": "विवाह दिनांक",               "type": "date",     "required": False, "section": "marriage"},
         {"key": "violence_narrative","label_en": "Acts of domestic violence",      "label_hi": "घरेलू हिंसा का विवरण",        "type": "longtext", "required": True,  "section": "facts", "hint": "Specific incidents — dates, places, what was done"},
         {"key": "shelter_status",    "label_en": "Where is aggrieved staying now", "label_hi": "वर्तमान आश्रय",              "type": "longtext", "required": True,  "section": "facts"},
@@ -991,39 +1414,75 @@ DV_ACT_12 = {
         {"key": "filing_date",       "label_en": "Date",                           "label_hi": "दिनांक",                       "type": "date",     "required": True,  "section": "filing"},
     ],
     "format_spec": (
-        "Generate a S.12 PWDVA application — typically filed by the woman through a Protection Officer "
-        "or directly. Structure:\n"
-        "1. Court header — 'IN THE COURT OF JMFC, <district>' or 'FAMILY COURT, <district>' centred + underlined.\n"
-        "2. Case block: 'Application No. ____ of <year>' / 'D.V. क्रमांक ____'.\n"
-        "3. Aggrieved person (आवेदिका) block: name, father's name, age, present address.\n"
-        "4. 'Versus' centred.\n"
-        "5. Respondent block: name, relation (husband / father-in-law / etc), address.\n"
-        "6. Title: 'APPLICATION UNDER SECTION 12 OF THE PROTECTION OF WOMEN FROM DOMESTIC VIOLENCE "
-        "ACT, 2005' centred + underlined.\n"
-        "7. 'The applicant, an aggrieved person within the meaning of S.2(a) of the said Act, most "
-        "respectfully submits as follows:'\n"
-        "8. Numbered paras:\n"
-        "   (1) Applicant's identity + father's name + age + present address.\n"
-        "   (2) Respondent's identity + relationship + address.\n"
-        "   (3) Marriage / domestic relationship — date, place, manner.\n"
-        "   (4) The shared household — where the applicant lived with respondent.\n"
-        "   (5) Acts of domestic violence — dated, specific, narrated chronologically (use <violence_narrative>). "
-        "       Include physical, sexual, verbal, emotional, economic abuse as applicable per S.3 of the Act.\n"
-        "   (6) Current circumstances — shelter status, financial position, dependent children if any.\n"
-        "   (7) Respondent's means — income, property, employment.\n"
-        "   (8) Reliefs sought — must specify which reliefs under which section (S.18 protection, "
-        "       S.19 residence, S.20 monetary, S.21 custody, S.22 compensation).\n"
-        "9. 'PRAYER': itemised list of reliefs (use <reliefs_sought>):\n"
-        "   (a) Protection order under S.18 — restrain respondent from committing acts of DV;\n"
-        "   (b) Residence order under S.19 — secure shared household OR alternate accommodation;\n"
-        "   (c) Monetary relief under S.20 — ₹___/month for applicant + ₹___/month per child;\n"
-        "   (d) Custody under S.21 of minor child(ren) — if applicable;\n"
-        "   (e) Compensation under S.22 — ₹___ for injuries / mental agony;\n"
-        "   (f) Such other reliefs.\n"
-        "10. Verification + applicant signature + advocate signature + place + date.\n"
-        "Tone: dignified, narrative — DV applications are factual life-stories. Avoid emotional "
-        "language but be specific about every incident. Hindi mode uses standard family-court "
-        "vocabulary: आवेदिका, अनावेदक, संरक्षण आदेश, निवास आदेश, आर्थिक राहत, संरक्षण, क्षतिपूर्ति. Plain text."
+        "यह आवेदन घरेलू हिंसा से महिलाओं का संरक्षण अधिनियम 2005 की धारा 12 के अंतर्गत "
+        "न्यायिक दण्डाधिकारी प्रथम श्रेणी (JMFC) के समक्ष प्रस्तुत होता है। नीचे दी गई वास्तविक "
+        "न्यायालयीन फाइलिंग संरचना का अक्षरशः पालन करें:\n\n"
+        "शीर्ष (केन्द्र में):\n"
+        "  न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी <court_name>\n"
+        "  प्रकरण क्रमांक- ______ /<वर्ष> घरेलू हिंसा\n\n"
+        "पक्षकार-ब्लॉक (बहती पंक्तियों में — कोई बुलेट/नम्बर नहीं):\n"
+        "  श्रीमती <aggrieved_name> पत्नी श्री <पति का नाम> पुत्री श्री <aggrieved_father>, "
+        "आयु- <aggrieved_age> वर्ष, व्यवसाय- गृहणी, निवासी- <aggrieved_address> (<राज्य>)\n"
+        "  दाहिनी ओर:  --- व्यथित\n"
+        "  केन्द्र में:  बनाम\n"
+        "  प्रत्यर्थीगण प्रायः एक से अधिक होते हैं (पति + सास/ससुर/ननद/जेठ आदि)। <respondent_name> "
+        "में दिये प्रत्येक व्यक्ति को क्रमांक देकर पृथक पंक्ति में लिखें: '<नाम> पुत्र/पत्नी श्री "
+        "<...>, आयु- __ वर्ष, व्यवसाय- ___'; फिर साझा पता-पंक्ति 'निवासीगण- <respondent_address> "
+        "(<राज्य>)'; फिर दाहिनी ओर '----- प्रत्यर्थीगण'। प्रत्यर्थी क्रमांक-01 सदैव पति होता है।\n\n"
+        "शीर्षक (केन्द्र में):\n"
+        "  आवेदन पत्र अन्तर्गत धारा 12 घरेलू हिंसा से महिलाओं का संरक्षण अधिनियम 2005\n\n"
+        "प्रस्तावना:\n"
+        "  माननीय न्यायालय,\n"
+        "  व्यथित की ओर से आवेदन निम्न प्रकार प्रस्तुत है :-\n\n"
+        "कथानक — प्रत्येक अनुच्छेद 'यहकि,' से प्रारम्भ हो; वास्तविक प्रवाह इस क्रम में:\n"
+        "  • यहकि, व्यथित का विवाह प्रत्यर्थी क्रमांक-01 के साथ हिन्दू रीति-रिवाज से <marriage_date> "
+        "को सम्पन्न हुआ।\n"
+        "  • यहकि, विवाह में व्यथित के माता-पिता ने माँग अनुसार दहेज (गृहस्थी का सामान + सोने-चाँदी "
+        "के जेवर + नगद) दिया।\n"
+        "  • यहकि, विवाह के पश्चात् प्रत्यर्थीगण कम दहेज का ताना देकर अतिरिक्त दहेज की माँग करने लगे।\n"
+        "  • यहकि, व्यथित द्वारा मायके में बताने पर समझाइश दी गई, किन्तु प्रताड़ना बढ़ती गई — विशिष्ट "
+        "माँग (नगद राशि + वाहन) व धमकियाँ (<violence_narrative> से तिथिवार, विशिष्ट घटनाएँ भरें)।\n"
+        "  • यहकि, प्रत्यर्थीगण ने मारपीट कर व्यथित को घर से निकाल दिया तथा उसका समस्त स्त्रीधन छीन "
+        "लिया (तिथि सहित)।\n"
+        "  • यहकि, व्यथित ने महिला थाना/पुलिस में शिकायत की, परामर्श कराया गया, एवं धारा 498ए आदि की "
+        "प्रथम सूचना रिपोर्ट लेखबद्ध हुई (अपराध क्रमांक यदि ज्ञात हो)।\n"
+        "  • यहकि, ससुरालीजन ने उपेक्षा कर भरण-पोषण की कोई व्यवस्था नहीं की (<shelter_status>)।\n"
+        "  • यहकि, व्यथित की स्वयं की कोई आय नहीं है तथा वह असहाय स्थिति में मायके में निवासरत है।\n"
+        "  • यहकि, प्रत्यर्थी क्रमांक-01 की आय <income_husband> है — भरण-पोषण की क्षमता दर्शाने हेतु।\n\n"
+        "अनुतोष (DV आवेदन का केन्द्रीय भाग) — पंक्ति 'व्यथित, प्रत्यर्थीगण से निम्न प्रकार के अनुतोष "
+        "प्राप्त करने की अधिकारणी है :-' के बाद प्रत्येक धारा का पृथक ब्लॉक लिखें (<reliefs_sought> से "
+        "राशि/विवरण भरें):\n"
+        "  धारा 17 के अनुसार अनुतोष :- शामिलाती कौटुम्बिक गृह में निवास का अधिकार।\n"
+        "  धारा 18 के अनुसार संरक्षा आदेश :- घरेलू हिंसा से संरक्षण।\n"
+        "  धारा 19 के अनुसार निवास का आदेश :- निवास हेतु प्रतिभूति व बंधपत्र।\n"
+        "  धारा 20 के अनुसार मोद्रिक अनुतोष :- भरण-पोषण हेतु ₹______ मासिक।\n"
+        "  धारा 22 के अनुसार प्रतिकर आदेश :- शारीरिक/मानसिक प्रताड़ना हेतु ₹______ क्षतिपूर्ति।\n\n"
+        "पूर्व मुकदमेंबाजी का ब्योरा :- कोई पूर्व/लंबित प्रकरण (हि.वि.अधि. धारा 9/13, 498ए FIR आदि)।\n"
+        "  • यहकि, धारा 19(8) के तहत प्रत्यर्थीगण के कब्जे से व्यथित का स्त्रीधन (जेवर + नगद) दिलाया जावे।\n"
+        "  • वाद-कारण: अंतिम बार घर से निकाले जाने/साथ रखने से इंकार की तिथि से उत्पन्न होकर "
+        "दिन-प्रतिदिन जारी है।\n"
+        "  • क्षेत्राधिकार: व्यथित वर्तमान में जिस थाना-क्षेत्र में निवासरत है उसके आधार पर माननीय "
+        "न्यायालय को श्रवणाधिकार व क्षेत्राधिकार प्राप्त है।\n\n"
+        "प्रार्थना (कोई अलग 'PRAYER' शीर्षक नहीं) — सीधे:\n"
+        "  अत: माननीय न्यायालय से निवेदन है कि व्यथित का आवेदन पत्र स्वीकार कर व्यथित को प्रत्यर्थीगण "
+        "से आवेदन में चाही गई सहायता एवं अनुतोष दिलाया जाकर प्रत्यर्थीगण को व्यथित के साथ किये गये "
+        "आपराधिक कृत्य के लिये दण्डित किये जाने का आदेश पारित करने की कृपा करें।\n\n"
+        "अंत में:\n"
+        "  दिनांक :- <filing_date>                          व्यथित\n"
+        "                                                   <aggrieved_name>\n"
+        "                                                   -- व्यथित\n"
+        "  (<advocate_name> उपलब्ध हो तो अधिवक्ता-पंक्ति भी जोड़ें।)\n\n"
+        "महत्वपूर्ण: केवल 'व्यथित' (पीड़ित महिला) तथा 'प्रत्यर्थीगण' (पति व ससुरालीजन) शब्दों का प्रयोग "
+        "करें — 'आवेदिका/अनावेदक/अभियुक्त' का नहीं। शपथपत्र अलग दस्तावेज़ है — इसे यहाँ न जोड़ें।\n\n"
+        "ENGLISH MODE (only if lang=en): mirror the very same structure — 'IN THE COURT OF THE "
+        "JUDICIAL MAGISTRATE FIRST CLASS, <district>', 'Case No. ___/<year> (Domestic Violence)', "
+        "aggrieved-person and numbered respondent(s) blocks, title 'APPLICATION UNDER SECTION 12 OF "
+        "THE PROTECTION OF WOMEN FROM DOMESTIC VIOLENCE ACT, 2005', numbered 'That…' paragraphs in the "
+        "same narrative order, the five section-wise reliefs (S.17 residence in shared household, S.18 "
+        "protection order, S.19 residence order, S.20 monetary relief, S.22 compensation), "
+        "prior-litigation details, S.19(8) return of stridhan, cause of action, jurisdiction, and a "
+        "prayer beginning 'It is therefore most respectfully prayed…'. Use 'aggrieved person' and "
+        "'respondent(s)'."
     ),
     "example_prompts": [
         "DV application for my client — husband + in-laws assaulting and demanding dowry, she's been thrown out",
@@ -1081,16 +1540,16 @@ HMA_9_RESTITUTION = {
 
 HMA_13_DIVORCE = {
     "id":              "hma_13_divorce",
-    "name_en":         "Divorce Petition (HMA §13(A) / §13(B))",
-    "name_hi":         "तलाक की याचिका (HMA धारा 13(A) / 13(B))",
+    "name_en":         "Divorce Petition (Hindu Marriage Act §13 / §13B)",
+    "name_hi":         "विवाह विच्छेद याचिका (हिन्दू विवाह अधिनियम धारा 13 / 13B)",
     "court":           "family",
     "court_label_en":  "Family Court",
-    "court_label_hi":  "परिवार न्यायालय",
+    "court_label_hi":  "कुटुम्ब न्यायालय",
     "category":        "family",
     "tier":            2,
     "popularity":      3,
-    "quality":         "v1-ai",
-    "description":     "Petition under §13 of the Hindu Marriage Act for dissolution of marriage. §13(A) — contested grounds; §13(B) — mutual consent (joint petition).",
+    "quality":         "v2-ref",
+    "description":     "Petition under §13 Hindu Marriage Act for विवाह विच्छेद (dissolution of marriage). Decoded verbatim from a real MP Family Court filing — कुटुम्ब न्यायालय header, full पत्नी/पुत्री identity party block, 'आवेदिका की ओर से आवेदन पत्र निम्नानुसार प्रस्तुत है', यहकि narrative of क्रूरता/दहेज, cause-of-action + 'दुरभि संधि नहीं' + न्याय शुल्क + क्षेत्राधिकार recitals, lettered prayer (डिग्री व जयपत्र: विवाह विच्छेद + स्त्रीधन वापसी + स्थाई निर्वाहिका + वाद व्यय), सत्यापन block. §13 = contested fault grounds (one spouse); §13B = mutual-consent JOINT petition. Advocate-appointment under §13 Family Courts Act is a SEPARATE doc.",
     "fields": [
         {"key": "court_name",        "label_en": "Family Court",                   "label_hi": "परिवार न्यायालय",          "type": "text",     "required": True,  "section": "court"},
         {"key": "petition_type",     "label_en": "Type of petition",               "label_hi": "याचिका का प्रकार",          "type": "text",     "required": True,  "section": "court", "hint": "Contested (S.13(A)) / Mutual consent (S.13(B))"},
@@ -1105,31 +1564,81 @@ HMA_13_DIVORCE = {
         {"key": "filing_date",       "label_en": "Date",                           "label_hi": "दिनांक",                       "type": "date",     "required": True,  "section": "filing"},
     ],
     "format_spec": (
-        "Generate a HMA S.13 divorce petition. Two flavours based on <petition_type>:\n"
-        "A) S.13(A) — contested by one spouse against the other on a ground.\n"
-        "B) S.13(B) — JOINT petition by both spouses on mutual consent (must have lived apart ≥ 1 year).\n\n"
-        "Structure (common):\n"
-        "1. 'IN THE FAMILY COURT, <district>' header.\n"
-        "2. 'H.M.A. Petition No. ____ of <year>' case block.\n"
-        "3. Parties block — for S.13(B) both are joint petitioners.\n"
-        "4. Title: 'PETITION UNDER S.13(A) FOR DISSOLUTION OF MARRIAGE' / 'JOINT PETITION UNDER "
-        "S.13(B) FOR DISSOLUTION OF MARRIAGE BY MUTUAL CONSENT' centred + underlined.\n"
-        "5. Numbered paras:\n"
-        "   (1) Both parties are Hindu, marriage on <marriage_date> at <marriage_place> per Hindu rites.\n"
-        "   (2) Lived together / where & when.\n"
-        "   (3) Children (use <children> field).\n"
-        "   (4) Separation: parties separated on <separation_date>, have lived apart since.\n"
-        "   (5) Grounds (use <grounds>). For 13(A): cite specific cruelty / adultery / desertion "
-        "       incidents with dates. For 13(B): state mutual consent + irretrievable breakdown + "
-        "       statutory 1-year separation requirement met.\n"
-        "   (6) Settlement of issues — maintenance, custody, alimony (in 13(B), give settlement).\n"
-        "6. 'PRAYER': decree of divorce dissolving the marriage; ancillary reliefs (custody, alimony).\n"
-        "7. Verification by both parties (for 13(B)) or by petitioner (for 13(A)) + signatures + date.\n"
-        "Tone: civil, careful. For mutual consent, emphasise voluntariness. Plain text output."
+        "यह हिन्दू विवाह अधिनियम धारा 13 के अन्तर्गत विवाह विच्छेद (divorce) याचिका है — असली MP "
+        "कुटुम्ब न्यायालय फाइलिंग से verbatim decode की गई। <petition_type> के अनुसार दो रूप हैं:\n"
+        "  • धारा 13 (contested) — एक पक्ष दूसरे के विरुद्ध किसी आधार (क्रूरता/परित्याग/व्यभिचार आदि) पर। "
+        "यही नीचे का मुख्य ढाँचा है।\n"
+        "  • धारा 13B (mutual consent) — दोनों पति-पत्नी का संयुक्त आवेदन (कम से कम 1 वर्ष से अलग रह रहे "
+        "हों); पक्षकार 'संयुक्त आवेदकगण', स्वेच्छा व आपसी सहमति पर ज़ोर, कोई दोषारोपण नहीं।\n\n"
+        "हिन्दी में बिल्कुल इसी ढाँचे में लिखें:\n\n"
+        "1. न्यायालय शीर्षक (केन्द्र में): 'न्यायालय माननीय प्रधान न्यायाधीश कुटुम्ब न्यायालय <जिला>' "
+        "(<court_name> के अनुसार)।\n"
+        "2. प्रकरण पंक्ति: 'प्रकरण क्रमांक - ______ हि.वि.अधि.' (<case_no> के अनुसार)।\n"
+        "3. पक्षकार खण्ड (बहती हुई पूर्ण-परिचय पंक्तियाँ, संक्षिप्त नहीं):\n"
+        "   'श्रीमती <petitioner_name> पत्नी श्री <respondent_name>, पुत्री श्री ____, आयु- __ वर्ष, "
+        "व्यवसाय- ____, निवासी- ____, हाल निवासी- ____' .......... आवेदिका\n"
+        "   'बनाम'\n"
+        "   '<respondent_name> पुत्र श्री ____, आयु- __ वर्ष, व्यवसाय- ____, निवासी- ____' .......... अनावेदक\n"
+        "   (यदि याचिकाकर्ता पति है तो भूमिकाएँ उलट दें — आवेदक / अनावेदिका; धारा 13B में दोनों "
+        "'संयुक्त आवेदकगण'।)\n"
+        "4. शीर्षक (केन्द्र, रेखांकित): 'आवेदन पत्र अन्तर्गत धारा 13 हिन्दू विवाह अधिनियम' "
+        "(13B में: 'संयुक्त आवेदन पत्र अन्तर्गत धारा 13B हिन्दू विवाह अधिनियम')।\n"
+        "5. सम्बोधन + आरम्भ: 'माननीय न्यायालय,' फिर 'आवेदिका की ओर से आवेदन पत्र निम्नानुसार प्रस्तुत है-'\n"
+        "6. 'यहकि,' से शुरू होने वाले क्रमांकित पैरा (असली क्रम):\n"
+        "   (1) आवेदिका का विवाह अनावेदक के साथ हिन्दू रीति-रिवाज अनुसार दिनांक <marriage_date> को "
+        "<marriage_place> में सम्पन्न हुआ;\n"
+        "   (2)-(अनेक) विवाह उपरान्त के तथ्य व आधार — <grounds> को विस्तृत यहकि पैरा में बुनें "
+        "(दहेज मांग, मारपीट, शराब, क्रूरता, झूठी शिकायतें आदि — दिनांकवार घटनाएँ); संतान हो तो "
+        "<children> का उल्लेख (नाम, आयु, वर्तमान में किसके पास);\n"
+        "   • निष्कर्ष पैरा: अनावेदक का व्यवहार विवाह के बाद से क्रूरतापूर्ण रहा, इसी कारण आवेदिका को "
+        "अनावेदक के विरुद्ध विवाह विच्छेद याचिका प्रस्तुत करना आवश्यक हुआ है;\n"
+        "   • वाद कारण पैरा: <separation_date> को घर से निकालने/साथ रखने से इंकार से 'वाद कारण जारी "
+        "होकर दिन-प्रतिदिन व्याप्त है';\n"
+        "   • 'यहकि, आवेदिका व अनावेदक के मध्य कोई दुरभि संधि नहीं है।' (no collusion — अनिवार्य);\n"
+        "   • 'यहकि, विवाह विच्छेद की डिग्री प्राप्त करने हेतु आवेदिका द्वारा निश्चित न्याय शुल्क के साथ "
+        "आवेदन पत्र प्रस्तुत है।';\n"
+        "   • क्षेत्राधिकार पैरा: विवाह जहाँ सम्पन्न हुआ / आवेदिका के वर्तमान निवास / अन्तिम बार साथ "
+        "रखने से इंकार के आधार पर 'माननीय न्यायालय को आवेदन पत्र का श्रवणाधिकार व क्षेत्राधिकार प्राप्त है'।\n"
+        "   (धारा 13B में, आधार-पैरा की जगह: दोनों पक्ष स्वेच्छा से, बिना दबाव, आपसी सहमति से अलग होना "
+        "चाहते हैं; 1 वर्ष से पृथक रह रहे हैं; गुजारा/संतान अभिरक्षा/स्त्रीधन की आपसी settlement।)\n"
+        "7. प्रार्थना (बिना 'प्रार्थना' शीर्षक के, सीधे 'अत:' से): 'अत: माननीय न्यायालय से प्रार्थना है कि "
+        "आवेदिका के हित में अनावेदक के विरुद्ध निम्न आशय की डिग्री व जयपत्र प्रदान किया जावे।' फिर "
+        "अक्षरांकित उप-प्रार्थनाएँ:\n"
+        "   'अ-' विवाह दिनांक <marriage_date> को विच्छेदित कर विवाह विच्छेद की डिग्री प्रदान की जावे;\n"
+        "   'ब-' आवेदिका को अनावेदक से उसका सम्पूर्ण स्त्रीधन व घर-गृहस्थी का सामान वापस दिलाया जावे;\n"
+        "   'स-' आवेदिका को स्थाई निर्वाहिका (permanent alimony) के रूप में राशि दिलाई जावे;\n"
+        "   'द-' वाद व्यय व अन्य न्यायोचित सहायता।\n"
+        "   (पति-आवेदक हो तो स्त्रीधन/निर्वाहिका वाले खण्ड हटा दें; 13B में: संयुक्त सहमति से विवाह "
+        "विच्छेद की डिग्री + तय settlement की पुष्टि।)\n"
+        "8. हस्ताक्षर: 'दिनांक:- <filing_date>' दाहिनी ओर 'प्रार्थिनी / श्रीमती <petitioner_name> - "
+        "आवेदिका' (अधिवक्ता <advocate_name>)।\n"
+        "9. सत्यापन खण्ड: 'मैं श्रीमती <petitioner_name> ... शपथपूर्वक सत्यापित करती हूँ कि उपरोक्त "
+        "आवेदन पत्र के पद क्रमांक- 1 लगायत <N> मय प्रार्थना (अ, ब, स, द) में वर्णित समस्त तथ्य मेरे निजी "
+        "ज्ञान व जानकारी से सत्य व सही हैं, तथा कानूनी अंश मेरे अभिभाषक द्वारा दी गई जानकारी के आधार पर "
+        "सत्य व सही हैं; कुछ भी असत्य नहीं है और न ही कुछ छिपाया गया है।' फिर 'दिनांक:- ____' तथा "
+        "'हस्ताक्षर सत्यापनकर्ता'।\n"
+        "(NOTE: अभिभाषक नियुक्ति हेतु धारा 13 कुटुम्ब न्यायालय अधिनियम का आवेदन एक अलग दस्तावेज़ है — "
+        "इस याचिका में सम्मिलित न करें।)\n\n"
+        "ENGLISH MODE (only if lang=en): mirror the SAME structure in English — 'IN THE COURT OF THE "
+        "PRINCIPAL JUDGE, FAMILY COURT, <district>' header; 'H.M.A. Case No. ___ of <year>'; "
+        "full-identity flowing party block (wife W/o, D/o, age, occupation, residence) marked "
+        "'…APPLICANT' / 'Versus' / '…NON-APPLICANT'; centred underlined title 'APPLICATION UNDER "
+        "SECTION 13 OF THE HINDU MARRIAGE ACT' (or 'JOINT APPLICATION UNDER SECTION 13B …' for "
+        "mutual consent); 'To the Hon'ble Court,' + 'The following application is submitted on behalf "
+        "of the applicant:-'; 'That,'-numbered paragraphs (marriage solemnised per Hindu rites on "
+        "date/place → dated cruelty/dowry narrative + children → conclusion that cohabitation is "
+        "impossible → cause of action accrued and continuing → no collusion between the parties → "
+        "requisite court fee paid → jurisdiction); prayer opening 'It is therefore prayed that a "
+        "decree and certificate be granted in favour of the applicant against the non-applicant to "
+        "the following effect:-' with lettered sub-prayers (a) decree of divorce dissolving the "
+        "marriage dated …, (b) return of all स्त्रीधन/dowry articles, (c) permanent alimony, "
+        "(d) costs; signature 'Applicant'; then a Verification ('I … do hereby verify on oath that "
+        "the contents of paragraphs 1 to N together with the prayer are true and correct to my "
+        "personal knowledge …') + 'Signature of Deponent'. Plain text output, no markdown."
     ),
     "example_prompts": [
-        "Mutual consent divorce — both spouses agree, separated 14 months, no children",
-        "Contested divorce on cruelty grounds — wife filing against husband, dowry harassment",
+        "धारा 13 तलाक — पत्नी की ओर से पति के विरुद्ध, दहेज प्रताड़ना व क्रूरता, 13-11-2022 को घर से निकाला, स्त्रीधन व निर्वाहिका चाहिए",
+        "धारा 13B आपसी सहमति तलाक — दोनों पति-पत्नी 14 माह से अलग, कोई संतान नहीं, गुजारा settlement तय",
     ],
 }
 
@@ -1148,10 +1657,10 @@ GENERAL_AFFIDAVIT = {
     "category":        "procedural",
     "tier":            1,
     "popularity":      5,
-    "quality":         "v1-ai",
-    "description":     "General-purpose sworn affidavit usable for any court or authority. Substitutable subject (identity / residence / no-criminal-record / supporting a petition / etc.).",
+    "quality":         "v2-ref",
+    "description":     "Court शपथपत्र that accompanies an application (bail, record-call, signature-permission, etc.). Format decoded verbatim from real MP filings — court header + case line + short party block, 'शपथ पत्र' title, deponent identity list (नाम/पिता/आयु/व्यवसाय/निवासी), 'मैं शपथ पूर्वक सत्य कथन करता हूँ कि' oath, यहकि paras, then a सत्यापन block. NO stamp-paper line, NO notary attestation.",
     "fields": [
-        {"key": "court_or_authority","label_en": "Court / Authority",               "label_hi": "न्यायालय / प्राधिकारी",     "type": "text",     "required": True,  "section": "court", "hint": "e.g. 'JMFC Gwalior' or 'SDM Bhopal'"},
+        {"key": "court_or_authority","label_en": "Court",                            "label_hi": "न्यायालय",     "type": "text",     "required": True,  "section": "court", "hint": "Court where the main application is filed, e.g. 'JMFC, <place>' / 'Sessions Judge, <place>'"},
         {"key": "deponent_name",     "label_en": "Deponent (you / your client)",   "label_hi": "शपथकर्ता",                 "type": "name",     "required": True,  "section": "applicant"},
         {"key": "deponent_father",   "label_en": "Father's / Husband's name",      "label_hi": "पिता / पति का नाम",        "type": "name",     "required": True,  "section": "applicant"},
         {"key": "deponent_age",      "label_en": "Age",                            "label_hi": "आयु",                       "type": "text",     "required": True,  "section": "applicant"},
@@ -1163,32 +1672,57 @@ GENERAL_AFFIDAVIT = {
         {"key": "filing_date",       "label_en": "Date",                           "label_hi": "दिनांक",                     "type": "date",     "required": True,  "section": "filing"},
     ],
     "format_spec": (
-        "Generate a generic affidavit — usable for any court / SDM / collector / passport / employer "
-        "/ bank. Structure:\n"
-        "1. Top right corner: '(On Non-Judicial Stamp Paper of appropriate value)' / "
-        "'(उपयुक्त मूल्य के गैर-न्यायिक स्टांप पेपर पर)'.\n"
-        "2. 'BEFORE <court_or_authority>' / 'समक्ष <court_or_authority>' centred.\n"
-        "3. Title: 'AFFIDAVIT' / 'शपथ पत्र' centred + underlined + bold.\n"
-        "4. Re: line — subject of the affidavit.\n"
-        "5. Opening: 'I, <deponent_name>, S/o / W/o <deponent_father>, aged about <age> years, "
-        "by occupation <occupation>, resident of <deponent_address>, do hereby solemnly affirm and "
-        "declare on oath as under:' / 'मैं, <deponent_name>, पुत्र/पत्नी श्री <deponent_father>, उम्र "
-        "लगभग <age> वर्ष, व्यवसाय <occupation>, निवासी <deponent_address>, शपथपूर्वक सत्य कथन करता/करती "
-        "हूँ कि:'.\n"
-        "6. Numbered declarations (use <declarations> field) — each para 1-3 sentences, factual.\n"
-        "7. 'VERIFICATION': 'I, the deponent above-named, do hereby verify that the contents of "
-        "paragraphs 1 to <N> of this affidavit are true to my personal knowledge, that no part of "
-        "it is false, and nothing material has been concealed therefrom.' / 'मैं, उपरोक्त नामित "
-        "शपथकर्ता, सत्यापित करता/करती हूँ कि इस शपथ पत्र की कंडिका 1 से <N> तक की सभी बातें मेरी "
-        "व्यक्तिगत जानकारी से सत्य हैं, इसका कोई भी अंश असत्य नहीं है और कोई भी महत्वपूर्ण बात छिपाई "
-        "नहीं गई है।'\n"
-        "8. Signature line for deponent + place + date.\n"
-        "9. Notary attestation block at the bottom: 'सत्यापित — Notary, <place>'.\n"
-        "Tone: formal, sworn-statement style. Plain text output."
+        "यह एक शपथपत्र (sworn affidavit) है जैसा अदालतों में आवेदन के साथ "
+        "संलग्न किया जाता है। नीचे की संरचना वास्तविक MP filings से ली गई है — इसी क्रम "
+        "व शब्दावली का कड़ाई से पालन करें। महत्वपूर्ण: कोई 'गैर-न्यायिक स्टांप पेपर' "
+        "पंक्ति नहीं, कोई 'समक्ष/BEFORE' पंक्ति नहीं, कोई नोटरी attestation ब्लॉक नहीं — "
+        "यह एक न्यायालयीन शपथपत्र है।\n\n"
+        "1. न्यायालय शीर्ष (केन्द्रित): court_or_authority से — जैसे 'न्यायालय माननीय "
+        "न्यायिक दण्डाधिकारी प्रथम श्रेणी <स्थान>' अथवा 'न्यायालय माननीय प्रधान सत्र "
+        "न्यायाधीश महोदय <स्थान>'।\n"
+        "2. प्रकरण पंक्ति: 'प्रकरण क्रमांक ____ / <वर्ष>' (क्रमांक ज्ञात न हो तो रिक्त रेखा "
+        "छोड़ें)।\n"
+        "3. संक्षिप्त पक्षकार ब्लॉक (शपथपत्र में संक्षिप्त रहता है):\n"
+        "   '<सम्बन्धित आवेदक का नाम> .......... आवेदक'\n"
+        "   केन्द्र में 'वि0)'\n"
+        "   '<राज्य> राज्य .......... अभियोगी'  (प्रकरण अनुसार)\n"
+        "4. शीर्षक (केन्द्रित — frontend स्वतः रेखांकित+बोल्ड करता है, कोई markup नहीं): "
+        "'शपथ पत्र'।\n"
+        "5. शपथकर्ता परिचय — सूची रूप में, प्रत्येक अलग पंक्ति में '<लेबल> :- <मान>':\n"
+        "   'नाम :- <deponent_name>'\n"
+        "   'पिता का नाम :- <deponent_father>'\n"
+        "   'आयु :- <deponent_age> वर्ष'\n"
+        "   'व्यवसाय :- <deponent_occupation>'\n"
+        "   'निवासी :- <deponent_address>'\n"
+        "6. शपथ-वाक्य (परिचय के नीचे): 'मैं शपथ पूर्वक सत्य कथन करता/करती हूँ कि :-'\n"
+        "7. क्रमांकित अनुच्छेद, प्रत्येक 'यहकि,' से प्रारम्भ — subject के आधार पर वे तथ्य "
+        "जिनकी शपथ ली जा रही है (declarations field से)। जमानत-शपथपत्र की दशा में प्रथम "
+        "अनुच्छेद यह घोषणा करता है कि शपथकर्ता उक्त प्रकरण में आवेदक/आरोपी है व समान आशय "
+        "का कोई जमानत आवेदन उच्चतम/उच्च/अधीनस्थ न्यायालय में लंबित या निराकृत नहीं है; "
+        "अन्तिम अनुच्छेद पैरवी हेतु नियुक्त अभिभाषक का उल्लेख कर सकता है।\n"
+        "8. दिनांक + दायीं ओर हस्ताक्षर पंक्ति: 'दिनांक :- <filing_date>      हस्ताक्षर "
+        "शपथकर्ता'।\n"
+        "9. सत्यापन ब्लॉक — पृथक शीर्षक 'सत्यापन', फिर: 'मैं शपथकर्ता शपथपूर्वक सत्यापित "
+        "करता/करती हूँ कि शपथपत्र के पद क्रमांक 1 लगायत <N> में दी गई जानकारी मेरे ज्ञान व "
+        "विश्वास से सत्य व सही है जिसमें कुछ भी छुपाया नहीं गया है और न ही असत्य कथन किया "
+        "गया है।' — फिर 'दिनांक :- <filing_date>      हस्ताक्षर सत्यापनकर्ता'।\n"
+        "विषय (subject) केवल यह तय करने हेतु है कि कौन-से तथ्यों की शपथ ली जाए — इसे "
+        "अलग 'विषय:/Re:' पंक्ति के रूप में न छापें।\n\n"
+        "ENGLISH MODE (only if lang=en): mirror the same structure — court header "
+        "(NO 'on stamp paper' line, NO notary block), 'Case No. ___ / <year>', short "
+        "party block ending '... Applicant' / 'Versus' / 'State of <State> ... "
+        "Prosecution'; title 'AFFIDAVIT'; deponent identity as a vertical list (Name / "
+        "Father's name / Age / Occupation / Resident of); oath line 'I, the deponent, "
+        "do hereby state on solemn affirmation that:'; numbered 'That ...' paragraphs "
+        "of the sworn facts; 'Signature of Deponent' with date; then a 'VERIFICATION' "
+        "heading and 'I, the deponent, verify on oath that the contents of paragraphs "
+        "1 to <N> are true and correct to my knowledge and belief, nothing has been "
+        "concealed and nothing false has been stated therein.'; 'Signature of "
+        "Verifier' with date."
     ),
     "example_prompts": [
-        "Affidavit declaring no-criminal-record for passport renewal",
-        "Identity affidavit for opening minor bank account — guardian's declaration",
+        "शपथपत्र — प्रथम जमानत आवेदन के साथ, शपथकर्ता आरोपी, समान आशय का कोई आवेदन लंबित नहीं",
+        "Affidavit supporting a record-call application — deponent is the applicant, swears the documents are genuine",
     ],
 }
 
@@ -1218,7 +1752,7 @@ LEGAL_NOTICE = {
     "fields": [
         {"key": "advocate_name",     "label_en": "Sending advocate's name",        "label_hi": "प्रेषक अधिवक्ता का नाम",    "type": "name",     "required": True,  "section": "letterhead"},
         {"key": "advocate_address",  "label_en": "Advocate office / residence",    "label_hi": "अधिवक्ता कार्यालय / निवास",  "type": "address",  "required": True,  "section": "letterhead"},
-        {"key": "advocate_court",    "label_en": "Practising court line",          "label_hi": "न्यायालय पंक्ति",            "type": "text",     "required": False, "section": "letterhead", "hint": "e.g. उच्च न्यायालय खण्डपीठ ग्वालियर म.प्र."},
+        {"key": "advocate_court",    "label_en": "Practising court line",          "label_hi": "न्यायालय पंक्ति",            "type": "text",     "required": False, "section": "letterhead", "hint": "e.g. उच्च न्यायालय खण्डपीठ <स्थान>"},
         {"key": "advocate_mobile",   "label_en": "Advocate mobile",                "label_hi": "अधिवक्ता मोबाइल",            "type": "text",     "required": False, "section": "letterhead"},
         {"key": "notice_type",       "label_en": "Type of notice",                 "label_hi": "नोटिस का प्रकार",            "type": "text",     "required": True,  "section": "facts", "hint": "138 cheque bounce / HMA §9 restitution / money recovery / general demand"},
         {"key": "noticee_name",      "label_en": "Noticee (addressee)",            "label_hi": "नोटिसी (बनाम)",             "type": "name",     "required": True,  "section": "respondent"},
@@ -1238,7 +1772,7 @@ LEGAL_NOTICE = {
         "Plain text, no markdown. Structure — follow precisely:\n"
         "1. LETTERHEAD (top): advocate name on the left with 'एडवोकेट' beneath it; on the right the "
         "office/residence address (<advocate_address>); a line for the practising court "
-        "(<advocate_court>, e.g. 'उच्च न्यायालय खण्डपीठ ग्वालियर म.प्र.'); and 'मोबा- <advocate_mobile>'. "
+        "(<advocate_court>, e.g. 'उच्च न्यायालय खण्डपीठ <स्थान>'); and 'मोबा- <advocate_mobile>'. "
         "Then a full-width separator line of dashes '-----------------------------------------------------'.\n"
         "2. TITLE (centred): '// सूचना पत्र मय रजिस्टर्ड ए.डी. //'.\n"
         "3. ADDRESSEE: 'बनाम:- <noticee_name> <noticee_details>' (parentage, age, full residence).\n"
@@ -1290,7 +1824,7 @@ PRIVATE_COMPLAINT_200 = {
     "quality":         "v2-ref",
     "description":     "Direct private complaint where the Magistrate takes cognizance, records the complainant's statement (S.200 CrPC / S.223 BNSS) and summons the accused — used when 156(3) won't work (e.g. accused are police) or the complainant will lead evidence. Carries a sworn affidavit (शपथपत्र).",
     "fields": [
-        {"key": "court_name",        "label_en": "Court (JMFC / CJM + place)",     "label_hi": "न्यायालय (न्यायिक मजिस्ट्रेट + स्थान)", "type": "text", "required": True, "section": "court", "hint": "e.g. न्यायिक दण्डाधिकारी प्रथम श्रेणी, ग्वालियर"},
+        {"key": "court_name",        "label_en": "Court (JMFC / CJM + place)",     "label_hi": "न्यायालय (न्यायिक मजिस्ट्रेट + स्थान)", "type": "text", "required": True, "section": "court", "hint": "e.g. न्यायिक दण्डाधिकारी प्रथम श्रेणी, <स्थान>"},
         {"key": "complainant_name",  "label_en": "Complainant (परिवादी)",          "label_hi": "परिवादी का नाम",            "type": "name",     "required": True,  "section": "applicant"},
         {"key": "complainant_father","label_en": "Father's name",                  "label_hi": "पिता का नाम",               "type": "name",     "required": True,  "section": "applicant"},
         {"key": "complainant_address","label_en": "Complainant address + age",     "label_hi": "परिवादी का पता + आयु",       "type": "address",  "required": True,  "section": "applicant"},
@@ -1369,7 +1903,7 @@ REPLY_APPLICATION = {
     "quality":         "v2-ref",
     "description":     "Para-wise reply (जबाव) by the non-applicant to any pending application — maintenance (§125 CrPC / §144 BNSS), domestic violence (§12 DV Act), a claim petition, §311 recall, etc. Admits/denies each numbered paragraph and adds a 'विशेष निवेदन' affirmative defence.",
     "fields": [
-        {"key": "court_name",        "label_en": "Court (where application is pending)", "label_hi": "न्यायालय (जहाँ आवेदन लंबित है)", "type": "text", "required": True, "section": "court", "hint": "e.g. न्यायिक दण्डाधिकारी प्रथम श्रेणी, ग्वालियर / कुटुम्ब न्यायालय"},
+        {"key": "court_name",        "label_en": "Court (where application is pending)", "label_hi": "न्यायालय (जहाँ आवेदन लंबित है)", "type": "text", "required": True, "section": "court", "hint": "e.g. न्यायिक दण्डाधिकारी प्रथम श्रेणी, <स्थान> / कुटुम्ब न्यायालय"},
         {"key": "case_no",           "label_en": "Case / application number",      "label_hi": "प्रकरण क्रमांक",             "type": "text",     "required": True,  "section": "court"},
         {"key": "application_section","label_en": "Application section + Act",      "label_hi": "आवेदन की धारा + अधिनियम",     "type": "text",     "required": True,  "section": "court", "hint": "e.g. 125 दं.प्र.सं. (144 BNSS) / धारा 12 घरेलू हिंसा अधिनियम"},
         {"key": "applicant_name",    "label_en": "Applicant (आवेदक / आवेदकगण)",    "label_hi": "आवेदक का नाम",              "type": "name",     "required": True,  "section": "applicant"},
