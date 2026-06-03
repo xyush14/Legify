@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import io
 import logging
+import math
 import os
 import re
 import sqlite3
@@ -841,18 +842,71 @@ def ensure_text(doc_id: str) -> Optional[str]:
     return text
 
 
-def _fts_query(tokens) -> str:
-    """Build a safe FTS5 MATCH expression: OR of quoted single terms."""
+def _fts_terms(tokens) -> list[str]:
+    """Sanitised, de-duped single-word MATCH terms (≤12) from raw tokens.
+    Shared by the MATCH expression and the re-rank scorer so both see the same
+    vocabulary."""
     if isinstance(tokens, str):
         tokens = tokens.split()
     terms: list[str] = []
     for t in tokens or []:
         t = _FTS_SANITISE.sub("", (t or "").lower()).strip()
         if len(t) >= 3 and t not in terms:
-            terms.append(f'"{t}"')
+            terms.append(t)
         if len(terms) >= 12:
             break
-    return " OR ".join(terms)
+    return terms
+
+
+def _fts_query(tokens) -> str:
+    """Build a safe FTS5 MATCH expression: OR of quoted single terms."""
+    return " OR ".join(f'"{t}"' for t in _fts_terms(tokens))
+
+
+# Length-agnostic re-rank knobs. FTS5's bm25() uses b=0.75 (aggressive length
+# normalisation): it divides by document length, so the most THOROUGH judgment
+# on a doctrine — invariably the longest — is pushed far down. The controlling
+# precedent on circumstantial evidence (Sharad Birdhichand Sarda, 1985) sinks to
+# bm25 rank ~117 behind shorter, shallower hits. We cannot retune FTS5's bm25(),
+# so we take its top-_RERANK_CAP candidates and re-score them with BM25 b=0 (NO
+# length penalty) + term saturation (k1). This is GENERAL — no per-topic tuning —
+# and floats the comprehensive controlling authority to #1 for any fact pattern.
+_RERANK_CAP = 400          # first-pass bm25 pool; ≥ worst-case landmark bm25 rank
+_BM25_K1 = 1.2             # term saturation; b is pinned to 0 on purpose
+
+
+def _idf_for_terms(c: sqlite3.Connection, terms: list[str]) -> dict[str, float]:
+    """Robertson–Spärck-Jones idf per term from real document frequency, so a
+    distinctive term ('circumstantial') outweighs a ubiquitous one ('evidence',
+    'accused'). One indexed COUNT(MATCH) per term — cheap."""
+    try:
+        n = c.execute("SELECT COUNT(*) FROM sc_text").fetchone()[0] or 1
+    except sqlite3.OperationalError:
+        n = 1
+    idf: dict[str, float] = {}
+    for t in terms:
+        try:
+            df = c.execute("SELECT COUNT(*) FROM sc_fts WHERE sc_fts MATCH ?",
+                           (f'"{t}"',)).fetchone()[0] or 1
+        except sqlite3.OperationalError:
+            df = 1
+        idf[t] = math.log(1 + (n - df + 0.5) / (df + 0.5))
+    return idf
+
+
+def _length_agnostic_score(text: str, idf: dict[str, float],
+                           rx: "re.Pattern[str]", k1: float = _BM25_K1) -> float:
+    """BM25 with b=0 (no length normalisation). Counts query terms in one combined
+    regex pass, saturates each via k1 so one stuffed term can't dominate, and
+    weights by idf so distinctive doctrinal terms drive the ranking."""
+    tf: dict[str, int] = {}
+    for m in rx.finditer(text.lower()):
+        g = m.group(1)
+        tf[g] = tf.get(g, 0) + 1
+    s = 0.0
+    for t, f in tf.items():
+        s += idf.get(t, 0.0) * (f * (k1 + 1)) / (f + k1)
+    return s
 
 
 def search_fulltext(tokens, limit: int = 12) -> list[SCJudgment]:
@@ -860,32 +914,56 @@ def search_fulltext(tokens, limit: int = 12) -> list[SCJudgment]:
     SCJudgment metadata for the best matches, ranked by relevance. Empty list
     if nothing is extracted yet or FTS5 is unavailable — so callers degrade
     gracefully before/while the corpus is being indexed."""
-    q = _fts_query(tokens)
-    if not q:
+    terms = _fts_terms(tokens)
+    if not terms:
         return []
+    q = " OR ".join(f'"{t}"' for t in terms)
+    cap = max(_RERANK_CAP, limit * 30)
     try:
         with _conn() as c:
             if not _table_exists(c, "sc_fts"):
                 return []
+            # First pass: FTS5/BM25 narrows the corpus to a candidate POOL (its
+            # length-normalisation buries long landmarks, so we over-fetch and
+            # re-rank below rather than trust this order). Carry the body so the
+            # re-rank needn't re-read it.
             if _fts_is_contentful(c):
-                # Legacy: path is a stored column on the FTS table.
-                rows = c.execute(
-                    "SELECT path FROM sc_fts WHERE sc_fts MATCH ? "
-                    "ORDER BY bm25(sc_fts) LIMIT ?",
-                    (q, limit),
+                # Legacy: path + body live on the FTS table itself.
+                cand = c.execute(
+                    "SELECT path AS path, body AS body FROM sc_fts "
+                    "WHERE sc_fts MATCH ? ORDER BY bm25(sc_fts) LIMIT ?",
+                    (q, cap),
                 ).fetchall()
             else:
-                # External-content: the FTS rowid maps 1:1 to sc_text.rowid.
-                rows = c.execute(
-                    "SELECT t.path FROM sc_fts "
+                # External-content: FTS rowid maps 1:1 to sc_text.rowid.
+                cand = c.execute(
+                    "SELECT t.path AS path, t.text AS body FROM sc_fts "
                     "JOIN sc_text t ON t.rowid = sc_fts.rowid "
                     "WHERE sc_fts MATCH ? ORDER BY bm25(sc_fts) LIMIT ?",
-                    (q, limit),
+                    (q, cap),
                 ).fetchall()
+            if not cand:
+                return []
+            # Second pass: length-agnostic re-rank (BM25 b=0) floats the most
+            # thorough controlling precedent up. Degrade to bm25 order if scoring
+            # ever throws — never strand the caller with nothing.
+            top_paths = [r["path"] for r in cand][:limit]
+            try:
+                idf = _idf_for_terms(c, terms)
+                rx = re.compile(r"\b(" + "|".join(re.escape(t) for t in terms) + r")\b")
+                scored = sorted(
+                    ((r["path"], _length_agnostic_score(r["body"] or "", idf, rx))
+                     for r in cand),
+                    key=lambda x: x[1], reverse=True,
+                )
+                top_paths = [p for p, _ in scored[:limit]]
+            except Exception:  # noqa: BLE001 — re-rank is best-effort over bm25
+                log.exception("[sc-fts] length-agnostic re-rank failed; "
+                              "falling back to bm25 order")
             out: list[SCJudgment] = []
-            for r in rows:
+            for p in top_paths:
                 jr = c.execute("SELECT * FROM sc_judgments WHERE path = ?",
-                               (r["path"],)).fetchone()
+                               (p,)).fetchone()
                 if jr:
                     out.append(_row_to_judgment(jr))
         return out
