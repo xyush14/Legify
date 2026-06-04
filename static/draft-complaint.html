@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Force HTTPS — Supabase sessions don't carry between HTTP/HTTPS origins -->
+<script>if(location.protocol==='http:'&&location.hostname!=='localhost'&&!location.hostname.startsWith('127.')){location.replace(location.href.replace(/^http:/,'https:'));}</script>
+<!-- Supabase JS — REQUIRED for auth.js to read the user's session. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<title>परिवाद (§498A Complaint) Drafter — Headnote</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- UI fonts (sans) + DOCUMENT-PREVIEW fonts (serif, court-paper). The reference
+     filing uses Kruti Dev 010 (pre-Unicode) + Times New Roman. We render the
+     Unicode-safe equivalent: Times New Roman for Latin (digits, statute refs),
+     Tiro Devanagari Hindi (serif, formal) for Devanagari — browser picks per
+     character so "धारा 498A" keeps the digits in Times mid-Hindi. -->
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Tiro+Devanagari+Hindi:ital@0;1&family=Noto+Serif+Devanagari:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- PDF renders server-side via POST /api/draft/pdf (same pipeline as bail). -->
+<style>
+  :root {
+    --bg: #fdfcf9;
+    --panel: #ffffff;
+    --ink: #0c0c0a;
+    --muted: #6b6960;
+    --line: rgba(12, 12, 10, 0.08);
+    --line-strong: rgba(12, 12, 10, 0.18);
+    --accent: #0c0c0a;
+    --good: #4a7c2e;
+    --warn: #b07b1c;
+    --bad: #b04a3a;
+    --soft: #f5f3ec;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+
+  /* ---------- top bar ---------- */
+  .topbar { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 10; }
+  .topbar__left { display: flex; align-items: center; gap: 14px; }
+  .topbar__back { color: var(--muted); text-decoration: none; font-size: 18px; }
+  .topbar__back:hover { color: var(--ink); }
+  .topbar__title { font-size: 15px; font-weight: 600; }
+  .topbar__sub { font-size: 12px; color: var(--muted); }
+  .topbar__right { display: flex; gap: 8px; align-items: center; }
+  .savestate { font-size: 12px; color: var(--muted); margin-right: 8px; }
+  .btn { padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid var(--line-strong); background: var(--panel); color: var(--ink); transition: all 0.12s; display: inline-flex; align-items: center; gap: 6px; }
+  .btn:hover { background: var(--soft); }
+  .btn--primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .btn--primary:hover { background: #1c1c1a; }
+
+  .lang-toggle { display: inline-flex; background: var(--bg); border: 1px solid var(--line-strong); border-radius: 100px; padding: 3px; font-size: 11px; font-weight: 600; }
+  .lang-toggle button { border: none; background: transparent; padding: 5px 10px; border-radius: 100px; color: var(--muted); cursor: pointer; transition: all 0.18s ease; font-family: inherit; font-size: inherit; font-weight: inherit; }
+  .lang-toggle button.active { background: var(--ink); color: var(--bg); }
+
+  /* ---------- split layout ---------- */
+  .split { display: grid; grid-template-columns: 460px 1fr; height: calc(100vh - 56px); }
+  @media (max-width: 1100px) { .split { grid-template-columns: 380px 1fr; } }
+
+  .form-pane { overflow-y: auto; padding: 20px 22px 60px; border-right: 1px solid var(--line); background: var(--panel); }
+  .section { margin-bottom: 22px; padding: 16px 16px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+  .section__eyebrow { font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+  .section__title { font-size: 14px; font-weight: 600; margin: 0 0 12px; }
+
+  .field { display: flex; flex-direction: column; margin-bottom: 10px; }
+  .field label { font-size: 11px; color: var(--muted); margin-bottom: 4px; font-weight: 500; }
+  .field input, .field select, .field textarea {
+    font-family: inherit; font-size: 13px; padding: 8px 10px; border: 1px solid var(--line-strong);
+    border-radius: 6px; background: var(--panel); color: var(--ink); outline: none; transition: border 0.12s;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--ink); }
+  .field textarea { resize: vertical; min-height: 80px; font-family: 'Noto Sans Devanagari', 'Inter', sans-serif; line-height: 1.55; }
+  .field textarea.big { min-height: 220px; }
+  .field--row { flex-direction: row; gap: 10px; }
+  .field--row > .field { flex: 1; }
+  .field__hint { font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+
+  .checkboxes { display: flex; flex-direction: column; gap: 6px; }
+  .checkboxes label { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; padding: 4px 0; }
+  .checkboxes input[type="checkbox"] { margin: 0; }
+
+  .note { margin-top: 10px; padding: 10px 12px; border-radius: 8px; background: var(--bg); border: 1px solid var(--line-strong); font-size: 12px; line-height: 1.5; color: var(--muted); }
+
+  /* ---------- live document (right pane) ---------- */
+  .doc-pane { overflow-y: auto; background: #e8e6df; padding: 30px 16px 60px; }
+  .doc-page {
+    background: #fff;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 60px 70px 80px;
+    min-height: 85vh;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06);
+    border-radius: 4px;
+    font-family: 'Times New Roman', 'Tiro Devanagari Hindi', 'Noto Serif Devanagari', Times, serif;
+    line-height: 1.7;
+    color: #000;
+    font-size: 14.5px;
+  }
+
+  /* ============================================================================
+     COMPLAINT DOCUMENT — standard MP court परिवाद format (mirrors the reference
+     filing). The cause-title (parties) sits in the RIGHT half of the page, the
+     party labels (परिवादिया / आरोपीगण) hug the right margin, and the body is a
+     continuously-numbered list. Scaffold strings are deterministic bilingual;
+     only the names / facts come from the form (and translate on toggle).
+     ============================================================================ */
+  .cd-doc { font-size: 14.5px; }
+
+  .cd-doc .cd-header { text-align: center; margin-bottom: 6px; }
+  .cd-doc .cd-court { font-size: 16.5px; font-weight: 700; text-decoration: underline; margin: 0 0 10px; letter-spacing: 0.01em; }
+  .cd-doc .cd-caseno { display: flex; justify-content: space-between; gap: 16px; font-size: 14px; margin-bottom: 4px; }
+
+  .cd-doc .cd-parties { margin: 20px 0 14px; }
+  .cd-doc .cd-party-detail { margin-left: 42%; text-align: justify; line-height: 1.7; }
+  .cd-doc .cd-party-label { margin-left: 42%; text-align: right; font-weight: 700; margin-top: 2px; }
+  .cd-doc .cd-versus { margin-left: 42%; font-weight: 700; margin: 8px 0; }
+
+  .cd-doc .cd-app-title { text-align: center; text-decoration: underline; font-size: 16px; font-weight: 700; margin: 22px 0 16px; }
+
+  .cd-doc .cd-salutation { margin: 12px 0 2px; }
+  .cd-doc .cd-prelude { margin: 2px 0 10px; text-indent: 28px; text-align: justify; }
+
+  .cd-doc .cd-paras { padding-left: 0; counter-reset: cpara; list-style: none; margin: 8px 0; }
+  .cd-doc .cd-paras > li { counter-increment: cpara; position: relative; padding-left: 36px; margin-bottom: 12px; text-align: justify; line-height: 1.8; }
+  .cd-doc .cd-paras > li::before { content: counter(cpara) "."; position: absolute; left: 0; font-weight: 700; width: 30px; text-align: right; padding-right: 6px; }
+
+  .cd-doc .cd-prayer { margin: 16px 0; }
+  .cd-doc .cd-prayer p { text-align: justify; text-indent: 28px; line-height: 1.8; }
+
+  .cd-doc .cd-sig { display: flex; justify-content: space-between; align-items: flex-start; margin-top: 32px; font-size: 14px; }
+  .cd-doc .cd-sig-right { text-align: center; }
+  .cd-doc .cd-sig-name { margin-top: 18px; font-weight: 600; }
+  .cd-doc .cd-sig-adv { margin-top: 16px; }
+  .cd-doc .cd-sig-advname { font-weight: 700; margin-top: 4px; }
+
+  .cd-doc .ph { color: #b4afa3; font-style: italic; }
+
+  /* toast */
+  .toast { position: fixed; top: 70px; right: 24px; background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 8px; font-size: 13px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+  .toast--show { opacity: 1; }
+  .toast--err { background: var(--bad); }
+  .toast--ok { background: var(--good); }
+  .toast--warn { background: var(--warn); }
+
+  /* ---------- mobile ---------- */
+  @media (max-width: 880px) {
+    .split { display: block; height: auto; }
+    .form-pane { display: block; max-height: none; padding: 16px 14px 40px; border-right: none; }
+    .doc-pane { padding: 16px 8px 60px; }
+    .doc-page { padding: 28px 22px 48px; }
+    .topbar { padding: 10px 12px; }
+    .topbar__sub { display: none; }
+    .topbar__right { gap: 4px; }
+    .topbar__right .btn { padding: 6px 8px; font-size: 12px; }
+  }
+
+  /* ---------- print: keep ONLY the document ---------- */
+  @media print {
+    @page { size: A4 portrait; margin: 12mm 14mm 14mm 14mm; }
+    .topbar, .form-pane, .toast, .lang-toggle, button, .btn { display: none !important; }
+    html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; font-size: 11pt; color: #000 !important; }
+    .split, .doc-pane { display: block !important; height: auto !important; overflow: visible !important; background: #fff !important; padding: 0 !important; }
+    .doc-page { max-width: none !important; margin: 0 !important; padding: 0 !important; box-shadow: none !important; border-radius: 0 !important; min-height: 0 !important; }
+    .cd-doc .ph { color: #000 !important; font-style: normal !important; }
+  }
+</style>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/static/favicon.svg">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar__left">
+    <a href="/app#drafting" class="topbar__back">←</a>
+    <div>
+      <div class="topbar__title">परिवाद पत्र / Complaint (§498A)</div>
+      <div class="topbar__sub" data-en="Format-perfect · live preview · EN/हिं" data-hi="कोर्ट फॉर्मेट · लाइव प्रीव्यू · EN/हिं">कोर्ट फॉर्मेट · लाइव प्रीव्यू · EN/हिं</div>
+    </div>
+  </div>
+  <div class="topbar__right">
+    <span class="savestate" id="savestate"></span>
+    <div class="lang-toggle" role="group" aria-label="language">
+      <button id="lang-en">EN</button>
+      <button id="lang-hi" class="active">हिं</button>
+    </div>
+    <button class="btn" id="btn-pdf">⬇ PDF</button>
+    <button class="btn" id="btn-print" data-en="🖨 Print" data-hi="🖨 प्रिंट">🖨 प्रिंट</button>
+    <button class="btn" id="btn-edit" data-en="✏️ Edit" data-hi="✏️ संपादन">✏️ संपादन</button>
+    <button class="btn btn--primary" id="btn-share">📱 WhatsApp</button>
+  </div>
+</div>
+
+<div class="split">
+  <!-- LEFT: form -->
+  <div class="form-pane">
+
+    <!-- 1. Court & case -->
+    <div class="section">
+      <div class="section__eyebrow" data-en="SECTION 1" data-hi="अनुभाग 1">अनुभाग 1</div>
+      <h3 class="section__title" data-en="Court &amp; Case" data-hi="न्यायालय एवं प्रकरण">न्यायालय एवं प्रकरण</h3>
+      <div class="field">
+        <label data-en="Court (designation)" data-hi="न्यायालय (पदनाम)">न्यायालय (पदनाम)</label>
+        <input type="text" data-field="court_designation"
+          data-ph-en="e.g. Judicial Magistrate First Class, Gwalior"
+          data-ph-hi="जैसे: न्यायिक दण्डाधिकारी प्रथम श्रेणी, ग्वालियर">
+      </div>
+      <div class="field field--row">
+        <div class="field">
+          <label data-en="Case No." data-hi="प्रकरण क्रमांक">प्रकरण क्रमांक</label>
+          <input type="text" data-field="case_no" data-ph-en="____" data-ph-hi="____">
+        </div>
+        <div class="field">
+          <label data-en="Year" data-hi="वर्ष">वर्ष</label>
+          <input type="text" data-field="case_year" data-ph-en="2026" data-ph-hi="2026">
+        </div>
+      </div>
+      <div class="field">
+        <label data-en="Sections (charge)" data-hi="धाराएँ (आरोप)">धाराएँ (आरोप)</label>
+        <input type="text" data-field="sections"
+          data-ph-en="498A, 377 IPC & 3/4 of the Dowry Prohibition Act"
+          data-ph-hi="498ए, 377 भा.द.वि. एवं 3/4 दहेज प्रतिषेध अधिनियम">
+      </div>
+    </div>
+
+    <!-- 2. Complainant -->
+    <div class="section">
+      <div class="section__eyebrow" data-en="SECTION 2" data-hi="अनुभाग 2">अनुभाग 2</div>
+      <h3 class="section__title" data-en="Complainant (परिवादिया)" data-hi="परिवादिया">परिवादिया</h3>
+      <div class="field">
+        <label data-en="Complainant — full detail (appears in the right half, as typed)" data-hi="परिवादिया — पूरा विवरण (दाहिने आधे भाग में जैसा टाइप करेंगे वैसा आएगा)">परिवादिया — पूरा विवरण</label>
+        <textarea data-field="complainant_block"
+          data-ph-en="Mrs. [Name] d/o / w/o Shri [Name], R/o [permanent address], presently R/o [current address]"
+          data-ph-hi="श्रीमती [नाम] पुत्री/पत्नी श्री [नाम], निवासी– [स्थायी पता], हाल निवासी– [वर्तमान पता]"></textarea>
+        <div class="field__hint" data-en="Write exactly as it should appear. It is NOT auto-formatted." data-hi="जैसा दस्तावेज़ में चाहिए ठीक वैसा लिखें — कुछ बदला नहीं जाता।">जैसा दस्तावेज़ में चाहिए ठीक वैसा लिखें — कुछ बदला नहीं जाता।</div>
+      </div>
+      <div class="field">
+        <label data-en="Complainant name (for signature)" data-hi="परिवादिया का नाम (हस्ताक्षर हेतु)">परिवादिया का नाम (हस्ताक्षर हेतु)</label>
+        <input type="text" data-field="complainant_sig_name"
+          data-ph-en="Mrs. [Name]" data-ph-hi="श्रीमती [नाम]">
+      </div>
+    </div>
+
+    <!-- 3. Accused -->
+    <div class="section">
+      <div class="section__eyebrow" data-en="SECTION 3" data-hi="अनुभाग 3">अनुभाग 3</div>
+      <h3 class="section__title" data-en="Accused (आरोपीगण)" data-hi="आरोपीगण">आरोपीगण</h3>
+      <div class="field">
+        <label data-en="Accused — one per line (appears in the right half, as typed)" data-hi="आरोपीगण — प्रत्येक नई पंक्ति में (दाहिने आधे भाग में जैसा टाइप करेंगे वैसा आएगा)">आरोपीगण — प्रत्येक नई पंक्ति में</label>
+        <textarea data-field="accused_block" class="big"
+          data-ph-en="[Name] s/o Shri [Name], age [..] yrs, occupation [..], R/o [address]&#10;[Name] s/o Shri [Name], age [..] yrs&#10;..."
+          data-ph-hi="[नाम] पुत्र श्री [नाम], आयु– [..] वर्ष, व्यवसाय– [..], निवासी– [पता]&#10;[नाम] पुत्र श्री [नाम], आयु– [..] वर्ष&#10;..."></textarea>
+        <div class="field__hint" data-en="Each accused on its own line. Add a shared 'निवासीगण– …' line if several share an address." data-hi="हर आरोपी एक पंक्ति में। एक-सा पता होने पर 'निवासीगण– …' की पंक्ति जोड़ें।">हर आरोपी एक पंक्ति में। एक-सा पता होने पर 'निवासीगण– …' की पंक्ति जोड़ें।</div>
+      </div>
+    </div>
+
+    <!-- 4. Facts -->
+    <div class="section">
+      <div class="section__eyebrow" data-en="SECTION 4" data-hi="अनुभाग 4">अनुभाग 4</div>
+      <h3 class="section__title" data-en="Facts of the complaint" data-hi="परिवाद के तथ्य">परिवाद के तथ्य</h3>
+      <div class="field">
+        <label data-en="Numbered facts — separate each paragraph with a BLANK line" data-hi="क्रमांकित तथ्य — हर अनुच्छेद को एक खाली पंक्ति से अलग करें">क्रमांकित तथ्य</label>
+        <textarea data-field="facts_body" class="big"
+          data-ph-en="That, the complainant's marriage with [Name] was solemnised on [date] at [place]...&#10;&#10;That, before the marriage, dowry of ... was given...&#10;&#10;That, after the marriage the accused began demanding ..."
+          data-ph-hi="परिवादिया का निकाह/विवाह [नाम] के साथ दिनांक [..] को [स्थान] पर सम्पन्न हुआ था...&#10;&#10;विवाह के पूर्व दहेज में ... दिया गया था...&#10;&#10;विवाह के पश्चात् आरोपीगण द्वारा ... की मांग की जाने लगी..."></textarea>
+        <div class="field__hint" data-en="'That, ' / 'यह कि, ' and the numbering are added automatically. Do NOT type the number." data-hi="'यह कि, ' और क्रमांक स्वतः जुड़ते हैं — नंबर खुद न लिखें।">'यह कि, ' और क्रमांक स्वतः जुड़ते हैं — नंबर खुद न लिखें।</div>
+      </div>
+    </div>
+
+    <!-- 5. Standard closing paragraphs -->
+    <div class="section">
+      <div class="section__eyebrow" data-en="SECTION 5" data-hi="अनुभाग 5">अनुभाग 5</div>
+      <h3 class="section__title" data-en="Standard closing paragraphs" data-hi="मानक समापन अनुच्छेद">मानक समापन अनुच्छेद</h3>
+      <div class="checkboxes">
+        <label><input type="checkbox" data-check="inc_prima_facie" checked> <span data-en="Prima-facie offence is made out" data-hi="प्रथम दृष्टया अपराध बनता है">प्रथम दृष्टया अपराध बनता है</span></label>
+        <label><input type="checkbox" data-check="inc_jurisdiction" checked> <span data-en="Court has jurisdiction" data-hi="न्यायालय को क्षेत्राधिकार प्राप्त है">न्यायालय को क्षेत्राधिकार प्राप्त है</span></label>
+        <label><input type="checkbox" data-check="inc_no_other" checked> <span data-en="No other proceeding pending" data-hi="अन्य कोई कार्यवाही लंबित नहीं">अन्य कोई कार्यवाही लंबित नहीं</span></label>
+      </div>
+      <div class="note" data-en="The prayer (अतः श्रीमान जी से निवेदन है…) is added automatically below the facts." data-hi="निवेदन (अतः श्रीमान जी से निवेदन है…) तथ्यों के नीचे स्वतः जुड़ जाता है।">निवेदन (अतः श्रीमान जी से निवेदन है…) तथ्यों के नीचे स्वतः जुड़ जाता है।</div>
+    </div>
+
+    <!-- 6. Signature / counsel -->
+    <div class="section">
+      <div class="section__eyebrow" data-en="SECTION 6" data-hi="अनुभाग 6">अनुभाग 6</div>
+      <h3 class="section__title" data-en="Signature &amp; counsel" data-hi="हस्ताक्षर एवं अभिभाषक">हस्ताक्षर एवं अभिभाषक</h3>
+      <div class="field">
+        <label data-en="Date" data-hi="दिनांक">दिनांक</label>
+        <input type="text" data-field="sig_date" data-ph-en="__/__/2026" data-ph-hi="__/__/2026">
+      </div>
+      <div class="checkboxes">
+        <label><input type="checkbox" data-check="show_advocate"> <span data-en="Show 'Through Counsel' line" data-hi="'द्वारा अभिभाषक' पंक्ति दिखाएँ">'द्वारा अभिभाषक' पंक्ति दिखाएँ</span></label>
+      </div>
+      <div class="field" id="adv-fields" style="display:none; margin-top:8px;">
+        <label data-en="Advocate name" data-hi="अभिभाषक का नाम">अभिभाषक का नाम</label>
+        <input type="text" data-field="advocate_name"
+          data-ph-en="e.g. Vishnu Shivhare, Advocate" data-ph-hi="जैसे: विष्णु शिवहरे, एडवोकेट">
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT: live document -->
+  <div class="doc-pane">
+    <div class="doc-page" id="doc-page"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/static/auth.js?v=20260527a"></script>
+<script>
+// =========================================================================
+// परिवाद (§498A complaint) drafter — deterministic bilingual renderer.
+//
+// SAME engine as the bail page: the document is rendered 100% client-side
+// from the form (no LLM for layout), so the EN/हिं toggle is an instant,
+// format-identical re-render. The ONLY network call is the best-effort
+// /api/draft/translate-fields on toggle, which translates the names + facts
+// the lawyer typed. If it fails, the UI still switches — nothing breaks.
+// =========================================================================
+
+const $ = (s) => document.querySelector(s);
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+// Escape + keep the lawyer's own line breaks (used for the party blocks).
+function escLines(s) { return esc(s).replace(/\n/g, '<br>'); }
+// Placeholder helper — pale italic hint when a field is empty.
+function ph(v, fb) { return (v && String(v).trim()) ? esc(v) : `<span class="ph">${esc(fb)}</span>`; }
+function phBlock(v, fb) { return (v && String(v).trim()) ? escLines(v) : `<span class="ph">${esc(fb)}</span>`; }
+
+// Split the facts textarea into paragraphs on BLANK lines; collapse single
+// newlines inside a paragraph to a space (so manual wrapping doesn't split it).
+function factsToParas(body) {
+  return String(body || '')
+    .split(/\n\s*\n/)
+    .map(p => p.replace(/\s*\n\s*/g, ' ').trim())
+    .filter(Boolean);
+}
+
+// ---- Deterministic bilingual scaffold (fixed legal phrasing) --------------
+const SC = {
+  hi: {
+    courtPrefix: 'न्यायालय माननीय ',
+    caseLabelPre: 'प्रकरण क्रमांक ',
+    caseLabelPost: 'परिवाद पत्र',
+    complainantLabel: '––– परिवादिया',
+    versus: 'बनाम',
+    accusedLabel: '––– आरोपीगण',
+    titlePre: 'परिवाद पत्र अंतर्गत धारा ',
+    salutation: 'माननीय न्यायालय,',
+    prelude: 'परिवादिया की ओर से परिवाद पत्र निम्न प्रकार प्रस्तुत है :–',
+    lead: 'यह कि, ',
+    primaFacie: (sec) => `आरोपीगण के विरुद्ध प्रथम दृष्टया धारा ${sec} का अपराध बनता है।`,
+    jurisdiction: 'घटना माननीय न्यायालय की अधिकारिता क्षेत्र में घटित होने से माननीय न्यायालय को प्रस्तुत परिवाद का श्रवणाधिकार एवं क्षेत्राधिकार प्राप्त है।',
+    noOther: 'परिवादिया द्वारा उक्त घटना के सम्बन्ध में भारतवर्ष के किसी भी थाने अथवा न्यायालय में आज दिनांक तक इस परिवाद के अतिरिक्त अन्य कोई कार्यवाही नहीं की गई है और न ही कोई प्रकरण लंबित है।',
+    prayer: (sec) => `अतः श्रीमान जी से निवेदन है कि परिवादिया का परिवाद पत्र स्वीकार कर आरोपीगण के विरुद्ध धारा ${sec} के तहत अपराध पंजीबद्ध कर एवं आरोपीगण को शक्ति पत्र से तलब कर अधिकतम दण्ड से दण्डित कर परिवादिया को आरोपीगण से प्रतिकर दिलाये जाने का आदेश पारित करने की कृपा करें।`,
+    dateLabel: 'दिनांक :– ',
+    complainantSig: 'परिवादिया',
+    nameSuffix: ' – परिवादी',
+    throughCounsel: 'द्वारा अभिभाषक',
+    defCourt: 'न्यायिक दण्डाधिकारी प्रथम श्रेणी, ग्वालियर',
+    defSections: '498ए, 377 भा.द.वि. एवं 3/4 दहेज प्रतिषेध अधिनियम',
+    phComplainant: 'श्रीमती [नाम] पुत्री/पत्नी श्री [नाम], निवासी– [स्थायी पता], हाल निवासी– [वर्तमान पता]',
+    phAccused: '[नाम] पुत्र श्री [नाम], आयु– [..] वर्ष, निवासी– [पता]\n(प्रत्येक आरोपी नई पंक्ति में)',
+    phFacts: '[परिवाद के तथ्य यहाँ लिखें — हर अनुच्छेद खाली पंक्ति से अलग]',
+    phName: 'श्रीमती [नाम]',
+    phAdv: 'अभिभाषक का नाम',
+  },
+  en: {
+    courtPrefix: "IN THE COURT OF THE HON'BLE ",
+    caseLabelPre: 'Complaint Case No. ',
+    caseLabelPost: '',
+    complainantLabel: '… Complainant',
+    versus: 'VERSUS',
+    accusedLabel: '… Accused',
+    titlePre: 'COMPLAINT UNDER SECTION ',
+    salutation: "To, The Hon'ble Court,",
+    prelude: 'The complainant most respectfully submits the present complaint as under:—',
+    lead: 'That, ',
+    primaFacie: (sec) => `prima facie, an offence under Section ${sec} is made out against the accused.`,
+    jurisdiction: "as the incident occurred within the territorial jurisdiction of this Hon'ble Court, this Hon'ble Court has the jurisdiction to entertain and try the present complaint.",
+    noOther: 'in respect of the said incident, the complainant has not initiated any other proceeding in any police station or court anywhere in India till date, apart from the present complaint, nor is any such case pending.',
+    prayer: (sec) => `It is therefore most respectfully prayed that this Hon'ble Court may be pleased to accept the present complaint, register an offence against the accused under Section ${sec}, summon the accused, punish them with the maximum sentence, and award compensation to the complainant from the accused, in the interest of justice.`,
+    dateLabel: 'Date:— ',
+    complainantSig: 'Complainant',
+    nameSuffix: ' — Complainant',
+    throughCounsel: 'Through Counsel',
+    defCourt: 'Judicial Magistrate First Class, Gwalior',
+    defSections: '498A, 377 IPC & 3/4 of the Dowry Prohibition Act',
+    phComplainant: 'Mrs. [Name] d/o or w/o Shri [Name], R/o [permanent address], presently R/o [current address]',
+    phAccused: '[Name] s/o Shri [Name], age [..] yrs, R/o [address]\n(one accused per line)',
+    phFacts: '[Type the facts here — separate each paragraph with a blank line]',
+    phName: '[Name]',
+    phAdv: 'Advocate Name',
+  },
+};
+
+// Fields whose value is a known bilingual default — swapped deterministically
+// on toggle (perfect, no MT), and excluded from the translate call.
+const KNOWN_DEFAULTS = {
+  court_designation: ['न्यायिक दण्डाधिकारी प्रथम श्रेणी, ग्वालियर', 'Judicial Magistrate First Class, Gwalior'],
+  sections:          ['498ए, 377 भा.द.वि. एवं 3/4 दहेज प्रतिषेध अधिनियम', '498A, 377 IPC & 3/4 of the Dowry Prohibition Act'],
+};
+// Custom (lawyer-typed) prose / names that DO go through translate-fields.
+const TRANSLATABLE_FORM_FIELDS = [
+  'court_designation', 'sections',
+  'complainant_block', 'accused_block', 'facts_body',
+  'complainant_sig_name', 'advocate_name',
+];
+
+const state = {
+  lang: 'hi',
+  answers: {},
+  editMode: false,
+};
+
+// =========================================================================
+// Render — one function, parameterised by language.
+// =========================================================================
+function renderDoc(a, lang) {
+  const S = SC[lang];
+  const year = esc(a.case_year || new Date().getFullYear());
+  const sectionsRaw = (a.sections && a.sections.trim()) ? a.sections.trim() : S.defSections;
+  const sec = esc(sectionsRaw);
+  const court = (a.court_designation && a.court_designation.trim()) ? esc(a.court_designation.trim()) : esc(S.defCourt);
+
+  let html = '<div class="cd-doc">';
+
+  // Header — court name (centred, underlined) + case line (no | परिवाद पत्र).
+  html += '<div class="cd-header">';
+  html += `<div class="cd-court">${esc(S.courtPrefix)}${court}</div>`;
+  html += '</div>';
+  html += `<div class="cd-caseno"><span>${esc(S.caseLabelPre)}${ph(a.case_no, '____')}/${year}</span>`
+        + (S.caseLabelPost ? `<span>${esc(S.caseLabelPost)}</span>` : '<span></span>') + '</div>';
+
+  // Parties — cause-title pushed into the RIGHT half (the "name in half" format).
+  html += '<div class="cd-parties">';
+  html += `<div class="cd-party-detail">${phBlock(a.complainant_block, S.phComplainant)}</div>`;
+  html += `<div class="cd-party-label">${esc(S.complainantLabel)}</div>`;
+  html += `<div class="cd-versus">${esc(S.versus)}</div>`;
+  html += `<div class="cd-party-detail">${phBlock(a.accused_block, S.phAccused)}</div>`;
+  html += `<div class="cd-party-label">${esc(S.accusedLabel)}</div>`;
+  html += '</div>';
+
+  // Title (centred, bold, underlined).
+  html += `<h2 class="cd-app-title">${esc(S.titlePre)}${sec}</h2>`;
+
+  // Salutation + prelude.
+  html += `<p class="cd-salutation">${esc(S.salutation)}</p>`;
+  html += `<p class="cd-prelude">${esc(S.prelude)}</p>`;
+
+  // Numbered body — facts first, then the standard closing paragraphs.
+  html += '<ol class="cd-paras">';
+  const facts = factsToParas(a.facts_body);
+  if (facts.length) {
+    facts.forEach(p => { html += `<li><p>${esc(S.lead)}${esc(p)}</p></li>`; });
+  } else {
+    html += `<li><p class="ph">${esc(S.phFacts)}</p></li>`;
+  }
+  if (a.inc_prima_facie !== false) html += `<li><p>${esc(S.lead)}${S.primaFacie(sec)}</p></li>`;
+  if (a.inc_jurisdiction !== false) html += `<li><p>${esc(S.lead)}${esc(S.jurisdiction)}</p></li>`;
+  if (a.inc_no_other !== false)     html += `<li><p>${esc(S.lead)}${esc(S.noOther)}</p></li>`;
+  html += '</ol>';
+
+  // Prayer (inline, no heading — matches the reference filing).
+  html += `<div class="cd-prayer"><p>${S.prayer(sec)}</p></div>`;
+
+  // Signature block — date left, परिवादिया + name (+ optional counsel) right.
+  html += '<div class="cd-sig">';
+  html += `<div class="cd-sig-left">${esc(S.dateLabel)}${ph(a.sig_date, '__/__/' + year)}</div>`;
+  html += '<div class="cd-sig-right">';
+  html += `<div>${esc(S.complainantSig)}</div>`;
+  html += `<div class="cd-sig-name">${ph(a.complainant_sig_name, S.phName)}${esc(S.nameSuffix)}</div>`;
+  if (a.show_advocate) {
+    html += `<div class="cd-sig-adv">${esc(S.throughCounsel)}</div>`;
+    html += `<div class="cd-sig-advname">(${ph(a.advocate_name, S.phAdv)})</div>`;
+  }
+  html += '</div></div>';
+
+  html += '</div>';
+  return html;
+}
+
+// =========================================================================
+// Render loop + form binding
+// =========================================================================
+function onChange() {
+  if (!state.editMode) {
+    $('#doc-page').innerHTML = renderDoc(state.answers, state.lang);
+  }
+  const adv = $('#adv-fields');
+  if (adv) adv.style.display = state.answers.show_advocate ? '' : 'none';
+  persistSettings();
+}
+
+function bindInputs() {
+  document.querySelectorAll('[data-field]').forEach(input => {
+    const field = input.dataset.field;
+    if (state.answers[field] !== undefined && state.answers[field] !== null) {
+      input.value = state.answers[field];
+    }
+    input.addEventListener('input', (e) => {
+      state.answers[field] = e.target.value;
+      onChange();
+    });
+  });
+  document.querySelectorAll('[data-check]').forEach(cb => {
+    const k = cb.dataset.check;
+    // Default ON for the three closing paragraphs; OFF for show_advocate.
+    if (state.answers[k] === undefined) state.answers[k] = cb.checked;
+    else cb.checked = !!state.answers[k];
+    cb.addEventListener('change', (e) => {
+      state.answers[k] = e.target.checked;
+      onChange();
+    });
+  });
+}
+
+function syncInputs() {
+  document.querySelectorAll('[data-field]').forEach(input => {
+    const v = state.answers[input.dataset.field];
+    if (v !== undefined && v !== null) input.value = v;
+  });
+  document.querySelectorAll('[data-check]').forEach(cb => {
+    if (state.answers[cb.dataset.check] !== undefined) cb.checked = !!state.answers[cb.dataset.check];
+  });
+}
+
+function applyLang() {
+  const isHi = state.lang === 'hi';
+  document.body.classList.toggle('lang-hi', isHi);
+  document.querySelectorAll('[data-en]').forEach(el => {
+    const val = el.getAttribute('data-' + state.lang) || el.getAttribute('data-en');
+    if (val !== null) el.textContent = val;
+  });
+  document.querySelectorAll('[data-ph-en]').forEach(el => {
+    const val = el.getAttribute('data-ph-' + state.lang) || el.getAttribute('data-ph-en');
+    if (val !== null) el.placeholder = val;
+  });
+  $('#lang-en').classList.toggle('active', !isHi);
+  $('#lang-hi').classList.toggle('active', isHi);
+}
+
+// =========================================================================
+// Auth + language switch (best-effort field translation)
+// =========================================================================
+async function authHeaders() {
+  if (window.headnoteAuth && typeof window.headnoteAuth.getAccessToken === 'function') {
+    try {
+      const token = await window.headnoteAuth.getAccessToken();
+      if (token) return { 'Authorization': `Bearer ${token}` };
+    } catch (e) {}
+  }
+  return {};
+}
+
+async function switchLang(newLang) {
+  if (state.lang === newLang) return;
+  const prevLang = state.lang;
+  state.lang = newLang;
+
+  // 1) Deterministic swap for untouched bilingual defaults (court, sections).
+  Object.entries(KNOWN_DEFAULTS).forEach(([k, [hiVal, enVal]]) => {
+    const cur = (state.answers[k] || '').trim();
+    if (!cur || cur === hiVal || cur === enVal) {
+      state.answers[k] = newLang === 'hi' ? hiVal : enVal;
+      const el = document.querySelector(`[data-field="${k}"]`);
+      if (el) el.value = state.answers[k];
+    }
+  });
+
+  // 2) Collect remaining custom prose / names for the translator.
+  const toTranslate = {};
+  TRANSLATABLE_FORM_FIELDS.forEach(k => {
+    const v = state.answers[k];
+    if (!v || !String(v).trim()) return;
+    if (KNOWN_DEFAULTS[k]) {
+      const [h, e] = KNOWN_DEFAULTS[k];
+      if (v === h || v === e) return;   // already the correct-language default
+    }
+    toTranslate[k] = v;
+  });
+
+  if (Object.keys(toTranslate).length > 0) {
+    const isHi = newLang === 'hi';
+    toast(isHi ? 'अनुवाद हो रहा है…' : 'Translating…', 'ok');
+    try {
+      const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
+      const r = await fetch('/api/draft/translate-fields', {
+        method: 'POST', headers,
+        body: JSON.stringify({ fields: toTranslate, target: newLang }),
+      });
+      if (r.ok) {
+        const data = await r.json();
+        // Guard against a race: only apply if we're still on this language.
+        if (state.lang === newLang && data.translated && !data.skipped) {
+          Object.entries(data.translated).forEach(([k, v]) => {
+            if (v) {
+              state.answers[k] = v;
+              const el = document.querySelector(`[data-field="${k}"]`);
+              if (el) el.value = v;
+            }
+          });
+          const n = Object.keys(data.translated).length;
+          toast(isHi ? `${n} फ़ील्ड अनुवादित` : `${n} fields translated`, 'ok');
+        }
+      }
+    } catch (e) {
+      // Silent, safe fallback — the UI still switches with the typed text.
+      toast(newLang === 'hi' ? 'अनुवाद विफल — UI बदली' : 'Translation failed — UI switched', 'err');
+    }
+  }
+
+  applyLang();
+  onChange();
+}
+
+// =========================================================================
+// PDF / Print / Edit / Share  (PDF renders server-side, same as bail)
+// =========================================================================
+function _exportHtml() {
+  const docEl = $('#doc-page');
+  if (!docEl) throw new Error('Document not ready');
+  const styles = Array.from(document.querySelectorAll('style')).map(s => s.textContent).join('\n');
+  return '<!doctype html><html><head><meta charset="utf-8"><style>'
+    + styles + '</style></head><body class="' + document.body.className
+    + '">' + docEl.outerHTML + '</body></html>';
+}
+function _pdfBaseName() {
+  const name = (state.answers.complainant_sig_name || 'parivad').replace(/\s+/g, '-');
+  const date = new Date().toISOString().slice(0, 10);
+  return `complaint-${name}-${date}`;
+}
+async function _fetchPdfBlob() {
+  const base = _pdfBaseName();
+  const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
+  const r = await fetch('/api/draft/pdf', {
+    method: 'POST', headers,
+    body: JSON.stringify({ html: _exportHtml(), filename: base }),
+  });
+  if (!r.ok) {
+    let detail = '';
+    try { detail = (await r.json()).detail || ''; } catch (_) {}
+    throw new Error(detail || ('server error ' + r.status));
+  }
+  return { blob: await r.blob(), filename: base + '.pdf' };
+}
+
+$('#btn-pdf').addEventListener('click', async () => {
+  const btn = $('#btn-pdf'); const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳ …';
+  toast(state.lang === 'hi' ? 'PDF बन रही है…' : 'Generating PDF…', 'ok');
+  try {
+    const { blob, filename } = await _fetchPdfBlob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    toast(state.lang === 'hi' ? 'सेव हुई · Downloads देखें' : 'Saved · check Downloads', 'ok');
+  } catch (e) {
+    console.error(e);
+    toast((state.lang === 'hi' ? 'PDF विफल — ' : 'PDF failed — ') + (e.message || 'try again'), 'err');
+  } finally {
+    btn.disabled = false; btn.textContent = orig;
+  }
+});
+
+$('#btn-print').addEventListener('click', () => {
+  toast(state.lang === 'hi' ? 'प्रिंट खुल रहा है…' : 'Opening print…', 'ok');
+  requestAnimationFrame(() => window.print());
+});
+
+$('#btn-edit').addEventListener('click', () => {
+  const docEl = $('#doc-page'); const btn = $('#btn-edit');
+  const isHi = state.lang === 'hi';
+  if (!state.editMode) {
+    state.editMode = true;
+    docEl.setAttribute('contenteditable', 'true');
+    docEl.style.outline = '2px dashed #b8860b';
+    docEl.style.outlineOffset = '6px';
+    docEl.focus();
+    btn.classList.add('btn--primary');
+    btn.textContent = isHi ? '✓ पूर्ण' : '✓ Done';
+    toast(isHi ? 'दस्तावेज़ में सीधे टाइप करें' : 'Type directly in the document', 'ok');
+  } else {
+    const ok = confirm(isHi
+      ? 'फॉर्म मोड पर लौटें? दस्तावेज़ फिर फॉर्म से बनेगा और सीधे किए बदलाव हट जाएंगे।'
+      : 'Return to form mode? The document rebuilds from the form and direct edits are lost.');
+    if (!ok) return;
+    state.editMode = false;
+    docEl.removeAttribute('contenteditable');
+    docEl.style.outline = ''; docEl.style.outlineOffset = '';
+    btn.classList.remove('btn--primary');
+    btn.textContent = isHi ? '✏️ संपादन' : '✏️ Edit';
+    onChange();
+  }
+});
+
+$('#btn-share').addEventListener('click', async () => {
+  const btn = $('#btn-share'); const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳ …';
+  toast(state.lang === 'hi' ? 'WhatsApp हेतु PDF…' : 'Preparing PDF…', 'ok');
+  let blob, filename;
+  try { ({ blob, filename } = await _fetchPdfBlob()); }
+  catch (e) {
+    btn.disabled = false; btn.textContent = orig;
+    toast((state.lang === 'hi' ? 'PDF विफल — ' : 'PDF failed — ') + (e.message || 'try again'), 'err');
+    return;
+  }
+  const file = new File([blob], filename, { type: 'application/pdf' });
+  const text = `परिवाद / Complaint — ${state.answers.complainant_sig_name || 'Draft'} — via Headnote`;
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: filename, text }); toast('Shared ✓', 'ok'); }
+    catch (e) { if (e.name !== 'AbortError') _downloadAndWA(blob, filename, text); }
+  } else {
+    _downloadAndWA(blob, filename, text);
+  }
+  btn.disabled = false; btn.textContent = orig;
+});
+function _downloadAndWA(blob, filename, text) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  toast(state.lang === 'hi' ? 'PDF डाउनलोड — WhatsApp में डालें' : 'PDF downloaded — drag into WhatsApp', 'ok');
+}
+
+$('#lang-en').addEventListener('click', () => switchLang('en'));
+$('#lang-hi').addEventListener('click', () => switchLang('hi'));
+
+// =========================================================================
+// Toast + light persistence (lawyer's own prefs only — NEVER client data)
+// =========================================================================
+function toast(msg, kind) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.className = 'toast toast--show toast--' + (kind || 'ok');
+  setTimeout(() => t.classList.remove('toast--show'), 2400);
+}
+
+const LS_KEY = 'headnote_complaint_prefs';
+function persistSettings() {
+  // Confidentiality: do NOT store client/case data. Only the lawyer's own
+  // language preference + advocate name (their identity), like the bail page.
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      lang: state.lang,
+      advocate_name: state.answers.advocate_name || '',
+      show_advocate: !!state.answers.show_advocate,
+    }));
+  } catch (e) {}
+}
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return;
+    const p = JSON.parse(raw);
+    if (p.lang === 'en' || p.lang === 'hi') state.lang = p.lang;
+    if (p.advocate_name) state.answers.advocate_name = p.advocate_name;
+    if (typeof p.show_advocate === 'boolean') state.answers.show_advocate = p.show_advocate;
+  } catch (e) {}
+}
+
+function loadDefaults() {
+  // Hindi-first defaults (the toggle swaps these deterministically).
+  state.answers.court_designation = SC.hi.defCourt;
+  state.answers.sections = SC.hi.defSections;
+  state.answers.case_year = String(new Date().getFullYear());
+  state.answers.inc_prima_facie = true;
+  state.answers.inc_jurisdiction = true;
+  state.answers.inc_no_other = true;
+  state.answers.show_advocate = false;
+}
+
+// Pre-fill the advocate name from the saved bar profile (never overwrites
+// anything already set). Fills the field even when the counsel line is OFF,
+// so enabling it is one click.
+async function prefillFromPersona() {
+  try {
+    const headers = await authHeaders();
+    if (!headers.Authorization) return;
+    const r = await fetch('/api/lawyer-profile', { headers });
+    if (!r.ok) return;
+    const p = await r.json();
+    if (p.advocate_name && !(state.answers.advocate_name && state.answers.advocate_name.trim())) {
+      state.answers.advocate_name = p.advocate_name;
+      const el = document.querySelector('[data-field="advocate_name"]');
+      if (el) el.value = p.advocate_name;
+    }
+  } catch (e) {}
+}
+
+// =========================================================================
+// Boot
+// =========================================================================
+(async function init() {
+  loadDefaults();
+  loadSettings();
+  // If a saved language default was applied, make sure the scaffold defaults
+  // match it (so an EN-first lawyer doesn't see Hindi defaults).
+  if (state.lang === 'en') {
+    if (state.answers.court_designation === SC.hi.defCourt) state.answers.court_designation = SC.en.defCourt;
+    if (state.answers.sections === SC.hi.defSections) state.answers.sections = SC.en.defSections;
+  }
+  bindInputs();
+  applyLang();
+  await prefillFromPersona();
+  onChange();
+})();
+</script>
+</body>
+</html>

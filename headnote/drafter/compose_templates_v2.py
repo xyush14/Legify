@@ -1953,6 +1953,39 @@ REPLY_APPLICATION = {
 }
 
 
+# Wrapper — links to the dedicated §498A परिवाद complaint page. Deterministic,
+# format-perfect bilingual (NO LLM for layout): the EN/हिं toggle is an instant
+# client-side re-render and the cause-title sits in the right half of the page
+# exactly as filed. Layout decoded verbatim from a real Gwalior JMFC filing.
+COMPLAINT_498A = {
+    "id":              "complaint_498a",
+    "name_en":         "Complaint — Cruelty & Dowry (S.498A/377 IPC + DP Act)",
+    "name_hi":         "परिवाद पत्र — क्रूरता व दहेज (धारा 498ए/377 भा.द.वि. + दहेज प्रतिषेध अधिनियम)",
+    "court":           "magistrate",
+    "court_label_en":  "Magistrate Court",
+    "court_label_hi":  "मजिस्ट्रेट न्यायालय",
+    "category":        "family",
+    "tier":            1,
+    "popularity":      5,
+    "quality":         "v1-wrapper",
+    "description":     (
+        "Private complaint before a Judicial Magistrate First Class for matrimonial "
+        "cruelty and dowry harassment (S.498A/377 IPC & 3/4 Dowry Prohibition Act). "
+        "Opens the dedicated परिवाद drafter — deterministic, format-perfect bilingual "
+        "(instant EN/हिं toggle, cause-title in the right half exactly as filed) with "
+        "server-side PDF. Layout decoded verbatim from a real Gwalior JMFC filing."
+    ),
+    "redirect_url":    "/draft/complaint",
+    "fields": [],
+    "format_spec":     "",  # rendered client-side by /draft/complaint
+    "example_prompts": [
+        "498ए परिवाद पत्र — ससुराल वालों द्वारा दहेज हेतु क्रूरता, ग्वालियर JMFC में",
+        "Section 498A complaint against husband and in-laws for dowry cruelty",
+        "परिवाद पत्र धारा 498ए, 377 व 3/4 दहेज प्रतिषेध अधिनियम",
+    ],
+}
+
+
 # ============================================================================
 # AGGREGATE — used by compose_templates.py to merge into TEMPLATES dict
 # ============================================================================
@@ -1986,4 +2019,5 @@ NEW_TEMPLATES_V2: dict[str, dict] = {
     LEGAL_NOTICE["id"]:               LEGAL_NOTICE,
     PRIVATE_COMPLAINT_200["id"]:      PRIVATE_COMPLAINT_200,
     REPLY_APPLICATION["id"]:          REPLY_APPLICATION,
+    COMPLAINT_498A["id"]:             COMPLAINT_498A,
 }

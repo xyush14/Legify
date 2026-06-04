@@ -1062,6 +1062,13 @@ app.include_router(_partners_admin_router)
 from headnote.api.onboarding import router as _onboarding_router
 app.include_router(_onboarding_router)
 
+# OTPless → Supabase auth bridge: /api/auth/otpless-exchange
+# Verifies the OTPless short-lived token server-side, finds/creates the
+# auth.users row, returns a hashed magic-link token the FE uses to mint a
+# normal Supabase session (with refresh token + onAuthStateChange wiring).
+from headnote.api.auth_otpless import router as _auth_otpless_router
+app.include_router(_auth_otpless_router)
+
 # Personal-assist escape hatches: /api/assist/{research,draft}
 # Fired by the "Not satisfied? / Not finding what you need?" CTAs in the UI.
 # Sends a Resend email to the founder inbox — SLA enforced manually.
@@ -1285,6 +1292,24 @@ def draft_bail_application():
     return FileResponse(config.STATIC_DIR / "draft-bail.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
+@app.get("/draft/complaint", include_in_schema=False)
+@app.get("/draft/complaint/", include_in_schema=False)
+def draft_complaint_application():
+    """परिवाद (§498A complaint) drafter — deterministic bilingual split-pane UI.
+
+    Same engine as the bail page: the document renders 100% client-side from
+    the form, so the EN/हिं toggle is an instant, format-identical re-render
+    (no LLM for layout). The cause-title sits in the right half of the page to
+    mirror the court's filing format. Only the names + facts the lawyer types
+    route through the best-effort /api/draft/translate-fields call on toggle;
+    if it fails the UI still switches, so nothing breaks.
+
+    Output: print-perfect Hindi/English PDF (server-side WeasyPrint) for filing
+    before a Judicial Magistrate First Class.
+    """
+    return FileResponse(config.STATIC_DIR / "draft-complaint.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
 @app.get("/draft/template/{doc_type}", include_in_schema=False)
 @app.get("/draft/template/{doc_type}/", include_in_schema=False)
 def draft_template_drafter(doc_type: str):
@@ -1340,9 +1365,14 @@ def api_config():
     running in an old browser tab. If the frontend's baked-in version is older,
     it force-reloads once to pick up the new code.
     """
+    import os as _os_cfg
     return {
         "supabase_url":      config.SUPABASE_URL or "",
         "supabase_anon_key": config.SUPABASE_ANON_KEY or "",
+        # OTPLESS_APP_ID is public-safe (their SDK requires it in a data-attr).
+        # Only the client SECRET is server-side. If empty, auth.js keeps the
+        # "Continue with phone" button hidden so users don't see a broken CTA.
+        "otpless_app_id":    _os_cfg.environ.get("OTPLESS_APP_ID", ""),
         "code_version":      "20260527a",
     }
 
