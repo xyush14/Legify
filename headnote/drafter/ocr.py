@@ -8,11 +8,15 @@ action taken #13). We bias the prompt to that form so the model can lock
 onto field positions even when handwriting/stamps degrade the image, and we
 accept multiple pages because real FIRs are 3-5 pages.
 
-Provider policy (cost): Groq Llama-4-Scout only — free/near-free. A hard
-scan that Groq reads as empty triggers a free higher-DPI Groq retry, NOT a
-paid Claude call. The Anthropic Claude vision fallback is kept in code but
-DISABLED by default (set OCR_ENABLE_ANTHROPIC=1 to re-enable); Claude vision
-costs ~30x more per page.
+Provider policy (cost): Groq Llama-4-Scout is the free/near-free primary. A
+hard scan that Groq reads as empty triggers a free higher-DPI Groq retry,
+NOT a paid Claude call. An optional OpenAI-compatible vision fallback
+(OCR_FALLBACK_API_KEY — e.g. DeepSeek-VL2 / DeepSeek-V4 via OpenRouter) can
+be switched on to rescue scans Groq can't read; it stays DORMANT unless that
+key is set, so the out-of-the-box behavior is unchanged and adding it cannot
+break OCR for any user. The Anthropic Claude vision fallback is kept in code
+but DISABLED by default (set OCR_ENABLE_ANTHROPIC=1 to re-enable); Claude
+vision costs ~30x more per page.
 
 Cost: ~₹0.1-0.3 per OCR call on Groq.
 Latency: 4-10s.
@@ -356,9 +360,11 @@ def _merge_ocr_results(results: Sequence[dict]) -> dict:
     return merged
 
 
-def _groq_one_call(client, model: str, pages: Sequence[tuple[bytes, str]],
-                   prompt: str, *, page_offset: int = 0, total: int = 0) -> dict:
-    """One Groq vision request for a single batch of <=5 images."""
+def _vision_chat_one_call(client, model: str, pages: Sequence[tuple[bytes, str]],
+                          prompt: str, *, page_offset: int = 0, total: int = 0) -> dict:
+    """One vision request for a single batch of images over any OpenAI-compatible
+    chat-completions client (Groq SDK and the openai SDK share this interface,
+    so this helper backs both the Groq primary and the opt-in fallback)."""
     total = total or len(pages)
     content: list[dict] = []
     for idx, (img_bytes, mt) in enumerate(pages, start=1):
@@ -406,15 +412,62 @@ def _ocr_via_groq(pages: Sequence[tuple[bytes, str]], prompt: str = OCR_FIR_PROM
     total = len(pages)
 
     if total <= max_imgs:
-        return _groq_one_call(client, model, pages, prompt, page_offset=0, total=total)
+        return _vision_chat_one_call(client, model, pages, prompt, page_offset=0, total=total)
 
     log.info("OCR: %d pages > %d-image cap — batching into %d Groq calls",
              total, max_imgs, (total + max_imgs - 1) // max_imgs)
     results: list[dict] = []
     for start in range(0, total, max_imgs):
         chunk = pages[start:start + max_imgs]
-        results.append(_groq_one_call(client, model, chunk, prompt,
-                                      page_offset=start, total=total))
+        results.append(_vision_chat_one_call(client, model, chunk, prompt,
+                                             page_offset=start, total=total))
+    return _merge_ocr_results(results)
+
+
+def _ocr_via_openrouter(pages: Sequence[tuple[bytes, str]], prompt: str = OCR_FIR_PROMPT) -> dict:
+    """OPT-IN OCR fallback over any OpenAI-compatible vision endpoint.
+
+    This is the DeepSeek-VL2 / DeepSeek-V4 upgrade path. It stays DORMANT
+    until OCR_FALLBACK_API_KEY is set, so by default it never runs and OCR
+    behaves exactly as before. When enabled it rescues scans the free Groq
+    primary can't read. It reuses the existing `openai` SDK (already a
+    dependency — no new install) and the same batched-image + merge logic as
+    Groq, because the chat-completions + image_url content format is identical
+    across OpenAI-compatible providers.
+
+    Defaults target DeepSeek vision via OpenRouter; point it at Together.ai,
+    DeepSeek's own endpoint, or a self-hosted VL2 by overriding the base URL
+    and model. Env:
+      OCR_FALLBACK_API_KEY    — provider key (its PRESENCE enables this tier)
+      OCR_FALLBACK_BASE_URL   — default https://openrouter.ai/api/v1
+      OCR_FALLBACK_MODEL      — default deepseek/deepseek-v4-pro
+      OCR_FALLBACK_MAX_IMAGES — per-request image cap (default 5)
+      OCR_FALLBACK_TIMEOUT    — seconds (default 90)
+    """
+    from openai import OpenAI
+
+    api_key = os.environ.get("OCR_FALLBACK_API_KEY", "").strip()
+    if not api_key:
+        raise RuntimeError("OCR_FALLBACK_API_KEY not set")
+
+    base_url = os.environ.get("OCR_FALLBACK_BASE_URL", "https://openrouter.ai/api/v1").strip()
+    model = os.environ.get("OCR_FALLBACK_MODEL", "deepseek/deepseek-v4-pro").strip()
+    max_imgs = max(1, int(os.environ.get("OCR_FALLBACK_MAX_IMAGES", "5")))
+    timeout = float(os.environ.get("OCR_FALLBACK_TIMEOUT", "90"))
+
+    client = OpenAI(api_key=api_key, base_url=base_url, timeout=timeout)
+    total = len(pages)
+
+    if total <= max_imgs:
+        return _vision_chat_one_call(client, model, pages, prompt, page_offset=0, total=total)
+
+    log.info("OCR fallback: %d pages > %d-image cap — batching into %d calls",
+             total, max_imgs, (total + max_imgs - 1) // max_imgs)
+    results: list[dict] = []
+    for start in range(0, total, max_imgs):
+        chunk = pages[start:start + max_imgs]
+        results.append(_vision_chat_one_call(client, model, chunk, prompt,
+                                             page_offset=start, total=total))
     return _merge_ocr_results(results)
 
 
@@ -548,6 +601,7 @@ def _run_ocr(pages, prompt, normalise_fn):
 
     groq_err: Optional[Exception] = None
     anthropic_err: Optional[Exception] = None
+    fallback_err: Optional[Exception] = None
     groq_empty_result: Optional[dict] = None  # valid-but-empty Groq parse, kept as last resort
 
     if groq_key:
@@ -574,6 +628,26 @@ def _run_ocr(pages, prompt, normalise_fn):
             log.warning("Groq OCR failed: %s", e)
             groq_err = e
 
+    # Opt-in OpenAI-compatible vision fallback (DeepSeek-VL2 / V4 via OpenRouter,
+    # or any provider you point it at). DORMANT unless OCR_FALLBACK_API_KEY is
+    # set — when unset this whole block is skipped and behavior is byte-for-byte
+    # the Groq-only path. We only reach here if Groq did NOT already succeed
+    # (both Groq success paths return early), so this rescues Groq failures and
+    # silent-empty extractions alike. Fully failure-isolated: ANY error here
+    # (including a missing `openai` import) is caught and we fall through to the
+    # existing degrade path, so enabling it can never break OCR for a user.
+    fallback_key = os.environ.get("OCR_FALLBACK_API_KEY", "").strip()
+    if fallback_key:
+        try:
+            fb_raw = _ocr_via_openrouter(pages, prompt)
+            if not _ocr_result_is_empty(fb_raw):
+                log.info("OCR rescued by opt-in fallback provider")
+                return normalise_fn(fb_raw)
+            log.warning("OCR fallback provider returned an empty extraction")
+        except Exception as e:
+            log.warning("OCR fallback provider failed: %s", e)
+            fallback_err = e
+
     # Anthropic vision is OFF by default (costly). Enable with OCR_ENABLE_ANTHROPIC=1.
     if anthropic_on and (anthropic_key or bedrock_key):
         try:
@@ -598,6 +672,8 @@ def _run_ocr(pages, prompt, normalise_fn):
         raise ValueError(f"OCR failed: {anthropic_err}")
     if groq_err:
         raise ValueError(_format_groq_error(groq_err))
+    if fallback_err:
+        raise ValueError(f"OCR failed: {fallback_err}")
     raise ValueError("OCR is not configured. Set GROQ_API_KEY on the server.")
 
 
