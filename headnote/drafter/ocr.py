@@ -300,28 +300,65 @@ def _normalise(parsed: dict) -> dict:
     return parsed
 
 
-def _ocr_via_groq(pages: Sequence[tuple[bytes, str]], prompt: str = OCR_FIR_PROMPT) -> dict:
-    """Use Groq + Llama-4-Scout vision (free tier, 14400 req/day).
+# ── Multi-batch OCR merge ────────────────────────────────────────────────
+# Narrative / free-text fields are CONCATENATED across page batches (the
+# story can span pages); every other field is a header/scalar where the
+# first non-empty value (earliest page) wins.
+_NARRATIVE_MERGE_KEYS = {
+    "narrative_hi", "narrative_en", "narrative_raw",
+    "facts_narrative_hi", "facts_narrative_en",
+    "outcome_reasoning", "subject_matter", "operative_direction", "notes",
+}
+_NULLISH_VALS = {"", "n/a", "null", "none", "nil", "-", "—"}
 
-    Groq accepts multiple image blocks in a single chat message — we send
-    all pages together so the model can reconcile fields that span pages
-    (narrative on p3, IO name on p4, etc.).
 
-    `prompt` selects the extraction schema (FIR vs bail-order vs ...).
+def _merge_ocr_results(results: Sequence[dict]) -> dict:
+    """Merge per-batch OCR extractions of ONE document into a single result.
+
+    Llama-4-Scout rejects >5 images per request, so a long FIR/order is
+    OCR'd in batches and the structured results merged here:
+      - scalars   → first non-empty value wins (header fields sit on p1-2)
+      - lists     → concatenated + de-duplicated (accused, sections, ...)
+      - narrative → concatenated in page order (the story spans pages)
     """
-    from groq import Groq
+    merged: dict = {}
+    for res in results:
+        if not isinstance(res, dict):
+            continue
+        for k, v in res.items():
+            if v is None:
+                continue
+            if isinstance(v, list):
+                cur = merged.get(k)
+                if not isinstance(cur, list):
+                    cur = []
+                    merged[k] = cur
+                for item in v:
+                    if item not in cur:
+                        cur.append(item)
+            elif isinstance(v, str):
+                vs = v.strip()
+                if not vs or vs.lower() in _NULLISH_VALS:
+                    continue
+                if k in _NARRATIVE_MERGE_KEYS:
+                    prev = merged.get(k)
+                    merged[k] = (str(prev) + "\n\n" + vs) if prev else vs
+                elif not str(merged.get(k) or "").strip():
+                    merged[k] = vs
+            else:  # numbers, bools — first present wins
+                merged.setdefault(k, v)
+    return merged
 
-    groq_key = os.environ.get("GROQ_API_KEY", "")
-    if not groq_key:
-        raise RuntimeError("GROQ_API_KEY not set")
 
-    client = Groq(api_key=groq_key)
-    model = os.environ.get("GROQ_OCR_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
-
+def _groq_one_call(client, model: str, pages: Sequence[tuple[bytes, str]],
+                   prompt: str, *, page_offset: int = 0, total: int = 0) -> dict:
+    """One Groq vision request for a single batch of <=5 images."""
+    total = total or len(pages)
     content: list[dict] = []
     for idx, (img_bytes, mt) in enumerate(pages, start=1):
-        if len(pages) > 1:
-            content.append({"type": "text", "text": f"--- Page {idx} of {len(pages)} ---"})
+        if total > 1:
+            content.append({"type": "text",
+                            "text": f"--- Page {page_offset + idx} of {total} ---"})
         b64 = base64.standard_b64encode(img_bytes).decode("utf-8")
         content.append({
             "type": "image_url",
@@ -337,6 +374,42 @@ def _ocr_via_groq(pages: Sequence[tuple[bytes, str]], prompt: str = OCR_FIR_PROM
     )
     raw = resp.choices[0].message.content or ""
     return _parse_json_response(raw)
+
+
+def _ocr_via_groq(pages: Sequence[tuple[bytes, str]], prompt: str = OCR_FIR_PROMPT) -> dict:
+    """Use Groq + Llama-4-Scout vision (free tier, 14400 req/day).
+
+    Llama-4-Scout rejects requests with more than 5 images ("This model
+    supports up to 5 images") — that was the hard failure on 6-8 page FIRs/
+    bail orders. We now OCR in batches of <=GROQ_OCR_MAX_IMAGES and merge the
+    structured results, so a long document reads cleanly on the free tier
+    without depending on the Anthropic fallback. Documents within the cap
+    still go in a single call so the model can reconcile cross-page fields.
+
+    `prompt` selects the extraction schema (FIR vs bail-order vs ...).
+    """
+    from groq import Groq
+
+    groq_key = os.environ.get("GROQ_API_KEY", "")
+    if not groq_key:
+        raise RuntimeError("GROQ_API_KEY not set")
+
+    client = Groq(api_key=groq_key)
+    model = os.environ.get("GROQ_OCR_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
+    max_imgs = max(1, int(os.environ.get("GROQ_OCR_MAX_IMAGES", "5")))
+    total = len(pages)
+
+    if total <= max_imgs:
+        return _groq_one_call(client, model, pages, prompt, page_offset=0, total=total)
+
+    log.info("OCR: %d pages > %d-image cap — batching into %d Groq calls",
+             total, max_imgs, (total + max_imgs - 1) // max_imgs)
+    results: list[dict] = []
+    for start in range(0, total, max_imgs):
+        chunk = pages[start:start + max_imgs]
+        results.append(_groq_one_call(client, model, chunk, prompt,
+                                      page_offset=start, total=total))
+    return _merge_ocr_results(results)
 
 
 def _ocr_via_anthropic(pages: Sequence[tuple[bytes, str]], prompt: str = OCR_FIR_PROMPT) -> dict:
@@ -448,7 +521,8 @@ def _run_ocr(pages, prompt, normalise_fn):
     # Rasterize PDFs → images so Groq (images-only) can read them. No-op for
     # image uploads. Env-tunable DPI for OCR quality vs request size.
     _dpi = int(os.environ.get("OCR_PDF_DPI", "150"))
-    pages = _rasterize_pdfs(pages, dpi=_dpi, max_total=8)
+    _max_pages = int(os.environ.get("OCR_MAX_PAGES", "10"))
+    pages = _rasterize_pdfs(pages, dpi=_dpi, max_total=_max_pages)
 
     groq_key      = os.environ.get("GROQ_API_KEY", "").strip()
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
@@ -493,8 +567,12 @@ def _run_ocr(pages, prompt, normalise_fn):
         msg = _format_groq_error(groq_err)
         raise ValueError(msg)
     if groq_err and anthropic_err:
+        # Both providers down. Show the (friendly) primary-provider reason;
+        # the raw errors from both are already in the server logs above, so
+        # the user never sees raw provider JSON mid-demo.
         raise ValueError(
-            f"OCR failed on both providers. Groq: {groq_err}. Anthropic: {anthropic_err}"
+            _format_groq_error(groq_err)
+            + " The backup OCR provider is also unavailable right now."
         )
     if anthropic_err:
         raise ValueError(f"OCR failed: {anthropic_err}")
@@ -591,6 +669,13 @@ def _format_groq_error(err: Exception) -> str:
         return (
             "FIR pages too large for one request. Try uploading 1-2 pages "
             "at a time, or compress the images before upload."
+        )
+    if "too many images" in s or "supports up to" in s or "maximum number of images" in s:
+        return (
+            "This document has more pages than the OCR model takes in one "
+            "request. Headnote now splits long files into batches "
+            "automatically — if you still see this, upload up to 5 pages at "
+            "a time."
         )
     if "401" in s or "unauthorized" in s or "invalid_api_key" in s:
         return "OCR provider rejected the API key. Contact hello@headnote.in."
