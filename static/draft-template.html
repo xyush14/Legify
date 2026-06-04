@@ -416,6 +416,19 @@ const state = {
   _lastGenFields: null,
   _regenCount:    0,
   ocrFiles:       [],  // staging area for FIR / order photos
+  // ---- Translation safety patch (session-only; NOT persisted) ----
+  // docByLang: last good document per language, keyed by the edit-version it
+  //   was built from → lets a language toggle re-show a format-identical doc
+  //   INSTANTLY (no LLM call, no format drift) when the content hasn't changed.
+  // _editVersion: monotonic counter bumped on every *real* content change
+  //   (typing / OCR / voice / polish). Field-translation does NOT bump it, so a
+  //   pure language flip keeps the cache valid.
+  // _rerunPending: if a generate request arrives while one is in flight, we
+  //   remember the latest and re-fire it after — so a rapid toggle is never
+  //   silently dropped (single-flight, latest-wins).
+  docByLang:    {},
+  _editVersion: 0,
+  _rerunPending: null,
 };
 const REGEN_DEBOUNCE_MS = 1500;
 const REGEN_MAX_PER_SESSION = 80;
@@ -1064,10 +1077,14 @@ async function maybeRenderInitial() {
 
 // ---- Generate + live preview ----
 async function generateDocument(opts) {
-  if (state.generating) return;
   // Editing the doc directly — never overwrite the lawyer's hand-edits.
   if (state.editMode) return;
   opts = opts || {};
+  // Single-flight, latest-wins: if a generation is already running, remember
+  // this (latest) request and re-fire it when the current one finishes. This
+  // stops a quick language toggle (or a keystroke) from being silently dropped
+  // while an earlier request is still in flight.
+  if (state.generating) { state._rerunPending = opts; return; }
   const silent = !!opts.silent;
   const initial = !!opts.initial;  // first render on page load — always fires
   const filled = (state.template.fields || []).filter(f => f.required && state.fields[f.key] && String(state.fields[f.key]).trim());
@@ -1080,20 +1097,34 @@ async function generateDocument(opts) {
     if (window.matchMedia('(max-width: 880px)').matches && !state.document) setPreview('half');
   }
   const prevScroll = $('#doc-page')?.scrollTop || 0;
+  // Snapshot the language + content version THIS request is built from. The
+  // result is cached against the right language even if the user toggles again
+  // mid-flight, and the cache entry is auto-invalidated the moment content
+  // changes (scheduleAutoRegen bumps _editVersion).
+  const langAtCall = state.lang;
+  const verAtCall  = state._editVersion;
   try {
     const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
     const r = await fetch('/api/draft/render-template', {
       method: 'POST', headers,
-      body: JSON.stringify({ doc_type: state.docType, fields: state.fields, lang: state.lang }),
+      body: JSON.stringify({ doc_type: state.docType, fields: state.fields, lang: langAtCall }),
     });
     if (await handleAuthError(r.status)) return;
     const data = await r.json();
     if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`);
-    state.document = data.document;
-    renderDocument();
-    if ($('#doc-page')) $('#doc-page').scrollTop = prevScroll;
-    saveToLocalStorage();
-    state._lastGenFields = JSON.stringify(state.fields);
+    // Cache this language's document so a later toggle back re-shows the SAME
+    // format-identical doc instantly (no LLM re-roll, no format drift).
+    state.docByLang[langAtCall] = { doc: data.document, ver: verAtCall };
+    // Only paint if this is still the language on screen. If the user toggled
+    // away mid-flight, _rerunPending holds the newer request and will repaint —
+    // so we skip the stale paint instead of flashing the wrong language.
+    if (langAtCall === state.lang) {
+      state.document = data.document;
+      renderDocument();
+      if ($('#doc-page')) $('#doc-page').scrollTop = prevScroll;
+      saveToLocalStorage();
+      state._lastGenFields = JSON.stringify(state.fields);
+    }
   } catch (e) {
     if (!silent) toast('Error: ' + e.message, 'err', 4000);
   } finally {
@@ -1101,9 +1132,21 @@ async function generateDocument(opts) {
     $('#doc-pane').classList.remove('is-generating');
     $('#btn-generate').disabled = false;
     $('#gen-label').textContent = state.lang === 'hi' ? '✨ दस्तावेज़ ताज़ा करें' : '✨ Refresh Draft';
+    // A request arrived while we were busy — run the latest one now (it reads
+    // the user's most recent state.lang / fields).
+    if (state._rerunPending) {
+      const next = state._rerunPending; state._rerunPending = null;
+      generateDocument(next);
+    }
   }
 }
 function scheduleAutoRegen() {
+  // Any real content change invalidates the per-language doc cache. This runs
+  // for typing, OCR fills, voice fills and polish (all call scheduleAutoRegen);
+  // a pure language toggle / field-translation does NOT, so the cache stays
+  // valid across language flips. Bump synchronously (before the debounce) so a
+  // toggle fired right after a keystroke sees the new version and regenerates.
+  state._editVersion++;
   if (state.editMode) return;   // editing the doc directly — freeze auto-regen
   if (state._regenTimer) clearTimeout(state._regenTimer);
   state._regenTimer = setTimeout(() => {
@@ -1244,51 +1287,72 @@ async function setLang(newLang) {
   Object.entries(state.fields).forEach(([k, v]) => {
     const el = $(`#f_${k}`); if (el) el.value = v || '';
   });
-  // Translate prose fields
-  const toTranslate = {};
-  // Translate every free-text field type — `text` is the most common type in
-  // the templates, so omitting it left most fields untranslated and produced
-  // mixed-language documents. Dates / numbers / selects are deliberately left
-  // alone (they carry no language).
-  (state.template.fields || []).forEach(f => {
-    if (['longtext', 'address', 'name', 'text'].includes(f.type)) {
-      const v = state.fields[f.key];
-      if (v && String(v).trim()) toTranslate[f.key] = v;
-    }
-  });
-  if (Object.keys(toTranslate).length > 0) {
-    toast(state.lang === 'hi' ? 'फ़ील्ड अनुवाद हो रहे हैं…' : 'Translating fields…', 'ok');
-    try {
-      const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
-      const r = await fetch('/api/draft/translate-fields', {
-        method: 'POST', headers,
-        body: JSON.stringify({ fields: toTranslate, target: newLang }),
-      });
-      if (await handleAuthError(r.status)) return;
-      if (r.ok) {
-        const data = await r.json();
-        if (data.translated && !data.skipped) {
-          Object.entries(data.translated).forEach(([k, v]) => {
-            if (v) state.fields[k] = v;
-            const el = $(`#f_${k}`); if (el) el.value = v;
-          });
-          saveToLocalStorage();
-        }
-      }
-    } catch (e) {
-      toast('Translation failed: ' + e.message, 'warn', 3500);
-    }
+
+  // Translate the FORM-INPUT values for display only — best-effort, in the
+  // BACKGROUND. The document flip must NEVER wait on this: render-template
+  // already produces the document in the target language regardless of the
+  // form's language, while translate-fields uses flaky free MT that used to
+  // BLOCK (and sometimes fail) the whole toggle — that was the main reason
+  // "translation wasn't working". Fire-and-forget so the doc flips fast.
+  translateFieldsForDisplay(newLang);
+
+  // Editing the doc by hand — regenerating would wipe those edits. Keep the
+  // document as-is and tell the lawyer how to switch its language.
+  if (state.editMode) {
+    toast(newLang === 'hi' ? 'दस्तावेज़ की भाषा बदलने के लिए पहले संपादन बंद करें (✓ पूर्ण)'
+                           : 'Turn off Edit (✓ Done) to switch the document language', 'warn', 3200);
+    return;
   }
-  // A language toggle MUST re-render the document in the new language — always.
-  // The debounced auto-regen (scheduleAutoRegen) is gated on field-changes AND
-  // a per-session cap, so it was silently skipping the toggle and the document
-  // stayed in the old language ("translation not working"). Force a direct
-  // regeneration instead — generateDocument() always fires when not silent,
-  // ignores the cap, and POSTs the new state.lang. Runs even if field
-  // translation above failed, so the document language still flips.
-  if (state.document && !state.editMode) {
+
+  // INSTANT path: if this language was already generated for the CURRENT form
+  // content, re-show that cached document — no LLM call, no format drift,
+  // identical layout every time you toggle back.
+  const cached = state.docByLang[newLang];
+  if (cached && cached.doc && cached.ver === state._editVersion) {
+    state.document = cached.doc;
+    renderDocument();
+    saveToLocalStorage();
+    return;
+  }
+
+  // Otherwise generate the document in the new language (generateDocument also
+  // caches the result, so the next toggle back is instant).
+  if (state.document) {
     await generateDocument();
   }
+}
+
+// Best-effort background translation of the form-input VALUES so the boxes read
+// in the chosen language. NEVER blocks or breaks the language toggle — on any
+// failure the inputs simply stay in their source language; the document has
+// already flipped via render-template either way.
+async function translateFieldsForDisplay(targetLang) {
+  try {
+    const toTranslate = {};
+    (state.template.fields || []).forEach(f => {
+      if (['longtext', 'address', 'name', 'text'].includes(f.type)) {
+        const v = state.fields[f.key];
+        if (v && String(v).trim()) toTranslate[f.key] = v;
+      }
+    });
+    if (Object.keys(toTranslate).length === 0) return;
+    const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
+    const r = await fetch('/api/draft/translate-fields', {
+      method: 'POST', headers,
+      body: JSON.stringify({ fields: toTranslate, target: targetLang }),
+    });
+    if (!r.ok) return;                       // best-effort: stay silent on failure
+    const data = await r.json();
+    // The user may have toggled away again while MT was running — only apply if
+    // the chosen language is still the one on screen.
+    if (state.lang !== targetLang) return;
+    if (data.translated && !data.skipped) {
+      Object.entries(data.translated).forEach(([k, v]) => {
+        if (v) { state.fields[k] = v; const el = $(`#f_${k}`); if (el) el.value = v; }
+      });
+      saveToLocalStorage();
+    }
+  } catch { /* best-effort — inputs stay in source language; doc already flipped */ }
 }
 $('#lang-en').addEventListener('click', () => setLang('en'));
 $('#lang-hi').addEventListener('click', () => setLang('hi'));
