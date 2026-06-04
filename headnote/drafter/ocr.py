@@ -1,14 +1,20 @@
-"""FIR photo/PDF OCR + structured extraction via Claude vision.
+"""FIR photo/PDF OCR + structured extraction via Groq Llama-4-Scout vision.
 
 The Indian FIR is a near-universally standard document: the NCRB I.I.F.-I
 (Integrated Investigation Form-I) printed under Section 154 CrPC. It has a
 fixed 15-field structure (district → P.S. → FIR no/year → acts/sections →
 occurrence date/time/place → complainant → accused → narrative #12 → IO/
-action taken #13). We bias the prompt to that form so Claude can lock onto
-field positions even when handwriting/stamps degrade the image, and we
-accept multiple pages in a single call because real FIRs are 3-5 pages.
+action taken #13). We bias the prompt to that form so the model can lock
+onto field positions even when handwriting/stamps degrade the image, and we
+accept multiple pages because real FIRs are 3-5 pages.
 
-Cost: ~₹3-8 per OCR call (one image cheap, multi-page more).
+Provider policy (cost): Groq Llama-4-Scout only — free/near-free. A hard
+scan that Groq reads as empty triggers a free higher-DPI Groq retry, NOT a
+paid Claude call. The Anthropic Claude vision fallback is kept in code but
+DISABLED by default (set OCR_ENABLE_ANTHROPIC=1 to re-enable); Claude vision
+costs ~30x more per page.
+
+Cost: ~₹0.1-0.3 per OCR call on Groq.
 Latency: 4-10s.
 """
 
@@ -415,7 +421,9 @@ def _ocr_via_groq(pages: Sequence[tuple[bytes, str]], prompt: str = OCR_FIR_PROM
 def _ocr_via_anthropic(pages: Sequence[tuple[bytes, str]], prompt: str = OCR_FIR_PROMPT) -> dict:
     """Fallback: use Anthropic Claude Sonnet vision.
 
-    `prompt` selects the extraction schema (FIR vs bail-order vs ...).
+    DISABLED by default — Claude vision is ~30x Groq's per-page cost. Only
+    reached when OCR_ENABLE_ANTHROPIC=1 (see _run_ocr). `prompt` selects the
+    extraction schema (FIR vs bail-order vs ...).
     """
     client = get_client()
     model = (
@@ -511,22 +519,32 @@ def _ocr_result_is_empty(parsed: dict) -> bool:
 
 
 def _run_ocr(pages, prompt, normalise_fn):
-    """Generic multi-page OCR runner. Provider priority: Groq (free/fast) →
-    Anthropic Sonnet (when a real key is set). `prompt` selects the schema;
-    `normalise_fn` post-processes the parsed JSON. Raises ValueError with a
-    clear, provider-accurate message when all configured providers fail."""
+    """Generic multi-page OCR runner — Groq-only by default (cost policy).
+
+    Groq Llama-4-Scout is the sole provider we rely on: it's free/near-free.
+    On a hard scan that Groq reads as EMPTY, we retry Groq once at a higher
+    rasterization DPI (still free) instead of paying for Claude. The
+    Anthropic vision fallback remains in the code but is DISABLED by default
+    (Claude vision is ~30x the per-page cost); set OCR_ENABLE_ANTHROPIC=1 to
+    turn it back on. `prompt` selects the schema; `normalise_fn`
+    post-processes. Raises ValueError with a clear message when OCR fails."""
     if not pages:
         raise ValueError("no pages provided")
 
+    original_pages = list(pages)  # pre-rasterization uploads, for the hi-DPI retry
+
     # Rasterize PDFs → images so Groq (images-only) can read them. No-op for
     # image uploads. Env-tunable DPI for OCR quality vs request size.
-    _dpi = int(os.environ.get("OCR_PDF_DPI", "150"))
+    _dpi       = int(os.environ.get("OCR_PDF_DPI", "150"))
+    _retry_dpi = int(os.environ.get("OCR_RETRY_DPI", "220"))
     _max_pages = int(os.environ.get("OCR_MAX_PAGES", "10"))
-    pages = _rasterize_pdfs(pages, dpi=_dpi, max_total=_max_pages)
+    pages = _rasterize_pdfs(original_pages, dpi=_dpi, max_total=_max_pages)
+    has_pdf = any(mt == "application/pdf" for _, mt in original_pages)
 
     groq_key      = os.environ.get("GROQ_API_KEY", "").strip()
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
     bedrock_key   = os.environ.get("AWS_ACCESS_KEY_ID", "").strip()
+    anthropic_on  = os.environ.get("OCR_ENABLE_ANTHROPIC", "0").strip().lower() in {"1", "true", "yes", "on"}
 
     groq_err: Optional[Exception] = None
     anthropic_err: Optional[Exception] = None
@@ -537,39 +555,41 @@ def _run_ocr(pages, prompt, normalise_fn):
             groq_raw = _ocr_via_groq(pages, prompt)
             if not _ocr_result_is_empty(groq_raw):
                 return normalise_fn(groq_raw)
-            # Syntactically valid but content-empty — the silent-failure mode.
-            # Keep it as a last resort, but try Anthropic for a real read first.
             groq_empty_result = normalise_fn(groq_raw)
-            log.warning("Groq OCR returned an empty extraction — trying Anthropic fallback")
+            # Silent-failure mode: valid JSON but every field null (common on
+            # hard handwritten Devanagari). Re-rasterize the PDF sharper and
+            # retry Groq once — free, and usually rescues the read sans Claude.
+            if has_pdf and _retry_dpi > _dpi:
+                log.warning("Groq OCR empty — retrying at %d DPI", _retry_dpi)
+                try:
+                    pages_hi = _rasterize_pdfs(original_pages, dpi=_retry_dpi, max_total=_max_pages)
+                    groq_raw2 = _ocr_via_groq(pages_hi, prompt)
+                    if not _ocr_result_is_empty(groq_raw2):
+                        return normalise_fn(groq_raw2)
+                except Exception as e:
+                    log.warning("Groq hi-DPI retry failed: %s", e)
+            else:
+                log.warning("Groq OCR returned an empty extraction")
         except Exception as e:
             log.warning("Groq OCR failed: %s", e)
             groq_err = e
 
-    if anthropic_key or bedrock_key:
+    # Anthropic vision is OFF by default (costly). Enable with OCR_ENABLE_ANTHROPIC=1.
+    if anthropic_on and (anthropic_key or bedrock_key):
         try:
             return normalise_fn(_ocr_via_anthropic(pages, prompt))
         except Exception as e:
             log.warning("Anthropic OCR failed: %s", e)
             anthropic_err = e
 
-    # Groq parsed but came back empty, and Anthropic was unavailable or also
-    # failed: return the empty Groq result rather than hard-erroring — a blank
-    # form the lawyer can fill by hand beats a red error mid-demo.
+    # Groq parsed but came back empty, and no enabled fallback rescued it:
+    # return the empty form rather than hard-erroring — a blank form the
+    # lawyer can fill by hand beats a red error mid-demo.
     if groq_empty_result is not None:
         return groq_empty_result
 
-    # All configured providers exhausted. Build a clear, user-facing
-    # message that names the actual failure(s) instead of leaking
-    # the wrong provider's error.
-    if groq_err and not anthropic_key and not bedrock_key:
-        # Common production case — Groq is the only configured backend.
-        # Show the real Groq error with guidance.
-        msg = _format_groq_error(groq_err)
-        raise ValueError(msg)
+    # All available providers exhausted — surface a clear, friendly message.
     if groq_err and anthropic_err:
-        # Both providers down. Show the (friendly) primary-provider reason;
-        # the raw errors from both are already in the server logs above, so
-        # the user never sees raw provider JSON mid-demo.
         raise ValueError(
             _format_groq_error(groq_err)
             + " The backup OCR provider is also unavailable right now."
