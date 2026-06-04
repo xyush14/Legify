@@ -42,6 +42,7 @@ from headnote.entitlements import _supabase
 from headnote.entitlements.plans import PLANS, get_plan
 from headnote.entitlements.subscription import change_plan
 from headnote.payments import cashfree
+from headnote.payments import referrals
 
 
 def _profile_lookup(user_id: str) -> dict:
@@ -85,6 +86,7 @@ _SELLABLE_PLANS = _SUBSCRIPTION_PLANS | _ADDON_PLANS
 class CreateOrderRequest(BaseModel):
     plan: str = Field(..., description="weekly | monthly | yearly")
     phone: Optional[str] = Field(None, description="10-digit phone for Cashfree (optional)")
+    referral_code: Optional[str] = Field(None, description="Optional partner/publication referral code")
 
 
 class CreateOrderResponse(BaseModel):
@@ -93,6 +95,10 @@ class CreateOrderResponse(BaseModel):
     amount_inr: int
     plan: str
     env: str  # 'sandbox' or 'production'
+    list_amount_inr: int = 0           # pre-discount list price (== amount_inr when no code)
+    discount_inr: int = 0              # >0 if a referral code reduced the price
+    referral_code: Optional[str] = None
+    referral_kind: Optional[str] = None  # 'distributor' | 'publication' | None
 
 
 # ---------------------------------------------------------------- shared logic
@@ -101,6 +107,9 @@ class CreateOrderResponse(BaseModel):
 def _upgrade_from_paid_order(order: dict) -> dict:
     """Given a Cashfree order whose status is PAID, upgrade the user's
     subscription. Idempotent — safe to call from both webhook and /verify.
+
+    Also writes a referral_events ledger row if the order carried a code.
+    Idempotent on order_id, so webhook replay is safe.
 
     Returns the updated subscription dict (or empty dict on failure).
     """
@@ -119,7 +128,9 @@ def _upgrade_from_paid_order(order: dict) -> dict:
     # they grant a permanent, separate entitlement and must never overwrite
     # the user's single subscriptions row.
     if plan_id in _ADDON_PLANS:
-        return _grant_addon(plan_id, user_id, order)
+        result = _grant_addon(plan_id, user_id, order)
+        _record_referral_event_if_any(order, plan_id, user_id)
+        return result
 
     sub = change_plan(
         user_id,
@@ -131,7 +142,38 @@ def _upgrade_from_paid_order(order: dict) -> dict:
         "subscription upgraded via Cashfree: user=%.8s plan=%s order=%s",
         user_id, plan_id, order.get("order_id"),
     )
+    _record_referral_event_if_any(order, plan_id, user_id)
     return sub
+
+
+def _record_referral_event_if_any(order: dict, plan_id: str, user_id: str) -> None:
+    """If the order carried a referral_code in its tags, write the commission
+    ledger row. Idempotent on order_id — webhook replay just re-upserts."""
+    referral_code, list_amount = cashfree.extract_referral_tags(order)
+    if not referral_code:
+        return
+    net_amount = int(round(float(order.get("order_amount") or 0)))
+    if list_amount <= 0:
+        list_amount = net_amount   # fallback if tag was missing
+    discount_inr = max(0, list_amount - net_amount)
+    code_info = referrals.lookup_code_snapshot(referral_code)
+    if not code_info.get("valid"):
+        log.warning(
+            "referral code %s on order %s not found at webhook time; skipping ledger write",
+            referral_code, order.get("order_id"),
+        )
+        return
+    customer = order.get("customer_details") or {}
+    referrals.record_event(
+        order_id=order.get("order_id") or "",
+        user_id=user_id,
+        user_email=customer.get("customer_email") or "",
+        code_info=code_info,
+        plan_id=plan_id,
+        gross_inr=list_amount,
+        discount_inr=discount_inr,
+        net_inr=net_amount,
+    )
 
 
 def _grant_addon(plan_id: str, user_id: str, order: dict) -> dict:
@@ -212,6 +254,43 @@ def payments_config() -> dict:
     }
 
 
+@router.get("/validate-referral", summary="Preview a referral code's discount for the checkout page")
+def validate_referral(
+    code: str,
+    plan: Optional[str] = None,
+    user: CurrentUser = Depends(get_current_user),
+) -> dict:
+    """Validate a referral code and (optionally) preview the discounted price
+    for a plan. The checkout page calls this when the user types/pastes a
+    code, BEFORE they hit Pay, so they see the new price live.
+
+    Never raises 4xx for a bad code — returns `valid=False` with a `message`
+    instead, so the FE can show the error inline without try/catch noise.
+    """
+    info = referrals.lookup_code(code, user.email)
+    if not info.get("valid"):
+        return {"valid": False, "code": referrals.canonical(code), "message": info.get("reason") or "Invalid code."}
+
+    out: dict = {
+        "valid":         True,
+        "code":          info["code"],
+        "kind":          info["kind"],            # 'distributor' | 'publication'
+        "discount_pct":  info["discount_pct"],
+        "publication":   info.get("publication_name"),
+        "message":       f"{info['discount_pct']:g}% off applied.",
+    }
+    if plan and plan in _SELLABLE_PLANS:
+        list_amount = cashfree.PLAN_AMOUNTS.get(plan, 0)
+        net_amount, discount_inr = referrals.apply_discount(list_amount, info["discount_pct"])
+        out.update({
+            "plan":             plan,
+            "list_amount_inr":  list_amount,
+            "net_amount_inr":   net_amount,
+            "discount_inr":     discount_inr,
+        })
+    return out
+
+
 @router.post("/create-order", response_model=CreateOrderResponse,
              summary="Create a Cashfree order and return the payment URL")
 def create_order(
@@ -265,6 +344,21 @@ def create_order(
     except Exception as e:
         log.info("profile phone update skipped (non-fatal): %s", e)
 
+    # Referral code: validate and compute discounted amount. A bad code is a
+    # 400 so the FE can show the error; the user can retry without it.
+    list_amount = cashfree.PLAN_AMOUNTS.get(body.plan, 0)
+    net_amount = list_amount
+    discount_inr = 0
+    code_info: dict = {"valid": False}
+    if body.referral_code:
+        code_info = referrals.lookup_code(body.referral_code, user.email)
+        if not code_info.get("valid"):
+            raise HTTPException(
+                status_code=400,
+                detail={"code": "invalid_referral", "message": code_info.get("reason") or "Invalid referral code."},
+            )
+        net_amount, discount_inr = referrals.apply_discount(list_amount, code_info["discount_pct"])
+
     try:
         order = cashfree.create_order(
             plan_id=body.plan,
@@ -273,6 +367,8 @@ def create_order(
             customer_name=customer_name,
             customer_phone=phone,
             app_base_url=app_base_url,
+            amount_override=net_amount if code_info.get("valid") else None,
+            referral_code=code_info.get("code") if code_info.get("valid") else None,
         )
     except Exception as e:
         log.exception("Cashfree create_order failed for user=%.8s plan=%s", user.id, body.plan)
@@ -286,12 +382,26 @@ def create_order(
             detail=f"Cashfree returned malformed order: {order}",
         )
 
+    # Stash the attribution now (best-effort). The commission ledger row is
+    # written later by the webhook when payment actually succeeds.
+    if code_info.get("valid"):
+        referrals.record_attribution(
+            user_id=user.id,
+            user_email=user.email or "",
+            code_info=code_info,
+            source="checkout",
+        )
+
     return CreateOrderResponse(
         order_id=order_id,
         payment_session_id=session_id,
-        amount_inr=cashfree.PLAN_AMOUNTS.get(body.plan, 0),
+        amount_inr=net_amount,
         plan=body.plan,
         env=os.environ.get("CASHFREE_ENV", "sandbox"),
+        list_amount_inr=list_amount,
+        discount_inr=discount_inr,
+        referral_code=code_info.get("code") if code_info.get("valid") else None,
+        referral_kind=code_info.get("kind") if code_info.get("valid") else None,
     )
 
 

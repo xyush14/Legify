@@ -532,13 +532,19 @@
         #cf-confirm-card .phone-prefix { position:relative }
         #cf-confirm-card .phone-prefix::before { content:'+91';position:absolute;left:13px;top:50%;transform:translateY(-50%);color:#5d5b54;font-size:14px;font-weight:500;pointer-events:none }
         #cf-confirm-card .phone-prefix input { padding-left:44px }
+        #cf-confirm-card .ref-status { font-size:12px;margin-top:6px;min-height:14px }
+        #cf-confirm-card .ref-status.ok  { color:#2d6a2d }
+        #cf-confirm-card .ref-status.bad { color:#b91c1c }
+        #cf-confirm-card .ref-status.busy { color:#8a857a }
+        #cf-confirm-card .order .amt-strike { text-decoration:line-through;color:#a3a3a3;font-size:13px;font-weight:500;margin-right:6px }
+        #cf-confirm-card .order .amt-save { display:block;font-size:11px;color:#2d6a2d;font-weight:600;letter-spacing:0.02em;margin-top:2px;text-align:right }
       </style>
       <div id="cf-confirm-card">
         <h3>Confirm your details</h3>
         <div class="sub">We'll send the receipt &amp; OTP to these.</div>
         <div class="order">
           <span class="plan">${planLabel}</span>
-          <span class="amt">₹${amount}</span>
+          <span class="amt" id="cf-amount-display"><span class="amt-strike" id="cf-amount-strike" style="display:none"></span><span id="cf-amount-value">₹${amount}</span><span class="amt-save" id="cf-amount-save" style="display:none"></span></span>
         </div>
         <div class="row">
           <label>Full name</label>
@@ -555,6 +561,11 @@
           </div>
           <div class="err" id="cf-phone-err">Enter a valid 10-digit Indian mobile (starts with 6/7/8/9).</div>
         </div>
+        <div class="row">
+          <label>Referral / Discount code (optional)</label>
+          <input id="cf-refcode" type="text" placeholder="e.g. EBC5" autocomplete="off" maxlength="32" style="text-transform:uppercase" />
+          <div class="ref-status" id="cf-refstatus"></div>
+        </div>
         <div class="actions">
           <button class="btn-cancel" id="cf-cancel">Cancel</button>
           <button class="btn-primary" id="cf-go">Continue to payment →</button>
@@ -565,11 +576,20 @@
     document.body.appendChild(wrap);
     wrap.addEventListener('click', (e) => { if (e.target === wrap) close(); });
 
-    const phoneInput = wrap.querySelector('#cf-phone');
-    const nameInput  = wrap.querySelector('#cf-name');
-    const errEl      = wrap.querySelector('#cf-phone-err');
-    const goBtn      = wrap.querySelector('#cf-go');
-    const cancelBtn  = wrap.querySelector('#cf-cancel');
+    const phoneInput   = wrap.querySelector('#cf-phone');
+    const nameInput    = wrap.querySelector('#cf-name');
+    const errEl        = wrap.querySelector('#cf-phone-err');
+    const goBtn        = wrap.querySelector('#cf-go');
+    const cancelBtn    = wrap.querySelector('#cf-cancel');
+    const refInput     = wrap.querySelector('#cf-refcode');
+    const refStatus    = wrap.querySelector('#cf-refstatus');
+    const amtValueEl   = wrap.querySelector('#cf-amount-value');
+    const amtStrikeEl  = wrap.querySelector('#cf-amount-strike');
+    const amtSaveEl    = wrap.querySelector('#cf-amount-save');
+
+    let appliedCode = null;       // last successfully validated code (string) or null
+    let refDebounce  = null;
+    let refReqSeq    = 0;          // ignore stale responses if user keeps typing
 
     function close() { try { wrap.remove(); } catch {} }
     function validPhone(v) { return /^[6-9]\d{9}$/.test(v.replace(/\D/g, '')); }
@@ -577,6 +597,73 @@
       const ok = nameInput.value.trim().length >= 2 && validPhone(phoneInput.value);
       goBtn.disabled = !ok;
     }
+
+    function resetPriceDisplay() {
+      amtStrikeEl.style.display = 'none';
+      amtStrikeEl.textContent = '';
+      amtSaveEl.style.display = 'none';
+      amtSaveEl.textContent = '';
+      amtValueEl.textContent = '₹' + amount;
+    }
+    function applyDiscountUI(netAmount, listAmount, pct, msg) {
+      amtStrikeEl.textContent = '₹' + listAmount;
+      amtStrikeEl.style.display = '';
+      amtValueEl.textContent = '₹' + netAmount;
+      amtSaveEl.textContent = `You save ₹${listAmount - netAmount} (${pct}% off)`;
+      amtSaveEl.style.display = '';
+      refStatus.textContent = msg;
+      refStatus.className = 'ref-status ok';
+    }
+    function clearDiscountUI(msg, busy) {
+      resetPriceDisplay();
+      refStatus.textContent = msg || '';
+      refStatus.className = 'ref-status' + (msg ? (busy ? ' busy' : ' bad') : '');
+    }
+
+    async function validateRefCode(raw) {
+      const code = (raw || '').trim().toUpperCase();
+      if (!code) { appliedCode = null; clearDiscountUI(''); return; }
+      const mySeq = ++refReqSeq;
+      clearDiscountUI('Checking…', true);
+      try {
+        const token = window.headnoteAuth && await window.headnoteAuth.getAccessToken();
+        const r = await fetch(`/api/payments/validate-referral?code=${encodeURIComponent(code)}&plan=${encodeURIComponent(plan)}`, {
+          headers: { 'Authorization': 'Bearer ' + token },
+        });
+        if (mySeq !== refReqSeq) return;   // stale
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok || !data.valid) {
+          appliedCode = null;
+          clearDiscountUI(data.message || 'Invalid code.');
+          return;
+        }
+        appliedCode = data.code;
+        const listAmount = data.list_amount_inr ?? amount;
+        const netAmount  = data.net_amount_inr ?? amount;
+        applyDiscountUI(netAmount, listAmount, Number(data.discount_pct || 0), data.message || 'Discount applied.');
+      } catch (e) {
+        if (mySeq !== refReqSeq) return;
+        appliedCode = null;
+        clearDiscountUI('Could not verify the code right now.');
+      }
+    }
+
+    refInput.addEventListener('input', () => {
+      refInput.value = refInput.value.toUpperCase();
+      clearTimeout(refDebounce);
+      const v = refInput.value.trim();
+      if (!v) {
+        appliedCode = null;
+        clearDiscountUI('');
+        return;
+      }
+      refDebounce = setTimeout(() => validateRefCode(v), 450);
+    });
+    refInput.addEventListener('blur', () => {
+      clearTimeout(refDebounce);
+      validateRefCode(refInput.value);
+    });
+
     phoneInput.addEventListener('input', () => {
       phoneInput.value = phoneInput.value.replace(/\D/g, '').slice(0, 10);
       errEl.classList.remove('show');
@@ -589,7 +676,7 @@
       if (!validPhone(phone)) { errEl.classList.add('show'); return; }
       goBtn.disabled = true;
       goBtn.textContent = 'Opening Cashfree…';
-      onConfirm({ name: nameInput.value.trim(), phone });
+      onConfirm({ name: nameInput.value.trim(), phone, referralCode: appliedCode });
     });
     setTimeout(() => { if (!phoneInput.value) phoneInput.focus(); else nameInput.focus(); }, 50);
     refresh();
@@ -634,7 +721,7 @@
       openConfirmModal({
         plan, planLabel: planMeta.label, amount: planMeta.amount,
         customer,
-        onConfirm: async ({ name, phone }) => {
+        onConfirm: async ({ name, phone, referralCode }) => {
           try {
             const r = await fetch('/api/payments/create-order', {
               method: 'POST',
@@ -642,7 +729,7 @@
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer ' + token,
               },
-              body: JSON.stringify({ plan, phone }),
+              body: JSON.stringify({ plan, phone, referral_code: referralCode || null }),
             });
             const data = await r.json();
             if (!r.ok) {

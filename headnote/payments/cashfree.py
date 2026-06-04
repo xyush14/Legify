@@ -71,16 +71,26 @@ def create_order(
     customer_name: str,
     customer_phone: str,
     app_base_url: str,
+    amount_override: Optional[int] = None,
+    referral_code: Optional[str] = None,
 ) -> dict:
     """Create a Cashfree payment order.
 
     Returns the full Cashfree order object.
     `payment_session_id` in the response is what the JS SDK needs.
     Raises httpx.HTTPStatusError on Cashfree API errors.
+
+    `amount_override` lets the caller charge less than the list price (used
+    by referral-code discounts). Must be >= 1 INR. The list price is also
+    stamped into order_tags so the webhook can compute discount_inr.
+
+    `referral_code` is stamped into order_tags so the webhook can write a
+    referral_events ledger row when the payment succeeds.
     """
-    amount = PLAN_AMOUNTS.get(plan_id)
-    if amount is None:
+    list_amount = PLAN_AMOUNTS.get(plan_id)
+    if list_amount is None:
         raise ValueError(f"Unknown plan_id: {plan_id!r}")
+    amount = list_amount if amount_override is None else max(1, int(amount_override))
 
     order_id = f"hn_{uuid.uuid4().hex[:16]}"
     # Cashfree replaces {order_id} in return_url with the actual order_id
@@ -116,8 +126,10 @@ def create_order(
         },
         "order_note": _PLAN_LABELS.get(plan_id, f"Headnote {plan_id}"),
         "order_tags": {
-            "plan_id": plan_id,
-            "user_id": user_id,
+            "plan_id":      plan_id,
+            "user_id":      user_id,
+            "list_amount":  str(list_amount),         # for discount_inr at webhook time
+            "referral_code": referral_code or "",     # empty string when no code applied
         },
     }
 
@@ -189,3 +201,20 @@ def extract_tags(order: dict) -> tuple[Optional[str], Optional[str]]:
     plan_id = tags.get("plan_id")
     user_id = tags.get("user_id") or (order.get("customer_details") or {}).get("customer_id")
     return plan_id, user_id
+
+
+def extract_referral_tags(order: dict) -> tuple[str, int]:
+    """Return (referral_code, list_amount_inr) from order tags.
+
+    Both keys are stamped at create_order time. `referral_code` is "" when
+    no code was applied; `list_amount` is the pre-discount list price for
+    the plan, used by the webhook to compute discount_inr correctly even
+    if PLAN_AMOUNTS later changes.
+    """
+    tags = order.get("order_tags") or {}
+    code = (tags.get("referral_code") or "").strip().upper()
+    try:
+        list_amount = int(tags.get("list_amount") or 0)
+    except (TypeError, ValueError):
+        list_amount = 0
+    return code, list_amount

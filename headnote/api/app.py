@@ -1054,6 +1054,10 @@ app.include_router(_admin_v2_router)
 from headnote.api.payments import router as _payments_router
 app.include_router(_payments_router)
 
+# Channel partners + referral codes admin: /admin/partners/*
+from headnote.api.partners_admin import router as _partners_admin_router
+app.include_router(_partners_admin_router)
+
 # Onboarding side-effects: /api/onboarding/welcome-email
 from headnote.api.onboarding import router as _onboarding_router
 app.include_router(_onboarding_router)
@@ -1200,6 +1204,14 @@ def admin_panel():
     """Admin panel SPA. Access controlled by JWT (admin_users table) or
     ADMIN_TOKEN bearer; the HTML shell itself is inert without auth."""
     return FileResponse(config.STATIC_DIR / "admin.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
+@app.get("/admin/partners", include_in_schema=False)
+@app.get("/admin/partners/", include_in_schema=False)
+def admin_partners_page():
+    """Partner & referral-code dashboard. Inert shell — asks for ADMIN_TOKEN
+    in-browser, then hits /admin/partners/list, /codes/all, /events, etc."""
+    return FileResponse(config.STATIC_DIR / "admin-partners.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
 @app.get("/corpus", include_in_schema=False)
