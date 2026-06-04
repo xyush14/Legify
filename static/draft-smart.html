@@ -463,6 +463,7 @@
     <div class="doc-overlay__title" id="doc-title">Document Ready</div>
     <div class="doc-overlay__actions">
       <button class="doc-overlay__btn" id="doc-close" data-en="Close" data-hi="बंद">बंद</button>
+      <button class="doc-overlay__btn" id="doc-edit" data-en="✏️ Edit" data-hi="✏️ संपादन">✏️ संपादन</button>
       <button class="doc-overlay__btn doc-overlay__btn--primary" id="doc-pdf" data-en="⬇ PDF" data-hi="⬇ PDF">⬇ PDF</button>
     </div>
   </div>
@@ -767,6 +768,35 @@ function revealDocument() {
   $('#doc-overlay').classList.add('is-open');
 }
 $('#doc-close').addEventListener('click', () => $('#doc-overlay').classList.remove('is-open'));
+
+// Direct in-document editing. ON → #doc-paper becomes contentEditable; the PDF
+// export reads the live #doc-paper, so edits flow into the download. OFF →
+// edits are saved into state.document so they survive a reopen.
+$('#doc-edit').addEventListener('click', () => {
+  const paper = $('#doc-paper');
+  const btn = $('#doc-edit');
+  const isHi = state.lang === 'hi';
+  if (!state.document) return;
+  const on = paper.getAttribute('contenteditable') === 'true';
+  if (!on) {
+    paper.setAttribute('contenteditable', 'true');
+    paper.style.outline = '2px dashed var(--gold, #c9a96e)';
+    paper.style.outlineOffset = '6px';
+    paper.focus();
+    btn.classList.add('doc-overlay__btn--primary');
+    btn.textContent = isHi ? '✓ पूर्ण' : '✓ Done';
+    toast(isHi ? 'दस्तावेज़ में सीधे टाइप करें — बदलाव PDF में आएंगे'
+               : 'Type directly in the document — edits flow into the PDF', 'ok', 3000);
+  } else {
+    paper.removeAttribute('contenteditable');
+    paper.style.outline = '';
+    paper.style.outlineOffset = '';
+    btn.classList.remove('doc-overlay__btn--primary');
+    btn.textContent = isHi ? '✏️ संपादन' : '✏️ Edit';
+    state.document = paper.innerText || state.document;   // persist edits
+    toast(isHi ? 'बदलाव सहेजे गए' : 'Edits saved', 'ok');
+  }
+});
 $('#doc-pdf').addEventListener('click', () => {
   if (!state.document) return;
   const el = $('#doc-paper').cloneNode(true);

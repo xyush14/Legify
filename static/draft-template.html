@@ -358,6 +358,7 @@
     </div>
     <button class="btn" id="btn-pdf" title="Download PDF">⬇ <span class="btn-long">PDF</span></button>
     <button class="btn" id="btn-print" title="Print" data-en="🖨 Print" data-hi="🖨 प्रिंट">🖨 <span class="btn-long">प्रिंट</span></button>
+    <button class="btn" id="btn-edit" title="Edit document directly" data-en="✏️ Edit" data-hi="✏️ संपादन">✏️ संपादन</button>
     <button class="btn" id="btn-share" title="Share on WhatsApp">📱 <span class="btn-long">WhatsApp</span></button>
   </div>
 </div>
@@ -1064,6 +1065,8 @@ async function maybeRenderInitial() {
 // ---- Generate + live preview ----
 async function generateDocument(opts) {
   if (state.generating) return;
+  // Editing the doc directly — never overwrite the lawyer's hand-edits.
+  if (state.editMode) return;
   opts = opts || {};
   const silent = !!opts.silent;
   const initial = !!opts.initial;  // first render on page load — always fires
@@ -1101,6 +1104,7 @@ async function generateDocument(opts) {
   }
 }
 function scheduleAutoRegen() {
+  if (state.editMode) return;   // editing the doc directly — freeze auto-regen
   if (state._regenTimer) clearTimeout(state._regenTimer);
   state._regenTimer = setTimeout(() => {
     if (state._regenCount >= REGEN_MAX_PER_SESSION) return;
@@ -1269,14 +1273,21 @@ async function setLang(newLang) {
             const el = $(`#f_${k}`); if (el) el.value = v;
           });
           saveToLocalStorage();
-          scheduleAutoRegen();
         }
       }
     } catch (e) {
       toast('Translation failed: ' + e.message, 'warn', 3500);
     }
-  } else {
-    scheduleAutoRegen();
+  }
+  // A language toggle MUST re-render the document in the new language — always.
+  // The debounced auto-regen (scheduleAutoRegen) is gated on field-changes AND
+  // a per-session cap, so it was silently skipping the toggle and the document
+  // stayed in the old language ("translation not working"). Force a direct
+  // regeneration instead — generateDocument() always fires when not silent,
+  // ignores the cap, and POSTs the new state.lang. Runs even if field
+  // translation above failed, so the document language still flips.
+  if (state.document && !state.editMode) {
+    await generateDocument();
   }
 }
 $('#lang-en').addEventListener('click', () => setLang('en'));
@@ -1287,6 +1298,45 @@ $('#lang-hi').addEventListener('click', () => setLang('hi'));
 // (WeasyPrint renders it server-side with correct Devanagari + A4 breaks).
 // Print stays browser-native (window.print) — the @media print CSS is right.
 $('#btn-generate').addEventListener('click', () => generateDocument());
+
+// ---- Direct in-document editing (parity with the bail drafter) ----
+// ON  → #doc-page becomes contentEditable and auto-regen freezes (state.editMode)
+//       so manual edits survive. PDF / Print / WhatsApp all read the live
+//       #doc-page, so the edits flow straight into the output.
+// OFF → keep the edits (saved into state.document so they survive a reopen).
+//       A later "Refresh Draft" or form edit rebuilds from the form fields.
+$('#btn-edit').addEventListener('click', () => {
+  const docEl = $('#doc-page');
+  const btn = $('#btn-edit');
+  const isHi = state.lang === 'hi';
+  if (!state.document) {
+    toast(isHi ? 'पहले दस्तावेज़ बनाएं' : 'Generate the document first', 'warn');
+    return;
+  }
+  if (!state.editMode) {
+    state.editMode = true;
+    docEl.setAttribute('contenteditable', 'true');
+    docEl.style.outline = '2px dashed var(--gold, #c9a96e)';
+    docEl.style.outlineOffset = '6px';
+    docEl.focus();
+    btn.classList.add('btn--primary');
+    btn.textContent = isHi ? '✓ पूर्ण' : '✓ Done';
+    toast(isHi ? 'दस्तावेज़ में सीधे टाइप करें — बदलाव डाउनलोड/प्रिंट में आएंगे'
+               : 'Type directly in the document — edits flow into download/print', 'ok', 3500);
+  } else {
+    state.editMode = false;
+    docEl.removeAttribute('contenteditable');
+    docEl.style.outline = '';
+    docEl.style.outlineOffset = '';
+    btn.classList.remove('btn--primary');
+    btn.textContent = isHi ? '✏️ संपादन' : '✏️ Edit';
+    // Persist manual edits so a non-LLM re-render (e.g. reopening the page)
+    // keeps them. A deliberate Refresh Draft / field change still rebuilds.
+    state.document = (docEl.innerText || '').replace(/\n{3,}/g, '\n\n').trim();
+    saveToLocalStorage();
+    toast(isHi ? 'बदलाव सहेजे गए' : 'Edits saved', 'ok');
+  }
+});
 
 function _tplFilename() {
   const applicantRaw = (state.fields && (
