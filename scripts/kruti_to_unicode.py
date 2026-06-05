@@ -69,6 +69,10 @@ PAIRS: list[tuple[str, str]] = [
     # matras
     ("k", "ा"), ("h", "ी"), ("q", "ु"), ("w", "ू"), ("s", "े"),
     ("S", "ै"), ("`", "ृ"), ("a", "ं"), ("f", "ि"),
+    # chandrabindu: 'W' is this typist's chandrabindu key (हूँ, माँ, पहुँची).
+    # The same byte also stands in for the rare English-loanword chandra
+    # (रिकॉर्ड/स्टॉप); we favour the high-frequency native ँ.
+    ("W", "ँ"),
     # punctuation / halant / danda
     ("~", "्"), ("A", "।"), ("|", "॥"), ("]", ","), ("@", "/"),
     ("}", "द्व"), ("%", "ः"), ("&", "—"),
