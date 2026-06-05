@@ -317,7 +317,29 @@ def _generate_document(template: dict, collected: dict, lang: str) -> str:
         )
     else:
         lang_clause = (
-            "The document must be entirely in formal Indian legal English."
+            "OUTPUT LANGUAGE — ENGLISH. THIS OVERRIDES THE FORMAT SPEC.\n"
+            "The ENTIRE document must be written in formal Indian legal "
+            "English in the Latin script — the court name, the case-number "
+            "line, every party block, the title, every numbered paragraph, "
+            "every heading, the prayer, the witness list, the date line and "
+            "the signature block. There must be ZERO Hindi / Devanagari words "
+            "anywhere in the output.\n"
+            "The FORMAT SPEC below is written in Hindi (Devanagari). Treat it "
+            "ONLY as a structural reference telling you WHAT each line is and "
+            "in WHAT ORDER they appear — you MUST render every line in its "
+            "proper English equivalent and NEVER copy the Hindi verbatim. "
+            "For example: 'न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी' "
+            "-> \"IN THE COURT OF THE HON'BLE JUDICIAL MAGISTRATE FIRST "
+            "CLASS\"; 'आवेदन पत्र अन्तर्गत धारा 12 घरेलू हिंसा से महिलाओं का "
+            "संरक्षण अधिनियम 2005' -> 'APPLICATION UNDER SECTION 12 OF THE "
+            "PROTECTION OF WOMEN FROM DOMESTIC VIOLENCE ACT, 2005'; 'प्रकरण "
+            "क्रमांक' -> 'Case No.'; 'बनाम' -> 'VERSUS'; 'व्यथिता' / 'व्यथित' "
+            "-> 'Aggrieved Person'; 'प्रत्यर्थी' / 'प्रत्यर्थीगण' -> "
+            "'Respondent(s)'; 'निवासी' -> 'resident of'.\n"
+            "Transliterate proper names and place names into the Latin script "
+            "(e.g. 'अनिल वर्मा' -> 'Anil Verma', 'ग्वालियर' -> 'Gwalior'). "
+            "The output must be pure English — do NOT emit a single "
+            "Devanagari character."
         )
 
     title_clause = (
@@ -372,5 +394,50 @@ def _generate_document(template: dict, collected: dict, lang: str) -> str:
         f"placeholder, never invented."
     )
 
-    text = _llm_call(sys, user, max_tokens=4000, model="quality")
-    return text.strip()
+    text = _llm_call(sys, user, max_tokens=4000, model="quality").strip()
+
+    # GUARANTEE the language toggle. When English is requested but the model
+    # leaned on the Hindi format_spec and produced Devanagari anyway, convert
+    # it in ONE more pass. This is bounded to a single extra call and only on
+    # the failure path, so cost/latency stay predictable. The Hindi direction
+    # is never second-guessed here — only EN was historically under-instructed.
+    if lang != "hi" and _devanagari_count(text) > 12:
+        try:
+            converted = _force_english(text)
+            if converted and _devanagari_count(converted) < _devanagari_count(text):
+                text = converted
+        except Exception:  # never fail the whole render over the safety net
+            log.warning("[render] force-English retry failed; keeping first pass")
+    return text
+
+
+_DEVANAGARI_RE = re.compile("[ऀ-ॿ]")
+
+
+def _devanagari_count(s: str) -> int:
+    """Number of Devanagari code points in `s` (0 for clean English output)."""
+    return len(_DEVANAGARI_RE.findall(s or ""))
+
+
+def _force_english(hindi_doc: str) -> str:
+    """Convert a document that came back in Hindi into formal English while
+    preserving its exact structure, paragraph order and '____' blanks. Used as
+    a fallback so the EN toggle always yields English, even if the first
+    generation ignored the language instruction."""
+    sys = (
+        "You are a senior Indian lawyer. The text below is a court document "
+        "that was mistakenly produced in Hindi/Devanagari. Rewrite it in 100% "
+        "formal Indian legal English in the Latin script.\n"
+        "RULES:\n"
+        "1. Output ZERO Devanagari characters — translate every Hindi word and "
+        "transliterate every proper name / place name into the Latin script.\n"
+        "2. Preserve the document's structure EXACTLY: same line/paragraph "
+        "order, same headings, same numbered paragraphs.\n"
+        "3. Keep every blank placeholder (runs of underscores like "
+        "'________' or '____/____') EXACTLY as-is — do NOT fill them in.\n"
+        "4. Keep statute numbers, case/FIR numbers, dates and monetary figures "
+        "unchanged.\n"
+        "5. Return PLAIN TEXT only — no markdown, no commentary, no fences."
+    )
+    user = "Convert this document to English now:\n\n" + hindi_doc
+    return _llm_call(sys, user, max_tokens=4000, model="quality").strip()
