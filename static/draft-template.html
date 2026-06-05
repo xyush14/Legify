@@ -433,6 +433,165 @@ const state = {
 const REGEN_DEBOUNCE_MS = 1500;
 const REGEN_MAX_PER_SESSION = 80;
 
+// =========================================================================
+// DETERMINISTIC RENDERERS — the "bail engine" for template docs.
+// A doc_type listed here is built ENTIRELY in the browser from the filled
+// fields (no LLM, no network) → instant load, zero format drift, ₹0 cost,
+// instant EN/हिं toggle. Exactly how /draft/bail works. Any doc_type NOT
+// listed here keeps using the server LLM path, so nothing breaks for any
+// other template. Each renderer is `fn(fields, lang) -> plain text`, fed
+// through the same parseDocToHtml + PDF pipeline as the LLM output.
+// =========================================================================
+function _qv(x, n) { x = (x == null ? '' : String(x)).trim(); return x || '_'.repeat(n || 12); }
+function _qlines(x) { return (x == null ? '' : String(x)).split(/\r?\n/).map(s => s.trim()).filter(Boolean); }
+function _qyear(f) { return (f.filing_date && (String(f.filing_date).match(/20\d\d/) || [])[0]) || '20__'; }
+
+// Quashing / FIR-निरस्तीकरण — §528 BNSS (482 CrPC). MP HC Gwalior idiom,
+// mirrored from Vishnu ji's real filings (Manoj Shivhare, Surendra Meena).
+function buildQuashingDoc(f, lang) {
+  f = f || {};
+  const names   = _qlines(f.petitioner_name);
+  const multi   = names.length > 1;
+  const ps      = _qv(f.police_station, 14);
+  const dist    = _qv(f.district, 12);
+  const crime   = _qv(f.fir_number, 8);
+  const secs    = _qv(f.sections_str, 18);
+  const compl   = (f.complainant_name || '').trim();
+  const adv     = _qv(f.advocate_name, 16);
+  const dt      = _qv(f.filing_date, 10);
+  const place   = (f.place || '').trim();
+  const yr      = _qyear(f);
+
+  if (lang === 'hi') {
+    const courtRaw = (f.court_name || '').trim();
+    const court = courtRaw
+      ? (courtRaw.startsWith('माननीय') ? courtRaw : 'माननीय ' + courtRaw)
+      : 'माननीय उच्च न्यायालय मध्य प्रदेश खण्डपीठ ग्वालियर';
+    const aLab = multi ? 'आवेदकगण' : 'आवेदक';
+    const rLab = compl ? 'अनावेदकगण' : 'अनावेदक';
+    const appLines = multi
+      ? names.map((nm, i) => `${i + 1}— ${nm}`)
+      : [`${_qv(f.petitioner_name, 20)} पुत्र/पत्नी श्री ${_qv(f.petitioner_father, 14)}, आयु— ${_qv(f.petitioner_age, 2)} वर्ष, व्यवसाय— ${_qv(f.petitioner_occupation, 8)}`];
+    const facts   = _qlines(f.brief_facts_alleged);
+    const grounds = _qlines(f.grounds_for_quashing);
+    const L = [];
+    L.push(court);
+    L.push(`प्रकरण क्रमांक ः— एम.सी.आर.सी. ______ / ${yr}`);
+    L.push('');
+    L.push(`${aLab} ———`);
+    appLines.forEach(x => L.push(x));
+    L.push(`निवासी— ${_qv(f.petitioner_address, 22)}`);
+    L.push('विरुद्ध');
+    L.push(`${rLab} ———`);
+    L.push(`1— मध्य प्रदेश शासन द्वारा पुलिस थाना ${ps} जिला ${dist}`);
+    if (compl) L.push(`2— ${compl}`);
+    L.push('');
+    L.push(`आवेदन पत्र अंतर्गत धारा 528 भा.ना.सु.सं. (482 द.प्र.सं.) वास्ते पुलिस थाना ${ps} जिला ${dist} के अपराध क्रमांक— ${crime} अन्तर्गत धारा ${secs} एवं उससे उद्भूत समस्त न्यायालयीन कार्यवाही निरस्त/अपास्त किये जाने बावत्।`);
+    L.push(`${aLab} की ओर से आवेदन पत्र निम्न प्रकार प्रस्तुत है ः—`);
+    L.push('');
+    L.push(`यहकि, ${aLab} द्वारा उपरोक्त आवेदन पत्र अन्तर्गत धारा 528 भा.ना.सु.सं. माननीय न्यायालय के समक्ष प्रस्तुत किया जा रहा है।`);
+    L.push(`यहकि, उपरोक्त आवेदन के अलावा समान आशय का अन्य कोई आवेदन माननीय उच्चतम न्यायालय अथवा अन्य किसी न्यायालय में न तो विचाराधीन है और न ही पूर्व में निरस्त हुआ है।`);
+    L.push(`यहकि, ${aLab} द्वारा पुलिस थाना ${ps} जिला ${dist} के अपराध क्रमांक— ${crime} अन्तर्गत धारा ${secs} एवं उससे उद्भूत समस्त कार्यवाही को अपास्त किये जाने हेतु वर्तमान आवेदन प्रस्तुत किया जा रहा है। उक्त प्रथम सूचना रिपोर्ट की प्रति एनेक्जर ए—1 के रूप में आवेदन पत्र के साथ संलग्न है।`);
+    L.push('');
+    L.push('प्रकरण के संक्षिप्त तथ्य ः—');
+    if (facts.length) facts.forEach(p => L.push(`यहकि, ${p}`));
+    else L.push('यहकि, ____________________________________________');
+    if ((f.stage_of_proceedings || '').trim())
+      L.push(`यहकि, वर्तमान में प्रकरण की स्थिति इस प्रकार है— ${f.stage_of_proceedings.trim()}।`);
+    L.push('');
+    L.push('याचिका के आधार ः—');
+    if (grounds.length) grounds.forEach(p => L.push(`यहकि, ${p}`));
+    else L.push('यहकि, ____________________________________________');
+    L.push('यहकि, अन्य आधार वक्त बहस मौखिक रूप से निवेदित किये जावेंगे।');
+    L.push('');
+    L.push(`अतः माननीय न्यायालय से विनम्र प्रार्थना है कि ${aLab} की ओर से प्रस्तुत आवेदन पत्र स्वीकार कर पुलिस थाना ${ps} जिला ${dist} के अपराध क्रमांक— ${crime} अन्तर्गत धारा ${secs} की प्रथम सूचना रिपोर्ट एवं उससे उद्भूत समस्त न्यायालयीन कार्यवाही को निरस्त/अपास्त किये जाने का आदेश प्रदान करने की कृपा करें।`);
+    L.push('');
+    L.push(`दिनांक ः— ${dt}${place ? '          स्थान ः— ' + place : ''}`);
+    L.push(`${aLab}`);
+    L.push('द्वारा अभिभाषक');
+    L.push(`${adv} — एडवोकेट`);
+    L.push('');
+    L.push('');
+    // ---- स्थगन आवेदन (stay) ----
+    L.push(court);
+    L.push(`प्रकरण क्रमांक ः— एम.सी.आर.सी. ______ / ${yr}`);
+    L.push(`आवेदन पत्र वास्ते विचारण न्यायालय के समक्ष लंबित प्रकरण की कार्यवाही को स्थगित किये जाने बावत्।`);
+    L.push(`यहकि, ${aLab} द्वारा माननीय न्यायालय के समक्ष पुलिस थाना ${ps} जिला ${dist} के अपराध क्रमांक— ${crime} अन्तर्गत धारा ${secs} एवं उससे उद्भूत समस्त न्यायालयीन कार्यवाही को निरस्त/अपास्त किये जाने हेतु आवेदन प्रस्तुत किया है जिसमें सफलता मिलने की पूर्ण संभावना है।`);
+    L.push(`यहकि, उक्त आवेदन के अंतिम निराकरण तक विचारण न्यायालय के समक्ष लंबित प्रकरण की कार्यवाही स्थगित नहीं की गई तो ${aLab} को अपूर्तिनीय क्षति होगी।`);
+    L.push(`अतः श्रीमान न्यायालय से निवेदन है कि उक्त अपराध एवं उससे उद्भूत समस्त न्यायालयीन कार्यवाही आवेदन पत्र के निराकरण तक स्थगित किये जाने का आदेश प्रदान करने की कृपा करें।`);
+    L.push(`दिनांक ः— ${dt}`);
+    L.push(`${aLab}`);
+    L.push(`${adv} — एडवोकेट`);
+    L.push('');
+    L.push('');
+    // ---- शपथ पत्र (affidavit) ----
+    L.push('शपथ पत्र');
+    L.push(`नाम ः— ${names[0] || _qv(f.petitioner_name, 18)}, पिता/पति ः— श्री ${_qv(f.petitioner_father, 14)}, आयु— ${_qv(f.petitioner_age, 2)} वर्ष, निवासी— ${_qv(f.petitioner_address, 22)}।`);
+    L.push('मैं शपथ पूर्वक सत्य कथन करता हूँ किः—');
+    L.push('यहकि, मुझ शपथकर्ता की ओर से एक आवेदन पत्र अन्तर्गत धारा 528 भा.ना.सु.सं. माननीय न्यायालय के समक्ष प्रस्तुत किया गया है, जिसके साथ स्थगन आवेदन भी प्रस्तुत है।');
+    L.push('यहकि, उक्त आवेदन में वर्णित समस्त तथ्य सत्य व सही हैं, इसमें कुछ भी असत्य वर्णित नहीं है।');
+    L.push('यहकि, उक्त तथ्यों के समर्थन में यह शपथ पत्र प्रस्तुत है।');
+    L.push(`दिनांक ः— ${dt}                                        हस्ताक्षर शपथकर्ता`);
+    L.push('');
+    L.push('सत्यापन');
+    L.push('मैं शपथकर्ता शपथपूर्वक सत्यापित करता हूँ कि उपरोक्त शपथ पत्र के पद क्रमांक 1 लगायत 3 में वर्णित जानकारी मेरे ज्ञान व विश्वास से सत्य व सही है, जिसमें कुछ भी छुपाया नहीं गया है और न ही असत्य कथन किया गया है।');
+    L.push(`दिनांक ः— ${dt}                                        हस्ताक्षर शपथकर्ता`);
+    return L.join('\n');
+  }
+
+  // ---- English ----
+  const court = (f.court_name || '').trim() || 'IN THE HIGH COURT OF MADHYA PRADESH, BENCH AT GWALIOR';
+  const courtLine = /^IN\s+THE/i.test(court) ? court : 'IN THE ' + court.toUpperCase();
+  const aLab = multi ? 'APPLICANTS' : 'APPLICANT';
+  const appLines = multi
+    ? names.map((nm, i) => `${i + 1}. ${nm}`)
+    : [`${_qv(f.petitioner_name, 20)}, S/o-W/o Shri ${_qv(f.petitioner_father, 14)}, aged ${_qv(f.petitioner_age, 2)} yrs, occupation ${_qv(f.petitioner_occupation, 8)}`];
+  const facts   = _qlines(f.brief_facts_alleged);
+  const grounds = _qlines(f.grounds_for_quashing);
+  const E = [];
+  E.push(courtLine);
+  E.push(`Case No. M.Cr.C. ______ of ${yr}`);
+  E.push('');
+  E.push(`${aLab}:`);
+  appLines.forEach(x => E.push(x));
+  E.push(`R/o ${_qv(f.petitioner_address, 22)}`);
+  E.push('VERSUS');
+  E.push('RESPONDENTS:');
+  E.push(`1. State of Madhya Pradesh, through P.S. ${ps}, District ${dist}`);
+  if (compl) E.push(`2. ${compl}`);
+  E.push('');
+  E.push(`APPLICATION UNDER SECTION 528 BNSS (S.482 CrPC) FOR QUASHING OF FIR No. ${crime} REGISTERED AT P.S. ${ps}, DISTRICT ${dist}, UNDER SECTIONS ${secs}, AND ALL CONSEQUENTIAL PROCEEDINGS ARISING THEREFROM.`);
+  E.push('MOST RESPECTFULLY SHEWETH:');
+  E.push('');
+  E.push(`1. That the present application under Section 528 BNSS is being preferred before this Hon'ble Court; no similar application is pending or has been dismissed by any Court.`);
+  E.push(`2. That FIR No. ${crime} registered at P.S. ${ps}, District ${dist} under Sections ${secs}, and all proceedings arising therefrom, are sought to be quashed. A copy of the FIR is annexed as Annexure A-1.`);
+  E.push('');
+  E.push('BRIEF FACTS:');
+  if (facts.length) facts.forEach((p, i) => E.push(`${i + 1}. ${p}`));
+  else E.push('____________________________________________');
+  if ((f.stage_of_proceedings || '').trim()) E.push(`Present stage: ${f.stage_of_proceedings.trim()}.`);
+  E.push('');
+  E.push('GROUNDS:');
+  if (grounds.length) grounds.forEach((p, i) => E.push(`${String.fromCharCode(97 + (i % 26))}) ${p}`));
+  else E.push('____________________________________________');
+  E.push('Other grounds shall be urged orally at the time of arguments.');
+  E.push('');
+  E.push(`PRAYER:`);
+  E.push(`It is most respectfully prayed that this Hon'ble Court may be pleased to quash FIR No. ${crime} (P.S. ${ps}, District ${dist}, u/s ${secs}) and all consequential proceedings, and pass such other order as deemed fit.`);
+  E.push('');
+  E.push(`Date: ${dt}${place ? '     Place: ' + place : ''}`);
+  E.push(`Through ${adv}, Advocate for the ${multi ? 'Applicants' : 'Applicant'}.`);
+  E.push('');
+  E.push('VERIFICATION');
+  E.push(`I, the deponent, verify that the contents of paras 1 to ${Math.max(2, grounds.length + facts.length)} above are true to my knowledge and belief and nothing material has been concealed therefrom.`);
+  E.push(`Date: ${dt}                                        Signature of Deponent`);
+  return E.join('\n');
+}
+
+const DETERMINISTIC_RENDERERS = {
+  quashing_petition: buildQuashingDoc,
+};
+
 function $(s, r) { return (r || document).querySelector(s); }
 function ce(tag, attrs) { const e = document.createElement(tag); if (attrs) Object.assign(e, attrs); return e; }
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
@@ -1104,6 +1263,22 @@ async function generateDocument(opts) {
   const langAtCall = state.lang;
   const verAtCall  = state._editVersion;
   try {
+    // INSTANT deterministic path — build the doc in-browser (no LLM, no
+    // network, ₹0), exactly like /draft/bail. Only fires for doc_types listed
+    // in DETERMINISTIC_RENDERERS; everything else falls through to the LLM.
+    const _detRender = DETERMINISTIC_RENDERERS[state.docType];
+    if (_detRender) {
+      const doc = _detRender(state.fields, langAtCall);
+      state.docByLang[langAtCall] = { doc, ver: verAtCall };
+      if (langAtCall === state.lang) {
+        state.document = doc;
+        renderDocument();
+        if ($('#doc-page')) $('#doc-page').scrollTop = prevScroll;
+        saveToLocalStorage();
+        state._lastGenFields = JSON.stringify(state.fields);
+      }
+      return;   // skip the LLM fetch entirely — `finally` still runs
+    }
     const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
     const r = await fetch('/api/draft/render-template', {
       method: 'POST', headers,
@@ -1149,15 +1324,18 @@ function scheduleAutoRegen() {
   state._editVersion++;
   if (state.editMode) return;   // editing the doc directly — freeze auto-regen
   if (state._regenTimer) clearTimeout(state._regenTimer);
+  // Deterministic (in-browser) templates are free + instant, so they update
+  // live on every change with a snappy debounce and never hit the LLM cap.
+  const _det = !!DETERMINISTIC_RENDERERS[state.docType];
   state._regenTimer = setTimeout(() => {
-    if (state._regenCount >= REGEN_MAX_PER_SESSION) return;
+    if (!_det && state._regenCount >= REGEN_MAX_PER_SESSION) return;
     const snap = JSON.stringify(state.fields);
     if (snap === state._lastGenFields) return;
-    state._regenCount++;
+    if (!_det) state._regenCount++;
     // Once we have a document, every change should regen (not just required-
     // field changes). `initial: true` bypasses the empty-form guard.
     generateDocument({ silent: true, initial: !!state.document });
-  }, REGEN_DEBOUNCE_MS);
+  }, _det ? 250 : REGEN_DEBOUNCE_MS);
 }
 
 // ---- Document rendering — parse plain text into court-paper HTML ----
