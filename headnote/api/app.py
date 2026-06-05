@@ -1062,13 +1062,6 @@ app.include_router(_partners_admin_router)
 from headnote.api.onboarding import router as _onboarding_router
 app.include_router(_onboarding_router)
 
-# OTPless → Supabase auth bridge: /api/auth/otpless-exchange
-# Verifies the OTPless short-lived token server-side, finds/creates the
-# auth.users row, returns a hashed magic-link token the FE uses to mint a
-# normal Supabase session (with refresh token + onAuthStateChange wiring).
-from headnote.api.auth_otpless import router as _auth_otpless_router
-app.include_router(_auth_otpless_router)
-
 # Personal-assist escape hatches: /api/assist/{research,draft}
 # Fired by the "Not satisfied? / Not finding what you need?" CTAs in the UI.
 # Sends a Resend email to the founder inbox — SLA enforced manually.
