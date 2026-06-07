@@ -588,8 +588,68 @@ function buildQuashingDoc(f, lang) {
   return E.join('\n');
 }
 
+// §138(b) NI Act — accused's application to dismiss the cheque-bounce परिवाद
+// for non-service of the demand notice. Returns court-grade HTML (so the
+// signature right-aligns and बनाम centres) — mirrored verbatim from Vishnu
+// ji's real JMFC-Gwalior filings. The 4 यहकि paragraphs are fixed boilerplate;
+// only 8 values are filled. No LLM — instant, every time.
+function buildNi138bDoc(f, lang) {
+  f = f || {};
+  const E = (typeof esc === 'function') ? esc : (s => String(s == null ? '' : s));
+  const v = (k, n) => { const x = (f[k] == null ? '' : String(f[k])).trim(); return x ? E(x) : '<span class="ph">' + '_'.repeat(n || 10) + '</span>'; };
+  const courtRaw = (f.court_name || '').trim();
+  const adv = (f.advocate_name || '').trim() ? E(f.advocate_name.trim()) : '<span class="ph">__________</span>';
+  const caseNo = v('case_no', 10), compl = v('complainant_name', 16), acc = v('accused_name', 16);
+  const nd = v('notice_date', 10), po = v('post_office', 12), dt = v('filing_date', 10);
+  const DASH = '——————————';
+  if (lang === 'hi') {
+    const bench = courtRaw ? (courtRaw.startsWith('माननीय') ? courtRaw : 'माननीय ' + courtRaw)
+                           : 'माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी, ग्वालियर';
+    return `
+<div class="doc-court">न्यायालय ${bench}</div>
+<div class="doc-case-no">प्रकरण क्रमांक— ${caseNo}&nbsp;&nbsp;&nbsp;एस.सी.एन.आई.ए.</div>
+<div class="doc-para" style="margin:12px 0 0;">${compl} ${DASH} परिवादी</div>
+<div class="doc-vs">बनाम</div>
+<div class="doc-para" style="margin:0 0 12px;">${acc} ${DASH} अभियुक्त</div>
+<div class="doc-title">आवेदन पत्र अन्तर्गत धारा 138(ख) एन.आई.एक्ट</div>
+<div class="doc-para"><b>माननीय न्यायालय,</b></div>
+<div class="doc-para">प्रार्थी की ओर से प्रार्थना पत्र निम्न प्रकार प्रस्तुत है ः—</div>
+<div class="doc-para"><b>1.</b>&nbsp; यहकि, परिवादी द्वारा माननीय न्यायालय के समक्ष मिथ्या तथ्यों के आधार पर एक परिवाद पत्र प्रस्तुत किया गया है जिसमें न्यायालय श्रीमान द्वारा प्रार्थी को तलब किया था, जिसमें प्रार्थी जमानत पर है जो आज दिनांक को परिवादी साक्ष्य हेतु नियत है।</div>
+<div class="doc-para"><b>2.</b>&nbsp; यहकि, परिवादी के द्वारा प्रकरण में सूचना पत्र और उससे सम्बन्धित रसीद तथा एक दस्तावेज पोस्ट ऑफिस का दर्शाते हुये प्रस्तुत किया है कि प्रार्थी के द्वारा दिनांक ${nd} को सूचना पत्र प्राप्त कर लिया है, जबकि प्रकरण के साथ प्रस्तुत जिसे पोस्ट ऑफिस परिवादी को देना बताया है उक्त दस्तावेज में दिनांक ${nd} को भेजा गया आईटम ${po} में रिसीव होने का लेख है। उक्त दस्तावेज में इस बात की कोई टीप नहीं है कि जिस नोटिस को परिवादी द्वारा प्रार्थी को भेजना बताया है उक्त नोटिस को प्रार्थी के द्वारा प्राप्त किया गया हो। वास्तविकता में भी प्रार्थी के द्वारा परिवादी के बताये गये सूचना पत्र को प्राप्त नहीं किया है; प्रकरण में ऐसा कोई दस्तावेज संलग्न नहीं है जिससे यह प्रकट हो कि प्रार्थी के पास कोई सूचना पत्र भेजा गया हो और प्रार्थी के द्वारा प्राप्त किया गया हो।</div>
+<div class="doc-para"><b>3.</b>&nbsp; यहकि, प्रकरण में संलग्न पोस्ट ऑफिस के दस्तावेज पर प्रार्थी को सूचना पत्र प्राप्त होने का कोई उल्लेख नहीं है। इसके अलावा उक्त दस्तावेज के साथ ऐसा कोई दस्तावेज भी परिवादी के द्वारा पेश नहीं किया है कि उसने नोटिस की तामील की जानकारी लेने बावत् कोई आवेदन पोस्ट ऑफिस में प्रस्तुत किया हो। इससे प्रथम दृष्टया प्रकट होता है कि परिवादी द्वारा नोटिस तामील के सम्बन्ध में प्रस्तुत किया गया दस्तावेज कूटरचित है।</div>
+<div class="doc-para"><b>4.</b>&nbsp; यहकि, एन.आई.एक्ट के अपराध में यह आवश्यक तथ्य है कि सर्वप्रथम चैक से सम्बन्धित व्यक्ति को मांग सूचना पत्र भेजा जाए और उसकी प्राप्ति के पश्चात् निश्चित अवधि के उपरांत ही परिवाद पेश किया जाए; परन्तु प्रकरण में संलग्न दस्तावेजों के मुताबिक व वास्तविकता में भी प्रार्थी को कोई सूचना पत्र नहीं भेजा गया है और न ही प्रार्थी के द्वारा प्रकरण में संलग्न सूचना पत्र प्राप्त किया है। ऐसी स्थिति में प्रकरण/परिवादी इसी स्तर पर निरस्त कर प्रार्थी को उन्मोचित किया जाना न्यायोचित व न्याय संगत है।</div>
+<div class="doc-prayer">अतः श्रीमान जी से निवेदन है कि सूचना पत्र भेजे जाने व प्राप्ति के दस्तावेज के अभाव में उक्त परिवाद पत्र निरस्त किये जाने की कृपा करें।</div>
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:32px;gap:24px;">
+  <div>दिनांकः— ${dt}</div>
+  <div style="text-align:right;line-height:1.9;">प्रार्थी<br>${acc} — अभियुक्त<br>द्वारा अभिभाषक<br><b>${adv}</b> — एडवोकेट्स</div>
+</div>`.trim();
+  }
+  // English mirror
+  const benchEn = (courtRaw && /[A-Za-z]/.test(courtRaw)) ? courtRaw.toUpperCase()
+                  : "THE HON'BLE JUDICIAL MAGISTRATE FIRST CLASS, GWALIOR";
+  return `
+<div class="doc-court">IN THE COURT OF ${benchEn}</div>
+<div class="doc-case-no">Case No. ${caseNo}&nbsp;&nbsp;&nbsp;S.C.N.I.A.</div>
+<div class="doc-para" style="margin:12px 0 0;">${compl} ${DASH} Complainant</div>
+<div class="doc-vs">VERSUS</div>
+<div class="doc-para" style="margin:0 0 12px;">${acc} ${DASH} Accused</div>
+<div class="doc-title">APPLICATION UNDER SECTION 138(b) OF THE NEGOTIABLE INSTRUMENTS ACT</div>
+<div class="doc-para"><b>To the Hon'ble Court,</b></div>
+<div class="doc-para">The applicant most respectfully submits as under:&mdash;</div>
+<div class="doc-para"><b>1.</b>&nbsp; That the complainant has filed a complaint before this Hon'ble Court on false facts, pursuant to which the applicant was summoned; the applicant is on bail and the matter is fixed today for the complainant's evidence.</div>
+<div class="doc-para"><b>2.</b>&nbsp; That the complainant has filed a notice with a postal receipt purporting that the applicant received the demand notice on ${nd}. However, the postal document only records that the item sent on ${nd} was received at ${po} — it bears no endorsement that the applicant ever received the said notice. In fact the applicant never received any such notice, and no document on record establishes that any notice was sent to and received by the applicant.</div>
+<div class="doc-para"><b>3.</b>&nbsp; That the postal document on record contains no mention of service of the notice upon the applicant, nor has the complainant produced any application made to the post office to ascertain delivery. Prima facie, the document filed regarding service of notice is fabricated.</div>
+<div class="doc-para"><b>4.</b>&nbsp; That under the N.I. Act it is essential that a demand notice first be served on the person concerned and the complaint be filed only after the prescribed period from its receipt. As the record and the facts show that no notice was served upon or received by the applicant, the complaint deserves to be dismissed at this stage and the applicant discharged.</div>
+<div class="doc-prayer">It is therefore most respectfully prayed that, in the absence of proof of dispatch and receipt of the demand notice, the said complaint be dismissed.</div>
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:32px;gap:24px;">
+  <div>Date: ${dt}</div>
+  <div style="text-align:right;line-height:1.9;">Applicant<br>${acc} — Accused<br>Through Advocate<br><b>${adv}</b></div>
+</div>`.trim();
+}
+
 const DETERMINISTIC_RENDERERS = {
   quashing_petition: buildQuashingDoc,
+  ni_138b_dismiss:   buildNi138bDoc,
 };
 
 function $(s, r) { return (r || document).querySelector(s); }
@@ -1352,7 +1412,12 @@ function renderDocument() {
   }
   empty.style.display = 'none';
   page.style.display = '';
-  page.innerHTML = parseDocToHtml(state.document);
+  // Deterministic renderers (and saved manual edits) may hand us ready HTML —
+  // inject it directly so court-grade layout (right-aligned signatures, etc.)
+  // survives. Plain-text (LLM) docs still go through parseDocToHtml.
+  page.innerHTML = (typeof state.document === 'string' && state.document.trimStart().startsWith('<'))
+    ? state.document
+    : parseDocToHtml(state.document);
   if (window.matchMedia('(max-width: 880px)').matches && $('#doc-pane').dataset.state === 'collapsed') {
     setPreview('half');
   }
@@ -1560,25 +1625,115 @@ $('#btn-edit').addEventListener('click', () => {
     docEl.setAttribute('contenteditable', 'true');
     docEl.style.outline = '2px dashed var(--gold, #c9a96e)';
     docEl.style.outlineOffset = '6px';
+    ensureRichToolbar().style.display = 'flex';     // full formatting toolbar
     docEl.focus();
     btn.classList.add('btn--primary');
     btn.textContent = isHi ? '✓ पूर्ण' : '✓ Done';
-    toast(isHi ? 'दस्तावेज़ में सीधे टाइप करें — बदलाव डाउनलोड/प्रिंट में आएंगे'
-               : 'Type directly in the document — edits flow into download/print', 'ok', 3500);
+    toast(isHi ? 'पूरा एडिटर खुला — फॉन्ट साइज़, रंग, बोल्ड आदि टूलबार से बदलें'
+               : 'Full editor open — use the toolbar for font size, colour, bold, etc.', 'ok', 3500);
   } else {
     state.editMode = false;
     docEl.removeAttribute('contenteditable');
     docEl.style.outline = '';
     docEl.style.outlineOffset = '';
+    if (_rtToolbar) _rtToolbar.style.display = 'none';
     btn.classList.remove('btn--primary');
     btn.textContent = isHi ? '✏️ संपादन' : '✏️ Edit';
-    // Persist manual edits so a non-LLM re-render (e.g. reopening the page)
-    // keeps them. A deliberate Refresh Draft / field change still rebuilds.
-    state.document = (docEl.innerText || '').replace(/\n{3,}/g, '\n\n').trim();
+    // Preserve the lawyer's rich formatting (size / colour / bold) — save the
+    // HTML, not flattened text. renderDocument re-injects HTML directly and the
+    // PDF / print path reads #doc-page, so the formatting flows everywhere.
+    state.document = docEl.innerHTML;
     saveToLocalStorage();
     toast(isHi ? 'बदलाव सहेजे गए' : 'Edits saved', 'ok');
   }
 });
+
+// ---- Rich-text editor toolbar (शब्द-प्रोसेसर शैली) ----
+// Shown only while editing (✏️ संपादन). Full court-document toolset: undo/redo,
+// font size, text colour, bold/italic/underline, alignment, lists, clear.
+// Uses execCommand on the contentEditable #doc-page — formatting flows straight
+// into the WeasyPrint PDF + print (both read #doc-page's live HTML).
+let _rtToolbar = null;
+function ensureRichToolbar() {
+  if (_rtToolbar) return _rtToolbar;
+  if (!document.getElementById('rt-toolbar-style')) {
+    const st = document.createElement('style');
+    st.id = 'rt-toolbar-style';
+    st.textContent =
+      '.rt-toolbar{display:flex;flex-wrap:wrap;gap:5px;align-items:center;padding:7px 9px;'
+      + 'background:var(--panel,#fff);border:1px solid var(--line,#e3e3e3);border-radius:10px;'
+      + 'margin:0 0 10px;position:sticky;top:0;z-index:6;box-shadow:0 1px 4px rgba(0,0,0,.05);}'
+      + '.rt-toolbar .sep{width:1px;height:22px;background:var(--line,#e3e3e3);margin:0 3px;}'
+      + '.rt-btn{min-width:32px;height:32px;padding:0 7px;border:1px solid var(--line,#dcdcdc);'
+      + 'background:#fff;border-radius:7px;cursor:pointer;font-size:14px;line-height:1;color:#222;'
+      + 'display:inline-flex;align-items:center;justify-content:center;}'
+      + '.rt-btn:hover{background:#f3efe6;border-color:var(--gold,#c9a96e);}'
+      + '.rt-sel{height:32px;border:1px solid var(--line,#dcdcdc);border-radius:7px;background:#fff;'
+      + 'font-size:13px;padding:0 6px;cursor:pointer;}'
+      + '.rt-color{width:34px;height:32px;padding:2px;border:1px solid var(--line,#dcdcdc);'
+      + 'border-radius:7px;background:#fff;cursor:pointer;}'
+      + '@media print{.rt-toolbar{display:none!important;}}';
+    document.head.appendChild(st);
+  }
+  const bar = document.createElement('div');
+  bar.className = 'rt-toolbar';
+  bar.style.display = 'none';
+  const docEl = () => $('#doc-page');
+  const run = (cmd, val) => {
+    try { document.execCommand('styleWithCSS', false, true); } catch (_) {}
+    try { document.execCommand(cmd, false, val); } catch (_) {}
+    const d = docEl(); if (d) d.focus();
+  };
+  const mkBtn = (label, title, cmd, val) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'rt-btn'; b.innerHTML = label; b.title = title;
+    b.addEventListener('mousedown', (e) => { e.preventDefault(); run(cmd, val); });
+    bar.appendChild(b); return b;
+  };
+  const sep = () => { const s = document.createElement('span'); s.className = 'sep'; bar.appendChild(s); };
+  const isHi = () => state.lang === 'hi';
+
+  mkBtn('↶', isHi() ? 'पूर्ववत' : 'Undo', 'undo');
+  mkBtn('↷', isHi() ? 'पुनः' : 'Redo', 'redo');
+  sep();
+  // Font size (HTML sizes 1-7 → reliable everywhere, flows to PDF)
+  const sizeSel = document.createElement('select');
+  sizeSel.className = 'rt-sel';
+  sizeSel.title = isHi() ? 'फॉन्ट साइज़' : 'Font size';
+  [[ (isHi() ? 'छोटा' : 'Small'), '2'], [(isHi() ? 'सामान्य' : 'Normal'), '3'],
+   [(isHi() ? 'बड़ा' : 'Large'), '5'], [(isHi() ? 'शीर्षक' : 'Heading'), '6']]
+    .forEach(([t, val]) => { const o = document.createElement('option'); o.textContent = t; o.value = val; sizeSel.appendChild(o); });
+  sizeSel.value = '3';
+  sizeSel.addEventListener('mousedown', (e) => e.stopPropagation());
+  sizeSel.addEventListener('change', () => run('fontSize', sizeSel.value));
+  bar.appendChild(sizeSel);
+  sep();
+  mkBtn('<b>B</b>', isHi() ? 'बोल्ड' : 'Bold', 'bold');
+  mkBtn('<i>I</i>', isHi() ? 'इटैलिक' : 'Italic', 'italic');
+  mkBtn('<u>U</u>', isHi() ? 'रेखांकित' : 'Underline', 'underline');
+  // Text colour
+  const color = document.createElement('input');
+  color.type = 'color'; color.className = 'rt-color'; color.value = '#1a1a1a';
+  color.title = isHi() ? 'टेक्स्ट रंग' : 'Text colour';
+  color.addEventListener('input', () => run('foreColor', color.value));
+  bar.appendChild(color);
+  sep();
+  mkBtn('⬅', isHi() ? 'बाएँ' : 'Align left', 'justifyLeft');
+  mkBtn('↔', isHi() ? 'मध्य' : 'Align center', 'justifyCenter');
+  mkBtn('➡', isHi() ? 'दाएँ' : 'Align right', 'justifyRight');
+  mkBtn('☷', isHi() ? 'जस्टिफ़ाई' : 'Justify', 'justifyFull');
+  sep();
+  mkBtn('• —', isHi() ? 'बुलेट सूची' : 'Bullet list', 'insertUnorderedList');
+  mkBtn('1.', isHi() ? 'क्रमांकित सूची' : 'Numbered list', 'insertOrderedList');
+  sep();
+  mkBtn('⨯', isHi() ? 'फॉर्मेट हटाएँ' : 'Clear formatting', 'removeFormat');
+
+  const pane = $('#doc-pane'); const page = $('#doc-page');
+  if (page && page.parentNode) page.parentNode.insertBefore(bar, page);
+  else if (pane) pane.appendChild(bar);
+  _rtToolbar = bar;
+  return bar;
+}
 
 function _tplFilename() {
   const applicantRaw = (state.fields && (

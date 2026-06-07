@@ -1990,6 +1990,42 @@ COMPLAINT_498A = {
 # AGGREGATE — used by compose_templates.py to merge into TEMPLATES dict
 # ============================================================================
 
+# -------------------------------------------------------------------------
+# §138(b) NI Act — the ACCUSED's application to dismiss a cheque-bounce
+# complaint where the statutory demand notice was never served / the postal
+# proof is fabricated. (Distinct from NI_ACT_138, which is the complaint.)
+# Decoded verbatim from the advocate's real JMFC-Gwalior filings
+# (Sharif Khan 902/2025, HDFC 1674/2021, Lakshminarayan 478/2021) and
+# rendered DETERMINISTICALLY in the browser — see buildNi138bDoc in
+# static/draft-template.html. No LLM touches this document.
+# -------------------------------------------------------------------------
+NI_138B_DISMISS = {
+    "id":              "ni_138b_dismiss",
+    "name_en":         "§138(b) NI Act — Dismiss Complaint (notice not served)",
+    "name_hi":         "धारा 138(ख) NI Act — परिवाद निरस्तीकरण आवेदन",
+    "court":           "magistrate",
+    "court_label_en":  "Magistrate Court",
+    "court_label_hi":  "मजिस्ट्रेट न्यायालय",
+    "category":        "commercial",
+    "tier":            1,
+    "popularity":      4,
+    "quality":         "v2-ref",
+    "engine":          "deterministic",
+    "description":     "Accused's application under §138(b) NI Act to dismiss the cheque-bounce complaint where the statutory demand notice was never served / the postal proof is forged. Mirrored verbatim from real JMFC Gwalior filings; rendered instantly in-browser (no AI).",
+    "fields": [
+        {"key": "court_name",       "label_en": "Court / Bench",                       "label_hi": "न्यायालय / पीठ",                       "type": "text", "required": True,  "section": "court",   "hint": "e.g. माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी, ग्वालियर"},
+        {"key": "case_no",          "label_en": "Case no. (प्रकरण क्रमांक)",            "label_hi": "प्रकरण क्रमांक",                        "type": "text", "required": True,  "section": "court",   "hint": "e.g. 902/2025"},
+        {"key": "complainant_name", "label_en": "Complainant (परिवादी)",                "label_hi": "परिवादी",                              "type": "name", "required": True,  "section": "parties"},
+        {"key": "accused_name",     "label_en": "Accused / Applicant (अभियुक्त)",       "label_hi": "अभियुक्त / प्रार्थी",                  "type": "name", "required": True,  "section": "parties"},
+        {"key": "notice_date",      "label_en": "Notice date claimed by complainant",   "label_hi": "नोटिस/प्राप्ति दिनांक (परिवादी द्वारा दर्शित)","type": "text", "required": True, "section": "matter", "hint": "जैसा परिवादी ने दर्शाया — e.g. 12-01-2021"},
+        {"key": "post_office",      "label_en": "Post office where item was received",  "label_hi": "डाकघर (जहाँ आइटम रिसीव हुआ)",          "type": "text", "required": True,  "section": "matter",  "hint": "e.g. अशोकनगर हैड ऑफिस / मोहना सब-ऑफिस"},
+        {"key": "advocate_name",    "label_en": "Advocate(s)",                          "label_hi": "अधिवक्ता",                             "type": "text", "required": True,  "section": "filing",  "hint": "e.g. विष्णु शिवहरे, धारासिंह मीणा"},
+        {"key": "filing_date",      "label_en": "Date",                                 "label_hi": "दिनांक",                               "type": "text", "required": True,  "section": "filing",  "hint": "e.g. 18/02/2026"},
+    ],
+    "format_spec": "Rendered deterministically client-side (ni_138b_dismiss) — no LLM. See buildNi138bDoc() in static/draft-template.html.",
+}
+
+
 NEW_TEMPLATES_V2: dict[str, dict] = {
     SLP_CRIMINAL["id"]:               SLP_CRIMINAL,
     TRANSFER_PETITION_CRI["id"]:      TRANSFER_PETITION_CRI,
@@ -2011,6 +2047,7 @@ NEW_TEMPLATES_V2: dict[str, dict] = {
     DISPENSE_ATTENDANCE_205["id"]:    DISPENSE_ATTENDANCE_205,
     SUPURDGI_451_457["id"]:           SUPURDGI_451_457,
     NI_ACT_138["id"]:                 NI_ACT_138,
+    NI_138B_DISMISS["id"]:            NI_138B_DISMISS,
     DV_ACT_12["id"]:                  DV_ACT_12,
     HMA_9_RESTITUTION["id"]:          HMA_9_RESTITUTION,
     HMA_13_DIVORCE["id"]:             HMA_13_DIVORCE,
