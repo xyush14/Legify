@@ -1668,6 +1668,7 @@ function ensureRichToolbar() {
       + 'background:#fff;border-radius:7px;cursor:pointer;font-size:14px;line-height:1;color:#222;'
       + 'display:inline-flex;align-items:center;justify-content:center;}'
       + '.rt-btn:hover{background:#f3efe6;border-color:var(--gold,#c9a96e);}'
+      + '.rt-btn.active{background:var(--gold,#c9a96e);color:#fff;border-color:var(--gold,#c9a96e);}'
       + '.rt-sel{height:32px;border:1px solid var(--line,#dcdcdc);border-radius:7px;background:#fff;'
       + 'font-size:13px;padding:0 6px;cursor:pointer;}'
       + '.rt-color{width:34px;height:32px;padding:2px;border:1px solid var(--line,#dcdcdc);'
@@ -1687,6 +1688,7 @@ function ensureRichToolbar() {
   const mkBtn = (label, title, cmd, val) => {
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'rt-btn'; b.innerHTML = label; b.title = title;
+    if (cmd) b.dataset.cmd = cmd;
     b.addEventListener('mousedown', (e) => { e.preventDefault(); run(cmd, val); });
     bar.appendChild(b); return b;
   };
@@ -1726,7 +1728,53 @@ function ensureRichToolbar() {
   mkBtn('• —', isHi() ? 'बुलेट सूची' : 'Bullet list', 'insertUnorderedList');
   mkBtn('1.', isHi() ? 'क्रमांकित सूची' : 'Numbered list', 'insertOrderedList');
   sep();
+  mkBtn('<s>S</s>', isHi() ? 'काट (स्ट्राइकथ्रू)' : 'Strikethrough', 'strikeThrough');
+  mkBtn('x²', isHi() ? 'सुपरस्क्रिप्ट' : 'Superscript', 'superscript');
+  mkBtn('x₂', isHi() ? 'सबस्क्रिप्ट' : 'Subscript', 'subscript');
+  sep();
+  mkBtn('⇥', isHi() ? 'इंडेंट बढ़ाएँ' : 'Indent', 'indent');
+  mkBtn('⇤', isHi() ? 'इंडेंट घटाएँ' : 'Outdent', 'outdent');
+  sep();
+  // Font family
+  const famSel = document.createElement('select');
+  famSel.className = 'rt-sel'; famSel.title = isHi() ? 'फॉन्ट' : 'Font';
+  [['Noto Serif Devanagari', "'Noto Serif Devanagari','Noto Sans Devanagari',serif"],
+   ['Noto Sans Devanagari', "'Noto Sans Devanagari',sans-serif"],
+   ['Mangal', "Mangal,'Noto Sans Devanagari',serif"],
+   ['Times New Roman', "'Times New Roman',serif"]]
+    .forEach(([t, val]) => { const o = document.createElement('option'); o.textContent = t; o.value = val; famSel.appendChild(o); });
+  famSel.addEventListener('mousedown', (e) => e.stopPropagation());
+  famSel.addEventListener('change', () => run('fontName', famSel.value));
+  bar.appendChild(famSel);
+  // Highlight colour
+  const hl = document.createElement('input');
+  hl.type = 'color'; hl.className = 'rt-color'; hl.value = '#fff3b0';
+  hl.title = isHi() ? 'हाइलाइट रंग' : 'Highlight';
+  hl.addEventListener('input', () => run('hiliteColor', hl.value));
+  bar.appendChild(hl);
+  sep();
+  // Line spacing — applies to the whole document (court double-spacing)
+  const lsSel = document.createElement('select');
+  lsSel.className = 'rt-sel'; lsSel.title = isHi() ? 'पंक्ति अंतराल' : 'Line spacing';
+  [[(isHi() ? 'अंतराल: सामान्य' : 'Spacing: normal'), ''], ['1.5', '1.6'], [(isHi() ? 'दोहरा' : 'Double'), '2.2']]
+    .forEach(([t, val]) => { const o = document.createElement('option'); o.textContent = t; o.value = val; lsSel.appendChild(o); });
+  lsSel.addEventListener('mousedown', (e) => e.stopPropagation());
+  lsSel.addEventListener('change', () => { const d = docEl(); if (d) d.style.lineHeight = lsSel.value; });
+  bar.appendChild(lsSel);
+  sep();
   mkBtn('⨯', isHi() ? 'फॉर्मेट हटाएँ' : 'Clear formatting', 'removeFormat');
+
+  // Active-state highlighting — buttons light up for the cursor's formatting.
+  const updateActive = () => {
+    if (!state.editMode) return;
+    bar.querySelectorAll('.rt-btn[data-cmd]').forEach(b => {
+      const c = b.dataset.cmd;
+      if (!c || ['undo', 'redo', 'removeFormat', 'indent', 'outdent'].includes(c)) return;
+      let on = false; try { on = document.queryCommandState(c); } catch (_) {}
+      b.classList.toggle('active', !!on);
+    });
+  };
+  document.addEventListener('selectionchange', updateActive);
 
   const pane = $('#doc-pane'); const page = $('#doc-page');
   if (page && page.parentNode) page.parentNode.insertBefore(bar, page);
