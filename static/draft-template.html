@@ -846,15 +846,107 @@ const SECTION_LABELS = {
 };
 
 // ---- Form rendering — groups fields into bail-style sections ----
+// ---- Universal "auto-fill from a document" uploader ----
+// OCR via Groq Llama-4-Scout vision (DeepSeek fallback) — NEVER Claude. Adapts
+// to whatever fields THIS template declares (skips advocate/filing/court boiler-
+// plate), so every application gets document auto-fill on the same principle,
+// with no per-template wiring. The lawyer always reviews the filled values.
+function _ocrTargetFields() {
+  const SKIP_SECTIONS = new Set(['advocate', 'filing']);
+  const SKIP_KEYS = new Set(['advocate_name', 'place', 'filing_date', 'court_name']);
+  return (state.template.fields || [])
+    .filter(f => !SKIP_SECTIONS.has(f.section) && !SKIP_KEYS.has(f.key))
+    .map(f => ({ key: f.key, label: f.label_en, hint: f.hint || '' }));
+}
+
+function renderAutoFillZone() {
+  const targets = _ocrTargetFields();
+  if (!targets.length) return null;          // nothing OCR-fillable → no zone
+  const isHi = state.lang === 'hi';
+  if (!document.getElementById('autofill-style')) {
+    const st = document.createElement('style');
+    st.id = 'autofill-style';
+    st.textContent =
+      '.autofill{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px;margin:0 0 16px;'
+      + 'border:1.5px dashed var(--gold,#c9a96e);border-radius:12px;background:rgba(201,169,110,.07);}'
+      + '.autofill__txt{font-size:13px;color:var(--muted,#666);flex:1;min-width:170px;line-height:1.5;}'
+      + '.autofill__txt b{color:var(--ink,#222);font-weight:600;}'
+      + '.autofill__btn{border:1px solid var(--gold,#c9a96e);background:var(--gold,#c9a96e);color:#fff;'
+      + 'border-radius:8px;padding:9px 15px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;}'
+      + '.autofill__btn:hover{filter:brightness(.95);}.autofill__btn:disabled{opacity:.6;cursor:wait;}'
+      + '.autofill__status{font-size:12px;color:var(--muted,#777);}';
+    document.head.appendChild(st);
+  }
+  const zone = ce('div', { className: 'autofill' });
+  const txt = ce('div', { className: 'autofill__txt' });
+  txt.innerHTML = isHi
+    ? '<b>📎 दस्तावेज़ से ऑटो-भरें</b> — FIR / आदेश / प्रमाणपत्र / रसीद अपलोड करें; फ़ील्ड अपने-आप भर जाएँगे (जाँच ज़रूर करें)।'
+    : '<b>📎 Auto-fill from a document</b> — upload the FIR / order / certificate / receipt; the fields fill themselves (always review).';
+  const btn = ce('button', { type: 'button', className: 'autofill__btn' });
+  btn.textContent = isHi ? 'दस्तावेज़ चुनें' : 'Choose document';
+  const status = ce('span', { className: 'autofill__status' });
+  const input = ce('input', { type: 'file' });
+  input.accept = 'image/*,application/pdf';
+  input.multiple = true;
+  input.style.display = 'none';
+  btn.addEventListener('click', () => input.click());
+  input.addEventListener('change', async () => {
+    const fileList = Array.from(input.files || []);
+    if (!fileList.length) return;
+    btn.disabled = true;
+    status.textContent = isHi ? '⏳ पढ़ा जा रहा है…' : '⏳ Reading…';
+    try {
+      const fd = new FormData();
+      fileList.slice(0, 8).forEach(f => fd.append('files', f));
+      fd.append('fields_json', JSON.stringify(_ocrTargetFields()));
+      fd.append('doc_label', state.template.name_en || '');
+      const r = await fetch('/api/draft/ocr-generic', {
+        method: 'POST', headers: { ...(await authHeaders()) }, body: fd,
+      });
+      if (await handleAuthError(r.status)) return;
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.detail || ('HTTP ' + r.status));
+      const ex = data.extracted || {};
+      let filled = 0;
+      Object.entries(ex).forEach(([k, v]) => {
+        if (v == null || String(v).trim() === '') return;
+        const el = $(`#f_${k}`);
+        if (el) { el.value = String(v); state.fields[k] = String(v); filled++; }
+      });
+      saveToLocalStorage();
+      scheduleAutoRegen();
+      status.textContent = '';
+      toast(filled
+        ? (isHi ? `✓ ${filled} फ़ील्ड भरे गए — कृपया जाँच लें` : `✓ Filled ${filled} fields — please review`)
+        : (isHi ? 'दस्तावेज़ से कुछ मेल नहीं खाया — हाथ से भरें' : 'Nothing matched — fill manually'),
+        filled ? 'ok' : 'warn', 3500);
+    } catch (e) {
+      status.textContent = '';
+      toast((isHi ? 'OCR विफल: ' : 'OCR failed: ') + e.message, 'err', 4000);
+    } finally {
+      btn.disabled = false;
+      input.value = '';
+    }
+  });
+  zone.appendChild(txt); zone.appendChild(btn); zone.appendChild(status); zone.appendChild(input);
+  return zone;
+}
+
 function renderForm() {
   const container = $('#form-container');
   container.innerHTML = '';
   const tpl = state.template;
   if (!tpl) return;
 
-  // Supporting-doc upload zone(s) at the very top, just like bail's FIR shortcut
+  // Supporting-doc upload zone(s) at the very top, just like bail's FIR shortcut.
+  // Specialised uploads (FIR / bail-order / impugned-order) take precedence;
+  // otherwise every template gets the universal "auto-fill from a document"
+  // zone so OCR works everywhere on the same principle.
   if (Array.isArray(tpl.uploads) && tpl.uploads.length) {
     tpl.uploads.forEach(u => container.appendChild(renderUploadZone(u)));
+  } else {
+    const az = renderAutoFillZone();
+    if (az) container.appendChild(az);
   }
 
   // Group fields by their declared section, preserving first-occurrence order

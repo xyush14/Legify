@@ -18,7 +18,7 @@ import json
 import re
 from typing import List, Literal, Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
 from headnote.drafter import storage, stories
@@ -366,7 +366,7 @@ async def ocr_fir(
             raise HTTPException(status_code=502, detail=f"OCR error: {e}")
 
         # Cost scales roughly with page count. 300p per page is conservative.
-        _record(cost_paise=300 * len(pages), model="claude-sonnet-4-6-vision")
+        _record(cost_paise=0, model="groq/llama-4-scout-vision")
         return {"ok": True, "page_count": len(pages), "extracted": parsed}
 
 
@@ -428,7 +428,7 @@ async def ocr_bail_order(
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"OCR error: {e}")
 
-        _record(cost_paise=300 * len(pages), model="claude-sonnet-4-6-vision")
+        _record(cost_paise=0, model="groq/llama-4-scout-vision")
         return {"ok": True, "page_count": len(pages), "extracted": parsed}
 
 
@@ -492,8 +492,70 @@ async def ocr_impugned_order(
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"OCR error: {e}")
 
-        _record(cost_paise=300 * len(pages), model="claude-sonnet-4-6-vision")
+        _record(cost_paise=0, model="groq/llama-4-scout-vision")
         return {"ok": True, "page_count": len(pages), "extracted": parsed}
+
+
+@router.post("/ocr-generic", summary="OCR any document → fill a template's own fields (Groq vision)")
+async def ocr_generic(
+    files: Optional[List[UploadFile]] = File(None),
+    file: Optional[UploadFile] = File(None),
+    fields_json: str = Form("[]"),
+    doc_label: str = Form(""),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """Universal auto-fill: read an uploaded document and extract whatever
+    fields the calling template declares. Powers the "auto-fill from a
+    document" uploader available on every template. Vision via Groq
+    Llama-4-Scout (DeepSeek fallback); never Claude unless OCR_ENABLE_ANTHROPIC=1.
+
+    `fields_json` is a JSON array of {key, label, hint}. Returns the extracted
+    values keyed by field key so the frontend's filler applies them directly.
+    """
+    import json as _json
+    from headnote.drafter.ocr import ocr_generic_pages
+
+    uploads: List[UploadFile] = []
+    if files:
+        uploads.extend(files)
+    if file:
+        uploads.append(file)
+    if not uploads:
+        raise HTTPException(status_code=400, detail="upload 'file' or 'files'")
+    if len(uploads) > _OCR_MAX_PAGES:
+        raise HTTPException(status_code=400, detail=f"too many pages ({len(uploads)}); max {_OCR_MAX_PAGES}")
+
+    try:
+        fields = _json.loads(fields_json or "[]")
+        if not isinstance(fields, list):
+            fields = []
+    except Exception:
+        fields = []
+    if not fields:
+        raise HTTPException(status_code=400, detail="no target fields provided")
+
+    pages: list[tuple[bytes, str]] = []
+    for idx, up in enumerate(uploads, start=1):
+        mt = up.content_type or ""
+        if mt not in _OCR_ALLOWED_MIME:
+            raise HTTPException(status_code=400, detail=f"page {idx}: unsupported file type {mt!r}; use JPEG, PNG, WebP, GIF, or PDF")
+        data = await up.read()
+        if not data:
+            raise HTTPException(status_code=400, detail=f"page {idx}: empty file")
+        if len(data) > _OCR_MAX_BYTES:
+            raise HTTPException(status_code=400, detail=f"page {idx}: too large; max 20 MB")
+        pages.append((data, mt))
+
+    with check_and_record(user.id, "draft", endpoint="ocr_generic", email=user.email) as _record:
+        try:
+            extracted = ocr_generic_pages(pages, fields, doc_label)
+        except ValueError as e:
+            raise HTTPException(status_code=502, detail=f"OCR failed: {e}")
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"OCR error: {e}")
+
+        _record(cost_paise=0, model="groq/llama-4-scout-vision")
+        return {"ok": True, "page_count": len(pages), "extracted": extracted}
 
 
 # ----------------------------------------------------------- Voice transcription

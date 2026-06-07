@@ -682,6 +682,52 @@ def ocr_fir_pages(pages: Sequence[tuple[bytes, str]]) -> dict:
     return _run_ocr(pages, OCR_FIR_PROMPT, _normalise)
 
 
+def ocr_generic_pages(pages: Sequence[tuple[bytes, str]],
+                      fields: Sequence[dict],
+                      doc_label: str = "") -> dict:
+    """Generic field extraction from ANY uploaded document (image / PDF).
+
+    Powers the universal "auto-fill from a document" uploader that every
+    template gets — instead of a bespoke prompt per document type, we build the
+    extraction schema on the fly from the template's own fields and reuse the
+    same Groq-primary / DeepSeek-fallback runner (`_run_ocr`). Claude is NEVER
+    used unless OCR_ENABLE_ANTHROPIC=1 (off by default).
+
+    `fields` is a list of {"key", "label", "hint"} describing the form fields to
+    fill. Returns {key: value-or-null}, verbatim in the document's own script.
+    """
+    targets = [f for f in (fields or []) if (f.get("key") or "").strip()]
+    if not targets:
+        return {}
+    schema_lines = []
+    for f in targets:
+        key = f["key"].strip()
+        label = (f.get("label") or key).strip()
+        hint = (f.get("hint") or "").strip()
+        desc = label + (f" — {hint}" if hint else "")
+        schema_lines.append(f'  "{key}": "string or null  // {desc}"')
+    schema = "{\n" + ",\n".join(schema_lines) + "\n}"
+    doc_hint = f" The document is most likely a {doc_label}." if doc_label else ""
+    prompt = (
+        "You are a meticulous legal-document data-extraction engine for Indian "
+        "court filings. Read the attached document image(s) — they may be in "
+        "Hindi (Devanagari) or English, printed or handwritten." + doc_hint +
+        " Extract ONLY the fields listed below, copying each value VERBATIM in "
+        "the document's own script. Do NOT translate, summarise, infer, or "
+        "invent anything. If a field is not clearly present in the document, "
+        "set it to null. Respond with STRICT JSON only (no markdown, no prose), "
+        "using exactly these keys:\n" + schema
+    )
+
+    def _normalise_generic(parsed: dict) -> dict:
+        if not isinstance(parsed, dict):
+            return {}
+        wanted = {f["key"].strip() for f in targets}
+        return {k: v for k, v in parsed.items() if k in wanted}
+
+    return _run_ocr(pages, prompt, _normalise_generic)
+
+
 def _normalise_bail_order(parsed: dict) -> dict:
     """Post-process a bail-order extraction into canonical form."""
     if isinstance(parsed.get("applicants"), list):
