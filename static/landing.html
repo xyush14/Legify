@@ -212,56 +212,117 @@
   }
   .hero-foot b { color: var(--ink); font-weight: 600; }
 
-  /* glass product proof under the hero headline */
-  .hero-proof {
-    margin: 56px auto 0;
-    max-width: 760px;
+  /* ===== live research console (interactive hero proof) ===== */
+  .hero-console {
+    margin: 50px auto 0;
+    max-width: 720px;
     border-radius: 18px;
     background: var(--card);
     border: 1px solid var(--line);
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--shadow-xl);
     overflow: hidden;
     text-align: left;
   }
-  .hero-proof__bar {
-    display: flex; align-items: center; gap: 8px;
+  .hc-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
     padding: 11px 16px; border-bottom: 1px solid var(--line);
     background: var(--bg);
-    font-family: 'Geist Mono', monospace;
-    font-size: 11.5px; color: var(--ink-3);
+    font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: 0.01em;
   }
-  .hero-proof__bar .tdot { width: 9px; height: 9px; border-radius: 50%; background: var(--line-2); }
-  .hero-proof__bar .q { margin-left: 8px; color: var(--ink-2); }
-  .hero-proof__body { padding: 18px 18px 22px; display: grid; gap: 9px; }
-  .hp-row {
-    display: grid; grid-template-columns: 54px 1fr auto; gap: 12px; align-items: center;
-    padding: 12px 14px; border-radius: 11px;
+  .hc-eyebrow { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-2); font-weight: 500; }
+  .hc-eyebrow .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--emerald); box-shadow: 0 0 0 3px rgba(79,138,30,0.16);
+    animation: dotPulse 2s ease-in-out infinite;
+  }
+  .hc-meta { color: var(--ink-3); }
+  @media (max-width: 520px) { .hc-meta { display: none; } }
+
+  .hc-bar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 16px; border-bottom: 1px solid var(--line);
+    background: #fff; min-height: 22px;
+  }
+  .hc-bar .hc-search-ic { width: 16px; height: 16px; color: var(--ink-3); flex-shrink: 0; }
+  .hc-query { font-size: 14.5px; color: var(--ink); font-weight: 500; line-height: 1.45; }
+  .hc-caret {
+    width: 1.5px; height: 17px; background: var(--gold); display: inline-block; flex-shrink: 0;
+    animation: hcBlink 1.05s step-end infinite;
+  }
+  @keyframes hcBlink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+
+  .hc-chips {
+    display: flex; flex-wrap: wrap; gap: 7px;
+    padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--bg);
+  }
+  .hc-chip {
+    font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: 0.01em;
+    padding: 6px 11px; border-radius: 999px;
+    background: #fff; border: 1px solid var(--line-2); color: var(--ink-2);
+    cursor: pointer; transition: border-color 0.16s ease, color 0.16s ease, background 0.16s ease;
+  }
+  .hc-chip:hover { border-color: var(--gold-2); color: var(--ink); }
+  .hc-chip.active { background: var(--gold-tint); border-color: var(--gold-2); color: var(--gold-deep); font-weight: 500; }
+
+  .hc-status {
+    display: flex; align-items: center; gap: 9px;
+    padding: 13px 16px; border-bottom: 1px solid var(--line);
+    font-family: 'Geist Mono', monospace; font-size: 11.5px; color: var(--ink-3);
+  }
+  .hc-status[hidden] { display: none; }
+  .hc-spin {
+    width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;
+    border: 1.5px solid var(--line-2); border-top-color: var(--gold);
+    animation: hcSpin 0.7s linear infinite;
+  }
+  @keyframes hcSpin { to { transform: rotate(360deg); } }
+
+  .hc-results { padding: 14px 16px; display: grid; gap: 8px; }
+  .hc-row {
+    display: grid; grid-template-columns: 42px 1fr auto; gap: 12px; align-items: start;
+    padding: 11px 13px; border-radius: 11px;
     background: #fdfcf8; border: 1px solid var(--line);
-    font-size: 12.5px;
-    animation: hpIn 0.6s both;
+    animation: hpIn 0.5s both;
   }
-  .hp-row:nth-child(1) { animation-delay: 0.15s; }
-  .hp-row:nth-child(2) { animation-delay: 0.35s; }
-  .hp-row:nth-child(3) { animation-delay: 0.55s; }
   @keyframes hpIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-  .hp-row .tier {
-    font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; text-align: center;
-    padding: 4px 0; border-radius: 6px; color: #2a200c;
+  .hc-row .tier {
+    font-size: 9.5px; font-weight: 700; letter-spacing: 0.05em; text-align: center;
+    padding: 5px 0; border-radius: 6px; color: #2a200c;
     background: linear-gradient(135deg, var(--gold-2), var(--gold));
   }
-  .hp-row .tier.sc { background: var(--ink); color: #fff; }
-  .hp-row .tier.cb { background: linear-gradient(135deg,#7bb24a,var(--emerald)); color:#fff; }
-  .hp-row .cite { color: var(--ink); }
-  .hp-row .cite b { font-weight: 600; }
-  .hp-row .cite span { color: var(--ink-3); }
-  .hp-row .ok {
-    display: inline-flex; align-items: center; gap: 5px;
-    font-size: 10.5px; color: var(--emerald); white-space: nowrap; font-weight: 500;
+  .hc-row .tier.sc { background: var(--ink); color: #fff; }
+  .hc-row .tier.hc { background: linear-gradient(135deg, var(--gold-2), var(--gold)); color: #2a200c; }
+  .hc-row .tier.cb { background: linear-gradient(135deg, #7bb24a, var(--emerald)); color: #fff; }
+  .hc-cite { color: var(--ink); font-size: 13px; line-height: 1.4; }
+  .hc-cite b { font-weight: 600; }
+  .hc-cite span { color: var(--ink-3); font-weight: 400; }
+  .hc-tag {
+    display: inline-block; font-family: 'Geist Mono', monospace; font-size: 9px; letter-spacing: 0.03em;
+    color: var(--emerald); background: var(--emerald-soft);
+    border-radius: 5px; padding: 1px 6px; margin-left: 5px; vertical-align: middle; text-transform: uppercase;
   }
-  .hp-row .ok svg { width: 13px; height: 13px; }
-  @media (max-width: 560px) {
-    .hp-row { grid-template-columns: 46px 1fr; }
-    .hp-row .ok { display: none; }
+  .hc-held { color: var(--ink-2); font-size: 11.5px; margin-top: 4px; line-height: 1.5; }
+  .hc-row .ok {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 10.5px; color: var(--emerald); white-space: nowrap; font-weight: 500; padding-top: 2px;
+  }
+  .hc-row .ok svg { width: 13px; height: 13px; }
+  .hc-row--locked { filter: blur(4.5px); opacity: 0.6; user-select: none; pointer-events: none; }
+
+  .hc-gate {
+    display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    padding: 14px 16px; border-top: 1px dashed var(--line-2);
+    background: linear-gradient(180deg, var(--gold-tint), #fff);
+  }
+  .hc-gate[hidden] { display: none; }
+  .hc-gate-text b { display: block; font-size: 13px; color: var(--ink); font-weight: 600; }
+  .hc-gate-text span { font-size: 11.5px; color: var(--ink-3); }
+  .hc-gate .btn { padding: 12px 22px; font-size: 13.5px; white-space: nowrap; }
+  @media (max-width: 520px) {
+    .hc-row { grid-template-columns: 38px 1fr; }
+    .hc-row .ok { display: none; }
+    .hc-gate { flex-direction: column; align-items: stretch; }
+    .hc-gate .btn { text-align: center; }
   }
 
   /* ============= COURT MARQUEE ============= */
@@ -658,39 +719,30 @@
     AI co-counsel for India's criminal advocates. Research with citations verified
     three ways, voice-first court drafting, 40+ application formats — Hindi and English.
   </p>
-  <div class="hero-row">
-    <a href="/app" class="btn btn--gold btn--lg" id="hero-cta">Start free — no card</a>
-    <a href="#demo" class="btn btn--ghost btn--lg">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><path d="M8 5v14l11-7z"/></svg>
-      Watch 3-min demo
-    </a>
-  </div>
-  <div class="hero-foot">
-    <b>For every courtroom in India</b> — Supreme Court, all 25 High Courts, District &amp; Sessions benches.
-  </div>
-
-  <!-- glass product proof: a real research result -->
-  <div class="hero-proof">
-    <div class="hero-proof__bar">
-      <span class="tdot"></span><span class="tdot"></span><span class="tdot"></span>
-      <span class="q">“anticipatory bail — economic offence, accused cooperating, no custody needed”</span>
+  <!-- live research console: real, verified results — tap a query to watch it work -->
+  <div class="hero-console" id="hero-console" aria-label="Live research demo">
+    <div class="hc-head">
+      <span class="hc-eyebrow"><span class="dot"></span>Try it — tap a real query</span>
+      <span class="hc-meta">3.5 crore+ judgments · citations verified 3 ways</span>
     </div>
-    <div class="hero-proof__body">
-      <div class="hp-row">
-        <div class="tier sc">SC</div>
-        <div class="cite"><b>Gurbaksh Singh Sibbia v. State of Punjab</b> <span>· (1980) 2 SCC 565</span></div>
-        <div class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg> verified</div>
+    <div class="hc-bar">
+      <svg class="hc-search-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <span class="hc-query" id="hc-query"></span>
+      <span class="hc-caret"></span>
+    </div>
+    <div class="hc-chips" id="hc-chips">
+      <button type="button" class="hc-chip active" data-flow="abail">Anticipatory bail · economic offence</button>
+      <button type="button" class="hc-chip" data-flow="pocso">POCSO bail · consensual relationship</button>
+      <button type="button" class="hc-chip" data-flow="s125">Maintenance u/s 125 · adultery defence</button>
+    </div>
+    <div class="hc-status" id="hc-status" hidden><span class="hc-spin"></span><span id="hc-status-text"></span></div>
+    <div class="hc-results" id="hc-results"></div>
+    <div class="hc-gate" id="hc-gate" hidden>
+      <div class="hc-gate-text">
+        <b>Unlock all <span id="hc-gate-count">5</span> verified authorities</b>
+        <span>Full held-lines, paragraph anchors &amp; one-tap drafting — free, no card.</span>
       </div>
-      <div class="hp-row">
-        <div class="tier sc">SC</div>
-        <div class="cite"><b>Arnesh Kumar v. State of Bihar</b> <span>· (2014) 8 SCC 273</span></div>
-        <div class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg> verified</div>
-      </div>
-      <div class="hp-row">
-        <div class="tier cb">CB</div>
-        <div class="cite"><b>Sushila Aggarwal v. State (NCT of Delhi)</b> <span>· (2020) 5 SCC 1</span></div>
-        <div class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg> verified</div>
-      </div>
+      <a href="/app" class="btn btn--gold hc-gate-btn" id="hc-gate-btn">Start free →</a>
     </div>
   </div>
 </section>
@@ -1192,6 +1244,134 @@
     setInterval(advance, HOLD_MS);
   })();
 
+  // ---- Interactive research console (curated, real verified results) ----
+  (function heroConsoleInit() {
+    const FLOWS = {
+      abail: {
+        query: 'Anticipatory bail in an economic offence — accused is cooperating with the probe, no custodial interrogation needed',
+        refine: ['Refining — S.438 CrPC · custodial need · economic offence', 'Searching 3.5 crore judgments…', 'Ranking Constitution Bench first…', 'Verifying citations — 3 checks…'],
+        total: 5,
+        rows: [
+          { tier: 'CB', t: 'Gurbaksh Singh Sibbia v. State of Punjab', c: '(1980) 2 SCC 565', h: 'S.438 is not to be read narrowly — no rigid time-limit or blanket conditions on anticipatory bail.' },
+          { tier: 'SC', t: 'Arnesh Kumar v. State of Bihar', c: '(2014) 8 SCC 273', h: 'No automatic arrest for offences punishable up to 7 years; a §41A CrPC notice is mandatory first.' },
+          { tier: 'CB', t: 'Sushila Aggarwal v. State (NCT of Delhi)', c: '(2020) 5 SCC 1', h: 'Anticipatory bail can be granted without a fixed tenure; it need not end at summons or charge-sheet.', locked: true },
+        ],
+      },
+      pocso: {
+        query: 'POCSO case where the relationship was consensual and the girl was close to majority — bail for the accused',
+        refine: ['Refining — POCSO §3-6 · bail discretion · age proximity', 'Searching 3.5 crore judgments…', 'Cross-checking BNS / BNSS map…', 'Verifying citations — 3 checks…'],
+        total: 7,
+        rows: [
+          { tier: 'SC', t: 'State of U.P. v. Anuradha', c: '2026 INSC 23', h: 'POCSO + consensual adolescent romance — Article 142 relief; mechanical application deprecated.', tag: 'bail granted' },
+          { tier: 'SC', t: 'Imran @ Abdul Qudus v. State of Maharashtra', c: '(2019) 13 SCC 673', h: 'POCSO bail where consent and voluntariness are documentary — consensual elopement.', tag: 'bail granted' },
+          { tier: 'SC', t: 'Satender Kumar Antil v. CBI', c: '(2022) 10 SCC 51', h: 'Bail framework post-Arnesh — the four-category test; triple-test applies even to Special Acts.', locked: true },
+        ],
+      },
+      s125: {
+        query: 'Husband’s revision against a S.125 CrPC maintenance order — wife’s adultery, trial court refused his evidence',
+        refine: ['Refining — S.125(4) · "living in adultery" · revision', 'Searching 3.5 crore judgments…', 'Ranking three-judge benches first…', 'Verifying citations — 3 checks…'],
+        total: 5,
+        rows: [
+          { tier: 'SC', t: 'Rohtash Singh v. Smt. Ramendri', c: '(2000) 3 SCC 180', h: 'S.125(4) "living in adultery" covers a documented ongoing illicit relationship — circumstantial proof admissible.' },
+          { tier: 'SC', t: 'Vimlaben Ajitbhai Patel v. Vatslaben Patel', c: '(2008) 4 SCC 649', h: 'The husband’s adultery defence is judged on preponderance of probabilities, not beyond reasonable doubt.' },
+          { tier: 'SC', t: 'Reema Salkan v. Sumer Singh Salkan', c: '(2019) 12 SCC 303', h: 'A S.125 order made in haste, denying the husband an evidence opportunity, is set aside and remanded.', locked: true },
+        ],
+      },
+    };
+    const ORDER = ['abail', 'pocso', 's125'];
+    const qEl = document.getElementById('hc-query');
+    const stEl = document.getElementById('hc-status');
+    const stTxt = document.getElementById('hc-status-text');
+    const resEl = document.getElementById('hc-results');
+    const gateEl = document.getElementById('hc-gate');
+    const gateCount = document.getElementById('hc-gate-count');
+    const chips = Array.prototype.slice.call(document.querySelectorAll('.hc-chip'));
+    if (!qEl || !resEl) return;
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    let runId = 0;
+    let activeKey = null;
+    let autoTimer = null;
+    let pending = [];
+    // Resolve (not orphan) any in-flight waits so a superseded run() unblocks,
+    // hits its runId guard and exits cleanly — prevents a frozen mid-animation
+    // when the user taps chips faster than a sequence completes.
+    function cancelPending() {
+      const snapshot = pending; pending = [];
+      snapshot.forEach(function (p) { clearTimeout(p.id); p.resolve(); });
+    }
+    function wait(ms) { return new Promise(function (resolve) { const id = setTimeout(resolve, ms); pending.push({ id: id, resolve: resolve }); }); }
+
+    const CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg>';
+    function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    function rowHTML(r) {
+      const tier = (r.tier || 'SC').toLowerCase();
+      const tag = r.tag ? ' <span class="hc-tag">' + esc(r.tag) + '</span>' : '';
+      return '<div class="hc-row' + (r.locked ? ' hc-row--locked' : '') + '" aria-hidden="' + (r.locked ? 'true' : 'false') + '">'
+        + '<div class="tier ' + tier + '">' + esc(r.tier) + '</div>'
+        + '<div class="hc-cite"><b>' + esc(r.t) + '</b> <span>· ' + esc(r.c) + '</span>' + tag
+        + '<div class="hc-held">' + esc(r.h) + '</div></div>'
+        + '<div class="ok">' + CHECK + ' verified</div>'
+        + '</div>';
+    }
+
+    async function run(key) {
+      const flow = FLOWS[key];
+      if (!flow) return;
+      activeKey = key;
+      const my = ++runId;
+      if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
+      cancelPending();
+      resEl.innerHTML = '';
+      gateEl.hidden = true;
+      qEl.textContent = '';
+
+      if (reduce) {
+        qEl.textContent = flow.query;
+      } else {
+        for (let i = 0; i < flow.query.length; i++) {
+          if (my !== runId) return;
+          qEl.textContent = flow.query.slice(0, i + 1);
+          await wait(11);
+        }
+      }
+      if (my !== runId) return;
+
+      if (!reduce) {
+        stEl.hidden = false;
+        for (let j = 0; j < flow.refine.length; j++) {
+          if (my !== runId) return;
+          stTxt.textContent = flow.refine[j];
+          await wait(640);
+        }
+        if (my !== runId) return;
+        stEl.hidden = true;
+      }
+
+      for (let k = 0; k < flow.rows.length; k++) {
+        if (my !== runId) return;
+        resEl.insertAdjacentHTML('beforeend', rowHTML(flow.rows[k]));
+        if (!reduce) await wait(150);
+      }
+      if (my !== runId) return;
+
+      gateCount.textContent = String(flow.total);
+      if (!reduce) await wait(140);
+      if (my !== runId) return;
+      gateEl.hidden = false;
+    }
+
+    chips.forEach(function (ch) {
+      ch.addEventListener('click', function () {
+        if (ch.dataset.flow === activeKey) return;
+        chips.forEach(function (c) { c.classList.toggle('active', c === ch); });
+        run(ch.dataset.flow);
+      });
+    });
+
+    autoTimer = setTimeout(function () { run(ORDER[0]); }, reduce ? 0 : 560);
+  })();
+
   // ---- Demo language switcher (Hindi = <video>, English = <iframe>) ----
   (function demoInit() {
     const FOOTER = {
@@ -1233,9 +1413,11 @@
       const nav = document.getElementById('nav-cta');
       const hero = document.getElementById('hero-cta');
       const finalBtn = document.getElementById('final-cta');
+      const gateBtn = document.getElementById('hc-gate-btn');
       if (nav) nav.textContent = 'Open app →';
       if (hero) hero.textContent = 'Open Headnote →';
       if (finalBtn) finalBtn.textContent = 'Open Headnote →';
+      if (gateBtn) gateBtn.textContent = 'Open all in Headnote →';
     }
   })();
 </script>
