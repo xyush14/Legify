@@ -5,6 +5,7 @@ Public surface:
     send_assist_request(...)                  -> bool   (assist.py)
     send_subscription_confirmation(...)       -> bool   (subscription.py)
     send_due_renewal_nudges(...)              -> dict   (renewal.py)
+    send_gift_invite(...)                     -> bool   (gift.py)
 
 Without RESEND_API_KEY set, every send becomes a logged no-op so local
 dev and CI don't break. Production must set the env var.

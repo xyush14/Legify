@@ -652,6 +652,192 @@ def cron_send_renewal_nudges(
     )
 
 
+# ---------------------------------------------------------------- by-email diagnostics + Supabase-backed grant
+# The original /admin/access/invite path writes to ephemeral SQLite
+# (access_grants table in feedback.db). On Railway, this gets wiped on
+# every redeploy. These two endpoints provide a Supabase-backed path that
+# survives deploys.
+
+@router.get("/users/by-email", summary="Lookup full user state by email")
+def admin_user_by_email(
+    email: str = Query(..., description="Email address to look up"),
+    authorization: Optional[str] = Header(default=None),
+) -> dict:
+    """Returns everything we know about a user given just their email:
+    auth.users record, subscription row, user_profile row, and any
+    access_grants entry.
+
+    Use this to diagnose "I gave them access but they can't use it" reports.
+    The most common cause: access_grants row was wiped by a redeploy
+    (ephemeral SQLite); fix by re-granting through
+    /admin/users/grant-subscription-by-email which writes to Supabase.
+    """
+    _require_admin(authorization)
+    email = (email or "").strip().lower()
+    if "@" not in email:
+        raise HTTPException(400, "invalid email")
+
+    from headnote.api.auth_otpless import _find_user as _supabase_find_user
+    from headnote.entitlements import _supabase
+    from headnote.entitlements.grants import get_role as _get_grant_role
+
+    auth_user = _supabase_find_user(email=email)
+    if not auth_user:
+        return {
+            "found":        False,
+            "email":        email,
+            "diagnosis":    "No row in auth.users — they have NOT signed up yet. Ask them to sign in once at headnote.in, then re-run the grant.",
+            "access_grant": _get_grant_role(email),
+        }
+
+    user_id = (auth_user.get("id") or "").strip()
+
+    sub_rows = _supabase.select(
+        "subscriptions",
+        params={"user_id": f"eq.{user_id}", "select": "*", "limit": "1"},
+    )
+    sub = sub_rows[0] if sub_rows else None
+
+    profile_rows = _supabase.select(
+        "user_profiles",
+        params={"id": f"eq.{user_id}", "select": "*", "limit": "1"},
+    )
+    profile = profile_rows[0] if profile_rows else None
+
+    grant_role = _get_grant_role(email)
+
+    # Diagnosis heuristics
+    diagnosis = []
+    if not sub:
+        diagnosis.append("CRITICAL: no subscriptions row. The handle_new_user trigger may have failed at signup; manual grant required.")
+    elif sub.get("plan") == "demo" and grant_role in ("monthly", "yearly", "founder", "partner"):
+        diagnosis.append(f"Access grant exists in SQLite (role={grant_role}) but subscriptions.plan is still 'demo' — likely the SQLite access_grants got wiped by a redeploy, and the entitlement layer didn't fall back to subscriptions.")
+    elif sub.get("plan") != "demo" and (sub.get("status") or "").lower() == "active":
+        pe = sub.get("period_end") or ""
+        diagnosis.append(f"Subscription looks healthy: plan={sub.get('plan')}, status=active, period_end={pe}.")
+    if sub and (sub.get("status") or "").lower() != "active":
+        diagnosis.append(f"Subscription status is '{sub.get('status')}' — not 'active'. User won't pass entitlement checks.")
+
+    return {
+        "found":     True,
+        "email":     email,
+        "user_id":   user_id,
+        "auth_user": {
+            "email":            auth_user.get("email"),
+            "phone":            auth_user.get("phone"),
+            "created_at":       auth_user.get("created_at"),
+            "last_sign_in_at":  auth_user.get("last_sign_in_at"),
+            "user_metadata":    auth_user.get("user_metadata") or auth_user.get("raw_user_meta_data"),
+            "app_metadata":     auth_user.get("app_metadata") or auth_user.get("raw_app_meta_data"),
+        },
+        "subscription":  sub,
+        "user_profile":  profile,
+        "access_grant":  grant_role,   # None if no SQLite grant, else role string
+        "diagnosis":     diagnosis,
+    }
+
+
+@router.post("/users/grant-subscription-by-email",
+             summary="Grant a plan to a user (Supabase-backed, survives redeploys)")
+def admin_grant_sub_by_email(
+    payload: dict,
+    authorization: Optional[str] = Header(default=None),
+) -> dict:
+    """Body
+    ----
+    {
+      "email": "lawyer@example.com",     # required — must already exist in auth.users
+      "plan":  "monthly",                # weekly | monthly | yearly
+      "name":  "Adv. Mansi Singh",       # optional, used in salutation
+      "note":  "Influencer collab",      # optional, surfaces in the invite email
+      "duration_days": 30,               # optional — overrides plan's default
+      "send_email": true                 # optional, default true
+    }
+
+    Writes to public.subscriptions in Supabase (DURABLE — survives Railway
+    redeploys, unlike the access_grants SQLite path).
+
+    Returns: { user_id, email, plan, subscription, email_sent }.
+
+    Failures:
+      404 if no auth.users row for the email — the user must sign in
+          (Google OAuth) at least once before you can grant.
+      400 on invalid email / unknown plan.
+    """
+    _require_admin(authorization)
+    email = ((payload or {}).get("email") or "").strip().lower()
+    plan  = ((payload or {}).get("plan") or "monthly").strip().lower()
+    name  = (payload or {}).get("name") or ""
+    note  = (payload or {}).get("note") or ""
+    duration_days = (payload or {}).get("duration_days")
+    send_email = bool((payload or {}).get("send_email", True))
+
+    if "@" not in email:
+        raise HTTPException(400, "email must be a valid address")
+    if plan not in ("weekly", "monthly", "yearly"):
+        raise HTTPException(400, "plan must be weekly | monthly | yearly")
+
+    from headnote.api.auth_otpless import _find_user as _supabase_find_user
+    from headnote.entitlements import _supabase
+    from headnote.entitlements.subscription import change_plan
+
+    auth_user = _supabase_find_user(email=email)
+    if not auth_user:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"No user with email {email} in auth.users. "
+                "Ask them to sign in once at headnote.in (Google), then re-run."
+            ),
+        )
+
+    user_id = (auth_user.get("id") or "").strip()
+    if not user_id:
+        raise HTTPException(500, "Supabase returned user without id")
+
+    # change_plan does an UPDATE on subscriptions — if the trigger somehow
+    # failed at signup and no row exists, the update silently no-ops. So we
+    # ensure a row exists first.
+    existing = _supabase.select(
+        "subscriptions",
+        params={"user_id": f"eq.{user_id}", "select": "user_id", "limit": "1"},
+    )
+    if not existing:
+        log.warning("grant-by-email: no subscriptions row for user=%.8s; upserting demo row first", user_id)
+        _supabase.upsert(
+            "subscriptions",
+            {"user_id": user_id, "plan": "demo", "status": "active"},
+            on_conflict="user_id",
+        )
+
+    sub = change_plan(
+        user_id, plan,
+        duration_days=duration_days,
+        payment_provider="gifted",
+        payment_ref=f"admin:invite:{email}",
+        granted_by_admin=True,
+    )
+
+    email_sent = False
+    if send_email:
+        from headnote.email import send_access_invite
+        email_sent = send_access_invite(
+            to_email=email, name=name, role=plan, note=note,
+        )
+
+    log.info(
+        "grant-subscription-by-email: user=%.8s plan=%s email=%s email_sent=%s",
+        user_id, plan, email, email_sent,
+    )
+    return {
+        "user_id":      user_id,
+        "email":        email,
+        "plan":         plan,
+        "subscription": sub,
+        "email_sent":   email_sent,
+    }
+
+
 # ---------------------------------------------------------------- email diagnostics
 # "Are signup / subscription emails actually working in production?"
 # These two endpoints answer that without needing to fake a signup or read
