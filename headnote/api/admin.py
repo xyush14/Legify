@@ -563,3 +563,178 @@ def admin_assist_page():
     Open in browser: https://<your-deploy>/admin/assist
     """
     return FileResponse(config.STATIC_DIR / "admin-assist.html")
+
+
+# ---------------------------------------------------------------- cron
+# Endpoints meant to be invoked by an external scheduler (Railway cron job,
+# GitHub Actions, cron-job.org). All bearer-gated; no user JWT required.
+
+@router.post("/cron/send-renewal-nudges",
+             summary="Send the 3-days-before-expiry renewal email (cron)")
+def cron_send_renewal_nudges(
+    authorization: Optional[str] = Header(default=None),
+    window_min: int = Query(2, ge=0, le=14, description="Lookahead window start (days from now)"),
+    window_max: int = Query(4, ge=0, le=14, description="Lookahead window end (days from now)"),
+    dry_run: bool = Query(False, description="Return candidates without sending"),
+) -> dict:
+    """Wire this to a daily cron with the ADMIN_TOKEN.
+
+    Per-cycle idempotency lives in subscriptions.renewal_nudge_sent_for_period_end —
+    safe to invoke multiple times a day; only fires once per billing cycle.
+
+    Example (daily at 09:30 IST = 04:00 UTC):
+      curl -X POST https://headnote.in/admin/cron/send-renewal-nudges \\
+           -H "Authorization: Bearer $ADMIN_TOKEN"
+    """
+    _require_admin(authorization)
+    if window_min > window_max:
+        raise HTTPException(400, "window_min must be <= window_max")
+    from headnote.email import send_due_renewal_nudges
+    return send_due_renewal_nudges(
+        window_days_min=window_min,
+        window_days_max=window_max,
+        dry_run=dry_run,
+    )
+
+
+# ---------------------------------------------------------------- email diagnostics
+# "Are signup / subscription emails actually working in production?"
+# These two endpoints answer that without needing to fake a signup or read
+# Railway logs.
+
+@router.get("/email/status",
+            summary="Email diagnostics — is Resend configured + headnote.in verified?")
+def email_status(authorization: Optional[str] = Header(default=None)) -> dict:
+    """Returns the live state of the transactional email pipe.
+
+    Reports:
+      - resend_api_key_present  (bool) + last 4 chars (sanity only, not the key)
+      - from_email              (the From: header used by every send)
+      - resend_api_reachable    (bool) — did a GET /domains succeed?
+      - domains[]               — Resend's view of our domains + verification state
+      - headnote_in_verified    (bool) — convenience flag for the headnote.in domain
+
+    If `headnote_in_verified` is false, ALL transactional emails are silently
+    rejected by Resend at send time. That is the #1 reason users don't receive
+    welcome / receipt mails after deploy.
+    """
+    import os as _os
+    _require_admin(authorization)
+
+    api_key = _os.environ.get("RESEND_API_KEY", "")
+    from_email = _os.environ.get("WELCOME_FROM_EMAIL", "Headnote <hello@headnote.in>")
+
+    out: dict = {
+        "resend_api_key_present": bool(api_key),
+        "resend_api_key_last4":   api_key[-4:] if api_key else "",
+        "from_email":             from_email,
+        "resend_api_reachable":   False,
+        "domains":                [],
+        "headnote_in_verified":   False,
+        "error":                  None,
+    }
+
+    if not api_key:
+        out["error"] = "RESEND_API_KEY not set — every send is a logged no-op."
+        return out
+
+    import httpx as _httpx
+    try:
+        r = _httpx.get(
+            "https://api.resend.com/domains",
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=6.0,
+        )
+        out["resend_api_reachable"] = True
+        if r.status_code != 200:
+            out["error"] = f"Resend /domains returned {r.status_code}: {r.text[:200]}"
+            return out
+        body = r.json() or {}
+        domains = body.get("data") or []
+        # Normalize to a small public view
+        out["domains"] = [
+            {
+                "name":    d.get("name"),
+                "status":  d.get("status"),   # not_started | pending | verified | failure | temporary_failure
+                "region":  d.get("region"),
+                "created": d.get("created_at"),
+            }
+            for d in domains
+        ]
+        for d in domains:
+            if (d.get("name") or "").lower() == "headnote.in" and (d.get("status") or "").lower() == "verified":
+                out["headnote_in_verified"] = True
+                break
+        if not out["headnote_in_verified"]:
+            out["error"] = (
+                "headnote.in is NOT verified in Resend. Sends from "
+                "hello@headnote.in will be rejected. Add the SPF/DKIM/DMARC "
+                "DNS records shown in the Resend dashboard."
+            )
+    except _httpx.HTTPError as e:
+        out["error"] = f"Could not reach Resend API: {e}"
+    return out
+
+
+@router.post("/email/test-send",
+             summary="Fire a real test email through the production code path")
+def email_test_send(
+    authorization: Optional[str] = Header(default=None),
+    to: str = Query(..., description="Recipient email — your own inbox for verification."),
+    template: str = Query("welcome",
+                          description="welcome | subscription | renewal — which template to render."),
+    name: str = Query("Test User", description="Display name to render in the template."),
+) -> dict:
+    """Sends a REAL email through the same code path production uses. The only
+    thing this skips is the idempotency check (welcome_sent flag / payment_ref
+    dedupe / renewal_nudge column) so you can re-fire safely.
+
+    Use this to confirm:
+      1. Resend is reachable from this deploy
+      2. headnote.in is verified (otherwise: 'Email address not allowed')
+      3. Templates render without errors
+      4. The email lands in your inbox (not spam!)
+
+    Example:
+      curl -X POST "https://headnote.in/admin/email/test-send?to=you@gmail.com&template=welcome" \\
+           -H "Authorization: Bearer $ADMIN_TOKEN"
+    """
+    _require_admin(authorization)
+    if "@" not in to:
+        raise HTTPException(400, "to= must be a valid email address")
+    template = template.lower().strip()
+    if template not in ("welcome", "subscription", "renewal"):
+        raise HTTPException(400, "template must be one of: welcome | subscription | renewal")
+
+    from headnote.email import (
+        send_welcome,
+        send_subscription_confirmation,
+    )
+    from headnote.email.renewal import _send_one as _send_renewal_one
+
+    if template == "welcome":
+        ok = send_welcome(to_email=to, name=name)
+        return {"ok": ok, "template": "welcome", "to": to}
+
+    if template == "subscription":
+        ok = send_subscription_confirmation(
+            to_email=to,
+            name=name,
+            plan="monthly",
+            amount_inr=599,
+            order_id="test_order_diagnostic",
+            # period_end ~30 days out so the receipt renders a real date
+            period_end_iso=__import__("datetime").datetime.utcnow().isoformat() + "Z",
+        )
+        return {"ok": ok, "template": "subscription", "to": to}
+
+    # renewal
+    ok = _send_renewal_one(
+        to_email=to, name=name, plan="monthly",
+        period_end_iso=(
+            __import__("datetime").datetime.utcnow()
+            + __import__("datetime").timedelta(days=3)
+        ).isoformat() + "Z",
+        days_remaining=3,
+    )
+    return {"ok": ok, "template": "renewal", "to": to}

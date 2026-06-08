@@ -37,6 +37,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
+from headnote.email import send_subscription_confirmation
 from headnote.entitlements import CurrentUser, get_current_user
 from headnote.entitlements import _supabase
 from headnote.entitlements.plans import PLANS, get_plan
@@ -124,26 +125,93 @@ def _upgrade_from_paid_order(order: dict) -> dict:
         log.warning("paid order has unsellable plan: %s", plan_id)
         return {}
 
+    order_id = order.get("order_id") or ""
+
     # Add-on purchases (e.g. the ₹99 Section Finder) are NOT subscriptions —
     # they grant a permanent, separate entitlement and must never overwrite
     # the user's single subscriptions row.
     if plan_id in _ADDON_PLANS:
+        already_granted = _addon_already_granted(plan_id, user_id, order_id)
         result = _grant_addon(plan_id, user_id, order)
         _record_referral_event_if_any(order, plan_id, user_id)
+        if not already_granted:
+            _send_purchase_email(order, plan_id, period_end_iso=None)
         return result
+
+    # Webhook retries call this with the same order_id. payment_ref on the
+    # subscription row is the source of truth for "did we already process
+    # this order" — change_plan overwrites it, so we read it FIRST.
+    existing_ref = _current_payment_ref(user_id)
 
     sub = change_plan(
         user_id,
         plan_id,
         payment_provider="cashfree",
-        payment_ref=order.get("order_id"),
+        payment_ref=order_id,
     )
     log.info(
         "subscription upgraded via Cashfree: user=%.8s plan=%s order=%s",
-        user_id, plan_id, order.get("order_id"),
+        user_id, plan_id, order_id,
     )
     _record_referral_event_if_any(order, plan_id, user_id)
+
+    if existing_ref != order_id:
+        _send_purchase_email(order, plan_id, period_end_iso=sub.get("period_end"))
     return sub
+
+
+def _current_payment_ref(user_id: str) -> str:
+    """Return the user's current subscriptions.payment_ref, or '' if none.
+    Used to dedupe confirmation emails across webhook retries / verify race."""
+    try:
+        rows = _supabase.select(
+            "subscriptions",
+            params={"user_id": f"eq.{user_id}", "select": "payment_ref", "limit": "1"},
+        )
+        return (rows[0].get("payment_ref") or "") if rows else ""
+    except Exception as e:
+        log.warning("payment_ref lookup failed for user=%.8s: %s", user_id, e)
+        return ""
+
+
+def _addon_already_granted(plan_id: str, user_id: str, order_id: str) -> bool:
+    """For add-on plans (sections), check whether this user already has the
+    unlock row for this exact order_id — i.e., the webhook already fired
+    once. Used to dedupe the confirmation email."""
+    if plan_id != "sections":
+        return False
+    try:
+        rows = _supabase.select(
+            "sections_unlocks",
+            params={"user_id": f"eq.{user_id}", "select": "order_id", "limit": "1"},
+        )
+        return bool(rows) and (rows[0].get("order_id") or "") == order_id
+    except Exception as e:
+        log.info("sections_unlocks lookup skipped (non-fatal): %s", e)
+        return False
+
+
+def _send_purchase_email(order: dict, plan_id: str, *, period_end_iso: str | None) -> None:
+    """Fire the receipt / confirmation email. Best-effort — wrapped so a
+    Resend outage never breaks the payment success flow."""
+    try:
+        customer = order.get("customer_details") or {}
+        to_email = customer.get("customer_email") or ""
+        name     = customer.get("customer_name") or ""
+        amount   = int(round(float(order.get("order_amount") or 0)))
+        send_subscription_confirmation(
+            to_email=to_email,
+            name=name,
+            plan=plan_id,
+            amount_inr=amount,
+            order_id=order.get("order_id") or "",
+            period_end_iso=period_end_iso,
+        )
+    except Exception:
+        log.exception(
+            "subscription confirmation email failed (non-fatal) order=%s plan=%s",
+            order.get("order_id"), plan_id,
+        )
 
 
 def _record_referral_event_if_any(order: dict, plan_id: str, user_id: str) -> None:

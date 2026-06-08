@@ -1988,6 +1988,12 @@ body:not(.auth-ready) .shell { display: none !important; }
 .auth-modal__brand .brand__name {
   font-size: 13px; font-weight: 600; letter-spacing: -0.01em; color: var(--ink);
 }
+/* When the brand pill carries the SVG wordmark instead of the dot+name pair,
+   keep height in lockstep with the old text size (13px) so the pill geometry
+   doesn't shift. width:auto preserves the 5.7:1 aspect ratio. */
+.auth-modal__brand-logo {
+  height: 14px; width: auto; display: block;
+}
 
 /* ---- Title block ---- */
 .auth-modal__title {
@@ -2045,6 +2051,11 @@ body:not(.auth-ready) .shell { display: none !important; }
   width: 18px; height: 18px; flex-shrink: 0;
 }
 .btn-google__label { font-weight: 500; }
+
+/* OTPless button: sits below the Google one with 10px gap. Same chrome,
+   different icon stroke colour so the two buttons read as siblings. */
+.btn-otpless { margin-top: 10px; }
+.btn-otpless .btn-google__icon { color: var(--accent, #8c7549); stroke: currentColor; }
 
 /* ---- Trust signals row (login screen only) ---- */
 .auth-trust {

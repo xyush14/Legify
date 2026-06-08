@@ -1,0 +1,197 @@
+<!--
+  Headnote — Welcome email
+  ========================
+  Drop-in template for Resend (Broadcasts → Templates) or any transactional
+  provider that supports double-brace merge-tag syntax.
+
+  SUBJECT
+    Welcome to Headnote — three things to try first
+
+  PREVIEW / PRE-HEADER (first ~90 chars seen in inbox row, before opening)
+    Verified case research, voice-first drafting, BNSS-mapped templates — live now.
+
+  MERGE VARIABLES
+    {{first_name}}   — user's first name (defaults to "there" if absent)
+    {{email}}        — recipient's email, shown in the footer compliance line
+
+  DESIGN CONSTRAINTS
+    - Inline CSS only (Gmail / Outlook strip <style> tags)
+    - Table-based layout (flex / grid don't survive most clients)
+    - Max-width 600px; mobile = single column automatically
+    - All URLs absolute (https://headnote.in/…)
+    - Deep-gold accent (#8c7549) on hover/labels, never on body text
+-->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Welcome to Headnote</title>
+</head>
+<body style="margin:0;padding:0;background:#fafafa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0a0a0a;">
+
+<!-- Pre-header: hidden in body, shown in the inbox preview row only -->
+<div style="display:none;max-height:0;overflow:hidden;color:transparent;opacity:0;">
+  Verified case research, voice-first drafting, BNSS-mapped templates — all live on your account.
+</div>
+
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#fafafa;padding:32px 16px;">
+  <tr>
+    <td align="center">
+
+      <!-- ===== Card ===== -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;background:#ffffff;border-radius:16px;border:1px solid #ececec;box-shadow:0 6px 24px -8px rgba(0,0,0,0.06);">
+
+        <!-- Header -->
+        <tr>
+          <td style="padding:32px 36px 24px;border-bottom:1px solid #f0f0f0;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="vertical-align:middle;">
+                  <img src="https://headnote.in/static/headnote-logo-email.png"
+                       width="120" height="21" alt="Headnote"
+                       style="display:block;border:0;outline:none;text-decoration:none;height:21px;width:120px;-ms-interpolation-mode:bicubic;" />
+                </td>
+                <td align="right" style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:#8a8a8a;letter-spacing:0.08em;text-transform:uppercase;">
+                  v0.4 · live
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Hero -->
+        <tr>
+          <td style="padding:48px 36px 24px;">
+            <p style="margin:0 0 12px;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:#8c7549;letter-spacing:0.14em;text-transform:uppercase;">Welcome aboard</p>
+            <h1 style="margin:0 0 18px;font-family:Geist,system-ui,sans-serif;font-size:32px;line-height:1.1;font-weight:600;letter-spacing:-0.025em;color:#0a0a0a;">
+              {{first_name}}, you're in.<br>
+              <span style="color:#8c7549;">Let's win your next matter.</span>
+            </h1>
+            <p style="margin:0 0 8px;font-size:15px;line-height:1.6;color:#525252;">
+              Headnote is now active on your account. Below are three things worth
+              opening in your first session — each takes under a minute.
+            </p>
+          </td>
+        </tr>
+
+        <!-- Feature 1: Research -->
+        <tr>
+          <td style="padding:8px 36px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#fafafa;border:1px solid #ececec;border-radius:12px;">
+              <tr>
+                <td style="padding:20px 22px;">
+                  <p style="margin:0 0 6px;font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;color:#8c7549;letter-spacing:0.1em;text-transform:uppercase;">01 · Research</p>
+                  <h2 style="margin:0 0 8px;font-family:Geist,system-ui,sans-serif;font-size:18px;font-weight:600;color:#0a0a0a;letter-spacing:-0.015em;">
+                    The precedent your opponent didn't find.
+                  </h2>
+                  <p style="margin:0 0 12px;font-size:13.5px;line-height:1.55;color:#525252;">
+                    Type a situation. Get 3–5 verified authorities — every case ID,
+                    paragraph anchor, and quoted phrase checked against the source
+                    judgment. No hallucinations.
+                  </p>
+                  <a href="https://headnote.in/app" style="display:inline-block;font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;font-weight:500;color:#0a0a0a;text-decoration:none;border:1px solid #0a0a0a;padding:7px 14px;border-radius:6px;">
+                    Try a search →
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Feature 2: Drafting -->
+        <tr>
+          <td style="padding:12px 36px 0;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#fafafa;border:1px solid #ececec;border-radius:12px;">
+              <tr>
+                <td style="padding:20px 22px;">
+                  <p style="margin:0 0 6px;font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;color:#8c7549;letter-spacing:0.1em;text-transform:uppercase;">02 · Drafting</p>
+                  <h2 style="margin:0 0 8px;font-family:Geist,system-ui,sans-serif;font-size:18px;font-weight:600;color:#0a0a0a;letter-spacing:-0.015em;">
+                    Photo of FIR → filled bail application.
+                  </h2>
+                  <p style="margin:0 0 12px;font-size:13.5px;line-height:1.55;color:#525252;">
+                    Snap any NCRB I.I.F.-I FIR on your phone. Accused, sections, PS,
+                    narrative — auto-extracted in 6–12 seconds, in Hindi or English.
+                    Then one click to a print-ready PDF.
+                  </p>
+                  <a href="https://headnote.in/draft/bail" style="display:inline-block;font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;font-weight:500;color:#0a0a0a;text-decoration:none;border:1px solid #0a0a0a;padding:7px 14px;border-radius:6px;">
+                    Open bail drafter →
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Feature 3: Voice -->
+        <tr>
+          <td style="padding:12px 36px 32px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#fafafa;border:1px solid #ececec;border-radius:12px;">
+              <tr>
+                <td style="padding:20px 22px;">
+                  <p style="margin:0 0 6px;font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;color:#8c7549;letter-spacing:0.1em;text-transform:uppercase;">03 · Voice</p>
+                  <h2 style="margin:0 0 8px;font-family:Geist,system-ui,sans-serif;font-size:18px;font-weight:600;color:#0a0a0a;letter-spacing:-0.015em;">
+                    Dictate the facts. File the application.
+                  </h2>
+                  <p style="margin:0 0 12px;font-size:13.5px;line-height:1.55;color:#525252;">
+                    Tap the mic on any long-text field. Speak Hindi, English, or the
+                    mix lawyers actually speak. Headnote turns it into court-ready
+                    prose in 4 seconds.
+                  </p>
+                  <a href="https://headnote.in/draft/smart" style="display:inline-block;font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;font-weight:500;color:#0a0a0a;text-decoration:none;border:1px solid #0a0a0a;padding:7px 14px;border-radius:6px;">
+                    Try Smart Drafter →
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Big CTA -->
+        <tr>
+          <td align="center" style="padding:0 36px 40px;">
+            <a href="https://headnote.in/app" style="display:inline-block;background:#0a0a0a;color:#ffffff;text-decoration:none;font-family:Geist,system-ui,sans-serif;font-size:15px;font-weight:600;padding:14px 32px;border-radius:10px;letter-spacing:0.01em;">
+              Open Headnote
+            </a>
+            <p style="margin:14px 0 0;font-size:12px;color:#8a8a8a;font-family:'Geist Mono',ui-monospace,monospace;">
+              You're on the <span style="color:#0a0a0a;">Demo plan</span> — 3 days, no card required.
+            </p>
+          </td>
+        </tr>
+
+        <!-- Reply prompt -->
+        <tr>
+          <td style="padding:24px 36px;border-top:1px solid #f0f0f0;background:#fafafa;border-radius:0 0 16px 16px;">
+            <p style="margin:0;font-size:13.5px;line-height:1.6;color:#525252;">
+              <strong style="color:#0a0a0a;">Reply to this email</strong> if something's broken or
+              missing. We read every reply.
+            </p>
+          </td>
+        </tr>
+
+      </table>
+
+      <!-- ===== Footer (legal + compliance) ===== -->
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;margin-top:18px;">
+        <tr>
+          <td align="center" style="padding:8px 24px 24px;font-size:11px;color:#8a8a8a;line-height:1.6;">
+            <p style="margin:0 0 6px;">
+              <a href="https://headnote.in/terms"   style="color:#8a8a8a;text-decoration:none;margin:0 6px;">Terms</a> ·
+              <a href="https://headnote.in/privacy" style="color:#8a8a8a;text-decoration:none;margin:0 6px;">Privacy</a> ·
+              <a href="https://headnote.in/refund"  style="color:#8a8a8a;text-decoration:none;margin:0 6px;">Refund</a> ·
+              <a href="https://headnote.in/contact" style="color:#8a8a8a;text-decoration:none;margin:0 6px;">Contact</a>
+            </p>
+            <p style="margin:0;">
+              © 2026 Headnote Private Limited · Made in Bhopal, for Indian courts<br>
+              Sent to <span style="color:#525252;">{{email}}</span> because you signed up at headnote.in.
+            </p>
+          </td>
+        </tr>
+      </table>
+
+    </td>
+  </tr>
+</table>
+
+</body>
+</html>

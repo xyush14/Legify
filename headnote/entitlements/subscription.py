@@ -245,6 +245,8 @@ def change_plan(
         "payment_ref": payment_ref,
         "cancelled_at": None,
         "updated_at": now.isoformat(),
+        # Re-arm the 3-days-before-expiry nudge for the new cycle.
+        "renewal_nudge_sent_for_period_end": None,
     }
     if plan == "weekly":
         payload["weekly_trial_used"] = True

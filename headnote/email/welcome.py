@@ -55,8 +55,10 @@ def _build_html(name: str) -> str:
           <td style="padding:32px 36px 24px;border-bottom:1px solid #f0f0f0;">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
               <tr>
-                <td style="font-family:Geist,system-ui,sans-serif;font-size:18px;font-weight:600;color:#0a0a0a;letter-spacing:-0.01em;">
-                  Headnote<span style="color:#c9a96e;">.</span>
+                <td style="vertical-align:middle;">
+                  <img src="{APP_BASE_URL}/static/headnote-logo-email.png"
+                       width="120" height="21" alt="Headnote"
+                       style="display:block;border:0;outline:none;text-decoration:none;height:21px;width:120px;-ms-interpolation-mode:bicubic;" />
                 </td>
                 <td align="right" style="font-family:'Geist Mono',monospace;font-size:11px;color:#8a8a8a;letter-spacing:0.08em;text-transform:uppercase;">
                   v0.4 · live
@@ -165,15 +167,12 @@ def _build_html(name: str) -> str:
           </td>
         </tr>
 
-        <!-- Founder note -->
+        <!-- Reply prompt -->
         <tr>
           <td style="padding:24px 36px;border-top:1px solid #f0f0f0;background:#fafafa;border-radius:0 0 16px 16px;">
-            <p style="margin:0 0 8px;font-size:13.5px;line-height:1.6;color:#525252;">
+            <p style="margin:0;font-size:13.5px;line-height:1.6;color:#525252;">
               <strong style="color:#0a0a0a;">Reply to this email</strong> if something's broken or
-              missing. It lands on the founder's phone, not a ticket queue.
-            </p>
-            <p style="margin:0;font-size:13px;color:#8a8a8a;">
-              — Ayush, founder @ Headnote · Bhopal
+              missing. We read every reply.
             </p>
           </td>
         </tr>
@@ -225,9 +224,8 @@ def _build_text(name: str) -> str:
         f"   → {APP_BASE_URL}/draft/smart\n\n"
         f"Open Headnote:\n{APP_BASE_URL}/app\n\n"
         f"You're on the Demo plan — 3 days, no card required.\n\n"
-        f"Reply to this email if something's broken or missing. It lands on\n"
-        f"the founder's phone, not a ticket queue.\n\n"
-        f"— Ayush, founder @ Headnote · Bhopal\n\n"
+        f"Reply to this email if something's broken or missing.\n"
+        f"We read every reply.\n\n"
         f"---\n"
         f"Terms:   {APP_BASE_URL}/terms\n"
         f"Privacy: {APP_BASE_URL}/privacy\n"

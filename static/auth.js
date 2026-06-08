@@ -119,6 +119,11 @@ async function initAuth() {
     return;
   }
 
+  // Reveal "Continue with phone" if OTPLESS_APP_ID is configured. Lazy-load
+  // the SDK only when needed — keeps the login screen fast for users who
+  // never tap the phone option, and avoids a CDN request on dev/test deploys.
+  _bootOtplessIfConfigured(cfg.otpless_app_id);
+
   // Wait for the Supabase CDN script to load (defer-loaded; usually ready
   // by the time we get here but be defensive).
   if (!window.supabase || !window.supabase.createClient) {
@@ -813,4 +818,132 @@ function _waitFor(cond, timeoutMs) {
     };
     check();
   });
+}
+
+/* ------------------------------------------------------------------ OTPless
+ * Phone sign-in via OTPless (Truecaller → WhatsApp → SMS waterfall).
+ *
+ * Flow
+ * ----
+ *  1. /api/config returns otpless_app_id (empty = phone sign-in disabled).
+ *  2. _bootOtplessIfConfigured() lazy-loads the SDK + reveals the phone
+ *     button. We define window.otpless BEFORE the SDK loads so OTPless's
+ *     internal dispatcher finds our callback when the user completes auth.
+ *  3. User taps "Continue with phone" → signInWithOtpless() opens their
+ *     embedded widget (Truecaller → WhatsApp → SMS, configured in their
+ *     dashboard).
+ *  4. On success the SDK calls window.otpless(otplessUser). We POST the
+ *     short-lived token to /api/auth/otpless-exchange — the backend
+ *     verifies it server-side, finds-or-creates the Supabase user, and
+ *     hands back a magic-link token_hash.
+ *  5. supabase.auth.verifyOtp({token_hash, type:'magiclink'}) materializes
+ *     a normal Supabase session. onAuthStateChange handles the rest
+ *     (onboarding modal vs reveal app) — same path as Google sign-in.
+ */
+
+function _bootOtplessIfConfigured(appId) {
+  if (!appId) {
+    console.log('[auth] OTPless not configured (otpless_app_id empty) — phone login hidden');
+    return;
+  }
+  // Wire callback before injecting the SDK so we never miss the first event.
+  window.otpless = _onOtplessCallback;
+
+  const tag = document.getElementById('otpless-sdk');
+  if (!tag) {
+    console.warn('[auth] #otpless-sdk script tag missing in HTML — skipping phone login');
+    return;
+  }
+  if (tag.src) return; // already booted (e.g. soft-navigation)
+  tag.setAttribute('data-appid', appId);
+  tag.src = 'https://otpless.com/v4/auth.js';
+  tag.onerror = () => console.error('[auth] OTPless SDK failed to load');
+  tag.onload  = () => console.log('[auth] OTPless SDK ready (appId=' + appId.slice(0,8) + '…)');
+
+  // Reveal the phone button. Hidden by default in HTML so users on
+  // deploys without OTPLESS_APP_ID never see a broken CTA.
+  const btn = document.getElementById('otpless-signin-btn');
+  if (btn) btn.style.display = '';
+}
+
+async function signInWithOtpless() {
+  if (!window.OTPless && !window.otplessIdentities) {
+    // SDK still loading. Wait up to 4s, then give up and show an error.
+    const ok = await _waitFor(() => !!window.OTPless || !!window.otplessIdentities, 4000);
+    if (!ok) {
+      _showAuthError('Phone sign-in is taking too long to load. Refresh and try again.');
+      return;
+    }
+  }
+  try {
+    // The v4 SDK exposes a global `OTPless` constructor that, when invoked
+    // with our callback, opens the configured channel waterfall in a
+    // modal. Older versions used `otplessIdentities.open()` — both work
+    // because the SDK self-detects the page setup.
+    if (typeof window.OTPless === 'function') {
+      const otpless = new window.OTPless(_onOtplessCallback);
+      if (typeof otpless.openLoginPage === 'function') {
+        otpless.openLoginPage();
+      }
+    }
+  } catch (e) {
+    console.error('[auth] OTPless open failed:', e);
+    _showAuthError('Could not open phone sign-in. Try Google or refresh.');
+  }
+}
+
+async function _onOtplessCallback(otplessUser) {
+  console.log('[auth] OTPless callback fired', otplessUser);
+  if (!otplessUser || !otplessUser.token) {
+    _showAuthError('Phone sign-in did not return a token. Try again.');
+    return;
+  }
+  if (!_sb) {
+    _showAuthError('App not ready. Refresh the page and try again.');
+    return;
+  }
+
+  // Server-side: verify OTPless token + find/create Supabase user.
+  let exchange;
+  try {
+    const r = await fetch('/api/auth/otpless-exchange', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ otpless_token: otplessUser.token }),
+    });
+    if (!r.ok) {
+      const err = await r.text();
+      console.error('[auth] otpless-exchange failed:', r.status, err);
+      _showAuthError('Phone sign-in failed: ' + (err || r.status));
+      return;
+    }
+    exchange = await r.json();
+  } catch (e) {
+    console.error('[auth] otpless-exchange network error:', e);
+    _showAuthError('Network issue completing phone sign-in. Try again.');
+    return;
+  }
+
+  // Materialize the Supabase session from the magic-link token hash.
+  // verifyOtp with type:'magiclink' is Supabase's official "consume a
+  // pre-generated link" entry point — issues real access + refresh tokens
+  // and fires onAuthStateChange just like a normal sign-in.
+  try {
+    const { data, error } = await _sb.auth.verifyOtp({
+      type:       'magiclink',
+      token_hash: exchange.token_hash,
+    });
+    if (error) {
+      console.error('[auth] verifyOtp(magiclink) error:', error);
+      _showAuthError('Could not start your session: ' + error.message);
+      return;
+    }
+    console.log('[auth] OTPless sign-in complete. session=', !!data?.session,
+                'user=', data?.user?.id);
+    // onAuthStateChange (registered in initAuth) handles the rest — it
+    // either reveals the app or pops the onboarding modal.
+  } catch (e) {
+    console.error('[auth] verifyOtp exception:', e);
+    _showAuthError('Sign-in error: ' + e.message);
+  }
 }
