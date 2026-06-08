@@ -441,6 +441,61 @@ def admin_add_grant(
     return {"ok": True, "grant": row}
 
 
+@router.post("/access/invite", summary="Grant access + send invite email in one shot")
+def admin_grant_and_invite(
+    payload: dict,
+    authorization: Optional[str] = Header(default=None),
+) -> dict:
+    """One-shot: add a row to access_grants AND send a tailored invite email.
+
+    Body
+    ----
+    {
+      "email": "lawyer@example.com",      # required
+      "name":  "Adv. Aditya Shinde",      # optional, used in salutation
+      "role":  "monthly",                 # monthly | yearly | founder | partner
+      "note":  "Comped 1 month — saw your tweet about Headnote",  # optional
+    }
+
+    Idempotent on email: re-calling overwrites the existing grant row and
+    re-sends the invite. Refuses to grant a role to an email already in the
+    hardcoded config tier (FOUNDER_EMAILS / PARTNER_EMAILS) — those are
+    managed via headnote/config.py and shouldn't be DB-shadowed.
+
+    Returns: {"granted": {...row...}, "email_sent": bool}.
+
+    Example
+    -------
+    curl -X POST https://headnote.in/admin/access/invite \\
+         -H "Authorization: Bearer $ADMIN_TOKEN" \\
+         -H "Content-Type: application/json" \\
+         -d '{"email":"adv.adityashinde10@gmail.com","name":"Aditya Shinde","role":"monthly","note":"Welcome to Headnote!"}'
+    """
+    _require_admin(authorization)
+    email = (payload or {}).get("email", "").strip().lower()
+    name  = (payload or {}).get("name", "") or ""
+    role  = (payload or {}).get("role", "monthly").strip().lower()
+    note  = (payload or {}).get("note", "") or ""
+
+    if not email or "@" not in email:
+        raise HTTPException(400, "email must be a valid address")
+    if role not in ("monthly", "yearly", "founder", "partner"):
+        raise HTTPException(400, "role must be monthly | yearly | founder | partner")
+
+    from headnote.entitlements.grants import add_grant
+    from headnote.email import send_access_invite
+
+    try:
+        row = add_grant(email, role, notes=note, granted_by="admin_invite")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    email_sent = send_access_invite(
+        to_email=email, name=name, role=role, note=note,
+    )
+    return {"granted": row, "email_sent": email_sent}
+
+
 @router.delete("/access-grants/{email}", summary="Revoke a DB-stored grant")
 def admin_remove_grant(
     email: str,
