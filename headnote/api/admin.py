@@ -9,6 +9,7 @@ loudly.
 
 from __future__ import annotations
 
+import logging
 from typing import Optional
 
 from fastapi import APIRouter, Header, HTTPException, Query, status
@@ -19,6 +20,7 @@ from headnote import config
 from headnote.api.telemetry import get_summary
 
 
+log = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
