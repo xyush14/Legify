@@ -245,16 +245,33 @@ def change_plan(
         "payment_ref": payment_ref,
         "cancelled_at": None,
         "updated_at": now.isoformat(),
-        # Re-arm the 3-days-before-expiry nudge for the new cycle.
-        "renewal_nudge_sent_for_period_end": None,
     }
     if plan == "weekly":
         payload["weekly_trial_used"] = True
+
+    # PRIMARY UPDATE — kept minimal so a stale migration (e.g. missing
+    # renewal_nudge_sent_for_period_end column on prod) can never break the
+    # grant flow. The renewal nudge column is cleared separately below and
+    # failures there are non-fatal.
     result = _supabase.update(
         "subscriptions", payload,
         params={"user_id": f"eq.{user_id}"},
     )
-    log.info("change_plan user=%s -> plan=%s by_admin=%s", user_id, plan, granted_by_admin)
+
+    # Re-arm the 3-days-before-expiry nudge for the new cycle. Best-effort:
+    # if the column doesn't exist on this Supabase yet (migration 005
+    # un-applied), this is a no-op — the grant still succeeded.
+    try:
+        _supabase.update(
+            "subscriptions",
+            {"renewal_nudge_sent_for_period_end": None},
+            params={"user_id": f"eq.{user_id}"},
+        )
+    except Exception as e:
+        log.info("change_plan: renewal_nudge column clear skipped (non-fatal): %s", e)
+
+    log.info("change_plan user=%s -> plan=%s by_admin=%s rows=%d",
+             user_id, plan, granted_by_admin, len(result))
     return result[0] if result else payload
 
 
