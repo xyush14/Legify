@@ -187,36 +187,52 @@ def _supabase_admin_headers() -> dict[str, str]:
 
 def _find_user(*, phone: str = "", email: str = "") -> dict:
     """Find an auth.users row by phone or email. Returns {} on miss.
-    Uses Supabase's admin list-users with the email filter; phone filter
-    needs the `phone=eq.<>` shape on PostgREST against auth.users (works
-    on Supabase v2+ projects)."""
+
+    Supabase's /auth/v1/admin/users endpoint does NOT honour an `?email=`
+    filter parameter — it paginates the full user list and silently ignores
+    unknown params. So we MUST list and filter in Python with strict
+    equality. (A prior version of this returned users[0] from a 'filtered'
+    list, which actually returned the first user globally — that's how an
+    'advocate.mansi.singh@gmail.com' lookup matched 'sumitrpcs@gmail.com'.)
+
+    Paginates up to 10 pages × 1000 users = 10k user cap, which is well
+    above our current scale; bump if needed.
+    """
     base = os.environ.get("SUPABASE_URL", "").rstrip("/")
-    if email:
-        url = f"{base}/auth/v1/admin/users"
+    if not base:
+        return {}
+    needle_email = (email or "").strip().lower()
+    needle_phone_digits = "".join(ch for ch in (phone or "") if ch.isdigit())
+
+    url = f"{base}/auth/v1/admin/users"
+    per_page = 1000
+    for page in range(1, 11):                # cap at 10 pages = 10k users
         try:
-            r = httpx.get(url, headers=_supabase_admin_headers(),
-                          params={"email": email}, timeout=5.0)
+            r = httpx.get(
+                url, headers=_supabase_admin_headers(),
+                params={"page": str(page), "per_page": str(per_page)},
+                timeout=8.0,
+            )
             r.raise_for_status()
             data = r.json() or {}
-            users = data.get("users") or []
-            if users:
-                return users[0]
         except httpx.HTTPError as e:
-            log.warning("supabase admin users lookup by email failed: %s", e)
-    if phone:
-        # Supabase admin users list supports `phone=` filter param on newer
-        # versions; if it returns empty we fall through.
-        url = f"{base}/auth/v1/admin/users"
-        try:
-            r = httpx.get(url, headers=_supabase_admin_headers(),
-                          params={"phone": phone}, timeout=5.0)
-            r.raise_for_status()
-            data = r.json() or {}
-            for u in (data.get("users") or []):
-                if (u.get("phone") or "").replace(" ", "") == phone.replace(" ", ""):
+            log.warning("supabase admin users list page=%d failed: %s", page, e)
+            return {}
+
+        users = data.get("users") or []
+        if not users:
+            return {}
+        for u in users:
+            u_email = (u.get("email") or "").strip().lower()
+            if needle_email and u_email == needle_email:
+                return u
+            if needle_phone_digits:
+                u_phone_digits = "".join(ch for ch in (u.get("phone") or "") if ch.isdigit())
+                if u_phone_digits and u_phone_digits == needle_phone_digits:
                     return u
-        except httpx.HTTPError as e:
-            log.warning("supabase admin users lookup by phone failed: %s", e)
+        # Supabase returns up to per_page; if fewer, we've reached the end.
+        if len(users) < per_page:
+            return {}
     return {}
 
 
