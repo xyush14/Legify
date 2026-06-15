@@ -116,7 +116,17 @@ def verify_signature(raw: bytes, headers: dict, url: str) -> None:
 
     Sandbox messages CAN ship without a configured signature when
     TWILIO_AUTH_TOKEN isn't set; we log and accept. Production must set it.
+
+    Behind reverse proxies (Railway, Cloudflare, etc.) `request.url` often
+    differs from the public URL Twilio actually signed against, which would
+    fail verification on every real call. Two escape hatches:
+      1. Set TWILIO_WEBHOOK_URL to the exact public URL configured in Twilio.
+      2. Set TWILIO_SKIP_SIGNATURE_VERIFY=1 to bypass verification entirely
+         (sandbox / dev only — re-enable for production).
     """
+    if os.environ.get("TWILIO_SKIP_SIGNATURE_VERIFY", "").strip().lower() in ("1", "true", "yes"):
+        log.warning("TWILIO_SKIP_SIGNATURE_VERIFY=1 — accepting unverified webhook")
+        return
     token = os.environ.get("TWILIO_AUTH_TOKEN", "")
     if not token:
         log.warning("TWILIO_AUTH_TOKEN unset — accepting unsigned webhook (dev only)")
