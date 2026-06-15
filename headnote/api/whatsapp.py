@@ -97,25 +97,29 @@ async def research_diag(q: str = "") -> dict:
         out["elapsed"] = round(_time.time() - t0, 1)
         return out
 
-    cases = (result or {}).get("cases") or []
+    # Cases are nested under response.result.cases (not at top level)
+    inner = (result or {}).get("result") or {}
+    cases = inner.get("cases") or []
     out["case_count"] = len(cases)
-    out["confidence"] = (result or {}).get("confidence")
-    out["meta_keys"] = list((result or {}).get("meta", {}).keys())
+    out["confidence"] = inner.get("confidence")
     out["top_level_keys"] = list((result or {}).keys())
     if cases:
         c0 = cases[0]
-        out["case_0_keys"] = list(c0.keys()) if isinstance(c0, dict) else None
         out["case_0_sample"] = {
-            k: (str(c0.get(k))[:200] if c0.get(k) else None)
-            for k in ("name", "court", "year", "citation", "neutral_citation",
-                      "stinger_sentence", "held_line", "court_quote",
-                      "official_pdf_url", "is_official_copy")
-            if isinstance(c0, dict)
+            "title": c0.get("title"),
+            "citation": c0.get("citation"),
+            "neutral_citation": c0.get("neutral_citation"),
+            "scr_citation": c0.get("scr_citation"),
+            "court": c0.get("court"),
+            "year": c0.get("year"),
+            "official_pdf_url": c0.get("official_pdf_url"),
+            "verification_flags": c0.get("verification_flags"),
+            "paragraph_anchor": c0.get("paragraph_anchor"),
+            "has_practitioner_notes": bool(c0.get("practitioner_notes")),
         }
-    else:
-        # Show what we have so we can diagnose
-        out["internal_reasoning"] = (result or {}).get("internal_reasoning")
-        out["meta_snippet"] = (result or {}).get("meta")
+        # Run the formatter so we see what WhatsApp would actually receive
+        from headnote.whatsapp import research as _wa_research
+        out["formatted_for_whatsapp"] = _wa_research.format_situation_response(result, query=q)
     return out
 
 
