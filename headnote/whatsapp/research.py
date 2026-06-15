@@ -70,40 +70,139 @@ MAX_CASES = 3        # Fits within Twilio's budget with full per-case detail
 # ════════════════════════════════════════════════════════════════ public API
 
 async def run_research(query: str) -> str:
-    """Full pipeline → WhatsApp text. Top-level entry from the webhook handler."""
+    """Full pipeline → WhatsApp text, with three-layer resilience so the
+    lawyer always gets cases back — never sees a raw error.
+
+    Layer 1: full live pipeline (IK + curated + SC corpus + LLM + verify)
+    Layer 2: retry once after 2s backoff for transient API/network failures
+    Layer 3: curated landmark fallback (42 hand-vetted cases, keyword-matched)
+
+    Only if all three layers come up empty do we send an actionable hint
+    instead of cases.
+    """
     cleaned = (query or "").strip()
     if len(cleaned) < 10:
         return _short_query_hint(cleaned)
 
-    # Late import — headnote.api.app imports this module via the router,
-    # so a module-level import would deadlock.
+    # Layer 1 + 2: live pipeline with retry
+    for attempt in (1, 2):
+        try:
+            response = await _try_live_pipeline(cleaned)
+        except Exception as exc:
+            log.warning("wa research live attempt %d crashed: %r", attempt, exc)
+            response = None
+
+        if response:
+            cases = (response.get("result") or {}).get("cases") or []
+            if cases:
+                return format_situation_response(response, query=cleaned)
+            log.warning("wa research live attempt %d returned 0 cases", attempt)
+
+        if attempt == 1:
+            await asyncio.sleep(2)  # brief backoff for transient hiccups
+
+    # Layer 3: curated landmark fallback
+    log.warning("wa research falling back to curated corpus for %r", cleaned[:80])
+    try:
+        curated_response = await _curated_fallback(cleaned)
+    except Exception:
+        log.exception("wa curated fallback crashed for %r", cleaned[:80])
+        curated_response = None
+
+    if curated_response:
+        cases = (curated_response.get("result") or {}).get("cases") or []
+        if cases:
+            return format_situation_response(curated_response, query=cleaned)
+
+    # Last resort — actionable, not apologetic
+    return _last_resort_hint(cleaned)
+
+
+async def _try_live_pipeline(query: str) -> dict | None:
+    """One full pipeline run. Returns the envelope or None on exception."""
     from headnote.api.app import _api_situation_impl
     from headnote.api.models import SituationRequest
 
     try:
         req = SituationRequest(
-            situation=cleaned,
-            style="practitioner",
-            deep_mode=False,
-            mode="famous",
+            situation=query, style="practitioner", deep_mode=False, mode="famous"
         )
     except Exception as exc:
-        log.warning("SituationRequest validation failed for %r: %s", cleaned[:80], exc)
-        return _short_query_hint(cleaned)
+        log.warning("SituationRequest validation failed for %r: %s", query[:80], exc)
+        return None
 
     def _noop_record(**_kw: Any) -> None:
         return None
 
-    try:
-        response = await asyncio.to_thread(_api_situation_impl, req, _noop_record)
-    except Exception:
-        log.exception("situation pipeline crashed for %r", cleaned[:80])
-        return (
-            "⚠️ Sorry — the research engine hit an error. "
-            "Try rephrasing, or send *HELP* for examples."
-        )
+    return await asyncio.to_thread(_api_situation_impl, req, _noop_record)
 
-    return format_situation_response(response, query=cleaned)
+
+async def _curated_fallback(query: str) -> dict | None:
+    """Match the query against the 42 curated landmark cases via the
+    existing keyword scorer (statute + doctrine + facts + topics). Wraps
+    the top-3 into the same envelope shape format_situation_response expects.
+
+    These are court-verified cases — always-safe to cite.
+    """
+    from headnote import config
+    from headnote.retrieval.keyword import prefilter_cases
+
+    curated = await asyncio.to_thread(config.load_curated_corpus)
+    if not curated:
+        return None
+
+    scored = await asyncio.to_thread(prefilter_cases, curated, query, 3)
+    if not scored:
+        return None
+
+    # Curated cases use {title, citation, court, year, holding, key_paras}.
+    # Translate into the field shape format_situation_response/_render_case
+    # understands without losing the curated-landmark provenance.
+    cases_for_render = []
+    for c in scored:
+        cases_for_render.append({
+            "title": c.get("title"),
+            "citation": c.get("citation"),
+            "court": c.get("court"),
+            "year": c.get("year"),
+            # holding is the case's ratio — _best_summary already picks it up
+            "holding": c.get("holding"),
+            # key_paras like "Paras 14, 16-17, 56" is our anchor
+            "paragraph_anchor": c.get("key_paras"),
+            # mark provenance so we (and the user) know this is from the curated set
+            "_provenance": "curated_landmark",
+        })
+
+    return {
+        "result": {
+            "cases": cases_for_render,
+            "confidence": "high",  # curated cases are court-verified by construction
+            "_fallback_used": "curated",
+        },
+        "raw": "",
+        "dropped_hallucinations": [],
+        "meta": {
+            "model": "curated-fallback",
+            "cost_inr": 0.0,
+            "elapsed_seconds": 0.0,
+            "fallback": "curated_landmark",
+        },
+    }
+
+
+def _last_resort_hint(query: str) -> str:
+    """No cases came back from anywhere. Be actionable, not apologetic."""
+    return (
+        "I couldn't find precedents for that exact phrasing right now. "
+        "Try one of these forms — they tend to match faster:\n\n"
+        "• *Section [N] [Act] — [fact pattern]*\n"
+        "  e.g. _Section 138 NI Act, cheque bounced after stop-payment_\n\n"
+        "• *[Doctrine] in [Context]*\n"
+        "  e.g. _doctrine of part performance in tenancy_\n\n"
+        "• *[Court] view on [issue]*\n"
+        "  e.g. _SC view on FIR quashing for matrimonial disputes_\n\n"
+        "Send *HELP* for the full guide."
+    )
 
 
 def format_situation_response(response: dict, *, query: str = "") -> str:
