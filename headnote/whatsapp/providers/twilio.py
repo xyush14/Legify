@@ -34,11 +34,14 @@ log = logging.getLogger(__name__)
 
 
 def _account_sid() -> str:
-    return os.environ["TWILIO_ACCOUNT_SID"]
+    # .strip() defends against trailing newlines/spaces from Railway/Render
+    # paste — without this, the SID gets embedded into the URL with a \n
+    # and Twilio responds 404.
+    return os.environ["TWILIO_ACCOUNT_SID"].strip()
 
 
 def _auth_token() -> str:
-    return os.environ["TWILIO_AUTH_TOKEN"]
+    return os.environ["TWILIO_AUTH_TOKEN"].strip()
 
 
 def _from_number() -> str:
