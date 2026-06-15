@@ -1103,6 +1103,12 @@ app.include_router(_judgments_router)
 from headnote.api.whatsapp import router as _whatsapp_router
 app.include_router(_whatsapp_router)
 
+# Bolna voice-agent sales pipeline: /api/bolna/* (webhook + 4 tool endpoints
+# + admin /dial). Sits alongside whatsapp.py since both run off the same
+# lead/phone identity. See docs/bolna_agent_prompt.md for the agent config.
+from headnote.api.bolna import router as _bolna_router
+app.include_router(_bolna_router)
+
 # Pre-extract universal facts for the 42 curated cases at boot. ~50ms
 # one-time cost that removes a per-query latency spike for the first user.
 # Safe to skip via env var if the curated corpus changes at runtime (which
