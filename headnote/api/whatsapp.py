@@ -33,6 +33,27 @@ log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/whatsapp", tags=["whatsapp"])
 
+# Hold strong references to background tasks so Python's GC doesn't collect
+# them mid-execution. Without this, asyncio.create_task() returns a Task that
+# can be reclaimed before the coroutine finishes — and the user never gets a
+# reply. See: https://docs.python.org/3/library/asyncio-task.html#asyncio.create_task
+_BG_TASKS: set = set()
+
+
+def _spawn_bg(coro) -> None:
+    """asyncio.create_task with GC-safety + crash logging."""
+    task = asyncio.create_task(coro)
+    _BG_TASKS.add(task)
+    def _on_done(t):
+        _BG_TASKS.discard(t)
+        if t.cancelled():
+            log.warning("wa bg task cancelled")
+            return
+        exc = t.exception()
+        if exc is not None:
+            log.error("wa bg task crashed: %r", exc, exc_info=exc)
+    task.add_done_callback(_on_done)
+
 
 # ════════════════════════════════════════════════════════════════ Meta routes
 
@@ -242,26 +263,41 @@ async def _handle_inbound_message(msg: InboundMessage, *, provider_name: str) ->
         return
 
     # Research path — ack now, work in background. Twilio's webhook ack
-    # window is ~10s and a real research call is 15–30s, so we MUST split.
+    # window is ~10s and a real research call is 60–90s, so we MUST split.
     await _send_reply(
         msg.wa_phone,
-        "🔎 Searching the corpus for citations… give me ~20–30 seconds.",
+        "🔎 Searching the corpus for citations… give me ~60–90 seconds.",
         provider_name,
     )
-    asyncio.create_task(_run_research_and_reply(msg.wa_phone, text, provider_name))
+    log.info("wa bg dispatch: phone=%s len=%d", msg.wa_phone, len(text))
+    _spawn_bg(_run_research_and_reply(msg.wa_phone, text, provider_name))
 
 
 async def _run_research_and_reply(wa_phone: str, query: str, provider_name: str) -> None:
-    """Background task — runs the heavy pipeline, sends the formatted result."""
+    """Background task — runs the heavy pipeline, sends the formatted result.
+
+    Loud logging at every step so Railway log shows where slow runs go.
+    """
+    import time as _t
+    t0 = _t.time()
+    log.info("wa bg START phone=%s len=%d", wa_phone, len(query))
     try:
         reply = await wa_research.run_research(query)
-    except Exception as exc:  # noqa: BLE001 — final safety net
-        log.exception("research bg task crashed for %s", wa_phone)
+        log.info("wa bg PIPELINE_OK phone=%s elapsed=%.1fs len_reply=%d",
+                 wa_phone, _t.time() - t0, len(reply))
+    except Exception:  # noqa: BLE001
+        log.exception("wa bg PIPELINE_CRASH phone=%s elapsed=%.1fs",
+                      wa_phone, _t.time() - t0)
         reply = (
             "⚠️ Sorry — the research engine hit an unexpected error. "
             "Try again in a moment, or send *HELP* for examples."
         )
-    await _send_reply(wa_phone, reply, provider_name)
+    try:
+        await _send_reply(wa_phone, reply, provider_name)
+        log.info("wa bg SENT phone=%s total_elapsed=%.1fs",
+                 wa_phone, _t.time() - t0)
+    except Exception:  # noqa: BLE001
+        log.exception("wa bg SEND_CRASH phone=%s", wa_phone)
 
 
 async def _send_reply(wa_phone: str, body: str, provider_name: str) -> None:
