@@ -50,3 +50,4 @@ kanoon_cache/
 # else is local-only.
 templates_reference/*
 !templates_reference/README.md
+_build/

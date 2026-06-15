@@ -1097,6 +1097,12 @@ app.include_router(_draft_pdf_router)
 from headnote.api.judgments import router as _judgments_router
 app.include_router(_judgments_router)
 
+# WhatsApp Business bot webhook: /api/whatsapp/webhook (GET handshake + POST).
+# Phase 1 = echo bot to validate the round-trip with Meta's test number;
+# the research pipeline gets wired in Phase 2. See docs/WHATSAPP_BOT_PRD.md.
+from headnote.api.whatsapp import router as _whatsapp_router
+app.include_router(_whatsapp_router)
+
 # Pre-extract universal facts for the 42 curated cases at boot. ~50ms
 # one-time cost that removes a per-query latency spike for the first user.
 # Safe to skip via env var if the curated corpus changes at runtime (which
