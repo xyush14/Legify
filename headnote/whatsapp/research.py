@@ -63,7 +63,7 @@ from typing import Any
 log = logging.getLogger(__name__)
 
 
-WA_MAX_BODY = 1500
+WA_MAX_BODY = 3500   # WhatsApp's hard cap is 4096; reserve ~600 chars for safety
 MAX_CASES = 5
 
 
