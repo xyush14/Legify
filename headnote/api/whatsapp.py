@@ -17,6 +17,7 @@ both channels can run side-by-side (useful while migrating).
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from typing import Any
@@ -25,6 +26,7 @@ import httpx
 from fastapi import APIRouter, Header, HTTPException, Request, Response
 
 from headnote.whatsapp import client as wa
+from headnote.whatsapp import research as wa_research
 from headnote.whatsapp.providers import InboundMessage
 
 log = logging.getLogger(__name__)
@@ -117,9 +119,9 @@ async def twilio_inbound(request: Request) -> Response:
 # ════════════════════════════════════════════════════════════════ dispatch
 
 async def _handle_inbound_message(msg: InboundMessage, *, provider_name: str) -> None:
-    """Common dispatch — log, dedupe, route to intent handler, reply.
-
-    Phase 1 = echo bot. Phase 2 replaces _handle_text() with research.
+    """Dispatch: keywords get a synchronous reply, research queries get an
+    immediate ack + a background task that runs the pipeline and sends the
+    formatted result when ready.
     """
     inserted = await _log_message(
         wa_phone=msg.wa_phone,
@@ -133,38 +135,96 @@ async def _handle_inbound_message(msg: InboundMessage, *, provider_name: str) ->
         return
 
     if msg.msg_type != "text":
-        reply = "I can only read text messages right now. Send me a legal research question to try."
-    else:
-        reply = _handle_text(msg.wa_phone, msg.body)
+        await _send_reply(
+            msg.wa_phone,
+            "I can only read text messages right now. Send me a legal research question to try.",
+            provider_name,
+        )
+        return
 
+    text = (msg.body or "").strip()
+    upper = text.upper()
+
+    # Keyword routes (fast, synchronous)
+    if not text:
+        await _send_reply(msg.wa_phone, wa_research._short_query_hint(""), provider_name)
+        return
+
+    if upper in {"HELP", "?", "/HELP"}:
+        await _send_reply(msg.wa_phone, wa_research.help_message(), provider_name)
+        return
+
+    if upper in {"HI", "HELLO", "HEY", "START"}:
+        await _send_reply(msg.wa_phone, wa_research._short_query_hint(""), provider_name)
+        return
+
+    if upper == "STOP":
+        # TODO Phase 3: persist unsubscribe in wa_users
+        await _send_reply(
+            msg.wa_phone,
+            "You won't receive further messages. Reply START to re-enable.",
+            provider_name,
+        )
+        return
+
+    if upper == "LINK":
+        # TODO Phase 3: OTP-based linkage to existing paid account
+        await _send_reply(
+            msg.wa_phone,
+            "🔗 Account linking is coming soon. During beta, research is unlimited.",
+            provider_name,
+        )
+        return
+
+    # Too short to be a meaningful query
+    if len(text) < 10:
+        await _send_reply(msg.wa_phone, wa_research._short_query_hint(text), provider_name)
+        return
+
+    # Research path — ack now, work in background. Twilio's webhook ack
+    # window is ~10s and a real research call is 15–30s, so we MUST split.
+    await _send_reply(
+        msg.wa_phone,
+        "🔎 Searching the corpus for citations… give me ~20–30 seconds.",
+        provider_name,
+    )
+    asyncio.create_task(_run_research_and_reply(msg.wa_phone, text, provider_name))
+
+
+async def _run_research_and_reply(wa_phone: str, query: str, provider_name: str) -> None:
+    """Background task — runs the heavy pipeline, sends the formatted result."""
     try:
-        resp = wa.send_text(msg.wa_phone, reply, provider=provider_name)
-        # Meta returns {"messages": [{"id": ...}]}; Twilio returns {"sid": ...}
+        reply = await wa_research.run_research(query)
+    except Exception as exc:  # noqa: BLE001 — final safety net
+        log.exception("research bg task crashed for %s", wa_phone)
+        reply = (
+            "⚠️ Sorry — the research engine hit an unexpected error. "
+            "Try again in a moment, or send *HELP* for examples."
+        )
+    await _send_reply(wa_phone, reply, provider_name)
+
+
+async def _send_reply(wa_phone: str, body: str, provider_name: str) -> None:
+    """Outbound send + log, swallowing provider errors so we never crash the
+    background loop. Errors land in logs."""
+    try:
+        resp = wa.send_text(wa_phone, body, provider=provider_name)
         out_id = (
             (resp.get("messages") or [{}])[0].get("id")
             or resp.get("sid")
             or ""
         )
         await _log_message(
-            wa_phone=msg.wa_phone,
+            wa_phone=wa_phone,
             direction="out",
             msg_type="text",
-            body=reply[:500],
+            body=body[:500],
             meta_msg_id=out_id,
         )
     except wa.WAClientError as exc:
-        log.error("failed to send reply via %s to %s: %s", provider_name, msg.wa_phone, exc)
-
-
-def _handle_text(wa_phone: str, body: str) -> str:
-    """Phase 1: echo bot. Phase 2 will dispatch to the research pipeline."""
-    text = (body or "").strip()
-    if not text:
-        return "Send a legal research question to begin — e.g. 'section 138 NI Act recent SC on territorial jurisdiction'."
-    return (
-        "Headnote echo (Phase 1): " + text[:200] +
-        "\n\nResearch pipeline lands in Phase 2."
-    )
+        log.error("send via %s to %s failed: %s", provider_name, wa_phone, exc)
+    except Exception:  # noqa: BLE001
+        log.exception("unexpected send error to %s", wa_phone)
 
 
 # ════════════════════════════════════════════════════════════════ DB log
