@@ -61,6 +61,40 @@ async def meta_inbound(request: Request) -> dict[str, str]:
 
 # ════════════════════════════════════════════════════════════════ Twilio routes
 
+@router.get("/twilio/diag")
+async def twilio_diag(to: str = "") -> dict:
+    """Diagnostic — shows env state and tries an outbound send, returning
+    Twilio's exact response. Used to debug why echo isn't reaching users.
+
+    Usage:  GET /api/whatsapp/twilio/diag?to=%2B919876543210
+            (URL-encode the +; raw + becomes a space in query strings)
+    """
+    env = {
+        "WA_PROVIDER": os.environ.get("WA_PROVIDER"),
+        "TWILIO_ACCOUNT_SID_prefix": (os.environ.get("TWILIO_ACCOUNT_SID", "") or "")[:8] or None,
+        "TWILIO_ACCOUNT_SID_set": bool(os.environ.get("TWILIO_ACCOUNT_SID")),
+        "TWILIO_AUTH_TOKEN_set": bool(os.environ.get("TWILIO_AUTH_TOKEN")),
+        "TWILIO_AUTH_TOKEN_len": len(os.environ.get("TWILIO_AUTH_TOKEN", "") or ""),
+        "TWILIO_WA_FROM": os.environ.get("TWILIO_WA_FROM"),
+        "TWILIO_SKIP_SIGNATURE_VERIFY": os.environ.get("TWILIO_SKIP_SIGNATURE_VERIFY"),
+        "SUPABASE_URL_set": bool(os.environ.get("SUPABASE_URL")),
+        "SUPABASE_SERVICE_ROLE_KEY_set": bool(os.environ.get("SUPABASE_SERVICE_ROLE_KEY")),
+    }
+    if not to:
+        return {"env": env, "hint": "add ?to=%2B91XXXXXXXXXX to test an outbound send"}
+
+    try:
+        resp = wa.send_text(to, "Headnote diag probe — if you see this, outbound works.", provider="twilio")
+        return {"env": env, "send_ok": True, "twilio_response": resp}
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "env": env,
+            "send_ok": False,
+            "error_type": type(exc).__name__,
+            "error": str(exc),
+        }
+
+
 @router.post("/twilio/webhook")
 async def twilio_inbound(request: Request) -> Response:
     """Twilio webhook endpoint.
