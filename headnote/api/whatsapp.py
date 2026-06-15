@@ -84,6 +84,74 @@ async def meta_inbound(request: Request) -> dict[str, str]:
 
 # ════════════════════════════════════════════════════════════════ Twilio routes
 
+@router.get("/e2e")
+async def e2e_test(to: str = "", q: str = "", bg: int = 0) -> dict:
+    """End-to-end test: runs the SAME path the webhook runs, returns
+    the full trace, and (if to=+phone given) actually sends the result
+    via Twilio. Use to debug "ghosted messages" without needing the
+    Railway log access.
+
+    Usage:
+      GET /api/whatsapp/e2e?q=section+138+NI+Act
+        → run research synchronously, return formatted body (no send)
+      GET /api/whatsapp/e2e?to=%2B917000362336&q=section+138+NI+Act&bg=0
+        → run sync + send to that phone (returns trace)
+      GET /api/whatsapp/e2e?to=%2B917000362336&q=section+138+NI+Act&bg=1
+        → spawn bg task identical to webhook's (returns spawn confirmation;
+          bg task delivers to WhatsApp when done)
+    """
+    import io, logging as _logging, time as _t
+
+    if not q:
+        q = "Section 138 NI Act recent SC on territorial jurisdiction"
+
+    # Capture log output from the wa modules during this run
+    log_buf = io.StringIO()
+    handler = _logging.StreamHandler(log_buf)
+    handler.setLevel(_logging.DEBUG)
+    handler.setFormatter(_logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s"))
+    root = _logging.getLogger()
+    prior_level = root.level
+    root.addHandler(handler)
+    root.setLevel(_logging.DEBUG)
+
+    trace: dict = {"query": q, "to": to or None, "bg": bool(bg)}
+    t0 = _t.time()
+    try:
+        if bg and to:
+            _spawn_bg(_run_research_and_reply(to, q, "twilio"))
+            await asyncio.sleep(0.05)  # let it start
+            trace["spawned"] = True
+            trace["bg_tasks_in_flight"] = len(_BG_TASKS)
+        else:
+            # Sync path — run research, optionally send
+            reply = await wa_research.run_research(q)
+            trace["research_elapsed_seconds"] = round(_t.time() - t0, 1)
+            trace["reply_preview"] = (reply or "")[:300]
+            trace["reply_len"] = len(reply or "")
+            if to:
+                t_send = _t.time()
+                try:
+                    resp = wa.send_text(to, reply, provider="twilio")
+                    trace["send_ok"] = True
+                    trace["send_elapsed_seconds"] = round(_t.time() - t_send, 1)
+                    trace["twilio_sid"] = resp.get("sid")
+                    trace["twilio_status"] = resp.get("status")
+                except Exception as exc:
+                    trace["send_ok"] = False
+                    trace["send_error_type"] = type(exc).__name__
+                    trace["send_error"] = str(exc)[:500]
+    except Exception as exc:
+        trace["fatal_error_type"] = type(exc).__name__
+        trace["fatal_error"] = str(exc)[:500]
+    finally:
+        root.removeHandler(handler)
+        root.setLevel(prior_level)
+        trace["total_elapsed_seconds"] = round(_t.time() - t0, 1)
+        trace["captured_logs"] = log_buf.getvalue().splitlines()[-80:]
+    return trace
+
+
 @router.get("/research-diag")
 async def research_diag(q: str = "") -> dict:
     """Diagnostic — runs the situation pipeline for a query and returns
