@@ -360,17 +360,51 @@ async def _run_research_and_reply(wa_phone: str, query: str, provider_name: str)
             "⚠️ Sorry — the research engine hit an unexpected error. "
             "Try again in a moment, or send *HELP* for examples."
         )
+    # Send with size-aware retry — Twilio caps WhatsApp at 1600 chars; if
+    # the formatter slipped past that we retry truncated rather than ghost.
+    sent = await _try_send_with_fallback(wa_phone, reply, provider_name)
+    log.info("wa bg SENT phone=%s ok=%s total_elapsed=%.1fs",
+             wa_phone, sent, _t.time() - t0)
+
+
+async def _try_send_with_fallback(wa_phone: str, body: str, provider_name: str) -> bool:
+    """Attempt full send; on Twilio size-error retry truncated. Returns True on any successful send."""
     try:
-        await _send_reply(wa_phone, reply, provider_name)
-        log.info("wa bg SENT phone=%s total_elapsed=%.1fs",
-                 wa_phone, _t.time() - t0)
+        await _send_reply(wa_phone, body, provider_name)
+        return True
     except Exception:  # noqa: BLE001
-        log.exception("wa bg SEND_CRASH phone=%s", wa_phone)
+        log.exception("wa primary send failed; trying truncated fallback")
+
+    # Fallback: aggressive truncation
+    truncated = body[:1400].rstrip() + "\n\n_(response trimmed — reply with a narrower query for more)_"
+    try:
+        await _send_reply(wa_phone, truncated, provider_name)
+        return True
+    except Exception:
+        log.exception("wa truncated send failed; trying minimal fallback")
+
+    # Last resort — at least tell the user something
+    try:
+        await _send_reply(
+            wa_phone,
+            "⚠️ Your research result was generated but couldn't be delivered "
+            "(message too long or carrier error). Please reply with a narrower "
+            "query, or send *HELP* for examples.",
+            provider_name,
+        )
+        return True
+    except Exception:
+        log.exception("wa minimal fallback also failed; user will see nothing")
+        return False
 
 
-async def _send_reply(wa_phone: str, body: str, provider_name: str) -> None:
-    """Outbound send + log, swallowing provider errors so we never crash the
-    background loop. Errors land in logs."""
+async def _send_reply(wa_phone: str, body: str, provider_name: str) -> bool:
+    """Outbound send + log. Returns True on success, False on failure (and logs).
+
+    Callers wrapping this in fallback logic depend on the return value, so we
+    don't double-swallow — exceptions still bubble for callers that prefer
+    to handle them; but the success/failure is also surfaced as a bool.
+    """
     try:
         resp = wa.send_text(wa_phone, body, provider=provider_name)
         out_id = (
@@ -385,10 +419,13 @@ async def _send_reply(wa_phone: str, body: str, provider_name: str) -> None:
             body=body[:500],
             meta_msg_id=out_id,
         )
+        return True
     except wa.WAClientError as exc:
         log.error("send via %s to %s failed: %s", provider_name, wa_phone, exc)
-    except Exception:  # noqa: BLE001
+        raise
+    except Exception:
         log.exception("unexpected send error to %s", wa_phone)
+        raise
 
 
 # ════════════════════════════════════════════════════════════════ DB log

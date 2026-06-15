@@ -63,8 +63,8 @@ from typing import Any
 log = logging.getLogger(__name__)
 
 
-WA_MAX_BODY = 3500   # WhatsApp's hard cap is 4096; reserve ~600 chars for safety
-MAX_CASES = 5
+WA_MAX_BODY = 1500   # Twilio caps WhatsApp at 1600 chars (stricter than WhatsApp's 4096)
+MAX_CASES = 3        # Fits within Twilio's budget with full per-case detail
 
 
 # ════════════════════════════════════════════════════════════════ public API
@@ -198,7 +198,7 @@ def _render_case(idx: int, c: dict) -> list[str]:
     # Verification flag — transparent about anything unverified
     flags = c.get("verification_flags") or []
     if "quote_unverified" in flags:
-        out.append("   ⚠️ _Quote paraphrased by AI — verify against the official judgment before citing._")
+        out.append("   ⚠️ _AI paraphrased — verify before citing._")
 
     out.append("")
     return out
