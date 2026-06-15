@@ -63,6 +63,62 @@ async def meta_inbound(request: Request) -> dict[str, str]:
 
 # ════════════════════════════════════════════════════════════════ Twilio routes
 
+@router.get("/research-diag")
+async def research_diag(q: str = "") -> dict:
+    """Diagnostic — runs the situation pipeline for a query and returns
+    a slimmed view of the raw response. Used to debug why we're getting
+    "no cases" replies.
+    """
+    if not q:
+        q = "Section 138 NI Act recent Supreme Court on territorial jurisdiction of cheque dishonour"
+
+    from headnote.api.app import _api_situation_impl
+    from headnote.api.models import SituationRequest
+    import time as _time
+
+    out: dict = {"query": q, "stages": {}}
+    t0 = _time.time()
+    try:
+        req = SituationRequest(situation=q, style="practitioner", deep_mode=False, mode="famous")
+        out["stages"]["request_built"] = True
+    except Exception as exc:
+        out["error_stage"] = "request"
+        out["error"] = repr(exc)
+        return out
+
+    def _record(**_kw): pass
+
+    try:
+        result = await asyncio.to_thread(_api_situation_impl, req, _record)
+        out["stages"]["pipeline_ran_seconds"] = round(_time.time() - t0, 1)
+    except Exception as exc:
+        out["error_stage"] = "pipeline"
+        out["error"] = repr(exc)
+        out["elapsed"] = round(_time.time() - t0, 1)
+        return out
+
+    cases = (result or {}).get("cases") or []
+    out["case_count"] = len(cases)
+    out["confidence"] = (result or {}).get("confidence")
+    out["meta_keys"] = list((result or {}).get("meta", {}).keys())
+    out["top_level_keys"] = list((result or {}).keys())
+    if cases:
+        c0 = cases[0]
+        out["case_0_keys"] = list(c0.keys()) if isinstance(c0, dict) else None
+        out["case_0_sample"] = {
+            k: (str(c0.get(k))[:200] if c0.get(k) else None)
+            for k in ("name", "court", "year", "citation", "neutral_citation",
+                      "stinger_sentence", "held_line", "court_quote",
+                      "official_pdf_url", "is_official_copy")
+            if isinstance(c0, dict)
+        }
+    else:
+        # Show what we have so we can diagnose
+        out["internal_reasoning"] = (result or {}).get("internal_reasoning")
+        out["meta_snippet"] = (result or {}).get("meta")
+    return out
+
+
 @router.get("/twilio/diag")
 async def twilio_diag(to: str = "") -> dict:
     """Diagnostic — shows env state and tries an outbound send, returning
