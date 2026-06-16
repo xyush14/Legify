@@ -100,21 +100,22 @@
 
     <!-- Access Grants — founder + partner whitelist management -->
     <div class="panel">
-      <h2>Access grants — founders &amp; partners</h2>
-      <p class="sub" style="margin:-6px 0 14px;">Grant access by email. <strong>Founder</strong> / <strong>Partner</strong> = perpetual unlimited (synthetic sub). <strong>Yearly</strong> / <strong>Monthly</strong> = one-shot comp — activates to a real subscription on the user's first sign-in, expires normally. Config entries are root-tier; DB entries are removable.</p>
+      <h2>Grant access</h2>
+      <p class="sub" style="margin:-6px 0 14px;">Grants a real Supabase subscription (durable across redeploys) and sends a Resend gift email with the optional note baked into the body. The user must have signed in to <code>headnote.in</code> at least once before — we cannot grant to an email that has no <code>auth.users</code> row yet.</p>
 
       <form id="grant-form" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:16px;">
         <input id="grant-email" type="email" placeholder="email@example.com" required
-               style="flex:1 1 220px; padding:8px 12px; border:1px solid #ccc; border-radius:6px; font-size:13px;" />
+               style="flex:1 1 200px; padding:8px 12px; border:1px solid #ccc; border-radius:6px; font-size:13px;" />
+        <input id="grant-name" type="text" placeholder="Name (for salutation)"
+               style="flex:1 1 180px; padding:8px 12px; border:1px solid #ccc; border-radius:6px; font-size:13px;" />
         <select id="grant-role" style="padding:8px 12px; border:1px solid #ccc; border-radius:6px; font-size:13px;">
-          <option value="yearly">Yearly (365-day comp)</option>
-          <option value="monthly">Monthly (30-day comp)</option>
-          <option value="partner">Partner (perpetual)</option>
-          <option value="founder">Founder (perpetual)</option>
+          <option value="monthly">Monthly (30-day gift)</option>
+          <option value="yearly">Yearly (365-day gift)</option>
+          <option value="weekly">Weekly (7-day gift)</option>
         </select>
-        <input id="grant-notes" type="text" placeholder="notes (optional, e.g. 'Wadhwa Publishing — 1yr pilot')"
-               style="flex:2 1 260px; padding:8px 12px; border:1px solid #ccc; border-radius:6px; font-size:13px;" />
-        <button type="submit" style="padding:8px 16px; background:#0c0c0a; color:#fdfcf9; border:none; border-radius:6px; cursor:pointer; font-weight:600; font-size:13px;">Grant access</button>
+        <input id="grant-notes" type="text" placeholder="purpose / note (e.g. 'influencer collab — Headnote Monthly on us')"
+               style="flex:2 1 280px; padding:8px 12px; border:1px solid #ccc; border-radius:6px; font-size:13px;" />
+        <button type="submit" style="padding:8px 16px; background:#0c0c0a; color:#fdfcf9; border:none; border-radius:6px; cursor:pointer; font-weight:600; font-size:13px;">Grant + email</button>
       </form>
 
       <table id="grants-table">
@@ -283,19 +284,38 @@
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const email = document.getElementById('grant-email').value.trim();
-      const role  = document.getElementById('grant-role').value;
-      const notes = document.getElementById('grant-notes').value.trim();
+      const name  = document.getElementById('grant-name').value.trim();
+      const plan  = document.getElementById('grant-role').value;
+      const note  = document.getElementById('grant-notes').value.trim();
       if (!email) return;
-      const r = await api('/admin/access-grants', {
+
+      const btn = form.querySelector('button[type=submit]');
+      const orig = btn.textContent;
+      btn.disabled = true; btn.textContent = 'Granting…';
+
+      // Durable Supabase-backed grant + Resend gift email in one shot.
+      // Replaces the old /admin/access-grants path which wrote to an
+      // ephemeral SQLite that Railway wiped on every redeploy.
+      const r = await api('/admin/users/grant-subscription-by-email', {
         method: 'POST',
-        body: JSON.stringify({ email, role, notes }),
+        body: JSON.stringify({ email, name, plan, note, send_email: true }),
       });
-      if (r && r.ok) {
+
+      btn.disabled = false; btn.textContent = orig;
+
+      if (r && r.user_id) {
+        const subPlan = (r.subscription || {}).plan || plan;
+        const pe = ((r.subscription || {}).period_end || '').slice(0, 10);
+        const mailMsg = r.email_sent ? '✓ gift email sent' : '✗ email NOT sent (check Resend status)';
+        alert(`✓ Granted ${subPlan} to ${email}\nperiod_end: ${pe}\n${mailMsg}`);
         document.getElementById('grant-email').value = '';
+        document.getElementById('grant-name').value = '';
         document.getElementById('grant-notes').value = '';
         await loadGrants();
+        await loadUsers();
       } else {
-        alert('Failed: ' + ((r && r.detail) || 'unknown error'));
+        const detail = (r && (r.detail || r.message)) || 'unknown error';
+        alert('Grant failed: ' + detail + '\n\nMost common cause: the user must sign in once at headnote.in before the grant can attach to their account.');
       }
     });
   }
