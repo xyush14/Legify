@@ -2455,3 +2455,75 @@ body:not(.auth-ready) .shell { display: none !important; }
   .assist-cta__row { gap: 8px; }
 }
 
+/* ============================================================================
+   Saved case-law — the ☆/★ toggle on every result card, and the library view.
+   Reuses .btn--ghost, .case-card and .results-header; the gold tokens mark the
+   "kept" state so it reads as a deliberate, editorial action (not a generic AI
+   bookmark).
+   ============================================================================ */
+
+/* Saved state of the card's save toggle — deep-gold, matching the brand accent. */
+.case-save-btn.is-saved {
+  background: var(--gold-soft);
+  border-color: var(--gold-line);
+  color: var(--gold-ink);
+  font-weight: 500;
+}
+.case-save-btn.is-saved:hover {
+  background: var(--gold-soft);
+  color: var(--gold-deep);
+}
+
+.saved-loading {
+  color: var(--ink-3);
+  font-size: 12px;
+  padding: 24px 4px;
+}
+
+/* In the library, each entry = the re-rendered card + its source query + note. */
+.saved-card { margin-bottom: 22px; }
+
+.saved-card__context {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  margin: 6px 2px 0;
+  padding-left: 10px;
+  border-left: 2px solid var(--gold-line);
+  line-height: 1.45;
+}
+
+.saved-note {
+  margin: 8px 2px 0;
+  padding: 10px 12px;
+  background: var(--soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+.saved-note__label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-3);
+  margin-bottom: 6px;
+}
+.saved-note__input {
+  width: 100%;
+  resize: vertical;
+  min-height: 40px;
+  font-family: inherit;
+  font-size: var(--t-sm);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  box-sizing: border-box;
+}
+.saved-note__input:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+.saved-note__save {
+  margin-top: 8px;
+}
+

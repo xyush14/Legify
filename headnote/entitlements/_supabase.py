@@ -90,6 +90,20 @@ def update(table: str, payload: dict, *, params: dict[str, str]) -> list[dict]:
         return []
 
 
+def delete(table: str, *, params: dict[str, str]) -> list[dict]:
+    """DELETE /rest/v1/<table>?<filter> — filter required to prevent mass delete."""
+    if not _enabled() or not params:
+        return []
+    url = f"{SUPABASE_URL}/rest/v1/{table}"
+    try:
+        r = httpx.delete(url, headers=_headers(), params=params, timeout=5.0)
+        r.raise_for_status()
+        return r.json() or []
+    except httpx.HTTPError as e:
+        log.error("supabase delete %s failed: %s", table, e)
+        return []
+
+
 def rpc(fn_name: str, payload: dict | None = None) -> Any:
     """Call a Postgres function via POST /rest/v1/rpc/<fn_name>."""
     if not _enabled():

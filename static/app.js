@@ -137,6 +137,26 @@
     if (!r.ok) throw new Error(data.error || (data.detail && data.detail.message) || `HTTP ${r.status}`);
     return data;
   }
+  async function patchJson(path, body) {
+    const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
+    const r = await fetch(path, { method: 'PATCH', headers, body: JSON.stringify(body) });
+    const data = await r.json().catch(() => ({}));
+    if (handleEntitlementError(r.status, data)) {
+      throw new Error((data.detail && data.detail.message) || 'upgrade required');
+    }
+    if (!r.ok) throw new Error(friendlyError(r.status, data.error || (data.detail && data.detail.message)));
+    return data;
+  }
+  async function delJson(path) {
+    const headers = await authHeaders();
+    const r = await fetch(path, { method: 'DELETE', headers });
+    const data = await r.json().catch(() => ({}));
+    if (handleEntitlementError(r.status, data)) {
+      throw new Error((data.detail && data.detail.message) || 'upgrade required');
+    }
+    if (!r.ok) throw new Error(friendlyError(r.status, data.error || (data.detail && data.detail.message)));
+    return data;
+  }
 
   // -------------------------------------------------------------- view router
   function switchView(view) {
@@ -147,6 +167,9 @@
     $$('.botnav__item[data-view]').forEach(el => el.classList.toggle('is-active', el.dataset.view === view));
     // Close drawer if open
     closeDrawer();
+    // Lazy-render the saved-case-law library on entry (always re-fetch so it
+    // reflects saves/unsaves made in the research view this session).
+    if (view === 'saved') renderSavedView();
     // Scroll to top on view switch (mobile UX)
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
@@ -358,6 +381,184 @@
       row.appendChild(del);
       wrap.appendChild(row);
     });
+  }
+
+  // -------------------------------------------------------------- saved case-law
+  // A lawyer's personal library of kept research hits. Unlike chat history
+  // (localStorage-only), saved cases live server-side in Supabase so they
+  // follow the account across devices. We snapshot the FULL case object on
+  // save, so each card re-renders identically here with zero LLM cost.
+  //
+  // savedIds mirrors the server set so every result card can show the right
+  // ☆/★ toggle state synchronously. It's loaded on boot + on auth change, and
+  // kept in sync on every save/unsave.
+  const savedIds = new Set();
+
+  async function loadSavedIds() {
+    try {
+      const data = await getJson('/api/saved-caselaw');
+      savedIds.clear();
+      (data.items || []).forEach(it => it.case_id && savedIds.add(it.case_id));
+    } catch (e) {
+      // Not signed in / offline — leave the set empty. onAuthChange retries.
+      savedIds.clear();
+    }
+    refreshSaveButtons();
+  }
+
+  function isSaved(caseId) { return !!caseId && savedIds.has(caseId); }
+  function saveBtnLabel(saved) { return saved ? '★ saved' : '☆ save'; }
+
+  // Re-sync every save button currently in the DOM (research cards + saved view)
+  // to the live savedIds set.
+  function refreshSaveButtons() {
+    $$('.case-save-btn[data-case-id]').forEach(btn => {
+      const saved = isSaved(btn.dataset.caseId);
+      btn.classList.toggle('is-saved', saved);
+      btn.textContent = saveBtnLabel(saved);
+    });
+  }
+
+  function isSignedIn() {
+    return !!(window.headnoteAuth && window.headnoteAuth.userId && window.headnoteAuth.userId());
+  }
+
+  // Save / unsave one case. `raw` is the original (un-normalised) case object
+  // from the API response — we store it verbatim so the snapshot re-renders
+  // through the same normaliseCase() path.
+  async function toggleSave(raw, btn) {
+    const caseId = (raw && raw.case_id) || '';
+    if (!caseId) { toast('cannot save — this result has no stable id', 'error'); return; }
+    if (!isSignedIn()) { toast('sign in to save case-law', 'error', 3200); return; }
+
+    const wasSaved = isSaved(caseId);
+    btn.disabled = true;
+    try {
+      if (wasSaved) {
+        await delJson('/api/saved-caselaw/' + encodeURIComponent(caseId));
+        savedIds.delete(caseId);
+        toast('removed from saved', 'info');
+      } else {
+        await post('/api/saved-caselaw', {
+          case_id: caseId,
+          case_json: raw,
+          source_query: (state.lastResult && state.lastResult.query) || '',
+        });
+        savedIds.add(caseId);
+        toast('saved to your library', 'success');
+      }
+    } catch (e) {
+      toast('could not update saved: ' + (e.message || 'unknown'), 'error', 4000);
+    } finally {
+      btn.disabled = false;
+      refreshSaveButtons();
+      // If the user just unsaved from within the library, drop the card.
+      if (state.activeView === 'saved' && wasSaved) renderSavedView();
+    }
+  }
+
+  // Build the save toggle for a card's badge row.
+  function buildSaveButton(raw, caseId) {
+    const saved = isSaved(caseId);
+    const btn = ce('button', {
+      cls: 'btn--ghost case-save-btn' + (saved ? ' is-saved' : ''),
+      text: saveBtnLabel(saved),
+      attrs: { type: 'button', 'data-case-id': caseId || '', title: 'Save this case to your library' },
+    });
+    btn.addEventListener('click', () => toggleSave(raw, btn));
+    return btn;
+  }
+
+  // ---- Saved view (the library) ----
+  async function renderSavedView() {
+    const target = $('#saved-results');
+    if (!target) return;
+    target.innerHTML = '';
+    target.appendChild(ce('div', { cls: 'saved-loading mono', text: 'loading your saved case-law…' }));
+
+    if (!isSignedIn()) {
+      target.innerHTML = '';
+      target.appendChild(ce('div', { cls: 'empty', children: [
+        ce('h2', { text: 'sign in to see your saved case-law' }),
+        ce('p', { text: 'saved precedents follow your account across devices.' }),
+      ]}));
+      return;
+    }
+
+    let items = [];
+    try {
+      const data = await getJson('/api/saved-caselaw');
+      items = data.items || [];
+      // Keep the toggle-state set authoritative with what the server returned.
+      savedIds.clear();
+      items.forEach(it => it.case_id && savedIds.add(it.case_id));
+    } catch (e) {
+      target.innerHTML = '';
+      target.appendChild(ce('div', { cls: 'empty', children: [
+        ce('h2', { text: 'could not load saved case-law' }),
+        ce('p', { text: (e.message || 'please try again in a moment.') }),
+      ]}));
+      return;
+    }
+
+    target.innerHTML = '';
+    if (!items.length) {
+      target.appendChild(ce('div', { cls: 'empty', children: [
+        ce('h2', { text: 'no saved case-law yet' }),
+        ce('p', { text: 'run a research query, then hit ☆ save on any result worth keeping — it lands here, exactly as found.' }),
+      ]}));
+      return;
+    }
+
+    const header = ce('div', { cls: 'results-header' });
+    header.appendChild(ce('div', { cls: 'results-header__count mono',
+      text: items.length + (items.length === 1 ? ' saved case' : ' saved cases') }));
+    target.appendChild(header);
+    items.forEach((it, i) => target.appendChild(renderSavedCard(it, i)));
+  }
+
+  function renderSavedCard(item, idx) {
+    const wrap = ce('div', { cls: 'saved-card' });
+    // The exact research card, re-rendered from the stored snapshot. Its own
+    // save button shows ★ saved and unsaving it removes it from the library.
+    wrap.appendChild(renderCaseCard(item.case_json || {}, idx));
+    // The situation it was saved from — reminds the lawyer why they kept it.
+    if (item.source_query) {
+      wrap.appendChild(ce('div', { cls: 'saved-card__context mono',
+        text: 'saved from: ' + item.source_query }));
+    }
+    wrap.appendChild(renderNoteEditor(item));
+    return wrap;
+  }
+
+  // Per-case personal note, edited inline and persisted via PATCH.
+  function renderNoteEditor(item) {
+    const box = ce('div', { cls: 'saved-note' });
+    box.appendChild(ce('div', { cls: 'saved-note__label mono', text: 'your note' }));
+    const ta = ce('textarea', { cls: 'saved-note__input', attrs: {
+      rows: '2', placeholder: 'why this matters — e.g. "use for the bail argument, para 14"',
+    }});
+    ta.value = item.note || '';
+    const saveBtn = ce('button', { cls: 'btn--ghost saved-note__save', text: 'save note' });
+    saveBtn.addEventListener('click', async () => {
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'saving…';
+      try {
+        await patchJson('/api/saved-caselaw/' + encodeURIComponent(item.case_id), { note: ta.value });
+        item.note = ta.value.trim();
+        saveBtn.textContent = 'saved ✓';
+      } catch (e) {
+        saveBtn.textContent = 'save note';
+        toast('could not save note: ' + (e.message || 'unknown'), 'error');
+      } finally {
+        saveBtn.disabled = false;
+      }
+    });
+    // Reset the confirmation label once the user edits again.
+    ta.addEventListener('input', () => { saveBtn.textContent = 'save note'; });
+    box.appendChild(ta);
+    box.appendChild(saveBtn);
+    return box;
   }
 
   // -------------------------------------------------------------- composer chips
@@ -711,6 +912,11 @@
         },
       }));
     }
+
+    // Save / unsave to the lawyer's personal library (persists server-side).
+    // We pass the original `raw` so the full situation-specific snapshot is
+    // what gets stored and later re-rendered.
+    badges.appendChild(buildSaveButton(raw, c.case_id));
 
     // Hindi toggle button (per-card back-translation of ratio + quote)
     const hindiBtn = ce('button', { cls: 'btn--ghost', text: 'हिंदी में दिखाएँ' });
@@ -1486,6 +1692,10 @@
     attachEvents();
     wireMobileChrome();
     renderHistory();
+    // Prime the saved-case-law set so result cards show the right ☆/★ state.
+    // Best-effort: resolves once the auth token is ready, else stays empty and
+    // the onAuthChange hook below refreshes it on sign-in.
+    loadSavedIds();
     updateModeDisplay();
     setMode('hidden');
     setStyle('practitioner');
@@ -1504,6 +1714,10 @@
       window.headnoteAuth.onAuthChange(() => {
         renderHistory();
         loadUserState();
+        // Saved library is per-account — reload it (and refresh card toggles)
+        // whenever the user signs in / out / switches accounts.
+        loadSavedIds();
+        if (state.activeView === 'saved') renderSavedView();
       });
     }
 
@@ -1521,7 +1735,7 @@
     // draft-court) send the user BACK to the drafting home instead of
     // research — they link to /app#drafting. Default stays research.
     const _hashView = (location.hash || '').replace(/^#/, '').trim();
-    if (['research', 'browse', 'drafting', 'account'].includes(_hashView)) {
+    if (['research', 'browse', 'drafting', 'account', 'saved'].includes(_hashView)) {
       switchView(_hashView);
     }
   }
