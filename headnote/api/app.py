@@ -40,6 +40,7 @@ from typing import Optional
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
 from headnote import __version__, config
 from headnote import statute_map
@@ -48,6 +49,10 @@ from headnote.ranking import prerank_candidates
 from headnote.api.models import (
     SituationRequest, DigestRequest, HeadnoteRequest,
     TranslateRequest, FeedbackRequest,
+)
+from headnote.api.ratelimit import (
+    InMemoryRateLimiter as RateLimiter,
+    client_ip_from_request,
 )
 from headnote.llm import (
     build_situation_system_prompt, SITUATION_USER_TEMPLATE,
@@ -1857,6 +1862,210 @@ def api_hf_doc(doc_id: str):
         "district": judgment.district,
         "language": judgment.language,
         "word_count": judgment.word_count,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Public, anonymous "taste the product" endpoint.
+#
+# Landing-page visitors run ONE real research query and see up to 2 real
+# authorities BEFORE signing up. NO auth, NO entitlement metering. Cost is
+# kept near-zero: it serves the canned demo bank first, then a LOCAL-CORPUS-
+# ONLY retrieval (no paid Indian Kanoon live calls, no reranker LLM, no
+# refine LLM). Hard-capped at 2 cases and rate-limited per IP.
+# ---------------------------------------------------------------------------
+
+class TryRequest(BaseModel):
+    """Input for the public POST /api/try. Permissive on length (we trim/cap
+    and handle empty in the handler) so a landing-page visitor never hits a
+    422 — unlike the authed SituationRequest which enforces min/max length."""
+    situation: str = Field("", description="Lawyer's free-text query.")
+
+
+# Per-process, in-memory limiter (see headnote.api.ratelimit). 5 tries / hour
+# / IP. NOTE: this counter is per-worker — move to Redis for multi-instance
+# scale (the module docstring explains the trade-off).
+_TRY_RATE_LIMITER = RateLimiter(max_requests=5, window_seconds=3600)
+
+_TRY_MAX_SITUATION_CHARS = 600
+
+
+def _try_court_tier(court: str) -> str:
+    """Map a court label to the contract tier. Default 'SC'."""
+    c = (court or "").lower()
+    if "constitution bench" in c or "constitutional bench" in c:
+        return "CB"
+    if "supreme court" in c:
+        return "SC"
+    if "high court" in c:
+        return "HC"
+    return "SC"
+
+
+def _try_one_sentence(text: str, limit: int = 240) -> str:
+    """Trim arbitrary case text to a single concise sentence for `held`."""
+    if not text:
+        return ""
+    s = " ".join(str(text).split())
+    # First sentence boundary (., !, ? followed by space/end), else hard cap.
+    m = re.search(r"(.+?[.!?])(?:\s|$)", s)
+    one = m.group(1) if m else s
+    if len(one) > limit:
+        one = one[:limit].rsplit(" ", 1)[0].rstrip() + "…"
+    return one.strip()
+
+
+def _try_map_demo_case(c: dict) -> dict:
+    """Map a canned demo-bank case dict → the /api/try contract shape."""
+    pn = c.get("practitioner_notes") or {}
+    held = (pn.get("one_line_topic") or "").strip()
+    if not held:
+        held = _try_one_sentence(
+            c.get("relevance_explanation")
+            or c.get("quotable_phrase")
+            or ""
+        )
+    return {
+        "tier": _try_court_tier(c.get("court", "")),
+        "title": c.get("title", "") or "",
+        "citation": c.get("citation", "") or "",
+        "held": held,
+        "tag": "bail granted" if c.get("outcome") == "bail-granted" else None,
+    }
+
+
+def _try_map_retrieval_case(cs) -> dict:
+    """Map a retrieval CaseSummary → the /api/try contract shape.
+
+    `held` is derived WITHOUT an LLM call: the top paragraph text trimmed to a
+    single sentence, falling back to the case title.
+    """
+    held = ""
+    paras = getattr(cs, "paragraphs", None) or []
+    if paras:
+        held = _try_one_sentence(" ".join(p.text for p in paras[:1]))
+    if not held:
+        held = _try_one_sentence(getattr(cs, "title", "") or "")
+    return {
+        "tier": _try_court_tier(getattr(cs, "court", "")),
+        "title": getattr(cs, "title", "") or "",
+        "citation": getattr(cs, "citation", "") or "",
+        "held": held,
+        "tag": "bail granted" if getattr(cs, "outcome", "") == "bail-granted" else None,
+    }
+
+
+@app.post("/api/try", summary="Public anonymous taste-the-product query (rate-limited)")
+async def api_try(req: TryRequest, request: Request):
+    """ONE free research query for landing-page visitors. No auth, no metering.
+
+    Cheap by construction: canned demo bank first, then LOCAL-CORPUS-ONLY
+    retrieval (zero paid IK live calls, no reranker / refine LLM). Returns at
+    most 2 authorities plus the true total so the UI can offer "Unlock all N".
+    """
+    # --- Rate limit (per IP, sliding window) ---
+    ip = client_ip_from_request(request)
+    verdict = await _TRY_RATE_LIMITER.check(ip)
+    if not verdict.allowed:
+        return JSONResponse(
+            status_code=429,
+            content={
+                "ok": False,
+                "error": "rate_limited",
+                "message": (
+                    "You've used your free preview queries for now. "
+                    "Sign up to keep researching — or try again in a bit."
+                ),
+                "retry_after": verdict.retry_after,
+            },
+        )
+
+    # --- Input hygiene: trim + cap; empty -> graceful empty result ---
+    situation = (req.situation or "").strip()
+    if len(situation) > _TRY_MAX_SITUATION_CHARS:
+        situation = situation[:_TRY_MAX_SITUATION_CHARS].rstrip()
+    if not situation:
+        return {
+            "ok": True,
+            "source": "demo",
+            "query": "",
+            "cases": [],
+            "total": 0,
+            "remaining_tries": verdict.remaining,
+        }
+
+    # --- Source A: canned demo bank (free, instant) ---
+    try:
+        from headnote import demo_responses
+        demo_hit = demo_responses.try_demo_response(situation)
+    except Exception as e:
+        print(f"[try] demo lookup failed: {type(e).__name__}: {e}")
+        demo_hit = None
+
+    if demo_hit is not None:
+        all_cases = (demo_hit.get("result") or {}).get("cases") or []
+        mapped = [_try_map_demo_case(c) for c in all_cases[:2]]
+        return {
+            "ok": True,
+            "source": "demo",
+            "query": situation,
+            "cases": mapped,
+            "total": len(all_cases),
+            "remaining_tries": verdict.remaining,
+        }
+
+    # --- Source B: LOCAL-CORPUS-ONLY retrieval (no paid IK, no LLM) ---
+    # We DO need a real KanoonClient object (retrieve_for_situation reads its
+    # offline spend ledger + SQLite cache path), but the PAID IK live-search
+    # stage is fully suppressed:
+    #   * skip_ik_search_if_cases_at_least=0  -> run_ik_search is ALWAYS False
+    #     (verifiable_count >= 0 is always true in mixed mode), so the only
+    #     client.search()/client.get_doc() *paid* calls never execute.
+    #   * mode="mixed"  -> does not force IK on (only 'hidden'/'famous' do).
+    #   * refined_query=None  -> no refine_query() LLM call.
+    #   * time_budget_seconds=0.0 -> the reranker time-gate trips, so the
+    #     Sonnet/DeepSeek reranker LLM never fires (free semantic order used).
+    # Net: free local sources only (curated + cached-paragraph semantic + HF
+    # corpus). Held lines are derived from paragraph text — no LLM.
+    client = _get_kanoon_client()
+    if client is None:
+        # IK disabled / no token -> no local retrieval path available here.
+        # Degrade gracefully rather than reaching for any paid/LLM fallback.
+        return {
+            "ok": True,
+            "source": "live",
+            "query": situation,
+            "cases": [],
+            "total": 0,
+            "remaining_tries": verdict.remaining,
+        }
+
+    cases = []
+    try:
+        from headnote.kanoon.retrieval import retrieve_for_situation
+        ret = retrieve_for_situation(
+            situation,
+            client=client,
+            curated_corpus=config.load_curated_corpus(),
+            top_cases=2,
+            mode="mixed",                       # never forces paid IK on
+            refined_query=None,                 # no refine LLM
+            skip_ik_search_if_cases_at_least=0,  # guarantees IK live is skipped
+            time_budget_seconds=0.0,            # guarantees reranker LLM skipped
+        )
+        cases = list(ret.cases)
+    except Exception as e:
+        print(f"[try] local retrieval failed: {type(e).__name__}: {e}")
+        cases = []
+
+    mapped = [_try_map_retrieval_case(cs) for cs in cases[:2]]
+    return {
+        "ok": True,
+        "source": "live",
+        "query": situation,
+        "cases": mapped,
+        "total": len(cases),
+        "remaining_tries": verdict.remaining,
     }
 
 

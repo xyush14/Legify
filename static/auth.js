@@ -206,7 +206,13 @@ async function initAuth() {
       if (done) {
         _revealApp();
       } else {
-        _showOnboardingModal(session.user);
+        // First sign-in: do NOT wall the user behind a name+phone form — that
+        // was the single biggest signup-drop point. Drop them straight into the
+        // product, capture the name from Google silently, and defer the phone to
+        // a contextual ask (before a draft / payment).
+        _revealApp();
+        _completeOnboardingSilently(session.user);
+        _fireWelcomeEmail();
       }
     } else {
       currentUser = null;
@@ -449,8 +455,10 @@ async function signInWithGoogle() {
       provider: 'google',
       options: {
         redirectTo: redirectUrl,
-        // Force consent + offline access so we always get a fresh refresh token + complete profile.
-        queryParams: { access_type: 'offline', prompt: 'consent' },
+        // Request offline access for a refresh token. We deliberately do NOT force
+        // prompt:'consent' — that re-showed Google's consent screen on EVERY sign-in
+        // (needless friction, worse on mobile). Returning users now sign in in one tap.
+        queryParams: { access_type: 'offline' },
       },
     });
     console.log('[auth] signInWithOAuth returned:', { data, error });
@@ -545,6 +553,32 @@ async function _saveOnboarding(name, phone, referralCode) {
     onboarding_complete: true,
   });
   if (error) throw error;
+}
+
+/** First-sign-in profile capture that does NOT block app entry.
+ *  Best-effort: stores the Google name + marks onboarding complete so the user
+ *  is never re-walled. Phone is intentionally deferred to a contextual ask
+ *  later (before a draft / payment). Any failure here is non-fatal — the app
+ *  has already been revealed, so signup can never break on this write. */
+async function _completeOnboardingSilently(user) {
+  try {
+    if (!_sb || !currentUser) return;
+    const name = (
+      user?.user_metadata?.full_name ||
+      user?.user_metadata?.name ||
+      user?.identities?.[0]?.identity_data?.full_name ||
+      user?.identities?.[0]?.identity_data?.name ||
+      (user?.email ? user.email.split('@')[0] : '')
+    ).trim();
+    const { error } = await _sb.from('user_profiles').upsert({
+      id: currentUser.id,
+      name: name || 'Advocate',
+      onboarding_complete: true,
+    });
+    if (error) console.warn('[auth] silent profile save (non-fatal):', error.message);
+  } catch (e) {
+    console.warn('[auth] silent onboarding (non-fatal):', e.message);
+  }
 }
 
 /* ------------------------------------------------------------------ overlay state machine */

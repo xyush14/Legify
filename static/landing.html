@@ -244,12 +244,20 @@
     background: #fff; min-height: 22px;
   }
   .hc-bar .hc-search-ic { width: 16px; height: 16px; color: var(--ink-3); flex-shrink: 0; }
-  .hc-query { font-size: 14.5px; color: var(--ink); font-weight: 500; line-height: 1.45; }
-  .hc-caret {
-    width: 1.5px; height: 17px; background: var(--gold); display: inline-block; flex-shrink: 0;
-    animation: hcBlink 1.05s step-end infinite;
+  .hc-input {
+    flex: 1; min-width: 0; border: none; outline: none; background: transparent;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
+    font-size: 14.5px; color: var(--ink); font-weight: 500; line-height: 1.45;
   }
-  @keyframes hcBlink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+  .hc-input::placeholder { color: var(--ink-3); font-weight: 400; }
+  .hc-go {
+    flex-shrink: 0; width: 30px; height: 30px; border: none; cursor: pointer;
+    border-radius: 8px; background: var(--gold-tint); color: var(--gold-deep);
+    font-size: 17px; line-height: 1; display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .hc-go:hover { background: var(--gold-2); color: #2a200c; }
+  .hc-note { font-size: 12.5px; color: var(--ink-2); line-height: 1.55; padding: 4px 2px; }
 
   .hc-chips {
     display: flex; flex-wrap: wrap; gap: 7px;
@@ -324,6 +332,7 @@
     .hc-gate { flex-direction: column; align-items: stretch; }
     .hc-gate .btn { text-align: center; }
   }
+
 
   /* ============= COURT MARQUEE ============= */
   .marquee {
@@ -701,7 +710,7 @@
       <a href="#pricing">Pricing</a>
     </div>
     <div class="nav-spacer"></div>
-    <a href="/app" class="btn btn--ghost" id="nav-cta">Sign in</a>
+    <a href="/app" class="btn btn--gold" id="nav-cta">Start free</a>
   </div>
 </nav>
 
@@ -719,6 +728,9 @@
     AI co-counsel for India's criminal advocates. Research with citations verified
     three ways, voice-first court drafting, 40+ application formats — Hindi and English.
   </p>
+  <div class="hero-row">
+    <a href="/app" class="btn btn--gold btn--lg" id="hero-cta">Start free — no card</a>
+  </div>
   <!-- live research console: real, verified results — tap a query to watch it work -->
   <div class="hero-console" id="hero-console" aria-label="Live research demo">
     <div class="hc-head">
@@ -727,8 +739,9 @@
     </div>
     <div class="hc-bar">
       <svg class="hc-search-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-      <span class="hc-query" id="hc-query"></span>
-      <span class="hc-caret"></span>
+      <input class="hc-input" id="hc-input" type="text" autocomplete="off" enterkeyhint="search" maxlength="600"
+             placeholder="Describe your matter — or tap an example below" aria-label="Describe your legal situation" />
+      <button type="button" class="hc-go" id="hc-go" aria-label="Run search">→</button>
     </div>
     <div class="hc-chips" id="hc-chips">
       <button type="button" class="hc-chip active" data-flow="abail">Anticipatory bail · economic offence</button>
@@ -742,7 +755,7 @@
         <b>Unlock all <span id="hc-gate-count">5</span> verified authorities</b>
         <span>Full held-lines, paragraph anchors &amp; one-tap drafting — free, no card.</span>
       </div>
-      <a href="/app" class="btn btn--gold hc-gate-btn" id="hc-gate-btn">Start free →</a>
+      <a href="/app" class="btn btn--gold hc-gate-btn" id="hc-gate-btn">Unlock free →</a>
     </div>
   </div>
 </section>
@@ -790,7 +803,7 @@
     </div>
     <div class="demo-card reveal">
       <div class="demo-player" id="demo-player-wrap">
-        <video id="demo-video-hi" src="/static/headnote-demo-hi.mp4" controls preload="none" style="background:#000;display:block;"></video>
+        <video id="demo-video-hi" src="/static/headnote-demo-hi.mp4#t=0.1" controls preload="metadata" playsinline style="background:#000;display:block;"></video>
         <iframe id="demo-iframe-en" src="https://app.trupeer.ai/embed/6FqCecsKI" frameborder="0"
           allowfullscreen="true" allow="autoplay; fullscreen; encrypted-media; clipboard-write" loading="lazy"
           style="display:none;" title="Headnote demo — English"></iframe>
@@ -1123,7 +1136,7 @@
 <section class="cta-section">
   <h2>The bar room finds out eventually.<br><span class="gold">Be early.</span></h2>
   <p>Two minutes to sign in. No card. Your first matter working in under a minute.</p>
-  <a href="/app" class="btn btn--gold btn--lg" id="final-cta">Open Headnote →</a>
+  <a href="/app" class="btn btn--gold btn--lg" id="final-cta">Start free →</a>
 </section>
 
 <!-- ============ FOOTER ============ -->
@@ -1279,14 +1292,14 @@
       },
     };
     const ORDER = ['abail', 'pocso', 's125'];
-    const qEl = document.getElementById('hc-query');
+    const inputEl = document.getElementById('hc-input');
     const stEl = document.getElementById('hc-status');
     const stTxt = document.getElementById('hc-status-text');
     const resEl = document.getElementById('hc-results');
     const gateEl = document.getElementById('hc-gate');
     const gateCount = document.getElementById('hc-gate-count');
     const chips = Array.prototype.slice.call(document.querySelectorAll('.hc-chip'));
-    if (!qEl || !resEl) return;
+    if (!inputEl || !resEl) return;
     const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     let runId = 0;
@@ -1324,14 +1337,14 @@
       cancelPending();
       resEl.innerHTML = '';
       gateEl.hidden = true;
-      qEl.textContent = '';
+      inputEl.value = '';
 
       if (reduce) {
-        qEl.textContent = flow.query;
+        inputEl.value = flow.query;
       } else {
         for (let i = 0; i < flow.query.length; i++) {
           if (my !== runId) return;
-          qEl.textContent = flow.query.slice(0, i + 1);
+          inputEl.value = flow.query.slice(0, i + 1);
           await wait(11);
         }
       }
@@ -1360,6 +1373,77 @@
       if (my !== runId) return;
       gateEl.hidden = false;
     }
+
+    // ---- live "type your own" query → POST /api/try (anonymous, rate-limited) ----
+    const LIVE_STATUS = ['Refining your situation…', 'Searching 3.5 crore judgments…', 'Verifying citations — 3 checks…'];
+
+    function showGate(total) {
+      gateCount.textContent = (typeof total === 'number' && total > 0) ? String(total) : '3.5 crore+';
+      gateEl.hidden = false;
+    }
+
+    async function runLive(text) {
+      const q = (text || '').trim();
+      if (!q) { inputEl.focus(); return; }
+      const my = ++runId;
+      activeKey = null;
+      if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
+      cancelPending();
+      chips.forEach(function (c) { c.classList.remove('active'); });
+      resEl.innerHTML = '';
+      gateEl.hidden = true;
+      inputEl.value = q;
+
+      stEl.hidden = false;
+      for (let i = 0; i < LIVE_STATUS.length; i++) {
+        if (my !== runId) return;
+        stTxt.textContent = LIVE_STATUS[i];
+        await wait(reduce ? 60 : 520);
+      }
+      if (my !== runId) return;
+
+      let status = 0, data = null;
+      try {
+        const r = await fetch('/api/try', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ situation: q }),
+        });
+        status = r.status;
+        data = await r.json().catch(function () { return null; });
+      } catch (e) { status = 0; }
+      if (my !== runId) return;
+      stEl.hidden = true;
+
+      if (status === 429) {
+        resEl.innerHTML = '<div class="hc-note">' + esc((data && data.message) || 'You’ve used your free preview queries. Start free to keep researching.') + '</div>';
+        showGate(0);
+        return;
+      }
+
+      const cases = (data && data.cases) || [];
+      if (!cases.length) {
+        resEl.innerHTML = '<div class="hc-note">Start free to run this live across the full 3.5-crore corpus — every citation verified three ways.</div>';
+        showGate(0);
+        return;
+      }
+
+      cases.slice(0, 2).forEach(function (c) {
+        resEl.insertAdjacentHTML('beforeend', rowHTML({ tier: c.tier, t: c.title, c: c.citation, h: c.held, tag: c.tag }));
+      });
+      // a blurred placeholder carries the "there's more" gate
+      resEl.insertAdjacentHTML('beforeend', rowHTML({ tier: 'SC', t: '████████ v. ████████', c: '████ ███ ███', h: '███████████████████████████████████', locked: true }));
+      showGate((data && data.total) || cases.length);
+    }
+
+    function submitLive() { runLive(inputEl.value); }
+    inputEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); submitLive(); } });
+    inputEl.addEventListener('focus', function () {
+      if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
+      if (activeKey) { runId++; activeKey = null; cancelPending(); try { inputEl.select(); } catch (e) {} }
+    });
+    const goBtn = document.getElementById('hc-go');
+    if (goBtn) goBtn.addEventListener('click', submitLive);
 
     chips.forEach(function (ch) {
       ch.addEventListener('click', function () {
