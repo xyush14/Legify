@@ -1751,14 +1751,27 @@ function applyFormDefaults() {
 // Boot
 // =========================================================================
 (async function init() {
-  await maybeLoadExisting();   // restores answers + draftId + lang if ?id=
-  applyFormDefaults();          // fills empty court/case-type/section/state
-  bindInputs();
-  applyLang();
-  await prefillFromPersona();   // fills advocate/court gaps from bar profile
-  syncUIToState();
-  renderLive();                 // first server render
-  wireVoiceFields();            // mic on facts_narrative (no-op if unsupported)
+  // 1) Wire the editor + PAINT THE PREVIEW IMMEDIATELY — never blocked on a
+  //    network/auth call. The preview is a server render, so we must not wait
+  //    on the bar-profile / saved-draft fetches before the document first
+  //    appears (a slow/odd auth state otherwise leaves a blank document, which
+  //    reads as "the editor isn't loading").
+  try {
+    applyFormDefaults();   // fills empty court / case-type / section / state
+    bindInputs();          // wires every form input → state
+    applyLang();
+    syncUIToState();
+    wireVoiceFields();     // mic on facts_narrative (no-op if unsupported)
+    renderLive();          // first server render — paints the document NOW
+  } catch (e) {
+    console.error('discharge init (core) failed:', e);
+  }
+
+  // 2) Optional, NON-BLOCKING: restore a saved draft (?id=) and pre-fill from
+  //    the bar profile. Each re-syncs + re-renders when it resolves; a failure
+  //    or a hang here can never stop the editor from loading.
+  maybeLoadExisting().then(() => { syncUIToState(); renderLive(); }).catch(() => {});
+  prefillFromPersona().then(() => { syncUIToState(); renderLive(); }).catch(() => {});
 })();
 </script>
 </body>

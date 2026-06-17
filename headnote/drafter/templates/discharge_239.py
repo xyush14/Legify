@@ -218,34 +218,101 @@ def render_hi(a: dict) -> str:
 
 
 def render_en(a: dict) -> str:
-    """English discharge — minimal v1 (MP courts file in Hindi; English kept
-    for parity with the bail template's contract)."""
+    """Full English discharge — mirrors render_hi paragraph-for-paragraph
+    (for HC English benches; MP district courts file the Hindi render)."""
     a = a or {}
-    applicant = "applicants/accused"
-    sec_str = _sections_str(a.get("sections") or [])
-    court_name = a.get("court_name") or "(name of court)"
+    court_name = a.get("court_name") or "(name of the Court)"
+    case_number = a.get("case_number") or ""
+    case_type = a.get("case_type") or "R.C.T."
+    state_name = a.get("state_name") or "M.P."
+    accused_names = a.get("accused_names") or ""
+    section = a.get("discharge_section") or "239"
+    police_station = a.get("police_station") or ""
+    crime_number = a.get("crime_number") or ""
+    sections = a.get("sections") or []
+    offence_allegation = a.get("offence_allegation") or (
+        "the applicants subjected the complainant to physical and mental cruelty "
+        "in connection with a demand for dowry")
+    facts_narrative = a.get("facts_narrative") or ""
+    g = a.get("grounds") or {}
+    custom_grounds = a.get("custom_grounds") or []
+    place = a.get("place") or ""
+    filing_date = a.get("filing_date") or date.today().strftime("%d/%m/%Y")
+    advocate_name = a.get("advocate_name") or ""
+    sec_str = _sections_str(sections)
+
     out = ['<div class="bail-doc bail-doc--en">']
-    out.append(f'<div class="bd-header"><h1 class="bd-court">{_esc(court_name)}</h1>'
-               f'<div class="bd-caseno">RCT No. {_esc(a.get("case_number") or "....")} '
-               f'of {_esc(a.get("case_year") or date.today().year)}</div></div>')
-    out.append(
-        f'<h2 class="bd-app-title">APPLICATION FOR DISCHARGE UNDER SECTION '
-        f'{_esc(a.get("discharge_section") or "239")} OF THE CODE OF CRIMINAL PROCEDURE</h2>'
-    )
-    out.append('<p>The above-named applicants most respectfully submit as under:</p>')
+    out.append('<div class="bd-header">')
+    out.append(f'<h1 class="bd-court">{_esc(court_name)}</h1>')
+    out.append(f'<div class="bd-caseno">Criminal Case No. {_ph(case_number, ".........")} '
+               f'{_esc(case_type)}</div>')
+    out.append('</div>')
+
+    out.append('<div class="bd-parties">')
+    out.append(f'<div class="bd-party"><div class="bd-party-detail">State of {_esc(state_name)}</div>'
+               f'<span class="bd-party-dots">............</span>'
+               f'<span class="bd-party-label">Prosecution</span></div>')
+    out.append('<div class="bd-versus">Versus</div>')
+    out.append(f'<div class="bd-party"><div class="bd-party-detail">{_ph(accused_names, "names of the accused")}</div>'
+               f'<span class="bd-party-dots">............</span>'
+               f'<span class="bd-party-label">Accused</span></div>')
+    out.append('</div>')
+
+    out.append(f'<h2 class="bd-app-title">APPLICATION FOR DISCHARGE UNDER SECTION {_esc(section)} '
+               f'OF THE CODE OF CRIMINAL PROCEDURE, 1973</h2>')
+    out.append('<p class="bd-prelude">May it please the Court,</p>')
+    out.append('<p class="bd-prelude">The applicants/accused most respectfully submit as under:—</p>')
     out.append('<ol class="bd-paras">')
-    out.append(f'<li>That the {applicant} have been charge-sheeted at Police Station '
-               f'{_esc(a.get("police_station") or "....")} in Crime No. '
-               f'{_esc(a.get("crime_number") or "....")} under {sec_str}.</li>')
-    facts = a.get("facts_narrative") or "(brief facts of the defence to be inserted here)"
-    out.append(f'<li>That in truth, {_esc(facts)}</li>')
-    out.append('<li>That the Hon\'ble Supreme Court and High Court have held that merely '
-               'being a family member does not make out an offence under Section 498A IPC; '
-               'and there is no prima facie material on record against the applicants.</li>')
+
+    out.append(f'<li><p>That the applicants have been charge-sheeted by Police Station '
+               f'{_ph(police_station, "police station")} in Crime No. {_ph(crime_number, "..../....")} '
+               f'under {sec_str} on a report of the complainant; investigation being complete, the '
+               f'charge-sheet stands filed before this Hon\'ble Court and the matter is fixed today for '
+               f'arguments on charge.</p></li>')
+    out.append(f'<li><p>That in the said report the complainant has alleged against the applicants that '
+               f'{_esc(offence_allegation)}.</p></li>')
+
+    if facts_narrative.strip():
+        for chunk in [c.strip() for c in facts_narrative.split("\n\n") if c.strip()]:
+            out.append(f'<li><p>That in truth, {_esc(chunk)}</p></li>')
+    else:
+        out.append('<li><p class="ph">[State the true facts of the defence here — the applicants’ '
+                   'relationship to the complainant, separate residence, co-accused, and the reason for '
+                   'the false implication — or upload the charge-sheet / FIR and let the AI read it.]</p></li>')
+
+    if g.get("no_dowry_demand", True):
+        out.append('<li><p>That the applicants never subjected the complainant to any physical or mental '
+                   'cruelty over a demand for dowry; the complainant has, out of malice, falsely implicated '
+                   'the applicants in the present case.</p></li>')
+    if g.get("family_member_principle", True):
+        out.append('<li><p>That the Hon’ble Supreme Court and the Hon’ble High Court have '
+                   'authoritatively held that merely being a family member does not make out an offence under '
+                   'Section 498A IPC or under the Protection of Women from Domestic Violence Act against '
+                   'relatives arrayed as accused without specific allegations.</p></li>')
+    if g.get("no_prima_facie", True):
+        out.append('<li><p>That all the allegations levelled by the complainant against the applicants are '
+                   'false and concocted, and there is no prima facie material on record to establish that '
+                   'the said allegations are true.</p></li>')
+    for c in custom_grounds:
+        if c and str(c).strip():
+            out.append(f'<li><p>That {_esc(c)}</p></li>')
+
+    out.append('<li><p>That in the facts and circumstances above, it is just and proper that the applicants '
+               'be discharged from the present case.</p></li>')
+    out.append('<li><p>That further arguments shall be advanced at the time of hearing.</p></li>')
     out.append('</ol>')
-    out.append('<div class="bd-prayer"><h3>PRAYER</h3>'
-               f'<p>It is therefore most respectfully prayed that the applicants be '
-               f'discharged from the offences under {sec_str} in the interest of justice.</p></div>')
+
+    out.append('<div class="bd-prayer"><h3>PRAYER</h3>')
+    out.append(f'<p>It is therefore most respectfully prayed that this Hon’ble Court may be pleased to '
+               f'allow the present application and discharge the applicants from the offences under {sec_str}, '
+               f'in the interest of justice.</p></div>')
+
+    out.append('<div class="bd-sig"><div class="bd-sig-left">')
+    out.append(f'<div>Place: {_ph(place, "place")}</div><div>Date: {_ph(filing_date, "..........")}</div></div>')
+    out.append('<div class="bd-sig-right"><div>Applicants</div>'
+               '<div class="bd-sig-name">— Accused</div>'
+               '<div class="bd-sig-advocate">Through Counsel</div>'
+               f'<div class="bd-sig-advname">({_ph(advocate_name, "advocate")} — Advocate)</div></div></div>')
     out.append('</div>')
     return "\n".join(out)
 
