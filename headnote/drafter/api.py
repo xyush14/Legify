@@ -150,6 +150,21 @@ def get_template_schema(doc_type: str):
     return {"template": slim}
 
 
+class RenderLiveBody(BaseModel):
+    story_id: str
+    answers:  dict = Field(default_factory=dict)
+    lang:     Literal["hi", "en"] = "hi"
+
+
+@router.post("/render-live", summary="Render a story template to HTML from posted fields (live preview; no save/LLM/metering)")
+def render_live(body: RenderLiveBody):
+    """Deterministic live-preview render: fields → court-format HTML via the
+    story's template module (e.g. discharge_239). No persistence, no metering,
+    no model call — drives the drafter pages' instant preview."""
+    html = stories.render_story(body.story_id, body.lang, body.answers or {})
+    return {"ok": True, "html": html}
+
+
 @router.get("/{draft_id}", summary="Get one draft by id")
 def get_draft(draft_id: str):
     d = storage.get_draft(draft_id)

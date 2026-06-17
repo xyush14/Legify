@@ -1,0 +1,1765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Force HTTPS — Supabase sessions don't carry between HTTP/HTTPS origins -->
+<script>if(location.protocol==='http:'&&location.hostname!=='localhost'&&!location.hostname.startsWith('127.')){location.replace(location.href.replace(/^http:/,'https:'));}</script>
+<!-- Supabase JS — REQUIRED for auth.js to read the user's session. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<title>Discharge Application (§239 CrPC / 498A) — Headnote</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- UI fonts (sans-serif) + DOCUMENT PREVIEW fonts (serif, court-paper style).
+     The reference filings use Kruti Dev 010 (a pre-Unicode display font) for
+     Hindi + Times New Roman for English. We use the closest Unicode-safe
+     equivalent: Tiro Devanagari Hindi (serif, formal) for the Devanagari
+     and Times New Roman (system font) for Latin. The font stack on the
+     document preview puts Times first so digits + statute refs (S.302 etc)
+     stay in Times even mid-Hindi sentence — browser picks per character. -->
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Tiro+Devanagari+Hindi:ital@0;1&family=Noto+Serif+Devanagari:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- PDFs render server-side via POST /api/draft/pdf (WeasyPrint) -->
+<style>
+  /* Kruti Dev 010 — self-hosted (static/fonts/KrutiDev010.ttf). Loaded but
+     NOT applied yet to the preview (glyph-substitution font; needs a Unicode
+     → Kruti Dev byte converter to render). */
+  @font-face {
+    font-family: 'KrutiDev010';
+    src: url('/static/fonts/KrutiDev010.ttf') format('truetype');
+    font-display: swap;
+    font-weight: 400;
+    font-style: normal;
+  }
+
+  :root {
+    --bg: #fdfcf9;
+    --panel: #ffffff;
+    --ink: #0c0c0a;
+    --muted: #6b6960;
+    --line: rgba(12, 12, 10, 0.08);
+    --line-strong: rgba(12, 12, 10, 0.18);
+    --accent: #0c0c0a;
+    --good: #4a7c2e;
+    --warn: #b07b1c;
+    --bad: #b04a3a;
+    --soft: #f5f3ec;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+
+  /* ---------- top bar ---------- */
+  .topbar { display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 10; }
+  .topbar__left { display: flex; align-items: center; gap: 14px; }
+  .topbar__back { color: var(--muted); text-decoration: none; font-size: 14px; }
+  .topbar__back:hover { color: var(--ink); }
+  .topbar__title { font-size: 15px; font-weight: 600; }
+  .topbar__sub { font-size: 12px; color: var(--muted); }
+  .topbar__right { display: flex; gap: 8px; align-items: center; }
+  .savestate { font-size: 12px; color: var(--muted); margin-right: 8px; }
+  .btn { padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid var(--line-strong); background: var(--panel); color: var(--ink); transition: all 0.12s; display: inline-flex; align-items: center; gap: 6px; }
+  .btn:hover { background: var(--soft); }
+  .btn--primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .btn--primary:hover { background: #1c1c1a; }
+  .btn--icon { padding: 8px 10px; }
+
+  /* ---------- main layout: split-pane ---------- */
+  .split { display: grid; grid-template-columns: 460px 1fr; height: calc(100vh - 56px); }
+  @media (max-width: 1100px) { .split { grid-template-columns: 380px 1fr; } }
+
+  /* Preview sheet handle — visible only on mobile (acts as the always-on
+     button that toggles the floating preview between collapsed / half / full). */
+  .preview-handle { display: none; }
+
+  @media (max-width: 880px) {
+    /* Form takes full width; preview becomes a floating bottom sheet */
+    .split {
+      display: block;
+      height: auto;
+      padding-bottom: 64px;  /* room for the collapsed sheet */
+    }
+    .form-pane {
+      display: block;
+      max-height: none;
+      padding: 16px 14px 80px;
+      border-right: none;
+    }
+
+    /* Floating preview sheet — fixed to bottom, 3 states via JS */
+    .doc-pane {
+      position: fixed;
+      left: 0; right: 0; bottom: 0;
+      height: 56px;                          /* collapsed default */
+      max-height: 100vh;
+      z-index: 70;
+      background: var(--panel);
+      border-top: 1px solid var(--line-strong);
+      box-shadow: 0 -3px 16px rgba(0,0,0,0.12);
+      transition: height 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow: hidden;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .doc-pane[data-state="half"] { height: 56vh; }
+    .doc-pane[data-state="full"] { height: 90vh; }
+
+    /* Always-visible header bar with grip + label + chevron */
+    .preview-handle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      height: 56px;
+      min-height: 56px;
+      width: 100%;
+      background: var(--panel);
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--ink);
+      -webkit-tap-highlight-color: transparent;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .preview-handle__grip {
+      position: absolute;
+      top: 6px; left: 50%;
+      transform: translateX(-50%);
+      width: 36px; height: 4px;
+      background: var(--line-strong);
+      border-radius: 2px;
+    }
+    .preview-handle__label { display: flex; align-items: center; gap: 6px; }
+    .preview-handle__pages { color: var(--muted); font-weight: 500; font-size: 12px; }
+    .preview-handle__chevron {
+      font-size: 11px;
+      color: var(--muted);
+      transition: transform 0.22s ease;
+    }
+    .doc-pane[data-state="half"] .preview-handle__chevron,
+    .doc-pane[data-state="full"] .preview-handle__chevron { transform: rotate(180deg); }
+    body.lang-hi .preview-handle { font-family: 'Noto Sans Devanagari', sans-serif; }
+
+    /* The actual document scrolls inside the sheet body */
+    .doc-pane .doc-page {
+      flex: 1;
+      overflow-y: auto;
+      margin: 0;
+      padding: 24px 20px 60px;
+      transform: none;
+      max-width: none;
+      box-shadow: none;
+      border-radius: 0;
+    }
+
+    /* Condensed topbar — title only, hide subtitle and label text */
+    .topbar { padding: 10px 12px; }
+    .topbar__title { font-size: 14px; }
+    .topbar__sub { display: none; }
+    .topbar__right { gap: 4px; }
+    .topbar__right .btn { padding: 6px 8px; font-size: 12px; }
+    .topbar__right .btn .btn-label-long { display: none; }
+  }
+
+  /* LEFT: form */
+  .form-pane { overflow-y: auto; padding: 20px 22px 60px; border-right: 1px solid var(--line); background: var(--panel); }
+  .section { margin-bottom: 24px; padding: 16px 16px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+  .section__eyebrow { font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+  .section__title { font-size: 14px; font-weight: 600; margin: 0 0 12px; display: flex; justify-content: space-between; align-items: center; }
+  .section__title-actions { display: flex; gap: 6px; }
+  .section__title-btn { font-size: 11px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--line-strong); background: var(--panel); cursor: pointer; color: var(--ink); }
+  .section__title-btn:hover { background: var(--soft); }
+
+  .field { display: flex; flex-direction: column; margin-bottom: 10px; }
+  .field label { font-size: 11px; color: var(--muted); margin-bottom: 4px; font-weight: 500; }
+  .field input, .field select, .field textarea {
+    font-family: inherit; font-size: 13px; padding: 8px 10px; border: 1px solid var(--line-strong);
+    border-radius: 6px; background: var(--panel); color: var(--ink); outline: none; transition: border 0.12s;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--ink); }
+  .field textarea { resize: vertical; min-height: 80px; font-family: 'Noto Sans Devanagari', 'Inter', sans-serif; line-height: 1.5; }
+  .field--row { flex-direction: row; gap: 10px; }
+  .field--row > .field { flex: 1; }
+  .field__hint { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  /* Plain-words banner that explains what the chosen application asks for. */
+  .bail-type-note {
+    margin-top: 14px; padding: 10px 12px; border-radius: 8px;
+    background: var(--bg); border: 1px solid var(--line-strong);
+    font-size: 12.5px; line-height: 1.5; color: var(--ink);
+  }
+  .bail-type-note:empty { display: none; }
+
+  .checkboxes { display: flex; flex-direction: column; gap: 6px; }
+  .checkboxes label { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; padding: 4px 0; }
+  .checkboxes input[type="checkbox"] { margin: 0; }
+
+  .table-rows { display: flex; flex-direction: column; gap: 8px; }
+  .trow { padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); position: relative; }
+  .trow__del { position: absolute; top: 6px; right: 6px; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 2px 6px; }
+  .trow__del:hover { color: var(--bad); }
+  .trow__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .trow input, .trow select { font-size: 12px; padding: 5px 8px; }
+  .trow__add { background: var(--soft); border: 1px dashed var(--line-strong); border-radius: 8px; padding: 8px; cursor: pointer; text-align: center; font-size: 12px; color: var(--muted); }
+  .trow__add:hover { background: var(--bg); color: var(--ink); }
+
+  /* RIGHT: live document */
+  .doc-pane { overflow-y: auto; background: #e8e6df; padding: 30px 16px 60px; }
+  /* ============================================================================
+     DOCUMENT PREVIEW — court-paper styling. Matches Vishnu ji's filings.
+     Font stack: Times New Roman for Latin (digits, statute refs like S.302),
+     Tiro Devanagari Hindi (serif) for Devanagari. Browser picks per character.
+     Falls back to Noto Serif Devanagari, then system serif.
+     IMPORTANT: this is byte-identical to draft-bail.html so the discharge
+     template (which emits the same .bail-doc / .bd-* classes) renders, exports
+     and prints identically to the bail reference.
+     ============================================================================ */
+  .doc-page {
+    background: #fff;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 60px 70px 80px;
+    min-height: 85vh;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06);
+    border-radius: 4px;
+    font-family: 'Times New Roman', 'Tiro Devanagari Hindi', 'Noto Serif Devanagari', Times, serif;
+    line-height: 1.7;
+    color: #000;
+    font-size: 14.5px;
+  }
+
+  /* Document styles — standard Indian court-paper filing format */
+  .bail-doc { font-size: 14.5px; }
+  .bail-doc--hi { /* same fonts — handled by stack at .doc-page */ }
+
+  /* ── Header block ── */
+  .bail-doc .bd-header { text-align: center; margin-bottom: 20px; }
+  .bail-doc .bd-side {
+    text-align: center; font-size: 14px;
+    margin-bottom: 8px; font-weight: 500;
+  }
+  .bail-doc .bd-court {
+    font-size: 16.5px; font-weight: 700;
+    margin: 4px 0 12px;
+    letter-spacing: 0.01em;
+  }
+  .bail-doc .bd-caseno {
+    font-size: 14px;
+    margin-bottom: 6px;
+  }
+
+  /* ── Party block ── */
+  .bail-doc .bd-parties { margin: 26px 0 14px; }
+  .bail-doc .bd-party {
+    display: grid;
+    grid-template-columns: auto 1fr 50%;
+    gap: 6px;
+    margin-bottom: 10px;
+    align-items: start;
+  }
+  .bail-doc .bd-party-label { font-weight: 500; white-space: nowrap; }
+  .bail-doc .bd-party-dots { color: #555; overflow: hidden; white-space: nowrap; }
+  .bail-doc .bd-party-detail { text-align: left; }
+  .bail-doc .bd-versus {
+    text-align: center; font-weight: 700;
+    margin: 10px 0;
+    font-size: 15px;
+  }
+
+  /* ── Application title (centred, bold, underlined) ── */
+  .bail-doc .bd-app-title {
+    text-align: center;
+    text-decoration: underline;
+    font-size: 16px;
+    font-weight: 700;
+    margin: 24px 0 18px;
+    letter-spacing: 0.005em;
+  }
+
+  /* ── Tables ── */
+  .bail-doc .bd-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0;
+    font-size: 13.5px;
+  }
+  .bail-doc .bd-table th,
+  .bail-doc .bd-table td {
+    border: 1.2px solid #000;
+    padding: 7px 9px;
+    text-align: left;
+    vertical-align: top;
+    line-height: 1.55;
+  }
+  .bail-doc .bd-table th {
+    background: #fff;
+    font-weight: 600;
+    text-align: center;
+  }
+
+  /* ── Body text + numbered paragraphs ── */
+  .bail-doc .bd-prelude { margin: 16px 0 10px; text-align: justify; }
+  .bail-doc .bd-paras {
+    padding-left: 0;
+    counter-reset: para;
+    list-style: none;
+  }
+  .bail-doc .bd-paras > li {
+    counter-increment: para;
+    position: relative;
+    padding-left: 36px;
+    margin-bottom: 14px;
+    text-align: justify;
+    line-height: 1.75;
+  }
+  .bail-doc .bd-paras > li::before {
+    content: counter(para) ".";
+    position: absolute;
+    left: 0;
+    font-weight: 700;
+    width: 30px;
+    text-align: right;
+    padding-right: 6px;
+  }
+  /* Manually-labelled sub-points — keep the hanging indent but use a literal
+     label and DON'T advance the main paragraph counter. */
+  .bail-doc .bd-paras > li.bd-li-manual { counter-increment: none; }
+  .bail-doc .bd-paras > li.bd-li-manual::before { content: attr(data-label); }
+  /* Sub-paragraphs (4.1, 4.2, 5.1 etc.) — same hanging-indent pattern */
+  .bail-doc .bd-subparas {
+    padding-left: 0;
+    margin: 10px 0;
+    counter-reset: subpara;
+    list-style: none;
+  }
+  .bail-doc .bd-subparas > li {
+    counter-increment: subpara;
+    position: relative;
+    padding-left: 42px;
+    margin-bottom: 10px;
+    text-align: justify;
+    line-height: 1.7;
+  }
+  .bail-doc .bd-subparas > li::before {
+    content: counters(para, ".") "." counter(subpara);
+    position: absolute;
+    left: 0;
+    font-weight: 700;
+    width: 36px;
+    text-align: right;
+    padding-right: 6px;
+  }
+  .bail-doc .bd-section-label {
+    font-weight: 700;
+    text-decoration: underline;
+    margin: 12px 0 6px;
+  }
+
+  /* ── Prayer + verification + signature ── */
+  .bail-doc .bd-prayer { margin: 24px 0; }
+  .bail-doc .bd-prayer h3 {
+    text-align: center;
+    text-decoration: underline;
+    margin: 10px 0 12px;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .bail-doc .bd-prayer p {
+    text-align: justify;
+    padding-left: 36px;
+    text-indent: -10px;
+    line-height: 1.75;
+  }
+  .bail-doc .bd-sig {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 38px;
+    font-size: 14px;
+  }
+  .bail-doc .bd-sig-right { text-align: center; }
+  .bail-doc .bd-sig-name { margin-top: 8px; }
+  .bail-doc .bd-sig-advocate { margin-top: 14px; }
+  .bail-doc .bd-sig-advname { font-weight: 600; margin-top: 18px; }
+
+  /* Placeholders — pale italic, hint at "fill this in" */
+  .bail-doc .ph { color: #b4afa3; font-style: italic; }
+  .bail-doc .bd-table .ph { font-style: italic; color: #b4afa3; }
+  .bail-doc .xlit { background: #fffbef; padding: 0 2px; border-bottom: 1px dotted #d4b864; }
+
+  /* ── Page break + secondary-page headers ── */
+  .bail-doc .bd-pagebreak {
+    border-top: 1px dashed #c8c1ad;
+    margin: 40px 0 24px;
+    page-break-before: always;
+  }
+  .bail-doc .bd-pagehead { text-align: center; margin-bottom: 22px; }
+  .bail-doc .bd-page-title {
+    margin-top: 12px;
+    font-size: 17px;
+    font-weight: 700;
+    text-decoration: underline;
+    letter-spacing: 0.5px;
+  }
+
+  /* OCR drop zone */
+  .ocr-zone { border: 2px dashed var(--line-strong); border-radius: 10px; padding: 16px; text-align: center; cursor: pointer; background: var(--panel); transition: all 0.15s; }
+  .ocr-zone:hover { border-color: var(--ink); background: var(--soft); }
+  .ocr-zone--busy { pointer-events: none; opacity: 0.7; }
+  .ocr-zone__icon { font-size: 28px; margin-bottom: 6px; }
+  .ocr-zone__title { font-weight: 600; font-size: 13px; margin-bottom: 2px; }
+  .ocr-zone__sub { font-size: 11px; color: var(--muted); }
+  .ocr-zone input { display: none; }
+  .ocr-pages { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .ocr-page { position: relative; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; width: 64px; height: 80px; background: var(--soft); }
+  .ocr-page img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ocr-page__num { position: absolute; top: 2px; left: 2px; background: rgba(0,0,0,0.7); color: #fff; font-size: 10px; padding: 1px 4px; border-radius: 3px; line-height: 1; }
+  .ocr-page__rm { position: absolute; top: 2px; right: 2px; background: rgba(0,0,0,0.7); color: #fff; font-size: 11px; width: 16px; height: 16px; border-radius: 50%; border: none; cursor: pointer; padding: 0; line-height: 1; }
+  .ocr-cta { margin-top: 10px; display: flex; gap: 8px; }
+  .ocr-cta button { flex: 1; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--panel); font-size: 12px; font-weight: 600; cursor: pointer; }
+  .ocr-cta button.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .ocr-cta button:disabled { opacity: 0.4; cursor: not-allowed; }
+  /* =========================================================================
+     Voice input — mic button placed in the bottom-right of long-text fields.
+     ========================================================================= */
+  .voice-field { position: relative; }
+  .voice-mic {
+    position: absolute;
+    right: 6px; bottom: 6px;
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: var(--panel);
+    border: 1px solid var(--line-strong);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+    z-index: 2;
+    padding: 0;
+  }
+  .voice-mic:hover { background: var(--soft); }
+  .voice-mic svg { width: 16px; height: 16px; color: var(--ink); }
+  .voice-mic--rec {
+    background: var(--bad, #c0392b);
+    border-color: var(--bad, #c0392b);
+    animation: voice-pulse 1.4s ease-in-out infinite;
+  }
+  .voice-mic--rec svg { color: #fff; }
+  @keyframes voice-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(192, 57, 43, 0.45); }
+    50%      { box-shadow: 0 0 0 8px rgba(192, 57, 43, 0); }
+  }
+  .voice-mic--proc {
+    background: var(--warn, #c9923a);
+    border-color: var(--warn, #c9923a);
+  }
+  .voice-mic--proc svg { color: #fff; animation: voice-spin 1s linear infinite; }
+  @keyframes voice-spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+  .voice-hint {
+    position: absolute;
+    right: 42px; bottom: 10px;
+    font-size: 10.5px;
+    color: var(--muted);
+    background: var(--panel);
+    padding: 2px 6px;
+    border-radius: 4px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.18s ease;
+    white-space: nowrap;
+  }
+  .voice-field.is-recording .voice-hint { opacity: 1; }
+  .voice-field textarea, .voice-field input { padding-right: 44px; }
+
+  /* Accused chooser shown when FIR has >1 accused */
+  .accused-picker { background: var(--soft); border: 1px solid var(--line-strong); border-radius: 8px; padding: 10px 12px; margin-top: 10px; }
+  .accused-picker__title { font-weight: 600; font-size: 12px; margin-bottom: 6px; }
+  .accused-picker__opt { display: flex; align-items: flex-start; gap: 6px; padding: 6px 0; border-top: 1px dashed var(--line); font-size: 12px; cursor: pointer; }
+  .accused-picker__opt:first-of-type { border-top: none; }
+  .accused-picker__opt input { margin-top: 2px; }
+  .accused-picker__name { font-weight: 600; }
+  .accused-picker__meta { color: var(--muted); font-size: 11px; }
+
+  /* OCR result note */
+  .ocr-note { background: var(--soft); border-left: 3px solid var(--good); padding: 8px 11px; border-radius: 6px; margin-top: 10px; font-size: 12px; }
+  .ocr-note--warn { border-left-color: var(--warn); }
+
+  /* toast */
+  .toast { position: fixed; top: 70px; right: 24px; background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 8px; font-size: 13px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+  .toast--show { opacity: 1; }
+  .toast--err { background: var(--bad); }
+  .toast--ok { background: var(--good); }
+  .toast--warn { background: var(--warn, #c9923a); }
+
+  /* ─── Print-only stylesheet ──────────────────────────────────────────
+     window.print() prints the entire document tree. We aggressively hide
+     every chrome element so only the rendered document remains. A4 + 12mm
+     margins matches the PDF export, so print + download look identical.
+     ─────────────────────────────────────────────────────────────────── */
+  @media print {
+    @page { size: A4 portrait; margin: 12mm 14mm 14mm 14mm; }
+
+    .topbar, .form-pane, .preview-handle, .toast,
+    .ocr-zone, .ocr-cta, .ocr-pages,
+    .lang-toggle, #lang-pill, .modal, .modal-backdrop,
+    .accused-picker, .voice-overlay,
+    button, .btn { display: none !important; }
+
+    html, body {
+      background: #ffffff !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      font-size: 11pt;
+      color: #000 !important;
+    }
+    .split, .doc-pane {
+      display: block !important;
+      grid-template-columns: 1fr !important;
+      background: #ffffff !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      overflow: visible !important;
+    }
+    .doc-page {
+      box-shadow: none !important;
+      border: none !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      max-width: none !important;
+      width: 100% !important;
+      transform: none !important;
+      overflow: visible !important;
+    }
+    .bail-doc {
+      color: #000 !important;
+      background: #ffffff !important;
+      font-size: 11pt !important;
+      line-height: 1.55 !important;
+    }
+    .bail-doc table, .bail-doc .bd-table {
+      page-break-inside: avoid;
+    }
+    .bail-doc .bd-pagebreak {
+      page-break-before: always;
+      border-top: none !important;
+      margin: 0 !important;
+    }
+    .bail-doc .ph { color: #555 !important; font-style: normal !important; }
+    .bail-doc .bd-sig, .bail-doc .bd-prayer { page-break-inside: avoid; }
+  }
+
+  /* Language toggle pill */
+  .lang-toggle { display: inline-flex; background: var(--bg); border: 1px solid var(--line-strong); border-radius: 100px; padding: 3px; font-size: 11px; font-weight: 600; }
+  .lang-toggle button { border: none; background: transparent; padding: 5px 10px; border-radius: 100px; color: var(--muted); cursor: pointer; transition: all 0.18s ease; font-family: inherit; font-size: inherit; font-weight: inherit; }
+  .lang-toggle button.active { background: var(--ink); color: var(--bg); }
+  /* Devanagari font mode */
+  body.lang-hi { font-family: 'Noto Sans Devanagari', 'Inter', sans-serif; }
+  body.lang-hi .field label, body.lang-hi .section__eyebrow, body.lang-hi .section__title { font-family: 'Noto Sans Devanagari', sans-serif; }
+  body.lang-hi .field input, body.lang-hi .field select, body.lang-hi .field textarea, body.lang-hi .trow input, body.lang-hi .trow select { font-family: 'Noto Sans Devanagari', 'Inter', sans-serif; }
+  body.lang-hi .checkboxes label, body.lang-hi .btn, body.lang-hi .topbar__title, body.lang-hi .topbar__sub { font-family: 'Noto Sans Devanagari', sans-serif; }
+</style>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/static/favicon.svg">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar__left">
+    <a href="/app#drafting" class="topbar__back">←</a>
+    <div>
+      <div class="topbar__title">उन्मोचन आवेदन — धारा 239 / 498ए</div>
+      <div class="topbar__sub" id="topbar-sub">draft auto-saves · live preview on the right</div>
+    </div>
+  </div>
+  <div class="topbar__right">
+    <span class="savestate" id="savestate"></span>
+    <div class="lang-toggle" role="group" aria-label="language">
+      <button id="lang-en">EN</button>
+      <button id="lang-hi" class="active">हिं</button>
+    </div>
+    <button class="btn" id="btn-pdf">⬇ PDF</button>
+    <button class="btn" id="btn-print" data-en="🖨 Print" data-hi="🖨 प्रिंट">🖨 प्रिंट</button>
+    <button class="btn" id="btn-edit" data-en="✏️ Edit" data-hi="✏️ संपादन">✏️ संपादन</button>
+    <button class="btn btn--primary" id="btn-share">📱 WhatsApp</button>
+  </div>
+</div>
+
+<div class="split" id="split">
+  <!-- LEFT: form -->
+  <div class="form-pane" id="form-pane">
+
+    <!-- OCR -->
+    <div class="section">
+      <div class="section__eyebrow" data-en="SHORTCUT" data-hi="शॉर्टकट">शॉर्टकट</div>
+      <h3 class="section__title" data-en="Upload charge-sheet / FIR" data-hi="आरोप पत्र / एफ.आई.आर. अपलोड करें">आरोप पत्र / एफ.आई.आर. अपलोड करें</h3>
+      <label class="ocr-zone" id="ocr-zone">
+        <input type="file" id="ocr-file" accept="image/*,application/pdf" multiple>
+        <div class="ocr-zone__icon">📷</div>
+        <div class="ocr-zone__title" id="ocr-title" data-en="आरोप पत्र / एफ.आई.आर. अपलोड करें — Upload charge-sheet / FIR" data-hi="आरोप पत्र / एफ.आई.आर. अपलोड करें — Upload charge-sheet / FIR">आरोप पत्र / एफ.आई.आर. अपलोड करें — Upload charge-sheet / FIR</div>
+        <div class="ocr-zone__sub" id="ocr-sub" data-en="Reads crime no., sections, P.S. + accused names · 1-8 pages · AI reads all together" data-hi="अपराध क्र., धाराएं, थाना + अभियुक्तगण के नाम भरता है · 1-8 पन्ने · AI सभी एक साथ पढ़ेगा">अपराध क्र., धाराएं, थाना + अभियुक्तगण के नाम भरता है · 1-8 पन्ने · AI सभी एक साथ पढ़ेगा</div>
+      </label>
+      <div class="ocr-pages" id="ocr-pages"></div>
+      <div class="ocr-cta" id="ocr-cta" style="display:none;">
+        <button type="button" id="ocr-clear" data-en="Clear" data-hi="हटाएं">हटाएं</button>
+        <button type="button" id="ocr-extract" class="primary" data-en="Extract with AI" data-hi="AI से निकालें">AI से निकालें</button>
+      </div>
+      <div id="ocr-result"></div>
+    </div>
+
+    <!-- 1. Court & Case -->
+    <div class="section">
+      <div class="section__eyebrow" data-en="SECTION 1" data-hi="अनुभाग 1">अनुभाग 1</div>
+      <h3 class="section__title" data-en="Court &amp; Case" data-hi="न्यायालय एवं प्रकरण">न्यायालय एवं प्रकरण</h3>
+      <div class="field">
+        <label data-en="Court" data-hi="न्यायालय">न्यायालय</label>
+        <input type="text" data-field="court_name"
+          data-ph-en="e.g. Court of the JMFC, Gwalior"
+          data-ph-hi="जैसे: न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी, ग्वालियर"
+          placeholder="जैसे: न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी, ग्वालियर">
+      </div>
+      <div class="field field--row">
+        <div class="field">
+          <label data-en="Case No." data-hi="प्रकरण क्रमांक">प्रकरण क्रमांक</label>
+          <input type="text" data-field="case_number" data-ph-en="1878/2021" data-ph-hi="1878/2021" placeholder="1878/2021">
+        </div>
+        <div class="field">
+          <label data-en="Case Type" data-hi="प्रकरण का प्रकार">प्रकरण का प्रकार</label>
+          <input type="text" data-field="case_type" data-ph-en="R.C.T." data-ph-hi="आर.सी.टी." placeholder="आर.सी.टी.">
+        </div>
+      </div>
+      <div class="field">
+        <label data-en="Discharge Section" data-hi="उन्मोचन धारा">उन्मोचन धारा</label>
+        <input type="text" data-field="discharge_section" data-ph-en="239" data-ph-hi="239" placeholder="239">
+        <div class="field__hint" data-en="239 CrPC (warrant case) / 262 BNSS" data-hi="239 द.प्र.सं. (वारंट प्रकरण) / 262 बी.एन.एस.एस.">239 द.प्र.सं. (वारंट प्रकरण) / 262 बी.एन.एस.एस.</div>
+      </div>
+    </div>
+
+    <!-- 2. Parties -->
+    <div class="section">
+      <div class="section__eyebrow" data-en="SECTION 2" data-hi="अनुभाग 2">अनुभाग 2</div>
+      <h3 class="section__title" data-en="Parties" data-hi="पक्षकार">पक्षकार</h3>
+      <div class="field">
+        <label data-en="Applicant(s) / Accused name(s)" data-hi="प्रार्थीगण / अभियुक्तगण के नाम">प्रार्थीगण / अभियुक्तगण के नाम</label>
+        <input type="text" data-field="accused_names" data-ph-en="e.g. Rameshwar Dayal & ors." data-ph-hi="जैसे: रामेश्वर दयाल आदि" placeholder="जैसे: रामेश्वर दयाल आदि">
+        <div class="field__hint" data-en="The accused in the charge-sheet are the discharge applicants." data-hi="आरोप पत्र के अभियुक्तगण ही उन्मोचन आवेदक हैं।">आरोप पत्र के अभियुक्तगण ही उन्मोचन आवेदक हैं।</div>
+      </div>
+      <div class="field">
+        <label data-en="State" data-hi="राज्य">राज्य</label>
+        <input type="text" data-field="state_name" data-ph-en="M.P." data-ph-hi="म.प्र." placeholder="म.प्र.">
+      </div>
+    </div>
+
+    <!-- 3. Offence / FIR -->
+    <div class="section">
+      <div class="section__eyebrow" data-en="SECTION 3" data-hi="अनुभाग 3">अनुभाग 3</div>
+      <h3 class="section__title" data-en="The Offence / FIR" data-hi="अपराध (FIR)">अपराध (FIR)</h3>
+      <div class="field field--row">
+        <div class="field">
+          <label data-en="Police Station" data-hi="पुलिस थाना">पुलिस थाना</label>
+          <input type="text" data-field="police_station" data-ph-en="e.g. Mahila Thana Padav" data-ph-hi="जैसे: महिला थाना पड़ाव, ग्वालियर" placeholder="जैसे: महिला थाना पड़ाव, ग्वालियर">
+        </div>
+        <div class="field">
+          <label data-en="Crime No." data-hi="अपराध क्रमांक">अपराध क्रमांक</label>
+          <input type="text" data-field="crime_number" data-ph-en="240/2021" data-ph-hi="240/2021" placeholder="240/2021">
+        </div>
+      </div>
+      <div class="field">
+        <label data-en="Sections (comma-separated)" data-hi="धाराएं (अल्पविराम से अलग)">धाराएं (अल्पविराम से अलग)</label>
+        <input type="text" data-field="sections_str"
+          data-ph-en="498ए भा.द.वि., 3/4 दहेज प्रतिषेध अधिनियम"
+          data-ph-hi="498ए भा.द.वि., 3/4 दहेज प्रतिषेध अधिनियम"
+          placeholder="498ए भा.द.वि., 3/4 दहेज प्रतिषेध अधिनियम">
+        <div class="field__hint" data-en='e.g. "498ए भा.द.वि., 3/4 दहेज प्रतिषेध अधिनियम"' data-hi='जैसे: "498ए भा.द.वि., 3/4 दहेज प्रतिषेध अधिनियम"'>जैसे: "498ए भा.द.वि., 3/4 दहेज प्रतिषेध अधिनियम"</div>
+      </div>
+      <div class="field">
+        <label data-en="Allegation (leave blank for template default)" data-hi="आरोप (खाली छोड़ें तो टेम्पलेट का पाठ आएगा)">आरोप (खाली छोड़ें तो टेम्पलेट का पाठ आएगा)</label>
+        <textarea data-field="offence_allegation" rows="2"
+          data-ph-en="(optional) what the complainant alleged — leave empty to use the default dowry-harassment phrasing"
+          data-ph-hi="(वैकल्पिक) फरियादी ने क्या आरोप लगाया — खाली छोड़ने पर दहेज-प्रताड़ना का मानक वाक्य आएगा"
+          placeholder="(वैकल्पिक) फरियादी ने क्या आरोप लगाया — खाली छोड़ने पर दहेज-प्रताड़ना का मानक वाक्य आएगा"></textarea>
+      </div>
+    </div>
+
+    <!-- 4. Facts (defence story) -->
+    <div class="section">
+      <div class="section__eyebrow" data-en="SECTION 4" data-hi="अनुभाग 4">अनुभाग 4</div>
+      <h3 class="section__title" data-en="Defence Facts" data-hi="प्रकरण के वास्तविक तथ्य (बचाव)">प्रकरण के वास्तविक तथ्य (बचाव)</h3>
+      <div class="field">
+        <label data-en="Facts narrative — one blank line between paragraphs" data-hi="तथ्य विवरण — पैराग्राफ के बीच एक खाली पंक्ति">तथ्य विवरण — पैराग्राफ के बीच एक खाली पंक्ति</label>
+        <textarea data-field="facts_narrative" rows="8"
+          data-ph-en="The defence story — accused's relation to the complainant, separate residence, co-accused, why falsely implicated… [Upload charge-sheet above to seed this]"
+          data-ph-hi="बचाव की कहानी — आरोपी का फरियादिया से संबंध, पृथक निवास, सहअभियुक्त, झूठा फँसाये जाने का कारण… [ऊपर आरोप पत्र अपलोड करें]"
+          placeholder="बचाव की कहानी — आरोपी का फरियादिया से संबंध, पृथक निवास, सहअभियुक्त, झूठा फँसाये जाने का कारण… [ऊपर आरोप पत्र अपलोड करें]"></textarea>
+        <div class="field__hint" data-en="Each blank-line-separated paragraph becomes its own numbered 'यह कि …' point." data-hi="प्रत्येक खाली-पंक्ति से अलग पैराग्राफ एक अलग क्रमांकित 'यह कि …' बिंदु बनेगा।">प्रत्येक खाली-पंक्ति से अलग पैराग्राफ एक अलग क्रमांकित 'यह कि …' बिंदु बनेगा।</div>
+      </div>
+    </div>
+
+    <!-- 5. Grounds -->
+    <div class="section">
+      <div class="section__eyebrow" data-en="SECTION 5" data-hi="अनुभाग 5">अनुभाग 5</div>
+      <h3 class="section__title" data-en="Grounds" data-hi="आधार">आधार</h3>
+      <div class="checkboxes">
+        <label><input type="checkbox" data-ground="no_dowry_demand" checked> <span data-en="No dowry demand / harassment — falsely implicated out of malice" data-hi="कोई दहेज मांग / प्रताड़ना नहीं — द्वेषवश झूठा फँसाया गया">कोई दहेज मांग / प्रताड़ना नहीं — द्वेषवश झूठा फँसाया गया</span></label>
+        <label><input type="checkbox" data-ground="family_member_principle" checked> <span data-en="Merely a family member — no 498A offence made out (SC/HC precedent)" data-hi="केवल पारिवारिक सदस्य होने से 498ए का अपराध नहीं बनता (SC/HC न्यायदृष्टान्त)">केवल पारिवारिक सदस्य होने से 498ए का अपराध नहीं बनता (SC/HC न्यायदृष्टान्त)</span></label>
+        <label><input type="checkbox" data-ground="no_prima_facie" checked> <span data-en="No prima facie material on record — allegations false &amp; fabricated" data-hi="अभिलेख पर प्रथम दृष्टया कोई साक्ष्य नहीं — आरोप मिथ्या व बनावटी">अभिलेख पर प्रथम दृष्टया कोई साक्ष्य नहीं — आरोप मिथ्या व बनावटी</span></label>
+      </div>
+      <div class="field" style="margin-top:10px;">
+        <label data-en="Custom grounds — one per line" data-hi="अन्य आधार — प्रति पंक्ति एक">अन्य आधार — प्रति पंक्ति एक</label>
+        <textarea data-field="custom_grounds_str" rows="3"
+          data-ph-en="One additional ground per line (Hindi or English)…"
+          data-ph-hi="प्रति पंक्ति एक अतिरिक्त आधार लिखें (हिंदी या अंग्रेज़ी)…"
+          placeholder="प्रति पंक्ति एक अतिरिक्त आधार लिखें (हिंदी या अंग्रेज़ी)…"></textarea>
+        <div class="field__hint" data-en="Each non-empty line becomes its own numbered 'यह कि …' ground." data-hi="प्रत्येक भरी हुई पंक्ति एक अलग क्रमांकित 'यह कि …' आधार बनेगी।">प्रत्येक भरी हुई पंक्ति एक अलग क्रमांकित 'यह कि …' आधार बनेगी।</div>
+      </div>
+    </div>
+
+    <!-- 6. Filing -->
+    <div class="section">
+      <div class="section__eyebrow" data-en="SECTION 6" data-hi="अनुभाग 6">अनुभाग 6</div>
+      <h3 class="section__title" data-en="Filing Details" data-hi="हस्ताक्षर">हस्ताक्षर</h3>
+      <div class="field field--row">
+        <div class="field">
+          <label data-en="Place" data-hi="स्थान">स्थान</label>
+          <input type="text" data-field="place" data-ph-en="City" data-ph-hi="स्थान" placeholder="स्थान">
+        </div>
+        <div class="field">
+          <label data-en="Date" data-hi="दिनांक">दिनांक</label>
+          <input type="text" data-field="filing_date" data-ph-en="DD/MM/YYYY" data-ph-hi="DD/MM/YYYY" placeholder="DD/MM/YYYY">
+        </div>
+      </div>
+      <div class="field">
+        <label data-en="Advocate Name" data-hi="अभिभाषक का नाम">अभिभाषक का नाम</label>
+        <input type="text" data-field="advocate_name"
+          data-ph-en="e.g. Arvind Sharma"
+          data-ph-hi="जैसे: अरविन्द शर्मा"
+          placeholder="जैसे: अरविन्द शर्मा">
+      </div>
+    </div>
+
+  </div><!-- /.form-pane -->
+
+  <!-- RIGHT: live document — mobile shows as a floating bottom sheet -->
+  <div class="doc-pane" id="doc-pane-wrap" data-state="collapsed">
+    <button type="button" class="preview-handle" id="preview-handle" aria-expanded="false">
+      <span class="preview-handle__grip" aria-hidden="true"></span>
+      <span class="preview-handle__label">
+        <span aria-hidden="true">📄</span>
+        <span id="preview-handle-label" data-en="Preview" data-hi="प्रीव्यू">प्रीव्यू</span>
+        <span class="preview-handle__pages" id="preview-handle-pages"></span>
+      </span>
+      <span class="preview-handle__chevron" aria-hidden="true">▲</span>
+    </button>
+    <!-- CRITICAL: id="doc-page" — /api/draft/pdf extracts this element. The
+         render-live HTML (which begins with <div class="bail-doc bail-doc--hi">)
+         is injected INTO this container. -->
+    <div class="doc-page" id="doc-page">
+      <!-- live render goes here -->
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- auth.js provides window.headnoteAuth (getAccessToken / signInInline / ready)
+     used by authHeaders(). Served under /static (the only static mount) — the
+     bare /auth.js path 404s on this deploy, so we load it from /static. -->
+<script src="/static/auth.js?v=20260527a"></script>
+<script>
+// =========================================================================
+// State — `answers` is built to match discharge_239.render_hi() exactly.
+//   top-level keys: court_name, case_number, case_type, discharge_section,
+//   accused_names, state_name, police_station, crime_number, sections (array),
+//   offence_allegation, facts_narrative, grounds (object of 3 bools),
+//   custom_grounds (array), place, filing_date, advocate_name.
+//   (is_plural omitted — render_hi defaults it to true → प्रार्थीगण.)
+//
+// In the FORM we keep two convenience string fields — sections_str and
+// custom_grounds_str — that the user types into; buildAnswers() splits them
+// into the `sections` / `custom_grounds` ARRAYS the template expects. The
+// arrays are what we send to /render-live, /start and PATCH.
+// =========================================================================
+const STORY_ID = 'discharge_239';
+
+const state = {
+  lang: 'hi',
+  // Empty by default so the preview shows the template's dotted placeholders
+  // (we deliberately do NOT prefill the Arvind Sharma sample).
+  answers: {
+    court_name: '',
+    case_number: '',
+    case_type: '',
+    discharge_section: '',
+    accused_names: '',
+    state_name: '',
+    police_station: '',
+    crime_number: '',
+    sections_str: '',
+    offence_allegation: '',
+    facts_narrative: '',
+    grounds: { no_dowry_demand: true, family_member_principle: true, no_prima_facie: true },
+    custom_grounds_str: '',
+    place: '',
+    // dd/mm/yyyy to match the template's date.today().strftime("%d/%m/%Y")
+    filing_date: new Date().toLocaleDateString('en-GB'),
+    advocate_name: '',
+  },
+  draftId: null,
+  saveTimer: null,
+  renderTimer: null,
+  renderSeq: 0,        // guards against out-of-order render-live responses
+  editMode: false,
+  authBlocked: false,  // set once a save hits 401 → stop retrying silently
+};
+
+// Field defaults applied to the FORM INPUTS on first load (so the lawyer sees
+// the common court/case-type/section/state pre-typed). These are real values
+// the user can edit — NOT the Arvind sample. They flow into `answers` via the
+// normal input binding, so the preview reflects them too.
+const FORM_DEFAULTS = {
+  court_name: 'न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी, ग्वालियर',
+  case_type: 'आर.सी.टी.',
+  discharge_section: '239',
+  state_name: 'म.प्र.',
+};
+
+// =========================================================================
+// answers → API payload. Splits the two *_str convenience fields into the
+// arrays the template wants, and assembles the exact object render_hi reads.
+// =========================================================================
+function buildAnswers() {
+  const a = state.answers;
+  const sections = (a.sections_str || '')
+    .split(',').map(s => s.trim()).filter(Boolean);
+  const custom_grounds = (a.custom_grounds_str || '')
+    .split('\n').map(s => s.trim()).filter(Boolean);
+  return {
+    court_name:        a.court_name || '',
+    case_number:       a.case_number || '',
+    case_type:         a.case_type || '',
+    discharge_section: a.discharge_section || '',
+    accused_names:     a.accused_names || '',
+    state_name:        a.state_name || '',
+    police_station:    a.police_station || '',
+    crime_number:      a.crime_number || '',
+    sections:          sections,
+    offence_allegation: a.offence_allegation || '',
+    facts_narrative:   a.facts_narrative || '',
+    grounds: {
+      no_dowry_demand:        !!(a.grounds && a.grounds.no_dowry_demand),
+      family_member_principle: !!(a.grounds && a.grounds.family_member_principle),
+      no_prima_facie:         !!(a.grounds && a.grounds.no_prima_facie),
+    },
+    custom_grounds:    custom_grounds,
+    place:             a.place || '',
+    filing_date:       a.filing_date || '',
+    advocate_name:     a.advocate_name || '',
+  };
+}
+
+// =========================================================================
+// Form bindings
+// =========================================================================
+function bindInputs() {
+  document.querySelectorAll('[data-field]').forEach(input => {
+    const field = input.dataset.field;
+    if (state.answers[field] !== undefined && state.answers[field] !== null && state.answers[field] !== '') {
+      input.value = state.answers[field];
+    }
+    input.addEventListener('input', (e) => {
+      state.answers[field] = e.target.value;
+      onChange();
+    });
+  });
+
+  document.querySelectorAll('[data-ground]').forEach(cb => {
+    const g = cb.dataset.ground;
+    cb.checked = !!(state.answers.grounds && state.answers.grounds[g]);
+    cb.addEventListener('change', (e) => {
+      state.answers.grounds = state.answers.grounds || {};
+      state.answers.grounds[g] = e.target.checked;
+      onChange();
+    });
+  });
+}
+
+function syncUIToState() {
+  document.querySelectorAll('[data-field]').forEach(input => {
+    const v = state.answers[input.dataset.field];
+    if (v !== undefined && v !== null) input.value = v;
+  });
+  document.querySelectorAll('[data-ground]').forEach(cb => {
+    cb.checked = !!(state.answers.grounds && state.answers.grounds[cb.dataset.ground]);
+  });
+}
+
+// =========================================================================
+// Language system — same pattern as the bail drafter.
+// =========================================================================
+function applyLang() {
+  const isHi = state.lang === 'hi';
+  document.body.classList.toggle('lang-hi', isHi);
+  document.querySelectorAll('[data-en]').forEach(el => {
+    const val = el.getAttribute('data-' + state.lang) || el.getAttribute('data-en');
+    if (val !== null) el.textContent = val;
+  });
+  document.querySelectorAll('[data-ph-en]').forEach(el => {
+    const val = el.getAttribute('data-ph-' + state.lang) || el.getAttribute('data-ph-en');
+    if (val !== null) el.placeholder = val;
+  });
+  document.getElementById('lang-en').classList.toggle('active', !isHi);
+  document.getElementById('lang-hi').classList.toggle('active', isHi);
+}
+
+// =========================================================================
+// Auth helpers — copied from the bail drafter.
+// =========================================================================
+async function authHeaders() {
+  if (window.headnoteAuth && typeof window.headnoteAuth.getAccessToken === 'function') {
+    try {
+      const token = await window.headnoteAuth.getAccessToken();
+      if (token) return { 'Authorization': `Bearer ${token}` };
+    } catch (e) {}
+  }
+  // Some auth.js builds expose a bare authHeaders() — fall back to it.
+  if (typeof window.authHeaders === 'function' && window.authHeaders !== authHeaders) {
+    try {
+      const h = await window.authHeaders();
+      if (h && h.Authorization) return h;
+    } catch (e) {}
+  }
+  return {};
+}
+
+// Convert any backend error shape into a readable string.
+function _extractErrorMessage(err) {
+  if (!err) return '';
+  if (typeof err === 'string') return err;
+  const d = err.detail;
+  if (typeof d === 'string') return d;
+  if (Array.isArray(d)) return d.map(e => (e && (e.msg || e.message)) || JSON.stringify(e)).join('; ');
+  if (d && typeof d === 'object') {
+    if (typeof d.message === 'string' && d.message) return d.message;
+    return JSON.stringify(d);
+  }
+  if (typeof err.error === 'string') return err.error;
+  if (typeof err.message === 'string') return err.message;
+  try { return JSON.stringify(err); } catch { return String(err); }
+}
+
+// 401 on an AI/OCR call → show the inline sign-in modal (never redirect).
+async function handleAuthError(status) {
+  if (status !== 401) return false;
+  if (window.headnoteAuth && window.headnoteAuth.ready) {
+    try { await window.headnoteAuth.ready(); } catch {}
+  }
+  const uid = window.headnoteAuth && window.headnoteAuth.userId && window.headnoteAuth.userId();
+  const isHi = state.lang === 'hi';
+  if (uid) {
+    toast(isHi ? 'सर्वर समस्या — पुनः प्रयास करें' : 'Server hiccup — try again', 'err');
+  } else {
+    showInlineSignInModal();
+  }
+  return true;
+}
+
+function showInlineSignInModal() {
+  if (document.getElementById('inline-signin')) return;
+  const isHi = state.lang === 'hi';
+  const m = document.createElement('div');
+  m.id = 'inline-signin';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(20,20,28,0.78);backdrop-filter:blur(8px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  m.innerHTML = `
+    <div style="background:#fff;border-radius:14px;padding:28px;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+      <div style="font-size:22px;font-weight:700;margin-bottom:8px;color:#1a1a1a">
+        ${isHi ? 'साइन-इन करें' : 'Sign in to continue'}
+      </div>
+      <div style="font-size:14px;color:#666;margin-bottom:22px;line-height:1.5">
+        ${isHi
+          ? 'AI सुविधाओं का उपयोग करने के लिए Google से साइन-इन करें। आपका भरा हुआ डेटा सुरक्षित रहेगा।'
+          : 'Sign in with Google to use AI features. Your filled-in data is safe — you\'ll be returned to this exact page.'}
+      </div>
+      <button id="inline-signin-btn" style="width:100%;background:#fff;border:1px solid #dadce0;border-radius:8px;padding:12px;font-size:15px;font-weight:500;color:#3c4043;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px">
+        <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        ${isHi ? 'Google से साइन-इन करें' : 'Sign in with Google'}
+      </button>
+      <button id="inline-signin-close" style="width:100%;background:transparent;border:none;padding:10px;font-size:13px;color:#888;cursor:pointer;margin-top:10px">
+        ${isHi ? 'बाद में' : 'Maybe later'}
+      </button>
+    </div>
+  `;
+  document.body.appendChild(m);
+  document.getElementById('inline-signin-btn').onclick = async () => {
+    document.getElementById('inline-signin-btn').textContent = isHi ? 'खुल रहा है…' : 'Opening Google…';
+    if (window.headnoteAuth && window.headnoteAuth.signInInline) {
+      await window.headnoteAuth.signInInline();
+    } else {
+      window.location.href = '/app#drafting';
+    }
+  };
+  document.getElementById('inline-signin-close').onclick = () => m.remove();
+}
+
+// =========================================================================
+// Live preview — server render via POST /api/draft/render-live.
+// Debounced ~400ms. The returned html already opens with
+// <div class="bail-doc bail-doc--hi"> and is injected INTO #doc-page.
+// A sequence guard discards stale responses if edits arrive faster than
+// the server replies. No auth header needed for render-live.
+// =========================================================================
+function scheduleRender() {
+  if (state.editMode) return;  // don't clobber manual edits
+  if (state.renderTimer) clearTimeout(state.renderTimer);
+  state.renderTimer = setTimeout(renderLive, 400);
+}
+
+async function renderLive() {
+  if (state.editMode) return;
+  const seq = ++state.renderSeq;
+  try {
+    const r = await fetch('/api/draft/render-live', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ story_id: STORY_ID, answers: buildAnswers(), lang: state.lang }),
+    });
+    if (!r.ok) return;
+    const data = await r.json();
+    if (seq !== state.renderSeq) return;          // a newer render already ran
+    if (data && data.ok && typeof data.html === 'string') {
+      document.getElementById('doc-page').innerHTML = data.html;
+      updatePreviewPageCount();
+    }
+  } catch (e) {
+    // Network hiccup — leave the last good render in place.
+  }
+}
+
+// =========================================================================
+// Auto-save + change loop
+// =========================================================================
+function onChange() {
+  scheduleRender();
+  scheduleSave();
+}
+
+function scheduleSave() {
+  if (state.authBlocked) return;        // not signed in — stop trying silently
+  if (state.saveTimer) clearTimeout(state.saveTimer);
+  document.getElementById('savestate').textContent = state.lang === 'hi' ? 'सहेजा जा रहा…' : 'saving…';
+  state.saveTimer = setTimeout(saveDraft, 1500);
+}
+
+function _draftTitle() {
+  const who = (state.answers.accused_names || '').trim();
+  return who ? `Discharge §239 — ${who}` : 'Discharge Application (§239)';
+}
+
+async function saveDraft() {
+  if (state.authBlocked) return;
+  try {
+    const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
+    if (!state.draftId) {
+      const r = await fetch('/api/draft/start', {
+        method: 'POST', headers,
+        body: JSON.stringify({
+          story_id: STORY_ID, lang: state.lang,
+          answers: buildAnswers(),
+          title: _draftTitle(),
+        }),
+      });
+      if (r.ok) {
+        const d = await r.json();
+        state.draftId = d.id;
+        history.replaceState(null, '', `/draft/discharge?id=${d.id}`);
+      } else if (r.status === 401) {
+        // Not logged in on prod — stop trying, but never block editing.
+        state.authBlocked = true;
+        document.getElementById('savestate').textContent = state.lang === 'hi' ? 'सहेजने हेतु साइन-इन करें' : 'sign in to save';
+        return;
+      } else {
+        document.getElementById('savestate').textContent = state.lang === 'hi' ? 'सहेजना विफल' : 'save failed';
+        return;
+      }
+    } else {
+      const r = await fetch(`/api/draft/${state.draftId}`, {
+        method: 'PATCH', headers,
+        body: JSON.stringify({
+          answers: buildAnswers(), lang: state.lang,
+          title: _draftTitle(),
+        }),
+      });
+      if (r.status === 401) { state.authBlocked = true; return; }
+    }
+    const now = new Date();
+    document.getElementById('savestate').textContent =
+      (state.lang === 'hi' ? 'सहेजा गया ✓ · ' : 'Saved ✓ · ') +
+      `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+  } catch (e) {
+    document.getElementById('savestate').textContent = state.lang === 'hi' ? 'सहेजना विफल' : 'save failed';
+  }
+}
+
+// =========================================================================
+// Voice input — per-field mic (Web Speech API primary, MediaRecorder →
+// /api/draft/transcribe fallback). Wired onto facts_narrative.
+// =========================================================================
+const VOICE_HAS_NATIVE = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+const VOICE_HAS_RECORDER = !!(window.MediaRecorder && navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+const _voiceState = new WeakMap();
+
+function _voiceLangCode() { return state.lang === 'en' ? 'en-IN' : 'hi-IN'; }
+function _whisperLang() { return state.lang === 'en' ? 'en' : 'hi'; }
+
+function _appendToField(field, text) {
+  if (!text) return;
+  const cur = (field.value || '').trim();
+  const sep = cur && !cur.match(/[\s।.,?!\-]$/) ? ' ' : '';
+  field.value = cur + sep + text;
+  field.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function _voiceStartNative(field, ctx) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const rec = new SR();
+  rec.lang = _voiceLangCode();
+  rec.continuous = true;
+  rec.interimResults = false;
+  rec.maxAlternatives = 1;
+  rec.onresult = (e) => {
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) {
+        const t = (e.results[i][0].transcript || '').trim();
+        if (t) _appendToField(field, t);
+      }
+    }
+  };
+  rec.onerror = (e) => {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      toast(state.lang === 'hi' ? 'माइक की अनुमति दें' : 'Allow microphone access', 'err');
+    } else if (e.error === 'no-speech') {
+      return;
+    } else {
+      toast('voice error: ' + e.error, 'err');
+    }
+    _voiceStop(field);
+  };
+  rec.onend = () => {
+    const ctx2 = _voiceState.get(field);
+    if (ctx2 && ctx2.active) {
+      try { rec.start(); } catch (_) { _voiceStop(field); }
+    }
+  };
+  ctx.recognition = rec;
+  rec.start();
+}
+
+async function _voiceStartRecorder(field, ctx) {
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    toast(state.lang === 'hi' ? 'माइक की अनुमति दें' : 'Allow microphone access', 'err');
+    _voiceStop(field);
+    return;
+  }
+  ctx.stream = stream;
+  const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg']
+    .find(m => MediaRecorder.isTypeSupported(m)) || '';
+  const recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+  ctx.recorder = recorder;
+  ctx.chunks = [];
+  recorder.ondataavailable = (e) => { if (e.data && e.data.size) ctx.chunks.push(e.data); };
+  recorder.onstop = async () => {
+    stream.getTracks().forEach(t => t.stop());
+    const blob = new Blob(ctx.chunks, { type: recorder.mimeType || 'audio/webm' });
+    if (!blob.size) return;
+    ctx.btn.classList.remove('voice-mic--rec');
+    ctx.btn.classList.add('voice-mic--proc');
+    try {
+      const fd = new FormData();
+      fd.append('file', blob, 'voice.webm');
+      const headers = await authHeaders();
+      const r = await fetch('/api/draft/transcribe?language=' + _whisperLang(), {
+        method: 'POST', headers, body: fd,
+      });
+      if (await handleAuthError(r.status)) return;
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(_extractErrorMessage(err) || `HTTP ${r.status}`);
+      }
+      const data = await r.json();
+      if (data.text) _appendToField(field, data.text);
+    } catch (e) {
+      toast('transcription failed: ' + (e.message || 'unknown'), 'err');
+    } finally {
+      ctx.btn.classList.remove('voice-mic--proc');
+    }
+  };
+  recorder.start();
+}
+
+function _voiceStop(field) {
+  const ctx = _voiceState.get(field);
+  if (!ctx) return;
+  ctx.active = false;
+  ctx.wrap.classList.remove('is-recording');
+  ctx.btn.classList.remove('voice-mic--rec');
+  ctx.btn.setAttribute('aria-pressed', 'false');
+  if (ctx.recognition) {
+    try { ctx.recognition.stop(); } catch (_) {}
+    ctx.recognition = null;
+  }
+  if (ctx.recorder && ctx.recorder.state !== 'inactive') {
+    try { ctx.recorder.stop(); } catch (_) {}
+  }
+}
+
+function _voiceStart(field) {
+  const ctx = _voiceState.get(field);
+  if (!ctx) return;
+  ctx.active = true;
+  ctx.wrap.classList.add('is-recording');
+  ctx.btn.classList.add('voice-mic--rec');
+  ctx.btn.setAttribute('aria-pressed', 'true');
+  if (VOICE_HAS_NATIVE) {
+    _voiceStartNative(field, ctx);
+  } else if (VOICE_HAS_RECORDER) {
+    _voiceStartRecorder(field, ctx);
+  } else {
+    toast('voice input not supported in this browser', 'err');
+    _voiceStop(field);
+  }
+}
+
+function _voiceToggle(field) {
+  const ctx = _voiceState.get(field);
+  if (!ctx) return;
+  if (ctx.active) _voiceStop(field);
+  else _voiceStart(field);
+}
+
+function attachVoice(fieldId) {
+  const field = document.getElementById(fieldId) ||
+                document.querySelector(`[data-field="${fieldId}"]`);
+  if (!field) return;
+  if (_voiceState.has(field)) return;
+  if (!VOICE_HAS_NATIVE && !VOICE_HAS_RECORDER) return;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'voice-field';
+  field.parentNode.insertBefore(wrap, field);
+  wrap.appendChild(field);
+
+  const hint = document.createElement('div');
+  hint.className = 'voice-hint';
+  hint.textContent = state.lang === 'hi' ? 'सुन रहा हूँ…' : 'listening…';
+  wrap.appendChild(hint);
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'voice-mic';
+  btn.setAttribute('aria-label', state.lang === 'hi' ? 'आवाज़ से लिखें' : 'Dictate with voice');
+  btn.setAttribute('aria-pressed', 'false');
+  btn.innerHTML = `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+      <line x1="12" y1="19" x2="12" y2="23"/>
+      <line x1="8" y1="23" x2="16" y2="23"/>
+    </svg>`;
+  wrap.appendChild(btn);
+
+  _voiceState.set(field, { active: false, btn, hint, wrap, recognition: null, recorder: null, stream: null, chunks: [] });
+  btn.addEventListener('click', (e) => { e.preventDefault(); _voiceToggle(field); });
+  document.addEventListener('headnote-lang-change', () => {
+    hint.textContent = state.lang === 'hi' ? 'सुन रहा हूँ…' : 'listening…';
+    btn.setAttribute('aria-label', state.lang === 'hi' ? 'आवाज़ से लिखें' : 'Dictate with voice');
+    const ctx = _voiceState.get(field);
+    if (ctx && ctx.active && ctx.recognition) {
+      try { ctx.recognition.stop(); } catch (_) {}
+      setTimeout(() => { if (_voiceState.get(field).active) _voiceStartNative(field, ctx); }, 80);
+    }
+  });
+}
+
+function wireVoiceFields() {
+  ['facts_narrative'].forEach(attachVoice);
+}
+
+// =========================================================================
+// OCR — multi-page charge-sheet / FIR upload → /api/draft/ocr-fir.
+// The FIR's accused become the discharge applicants. We map:
+//   crime_number   ← fir_number_full / fir_number
+//   sections       ← sections[] (joined into the comma string)
+//   police_station ← police_station
+//   accused_names  ← accused_details[*].name (joined)
+//   facts_narrative← narrative_hi/en — ONLY if facts_narrative is still empty
+// =========================================================================
+const ocrState = { files: [] };
+
+const ocrFileInput = document.getElementById('ocr-file');
+const ocrPagesEl   = document.getElementById('ocr-pages');
+const ocrCtaEl     = document.getElementById('ocr-cta');
+const ocrZone      = document.getElementById('ocr-zone');
+const ocrTitle     = document.getElementById('ocr-title');
+const ocrSub       = document.getElementById('ocr-sub');
+const ocrResultEl  = document.getElementById('ocr-result');
+
+ocrFileInput.addEventListener('change', (e) => {
+  const newFiles = Array.from(e.target.files || []);
+  const room = 8 - ocrState.files.length;
+  ocrState.files.push(...newFiles.slice(0, room));
+  e.target.value = '';
+  renderOcrPages();
+});
+
+document.getElementById('ocr-clear').addEventListener('click', () => {
+  ocrState.files = [];
+  renderOcrPages();
+  resetOcrZoneText();
+});
+
+document.getElementById('ocr-extract').addEventListener('click', runOcr);
+
+function renderOcrPages() {
+  ocrPagesEl.innerHTML = '';
+  ocrState.files.forEach((file, idx) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'ocr-page';
+    wrap.title = file.name;
+    if (file.type.startsWith('image/')) {
+      const img = document.createElement('img');
+      img.src = URL.createObjectURL(file);
+      wrap.appendChild(img);
+    } else {
+      const phd = document.createElement('div');
+      phd.style.cssText = 'display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:11px;color:var(--muted);';
+      phd.textContent = 'PDF';
+      wrap.appendChild(phd);
+    }
+    const num = document.createElement('div');
+    num.className = 'ocr-page__num';
+    num.textContent = idx + 1;
+    wrap.appendChild(num);
+    const rm = document.createElement('button');
+    rm.className = 'ocr-page__rm';
+    rm.type = 'button';
+    rm.textContent = '×';
+    rm.onclick = () => { ocrState.files.splice(idx, 1); renderOcrPages(); };
+    wrap.appendChild(rm);
+    ocrPagesEl.appendChild(wrap);
+  });
+  ocrCtaEl.style.display = ocrState.files.length ? 'flex' : 'none';
+}
+
+function resetOcrZoneText() {
+  const isHi = state.lang === 'hi';
+  ocrTitle.textContent = isHi ? 'आरोप पत्र / एफ.आई.आर. अपलोड करें — Upload charge-sheet / FIR' : 'आरोप पत्र / एफ.आई.आर. अपलोड करें — Upload charge-sheet / FIR';
+  ocrSub.textContent   = isHi ? 'अपराध क्र., धाराएं, थाना + अभियुक्तगण के नाम भरता है · 1-8 पन्ने · AI सभी एक साथ पढ़ेगा' : 'Reads crime no., sections, P.S. + accused names · 1-8 pages · AI reads all together';
+}
+
+function countFilled(o) {
+  if (!o) return 0;
+  let n = 0;
+  for (const v of Object.values(o)) {
+    if (v == null) continue;
+    if (typeof v === 'string' && v.trim()) n++;
+    else if (Array.isArray(v) && v.length) n++;
+    else if (typeof v === 'object' && Object.keys(v).length) n++;
+    else if (typeof v === 'number') n++;
+  }
+  return n;
+}
+
+async function runOcr() {
+  if (!ocrState.files.length) return;
+  const isHi = state.lang === 'hi';
+  ocrZone.classList.add('ocr-zone--busy');
+  const pageCount = ocrState.files.length;
+  ocrTitle.textContent = isHi ? `${pageCount} पन्ने पढ़े जा रहे हैं…` : `Reading ${pageCount} page${pageCount > 1 ? 's' : ''}…`;
+  ocrSub.textContent   = isHi ? '6-12 सेकंड लगेंगे' : 'this takes 6-12 seconds';
+
+  try {
+    const fd = new FormData();
+    ocrState.files.forEach(f => fd.append('files', f));
+    const headers = await authHeaders();
+    const r = await fetch('/api/draft/ocr-fir', { method: 'POST', headers, body: fd });
+    if (await handleAuthError(r.status)) return;
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      console.error('[ocr] server error', r.status, err);
+      throw new Error(_extractErrorMessage(err) || `HTTP ${r.status}`);
+    }
+    const data = await r.json();
+    const ext = data.extracted || {};
+    const conf = ext.confidence || 'unknown';
+
+    const filled = applyOcrResult(ext);
+
+    ocrTitle.textContent = isHi ? `✓ ${pageCount} पन्ने पढ़े गए (विश्वसनीयता: ${conf})` : `✓ ${pageCount} page${pageCount > 1 ? 's' : ''} extracted (confidence: ${conf})`;
+    ocrSub.textContent   = isHi ? 'फ़ील्ड भरी गईं — जाँचें और संपादित करें' : 'fields auto-filled — review and edit as needed';
+    ocrResultEl.innerHTML = `<div class="ocr-note">✓ ${filled} ${isHi ? 'फ़ील्ड स्वतः भरीं — कृपया जाँचें' : 'fields auto-filled — please review'}</div>`;
+    toast(isHi ? `${filled} फ़ील्ड भरीं` : `Auto-filled ${filled} fields`, 'ok');
+    if (ext.notes) {
+      ocrResultEl.innerHTML += `<div class="ocr-note ocr-note--warn">${isHi ? 'टिप्पणी: ' : 'Note: '}${esc(ext.notes)}</div>`;
+    }
+  } catch (err) {
+    ocrTitle.textContent = isHi ? '✗ OCR विफल' : '✗ OCR failed';
+    ocrSub.textContent   = err.message || (isHi ? 'स्पष्ट फोटो लें और पुनः प्रयास करें' : 'try a clearer photo');
+    toast('OCR failed: ' + (err.message || 'unknown error'), 'err');
+  } finally {
+    ocrZone.classList.remove('ocr-zone--busy');
+  }
+}
+
+// Map the ocr-fir `extracted` object onto the discharge fields. The FIR's
+// accused become the discharge APPLICANTS. Returns the count of fields filled.
+function applyOcrResult(o) {
+  if (!o) return 0;
+  const ans = state.answers;
+  let filled = 0;
+  // OCR is authoritative — it REPLACES typed values (same policy as bail),
+  // except facts_narrative which we only SEED if the lawyer hasn't written it.
+  const set = (k, v) => { if (v != null && String(v).trim()) { ans[k] = String(v); filled++; } };
+
+  // crime_number ← fir_number_full / fir_number
+  set('crime_number', o.fir_number_full || o.fir_number);
+  // police_station
+  set('police_station', o.police_station);
+  // state_name (FIR uses `state`)
+  set('state_name', o.state);
+
+  // sections[] → comma string the form input holds (template will re-split).
+  if (Array.isArray(o.sections) && o.sections.length) {
+    ans.sections_str = o.sections.join(', ');
+    filled++;
+  }
+
+  // accused_names ← all named accused (they are the discharge applicants).
+  const accList = Array.isArray(o.accused_details) ? o.accused_details : [];
+  const names = accList.map(a => (a && a.name ? String(a.name).trim() : '')).filter(Boolean);
+  if (names.length) {
+    ans.accused_names = names.join(', ');
+    filled++;
+  }
+
+  // facts_narrative — SEED from the FIR narrative ONLY if still empty, so we
+  // never overwrite the lawyer's defence story. Prefer the current language.
+  if (!(ans.facts_narrative && ans.facts_narrative.trim())) {
+    const narrHi = o.narrative_hi || '';
+    const narrEn = o.narrative_en || '';
+    const narrFallback = o.narrative || o.narrative_raw || '';
+    const seeded = (state.lang === 'hi')
+      ? (narrHi || narrFallback || narrEn)
+      : (narrEn || narrFallback || narrHi);
+    if (seeded) { ans.facts_narrative = seeded; filled++; }
+  }
+
+  syncUIToState();
+  onChange();
+  return filled;
+}
+
+// =========================================================================
+// PDF / Print / Share — server-rendered (WeasyPrint). Mirrors the bail page:
+// serialise every <style> + the populated #doc-page, POST /api/draft/pdf,
+// download the returned blob. The same blob powers download AND WhatsApp.
+// =========================================================================
+function _exportHtml() {
+  const docEl = document.getElementById('doc-page');
+  if (!docEl) throw new Error('Document not ready');
+  const styles = Array.from(document.querySelectorAll('style'))
+    .map(s => s.textContent).join('\n');
+  return '<!doctype html><html><head><meta charset="utf-8"><style>'
+    + styles + '</style></head><body class="' + document.body.className
+    + '">' + docEl.outerHTML + '</body></html>';
+}
+
+function _pdfBaseName() {
+  const name = (state.answers.accused_names || 'draft').replace(/[,\s]+/g, '-').replace(/[^A-Za-z0-9._-]+/g, '');
+  const date = new Date().toISOString().slice(0, 10);
+  return `discharge-239-${name || 'draft'}-${date}`;
+}
+
+async function _fetchPdfBlob() {
+  const base = _pdfBaseName();
+  const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
+  const r = await fetch('/api/draft/pdf', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ html: _exportHtml(), filename: base }),
+  });
+  if (!r.ok) {
+    if (await handleAuthError(r.status)) throw new Error('sign in to download');
+    let detail = '';
+    try { detail = (await r.json()).detail || ''; } catch (_) {}
+    throw new Error(detail || ('server error ' + r.status));
+  }
+  const blob = await r.blob();
+  return { blob, filename: base + '.pdf' };
+}
+
+document.getElementById('btn-pdf').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-pdf');
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ Generating…';
+  toast('Generating PDF…', 'ok');
+  try {
+    const { blob, filename } = await _fetchPdfBlob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    toast('Saved · check your Downloads folder', 'ok');
+  } catch (e) {
+    console.error(e);
+    toast('PDF generation failed — ' + (e.message || 'try again'), 'err');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = orig;
+  }
+});
+
+document.getElementById('btn-print').addEventListener('click', () => {
+  toast('Opening print dialog…', 'ok');
+  requestAnimationFrame(() => window.print());
+});
+
+// Direct in-document editing. ON → #doc-page is contentEditable and the
+// render-live loop freezes (state.editMode) so edits survive; PDF / print /
+// WhatsApp all read the current #doc-page. OFF → rebuild from the form.
+document.getElementById('btn-edit').addEventListener('click', () => {
+  const docEl = document.getElementById('doc-page');
+  const btn = document.getElementById('btn-edit');
+  const isHi = state.lang === 'hi';
+  if (!state.editMode) {
+    state.editMode = true;
+    docEl.setAttribute('contenteditable', 'true');
+    docEl.style.outline = '2px dashed #b8860b';
+    docEl.style.outlineOffset = '6px';
+    docEl.focus();
+    btn.classList.add('btn--primary');
+    btn.textContent = isHi ? '✓ पूर्ण' : '✓ Done';
+    toast(isHi ? 'दस्तावेज़ में सीधे टाइप करें — आपके बदलाव डाउनलोड/प्रिंट में आएंगे' : 'Type directly in the document — edits flow into download/print', 'ok');
+  } else {
+    const ok = confirm(isHi
+      ? 'फॉर्म मोड पर लौटें? दस्तावेज़ फिर फॉर्म से बनेगा और सीधे किए गए बदलाव हट जाएंगे।'
+      : 'Return to form mode? The document rebuilds from your form fields and direct edits will be lost.');
+    if (!ok) return;
+    state.editMode = false;
+    docEl.removeAttribute('contenteditable');
+    docEl.style.outline = '';
+    docEl.style.outlineOffset = '';
+    btn.classList.remove('btn--primary');
+    btn.textContent = isHi ? '✏️ संपादन' : '✏️ Edit';
+    renderLive();
+  }
+});
+
+document.getElementById('btn-share').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-share');
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ Preparing…';
+  toast('Preparing PDF for WhatsApp…', 'ok');
+  let blob, filename;
+  try {
+    ({ blob, filename } = await _fetchPdfBlob());
+  } catch (e) {
+    btn.disabled = false; btn.textContent = orig;
+    toast('PDF generation failed — ' + (e.message || 'try again'), 'err');
+    return;
+  }
+  const file = new File([blob], filename, { type: 'application/pdf' });
+  const who = state.answers.accused_names || 'Draft';
+  const shareData = {
+    files: [file],
+    title: filename,
+    text: `Discharge Application (§239) — ${who} — prepared via Headnote`,
+  };
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share(shareData);
+      toast('Shared ✓', 'ok');
+    } catch (e) {
+      if (e.name !== 'AbortError') {
+        console.error(e);
+        toast('Share dialog failed — saving to Downloads instead', 'warn');
+        _downloadAndOpenWhatsApp(blob, filename);
+      }
+    }
+  } else {
+    _downloadAndOpenWhatsApp(blob, filename);
+  }
+  btn.disabled = false;
+  btn.textContent = orig;
+});
+
+function _downloadAndOpenWhatsApp(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+  const who = state.answers.accused_names || 'Draft';
+  const msg = `Discharge Application (§239) — ${who} — prepared via Headnote`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+  toast('PDF downloaded — drag it into WhatsApp Web', 'ok');
+}
+
+// =========================================================================
+// Language toggle. On switch we re-render (server) in the new language; prose
+// fields stay as typed (the discharge facts are case-specific Hindi prose —
+// no field translation round-trip, matching the template's Hindi-first focus).
+// =========================================================================
+function switchLang(newLang) {
+  if (state.lang === newLang) return;
+  state.lang = newLang;
+  applyLang();
+  renderLive();
+  scheduleSave();
+  document.dispatchEvent(new CustomEvent('headnote-lang-change', { detail: { lang: newLang } }));
+}
+document.getElementById('lang-en').addEventListener('click', () => switchLang('en'));
+document.getElementById('lang-hi').addEventListener('click', () => switchLang('hi'));
+
+// =========================================================================
+// Mobile preview sheet — three-state pull-up (collapsed / half / full).
+// =========================================================================
+const PREVIEW_STATES = ['collapsed', 'half', 'full'];
+function cyclePreviewSheet() {
+  const wrap = document.getElementById('doc-pane-wrap');
+  if (!wrap) return;
+  const cur = wrap.dataset.state || 'collapsed';
+  const next = PREVIEW_STATES[(PREVIEW_STATES.indexOf(cur) + 1) % PREVIEW_STATES.length];
+  setPreviewSheet(next);
+}
+function setPreviewSheet(s) {
+  const wrap = document.getElementById('doc-pane-wrap');
+  if (!wrap) return;
+  wrap.dataset.state = s;
+  const handle = document.getElementById('preview-handle');
+  if (handle) handle.setAttribute('aria-expanded', s !== 'collapsed');
+  if (s !== 'collapsed') {
+    const body = wrap.querySelector('.doc-page');
+    if (body) body.scrollTop = 0;
+  }
+}
+document.getElementById('preview-handle')?.addEventListener('click', cyclePreviewSheet);
+document.addEventListener('click', (e) => {
+  const wrap = document.getElementById('doc-pane-wrap');
+  if (!wrap) return;
+  if (wrap.dataset.state === 'collapsed') return;
+  if (wrap.contains(e.target)) return;
+  if (window.matchMedia('(max-width: 880px)').matches) {
+    setPreviewSheet('collapsed');
+  }
+});
+
+function updatePreviewPageCount() {
+  const handle = document.getElementById('preview-handle-pages');
+  if (!handle) return;
+  const docPage = document.getElementById('doc-page');
+  if (!docPage) return;
+  const pages = Math.max(1, Math.ceil(docPage.scrollHeight / 800));
+  handle.textContent = pages > 1
+    ? (state.lang === 'hi' ? ` · ${pages} पन्ने` : ` · ${pages} pages`)
+    : '';
+}
+
+// =========================================================================
+// Small helpers + toast
+// =========================================================================
+function esc(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function toast(msg, kind) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast toast--show toast--' + (kind || 'ok');
+  setTimeout(() => t.classList.remove('toast--show'), 2400);
+}
+
+// =========================================================================
+// Load existing draft if ?id= in URL
+// =========================================================================
+async function maybeLoadExisting() {
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get('id');
+  if (!id) return;
+  try {
+    const headers = await authHeaders();
+    const r = await fetch(`/api/draft/${id}`, { headers });
+    if (!r.ok) return;
+    const d = await r.json();
+    state.draftId = d.id;
+    if (d.lang === 'en' || d.lang === 'hi') state.lang = d.lang;
+    if (d.answers) {
+      Object.assign(state.answers, d.answers);
+      // Restore the two convenience string fields from the saved arrays.
+      if (Array.isArray(d.answers.sections)) {
+        state.answers.sections_str = d.answers.sections.join(', ');
+      }
+      if (Array.isArray(d.answers.custom_grounds)) {
+        state.answers.custom_grounds_str = d.answers.custom_grounds.join('\n');
+      }
+      // Make sure grounds is an object of the 3 expected bools.
+      const g = d.answers.grounds || {};
+      state.answers.grounds = {
+        no_dowry_demand:        g.no_dowry_demand !== undefined ? !!g.no_dowry_demand : true,
+        family_member_principle: g.family_member_principle !== undefined ? !!g.family_member_principle : true,
+        no_prima_facie:         g.no_prima_facie !== undefined ? !!g.no_prima_facie : true,
+      };
+    }
+    syncUIToState();
+  } catch (e) {}
+}
+
+// Pre-fill advocate / court from the saved bar profile — only fills GAPS,
+// never overwrites a typed/loaded value.
+async function prefillFromPersona() {
+  try {
+    const headers = await authHeaders();
+    if (!headers.Authorization) return;
+    const r = await fetch('/api/lawyer-profile', { headers });
+    if (!r.ok) return;
+    const p = await r.json();
+    const map = { advocate_name: p.advocate_name, court_name: p.home_court };
+    Object.entries(map).forEach(([key, val]) => {
+      if (!val) return;
+      if (state.answers[key] && String(state.answers[key]).trim()) return;
+      state.answers[key] = val;
+      const input = document.querySelector(`[data-field="${key}"]`);
+      if (input) input.value = val;
+    });
+  } catch (e) {}
+}
+
+// Apply the form defaults — only into empty fields, before binding/render.
+function applyFormDefaults() {
+  Object.entries(FORM_DEFAULTS).forEach(([k, v]) => {
+    if (!state.answers[k] || !String(state.answers[k]).trim()) {
+      state.answers[k] = v;
+    }
+  });
+}
+
+// =========================================================================
+// Boot
+// =========================================================================
+(async function init() {
+  await maybeLoadExisting();   // restores answers + draftId + lang if ?id=
+  applyFormDefaults();          // fills empty court/case-type/section/state
+  bindInputs();
+  applyLang();
+  await prefillFromPersona();   // fills advocate/court gaps from bar profile
+  syncUIToState();
+  renderLive();                 // first server render
+  wireVoiceFields();            // mic on facts_narrative (no-op if unsupported)
+})();
+</script>
+</body>
+</html>

@@ -143,6 +143,17 @@ STORIES: dict[str, Story] = {
         render_hi=_lazy_template("bail_application", "render_hi"),
         template_version=1,
         ready=True),
+    "discharge_239": Story(
+        id="discharge_239",
+        label={"en": "Discharge (S.239 / 498A)", "hi": "उन्मोचन आवेदन (धारा 239)"},
+        sub={"en": "S.239 CrPC / 262 BNSS · charge-sheet OCR · live preview",
+             "hi": "धारा 239 द.प्र.सं. · आरोप पत्र स्कैन · लाइव पूर्वावलोकन"},
+        icon="shield",
+        sections=[],  # custom UI lives at /draft/discharge (bail-style page)
+        render_en=_lazy_template("discharge_239", "render_en"),
+        render_hi=_lazy_template("discharge_239", "render_hi"),
+        template_version=1,
+        ready=True),
     "affidavit": Story(
         id="affidavit",
         label={"en": "Affidavit", "hi": "शपथपत्र"},

@@ -1318,13 +1318,16 @@ def draft_bail_application():
 
 @app.get("/draft/discharge", include_in_schema=False)
 @app.get("/draft/discharge/", include_in_schema=False)
+def draft_discharge_page():
+    """§239 CrPC / §262 BNSS discharge drafter — live form + charge-sheet/FIR
+    OCR + live preview + save + PDF, in the /draft/bail style. Deterministic
+    render (no LLM writes any text)."""
+    return FileResponse(config.STATIC_DIR / "draft-discharge.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
+@app.get("/draft/discharge/review", include_in_schema=False)
 def draft_discharge_review():
-    """§239 CrPC / §262 BNSS discharge — read-only REVIEW render for advocate
-    sign-off. Renders the §239/498A discharge template (deterministic, no LLM)
-    with the benchmark sample (Arvind Sharma matter) in the SAME court format
-    as /draft/bail. Fixed legal paragraphs are verbatim from the filing; only
-    the variables fill. Form + OCR page follows once the drafting is approved.
-    """
+    """Read-only sample render — advocate quick-review fallback (no JS)."""
     from fastapi.responses import HTMLResponse
     from headnote.drafter.templates.discharge_239 import review_page_html
     return HTMLResponse(review_page_html(),
