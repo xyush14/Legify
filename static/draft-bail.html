@@ -215,6 +215,48 @@
      Tiro Devanagari Hindi (serif) for Devanagari. Browser picks per character.
      Falls back to Noto Serif Devanagari, then system serif.
      ============================================================================ */
+  /* Rich-text toolbar — sticky bar above the document */
+  .rt-toolbar {
+    position: sticky; top: 0; z-index: 50;
+    display: flex; flex-wrap: wrap; align-items: center;
+    gap: 4px; padding: 8px 14px;
+    background: rgba(255, 251, 244, 0.96);
+    border-bottom: 1px solid var(--line, #e8e1d2);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    margin: 0 auto 0; max-width: 900px;
+    border-radius: 0;
+  }
+  .rt-toolbar .rt-group {
+    display: inline-flex; gap: 2px;
+  }
+  .rt-toolbar .rt-sep {
+    width: 1px; align-self: stretch;
+    background: var(--line, #e8e1d2); margin: 4px 4px;
+  }
+  .rt-toolbar button, .rt-toolbar .rt-select {
+    background: transparent; border: 1px solid transparent;
+    border-radius: 6px; padding: 5px 9px;
+    font-size: 13px; font-family: inherit; color: var(--ink, #0c0c0a);
+    cursor: pointer; min-width: 28px; line-height: 1;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .rt-toolbar button:hover, .rt-toolbar .rt-select:hover {
+    background: #f5f0e3; border-color: #e0d4b3;
+  }
+  .rt-toolbar button:active { background: #ebe0c5; }
+  .rt-toolbar button.is-active {
+    background: #ebe0c5; border-color: #b8924e; color: var(--ink, #0c0c0a);
+  }
+  .rt-toolbar .rt-select {
+    padding: 5px 8px; font-weight: 500;
+  }
+  @media (max-width: 720px) {
+    .rt-toolbar { gap: 2px; padding: 6px 8px; }
+    .rt-toolbar button, .rt-toolbar .rt-select { padding: 4px 6px; font-size: 12px; }
+    .rt-toolbar .rt-sep { margin: 2px 2px; }
+  }
+
   .doc-page {
     background: #fff;
     max-width: 760px;
@@ -1013,6 +1055,55 @@
       </span>
       <span class="preview-handle__chevron" aria-hidden="true">▲</span>
     </button>
+    <!-- Rich-text toolbar — floats sticky above the document.
+         Clicking any action auto-enables contentEditable. execCommand
+         is deprecated but still works for our scope (formatting marks +
+         block-level commands). -->
+    <div class="rt-toolbar" id="rt-toolbar" role="toolbar" aria-label="Text formatting">
+      <div class="rt-group">
+        <button type="button" data-cmd="bold" title="Bold (Ctrl+B)"><b>B</b></button>
+        <button type="button" data-cmd="italic" title="Italic (Ctrl+I)"><i>I</i></button>
+        <button type="button" data-cmd="underline" title="Underline (Ctrl+U)"><u>U</u></button>
+        <button type="button" data-cmd="strikethrough" title="Strikethrough"><s>S</s></button>
+      </div>
+      <span class="rt-sep"></span>
+      <div class="rt-group">
+        <select data-cmd="formatBlock" title="Block style" class="rt-select">
+          <option value="p">¶ Paragraph</option>
+          <option value="h1">H1 — Large heading</option>
+          <option value="h2">H2 — Heading</option>
+          <option value="h3">H3 — Sub-heading</option>
+          <option value="blockquote">❝ Blockquote</option>
+          <option value="pre">⌗ Code</option>
+        </select>
+      </div>
+      <span class="rt-sep"></span>
+      <div class="rt-group">
+        <button type="button" data-cmd="insertUnorderedList" title="Bullet list">• List</button>
+        <button type="button" data-cmd="insertOrderedList"   title="Numbered list">1. List</button>
+        <button type="button" data-cmd="outdent" title="Decrease indent">←</button>
+        <button type="button" data-cmd="indent"  title="Increase indent">→</button>
+      </div>
+      <span class="rt-sep"></span>
+      <div class="rt-group">
+        <button type="button" data-cmd="justifyLeft"   title="Align left">⬅</button>
+        <button type="button" data-cmd="justifyCenter" title="Center">↔</button>
+        <button type="button" data-cmd="justifyRight"  title="Align right">➡</button>
+        <button type="button" data-cmd="justifyFull"   title="Justify">≡</button>
+      </div>
+      <span class="rt-sep"></span>
+      <div class="rt-group">
+        <button type="button" data-cmd="createLink" data-prompt="URL?" title="Insert link">🔗</button>
+        <button type="button" data-cmd="unlink" title="Remove link">⊘🔗</button>
+        <button type="button" data-cmd="removeFormat" title="Clear formatting">⨯</button>
+      </div>
+      <span class="rt-sep"></span>
+      <div class="rt-group">
+        <button type="button" data-cmd="undo" title="Undo (Ctrl+Z)">↶</button>
+        <button type="button" data-cmd="redo" title="Redo (Ctrl+Shift+Z)">↷</button>
+      </div>
+    </div>
+
     <div class="doc-page" id="doc-page">
       <!-- live render goes here -->
     </div>
@@ -3337,6 +3428,88 @@ document.getElementById('btn-pdf').addEventListener('click', async () => {
     btn.textContent = orig;
   }
 });
+
+// =========================================================================
+// Rich-text toolbar — execCommand wiring on the sticky bar above #doc-page
+// =========================================================================
+(function setupRichTextToolbar() {
+  const toolbar = document.getElementById('rt-toolbar');
+  const docEl   = document.getElementById('doc-page');
+  if (!toolbar || !docEl) return;
+
+  function ensureEditable() {
+    if (docEl.getAttribute('contenteditable') !== 'true') {
+      docEl.setAttribute('contenteditable', 'true');
+      docEl.style.outline = '2px dashed #b8860b';
+      if (typeof state !== 'undefined') state.editMode = true;
+      const editBtn = document.getElementById('btn-edit');
+      if (editBtn) {
+        const isHi = (typeof state !== 'undefined' && state.lang === 'hi');
+        editBtn.textContent = isHi ? '✓ संपादन समाप्त' : '✓ Done editing';
+      }
+    }
+  }
+
+  toolbar.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-cmd]');
+    if (!btn) return;
+    e.preventDefault();
+    ensureEditable();
+    docEl.focus();
+    const cmd = btn.dataset.cmd;
+    if (btn.dataset.prompt) {
+      const val = window.prompt(btn.dataset.prompt);
+      if (!val) return;
+      try { document.execCommand(cmd, false, val); } catch (e) { console.warn(e); }
+    } else {
+      try { document.execCommand(cmd, false, null); } catch (e) { console.warn(e); }
+    }
+  });
+
+  toolbar.addEventListener('change', (e) => {
+    const sel = e.target.closest('select[data-cmd]');
+    if (!sel) return;
+    ensureEditable();
+    docEl.focus();
+    try { document.execCommand(sel.dataset.cmd, false, sel.value); } catch (err) { console.warn(err); }
+    sel.value = 'p';
+  });
+
+  // Reflect current selection state on the toolbar (active highlighting)
+  const TRACKED_CMDS = [
+    'bold', 'italic', 'underline', 'strikethrough',
+    'insertUnorderedList', 'insertOrderedList',
+    'justifyLeft', 'justifyCenter', 'justifyRight', 'justifyFull',
+  ];
+  function refreshActiveStates() {
+    if (!docEl.contains(document.activeElement) &&
+        document.activeElement !== docEl) return;
+    for (const cmd of TRACKED_CMDS) {
+      const b = toolbar.querySelector(`button[data-cmd="${cmd}"]`);
+      if (!b) continue;
+      let on = false;
+      try { on = document.queryCommandState(cmd); } catch (e) {}
+      b.classList.toggle('is-active', on);
+    }
+  }
+  document.addEventListener('selectionchange', refreshActiveStates);
+
+  // Keyboard shortcuts that mirror Word / Docs
+  docEl.addEventListener('keydown', (e) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    const k = e.key.toLowerCase();
+    let cmd = null;
+    if (k === 'b') cmd = 'bold';
+    else if (k === 'i') cmd = 'italic';
+    else if (k === 'u') cmd = 'underline';
+    if (cmd) {
+      e.preventDefault();
+      try { document.execCommand(cmd, false, null); } catch (err) {}
+      refreshActiveStates();
+    }
+  });
+})();
+
 
 // Print → browser print dialog. The @media print stylesheet hides the
 // chrome (form pane, topbar, toasts, buttons) so only #doc-page renders.
