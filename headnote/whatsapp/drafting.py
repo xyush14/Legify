@@ -49,6 +49,8 @@ BAIL_FIELDS: tuple[tuple[str, str, str], ...] = (
 
 # Field labels that the parser will recognise (lowercase, alternative spellings)
 _FIELD_ALIASES: dict[str, str] = {
+    # language
+    "language": "lang", "lang": "lang", "भाषा": "lang",
     # court_name
     "court": "court_name", "court name": "court_name",
     # applicant_name
@@ -92,6 +94,7 @@ def single_message_template_for(story_id: str, *, variant: str = "sessions") -> 
             f"📝 *{kind}* — fill the template below.\n\n"
             "Copy this whole block, fill values after the colon, send back as *ONE message*:\n\n"
             "```\n"
+            "Language: hi    (hi = Hindi document / en = English document)\n"
             f"Court: {court_example}\n"
             "Applicant name: \n"
             "Father's name: \n"
@@ -107,7 +110,8 @@ def single_message_template_for(story_id: str, *, variant: str = "sessions") -> 
             + ("📑 *HC bail tip:* upload the *Sessions Court order* (rejection) "
                "if you have it — adds prior-bail history to your draft.\n\n"
                if variant == "hc" else "")
-            + "Type *CANCEL* anytime to abort."
+            + "_For Hindi documents, you can type names in English — I'll transliterate to Devanagari automatically._\n\n"
+            "Type *CANCEL* anytime to abort."
         )
     return "Template not configured for this draft type."
 
@@ -596,7 +600,23 @@ async def finalize_draft(wa_phone: str, session: dict) -> dict:
     from headnote.drafter import storage
 
     story_id = session.get("story_id") or "bail_application"
-    answers = build_full_answers(story_id, session.get("answers") or {})
+    raw_answers = dict(session.get("answers") or {})
+
+    # Language: explicit "lang" field, default Hindi
+    lang = (raw_answers.get("lang") or "hi").strip().lower()
+    if lang in ("hindi", "हिंदी", "हिन्दी"):
+        lang = "hi"
+    if lang in ("english", "eng"):
+        lang = "en"
+    if lang not in ("hi", "en"):
+        lang = "hi"
+    raw_answers.pop("lang", None)
+
+    # Transliterate Latin-script values → Devanagari when rendering in Hindi
+    if lang == "hi":
+        raw_answers = _transliterate_for_hindi(raw_answers)
+
+    answers = build_full_answers(story_id, raw_answers)
 
     # Create persistent draft. user_id=None — WhatsApp drafts have no Supabase
     # user yet (Phase 3 LINK flow will associate them).
@@ -605,7 +625,7 @@ async def finalize_draft(wa_phone: str, session: dict) -> dict:
         story_id=story_id,
         template_version=1,
         user_id=None,
-        lang="hi",
+        lang=lang,
         answers=answers,
         title=_draft_title(story_id, answers),
     )
@@ -627,6 +647,130 @@ async def finalize_draft(wa_phone: str, session: dict) -> dict:
         "canvas_url": canvas_url,
         "summary_line": summary,
     }
+
+
+_DEVANAGARI_RE = None
+def _has_devanagari(s: str) -> bool:
+    global _DEVANAGARI_RE
+    if _DEVANAGARI_RE is None:
+        import re as _re
+        _DEVANAGARI_RE = _re.compile(r"[ऀ-ॿ]")
+    return bool(isinstance(s, str) and _DEVANAGARI_RE.search(s))
+
+
+# Institutional / legal terms — the en_to_hi phonetic fallback produces
+# gibberish for these ("Sessions Court" → "सेस्सिओंस कोउर्त"), so we
+# pre-substitute before the main transliteration.
+_LEGAL_TERMS_HI: list[tuple[str, str]] = sorted([
+    # Courts (longest first so "Additional Sessions" matches before "Sessions")
+    ("Additional Sessions Judge",     "अपर सत्र न्यायाधीश"),
+    ("Chief Judicial Magistrate",     "मुख्य न्यायिक मजिस्ट्रेट"),
+    ("Judicial Magistrate First Class","न्यायिक मजिस्ट्रेट प्रथम श्रेणी"),
+    ("Judicial Magistrate",           "न्यायिक मजिस्ट्रेट"),
+    ("Special Judge",                 "विशेष न्यायाधीश"),
+    ("Sessions Judge",                "सत्र न्यायाधीश"),
+    ("Sessions Court",                "सत्र न्यायालय"),
+    ("District & Sessions Court",     "जिला एवं सत्र न्यायालय"),
+    ("District Court",                "जिला न्यायालय"),
+    ("Family Court",                  "कुटुंब न्यायालय"),
+    ("High Court",                    "उच्च न्यायालय"),
+    ("Supreme Court",                 "सर्वोच्च न्यायालय"),
+    ("Magistrate",                    "मजिस्ट्रेट"),
+
+    # Police / process
+    ("Police Station",                "पुलिस थाना"),
+    ("P.S.",                          "पुलिस थाना"),
+
+    # Statute references (used in sections + body)
+    ("BNSS",                          "बी.एन.एस.एस."),
+    ("BNS",                           "बी.एन.एस."),
+    ("CrPC",                          "द.प्र.सं."),
+    ("IPC",                           "भा.दं.सं."),
+    ("NDPS",                          "एन.डी.पी.एस."),
+    ("POCSO",                         "पॉक्सो"),
+    ("Cr.L.J.",                       "क्रि.ला.ज."),
+    ("PCAct",                         "भ्रष्टाचार अधिनियम"),
+    ("NI Act",                        "एन.आई. अधिनियम"),
+
+    # Common Indian cities not in en_to_hi's dictionary
+    ("Madhya Pradesh",                "मध्यप्रदेश"),
+    ("Uttar Pradesh",                 "उत्तरप्रदेश"),
+    ("Tamil Nadu",                    "तमिलनाडु"),
+    ("West Bengal",                   "पश्चिम बंगाल"),
+    ("Andhra Pradesh",                "आंध्रप्रदेश"),
+], key=lambda x: -len(x[0]))
+
+
+def _apply_legal_terms(text: str) -> str:
+    """Case-insensitive longest-match substitution of legal/institutional terms."""
+    import re as _re
+    out = text
+    for english, hindi in _LEGAL_TERMS_HI:
+        out = _re.sub(_re.escape(english), hindi, out, flags=_re.IGNORECASE)
+    return out
+
+
+def _xlit_word_by_word(text: str) -> str:
+    """Token-by-token EN→HI: each Latin run gets transliterated; Devanagari
+    spans and punctuation pass through unchanged. This works around en_to_hi
+    skipping the whole string when ANY Devanagari is already present.
+    """
+    from headnote.drafter.transliterate import en_to_hi
+    import re as _re
+    # Split on Devanagari/whitespace boundaries while preserving separators
+    parts = _re.split(r"([^\w]+|[ऀ-ॿ]+)", text)
+    out = []
+    for p in parts:
+        if not p:
+            continue
+        if _has_devanagari(p):
+            out.append(p); continue
+        if not any(c.isalpha() for c in p):
+            out.append(p); continue
+        try:
+            out.append(en_to_hi(p))
+        except Exception:
+            out.append(p)
+    return "".join(out)
+
+
+def _transliterate_for_hindi(answers: dict) -> dict:
+    """Convert any Latin-script string values to Devanagari for Hindi-mode docs.
+
+    Two-pass:
+      1. Legal-term substitution ('Sessions Court' → 'सत्र न्यायालय'). These
+         are institutional names that the phonetic engine can't get right.
+      2. Word-by-word transliteration on any remaining Latin tokens. Devanagari
+         spans inserted by step 1 are preserved.
+    """
+    KEYS_TO_XLIT = {
+        "court_name", "applicant_name", "applicant_father",
+        "applicant_address", "police_station", "district",
+        "state_name", "current_jail", "trial_court",
+        "trial_location", "trial_judge",
+    }
+    out = dict(answers)
+    for k in KEYS_TO_XLIT:
+        v = out.get(k)
+        if not isinstance(v, str) or not v.strip():
+            continue
+        if _has_devanagari(v) and not _re_has_latin(v):
+            continue  # purely Devanagari already; leave alone
+        try:
+            stage1 = _apply_legal_terms(v)
+            out[k] = _xlit_word_by_word(stage1)
+        except Exception:
+            log.warning("transliterate failed for %s=%r", k, v)
+    return out
+
+
+_LATIN_RE = None
+def _re_has_latin(s: str) -> bool:
+    global _LATIN_RE
+    if _LATIN_RE is None:
+        import re as _re
+        _LATIN_RE = _re.compile(r"[A-Za-z]")
+    return bool(_LATIN_RE.search(s or ""))
 
 
 def _draft_title(story_id: str, answers: dict) -> str:
@@ -684,7 +828,7 @@ async def render_pdf_for_token(token: str) -> tuple[bytes | None, str | None]:
     # Wrap the document HTML in a minimum page wrapper that weasyprint expects.
     # The bail render returns the inner doc fragment; the PDF endpoint normally
     # gets a full page with #doc-page. We synthesize that wrapper here.
-    full_html = _wrap_html_for_pdf(html)
+    full_html = _wrap_html_for_pdf(html, lang=(draft.lang or "hi"))
 
     try:
         pdf_bytes = await asyncio.to_thread(_render_pdf, full_html)
@@ -695,24 +839,46 @@ async def render_pdf_for_token(token: str) -> tuple[bytes | None, str | None]:
     return pdf_bytes, None
 
 
-def _wrap_html_for_pdf(inner: str) -> str:
+_CANVAS_STYLES_CACHE: str | None = None
+
+
+def _load_canvas_styles() -> str:
+    """Load + cache the canvas page CSS so WhatsApp-generated PDFs match the
+    web canvas output byte-for-byte (modulo font availability). All <style>
+    blocks from static/draft-bail.html are concatenated; the canvas relies
+    on these for bail-doc layout (header, parties, tables, numbered grounds).
+    """
+    global _CANVAS_STYLES_CACHE
+    if _CANVAS_STYLES_CACHE is not None:
+        return _CANVAS_STYLES_CACHE
+    from pathlib import Path
+    import re as _re
+    try:
+        html = Path("static/draft-bail.html").read_text(encoding="utf-8")
+        blocks = _re.findall(r"<style[^>]*>(.*?)</style>", html, _re.DOTALL)
+        _CANVAS_STYLES_CACHE = "\n".join(blocks)
+    except Exception:
+        log.exception("could not load canvas styles; PDFs will use minimal CSS")
+        _CANVAS_STYLES_CACHE = ""
+    return _CANVAS_STYLES_CACHE
+
+
+def _wrap_html_for_pdf(inner: str, *, lang: str = "hi") -> str:
+    """Wrap the document HTML the SAME way the web canvas does — embed the
+    canvas's style blocks so weasyprint sees identical CSS rules.
+
+    The /api/draft/pdf endpoint then applies _EXPORT_CSS on top (the
+    !important reset for #doc-page layout), so the final PDF matches the
+    canvas's PDF export byte-for-byte (modulo installed fonts).
+    """
+    styles = _load_canvas_styles()
+    body_class = f"lang-{lang} doc-pane"
     return (
-        "<!doctype html><html><head><meta charset='utf-8'>"
-        "<style>"
-        "body { font-family: 'Tiro Devanagari Hindi', 'Noto Serif Devanagari', "
-        "'Times New Roman', serif; font-size: 12pt; line-height: 1.7; "
-        "color: #0c0c0a; margin: 0; padding: 0; }"
-        "#doc-page { padding: 25mm 22mm; }"
-        "h1, h2, h3 { font-weight: 600; }"
-        "table { width: 100%; border-collapse: collapse; }"
-        "table td, table th { padding: 4pt 6pt; vertical-align: top; "
-        "border: 1px solid #888; }"
-        "p { margin: 0.5em 0; }"
-        ".center { text-align: center; }"
-        ".right { text-align: right; }"
-        "</style></head><body>"
-        f"<div id='doc-page'>{inner}</div>"
-        "</body></html>"
+        f"<!doctype html><html><head><meta charset='utf-8'>"
+        f"<style>{styles}</style></head>"
+        f"<body class='{body_class}'>"
+        f"<div id='doc-page' class='doc-page'>{inner}</div>"
+        f"</body></html>"
     )
 
 

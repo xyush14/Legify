@@ -24,6 +24,7 @@ from typing import Any
 
 import httpx
 from fastapi import APIRouter, Header, HTTPException, Request, Response
+from pydantic import BaseModel, Field
 
 from headnote.whatsapp import client as wa
 from headnote.whatsapp import drafting as wa_drafting
@@ -222,10 +223,10 @@ async def draft_pdf(token: str) -> Response:
 
 @router.get("/draft/{token}/view")
 async def draft_view(token: str) -> Response:
-    """In-browser viewer for a draft. Shows the rendered HTML with
-    Download PDF + (later) Edit-on-canvas buttons. Public via the same
-    short-lived token. Phase 4a — preview-only; canvas editor lands in 4b.
-    """
+    """In-browser CANVAS viewer + editor. Loads the draft, embeds the same
+    CSS as the web canvas so format matches, and makes #doc-page editable.
+    Save-as-PDF posts the current HTML back through the same weasyprint
+    pipeline."""
     html, err = await wa_drafting.render_html_for_token(token)
     if err or not html:
         raise HTTPException(status_code=404, detail=err or "Draft not found")
@@ -234,9 +235,43 @@ async def draft_view(token: str) -> Response:
     return Response(content=page, media_type="text/html; charset=utf-8")
 
 
+class _EditedPdfBody(BaseModel):
+    html: str = Field(..., min_length=20, max_length=2_000_000)
+
+
+@router.post("/draft/{token}/edited-pdf")
+async def draft_edited_pdf(token: str, body: _EditedPdfBody) -> Response:
+    """Re-render PDF from the lawyer's edited HTML. Same weasyprint
+    pipeline + _EXPORT_CSS the web canvas uses, so output matches.
+    """
+    # Validate token still resolves (so anonymous edits to expired
+    # drafts don't burn server time)
+    tok = await wa_drafting.resolve_token(token)
+    if not tok:
+        raise HTTPException(status_code=404, detail="Token expired or invalid")
+
+    from headnote.api.pdf import _render_pdf
+    full = wa_drafting._wrap_html_for_pdf(body.html, lang="hi")
+    try:
+        pdf_bytes = await asyncio.to_thread(_render_pdf, full)
+    except Exception:
+        log.exception("edited-pdf render failed")
+        raise HTTPException(status_code=500, detail="PDF render failed")
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'attachment; filename="headnote-bail-edited.pdf"'},
+    )
+
+
 def _wrap_viewer_html(inner: str, token: str) -> str:
-    """Self-contained viewer page — Kruti Dev font embedded, Download PDF
-    button, link back to Headnote. No JS frameworks, no Supabase login."""
+    """Editable canvas viewer — uses the SAME CSS as the web canvas so the
+    document matches Vishnu ji's filed format. #doc-page is contentEditable;
+    Download PDF re-renders the user's current edits through weasyprint.
+    """
+    # Reuse the same style blocks the web canvas embeds, so layout is identical.
+    canvas_styles = wa_drafting._load_canvas_styles()
     return f"""<!doctype html>
 <html lang="hi">
 <head>
@@ -244,77 +279,135 @@ def _wrap_viewer_html(inner: str, token: str) -> str:
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Headnote — Bail Draft</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600&family=Tiro+Devanagari+Hindi:ital@0;1&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Tiro+Devanagari+Hindi:ital@0;1&family=Noto+Serif+Devanagari:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>{canvas_styles}</style>
 <style>
-  @font-face {{
-    font-family: 'KrutiDev010';
-    src: url('/static/fonts/KrutiDev010.ttf') format('truetype');
-    font-display: swap;
-  }}
-  :root {{
-    --bg: #fdfcf9; --paper: #ffffff; --ink: #0c0c0a;
-    --muted: #6b6960; --line: rgba(12,12,10,0.12); --gold: #b8924e;
-  }}
-  * {{ box-sizing: border-box; }}
-  html, body {{
-    margin: 0; background: var(--bg); color: var(--ink);
+  body {{
+    margin: 0; background: #fdfcf9; color: #0c0c0a;
     font-family: 'Inter', -apple-system, sans-serif;
   }}
-  .topbar {{
+  .wa-topbar {{
+    position: sticky; top: 0; z-index: 100;
     display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 20px; border-bottom: 1px solid var(--line);
-    background: var(--paper); position: sticky; top: 0; z-index: 10;
+    padding: 12px 18px; border-bottom: 1px solid #e8e1d2;
+    background: #ffffff;
   }}
-  .topbar .brand {{ font-weight: 600; }}
-  .topbar .actions {{ display: flex; gap: 10px; }}
-  .btn {{
+  .wa-topbar .brand {{ font-weight: 600; font-size: 15px; }}
+  .wa-topbar .hint {{ color: #6b6960; font-size: 12px; }}
+  .wa-actions {{ display: flex; gap: 8px; align-items: center; }}
+  .wa-btn {{
     display: inline-flex; align-items: center; gap: 6px;
-    padding: 8px 16px; border-radius: 8px; border: 1px solid var(--ink);
-    background: var(--ink); color: var(--paper); text-decoration: none;
-    font-size: 14px; font-weight: 500; cursor: pointer;
+    padding: 8px 14px; border-radius: 8px;
+    background: #0c0c0a; color: #fff; text-decoration: none;
+    border: 1px solid #0c0c0a; font-size: 13px; font-weight: 500;
+    cursor: pointer;
   }}
-  .btn--ghost {{ background: var(--paper); color: var(--ink); }}
-  .doc-wrap {{ max-width: 800px; margin: 28px auto; padding: 0 16px; }}
-  .doc {{
-    background: var(--paper); padding: 30mm 22mm; min-height: 270mm;
-    border: 1px solid var(--line); border-radius: 4px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.04);
-    font-family: 'Tiro Devanagari Hindi', 'Noto Sans Devanagari', serif;
-    font-size: 13pt; line-height: 1.75; color: var(--ink);
+  .wa-btn--ghost {{ background: #fff; color: #0c0c0a; }}
+  .wa-btn[disabled] {{ opacity: 0.5; cursor: not-allowed; }}
+  .wa-paper {{
+    max-width: 210mm; margin: 24px auto; padding: 0 12px;
   }}
-  .doc h1, .doc h2, .doc h3 {{ font-weight: 600; }}
-  .doc table {{ width: 100%; border-collapse: collapse; margin: 12px 0; }}
-  .doc table td, .doc table th {{
-    padding: 6px 8px; border: 1px solid #888; vertical-align: top;
+  .wa-doc-shell {{
+    background: #fff; padding: 22mm 18mm; min-height: 260mm;
+    border: 1px solid #e8e1d2; border-radius: 4px;
+    box-shadow: 0 2px 14px rgba(0,0,0,0.05);
   }}
-  .doc .center {{ text-align: center; }}
-  .doc .right {{ text-align: right; }}
-  .footer {{
-    text-align: center; margin: 30px 0; color: var(--muted); font-size: 12px;
+  /* contentEditable visual cue */
+  #doc-page[contenteditable="true"] {{
+    outline: 2px dashed #b8924e; outline-offset: 6px;
   }}
-  .footer a {{ color: var(--gold); }}
+  .wa-footer {{
+    text-align: center; margin: 24px 0 40px; color: #6b6960; font-size: 12px;
+  }}
+  .wa-toast {{
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: #0c0c0a; color: #fff; padding: 10px 18px; border-radius: 8px;
+    font-size: 13px; opacity: 0; transition: opacity 0.2s ease;
+    z-index: 200;
+  }}
+  .wa-toast.show {{ opacity: 1; }}
   @media (max-width: 640px) {{
-    .doc {{ padding: 18mm 12mm; font-size: 11pt; }}
-    .topbar {{ padding: 12px 14px; }}
-    .topbar .brand {{ font-size: 14px; }}
-    .btn {{ padding: 6px 12px; font-size: 13px; }}
+    .wa-doc-shell {{ padding: 14mm 10mm; }}
+    .wa-paper {{ margin: 16px auto; }}
   }}
 </style>
 </head>
 <body>
-<div class="topbar">
-  <div class="brand">📘 Headnote — Bail Draft</div>
-  <div class="actions">
-    <a href="/api/whatsapp/draft/{token}/pdf" download="headnote-bail-draft.pdf" class="btn">📄 Download PDF</a>
+<div class="wa-topbar">
+  <div>
+    <div class="brand">📘 Headnote — Bail Draft</div>
+    <div class="hint">Tap anywhere inside the document to edit. Changes flow into the PDF.</div>
+  </div>
+  <div class="wa-actions">
+    <button id="btn-edit" class="wa-btn wa-btn--ghost">✏️ Edit</button>
+    <button id="btn-pdf"  class="wa-btn">📄 Download PDF</button>
   </div>
 </div>
-<div class="doc-wrap">
-  <div class="doc">{inner}</div>
-  <div class="footer">
-    Generated via WhatsApp on Headnote · this link expires in 24 hours ·
-    <a href="https://headnote.in">headnote.in</a>
+<div class="wa-paper">
+  <div class="wa-doc-shell">
+    <div id="doc-page" class="doc-page">{inner}</div>
+  </div>
+  <div class="wa-footer">
+    Generated via WhatsApp · link expires in 24 hours · <a href="https://headnote.in" style="color:#b8924e">headnote.in</a>
   </div>
 </div>
+<div id="toast" class="wa-toast"></div>
+
+<script>
+  const TOKEN = {token!r};
+  const docEl  = document.getElementById('doc-page');
+  const btnEdit = document.getElementById('btn-edit');
+  const btnPdf  = document.getElementById('btn-pdf');
+  const toast = (msg) => {{
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2400);
+  }};
+
+  let editMode = false;
+  btnEdit.addEventListener('click', () => {{
+    editMode = !editMode;
+    docEl.setAttribute('contenteditable', editMode ? 'true' : 'false');
+    btnEdit.textContent = editMode ? '✓ Done editing' : '✏️ Edit';
+    btnEdit.classList.toggle('wa-btn--ghost', !editMode);
+    if (editMode) docEl.focus();
+    toast(editMode ? 'Edit mode on — tap fields to change values' : 'Edits saved');
+  }});
+
+  btnPdf.addEventListener('click', async () => {{
+    const orig = btnPdf.textContent;
+    btnPdf.disabled = true;
+    btnPdf.textContent = '⏳ Rendering…';
+    try {{
+      const docHtml = docEl.outerHTML;
+      // Pull all <style> blocks so the PDF re-render uses the same CSS
+      const styles = Array.from(document.querySelectorAll('style'))
+        .map(s => s.textContent).join('\\n');
+      const fullHtml = '<!doctype html><html><head><meta charset="utf-8"><style>'
+                       + styles + '</style></head><body>' + docHtml + '</body></html>';
+      const r = await fetch('/api/whatsapp/draft/' + TOKEN + '/edited-pdf', {{
+        method: 'POST',
+        headers: {{ 'Content-Type': 'application/json' }},
+        body: JSON.stringify({{ html: fullHtml }}),
+      }});
+      if (!r.ok) throw new Error('Server error ' + r.status);
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'headnote-bail.pdf';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+      toast('PDF downloaded');
+    }} catch (e) {{
+      console.error(e);
+      toast('PDF failed — ' + (e.message || 'try again'));
+    }} finally {{
+      btnPdf.disabled = false;
+      btnPdf.textContent = orig;
+    }}
+  }});
+</script>
 </body>
 </html>
 """
