@@ -153,6 +153,59 @@ async def e2e_test(to: str = "", q: str = "", bg: int = 0) -> dict:
     return trace
 
 
+@router.get("/draft-e2e")
+async def draft_e2e() -> dict:
+    """Run the full drafting pipeline with a synthetic bail input.
+    Verifies migration 007 is applied + PDF render works end-to-end.
+    Used to ensure the flow works before asking a real user to test.
+    """
+    import time as _t
+    out: dict = {}
+    fake_phone = "+9100000DIAGTEST"
+    answers = {
+        "court_name": "मा. सत्र न्यायालय, भोपाल",
+        "applicant_name": "Ramesh Kumar",
+        "applicant_father": "Suresh Kumar",
+        "applicant_address": "12 MP Nagar, Bhopal",
+        "police_station": "Habibganj",
+        "district": "Bhopal",
+        "fir_number": "234/2024",
+        "sections": ["420 IPC", "406 IPC"],
+        "arrest_date": "12/05/2024",
+    }
+    session = {
+        "wa_phone": fake_phone,
+        "story_id": "bail_application",
+        "answers": answers,
+    }
+
+    t0 = _t.time()
+    try:
+        result = await wa_drafting.finalize_draft(fake_phone, session)
+        out["finalize_ok"] = True
+        out["draft_id"] = result.get("draft_id")
+        out["pdf_url"] = result.get("pdf_url")
+        out["canvas_url"] = result.get("canvas_url")
+        out["finalize_elapsed_s"] = round(_t.time() - t0, 2)
+    except Exception as exc:
+        out["finalize_ok"] = False
+        out["error_type"] = type(exc).__name__
+        out["error"] = str(exc)[:500]
+        return out
+
+    # If a token was minted, also try rendering the PDF locally
+    if result.get("pdf_url"):
+        token = result["pdf_url"].rstrip("/").split("/")[-2]  # …/draft/<token>/pdf
+        t1 = _t.time()
+        pdf_bytes, err = await wa_drafting.render_pdf_for_token(token)
+        out["pdf_render_ok"] = err is None and pdf_bytes is not None
+        out["pdf_render_error"] = err
+        out["pdf_bytes"] = len(pdf_bytes) if pdf_bytes else 0
+        out["pdf_elapsed_s"] = round(_t.time() - t1, 2)
+
+    return out
+
+
 @router.get("/draft/{token}/pdf")
 async def draft_pdf(token: str) -> Response:
     """Serve a draft as PDF via a short-lived (24h) token. Public — no
