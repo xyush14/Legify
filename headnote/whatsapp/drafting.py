@@ -34,111 +34,221 @@ class Slot:
     transform: str = "raw"            # 'raw' | 'list' (split on commas)
 
 
-BAIL_439_SLOTS: tuple[Slot, ...] = (
-    Slot("court_name",
-         "*Which court* will hear this application?\n"
-         "Reply with court name + city, e.g. _Sessions Court, Bhopal_"),
-    Slot("applicant_name",
-         "*Full name of the applicant* (accused)?"),
-    Slot("applicant_father",
-         "*Father's name* of the applicant?"),
-    Slot("applicant_address",
-         "*Permanent address* of the applicant?\n_(House no, locality, city)_"),
-    Slot("police_station",
-         "*Police station* where the FIR is registered?"),
-    Slot("district",
-         "*District* of the police station?"),
-    Slot("fir_number",
-         "*FIR number* and year? e.g. _234/2024_"),
-    Slot("sections",
-         "*Sections charged* in the FIR? e.g. _420, 406 IPC_\n"
-         "_(or just type 'unknown' if you don't have them)_",
-         transform="list"),
-    Slot("arrest_date",
-         "*Date of arrest* (DD/MM/YYYY)? Type _unknown_ if not arrested yet."),
+BAIL_FIELDS: tuple[tuple[str, str, str], ...] = (
+    # (key, label_for_template, transform)
+    ("court_name",        "Court",            "raw"),
+    ("applicant_name",    "Applicant name",   "raw"),
+    ("applicant_father",  "Father's name",    "raw"),
+    ("applicant_address", "Address",          "raw"),
+    ("police_station",    "Police station",   "raw"),
+    ("district",          "District",         "raw"),
+    ("fir_number",        "FIR no & year",    "raw"),
+    ("sections",          "Sections",         "list"),
+    ("arrest_date",       "Date of arrest",   "raw"),
 )
 
-# Map story_id → ordered slots
+# Field labels that the parser will recognise (lowercase, alternative spellings)
+_FIELD_ALIASES: dict[str, str] = {
+    # court_name
+    "court": "court_name", "court name": "court_name",
+    # applicant_name
+    "applicant name": "applicant_name", "applicant": "applicant_name",
+    "name": "applicant_name", "accused": "applicant_name",
+    "accused name": "applicant_name",
+    # applicant_father
+    "father": "applicant_father", "father name": "applicant_father",
+    "father's name": "applicant_father", "fathers name": "applicant_father",
+    "s/o": "applicant_father", "son of": "applicant_father",
+    # applicant_address
+    "address": "applicant_address", "applicant address": "applicant_address",
+    "residence": "applicant_address",
+    # police_station
+    "police station": "police_station", "ps": "police_station",
+    "p.s": "police_station", "p.s.": "police_station", "thana": "police_station",
+    # district
+    "district": "district", "dist": "district",
+    # fir_number
+    "fir no": "fir_number", "fir number": "fir_number", "fir": "fir_number",
+    "fir no & year": "fir_number", "fir no and year": "fir_number",
+    "crime no": "fir_number", "crime number": "fir_number",
+    # sections
+    "sections": "sections", "section": "sections", "u/s": "sections",
+    "sections charged": "sections", "charged under": "sections",
+    "offence sections": "sections",
+    # arrest_date
+    "arrest date": "arrest_date", "date of arrest": "arrest_date",
+    "arrest": "arrest_date", "gir": "arrest_date",
+}
+
+
+def single_message_template_for(story_id: str, *, variant: str = "sessions") -> str:
+    """Return the multi-line template the bot sends; lawyer fills + replies."""
+    if story_id == "bail_application":
+        kind = "High Court Bail (§439 — successive)" if variant == "hc" \
+               else "Regular Bail Application (§483 BNSS / §439 CrPC)"
+        court_example = "High Court of Madhya Pradesh, Jabalpur" if variant == "hc" \
+                        else "Sessions Court, Bhopal"
+        return (
+            f"📝 *{kind}* — fill the template below.\n\n"
+            "Copy this whole block, fill values after the colon, send back as *ONE message*:\n\n"
+            "```\n"
+            f"Court: {court_example}\n"
+            "Applicant name: \n"
+            "Father's name: \n"
+            "Address: \n"
+            "Police station: \n"
+            "District: \n"
+            "FIR no & year: \n"
+            "Sections: \n"
+            "Arrest date: \n"
+            "```\n\n"
+            "💡 *Faster:* skip typing entirely — just *upload the FIR photo* "
+            "and I'll extract everything automatically.\n\n"
+            + ("📑 *HC bail tip:* upload the *Sessions Court order* (rejection) "
+               "if you have it — adds prior-bail history to your draft.\n\n"
+               if variant == "hc" else "")
+            + "Type *CANCEL* anytime to abort."
+        )
+    return "Template not configured for this draft type."
+
+
+def parse_single_message_reply(text: str) -> dict[str, Any]:
+    """Parse a multi-line 'key: value' reply into the bail answers dict.
+
+    Forgiving — accepts numbered prefixes (1.), bullet points (-), and a wide
+    set of label aliases. Unknown lines are ignored.
+    """
+    out: dict[str, Any] = {}
+    import re as _re
+    for raw in (text or "").splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        # strip leading bullet / number markers
+        line = _re.sub(r"^[\-\*•]\s*", "", line)
+        line = _re.sub(r"^\d+[\.\)]\s*", "", line)
+        line = line.strip("` ").rstrip()
+        if ":" not in line:
+            continue
+        label, _, value = line.partition(":")
+        label_norm = label.strip().lower()
+        value = value.strip(" `_*")
+        if not value:
+            continue
+        key = _FIELD_ALIASES.get(label_norm)
+        if not key:
+            # try collapsing whitespace, dropping punctuation
+            squashed = _re.sub(r"[^a-z ]", "", label_norm).strip()
+            key = _FIELD_ALIASES.get(squashed)
+        if not key:
+            continue
+        # Transform per field
+        if key == "sections":
+            out[key] = [
+                p.strip() for p in _re.split(r"[,;/]| and ", value) if p.strip()
+            ]
+        else:
+            out[key] = value
+    return out
+
+
+# Backward compat: still expose a slot list for the per-field flow if ever needed
+BAIL_439_SLOTS: tuple[Slot, ...] = tuple(
+    Slot(key=k, prompt=f"*{label}*?", transform=t) for k, label, t in BAIL_FIELDS
+)
+
 SLOTS_BY_STORY: dict[str, tuple[Slot, ...]] = {
     "bail_application": BAIL_439_SLOTS,
 }
 
-# Static defaults to merge into the final answers dict (template fields the
-# bail renderer needs that we don't ask in chat — they have placeholders).
-STATIC_DEFAULTS: dict[str, dict[str, Any]] = {
-    "bail_application": {
-        "bail_section": "439",          # §439 CrPC / §483 BNSS
-        "application_number": 1,        # 1st bail (vs. successive)
+
+def _bail_static_defaults(variant: str = "sessions") -> dict[str, Any]:
+    base: dict[str, Any] = {
+        "bail_section": "439",
         "side_label": "बंदी की ओर से",
         "case_label": "विविध आपराधिक प्रकरण क्रमांक",
-        "state_name": "मध्यप्रदेश",      # default; overridden if district hints otherwise
-    },
+        "state_name": "मध्यप्रदेश",
+    }
+    if variant == "hc":
+        base["application_number"] = 2     # successive
+    else:
+        base["application_number"] = 1
+    return base
+
+
+STATIC_DEFAULTS: dict[str, dict[str, Any]] = {
+    "bail_application": _bail_static_defaults("sessions"),
 }
 
 
 # ════════════════════════════════════════════════════════════════ intent detection
 
-# Phrases that start a new draft session
-DRAFT_TRIGGERS = {
-    # bail
-    "draft bail": "bail_application",
-    "bail draft": "bail_application",
-    "bail application": "bail_application",
-    "draft 439": "bail_application",
-    "draft regular bail": "bail_application",
-    "regular bail": "bail_application",
-    "439 bail": "bail_application",
-    "ज़मानत": "bail_application",
-    "जमानत": "bail_application",
+# Phrases that start a new draft session. Each value: (story_id, variant)
+# variant: 'sessions' (default §439 Sessions) or 'hc' (High Court successive bail)
+DRAFT_TRIGGERS: dict[str, tuple[str, str]] = {
+    # Sessions / first bail
+    "draft bail":           ("bail_application", "sessions"),
+    "bail draft":           ("bail_application", "sessions"),
+    "bail application":     ("bail_application", "sessions"),
+    "draft 439":            ("bail_application", "sessions"),
+    "439 bail":             ("bail_application", "sessions"),
+    "draft regular bail":   ("bail_application", "sessions"),
+    "regular bail":         ("bail_application", "sessions"),
+    "draft sessions bail":  ("bail_application", "sessions"),
+    "sessions bail":        ("bail_application", "sessions"),
+    "ज़मानत":               ("bail_application", "sessions"),
+    "जमानत":                ("bail_application", "sessions"),
+
+    # High Court / successive bail
+    "draft hc bail":        ("bail_application", "hc"),
+    "draft high court bail":("bail_application", "hc"),
+    "high court bail":      ("bail_application", "hc"),
+    "hc bail":              ("bail_application", "hc"),
+    "draft 439 hc":         ("bail_application", "hc"),
+    "successive bail":      ("bail_application", "hc"),
 }
 
 # Generic single-word "draft" → ask what to draft
 GENERIC_DRAFT_KEYWORDS = {"draft", "drafting", "/draft"}
 
 
-def detect_intent(text: str) -> dict[str, str] | None:
-    """Returns {"action": "ask_what", "story_id": None}    → ask "what do you want to draft?"
-              {"action": "start",    "story_id": "bail_application"} → start that draft
-              {"action": "cancel"}                          → cancel any active draft
-              {"action": "restart"}                         → restart active draft
-              None                                          → not a draft intent
+def detect_intent(text: str) -> dict[str, Any] | None:
+    """Returns one of:
+      {"action": "ask_what"}
+      {"action": "start", "story_id": "...", "variant": "sessions"|"hc"}
+      {"action": "cancel"}
+      {"action": "restart"}
+      None
     """
     if not text:
         return None
     norm = " ".join(text.lower().split())
 
-    # Cancel / restart take priority
     if norm in ("cancel", "stop draft", "cancel draft", "/cancel"):
         return {"action": "cancel"}
     if norm in ("restart", "restart draft", "/restart"):
         return {"action": "restart"}
 
-    # Specific draft triggers
-    for trigger, story_id in DRAFT_TRIGGERS.items():
-        if trigger == norm or trigger in norm:
-            return {"action": "start", "story_id": story_id}
+    # Specific draft triggers — prefer LONGEST match to avoid 'bail' eating 'hc bail'
+    matches = [
+        (trigger, story_id, variant)
+        for trigger, (story_id, variant) in DRAFT_TRIGGERS.items()
+        if trigger == norm or trigger in norm
+    ]
+    if matches:
+        matches.sort(key=lambda m: -len(m[0]))
+        _t, story_id, variant = matches[0]
+        return {"action": "start", "story_id": story_id, "variant": variant}
 
-    # Generic "draft" with nothing else
     if norm in GENERIC_DRAFT_KEYWORDS:
         return {"action": "ask_what"}
 
     return None
 
 
-def first_prompt_for(story_id: str) -> str:
-    """The bot's opening message after a draft is started."""
-    slots = SLOTS_BY_STORY.get(story_id) or ()
-    if not slots:
-        return "I don't have that template yet. Try *DRAFT BAIL* for now."
-    intro_by_story = {
-        "bail_application": (
-            "📝 Starting a *Regular Bail Application* (§483 BNSS / §439 CrPC).\n\n"
-            "I'll ask you a few quick questions — under 2 minutes. "
-            "Type *CANCEL* anytime to abort.\n\n"
-        ),
-    }
-    intro = intro_by_story.get(story_id, "📝 Starting a draft.\n\n")
-    return intro + slots[0].prompt
+def first_prompt_for(story_id: str, *, variant: str = "sessions") -> str:
+    """Bot's opening message: the SINGLE-MESSAGE template the lawyer fills."""
+    return single_message_template_for(story_id, variant=variant)
 
 
 def what_to_draft_prompt() -> str:
@@ -316,10 +426,156 @@ def apply_answer(slot: Slot, raw: str) -> Any:
 
 def build_full_answers(story_id: str, collected: dict) -> dict:
     """Merge static defaults + collected answers into the final dict the
-    template renderer expects."""
-    base = dict(STATIC_DEFAULTS.get(story_id) or {})
+    template renderer expects. Variant ('hc' vs default) is stored inside
+    collected as __variant so we don't need an extra DB column."""
+    variant = "sessions"
+    if isinstance(collected, dict):
+        variant = collected.get("__variant", "sessions") or "sessions"
+    if story_id == "bail_application":
+        base = dict(_bail_static_defaults(variant))
+    else:
+        base = dict(STATIC_DEFAULTS.get(story_id) or {})
     base.update(collected or {})
+    # __variant is internal — strip before passing to renderer
+    base.pop("__variant", None)
     return base
+
+
+REQUIRED_FIELDS_BY_STORY: dict[str, tuple[str, ...]] = {
+    # arrest_date is optional — bail can be sought pre-arrest too
+    "bail_application": (
+        "court_name", "applicant_name", "applicant_father", "applicant_address",
+        "police_station", "district", "fir_number", "sections",
+    ),
+}
+
+# Human-readable labels for the "missing fields" prompt
+FIELD_LABELS: dict[str, str] = {
+    "court_name":        "Court",
+    "applicant_name":    "Applicant name",
+    "applicant_father":  "Father's name",
+    "applicant_address": "Address",
+    "police_station":    "Police station",
+    "district":          "District",
+    "fir_number":        "FIR no & year",
+    "sections":          "Sections",
+    "arrest_date":       "Date of arrest",
+}
+
+
+def missing_required(story_id: str, answers: dict) -> list[str]:
+    req = REQUIRED_FIELDS_BY_STORY.get(story_id) or ()
+    out: list[str] = []
+    for k in req:
+        v = answers.get(k)
+        if v is None:
+            out.append(k); continue
+        if isinstance(v, str) and not v.strip():
+            out.append(k); continue
+        if isinstance(v, list) and not v:
+            out.append(k); continue
+    return out
+
+
+def gap_prompt(missing_keys: list[str]) -> str:
+    """Tight follow-up asking only for the fields the lawyer hasn't given yet."""
+    lines = [FIELD_LABELS.get(k, k) + ": " for k in missing_keys]
+    return (
+        "Almost there. Just need a few more fields. Reply with this short block:\n\n"
+        "```\n" + "\n".join(lines) + "```\n\n"
+        "Or send another doc to auto-fill, or *CANCEL* to abort."
+    )
+
+
+# ════════════════════════════════════════════════════════════════ OCR mapping
+
+def _fir_ocr_to_bail_slots(extracted: dict) -> dict[str, Any]:
+    """Map an FIR OCR result (from ocr_fir_pages) → bail-template slot dict."""
+    out: dict[str, Any] = {}
+    accused = (extracted.get("accused_details") or [])
+    if accused:
+        first = accused[0] if isinstance(accused[0], dict) else {}
+        if first.get("name"):
+            out["applicant_name"] = first["name"]
+        if first.get("relative"):
+            out["applicant_father"] = first["relative"]
+        if first.get("address"):
+            out["applicant_address"] = first["address"]
+    if extracted.get("police_station"):
+        out["police_station"] = extracted["police_station"]
+    if extracted.get("district"):
+        out["district"] = extracted["district"]
+    if extracted.get("state"):
+        out["state_name"] = extracted["state"]
+    full_fir = extracted.get("fir_number_full") or extracted.get("fir_number")
+    if full_fir:
+        out["fir_number"] = str(full_fir)
+    secs = extracted.get("sections")
+    if secs:
+        out["sections"] = secs if isinstance(secs, list) else [secs]
+    if extracted.get("arrest_date"):
+        out["arrest_date"] = extracted["arrest_date"]
+    return out
+
+
+def _bail_order_ocr_to_bail_slots(extracted: dict) -> dict[str, Any]:
+    """Map a Sessions/Magistrate bail-order OCR (for HC successive bail) → slots.
+
+    Phase-4a-MVP: opportunistic mapping. The schema varies per case so we lift
+    whatever common fields we can; lawyer fills the rest via the gap prompt.
+    """
+    out: dict[str, Any] = {}
+    accused = extracted.get("accused") or extracted.get("applicants") or []
+    if isinstance(accused, list) and accused:
+        first = accused[0] if isinstance(accused[0], dict) else {}
+        if first.get("name"):
+            out["applicant_name"] = first["name"]
+        if first.get("father") or first.get("relative"):
+            out["applicant_father"] = first.get("father") or first.get("relative")
+    if extracted.get("police_station"):
+        out["police_station"] = extracted["police_station"]
+    if extracted.get("district"):
+        out["district"] = extracted["district"]
+    crime = extracted.get("crime_no") or extracted.get("fir_number")
+    if crime:
+        out["fir_number"] = str(crime)
+    if extracted.get("sections"):
+        out["sections"] = extracted["sections"] if isinstance(extracted["sections"], list) else [extracted["sections"]]
+    return out
+
+
+async def ocr_for_draft(media_urls: list[str], *, variant: str = "sessions") -> dict[str, Any]:
+    """Download Twilio media + run the right OCR + map to bail slots.
+
+    Returns the extracted slot dict (possibly empty on failure).
+    """
+    if not media_urls:
+        return {}
+    from headnote.whatsapp.providers import twilio as _twi
+    from headnote.drafter.ocr import ocr_fir_pages, ocr_bail_order_pages
+
+    pages: list[tuple[bytes, str]] = []
+    for u in media_urls[:6]:                       # cap pages
+        try:
+            data, ct = await asyncio.to_thread(_twi.download_media, u)
+            if not ct or ct == "application/octet-stream":
+                ct = "image/jpeg"                  # WhatsApp images
+            pages.append((data, ct))
+        except Exception:
+            log.exception("twilio download_media failed for %s", u[:80])
+    if not pages:
+        return {}
+
+    try:
+        if variant == "hc":
+            parsed = await asyncio.to_thread(ocr_bail_order_pages, pages)
+            return _bail_order_ocr_to_bail_slots(parsed)
+        else:
+            parsed = await asyncio.to_thread(ocr_fir_pages, pages)
+            return _fir_ocr_to_bail_slots(parsed)
+    except Exception:
+        log.exception("OCR failed (variant=%s)", variant)
+        return {}
 
 
 # ════════════════════════════════════════════════════════════════ finalize draft

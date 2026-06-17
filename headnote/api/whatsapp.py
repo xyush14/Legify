@@ -451,19 +451,21 @@ async def _handle_inbound_message(msg: InboundMessage, *, provider_name: str) ->
         log.info("dedupe hit on provider_msg_id=%s — skipping", msg.provider_msg_id)
         return
 
-    if msg.msg_type != "text":
-        await _send_reply(
-            msg.wa_phone,
-            "I can only read text messages right now. Send me a legal research question to try.",
-            provider_name,
-        )
-        return
-
     text = (msg.body or "").strip()
     upper = text.upper()
 
     # ───────── Drafting flow takes priority if a session is active ─────────
-    if await _handle_drafting(msg.wa_phone, text, provider_name):
+    if await _handle_drafting(msg, provider_name):
+        return
+
+    # Non-text without an active draft: politely nudge to text
+    if msg.msg_type != "text":
+        await _send_reply(
+            msg.wa_phone,
+            "I can only read text or images during a draft. To start drafting a bail, "
+            "send *DRAFT BAIL* (then upload the FIR photo to auto-fill).",
+            provider_name,
+        )
         return
 
     # Keyword routes (fast, synchronous)
@@ -527,14 +529,16 @@ def _welcome_message() -> str:
     )
 
 
-async def _handle_drafting(wa_phone: str, text: str, provider_name: str) -> bool:
-    """Handle a message as part of a drafting flow.
+async def _handle_drafting(msg: InboundMessage, provider_name: str) -> bool:
+    """Handle a message as part of a drafting flow. Supports text replies AND
+    media uploads (FIR photo / Sessions order — auto-fills via OCR).
 
-    Returns True if consumed by drafting (caller stops). False = no draft
-    action; caller proceeds to research / keyword routes.
+    Returns True if consumed by drafting (caller stops); False otherwise.
     """
+    wa_phone = msg.wa_phone
+    text = (msg.body or "").strip()
     session = await wa_drafting.load_session(wa_phone)
-    intent = wa_drafting.detect_intent(text)
+    intent = wa_drafting.detect_intent(text) if text else None
 
     if intent and intent.get("action") == "cancel":
         if session:
@@ -554,15 +558,17 @@ async def _handle_drafting(wa_phone: str, text: str, provider_name: str) -> bool
 
     if intent and intent.get("action") == "start":
         story_id = intent["story_id"]
-        slots = wa_drafting.SLOTS_BY_STORY.get(story_id) or ()
-        if not slots:
-            await _send_reply(wa_phone, "That draft type isn't supported yet. Try *DRAFT BAIL*.", provider_name)
-            return True
-        first_key = slots[0].key
+        variant  = intent.get("variant", "sessions")
+        # Seed with internal __variant flag (read by build_full_answers)
+        initial = {"__variant": variant}
         await wa_drafting.save_session(
-            wa_phone, story_id=story_id, next_slot=first_key, answers={},
+            wa_phone, story_id=story_id, next_slot="multi", answers=initial,
         )
-        await _send_reply(wa_phone, wa_drafting.first_prompt_for(story_id), provider_name)
+        await _send_reply(
+            wa_phone,
+            wa_drafting.first_prompt_for(story_id, variant=variant),
+            provider_name,
+        )
         return True
 
     if intent and intent.get("action") == "ask_what":
@@ -570,55 +576,139 @@ async def _handle_drafting(wa_phone: str, text: str, provider_name: str) -> bool
         return True
 
     if session:
-        await _advance_drafting_session(session, text, provider_name)
+        await _advance_drafting_session(session, msg, provider_name)
         return True
 
     return False
 
 
-async def _advance_drafting_session(session: dict, text: str, provider_name: str) -> None:
-    """Apply the user's answer to the current slot; prompt next or finalize."""
+async def _advance_drafting_session(session: dict, msg: InboundMessage,
+                                     provider_name: str) -> None:
+    """Apply the user's input (text fill OR uploaded image) to the session,
+    then either finalize (if all required fields present) or ask for the
+    remaining gaps in a single message.
+    """
     wa_phone = session["wa_phone"]
     story_id = session["story_id"]
-    current_slot_key = session["next_slot"]
-
-    if current_slot_key in ("review", "done"):
-        await wa_drafting.delete_session(wa_phone)
-        await _send_reply(
-            wa_phone,
-            "Draft already done. Type *DRAFT BAIL* to start a new one.",
-            provider_name,
-        )
-        return
-
-    slot = wa_drafting.slot_by_key(story_id, current_slot_key)
-    if not slot:
-        log.error("unknown slot %s for story %s", current_slot_key, story_id)
-        await wa_drafting.delete_session(wa_phone)
-        await _send_reply(
-            wa_phone,
-            "⚠️ Draft session error. Send *DRAFT BAIL* to start over.",
-            provider_name,
-        )
-        return
+    text = (msg.body or "").strip()
+    has_media = bool(msg.media_urls) and msg.msg_type in ("image", "document")
 
     answers = dict(session.get("answers") or {})
-    answers[slot.key] = wa_drafting.apply_answer(slot, text)
-    next_key = wa_drafting.next_slot_after(story_id, current_slot_key)
+    variant = answers.get("__variant", "sessions")
 
-    if next_key:
-        await wa_drafting.save_session(
-            wa_phone, story_id=story_id, next_slot=next_key, answers=answers,
+    # ── Collect new fields from this message ─────────────────────────────
+    new_fields: dict = {}
+
+    if has_media:
+        await _send_reply(
+            wa_phone,
+            "📷 Got the document — extracting fields via OCR. ~15-20 seconds…",
+            provider_name,
         )
-        next_slot = wa_drafting.slot_by_key(story_id, next_key)
-        if next_slot:
-            await _send_reply(wa_phone, next_slot.prompt, provider_name)
+        _spawn_bg(_ocr_and_advance(session, msg, provider_name))
+        return  # _ocr_and_advance continues the flow
+
+    if text:
+        new_fields = wa_drafting.parse_single_message_reply(text)
+
+    if not new_fields:
+        # Couldn't parse anything — re-show the template/gap prompt
+        missing = wa_drafting.missing_required(story_id, answers)
+        if missing:
+            await _send_reply(wa_phone, wa_drafting.gap_prompt(missing), provider_name)
+        else:
+            # No missing fields but parse empty — shouldn't happen, defensive
+            await _send_reply(
+                wa_phone,
+                "I didn't catch any fields in that. Reply with the template "
+                "filled in, or *CANCEL* to abort.",
+                provider_name,
+            )
         return
 
-    # Final slot answered → finalize in background
+    # Merge in
+    answers.update(new_fields)
+    await _save_and_check_completion(answers, session, provider_name)
+
+
+async def _ocr_and_advance(session: dict, msg: InboundMessage,
+                           provider_name: str) -> None:
+    """Background — runs OCR on uploaded media, merges fields, advances flow."""
+    wa_phone = session["wa_phone"]
+    answers = dict(session.get("answers") or {})
+    variant = answers.get("__variant", "sessions")
+
+    try:
+        new_fields = await wa_drafting.ocr_for_draft(msg.media_urls, variant=variant)
+    except Exception:
+        log.exception("OCR bg crashed for %s", wa_phone)
+        new_fields = {}
+
+    if not new_fields:
+        # OCR returned nothing — fall back to asking via template
+        missing = wa_drafting.missing_required(session["story_id"], answers)
+        await _send_reply(
+            wa_phone,
+            "⚠️ Couldn't read fields from that document — image may be blurry "
+            "or in an unusual format. Try a clearer photo, or reply with the "
+            "template below.\n\n"
+            + wa_drafting.gap_prompt(missing if missing else list(wa_drafting.FIELD_LABELS.keys())),
+            provider_name,
+        )
+        return
+
+    # Show the lawyer what we extracted (brief)
+    extracted_summary = _ocr_summary_line(new_fields)
     await _send_reply(
         wa_phone,
-        "🛠️ Generating your bail application — this takes ~15 seconds. Hang on.",
+        f"✅ Extracted from your document:\n{extracted_summary}",
+        provider_name,
+    )
+
+    answers.update(new_fields)
+    await _save_and_check_completion(answers, session, provider_name)
+
+
+def _ocr_summary_line(fields: dict) -> str:
+    lines = []
+    if fields.get("applicant_name"):
+        lines.append(f"• Applicant: {fields['applicant_name']}")
+    if fields.get("applicant_father"):
+        lines.append(f"• Father: {fields['applicant_father']}")
+    if fields.get("fir_number"):
+        lines.append(f"• FIR: {fields['fir_number']}")
+    if fields.get("police_station"):
+        lines.append(f"• PS: {fields['police_station']}")
+    if fields.get("district"):
+        lines.append(f"• District: {fields['district']}")
+    if fields.get("sections"):
+        secs = fields["sections"] if isinstance(fields["sections"], list) else [fields["sections"]]
+        lines.append(f"• Sections: {', '.join(str(s) for s in secs)}")
+    return "\n".join(lines) if lines else "(no fields extracted)"
+
+
+async def _save_and_check_completion(answers: dict, session: dict,
+                                      provider_name: str) -> None:
+    """Save merged answers; if all required filled → finalize, else ask gaps."""
+    wa_phone = session["wa_phone"]
+    story_id = session["story_id"]
+
+    missing = wa_drafting.missing_required(story_id, answers)
+
+    if missing:
+        await wa_drafting.save_session(
+            wa_phone, story_id=story_id, next_slot="multi", answers=answers,
+        )
+        await _send_reply(wa_phone, wa_drafting.gap_prompt(missing), provider_name)
+        return
+
+    # All required fields present → finalize
+    await wa_drafting.save_session(
+        wa_phone, story_id=story_id, next_slot="done", answers=answers,
+    )
+    await _send_reply(
+        wa_phone,
+        "🛠️ Generating your bail application — this takes ~5 seconds.",
         provider_name,
     )
     log.info("wa drafting FINALIZE phone=%s story=%s", wa_phone, story_id)

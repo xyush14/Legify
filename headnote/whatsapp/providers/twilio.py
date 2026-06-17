@@ -167,21 +167,25 @@ def parse_webhook(raw: bytes, content_type: str) -> list[InboundMessage]:
     num_media = int(f.get("NumMedia", "0") or "0")
     msg_type = "text"
     media_urls: list[str] = []
+    media_types: list[str] = []
     if num_media > 0:
-        # use first media's content type as the msg_type
-        ct = f.get("MediaContentType0", "")
-        if ct.startswith("image/"):
+        ct0 = f.get("MediaContentType0", "")
+        if ct0.startswith("image/"):
             msg_type = "image"
-        elif ct == "application/pdf":
+        elif ct0 == "application/pdf":
             msg_type = "document"
-        elif ct.startswith("audio/"):
+        elif ct0.startswith("audio/"):
             msg_type = "audio"
         else:
             msg_type = "media"
         for i in range(num_media):
             url = f.get(f"MediaUrl{i}")
+            ct = f.get(f"MediaContentType{i}", "")
             if url:
-                media_urls.append(url)
+                # Encode content type into URL fragment so it survives transport
+                # without changing the InboundMessage shape.
+                media_urls.append(url + (f"#ct={ct}" if ct else ""))
+                media_types.append(ct)
     elif not body:
         msg_type = "unknown"
 
@@ -193,3 +197,29 @@ def parse_webhook(raw: bytes, content_type: str) -> list[InboundMessage]:
         media_urls=media_urls,
         raw=f,
     )]
+
+
+def download_media(url: str) -> tuple[bytes, str]:
+    """Download a Twilio media file. Twilio media URLs require HTTP Basic
+    auth with (account_sid, auth_token). Strips our #ct=... fragment.
+
+    Returns (bytes, content_type).
+    """
+    import re as _re
+    base = url.split("#", 1)[0]
+    ct = ""
+    m = _re.search(r"#ct=([^&]+)", url)
+    if m:
+        ct = m.group(1)
+    r = requests.get(
+        base,
+        auth=(_account_sid(), _auth_token()),
+        timeout=30,
+        # Twilio redirects to S3; follow the redirect
+        allow_redirects=True,
+    )
+    if not r.ok:
+        raise WAClientError(r.status_code, r.text)
+    # Prefer the actual response content-type if Twilio set it
+    ct = r.headers.get("content-type", ct) or ct
+    return r.content, ct
