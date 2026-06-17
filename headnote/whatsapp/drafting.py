@@ -284,7 +284,9 @@ async def load_session(wa_phone: str) -> Optional[dict]:
     if not cfg:
         return None
     base, key = cfg
-    url = f"{base}/rest/v1/wa_draft_sessions?wa_phone=eq.{wa_phone}&select=*"
+    from urllib.parse import quote as _quote
+    safe_phone = _quote(wa_phone, safe="")   # the "+" in "+91..." must be %2B
+    url = f"{base}/rest/v1/wa_draft_sessions?wa_phone=eq.{safe_phone}&select=*"
     try:
         async with httpx.AsyncClient(timeout=6.0) as ac:
             r = await ac.get(url, headers=_sb_headers(key))
@@ -338,7 +340,9 @@ async def delete_session(wa_phone: str) -> None:
     if not cfg:
         return
     base, key = cfg
-    url = f"{base}/rest/v1/wa_draft_sessions?wa_phone=eq.{wa_phone}"
+    from urllib.parse import quote as _quote
+    safe_phone = _quote(wa_phone, safe="")
+    url = f"{base}/rest/v1/wa_draft_sessions?wa_phone=eq.{safe_phone}"
     try:
         async with httpx.AsyncClient(timeout=6.0) as ac:
             await ac.delete(url, headers=_sb_headers(key, prefer="return=minimal"))
