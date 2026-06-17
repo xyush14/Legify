@@ -1024,6 +1024,18 @@
 <script src="/static/auth.js?v=20260527a"></script>
 <script>
 // =========================================================================
+// WhatsApp guest mode — Phase 4
+// When the URL carries ?wa_token=…, the canvas runs un-authenticated.
+//   • Draft loads via /api/whatsapp/draft/<token>/load (no Supabase headers)
+//   • PDF download routes to /api/whatsapp/draft/<token>/edited-pdf
+//   • Auto-save to server is disabled (token has no write access)
+//   • The Supabase sign-in modal is suppressed
+// All other features (form panel, live preview, contentEditable doc edits,
+// FIR OCR via Supabase if the lawyer DOES sign in, etc.) work as normal.
+const __waToken = new URLSearchParams(location.search).get('wa_token');
+window.__waToken = __waToken;
+const WA_MODE = !!__waToken;
+// =========================================================================
 // State
 // =========================================================================
 const state = {
@@ -1330,7 +1342,14 @@ function renderHi(a) {
   const district = a.district || '';
 
   const sections = (a.sections_str || '').split(',').map(s => s.trim()).filter(Boolean);
-  const sectionsList = a.sections || sections;
+  // `sections` may arrive as an array (OCR / WhatsApp / fresh) OR as a string
+  // (legacy drafts, some imports). Downstream code calls .join()/.map(), so a
+  // string here used to throw and blank the whole document. Always coerce.
+  const sectionsList = Array.isArray(a.sections)
+    ? a.sections
+    : (typeof a.sections === 'string' && a.sections.trim()
+        ? a.sections.split(/[,;/]| and /).map(s => s.trim()).filter(Boolean)
+        : sections);
 
   const priorBail = a.prior_bail_history || [];
   const coAccused = a.co_accused || [];
@@ -1973,7 +1992,14 @@ function renderEn(a) {
   const stateName = a.state_name || '[State]';
   const district = a.district || '';
   const sections = (a.sections_str || '').split(',').map(s => s.trim()).filter(Boolean);
-  const sectionsList = a.sections || sections;
+  // `sections` may arrive as an array (OCR / WhatsApp / fresh) OR as a string
+  // (legacy drafts, some imports). Downstream code calls .join()/.map(), so a
+  // string here used to throw and blank the whole document. Always coerce.
+  const sectionsList = Array.isArray(a.sections)
+    ? a.sections
+    : (typeof a.sections === 'string' && a.sections.trim()
+        ? a.sections.split(/[,;/]| and /).map(s => s.trim()).filter(Boolean)
+        : sections);
   const priorBail = a.prior_bail_history || [];
   const coAccused = a.co_accused || [];
   const grounds = a.grounds || {};
@@ -2300,8 +2326,18 @@ function onChange() {
   // Re-render document in selected language — unless the lawyer is editing the
   // document text directly (editMode), where re-rendering would clobber edits.
   if (!state.editMode) {
-    document.getElementById('doc-page').innerHTML =
-      state.lang === 'en' ? renderEn(state.answers) : renderHi(state.answers);
+    // A single malformed field in a loaded draft must NEVER blank the canvas.
+    // Render defensively: on any error keep the last good document on screen and
+    // tell the lawyer instead of silently showing an empty page.
+    try {
+      document.getElementById('doc-page').innerHTML =
+        state.lang === 'en' ? renderEn(state.answers) : renderHi(state.answers);
+    } catch (err) {
+      console.error('[draft-bail] render failed', err, state.answers);
+      if (typeof toast === 'function') toast(state.lang === 'hi'
+        ? 'इस ड्राफ्ट का कुछ डेटा पुराने प्रारूप में है — आप फिर भी संपादन कर सकते हैं'
+        : 'Some of this draft’s data is in an old format — you can still edit it', 'err', 4500);
+    }
   }
   // Update the page-count badge on the mobile preview handle
   if (typeof updatePreviewPageCount === 'function') updatePreviewPageCount();
@@ -2427,6 +2463,11 @@ async function authHeaders() {
 // doesn't have to navigate away and lose their form data.
 async function handleAuthError(status) {
   if (status !== 401) return false;
+  if (WA_MODE) {
+    // WhatsApp guest mode — never show the Supabase sign-in modal.
+    // Auth-gated features (FIR OCR, voice transcribe) simply degrade.
+    return true;
+  }
   if (window.headnoteAuth && window.headnoteAuth.ready) {
     try { await window.headnoteAuth.ready(); } catch {}
   }
@@ -2483,6 +2524,12 @@ function showInlineSignInModal() {
 }
 
 async function saveDraft() {
+  // WhatsApp guest mode: no server-side save. The token-protected draft
+  // already lives in storage; local edits flow into PDF on Download.
+  if (WA_MODE) {
+    document.getElementById('savestate').textContent = 'guest mode · edits in browser';
+    return;
+  }
   try {
     const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
     if (!state.draftId) {
@@ -3234,6 +3281,22 @@ function _pdfBaseName() {
 // WhatsApp share). Returns Promise<{blob: Blob, filename: string}>.
 async function _fetchPdfBlob() {
   const base = _pdfBaseName();
+
+  // WhatsApp guest mode → token endpoint, no auth needed.
+  if (WA_MODE) {
+    const r = await fetch(`/api/whatsapp/draft/${__waToken}/edited-pdf`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ html: _exportHtml() }),
+    });
+    if (!r.ok) {
+      let detail = '';
+      try { detail = (await r.json()).detail || ''; } catch (_) {}
+      throw new Error(detail || ('server error ' + r.status));
+    }
+    return { blob: await r.blob(), filename: base + '.pdf' };
+  }
+
   const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
   const r = await fetch('/api/draft/pdf', {
     method: 'POST',
@@ -3523,17 +3586,56 @@ function toast(msg, kind) {
 // =========================================================================
 async function maybeLoadExisting() {
   const params = new URLSearchParams(window.location.search);
+
+  // WhatsApp guest mode — load via token endpoint, no auth.
+  if (WA_MODE) {
+    try {
+      const r = await fetch(`/api/whatsapp/draft/${__waToken}/load`);
+      if (!r.ok) {
+        console.warn('[draft-bail] WA load failed →', r.status);
+        if (typeof toast === 'function') toast(state.lang === 'hi'
+          ? `ड्राफ्ट लोड नहीं हो पाया (${r.status})`
+          : `Couldn't load draft (${r.status})`, 'err', 4500);
+        return;
+      }
+      const d = await r.json();
+      state.draftId = d.id;
+      if (d.lang) state.lang = d.lang;
+      if (d.answers) Object.assign(state.answers, d.answers);
+      syncUIToState();
+      onChange();
+    } catch (e) {
+      console.error('[draft-bail] WA load error', e);
+    }
+    return;
+  }
+
   const id = params.get('id');
   if (!id) return;
   try {
     const headers = await authHeaders();
     const r = await fetch(`/api/draft/${id}`, { headers });
-    if (!r.ok) return;
+    if (!r.ok) {
+      // Never fail silently — that is exactly how a draft "doesn't load" with
+      // no explanation. Surface it so the lawyer (and we) know why.
+      console.warn('[draft-bail] could not load draft', id, '→ HTTP', r.status);
+      if (r.status === 401) { if (typeof handleAuthError === 'function') handleAuthError(401); }
+      else if (typeof toast === 'function') toast(state.lang === 'hi'
+        ? `यह ड्राफ्ट लोड नहीं हो पाया (${r.status}) — कृपया दोबारा खोलें`
+        : `Couldn’t load this draft (${r.status}) — try reopening it`, 'err', 4500);
+      return;
+    }
     const d = await r.json();
     state.draftId = d.id;
     if (d.answers) Object.assign(state.answers, d.answers);
     syncUIToState();
-  } catch (e) {}
+    onChange();   // paint the loaded answers into the document immediately
+  } catch (e) {
+    console.error('[draft-bail] load error', e);
+    if (typeof toast === 'function') toast(state.lang === 'hi'
+      ? 'ड्राफ्ट लोड करने में समस्या — नेटवर्क जाँचें'
+      : 'Problem loading the draft — check your connection', 'err', 4500);
+  }
 }
 
 // =========================================================================

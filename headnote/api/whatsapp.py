@@ -223,16 +223,48 @@ async def draft_pdf(token: str) -> Response:
 
 @router.get("/draft/{token}/view")
 async def draft_view(token: str) -> Response:
-    """In-browser CANVAS viewer + editor. Loads the draft, embeds the same
-    CSS as the web canvas so format matches, and makes #doc-page editable.
-    Save-as-PDF posts the current HTML back through the same weasyprint
-    pipeline."""
-    html, err = await wa_drafting.render_html_for_token(token)
-    if err or not html:
-        raise HTTPException(status_code=404, detail=err or "Draft not found")
+    """Redirect to the FULL web canvas with the WhatsApp draft pre-loaded
+    via the token. Bypasses Supabase auth — the token IS the auth.
+    The canvas at /draft/bail reads `?wa_token=` and goes into a
+    guest-edit mode (no autosave to server, PDF goes through token endpoint).
+    """
+    # Validate token before redirecting so we don't bounce on bogus URLs
+    tok = await wa_drafting.resolve_token(token)
+    if not tok:
+        raise HTTPException(status_code=404, detail="Token expired or invalid")
+    return Response(
+        status_code=302,
+        headers={"Location": f"/draft/bail?wa_token={token}"},
+    )
 
-    page = _wrap_viewer_html(html, token)
-    return Response(content=page, media_type="text/html; charset=utf-8")
+
+@router.get("/draft/{token}/load")
+async def draft_load(token: str) -> dict:
+    """Token-authenticated draft fetch — what the canvas calls when it sees
+    ?wa_token= in the URL. Returns the same JSON shape /api/draft/{id} returns,
+    minus user-id details."""
+    tok = await wa_drafting.resolve_token(token)
+    if not tok:
+        raise HTTPException(status_code=404, detail="Token expired or invalid")
+
+    from headnote.drafter import storage
+    try:
+        draft = await asyncio.to_thread(storage.get_draft, tok["draft_id"])
+    except Exception:
+        log.exception("draft_load storage.get_draft failed")
+        raise HTTPException(status_code=500, detail="Draft lookup failed")
+    if draft is None:
+        raise HTTPException(status_code=404, detail="Draft not found")
+
+    return {
+        "id":               draft.id,
+        "story_id":         draft.story_id,
+        "template_version": draft.template_version,
+        "lang":             draft.lang,
+        "answers":          draft.answers,
+        "title":            draft.title,
+        "wa_mode":          True,
+    }
 
 
 class _EditedPdfBody(BaseModel):
