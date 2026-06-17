@@ -26,6 +26,7 @@ import httpx
 from fastapi import APIRouter, Header, HTTPException, Request, Response
 
 from headnote.whatsapp import client as wa
+from headnote.whatsapp import drafting as wa_drafting
 from headnote.whatsapp import research as wa_research
 from headnote.whatsapp.providers import InboundMessage
 
@@ -150,6 +151,120 @@ async def e2e_test(to: str = "", q: str = "", bg: int = 0) -> dict:
         trace["total_elapsed_seconds"] = round(_t.time() - t0, 1)
         trace["captured_logs"] = log_buf.getvalue().splitlines()[-80:]
     return trace
+
+
+@router.get("/draft/{token}/pdf")
+async def draft_pdf(token: str) -> Response:
+    """Serve a draft as PDF via a short-lived (24h) token. Public — no
+    Supabase auth needed. The token IS the auth (~160 bits of entropy)."""
+    pdf_bytes, err = await wa_drafting.render_pdf_for_token(token)
+    if err or not pdf_bytes:
+        raise HTTPException(status_code=404, detail=err or "Draft not found")
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'inline; filename="headnote-bail-draft.pdf"'},
+    )
+
+
+@router.get("/draft/{token}/view")
+async def draft_view(token: str) -> Response:
+    """In-browser viewer for a draft. Shows the rendered HTML with
+    Download PDF + (later) Edit-on-canvas buttons. Public via the same
+    short-lived token. Phase 4a — preview-only; canvas editor lands in 4b.
+    """
+    html, err = await wa_drafting.render_html_for_token(token)
+    if err or not html:
+        raise HTTPException(status_code=404, detail=err or "Draft not found")
+
+    page = _wrap_viewer_html(html, token)
+    return Response(content=page, media_type="text/html; charset=utf-8")
+
+
+def _wrap_viewer_html(inner: str, token: str) -> str:
+    """Self-contained viewer page — Kruti Dev font embedded, Download PDF
+    button, link back to Headnote. No JS frameworks, no Supabase login."""
+    return f"""<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Headnote — Bail Draft</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600&family=Tiro+Devanagari+Hindi:ital@0;1&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  @font-face {{
+    font-family: 'KrutiDev010';
+    src: url('/static/fonts/KrutiDev010.ttf') format('truetype');
+    font-display: swap;
+  }}
+  :root {{
+    --bg: #fdfcf9; --paper: #ffffff; --ink: #0c0c0a;
+    --muted: #6b6960; --line: rgba(12,12,10,0.12); --gold: #b8924e;
+  }}
+  * {{ box-sizing: border-box; }}
+  html, body {{
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: 'Inter', -apple-system, sans-serif;
+  }}
+  .topbar {{
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px; border-bottom: 1px solid var(--line);
+    background: var(--paper); position: sticky; top: 0; z-index: 10;
+  }}
+  .topbar .brand {{ font-weight: 600; }}
+  .topbar .actions {{ display: flex; gap: 10px; }}
+  .btn {{
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px; border-radius: 8px; border: 1px solid var(--ink);
+    background: var(--ink); color: var(--paper); text-decoration: none;
+    font-size: 14px; font-weight: 500; cursor: pointer;
+  }}
+  .btn--ghost {{ background: var(--paper); color: var(--ink); }}
+  .doc-wrap {{ max-width: 800px; margin: 28px auto; padding: 0 16px; }}
+  .doc {{
+    background: var(--paper); padding: 30mm 22mm; min-height: 270mm;
+    border: 1px solid var(--line); border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+    font-family: 'Tiro Devanagari Hindi', 'Noto Sans Devanagari', serif;
+    font-size: 13pt; line-height: 1.75; color: var(--ink);
+  }}
+  .doc h1, .doc h2, .doc h3 {{ font-weight: 600; }}
+  .doc table {{ width: 100%; border-collapse: collapse; margin: 12px 0; }}
+  .doc table td, .doc table th {{
+    padding: 6px 8px; border: 1px solid #888; vertical-align: top;
+  }}
+  .doc .center {{ text-align: center; }}
+  .doc .right {{ text-align: right; }}
+  .footer {{
+    text-align: center; margin: 30px 0; color: var(--muted); font-size: 12px;
+  }}
+  .footer a {{ color: var(--gold); }}
+  @media (max-width: 640px) {{
+    .doc {{ padding: 18mm 12mm; font-size: 11pt; }}
+    .topbar {{ padding: 12px 14px; }}
+    .topbar .brand {{ font-size: 14px; }}
+    .btn {{ padding: 6px 12px; font-size: 13px; }}
+  }}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand">📘 Headnote — Bail Draft</div>
+  <div class="actions">
+    <a href="/api/whatsapp/draft/{token}/pdf" download="headnote-bail-draft.pdf" class="btn">📄 Download PDF</a>
+  </div>
+</div>
+<div class="doc-wrap">
+  <div class="doc">{inner}</div>
+  <div class="footer">
+    Generated via WhatsApp on Headnote · this link expires in 24 hours ·
+    <a href="https://headnote.in">headnote.in</a>
+  </div>
+</div>
+</body>
+</html>
+"""
 
 
 @router.get("/research-diag")
@@ -294,6 +409,10 @@ async def _handle_inbound_message(msg: InboundMessage, *, provider_name: str) ->
     text = (msg.body or "").strip()
     upper = text.upper()
 
+    # ───────── Drafting flow takes priority if a session is active ─────────
+    if await _handle_drafting(msg.wa_phone, text, provider_name):
+        return
+
     # Keyword routes (fast, synchronous)
     if not text:
         await _send_reply(msg.wa_phone, wa_research._short_query_hint(""), provider_name)
@@ -304,7 +423,8 @@ async def _handle_inbound_message(msg: InboundMessage, *, provider_name: str) ->
         return
 
     if upper in {"HI", "HELLO", "HEY", "START"}:
-        await _send_reply(msg.wa_phone, wa_research._short_query_hint(""), provider_name)
+        # Welcome message now includes the Draft option
+        await _send_reply(msg.wa_phone, _welcome_message(), provider_name)
         return
 
     if upper == "STOP":
@@ -339,6 +459,151 @@ async def _handle_inbound_message(msg: InboundMessage, *, provider_name: str) ->
     )
     log.info("wa bg dispatch: phone=%s len=%d", msg.wa_phone, len(text))
     _spawn_bg(_run_research_and_reply(msg.wa_phone, text, provider_name))
+
+
+# ════════════════════════════════════════════════════════════════ drafting flow
+
+def _welcome_message() -> str:
+    return (
+        "👋 Welcome to *Headnote* — citation-checked Indian legal work on WhatsApp.\n\n"
+        "What can I help with?\n\n"
+        "🔎 *Research* — just send a legal question, e.g.\n"
+        "   _Section 138 NI Act recent SC on territorial jurisdiction_\n\n"
+        "📝 *Draft* — type *DRAFT BAIL* to start a bail application (§439)\n\n"
+        "Send *HELP* for examples."
+    )
+
+
+async def _handle_drafting(wa_phone: str, text: str, provider_name: str) -> bool:
+    """Handle a message as part of a drafting flow.
+
+    Returns True if consumed by drafting (caller stops). False = no draft
+    action; caller proceeds to research / keyword routes.
+    """
+    session = await wa_drafting.load_session(wa_phone)
+    intent = wa_drafting.detect_intent(text)
+
+    if intent and intent.get("action") == "cancel":
+        if session:
+            await wa_drafting.delete_session(wa_phone)
+            await _send_reply(
+                wa_phone,
+                "✅ Draft cancelled. Send *DRAFT BAIL* to start over, or send any legal research question.",
+                provider_name,
+            )
+        else:
+            await _send_reply(wa_phone, "No active draft to cancel.", provider_name)
+        return True
+
+    if intent and intent.get("action") == "restart":
+        await wa_drafting.delete_session(wa_phone)
+        session = None
+
+    if intent and intent.get("action") == "start":
+        story_id = intent["story_id"]
+        slots = wa_drafting.SLOTS_BY_STORY.get(story_id) or ()
+        if not slots:
+            await _send_reply(wa_phone, "That draft type isn't supported yet. Try *DRAFT BAIL*.", provider_name)
+            return True
+        first_key = slots[0].key
+        await wa_drafting.save_session(
+            wa_phone, story_id=story_id, next_slot=first_key, answers={},
+        )
+        await _send_reply(wa_phone, wa_drafting.first_prompt_for(story_id), provider_name)
+        return True
+
+    if intent and intent.get("action") == "ask_what":
+        await _send_reply(wa_phone, wa_drafting.what_to_draft_prompt(), provider_name)
+        return True
+
+    if session:
+        await _advance_drafting_session(session, text, provider_name)
+        return True
+
+    return False
+
+
+async def _advance_drafting_session(session: dict, text: str, provider_name: str) -> None:
+    """Apply the user's answer to the current slot; prompt next or finalize."""
+    wa_phone = session["wa_phone"]
+    story_id = session["story_id"]
+    current_slot_key = session["next_slot"]
+
+    if current_slot_key in ("review", "done"):
+        await wa_drafting.delete_session(wa_phone)
+        await _send_reply(
+            wa_phone,
+            "Draft already done. Type *DRAFT BAIL* to start a new one.",
+            provider_name,
+        )
+        return
+
+    slot = wa_drafting.slot_by_key(story_id, current_slot_key)
+    if not slot:
+        log.error("unknown slot %s for story %s", current_slot_key, story_id)
+        await wa_drafting.delete_session(wa_phone)
+        await _send_reply(
+            wa_phone,
+            "⚠️ Draft session error. Send *DRAFT BAIL* to start over.",
+            provider_name,
+        )
+        return
+
+    answers = dict(session.get("answers") or {})
+    answers[slot.key] = wa_drafting.apply_answer(slot, text)
+    next_key = wa_drafting.next_slot_after(story_id, current_slot_key)
+
+    if next_key:
+        await wa_drafting.save_session(
+            wa_phone, story_id=story_id, next_slot=next_key, answers=answers,
+        )
+        next_slot = wa_drafting.slot_by_key(story_id, next_key)
+        if next_slot:
+            await _send_reply(wa_phone, next_slot.prompt, provider_name)
+        return
+
+    # Final slot answered → finalize in background
+    await _send_reply(
+        wa_phone,
+        "🛠️ Generating your bail application — this takes ~15 seconds. Hang on.",
+        provider_name,
+    )
+    log.info("wa drafting FINALIZE phone=%s story=%s", wa_phone, story_id)
+    _spawn_bg(_finalize_and_send(wa_phone, dict(session, answers=answers), provider_name))
+
+
+async def _finalize_and_send(wa_phone: str, session: dict, provider_name: str) -> None:
+    try:
+        result = await wa_drafting.finalize_draft(wa_phone, session)
+    except Exception:
+        log.exception("wa drafting FINALIZE_CRASH phone=%s", wa_phone)
+        await _try_send_with_fallback(
+            wa_phone,
+            "⚠️ Couldn't generate the draft. Try sending *DRAFT BAIL* again.",
+            provider_name,
+        )
+        return
+
+    await wa_drafting.delete_session(wa_phone)
+
+    pdf_url    = result.get("pdf_url")
+    canvas_url = result.get("canvas_url")
+    summary    = result.get("summary_line") or ""
+
+    lines = [
+        "📎 *Your bail application is ready.*",
+        "",
+        summary,
+        "",
+        f"📄 PDF: {pdf_url}" if pdf_url else "",
+        f"✏️ Edit & download .docx: {canvas_url}" if canvas_url else "",
+        "",
+        "_Links expire in 24 hours. Save the PDF locally before then._",
+        "",
+        "Need another? Send *DRAFT BAIL*, or any research question.",
+    ]
+    reply = "\n".join(l for l in lines if l is not None)
+    await _try_send_with_fallback(wa_phone, reply, provider_name)
 
 
 async def _run_research_and_reply(wa_phone: str, query: str, provider_name: str) -> None:
