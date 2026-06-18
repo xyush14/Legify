@@ -179,13 +179,16 @@
 
   /* Parsed elements — applied by parseDocToHtml() */
   .doc-page .doc-head      { text-align: center; font-weight: 500; font-size: 14.5px; margin: 0 0 8px; }
-  .doc-page .doc-court     { text-align: center; font-weight: 700; font-size: 16.5px; margin: 6px 0 12px; }
+  .doc-page .doc-court     { text-align: center; font-weight: 700; font-size: 26px; margin: 6px 0 14px; line-height: 1.25; }
   .doc-page .doc-case-no   { text-align: center; font-size: 14px; margin: 0 0 18px; }
   .doc-page .doc-title     {
     text-align: center; font-weight: 700; font-size: 16px;
     text-decoration: underline; margin: 24px 0 18px;
   }
   .doc-page .doc-vs        { text-align: center; font-weight: 700; margin: 10px 0; font-size: 15px; }
+  .doc-page .doc-party     { display: flex; align-items: flex-start; gap: 12px; margin: 5px 0; }
+  .doc-page .doc-party-lab { flex: 0 0 auto; white-space: nowrap; }
+  .doc-page .doc-party-desc{ flex: 1 1 auto; }
   .doc-page .doc-shewith   { font-weight: 700; margin: 16px 0 10px; font-size: 14.5px; }
   .doc-page .doc-para      { margin: 0 0 12px; text-align: justify; }
   .doc-page .doc-para-num  {
@@ -1555,6 +1558,16 @@ function parseDocToHtml(text) {
     if (/^(VERSUS|Vs\.?|VS\.?|VERSES)$/i.test(line) || /^विरुद्ध$/.test(line) || /^विरूद्ध$/.test(line)) {
       out.push(`<div class="doc-vs">${e}</div>`);
       continue;
+    }
+    // Cause-title party line: role-label + separator + descriptor → label-left, descriptor
+    // fills the right (wraps to 2-3 lines). The required separator ([—:।-]) stops body
+    // sentences like "आवेदक का कथन …" from matching, so this degrades gracefully.
+    {
+      const pm = line.match(/^(आवेदकगण|आवेदिका|आवेदक|अनावेदकगण|अनावेदक|प्रार्थीगण|प्रार्थी|याचिकाकर्ता|अपीलार्थी|परिवादी|Applicants?|Petitioners?|Respondents?|Non-?[Aa]pplicants?|Complainants?)\s*[—:।-]+\s*(.+)$/);
+      if (pm) {
+        out.push(`<div class="doc-party"><span class="doc-party-lab">${esc(pm[1])}</span><span class="doc-party-desc">${esc(pm[2])}</span></div>`);
+        continue;
+      }
     }
     // 4. "PETITION/APPLICATION/APPEAL UNDER …" — title line, all caps or starts with these
     if (/^(PETITION|APPLICATION|APPEAL|MEMO|VAKALATNAMA|REPLY|COUNTER)\s+(UNDER|FOR|TO|ON|—)/i.test(line)
