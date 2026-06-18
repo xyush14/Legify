@@ -420,7 +420,12 @@ const state = {
 function renderDoc(a, lang) {
   const S = SC[lang];
   const year = esc(a.case_year || new Date().getFullYear());
-  const sectionsRaw = (a.sections && a.sections.trim()) ? a.sections.trim() : S.defSections;
+  // `sections` is usually a string here, but a draft imported from OCR / the
+  // WhatsApp flow can carry it as an array — calling .trim() on that used to
+  // throw and blank the document. Accept either shape.
+  const sectionsRaw = Array.isArray(a.sections)
+    ? a.sections.join(', ')
+    : ((a.sections && String(a.sections).trim()) ? String(a.sections).trim() : S.defSections);
   const sec = esc(sectionsRaw);
   const court = (a.court_designation && a.court_designation.trim()) ? esc(a.court_designation.trim()) : esc(S.defCourt);
 
@@ -486,7 +491,16 @@ function renderDoc(a, lang) {
 // =========================================================================
 function onChange() {
   if (!state.editMode) {
-    $('#doc-page').innerHTML = renderDoc(state.answers, state.lang);
+    // Never let one malformed field blank the whole document — keep the last
+    // good render on screen and tell the lawyer instead of failing silently.
+    try {
+      $('#doc-page').innerHTML = renderDoc(state.answers, state.lang);
+    } catch (err) {
+      console.error('[draft-complaint] render failed', err, state.answers);
+      if (typeof toast === 'function') toast(state.lang === 'hi'
+        ? 'इस दस्तावेज़ का कुछ डेटा पुराने प्रारूप में है — आप फिर भी संपादन कर सकते हैं'
+        : 'Some of this document’s data is in an old format — you can still edit it', 'err', 4500);
+    }
   }
   const adv = $('#adv-fields');
   if (adv) adv.style.display = state.answers.show_advocate ? '' : 'none';

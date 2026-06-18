@@ -43,6 +43,12 @@ kanoon_cache/
 # Logs
 *.log
 
+# Courtbook competitive-research corpus — third-party content scraped from
+# courtbook.in for roadmap analysis only (scripts/scrape_courtbook.py). Raw HTML
+# cache + parsed JSONL + xlsx/md reports. NEVER committed, served, or rehosted.
+.courtbook_cache/
+research/courtbook/
+
 # Reference templates — real client filings, scrubbed or unscrubbed,
 # used to tune format_specs in headnote/drafter/compose_templates.py.
 # Never committed — client names, FIR numbers, addresses must not leak

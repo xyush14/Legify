@@ -27,6 +27,14 @@ let _sb = null;
 let currentUser = null;
 const _authChangeListeners = [];
 
+// Welcome-email send is fired at most once per page load. Supabase's
+// onAuthStateChange emits BOTH INITIAL_SESSION and SIGNED_IN on a fresh
+// OAuth redirect, and submitOnboarding() can also fire it — without this
+// latch each first sign-in sent the welcome email twice (seen in Resend).
+// The backend claim is the real dedupe; this just stops the wasted second
+// round-trip. Set synchronously (before any await) so re-entrant calls bail.
+let _welcomeEmailFired = false;
+
 // Promise that resolves the moment the auth flow has determined session
 // state — either we have a signed-in user, or we definitively don't.
 // Pages that depend on auth (the drafter pages, etc.) MUST await this
@@ -211,8 +219,13 @@ async function initAuth() {
         // product, capture the name from Google silently, and defer the phone to
         // a contextual ask (before a draft / payment).
         _revealApp();
-        _completeOnboardingSilently(session.user);
-        _fireWelcomeEmail();
+        // Create the profile row FIRST, then fire the welcome email. The
+        // backend claims welcome_sent on an EXISTING row, so the email send
+        // must not race the row's creation (otherwise the claim finds no row
+        // and skips the send). App is already revealed above, so awaiting the
+        // write here never delays the user. .finally → fire even if the write
+        // hiccups (it swallows its own errors and resolves).
+        _completeOnboardingSilently(session.user).finally(() => _fireWelcomeEmail());
       }
     } else {
       currentUser = null;
@@ -512,6 +525,11 @@ async function submitOnboarding() {
 }
 
 async function _fireWelcomeEmail() {
+  // At-most-once per page load. Set the latch BEFORE any await so a second
+  // synchronous call (e.g. INITIAL_SESSION then SIGNED_IN) returns here
+  // instead of racing a duplicate POST.
+  if (_welcomeEmailFired) return;
+  _welcomeEmailFired = true;
   try {
     const token = await getAuthToken();
     if (!token) return;

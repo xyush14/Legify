@@ -10,10 +10,15 @@ Supabase (RLS-protected). Once that succeeds, the frontend calls this
 endpoint to trigger our backend-managed side-effects (welcome email,
 later: Slack notification, CRM sync, etc.).
 
-Idempotency is critical — the frontend can call this multiple times
-(reload, network retry). user_profiles.welcome_sent is the dedupe flag.
-If the column doesn't exist yet the endpoint still works; it just won't
-remember it sent already (which is annoying but not destructive).
+Idempotency is critical — the frontend can (and does) call this more than
+once per sign-in: Supabase's onAuthStateChange emits both INITIAL_SESSION
+and SIGNED_IN on a fresh OAuth redirect, so two near-simultaneous POSTs are
+the norm, not an edge case. Dedupe is enforced by an ATOMIC CLAIM on
+user_profiles.welcome_sent: a conditional UPDATE that flips the flag
+false→true and returns the row only if it wasn't already set. Of two
+concurrent callers exactly one wins the claim and is allowed to hit Resend;
+the other is told "already_sent". A plain read-then-write check is NOT
+enough here — both callers would read false before either writes.
 """
 
 from __future__ import annotations
@@ -47,30 +52,54 @@ def _profile(user_id: str) -> dict:
         return {}
 
 
-def _mark_welcome_sent(user_id: str) -> None:
-    """Best-effort flag write so we don't resend on the next call. If the
-    column doesn't exist in the schema, this fails silently — the endpoint
-    is still idempotent enough at the Resend side (same recipient + tag)."""
+def _claim_welcome(user_id: str) -> bool:
+    """Atomically claim the welcome-email send for this user.
+
+    Conditional UPDATE: flip welcome_sent false/NULL → true, but only for a
+    row where it isn't already true (PostgREST filter ``welcome_sent=not.is.true``,
+    i.e. SQL ``welcome_sent IS NOT TRUE``). Because the wrapper sends
+    ``Prefer: return=representation``, the response carries the row only when
+    the UPDATE actually matched. Under Postgres READ COMMITTED, of two
+    concurrent callers exactly one gets a non-empty result — that caller
+    "won" and is the only one allowed to send. This is what stops the
+    frontend's double-fire from producing two emails.
+
+    Returns True iff THIS call won the claim (and must therefore send)."""
+    try:
+        rows = _supabase.update(
+            "user_profiles",
+            {"welcome_sent": True},
+            params={"id": f"eq.{user_id}", "welcome_sent": "not.is.true"},
+        )
+        return bool(rows)
+    except Exception as e:
+        log.warning("welcome-email: claim write failed for user=%.8s: %s", user_id, e)
+        return False
+
+
+def _release_welcome_claim(user_id: str) -> None:
+    """Undo a claim after a failed send so a later call can retry. Best-effort."""
     try:
         _supabase.update(
             "user_profiles",
-            {"welcome_sent": True},
+            {"welcome_sent": False},
             params={"id": f"eq.{user_id}"},
         )
     except Exception as e:
-        log.info("onboarding: welcome_sent flag write skipped (non-fatal): %s", e)
+        log.info("welcome-email: claim release skipped (non-fatal): %s", e)
 
 
 @router.post("/welcome-email", summary="Send the welcome email (idempotent)")
 def post_welcome_email(user: CurrentUser = Depends(get_current_user)) -> dict:
     """Triggered by the frontend right after onboarding completes.
 
-    Idempotency: if user_profiles.welcome_sent is true, returns
+    Idempotency: enforced by an atomic claim (see _claim_welcome). The first
+    caller to flip welcome_sent wins and sends; everyone else gets
     {"sent": false, "reason": "already_sent"} without contacting Resend.
-    Safe to call multiple times.
+    Safe to call any number of times, concurrently.
 
     Failure modes (all return 2xx — never block UX):
-      - RESEND_API_KEY missing            → {"sent": false, "reason": "no_provider"}
+      - RESEND_API_KEY missing            → {"sent": false, "reason": "send_failed"}
       - Resend API call fails             → {"sent": false, "reason": "send_failed"}
       - user has no email (shouldn't happen with Google OAuth) → 400
     """
@@ -81,8 +110,16 @@ def post_welcome_email(user: CurrentUser = Depends(get_current_user)) -> dict:
         )
 
     profile = _profile(user.id)
+
+    # Fast path: already sent on an earlier call — skip the write and Resend.
+    # (Every later sign-in re-hits this endpoint; this avoids a pointless PATCH.)
     if profile.get("welcome_sent") is True:
         log.info("welcome-email: already sent for user=%.8s — skipping", user.id)
+        return {"sent": False, "reason": "already_sent"}
+
+    # Atomic claim — only the winner of the race may contact Resend.
+    if not _claim_welcome(user.id):
+        log.info("welcome-email: claim lost (concurrent send) for user=%.8s", user.id)
         return {"sent": False, "reason": "already_sent"}
 
     name = profile.get("name") or ""
@@ -93,6 +130,8 @@ def post_welcome_email(user: CurrentUser = Depends(get_current_user)) -> dict:
 
     ok = send_welcome(to_email=user.email, name=name)
     if ok:
-        _mark_welcome_sent(user.id)
         return {"sent": True}
+
+    # Send failed after we claimed — release so a later call can retry.
+    _release_welcome_claim(user.id)
     return {"sent": False, "reason": "send_failed"}

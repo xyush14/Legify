@@ -238,7 +238,10 @@ HABEAS_CORPUS_226 = {
     ],
     "format_spec": (
         "Generate a Habeas Corpus Petition under Article 226 of the Constitution. Structure (Hindi or English per lang):\n"
-        "1. Header: 'माननीय उच्च न्यायालय <state>, <bench>' / 'IN THE HON'BLE HIGH COURT OF <state>, <bench>' centred, underlined.\n"
+        "1. Cause-title (centred, underlined), built from the court_name field: "
+        "in Hindi 'माननीय उच्च न्यायालय <court_name>' — for an MP bench use the "
+        "form 'माननीय उच्च न्यायालय मध्यप्रदेश खण्डपीठ <स्थान>'; in English 'IN "
+        "THE HIGH COURT OF <court_name>'.\n"
         "2. Case block: 'W.P. (Crl.) No. ____ / <year>' / 'रिट याचिका (दण्ड) क्र. ____ / <वर्ष>'.\n"
         "3. Petitioner block: '<petitioner_name>, <relation> of the detenue, r/o <address>'.\n"
         "4. Respondents: State + detaining authority (PS / Jail Superintendent).\n"
@@ -294,7 +297,7 @@ SUSPENSION_OF_SENTENCE = {
         {"key": "filing_date",      "label_en": "Date",                           "label_hi": "दिनांक",                       "type": "date",     "required": True,  "section": "filing"},
     ],
     "format_spec": (
-        "यह §389 द.प्र.सं. 1973 (अब धारा 430 भा.ना.सु.सं.) का आवेदन है — दण्डादेश का "
+        "यह §389 दं.प्र.सं. 1973 (अब धारा 430 भा.ना.सु.सं.) का आवेदन है — दण्डादेश का "
         "क्रियान्वयन अपील के निराकरण तक स्थगित कराकर दोषसिद्ध अपीलार्थी को उचित "
         "प्रतिभूति पर रिहा कराने हेतु, उच्च न्यायालय में लंबित दाण्डिक अपील के साथ। "
         "नीचे की संरचना वास्तविक न्यायालयीन filings से ली गई है — इसी क्रम व शब्दावली "
@@ -308,7 +311,7 @@ SUSPENSION_OF_SENTENCE = {
         "   अगली पंक्ति केन्द्र में: 'वि0'\n"
         "   '<राज्य> शासन द्वारा पुलिस थाना ____ ............ प्रतिअपीलार्थी'\n"
         "4. शीर्षक (केन्द्रित — frontend स्वतः रेखांकित+बोल्ड करता है, कोई markup नहीं): "
-        "'<क्रमसूचक> आवेदन पत्र अन्तर्गत धारा 389 द.प्र.सं. 1973' — जहाँ <क्रमसूचक> = "
+        "'<क्रमसूचक> आवेदन पत्र अन्तर्गत धारा 389 दं.प्र.सं. 1973' — जहाँ <क्रमसूचक> = "
         "प्रथम/द्वितीय/तृतीय/चतुर्थ/पंचम/षष्टम् दर्शाता है कि अपीलार्थी की ओर से यह "
         "कौन-सा क्रमिक आवेदन है (यदि पहला है तो 'प्रथम')।\n"
         "5. प्रस्तावना पंक्ति: 'बन्दी/अपीलार्थी की ओर से आवेदन पत्र निम्न प्रकार "
@@ -409,7 +412,7 @@ STAY_PETITION_HC = {
         "____ जिला ____')।\n"
         "4. शीर्षक (purpose-line शैली, केन्द्र, रेखांकित): 'आवेदन पत्र वास्ते अंतरिम स्थगन — <impugned_order> "
         "[तथा <what_to_stay>] के स्थगन के सम्बन्ध में।' (विवादित आदेश/कार्यवाही का स्पष्ट उल्लेख करें; "
-        "मुख्य मामला पुनरीक्षण हो तो धारा संदर्भ '438 एवं 442 भा.ना.सु.सं. (397 एवं 401 द.प्र.सं.)' दे "
+        "मुख्य मामला पुनरीक्षण हो तो धारा संदर्भ '438 एवं 442 भा.ना.सु.सं. (397 एवं 401 दं.प्र.सं.)' दे "
         "सकते हैं — सत्यापित mapping)।\n"
         "5. सम्बोधन + आरम्भ: 'माननीय महोदय,' फिर 'प्रार्थी की ओर से आवेदन पत्र निम्न प्रकार प्रस्तुत है :-'\n"
         "6. 'यहकि,' से शुरू होने वाले क्रमांकित पैरा:\n"
@@ -568,7 +571,7 @@ CRIMINAL_REVISION_SESSIONS = {
         {"key": "filing_date",       "label_en": "Date",                          "label_hi": "दिनांक",                        "type": "date",     "required": True,  "section": "filing"},
     ],
     "format_spec": (
-        "यह आपराधिक पुनरीक्षण याचिका धारा 397/401 द.प्र.सं. (438/442 भा.ना.सु.सं.) के अंतर्गत "
+        "यह आपराधिक पुनरीक्षण याचिका धारा 397/401 दं.प्र.सं. (438/442 भा.ना.सु.सं.) के अंतर्गत "
         "सत्र न्यायालय अथवा उच्च न्यायालय के समक्ष प्रस्तुत होती है। नीचे दी गई वास्तविक न्यायालयीन "
         "फाइलिंग संरचना का अक्षरशः पालन करें:\n\n"
         "शीर्ष (केन्द्र में):\n"
@@ -652,7 +655,9 @@ REPLY_TO_BAIL_SESSIONS = {
     ],
     "format_spec": (
         "Generate a Counter / Reply to bail application opposing release of the accused. Structure:\n"
-        "1. Court header.\n"
+        "1. Cause-title (centred, bold), from the court_name field: in Hindi "
+        "'न्यायालय माननीय सत्र न्यायाधीश महोदय, <court_name> (म.प्र.)'; in English "
+        "'IN THE COURT OF THE SESSIONS JUDGE, <court_name>'.\n"
         "2. 'IN <bail_app_no>' block + case title.\n"
         "3. Respondent (State / complainant) submits.\n"
         "4. Title: 'REPLY ON BEHALF OF THE NON-APPLICANT TO THE BAIL APPLICATION OF THE ACCUSED' "
@@ -714,7 +719,7 @@ COMPLAINT_156_3 = {
     "tier":            1,
     "popularity":      4,
     "quality":         "v2-ref",
-    "description":     "Application u/s 156(3) CrPC (175(3) BNSS) to the Magistrate when police refuses to register an FIR — structure decoded verbatim from real MP JMFC filings (आवेदक/आरोपी idiom, यहकि narrative built around the police-inaction sequence — थाना approached, registered-post applications, no action — title 'आवेदन पत्र अन्तर्गत धारा 156(3) द.प्र.सं.', mandatory accompanying शपथपत्र).",
+    "description":     "Application u/s 156(3) CrPC (175(3) BNSS) to the Magistrate when police refuses to register an FIR — structure decoded verbatim from real MP JMFC filings (आवेदक/आरोपी idiom, यहकि narrative built around the police-inaction sequence — थाना approached, registered-post applications, no action — title 'आवेदन पत्र अन्तर्गत धारा 156(3) दं.प्र.सं.', mandatory accompanying शपथपत्र).",
     "fields": [
         {"key": "court_name",        "label_en": "Court (JMFC / CJM)",             "label_hi": "न्यायालय (न्यायिक मजिस्ट्रेट)","type":"text","required": True, "section": "court"},
         {"key": "complainant_name",  "label_en": "Complainant",                    "label_hi": "परिवादी",                  "type": "name",     "required": True,  "section": "applicant"},
@@ -733,7 +738,7 @@ COMPLAINT_156_3 = {
         {"key": "filing_date",       "label_en": "Date",                           "label_hi": "दिनांक",                       "type": "date",     "required": True,  "section": "filing"},
     ],
     "format_spec": (
-        "यह आवेदन धारा 156(3) द.प्र.सं. (175(3) भा.ना.सु.सं.) के अंतर्गत न्यायिक दण्डाधिकारी प्रथम "
+        "यह आवेदन धारा 156(3) दं.प्र.सं. (175(3) भा.ना.सु.सं.) के अंतर्गत न्यायिक दण्डाधिकारी प्रथम "
         "श्रेणी के समक्ष प्रस्तुत होता है, जिसमें पुलिस द्वारा प्रथम सूचना रिपोर्ट दर्ज न करने पर "
         "न्यायालय से थाने को FIR पंजीबद्ध करने का निर्देश माँगा जाता है। नीचे दी गई वास्तविक न्यायालयीन "
         "फाइलिंग संरचना का अक्षरशः पालन करें:\n\n"
@@ -748,7 +753,7 @@ COMPLAINT_156_3 = {
         "  <accused_names> में दिये प्रत्येक आरोपी का पूर्ण विवरण (पुत्र/आयु/व्यवसाय/निवासी); फिर "
         "दाहिनी ओर:  --- आरोपी\n\n"
         "शीर्षक (केन्द्र में):\n"
-        "  आवेदन पत्र अन्तर्गत धारा 156(3) द.प्र.सं.\n\n"
+        "  आवेदन पत्र अन्तर्गत धारा 156(3) दं.प्र.सं.\n\n"
         "प्रस्तावना:\n"
         "  माननीय न्यायालय,\n"
         "  आवेदक की ओर से आवेदन पत्र निम्न प्रकार प्रस्तुत है :-\n\n"
@@ -819,7 +824,7 @@ PRODUCTION_WARRANT_91 = {
     "format_spec": (
         "यह जेल प्रोडक्शन वारंट / पेशी वारंट हेतु एक संक्षिप्त प्रार्थना पत्र है — जब "
         "अभियुक्त किसी अन्य प्रकरण में दूसरी जेल/कारागार में निरुद्ध है और उसे वर्तमान "
-        "प्रकरण में न्यायालय के समक्ष पेश कराना है। यह §91 द.प्र.सं. (दस्तावेज़ तलबी) "
+        "प्रकरण में न्यायालय के समक्ष पेश कराना है। यह §91 दं.प्र.सं. (दस्तावेज़ तलबी) "
         "नहीं है — शीर्षक में कोई धारा-संख्या न लिखें। नीचे की संरचना वास्तविक MP "
         "filings से ली गई है — इसी क्रम व शब्दावली का कड़ाई से पालन करें।\n\n"
         "1. न्यायालय शीर्ष (केन्द्रित): court_name से — जैसे 'न्यायालय माननीय न्यायिक "
@@ -902,7 +907,7 @@ PRODUCTION_DOCUMENTS_91_94 = {
         {"key": "filing_date",       "label_en": "Date",                           "label_hi": "दिनांक",                     "type": "date",     "required": True,  "section": "filing"},
     ],
     "format_spec": (
-        "यह §91 द.प्र.सं. / §94 भा.ना.सु.सं. का आवेदन है — किसी दस्तावेज़, सी.सी.टी.वी. "
+        "यह §91 दं.प्र.सं. / §94 भा.ना.सु.सं. का आवेदन है — किसी दस्तावेज़, सी.सी.टी.वी. "
         "फुटेज, केस डायरी अथवा अन्य वस्तु को न्यायालय के अभिलेख में तलब (call/produce) "
         "कराने हेतु। नीचे की संरचना वास्तविक MP filings से ली गई है — इसी क्रम व "
         "शब्दावली का कड़ाई से पालन करें।\n\n"
@@ -916,7 +921,7 @@ PRODUCTION_DOCUMENTS_91_94 = {
         "   केन्द्र में 'बनाम'\n"
         "   '<राज्य> राज्य द्वारा पुलिस थाना ____ जिला ____ .......... अनावेदक'\n"
         "4. शीर्षक (केन्द्रित — कोई markup नहीं): या तो धारा-कथन 'आवेदन पत्र अन्तर्गत "
-        "धारा 94 भा.ना.सु.सं. (91 द.प्र.सं.)' अथवा प्रयोजन-कथन 'आवेदन पत्र वास्ते "
+        "धारा 94 भा.ना.सु.सं. (91 दं.प्र.सं.)' अथवा प्रयोजन-कथन 'आवेदन पत्र वास्ते "
         "<वस्तु> तलब किये जाने बावत्।'\n"
         "5. 'माननीय न्यायालय,' (या 'माननीय महोदय,') फिर 'आवेदक/आवेदिका की ओर से आवेदन "
         "पत्र निम्न प्रकार प्रस्तुत है :-'\n"
@@ -960,7 +965,7 @@ EXAMINATION_311 = {
     "tier":            2,
     "popularity":      3,
     "quality":         "v2-ref",
-    "description":     "Application u/s 311 CrPC (348 BNSS) to summon / recall a material witness at the evidence stage — structure decoded verbatim from real MP filings (अभियोगी/अभियुक्तगण party block, प्रार्थी voice, यहकि paras: case fixed for evidence → witness material → bona fide, not for delay; title 'आवेदन पत्र अन्तर्गत धारा 311 द.प्र.सं.').",
+    "description":     "Application u/s 311 CrPC (348 BNSS) to summon / recall a material witness at the evidence stage — structure decoded verbatim from real MP filings (अभियोगी/अभियुक्तगण party block, प्रार्थी voice, यहकि paras: case fixed for evidence → witness material → bona fide, not for delay; title 'आवेदन पत्र अन्तर्गत धारा 311 दं.प्र.सं.').",
     "fields": [
         {"key": "court_name",        "label_en": "Court",                          "label_hi": "न्यायालय",                "type": "text",     "required": True,  "section": "court"},
         {"key": "case_no",           "label_en": "Case number",                    "label_hi": "प्रकरण क्रमांक",            "type": "text",     "required": True,  "section": "court"},
@@ -974,7 +979,7 @@ EXAMINATION_311 = {
         {"key": "filing_date",       "label_en": "Date",                           "label_hi": "दिनांक",                       "type": "date",     "required": True,  "section": "filing"},
     ],
     "format_spec": (
-        "यह धारा 311 द.प्र.सं. (348 भा.ना.सु.सं.) के अंतर्गत साक्षी को समन/पुनः बुलाकर साक्ष्य कराने "
+        "यह धारा 311 दं.प्र.सं. (348 भा.ना.सु.सं.) के अंतर्गत साक्षी को समन/पुनः बुलाकर साक्ष्य कराने "
         "हेतु एक संक्षिप्त आवेदन है। नीचे दी गई वास्तविक न्यायालयीन फाइलिंग संरचना का अक्षरशः पालन करें:\n\n"
         "शीर्ष (केन्द्र में):\n"
         "  न्यायालय माननीय <court_name> महोदय <जिला>  (सत्र हेतु '<क्रम> अपर सत्र न्यायाधीश', "
@@ -987,7 +992,7 @@ EXAMINATION_311 = {
         "  (<applicant_role> के अनुसार आवेदन 'प्रार्थी' की ओर से होगा — अभियोजन हो तो शासन, बचाव हो "
         "तो अभियुक्त/आवेदक।)\n\n"
         "शीर्षक (केन्द्र में):\n"
-        "  आवेदन पत्र अन्तर्गत धारा 311 द.प्र.सं.\n\n"
+        "  आवेदन पत्र अन्तर्गत धारा 311 दं.प्र.सं.\n\n"
         "प्रस्तावना:\n"
         "  माननीय महोदय,\n"
         "  प्रार्थी की ओर से आवेदन पत्र निम्न प्रकार प्रस्तुत है :-\n\n"
@@ -1112,7 +1117,7 @@ DISPENSE_ATTENDANCE_205 = {
     "tier":            2,
     "popularity":      3,
     "quality":         "v2-ref",
-    "description":     "Application u/s 205 CrPC (228 BNSS) by an accused to be exempted from personal attendance and appear through counsel. Decoded verbatim from a real MP JMFC filing — state-first criminal caption (राज्य …अभियोगी / आरोपीगण), 'प्रार्थीगण/आरोपी की ओर से' opening, यहकि hardship narrative (age/illness/distance/dependant care), the key undertakings (अधिवक्ता प्रत्येक कार्यवाही हेतु तत्पर + 'जब भी आदेशित तब शब्दानुसार उपस्थित होंगे'), prayer 'व्यक्तिगत उपस्थिति माफ कर जरिये अभिभाषक उपस्थित मान्य'. No section number in the Hindi title beyond धारा 205 द.प्र.सं.",
+    "description":     "Application u/s 205 CrPC (228 BNSS) by an accused to be exempted from personal attendance and appear through counsel. Decoded verbatim from a real MP JMFC filing — state-first criminal caption (राज्य …अभियोगी / आरोपीगण), 'प्रार्थीगण/आरोपी की ओर से' opening, यहकि hardship narrative (age/illness/distance/dependant care), the key undertakings (अधिवक्ता प्रत्येक कार्यवाही हेतु तत्पर + 'जब भी आदेशित तब शब्दानुसार उपस्थित होंगे'), prayer 'व्यक्तिगत उपस्थिति माफ कर जरिये अभिभाषक उपस्थित मान्य'. No section number in the Hindi title beyond धारा 205 दं.प्र.सं.",
     "fields": [
         {"key": "court_name",        "label_en": "Court",                          "label_hi": "न्यायालय",                "type": "text",     "required": True,  "section": "court"},
         {"key": "case_no",           "label_en": "Case number",                    "label_hi": "प्रकरण क्रमांक",            "type": "text",     "required": True,  "section": "court"},
@@ -1125,7 +1130,7 @@ DISPENSE_ATTENDANCE_205 = {
         {"key": "filing_date",       "label_en": "Date",                           "label_hi": "दिनांक",                       "type": "date",     "required": True,  "section": "filing"},
     ],
     "format_spec": (
-        "यह धारा 205 द.प्र.सं. (228 भा.ना.सु.सं./BNSS) का व्यक्तिगत उपस्थिति से छूट हेतु आवेदन है — "
+        "यह धारा 205 दं.प्र.सं. (228 भा.ना.सु.सं./BNSS) का व्यक्तिगत उपस्थिति से छूट हेतु आवेदन है — "
         "असली MP JMFC फाइलिंग से verbatim decode किया गया। हिन्दी में बिल्कुल इसी ढाँचे में लिखें:\n\n"
         "1. न्यायालय शीर्षक (केन्द्र में): 'न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी <स्थान>' "
         "(<court_name> के अनुसार)।\n"
@@ -1134,7 +1139,7 @@ DISPENSE_ATTENDANCE_205 = {
         "   '<राज्य> राज्य' .......... अभियोगी\n"
         "   'बनाम'\n"
         "   '<accused_name> आदि' .......... आरोपीगण  (एक ही आरोपी हो तो 'आरोपी', एकवचन)\n"
-        "4. शीर्षक (केन्द्र, रेखांकित): 'आवेदन पत्र अन्तर्गत धारा 205 द.प्र.सं.' (BNSS में 'धारा 228 "
+        "4. शीर्षक (केन्द्र, रेखांकित): 'आवेदन पत्र अन्तर्गत धारा 205 दं.प्र.सं.' (BNSS में 'धारा 228 "
         "भा.ना.सु.सं.')। शीर्षक में इससे अधिक अंग्रेज़ी न जोड़ें।\n"
         "5. सम्बोधन + आरम्भ: 'माननीय महोदय,' फिर 'प्रार्थीगण/आरोपी की ओर से आवेदन पत्र निम्नानुसार "
         "प्रस्तुत है :-' (एक आरोपी हो तो 'प्रार्थी/आरोपी की ओर से')।\n"
@@ -1201,7 +1206,7 @@ SUPURDGI_451_457 = {
         {"key": "filing_date",       "label_en": "Date",                           "label_hi": "दिनांक",                       "type": "date",     "required": True,  "section": "filing"},
     ],
     "format_spec": (
-        "यह §451/§457 द.प्र.सं. (§497/§503 भा.ना.सु.सं.) का सुपुर्दगी आवेदन है — किसी "
+        "यह §451/§457 दं.प्र.सं. (§497/§503 भा.ना.सु.सं.) का सुपुर्दगी आवेदन है — किसी "
         "अपराध में पुलिस द्वारा जप्त वाहन/संपत्ति/आभूषण को प्रकरण के निराकरण तक स्वामी "
         "को अंतरिम सुपुर्दगी पर दिलाने हेतु। नीचे की संरचना वास्तविक MP filings से ली "
         "गई है — इसी क्रम व शब्दावली का कड़ाई से पालन करें।\n\n"
@@ -1497,7 +1502,7 @@ HMA_9_RESTITUTION = {
     "name_hi":         "वैवाहिक अधिकारों की पुनर्स्थापना याचिका (HMA धारा 9)",
     "court":           "family",
     "court_label_en":  "Family Court",
-    "court_label_hi":  "परिवार न्यायालय",
+    "court_label_hi":  "कुटुम्ब न्यायालय",
     "category":        "family",
     "tier":            2,
     "popularity":      2,
@@ -1517,7 +1522,10 @@ HMA_9_RESTITUTION = {
     ],
     "format_spec": (
         "Generate a HMA S.9 petition for restitution. Structure:\n"
-        "1. 'IN THE FAMILY COURT, <district>' header.\n"
+        "1. Cause-title (centred, bold), from the court_name field: in Hindi "
+        "render the MP family-court form 'न्यायालय माननीय प्रधान न्यायाधीश, "
+        "कुटुम्ब न्यायालय, <court_name> (म.प्र.)'; in English 'IN THE FAMILY "
+        "COURT OF <court_name>'.\n"
         "2. 'H.M.A. Petition No. ____ of <year>' case block.\n"
         "3. Petitioner / Respondent blocks.\n"
         "4. Title: 'PETITION UNDER S.9 OF THE HINDU MARRIAGE ACT, 1955 FOR RESTITUTION OF "
@@ -2026,6 +2034,110 @@ NI_138B_DISMISS = {
 }
 
 
+# ============================================================================
+# PROPOSED (quality="proposed") — v0 gap-fill from the courtbook coverage map.
+# NOT YET advocate-reviewed and NOT anchored to a real filed petition, so the
+# format is from standard practice, not from Vishnu ji's filings (skill rule 1).
+# Goes live as a clearly-flagged v0 for testing; upgrade to a reviewed,
+# filing-anchored template (like bail/discharge) before relying on it. Leading
+# authorities are CANDIDATES for the cite-at-hearing list — verify before use,
+# never baked into the draft body (skill rule 2). reviewed: false (skill rule 5).
+# ============================================================================
+MOTOR_ACCIDENT_CLAIM_166 = {
+    "id":              "motor_accident_claim_166",
+    "name_en":         "Motor Accident Claim (MACT — S.166 MV Act)",
+    "name_hi":         "मोटर दुर्घटना दावा (धारा 166 मो.या.अ.)",
+    "court":           "procedural",   # cross-court rail; a dedicated Tribunal rail is a follow-up
+    "court_label_en":  "Common",
+    "court_label_hi":  "सामान्य",
+    "category":        "procedural",
+    "tier":            2,
+    "popularity":      4,
+    "quality":         "proposed",     # v0 — pending advocate review (not filing-anchored)
+    "description":     (
+        "v0 PROPOSAL (pending advocate review — format not yet anchored to a real "
+        "filed MACT petition). Claim petition before the Motor Accidents Claims "
+        "Tribunal under S.166 MV Act, 1988, for compensation in a road-accident "
+        "death or injury. Claimant(s) / legal representatives vs driver, owner and "
+        "insurer; compensation built on the standard heads (loss of dependency × "
+        "age-multiplier, future prospects, conventional heads). Sarla Verma / "
+        "Pranay Sethi are flagged to cite at hearing — verify, do not bake in."
+    ),
+    "fields": [
+        {"key": "tribunal",          "label_en": "Tribunal / Court",                "label_hi": "अधिकरण / न्यायालय",        "type": "text",     "required": True,  "section": "court", "hint": "e.g. 'मोटर दुर्घटना दावा अधिकरण, <स्थान>' / 'Motor Accidents Claims Tribunal, <place>'"},
+        {"key": "claim_no",          "label_en": "Claim Case No. (if allotted)",    "label_hi": "दावा प्रकरण क्रमांक",       "type": "text",     "required": False, "section": "court"},
+        {"key": "claim_nature",      "label_en": "Injury or death claim",           "label_hi": "चोट या मृत्यु का दावा",      "type": "text",     "required": True,  "section": "matter", "hint": "'injury' (victim alive) or 'death' (claim by legal heirs)"},
+        {"key": "claimant_name",     "label_en": "Claimant(s) / legal heirs",       "label_hi": "आवेदकगण / विधिक उत्तराधिकारी", "type": "name",   "required": True,  "section": "applicant", "hint": "Injured person, or the dependents/LRs of the deceased — one per line"},
+        {"key": "claimant_details",  "label_en": "Claimant parentage / age / occupation / residence", "label_hi": "आवेदक पिता / आयु / व्यवसाय / निवास", "type": "longtext", "required": True, "section": "applicant"},
+        {"key": "deceased_name",     "label_en": "Deceased / victim name",          "label_hi": "मृतक / पीड़ित का नाम",       "type": "name",     "required": False, "section": "applicant", "hint": "For death claims: the deceased; relationship of each claimant"},
+        {"key": "accident_datetime", "label_en": "Date & time of accident",         "label_hi": "दुर्घटना दिनांक व समय",       "type": "text",     "required": True,  "section": "facts"},
+        {"key": "accident_place",    "label_en": "Place of accident",               "label_hi": "दुर्घटना स्थान",             "type": "text",     "required": True,  "section": "facts"},
+        {"key": "accident_facts",    "label_en": "How the accident happened",       "label_hi": "दुर्घटना किस प्रकार हुई",     "type": "longtext", "required": True,  "section": "facts", "hint": "Manner of accident + rash/negligent driving by the offending driver"},
+        {"key": "vehicle_number",    "label_en": "Offending vehicle no. (+ type)",  "label_hi": "दोषी वाहन क्रमांक (+ प्रकार)", "type": "text",   "required": True,  "section": "facts"},
+        {"key": "fir_details",       "label_en": "FIR no. / police station",        "label_hi": "एफ.आई.आर. क्र. / थाना",      "type": "text",     "required": False, "section": "facts"},
+        {"key": "injury_or_death",   "label_en": "Injuries / death + treatment",    "label_hi": "चोटें / मृत्यु एवं उपचार",    "type": "longtext", "required": True,  "section": "matter", "hint": "Nature of injuries, hospital/MLC, or fatality + post-mortem"},
+        {"key": "victim_age",        "label_en": "Age of victim (for multiplier)",  "label_hi": "पीड़ित की आयु (गुणक हेतु)",   "type": "text",     "required": True,  "section": "matter"},
+        {"key": "victim_income",     "label_en": "Income of victim (monthly/annual)", "label_hi": "पीड़ित की आय (मासिक/वार्षिक)", "type": "text",  "required": True,  "section": "matter", "hint": "With proof basis if any; drives loss-of-dependency"},
+        {"key": "respondent_driver", "label_en": "Respondent 1 — driver",           "label_hi": "अनावेदक 1 — चालक",          "type": "name",     "required": False, "section": "respondent"},
+        {"key": "respondent_owner",  "label_en": "Respondent 2 — owner",            "label_hi": "अनावेदक 2 — स्वामी",         "type": "name",     "required": True,  "section": "respondent"},
+        {"key": "respondent_insurer","label_en": "Respondent 3 — insurer + policy", "label_hi": "अनावेदक 3 — बीमाकर्ता + पॉलिसी", "type": "longtext", "required": True, "section": "respondent"},
+        {"key": "compensation_claimed","label_en": "Total compensation claimed (₹)", "label_hi": "कुल दावाकृत प्रतिकर (₹)",   "type": "text",     "required": True,  "section": "prayer"},
+        {"key": "interest_rate",     "label_en": "Interest rate sought (%)",        "label_hi": "ब्याज दर (%)",               "type": "text",     "required": False, "section": "prayer", "hint": "Default ~6–9% p.a. from date of petition"},
+        {"key": "advocate_name",     "label_en": "Advocate's name",                 "label_hi": "अधिवक्ता का नाम",            "type": "name",     "required": True,  "section": "filing"},
+        {"key": "place",             "label_en": "Place",                           "label_hi": "स्थान",                     "type": "text",     "required": True,  "section": "filing"},
+        {"key": "filing_date",       "label_en": "Date",                            "label_hi": "दिनांक",                     "type": "date",     "required": True,  "section": "filing"},
+    ],
+    "format_spec": (
+        "Draft a claim petition under Section 166 of the Motor Vehicles Act, 1988 before the "
+        "Motor Accidents Claims Tribunal. Output Hindi (Devanagari) by default; English mirror "
+        "only if the user asks. Plain text, no markdown. Any unknown value → an underline blank "
+        "(________). NOTE: this is a v0 structure from standard practice — keep idiom neutral; the "
+        "exact court formatting will be replaced once anchored to a real filed petition.\n\n"
+        "STRUCTURE (follow in order):\n"
+        "1. HEADER (centred): 'मोटर दुर्घटना दावा अधिकरण <tribunal> के समक्ष' (EN: 'BEFORE THE MOTOR "
+        "ACCIDENTS CLAIMS TRIBUNAL, <tribunal>').\n"
+        "2. CASE LINE: 'दावा प्रकरण क्रमांक <claim_no> / <वर्ष>' (leave blank if not allotted).\n"
+        "3. PARTIES: list each claimant from <claimant_name> with <claimant_details> ending "
+        "'.......... आवेदक/आवेदकगण'; then centred 'विरुद्ध'; then respondents — '1. <respondent_driver> "
+        "(चालक)', '2. <respondent_owner> (स्वामी)', '3. <respondent_insurer> (बीमाकर्ता)' ending "
+        "'.......... अनावेदकगण'.\n"
+        "4. TITLE: 'धारा 166 मोटर यान अधिनियम, 1988 के अंतर्गत प्रतिकर हेतु दावा आवेदन-पत्र' and the total "
+        "claimed '(कुल ₹ <compensation_claimed>)'.\n"
+        "5. JURISDICTION para: accident occurred within the Tribunal's territorial limits and/or the "
+        "claimant resides / respondent resides within jurisdiction (S.166(2)).\n"
+        "6. FACTS, numbered 'यह कि': (a) date/time <accident_datetime> and place <accident_place>; "
+        "(b) manner of accident and that it was caused by the rash and negligent driving of vehicle "
+        "<vehicle_number> by respondent no.1 (from <accident_facts>); (c) FIR particulars <fir_details>.\n"
+        "7. INJURY/DEATH para: nature of injuries or the death, treatment / MLC / post-mortem (from "
+        "<injury_or_death>); for death, the deceased <deceased_name> and each claimant's relationship "
+        "and dependency.\n"
+        "8. INCOME & DEPENDENCY: age <victim_age> and income <victim_income>; compute compensation on "
+        "the SETTLED HEADS — loss of dependency (income, less personal-living deduction by family size, "
+        "× the age-appropriate multiplier), future prospects, and the conventional heads (loss of "
+        "estate, funeral expenses, loss of consortium) for death; or medical expenses, loss of earning, "
+        "pain & suffering, special diet/attendant for injury. State these as the standard method; do NOT "
+        "assert any specific case citation in the body.\n"
+        "9. LIABILITY: respondent-driver negligent, respondent-owner vicariously liable, and respondent-"
+        "insurer liable to indemnify under a valid policy.\n"
+        "10. COMPUTATION: a head-wise list of the amounts totalling <compensation_claimed>.\n"
+        "11. PRAYER: award of ₹<compensation_claimed> with interest @ <interest_rate>% p.a. from the date "
+        "of the petition, plus costs, jointly and severally against the respondents.\n"
+        "12. Then 'स्थान: <place>   दिनांक: <filing_date>' and a right-side 'आवेदकगण द्वारा अधिवक्ता "
+        "<advocate_name>' signature line; followed by a verification ('सत्यापन') that the contents are "
+        "true to knowledge, and a short list of documents relied upon (FIR, MLC/PM report, income proof, "
+        "vehicle & policy particulars).\n\n"
+        "ENGLISH MODE (lang=en): mirror the same structure with standard MACT English idiom — 'BEFORE THE "
+        "MOTOR ACCIDENTS CLAIMS TRIBUNAL …', 'Claim Petition under Section 166 of the Motor Vehicles Act, "
+        "1988', parties as Applicant(s) / Versus / Respondents (Driver, Owner, Insurer), the same numbered "
+        "facts, dependency computation, liability, prayer, verification and document list."
+    ),
+    "example_prompts": [
+        "मोटर दुर्घटना दावा — मृतक की पत्नी व बच्चों द्वारा, ट्रक से टक्कर, धारा 166 मो.या.अ.",
+        "MACT claim under S.166 for grievous injury — rash driving by a bus, claim against owner and insurer",
+    ],
+}
+
+
 NEW_TEMPLATES_V2: dict[str, dict] = {
     SLP_CRIMINAL["id"]:               SLP_CRIMINAL,
     TRANSFER_PETITION_CRI["id"]:      TRANSFER_PETITION_CRI,
@@ -2057,4 +2169,6 @@ NEW_TEMPLATES_V2: dict[str, dict] = {
     PRIVATE_COMPLAINT_200["id"]:      PRIVATE_COMPLAINT_200,
     REPLY_APPLICATION["id"]:          REPLY_APPLICATION,
     COMPLAINT_498A["id"]:             COMPLAINT_498A,
+    # proposed (v0, pending advocate review) — courtbook gap-fill
+    MOTOR_ACCIDENT_CLAIM_166["id"]:   MOTOR_ACCIDENT_CLAIM_166,
 }

@@ -114,7 +114,7 @@ def render_hi(a: dict) -> str:
     # --- APPLICATION TITLE ---
     out.append(
         f'<h2 class="bd-app-title">आवेदन पत्र अन्तर्गत धारा {_esc(section)} '
-        f'द.प्र.सं.</h2>'
+        f'दं.प्र.सं.</h2>'
     )
 
     out.append('<p class="bd-prelude">माननीय न्यायालय,</p>')
@@ -404,7 +404,7 @@ _REVIEW_PAGE = (
     '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
     '<link href="https://fonts.googleapis.com/css2?family=Tiro+Devanagari+Hindi&family=Noto+Serif+Devanagari:wght@400;600;700&display=swap" rel="stylesheet">'
     '<style>' + _REVIEW_CSS + '</style></head><body>'
-    '<div class="review-banner"><b>समीक्षा — धारा 239 द.प्र.सं. / 498ए उन्मोचन आवेदन</b>'
+    '<div class="review-banner"><b>समीक्षा — धारा 239 दं.प्र.सं. / 498ए उन्मोचन आवेदन</b>'
     '<small>नमूना: अरविन्द शर्मा प्रकरण · निश्चित विधिक भाषा दाखिल प्रति से अक्षरशः · '
     'केवल चर (नाम, धारा, दिनांक आदि) परिवर्तनीय · कोई AI-लिखित पाठ नहीं</small></div>'
     '<div class="doc-pane"><div class="doc-page"><!--DOC--></div></div>'

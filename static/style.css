@@ -1369,7 +1369,7 @@ button { font-family: inherit; }
 .smart-cta {
   display: flex; align-items: center; gap: 16px;
   padding: 18px 22px;
-  margin: 0 4px 24px;
+  margin: 0 0 14px;
   background: linear-gradient(135deg, #1a1814 0%, #2a261f 100%);
   color: #faf8f3;
   border-radius: 14px;
@@ -1425,7 +1425,7 @@ button { font-family: inherit; }
   align-items: center;
   gap: 14px;
   padding: 14px 18px;
-  margin: 0 0 18px;
+  margin: 0 0 22px;
   border: 1px solid #e6d9b8;
   background: linear-gradient(135deg, #fdf8e8, #fffbf0);
   border-radius: 14px;
@@ -1467,10 +1467,10 @@ button { font-family: inherit; }
 
 .draft-section-eyebrow {
   font-size: 11px;
-  color: #8a857a;
+  color: var(--muted, #6b6960);
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  margin: 24px 0 12px;
+  margin: 30px 0 14px;
   font-weight: 500;
 }
 
@@ -1479,7 +1479,7 @@ button { font-family: inherit; }
 .draft-courts {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 12px;
+  gap: 14px;
 }
 @media (max-width: 1100px) { .draft-courts { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 720px)  { .draft-courts { grid-template-columns: repeat(2, 1fr); } }
@@ -1488,9 +1488,9 @@ button { font-family: inherit; }
 .court-card {
   display: flex; flex-direction: column;
   align-items: flex-start; gap: 6px;
-  padding: 18px 16px;
+  padding: 16px 16px 14px;
   background: #fff;
-  border: 1px solid #e8e3d6;
+  border: 1px solid var(--line);
   border-radius: 12px;
   cursor: pointer;
   text-align: left;
@@ -1498,12 +1498,12 @@ button { font-family: inherit; }
   font-family: inherit;
   text-decoration: none;
   color: var(--ink, #0c0c0a);
-  min-height: 110px;
+  min-height: 98px;
 }
 .court-card:hover {
-  transform: translateY(-2px);
-  border-color: #c9a96e;
-  box-shadow: 0 8px 24px -10px rgba(201,169,110,0.25);
+  transform: translateY(-1px);
+  border-color: var(--line-strong);
+  box-shadow: 0 6px 18px -10px rgba(12,12,10,0.12);
 }
 .court-card__name {
   font-size: 14.5px;
@@ -1539,14 +1539,14 @@ button { font-family: inherit; }
 .draft-procedural {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  gap: 12px;
 }
 @media (max-width: 720px) { .draft-procedural { grid-template-columns: 1fr; } }
 .procedural-tile {
   display: flex; flex-direction: column; gap: 3px;
-  padding: 12px 14px;
-  background: #faf8f3;
-  border: 1px solid #ece6d3;
+  padding: 13px 14px;
+  background: var(--bg, #fdfcf9);
+  border: 1px solid var(--line);
   border-radius: 10px;
   cursor: pointer;
   text-decoration: none;
@@ -1557,7 +1557,7 @@ button { font-family: inherit; }
 }
 .procedural-tile:hover {
   background: #fff;
-  border-color: #c9a96e;
+  border-color: var(--line-strong);
 }
 .procedural-tile__name {
   font-size: 13px; font-weight: 600;

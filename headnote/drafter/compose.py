@@ -291,6 +291,32 @@ def _parse_answer(template: dict, field_key: str, question: str | None,
     return collected
 
 
+def _strip_llm_wrapping(text: str) -> str:
+    """Remove wrapping artifacts the model occasionally adds despite the
+    prompt forbidding them: a ```code fence``` around the whole document, and
+    a single leading English chit-chat preamble line ('Here is the draft:',
+    'Sure,', 'Below is ...', 'I have drafted ...').
+
+    Deliberately conservative. A real court document opens with the court name
+    (Hindi) or 'IN THE COURT OF ...' (English) — never with these phrases — so
+    stripping them is safe. We do NOT strip Hindi leading lines, because a
+    legitimate intro like 'प्रार्थी की ओर से आवेदन पत्र निम्न प्रकार प्रस्तुत है :-'
+    would be a false positive. Body text is never touched.
+    """
+    if not text:
+        return text
+    t = text.strip()
+    if t.startswith("```"):
+        t = re.sub(r"^```(?:[a-z]+)?\s*", "", t)
+        t = re.sub(r"\s*```$", "", t).strip()
+    t = re.sub(
+        r"^(?:sure|certainly|of course|here(?:'s| is)|below is|"
+        r"i have (?:drafted|prepared|created))\b[^\n]*\n+",
+        "", t, count=1, flags=re.IGNORECASE,
+    ).strip()
+    return t
+
+
 def _generate_document(template: dict, collected: dict, lang: str) -> str:
     """Generate the final document using the high-quality LLM + format_spec."""
     if lang == "hi":
@@ -395,6 +421,7 @@ def _generate_document(template: dict, collected: dict, lang: str) -> str:
     )
 
     text = _llm_call(sys, user, max_tokens=4000, model="quality").strip()
+    text = _strip_llm_wrapping(text)
 
     # GUARANTEE the language toggle. When English is requested but the model
     # leaned on the Hindi format_spec and produced Devanagari anyway, convert
@@ -440,4 +467,4 @@ def _force_english(hindi_doc: str) -> str:
         "5. Return PLAIN TEXT only — no markdown, no commentary, no fences."
     )
     user = "Convert this document to English now:\n\n" + hindi_doc
-    return _llm_call(sys, user, max_tokens=4000, model="quality").strip()
+    return _strip_llm_wrapping(_llm_call(sys, user, max_tokens=4000, model="quality"))

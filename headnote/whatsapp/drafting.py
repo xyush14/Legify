@@ -684,7 +684,7 @@ _LEGAL_TERMS_HI: list[tuple[str, str]] = sorted([
     # Statute references (used in sections + body)
     ("BNSS",                          "बी.एन.एस.एस."),
     ("BNS",                           "बी.एन.एस."),
-    ("CrPC",                          "द.प्र.सं."),
+    ("CrPC",                          "दं.प्र.सं."),
     ("IPC",                           "भा.दं.सं."),
     ("NDPS",                          "एन.डी.पी.एस."),
     ("POCSO",                         "पॉक्सो"),

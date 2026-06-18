@@ -486,7 +486,7 @@ function buildQuashingDoc(f, lang) {
     L.push(`1— मध्य प्रदेश शासन द्वारा पुलिस थाना ${ps} जिला ${dist}`);
     if (compl) L.push(`2— ${compl}`);
     L.push('');
-    L.push(`आवेदन पत्र अंतर्गत धारा 528 भा.ना.सु.सं. (482 द.प्र.सं.) वास्ते पुलिस थाना ${ps} जिला ${dist} के अपराध क्रमांक— ${crime} अन्तर्गत धारा ${secs} एवं उससे उद्भूत समस्त न्यायालयीन कार्यवाही निरस्त/अपास्त किये जाने बावत्।`);
+    L.push(`आवेदन पत्र अंतर्गत धारा 528 भा.ना.सु.सं. (482 दं.प्र.सं.) वास्ते पुलिस थाना ${ps} जिला ${dist} के अपराध क्रमांक— ${crime} अन्तर्गत धारा ${secs} एवं उससे उद्भूत समस्त न्यायालयीन कार्यवाही निरस्त/अपास्त किये जाने बावत्।`);
     L.push(`${aLab} की ओर से आवेदन पत्र निम्न प्रकार प्रस्तुत है ः—`);
     L.push('');
     L.push(`यहकि, ${aLab} द्वारा उपरोक्त आवेदन पत्र अन्तर्गत धारा 528 भा.ना.सु.सं. माननीय न्यायालय के समक्ष प्रस्तुत किया जा रहा है।`);
@@ -1602,6 +1602,67 @@ function parseDocToHtml(text) {
   return out.join('\n');
 }
 
+// ---- Editable skeleton — the always-available starting canvas ----
+// Most universal templates render their live preview via the LLM
+// (/api/draft/render-template); only a couple build in-browser. So before that
+// call lands — empty form, LLM slow/failed, or the per-session regen cap hit —
+// there is no state.document and the edit canvas used to refuse to open.
+// This builds a court-paper skeleton DETERMINISTICALLY (₹0, instant, offline)
+// from the template metadata plus whatever the lawyer has already typed, so the
+// ✏️ Edit canvas opens for EVERY doc type. The lines are shaped so the existing
+// parseDocToHtml() styles them (court header, title, यह कि paras, prayer, sign).
+function buildSkeletonDoc(fields, lang) {
+  const tpl  = state.template || {};
+  const isHi = lang === 'hi';
+  const F    = fields || {};
+  const val  = k => (F[k] != null && String(F[k]).trim()) ? String(F[k]).trim() : '';
+  const L    = [];
+
+  // 1. Court header — prefer a typed court field, else the template's court label.
+  const courtTyped = val('court_name') || val('court') || val('tribunal');
+  const courtLabel = courtTyped || (isHi ? (tpl.court_label_hi || '__________')
+                                         : (tpl.court_label_en || '__________'));
+  L.push(isHi ? ('न्यायालय ' + courtLabel) : ('IN THE COURT OF ' + courtLabel));
+  // 2. Case-number line (blank — filled at the registry).
+  L.push(isHi ? 'प्रकरण क्रमांक ______ / 20__' : 'Case No. ______ / 20__');
+  L.push('');
+  // 3. Title — from the template name (prefixed so parseDocToHtml flags it a title).
+  L.push(isHi ? ('आवेदन पत्र — ' + (tpl.name_hi || '')) : ('APPLICATION — ' + (tpl.name_en || '')));
+  L.push('');
+  // 4. Opening submission line.
+  L.push(isHi ? 'सादर निवेदन है:' : 'MOST RESPECTFULLY SHEWETH:');
+  L.push('');
+  // 5. Numbered paras — seed from the filled fields (skip pure court/filing meta),
+  //    so the lawyer's typed facts land in the draft instead of a blank page.
+  let n = 1;
+  (tpl.fields || []).forEach(f => {
+    const v = val(f.key);
+    if (!v) return;
+    if (f.section === 'court' || f.section === 'filing') return;
+    const label = isHi ? (f.label_hi || f.label_en || '') : (f.label_en || f.label_hi || '');
+    L.push((isHi ? (n + '. यह कि ') : (n + '. That ')) + (label ? label + ': ' : '') + v);
+    n++;
+  });
+  while (n <= 3) {   // always leave a couple of editable placeholder paras
+    L.push((isHi ? (n + '. यह कि ____________') : (n + '. That ____________')));
+    n++;
+  }
+  L.push('');
+  // 6. Prayer.
+  L.push(isHi ? 'प्रार्थना:' : 'PRAYER:');
+  L.push(isHi ? 'अतः माननीय न्यायालय से सादर प्रार्थना है कि ____________।'
+              : 'It is therefore most respectfully prayed that ____________.');
+  L.push('');
+  // 7. Place / date + signature block.
+  L.push((isHi ? 'स्थान: ' : 'Place: ') + (val('place') || '________')
+       + '    ' + (isHi ? 'दिनांक: ' : 'Date: ') + (val('filing_date') || '________'));
+  L.push(isHi ? 'अधिवक्ता' : 'Counsel for the Applicant');
+  const adv = val('advocate_name');
+  if (adv) L.push(adv);
+
+  return L.join('\n');
+}
+
 // ---- Mobile preview sheet ----
 const PREV_STATES = ['collapsed', 'half', 'full'];
 function setPreview(s) {
@@ -1708,9 +1769,16 @@ $('#btn-edit').addEventListener('click', () => {
   const docEl = $('#doc-page');
   const btn = $('#btn-edit');
   const isHi = state.lang === 'hi';
-  if (!state.document) {
-    toast(isHi ? 'पहले दस्तावेज़ बनाएं' : 'Generate the document first', 'warn');
-    return;
+  // No document yet (deterministic build pending, LLM render failed/capped, or
+  // an empty form)? DON'T block — seed an editable court-paper skeleton from the
+  // template + typed fields so the canvas opens for EVERY doc type. Entering
+  // edit mode below freezes auto-regen, so the seed survives until the lawyer
+  // saves it (✓ Done writes #doc-page's HTML back to state.document).
+  if (!state.document && !state.editMode) {
+    state.document = buildSkeletonDoc(state.fields, state.lang);
+    renderDocument();
+    saveToLocalStorage();
+    toast(isHi ? 'नया दस्तावेज़ — सीधे टाइप करके भरें' : 'Blank draft — type directly to fill it in', 'ok', 3000);
   }
   if (!state.editMode) {
     state.editMode = true;

@@ -630,7 +630,7 @@
       <div class="field">
         <label data-en="Discharge Section" data-hi="उन्मोचन धारा">उन्मोचन धारा</label>
         <input type="text" data-field="discharge_section" data-ph-en="239" data-ph-hi="239" placeholder="239">
-        <div class="field__hint" data-en="239 CrPC (warrant case) / 262 BNSS" data-hi="239 द.प्र.सं. (वारंट प्रकरण) / 262 बी.एन.एस.एस.">239 द.प्र.सं. (वारंट प्रकरण) / 262 बी.एन.एस.एस.</div>
+        <div class="field__hint" data-en="239 CrPC (warrant case) / 262 BNSS" data-hi="239 दं.प्र.सं. (वारंट प्रकरण) / 262 बी.एन.एस.एस.">239 दं.प्र.सं. (वारंट प्रकरण) / 262 बी.एन.एस.एस.</div>
       </div>
     </div>
 
@@ -1693,7 +1693,16 @@ async function maybeLoadExisting() {
   try {
     const headers = await authHeaders();
     const r = await fetch(`/api/draft/${id}`, { headers });
-    if (!r.ok) return;
+    if (!r.ok) {
+      // Surface the failure — a silent return is exactly how a draft "doesn't
+      // load" with no explanation.
+      console.warn('[draft-discharge] could not load draft', id, '→ HTTP', r.status);
+      if (r.status === 401) { if (typeof handleAuthError === 'function') handleAuthError(401); }
+      else if (typeof toast === 'function') toast(state.lang === 'hi'
+        ? `यह ड्राफ्ट लोड नहीं हो पाया (${r.status}) — कृपया दोबारा खोलें`
+        : `Couldn’t load this draft (${r.status}) — try reopening it`, 'err', 4500);
+      return;
+    }
     const d = await r.json();
     state.draftId = d.id;
     if (d.lang === 'en' || d.lang === 'hi') state.lang = d.lang;
@@ -1715,7 +1724,12 @@ async function maybeLoadExisting() {
       };
     }
     syncUIToState();
-  } catch (e) {}
+  } catch (e) {
+    console.error('[draft-discharge] load error', e);
+    if (typeof toast === 'function') toast(state.lang === 'hi'
+      ? 'ड्राफ्ट लोड करने में समस्या — नेटवर्क जाँचें'
+      : 'Problem loading the draft — check your connection', 'err', 4500);
+  }
 }
 
 // Pre-fill advocate / court from the saved bar profile — only fills GAPS,

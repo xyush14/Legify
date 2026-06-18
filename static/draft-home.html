@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Drafting — Headnote</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* tokens + components copied verbatim from draft-bail.html (the app system) */
+  :root{
+    --bg:#fdfcf9; --panel:#fff; --ink:#0c0c0a; --muted:#6b6960;
+    --line:rgba(12,12,10,.08); --line-strong:rgba(12,12,10,.18); --soft:#f5f3ec;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;}
+  .topbar{display:flex;justify-content:space-between;align-items:center;padding:12px 24px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:10;}
+  .topbar__left{display:flex;align-items:center;gap:14px;}
+  .topbar__back{color:var(--muted);text-decoration:none;font-size:14px;}
+  .topbar__title{font-size:15px;font-weight:600;}
+  .btn{padding:8px 14px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;border:1px solid var(--line-strong);background:var(--panel);color:var(--ink);transition:all .12s;}
+  .btn--primary{background:var(--ink);color:var(--bg);border-color:var(--ink);}
+
+  .wrap{max-width:620px;margin:0 auto;padding:52px 24px 96px;}
+  h1{font-size:22px;font-weight:600;letter-spacing:-.01em;margin:0 0 24px;}
+  .lbl{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);}
+
+  .entry{display:flex;gap:10px;align-items:center;background:var(--panel);border:1px solid var(--line-strong);border-radius:8px;padding:6px 6px 6px 14px;}
+  .entry input{flex:1;border:none;outline:none;background:none;font:inherit;font-size:14px;color:var(--ink);}
+  .entry input::placeholder{color:var(--muted);}
+
+  section{margin-top:40px;}
+  .sechead{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px;}
+  .sechead a{font-size:13px;color:var(--ink);text-decoration:none;opacity:.6;}
+  .sechead a:hover{opacity:1;}
+
+  .row{display:flex;align-items:baseline;gap:16px;padding:15px 2px;border-top:1px solid var(--line);}
+  .row:hover{background:var(--soft);}
+  .name{font-size:14.5px;font-weight:500;}
+  .sub{font-size:13px;color:var(--muted);margin-top:2px;}
+  .right{margin-left:auto;text-align:right;white-space:nowrap;}
+  .when{font-size:12.5px;color:var(--muted);}
+  .state{font-size:11px;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:.06em;opacity:.7;}
+
+  .doc{display:flex;align-items:baseline;gap:16px;padding:12px 2px;border-top:1px solid var(--line);cursor:pointer;}
+  .doc:hover{background:var(--soft);}
+  .dn{font-size:14px;}
+  .ds{margin-left:auto;font-size:12.5px;color:var(--muted);}
+  .more{font-size:13px;color:var(--muted);padding-top:14px;}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar__left"><a class="topbar__back" href="/">← Back</a><span class="topbar__title">Headnote — Drafting</span></div>
+</div>
+
+<div class="wrap">
+  <h1>What are you drafting?</h1>
+
+  <div class="entry">
+    <input placeholder="Upload an FIR or order, or describe the matter…" />
+    <button class="btn btn--primary">New draft</button>
+  </div>
+
+  <section>
+    <div class="sechead"><span class="lbl">Recent</span><a href="#">View all</a></div>
+    <div class="row"><div><div class="name">Ramesh Kumar — Regular Bail, Sessions</div><div class="sub">§483 BNSS · Sessions Court, Gwalior</div></div><div class="right"><div class="when">2 days ago</div><div class="state">Draft</div></div></div>
+    <div class="row"><div><div class="name">Sunita Bai — Production of Documents</div><div class="sub">§94 BNSS · JMFC, Gwalior</div></div><div class="right"><div class="when">5 days ago</div><div class="state">Filed</div></div></div>
+    <div class="row"><div><div class="name">Anil Verma — Anticipatory Bail</div><div class="sub">§482 BNSS · High Court, Gwalior bench</div></div><div class="right"><div class="when">1 week ago</div><div class="state">Draft</div></div></div>
+  </section>
+
+  <section>
+    <div class="sechead"><span class="lbl">Documents</span></div>
+    <div class="doc"><span class="dn">Regular Bail — Sessions</span><span class="ds">§483 · 439</span></div>
+    <div class="doc"><span class="dn">Regular Bail — High Court</span><span class="ds">§483 · 439</span></div>
+    <div class="doc"><span class="dn">Bail — Magistrate</span><span class="ds">§480 · 437</span></div>
+    <div class="doc"><span class="dn">Anticipatory Bail</span><span class="ds">§482 · 438</span></div>
+    <div class="more">Family · Appeal &amp; Revision · Discharge · Procedural</div>
+  </section>
+</div>
+</body>
+</html>

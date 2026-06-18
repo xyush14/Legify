@@ -158,6 +158,9 @@ MENTION_MEMO = {
 # ----------------------------------------------------------- Anticipatory Bail
 ANTICIPATORY_BAIL = {
     "id":         "anticipatory_bail",
+    # DEDUPE: the polished bail canvas (FIR-OCR + live preview) handles §438
+    # anticipatory bail far better than this v1 form. Auto-redirect there.
+    "redirect_url": "/draft/bail?court=hc&section=438",
     "name_en":    "Anticipatory Bail (S.482 BNSS / S.438 CrPC)",
     "name_hi":    "अग्रिम जमानत आवेदन (धारा 482 BNSS / 438 दं.प्र.सं.)",
     "category":   "bail",
@@ -827,6 +830,9 @@ MAINTENANCE = {
 # ---------------------------------------------------------------- Revision
 REVISION_PETITION = {
     "id":         "revision_petition",
+    # DEDUPE: superseded by the real-filing v2 `criminal_revision_sessions`
+    # (covers Sessions + HC). Auto-redirect to avoid a weaker duplicate.
+    "redirect_url": "/draft/template/criminal_revision_sessions",
     "name_en":    "Criminal Revision (S.438 BNSS / S.397 CrPC)",
     "name_hi":    "आपराधिक पुनरीक्षण (धारा 438 BNSS / 397 दं.प्र.सं.)",
     "category":   "appeal",
@@ -918,6 +924,9 @@ REVISION_PETITION = {
 # ---------------------------------------------------------------- Reply to Bail
 REPLY_TO_BAIL = {
     "id":         "reply_to_bail",
+    # DEDUPE: consolidated into `reply_to_bail_sessions` (canonical cause-title
+    # fixed). Auto-redirect to avoid a duplicate reply-to-bail entry.
+    "redirect_url": "/draft/template/reply_to_bail_sessions",
     "name_en":    "Reply to Bail Application (Counter Affidavit)",
     "name_hi":    "जमानत आवेदन पर प्रत्युत्तर (प्रत्यावेदन)",
     "category":   "bail",
