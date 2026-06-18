@@ -825,8 +825,17 @@ MAINTENANCE = {
         "  8. Signature: 'Through' <advocate_name>.\n"
         "  9. Place + Date.\n"
         " 10. VERIFICATION.\n\n"
-        "If lang='hi': use vocab भरण-पोषण, क्रूरता, उपेक्षा, परित्याग, "
-        "अनुरक्षण. Return plain text."
+        "OUTPUT IS HINDI (Devanagari) BY DEFAULT (English only if lang='en'). "
+        "Match Vishnu Ji's real family-court §125 filing: cause-title 'न्यायालय "
+        "माननीय प्रधान न्यायाधीश महोदय, कुटुम्ब न्यायालय <स्थान>'; case line "
+        "'प्रकरण क्रमांक ____/<वर्ष> मु.फौ.'; applicants as 'आवेदकगण' (पत्नी + each "
+        "child with आयु, नाबालिग सरपरस्त माँ); 'बनाम'; husband as 'अनावेदक'; title "
+        "'आवेदन पत्र अन्तर्गत धारा 144 भा.ना.सु.सं. (125 दं.प्र.सं.)'; then "
+        "'आवेदकगण की ओर से आवेदन निम्न प्रकार प्रस्तुत है :-' and 'यह कि' paras: "
+        "विवाह, दहेज, क्रूरता/प्रताड़ना, घर से निकाला जाना, अनावेदक की आय व साधन, "
+        "मांगी गई मासिक भरण-पोषण राशि, क्षेत्राधिकार. Prayer to grant the monthly "
+        "भरण-पोषण; then a 'सत्यापन' block signed by the आवेदिका. Vocab: भरण-पोषण, "
+        "क्रूरता, उपेक्षा, परित्याग, अनुरक्षण. Plain text."
     ),
     "example_prompts": [
         "Maintenance petition for my client wife Sunita Sharma vs husband Vikesh — ₹15000/month",
@@ -1113,8 +1122,18 @@ APPEAL_CONVICTION = {
         "  8. Signature: 'Through' <advocate_name>.\n"
         "  9. Place + Date.\n"
         " 10. VERIFICATION.\n\n"
-        "Tone: precise, evidence-anchored. If lang='hi' use vocab: अपील, "
-        "दोषसिद्धि, सज़ा, अपीलार्थी, सत्र न्यायालय. Return plain text."
+        "OUTPUT IS HINDI (Devanagari) BY DEFAULT (English only if lang='en'). "
+        "Match Vishnu Ji's real आपराधिक अपील: 'आपराधिक अपील क्रमांक ____/<वर्ष>'; "
+        "'अपीलार्थी' (with full descriptor), 'विरुद्ध', 'प्रतिअपीलार्थी म.प्र. शासन "
+        "द्वारा आरक्षी केंद्र ____'; title 'आपराधिक अपील अन्तर्गत धारा 415 "
+        "भा.ना.सु.सं. (374(2) दं.प्र.सं.) विरुद्ध निर्णय दिनांक ____ न्यायालय ____ "
+        "द्वारा सत्र प्रकरण क्रमांक ____ में अपीलार्थी को धारा ____ में दोषसिद्ध कर "
+        "दण्डित किया गया'; line 'अपीलार्थी की ओर से यह प्रथम आपराधिक अपील है'; then "
+        "'प्रकरण का संक्षिप्त विवरण :-' (यह कि paras), the विचारणीय प्रश्न, then "
+        "'अपील के आधार :-' as 'यह कि' grounds attacking the judgment (अविश्वसनीय "
+        "साक्षी, विरोधाभास, चिकित्सीय साक्ष्य का असमर्थन, सन्देह का लाभ). Prayer: "
+        "'अपील स्वीकार कर निर्णय अपास्त कर अपीलार्थी की दोषमुक्ति का निर्णय पारित "
+        "करें'. Vocab: अपील, दोषसिद्धि, अपीलार्थी, अपास्त, दोषमुक्ति. Plain text."
     ),
     "example_prompts": [
         "Appeal against Sessions court conviction in 302 IPC — eye witnesses contradicted themselves",
