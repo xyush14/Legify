@@ -314,6 +314,11 @@ def _strip_llm_wrapping(text: str) -> str:
         r"i have (?:drafted|prepared|created))\b[^\n]*\n+",
         "", t, count=1, flags=re.IGNORECASE,
     ).strip()
+    # House-style normalisation: the model sometimes emits the bare CrPC
+    # abbreviation 'द.प्र.सं.' — standardise to 'दं.प्र.सं.'.
+    t = t.replace("द.प्र.सं.", "दं.प्र.सं.")
+    # Collapse 3+ consecutive (blank) lines that LLMs over-produce → one blank.
+    t = re.sub(r"(\n[ \t]*){3,}", "\n\n", t)
     return t
 
 
