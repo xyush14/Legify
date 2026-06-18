@@ -199,27 +199,150 @@ def parse_webhook(raw: bytes, content_type: str) -> list[InboundMessage]:
     )]
 
 
-def download_media(url: str) -> tuple[bytes, str]:
-    """Download a Twilio media file. Twilio media URLs require HTTP Basic
-    auth with (account_sid, auth_token). Strips our #ct=... fragment.
+# Magic-byte signatures for the file types lawyers actually send via
+# WhatsApp. Order matters — longer prefixes first.
+_MAGIC_TO_MIME: tuple[tuple[bytes, str], ...] = (
+    (b"\xff\xd8\xff",                 "image/jpeg"),
+    (b"\x89PNG\r\n\x1a\n",            "image/png"),
+    (b"GIF87a",                       "image/gif"),
+    (b"GIF89a",                       "image/gif"),
+    (b"RIFF",                         "image/webp"),     # second check needed for WEBP/WAVE
+    (b"%PDF-",                        "application/pdf"),
+    (b"II*\x00",                      "image/tiff"),
+    (b"MM\x00*",                      "image/tiff"),
+)
 
-    Returns (bytes, content_type).
+
+def _sniff_mime(data: bytes) -> str:
+    """Identify the file type from its first few bytes. Returns '' if unknown."""
+    if not data:
+        return ""
+    for sig, mime in _MAGIC_TO_MIME:
+        if data.startswith(sig):
+            if mime == "image/webp":
+                # RIFF prefix is shared with WAV; verify WEBP marker at offset 8
+                if data[8:12] == b"WEBP":
+                    return "image/webp"
+                continue
+            return mime
+    # HEIC/HEIF: ISO-BMFF box "ftyp" at offset 4, brand starts at 8
+    if len(data) >= 12 and data[4:8] == b"ftyp":
+        brand = data[8:12]
+        if brand in (b"heic", b"heix", b"heim", b"heis", b"hevc", b"hevx",
+                     b"mif1", b"msf1", b"heif"):
+            return "image/heic"
+    return ""
+
+
+# MIME types our OCR providers (Groq / Anthropic vision) accept directly.
+# Anything else gets normalised to JPEG before it reaches OCR.
+_OCR_NATIVE_MIME = {
+    "image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf",
+}
+
+
+def _normalise_for_ocr(data: bytes, mime: str) -> tuple[bytes, str]:
+    """Convert formats OCR can't read (HEIC, HEIF, TIFF, BMP) → JPEG. PDFs +
+    common image types pass through unchanged. Falls back to raw bytes on
+    conversion failure so the caller can still try."""
+    if mime in _OCR_NATIVE_MIME:
+        return data, mime
+    needs_conv = mime in ("image/heic", "image/heif", "image/tiff", "image/bmp", "image/x-icon")
+    if not needs_conv:
+        return data, mime
+
+    try:
+        import io
+        from PIL import Image
+        # HEIC needs the pillow-heif decoder registered with Pillow.
+        if mime in ("image/heic", "image/heif"):
+            try:
+                from pillow_heif import register_heif_opener
+                register_heif_opener()
+            except Exception:
+                log.warning(
+                    "pillow-heif not installed — falling back to raw HEIC; "
+                    "OCR will likely reject it"
+                )
+                return data, mime
+        img = Image.open(io.BytesIO(data))
+        # JPEG can't carry alpha — drop it.
+        if img.mode not in ("RGB", "L"):
+            img = img.convert("RGB")
+        out = io.BytesIO()
+        img.save(out, format="JPEG", quality=92, optimize=True)
+        log.info("normalise_for_ocr: %s → image/jpeg (%d → %d bytes)",
+                 mime, len(data), out.tell())
+        return out.getvalue(), "image/jpeg"
+    except Exception:
+        log.exception("normalise_for_ocr failed for %s; passing raw bytes", mime)
+        return data, mime
+
+
+def download_media(url: str) -> tuple[bytes, str]:
+    """Fetch a Twilio media file (HTTP Basic auth required) and normalise
+    its content-type so the OCR layer always sees a format it accepts.
+
+    Pipeline:
+      1. GET (auth + follow Twilio→S3 redirect)
+      2. Pick content-type: Twilio response header > URL fragment > URL
+         extension > magic-byte sniff. Last-write wins for accuracy.
+      3. If HEIC/HEIF, convert to JPEG via Pillow + pillow-heif.
+
+    Returns (bytes, content_type) where content_type is one of
+    'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif' |
+    'image/tiff' | 'application/pdf' (or whatever Twilio sent if all
+    detection fails — caller decides whether OCR will accept it).
     """
     import re as _re
+
     base = url.split("#", 1)[0]
-    ct = ""
+    fragment_ct = ""
     m = _re.search(r"#ct=([^&]+)", url)
     if m:
-        ct = m.group(1)
+        fragment_ct = m.group(1)
+
     r = requests.get(
         base,
         auth=(_account_sid(), _auth_token()),
         timeout=30,
-        # Twilio redirects to S3; follow the redirect
-        allow_redirects=True,
+        allow_redirects=True,                  # Twilio → S3 (signed URL)
     )
     if not r.ok:
         raise WAClientError(r.status_code, r.text)
-    # Prefer the actual response content-type if Twilio set it
-    ct = r.headers.get("content-type", ct) or ct
-    return r.content, ct
+
+    data = r.content
+    if not data:
+        raise WAClientError(204, "Twilio returned an empty media body")
+
+    # ── Content-type detection — fall through if any step is missing ──
+    ct = (r.headers.get("content-type") or "").split(";")[0].strip().lower()
+    if not ct or ct in ("application/octet-stream", "binary/octet-stream"):
+        ct = fragment_ct.lower()
+    if not ct or ct in ("application/octet-stream", "binary/octet-stream"):
+        # try URL extension
+        path = base.split("?", 1)[0].lower()
+        for ext, m in (
+            (".jpg", "image/jpeg"), (".jpeg", "image/jpeg"),
+            (".png", "image/png"),  (".gif", "image/gif"),
+            (".webp", "image/webp"), (".heic", "image/heic"),
+            (".heif", "image/heif"), (".pdf", "application/pdf"),
+            (".tiff", "image/tiff"), (".tif", "image/tiff"),
+        ):
+            if path.endswith(ext):
+                ct = m
+                break
+    if not ct or ct in ("application/octet-stream", "binary/octet-stream"):
+        sniffed = _sniff_mime(data)
+        if sniffed:
+            ct = sniffed
+
+    # Normalise to a format OCR can read (HEIC, TIFF, BMP → JPEG)
+    data, ct = _normalise_for_ocr(data, ct)
+
+    if not ct:
+        # Last resort: default to JPEG (the most common WhatsApp media)
+        ct = "image/jpeg"
+        log.warning("download_media: unknown content-type, defaulting to image/jpeg")
+
+    return data, ct

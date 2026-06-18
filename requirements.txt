@@ -86,6 +86,19 @@ PyMuPDF>=1.24
 # flexbox + CSS-grid handling of the bilingual draft layout.
 weasyprint>=60
 
+# ---- Native .docx drafting (Option A): fill Vishnu ji's real filed documents
+# (Kruti Dev 010, exact court formatting) as templates instead of LLM-generating
+# the document. docxtpl = Jinja tags inside Word; pulls in python-docx + jinja2.
+# Field values are converted Unicode->Kruti Dev (headnote/drafter/krutidev.py)
+# before injection so the whole doc renders in one consistent legacy font.
+docxtpl>=0.18
+
+# ---- HEIC/HEIF reader so we can OCR iPhone photos. The default iOS photo
+# format isn't accepted by Groq/Anthropic vision; Pillow + pillow-heif
+# decodes it and we re-encode as JPEG before sending to the OCR provider.
+# Pillow comes via fastapi → starlette chain already; explicit pin is fine.
+pillow-heif>=0.16; python_version >= "3.9"
+
 # ---- Py 3.9 backport for Pydantic v2 evaluation of `str | None` style hints.
 # No-op on 3.10+. Render uses 3.11; safe to keep.
 eval_type_backport>=0.2; python_version < "3.10"

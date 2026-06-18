@@ -725,13 +725,16 @@ async def _advance_drafting_session(session: dict, msg: InboundMessage,
     new_fields: dict = {}
 
     if has_media:
+        n = len(msg.media_urls)
         await _send_reply(
             wa_phone,
-            "📷 Got the document — extracting fields via OCR. ~15-20 seconds…",
+            f"📷 Got {n} page{'s' if n != 1 else ''} — reading via OCR (~{8 + 6*n}s).\n"
+            "Send more pages anytime; I'll merge them all. "
+            "Supports JPG, PNG, HEIC (iPhone), WebP, and PDF.",
             provider_name,
         )
         _spawn_bg(_ocr_and_advance(session, msg, provider_name))
-        return  # _ocr_and_advance continues the flow
+        return
 
     if text:
         new_fields = wa_drafting.parse_single_message_reply(text)
@@ -774,9 +777,11 @@ async def _ocr_and_advance(session: dict, msg: InboundMessage,
         missing = wa_drafting.missing_required(session["story_id"], answers)
         await _send_reply(
             wa_phone,
-            "⚠️ Couldn't read fields from that document — image may be blurry "
-            "or in an unusual format. Try a clearer photo, or reply with the "
-            "template below.\n\n"
+            "⚠️ Couldn't read fields from that document. Common fixes:\n"
+            "  • Re-take in good light, framed straight\n"
+            "  • Make sure the FIR section/PS/name area is readable\n"
+            "  • If your phone is iPhone, send as 'Most Compatible' (Settings → Camera → Formats)\n\n"
+            "Or reply with the template:\n\n"
             + wa_drafting.gap_prompt(missing if missing else list(wa_drafting.FIELD_LABELS.keys())),
             provider_name,
         )
