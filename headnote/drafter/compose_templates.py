@@ -1200,6 +1200,12 @@ def _enrich_with_court_metadata() -> None:
 _enrich_with_court_metadata()
 
 
+# Kept in the registry (direct URL still resolves) but hidden from the public
+# picker grid: Supreme Court AOR-only filings, irrelevant to the district /
+# sessions / High Court practice Headnote serves.
+_HIDDEN_FROM_PICKER = {"slp_criminal", "review_petition_sc"}
+
+
 def list_templates_slim() -> list[dict]:
     """Slim metadata for the FE picker. Now includes court grouping fields,
     redirect_url (for wrapper templates), and quality tag (v1-ai etc)."""
@@ -1220,6 +1226,7 @@ def list_templates_slim() -> list[dict]:
             "example_prompts": t.get("example_prompts", []),
         }
         for t in TEMPLATES.values()
+        if t["id"] not in _HIDDEN_FROM_PICKER
     ]
 
 
