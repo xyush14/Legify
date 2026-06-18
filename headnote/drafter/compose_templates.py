@@ -93,9 +93,19 @@ VAKALATNAMA = {
         "     plead, act, file documents, withdraw money, compromise as advised, etc.).\n"
         "  6. Acceptance line: 'Accepted, <Advocate Name>, Enrollment No. ___'\n"
         "  7. Signature blocks for client + advocate, with place + date.\n\n"
-        "Use proper court Hindi if lang='hi' (vocabulary: माननीय न्यायालय, "
-        "मुवक्किल, अधिवक्ता, हस्ताक्षर, etc.). Use formal English legal register "
-        "if lang='en'. Do NOT add markdown — return plain text with line breaks."
+        "OUTPUT IS HINDI (Devanagari) BY DEFAULT (English only if lang='en'). "
+        "Use the standard Indian वकालतनामा wording: heading 'वकालतनामा' (centred); "
+        "court line; party block '<party_role> <client> पुत्र श्री <father>, निवासी "
+        "<address>' और 'बनाम <opposite_party>'; then the authorisation — 'मैं/हम "
+        "उपरोक्त एतद् द्वारा अधिवक्ता <advocate> को अपना अधिवक्ता नियुक्त कर निम्न "
+        "अधिकार प्रदान करता/करती हूँ:' covering — मेरी ओर से उपस्थित होना, पैरवी व "
+        "बहस करना, आवेदन/दस्तावेज प्रस्तुत व वापस लेना, साक्ष्य देना व प्रतिपरीक्षा, "
+        "राशि/दस्तावेज प्राप्त करना, समझौता/राजीनामा व आवेदन-वापसी (निर्देशानुसार), "
+        "तथा आवश्यकता पर अन्य अधिवक्ता नियुक्त करना; अधिवक्ता के कृत्यों की "
+        "जिम्मेदारी मुवक्किल की होगी; फिर 'स्वीकृत है — अधिवक्ता <advocate>, पंजीयन "
+        "क्रमांक ___'; then client + advocate signatures with स्थान व दिनांक. "
+        "Vocab: माननीय न्यायालय, मुवक्किल, अधिवक्ता, अधिकृत, हस्ताक्षर. "
+        "Plain text — no markdown."
     ),
     "example_prompts": [
         "मुझे लखनऊ सेशन कोर्ट के लिए वकालतनामा चाहिए, मेरे मुवक्किल अनिल वर्मा के लिए",
