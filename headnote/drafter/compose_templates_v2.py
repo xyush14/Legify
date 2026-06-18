@@ -1537,7 +1537,16 @@ HMA_9_RESTITUTION = {
         "respondent.\n"
         "6. 'PRAYER': order respondent to return to the matrimonial home and resume conjugal life.\n"
         "7. Verification + signature + date.\n"
-        "Tone: civil, dignified. Plain text output."
+        "OUTPUT IS HINDI (Devanagari) BY DEFAULT (English only if lang='en'). "
+        "Match the कुटुम्ब-न्यायालय family format: case line 'प्रकरण क्रमांक "
+        "____/<वर्ष>'; petitioner as 'याचिकाकर्ता/याचिकाकर्ती' (full descriptor), "
+        "'बनाम', spouse as 'अनावेदक/अनावेदिका'; title 'याचिका अन्तर्गत धारा 9 हिन्दू "
+        "विवाह अधिनियम, 1955 (दाम्पत्य अधिकारों की पुनर्स्थापना हेतु)'; then "
+        "'याचिकाकर्ता की ओर से याचिका निम्न प्रकार प्रस्तुत है :-' and 'यह कि' paras "
+        "(हिन्दू रीति से विवाह, साथ निवास, अनावेदक/अनावेदिका का बिना उचित कारण अलग "
+        "होना, मेल-मिलाप के प्रयास, याचिकाकर्ता का साथ रखने व भरण-पोषण को तत्पर "
+        "होना); prayer for a 'दाम्पत्य अधिकारों की पुनर्स्थापना की डिक्री'; then "
+        "'सत्यापन' + signature. Tone: civil, dignified. Plain text."
     ),
     "example_prompts": [
         "S.9 HMA — wife left for her parents' house 6 months ago, refusing to return",
