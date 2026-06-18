@@ -316,9 +316,17 @@ QUASHING_PETITION = {
         "      <Petitioner>, do hereby verify that the contents of paras 1 to N "
         "      are true to my personal knowledge and the contents of paras X to "
         "      Y are based on legal advice received and believed to be true.'\n\n"
-        "If lang='hi' write the entire document in formal Devanagari with court "
-        "Hindi vocabulary: माननीय न्यायालय, याचिकाकर्ता, FIR निरस्तीकरण, "
-        "अंतर्निहित अधिकार क्षेत्र. Return plain text only — no markdown."
+        "OUTPUT IS HINDI (Devanagari) BY DEFAULT — this is filed in the MP High "
+        "Court in Hindi; produce English only if lang='en'. Match Vishnu Ji's real "
+        "§482 filing: case line 'एम.सी.आर.सी. ____/<वर्ष>'; section phrased "
+        "'धारा 528 भा.ना.सु.सं. (482 दं.प्र.सं.)'; title 'याचिका अन्तर्गत धारा 528 "
+        "भा.ना.सु.सं. (482 दं.प्र.सं.) मय शपथपत्र'; grounds open with 'यह कि' and "
+        "invoke the Bhajan Lal categories; prayer to quash the FIR. After the "
+        "petition add a SEPARATE 'शपथ पत्र' (name/पिता/आयु/व्यवसाय/निवासी block, then "
+        "'यह कि' truth clauses, then 'सत्यापन' + signature), then a short 'इंडेक्स' "
+        "listing the petition (मय शपथपत्र) and the FIR copy as एनेक्जर ए-1. Court "
+        "Hindi: माननीय न्यायालय, याचिकाकर्ता, निरस्तीकरण, अंतर्निहित अधिकार. "
+        "Plain text only — no markdown."
     ),
     "example_prompts": [
         "High Court ke liye quashing chahiye, FIR 95/2025 PS Sadar, S 420 IPC, civil dispute",
