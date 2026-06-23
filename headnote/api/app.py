@@ -38,7 +38,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import FastAPI, Header, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -1176,6 +1176,80 @@ def auth_test():
 @app.get("/", include_in_schema=False)
 def landing():
     return FileResponse(config.STATIC_DIR / "landing.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
+# ---- SEO: sitemap.xml + robots.txt --------------------------------------
+# Google can only rank what it discovers. The sitemap lists every public,
+# crawlable page; robots.txt allows them, blocks app internals, and points
+# crawlers at the sitemap. Submit https://headnote.in/sitemap.xml in Google
+# Search Console after deploying.
+_SITE_ORIGIN = "https://headnote.in"
+
+# (url path, static file for <lastmod>, changefreq, priority)
+_SITEMAP_PAGES = [
+    ("/", "landing.html", "weekly", "1.0"),
+    ("/pricing", "pricing.html", "monthly", "0.9"),
+    ("/sections", "sections.html", "monthly", "0.9"),
+    ("/app", "index.html", "weekly", "0.7"),
+    ("/draft/bail", "draft-bail.html", "monthly", "0.8"),
+    ("/draft/discharge", "draft-discharge.html", "monthly", "0.8"),
+    ("/draft/complaint", "draft-complaint.html", "monthly", "0.8"),
+    ("/draft/court", "draft-court.html", "monthly", "0.7"),
+    ("/draft/smart", "draft-smart.html", "monthly", "0.7"),
+    ("/contact", "contact.html", "yearly", "0.5"),
+    ("/terms", "terms.html", "yearly", "0.3"),
+    ("/privacy", "privacy.html", "yearly", "0.3"),
+    ("/refund", "refund.html", "yearly", "0.3"),
+]
+
+
+@app.get("/sitemap.xml", include_in_schema=False)
+def sitemap_xml():
+    """XML sitemap of every public page — submit this URL in Search Console."""
+    rows = []
+    for path, fname, changefreq, priority in _SITEMAP_PAGES:
+        lastmod = ""
+        try:
+            mtime = (config.STATIC_DIR / fname).stat().st_mtime
+            day = datetime.fromtimestamp(mtime, timezone.utc).date().isoformat()
+            lastmod = f"    <lastmod>{day}</lastmod>\n"
+        except OSError:
+            pass
+        rows.append(
+            "  <url>\n"
+            f"    <loc>{_SITE_ORIGIN}{path}</loc>\n"
+            f"{lastmod}"
+            f"    <changefreq>{changefreq}</changefreq>\n"
+            f"    <priority>{priority}</priority>\n"
+            "  </url>"
+        )
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        + "\n".join(rows)
+        + "\n</urlset>\n"
+    )
+    return Response(content=xml, media_type="application/xml")
+
+
+@app.get("/robots.txt", include_in_schema=False)
+def robots_txt():
+    """Crawler directives: allow public pages, block app internals, point to sitemap."""
+    body = (
+        "User-agent: *\n"
+        "Allow: /\n"
+        "Disallow: /admin\n"
+        "Disallow: /settings\n"
+        "Disallow: /corpus\n"
+        "Disallow: /drafter\n"
+        "Disallow: /auth-test\n"
+        "Disallow: /payment-success\n"
+        "Disallow: /payment-failed\n"
+        "Disallow: /api/\n"
+        "\n"
+        f"Sitemap: {_SITE_ORIGIN}/sitemap.xml\n"
+    )
+    return PlainTextResponse(body)
 
 
 @app.get("/app", include_in_schema=False)
