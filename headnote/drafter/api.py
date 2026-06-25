@@ -141,6 +141,9 @@ def list_compose_courts():
 def get_template_schema(doc_type: str):
     """Returns the complete field schema for one template. Used by the
     universal template-drafter page to auto-render the form."""
+    from headnote.drafter import template_adapter as TA
+    if TA.is_canonical(doc_type):                       # V2 canonical engine
+        return {"template": TA.schema(doc_type)}
     from headnote.drafter.compose import get_template
     tpl = get_template(doc_type)
     if not tpl:
@@ -812,6 +815,10 @@ def render_template(
     Empty fields are passed through as [BLANK] placeholders so the lawyer
     can see the document take shape progressively.
     """
+    from headnote.drafter import template_adapter as TA
+    if TA.is_canonical(body.doc_type):                  # V2 canonical engine — deterministic, free
+        return {"ok": True, "document": TA.document(body.doc_type, body.fields or {}, body.lang)}
+
     from headnote.drafter.compose import get_template, _generate_document
 
     template = get_template(body.doc_type)

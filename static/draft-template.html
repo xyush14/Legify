@@ -103,7 +103,42 @@
   .field textarea { resize: vertical; min-height: 64px; line-height: 1.5; }
   .field input:focus, .field textarea:focus, .field select:focus { border-color: var(--ink); background: #fff; }
   .field__hint { font-size: 11px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+  /* Grounds / relief — premium toggle switch */
+  .field--toggle { margin-bottom: 10px; }
+  .toggle-row { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 400; cursor: pointer; margin: 0; }
+  .toggle-label { line-height: 1.35; color: var(--ink-2); transition: color 0.15s; }
+  .toggle-row:hover .toggle-label { color: var(--ink); }
+  .switch { position: relative; width: 34px; height: 20px; flex: 0 0 auto; }
+  .switch input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; margin: 0; cursor: pointer; }
+  .switch__knob { position: absolute; inset: 0; border-radius: 999px; background: var(--line-strong); transition: background 0.18s ease; pointer-events: none; }
+  .switch__knob::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.25); transition: transform 0.18s ease; }
+  .switch input:checked + .switch__knob { background: var(--ink); }
+  .switch input:checked + .switch__knob::after { transform: translateX(14px); }
+  .switch input:focus-visible + .switch__knob { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px #8c7549; }
+  body.lang-hi .toggle-label { font-family: 'Noto Sans Devanagari', 'Inter', sans-serif; }
   .req-star { color: var(--bad); margin-left: 2px; font-weight: 700; }
+
+  /* Section / offence chips (section_list) */
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 7px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--bg); transition: border-color 0.15s, background 0.15s; }
+  .chips:focus-within { border-color: var(--ink); background: #fff; }
+  .chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 9px; font-size: 12px; background: var(--soft); border: 1px solid var(--line); border-radius: 6px; font-family: 'Geist Mono', monospace; white-space: nowrap; }
+  body.lang-hi .chip { font-family: 'Noto Sans Devanagari', monospace; }
+  .chip__x { border: 0; background: none; cursor: pointer; font-size: 15px; line-height: 1; color: var(--muted); padding: 0 3px; border-radius: 4px; }
+  .chip__x:hover { color: var(--bad); background: rgba(192,57,43,0.08); }
+  .chips__input { flex: 1 1 90px; min-width: 80px; border: 0 !important; outline: 0; padding: 3px 2px !important; background: transparent !important; font-size: 13px; }
+
+  /* Money field — ₹ prefix */
+  .money-field { position: relative; display: flex; align-items: center; }
+  .money-rs { position: absolute; left: 12px; color: var(--muted); font-size: 13px; pointer-events: none; }
+  .money-field input { padding-left: 26px !important; }
+
+  /* Live completeness meter */
+  .form-progress { margin: 0 0 18px; }
+  .form-progress__track { height: 4px; border-radius: 999px; background: var(--line); overflow: hidden; }
+  .form-progress__fill { height: 100%; width: 0; background: var(--ink); border-radius: 999px; transition: width 0.3s ease; }
+  .form-progress.is-complete .form-progress__fill { background: #8c7549; }
+  .form-progress__label { margin-top: 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-family: 'Geist Mono', monospace; }
+  body.lang-hi .form-progress__label { font-family: 'Noto Sans Devanagari', monospace; letter-spacing: 0; text-transform: none; }
   body.lang-hi .field input, body.lang-hi .field textarea, body.lang-hi .field label { font-family: 'Noto Sans Devanagari', 'Inter', sans-serif; }
 
   /* Voice mic + Polish button on long-text fields */
@@ -739,6 +774,7 @@ function applyLang() {
   $('#lang-en').classList.toggle('active', state.lang === 'en');
   $('#lang-hi').classList.toggle('active', state.lang === 'hi');
   if (state.template) updateTitle();
+  if (typeof updateProgress === 'function') updateProgress();   // meter label follows language
   // Re-render document with new lang's parsing
   if (state.document) renderDocument();
 }
@@ -752,7 +788,8 @@ function getDocTypeFromUrl() {
   // so we allow [a-z0-9_]. Trailing slash is stripped automatically by the
   // greedy match boundary.
   const m = window.location.pathname.match(/\/draft\/template\/([a-z0-9_]+)/i);
-  return m ? m[1] : null;
+  if (m) return m[1];
+  return new URLSearchParams(window.location.search).get('type');  // local-preview fallback
 }
 async function loadTemplate() {
   const id = getDocTypeFromUrl();
@@ -918,6 +955,7 @@ function renderAutoFillZone() {
       });
       saveToLocalStorage();
       scheduleAutoRegen();
+      updateProgress(); refreshDepends();
       status.textContent = '';
       toast(filled
         ? (isHi ? `✓ ${filled} फ़ील्ड भरे गए — कृपया जाँच लें` : `✓ Filled ${filled} fields — please review`)
@@ -940,6 +978,11 @@ function renderForm() {
   container.innerHTML = '';
   const tpl = state.template;
   if (!tpl) return;
+
+  // Live completeness meter — fills as required fields are answered.
+  const prog = ce('div', { className: 'form-progress', id: 'form-progress' });
+  prog.innerHTML = '<div class="form-progress__track"><div class="form-progress__fill"></div></div><div class="form-progress__label"></div>';
+  container.appendChild(prog);
 
   // Supporting-doc upload zone(s) at the very top, just like bail's FIR shortcut.
   // Specialised uploads (FIR / bail-order / impugned-order) take precedence;
@@ -1007,10 +1050,43 @@ function renderForm() {
     sec.appendChild(body);
     container.appendChild(sec);
   });
+
+  updateProgress();
+  refreshDepends();
+}
+
+function _commit(key, val) { state.fields[key] = val; saveToLocalStorage(); scheduleAutoRegen(); updateProgress(); refreshDepends(); }
+
+// show/hide conditional (depends) fields based on their controlling toggle
+function refreshDepends() {
+  document.querySelectorAll('#form-container [data-depends]').forEach(el => {
+    const v = state.fields[el.dataset.depends];
+    el.style.display = (v === true || v === 'true') ? '' : 'none';
+  });
 }
 
 function renderField(f) {
   const wrap = ce('div', { className: 'field' });
+  if (f.depends) wrap.dataset.depends = f.depends;   // reveal only when its toggle is ON
+
+  // ── TOGGLE → premium switch (grounds / reliefs) ──
+  if (f.type === 'toggle') {
+    wrap.className = 'field field--toggle';
+    const row = ce('label', { className: 'toggle-row' });
+    const sw = ce('span', { className: 'switch' });
+    const cb = ce('input', { type: 'checkbox' });
+    cb.id = `f_${f.key}`; cb.dataset.field = f.key;
+    const cur = state.fields[f.key];
+    cb.checked = (cur === true || cur === 'true' || (cur === undefined && !!f.default));
+    if (cb.checked) state.fields[f.key] = true;
+    cb.addEventListener('change', () => _commit(f.key, cb.checked));
+    sw.appendChild(cb); sw.appendChild(ce('span', { className: 'switch__knob' }));
+    const span = ce('span', { className: 'toggle-label', textContent: state.lang === 'hi' ? f.label_hi : f.label_en });
+    span.dataset.en = f.label_en; span.dataset.hi = f.label_hi;
+    row.appendChild(sw); row.appendChild(span); wrap.appendChild(row);
+    return wrap;
+  }
+
   const label = ce('label');
   const labText = state.lang === 'hi' ? f.label_hi : f.label_en;
   label.innerHTML = esc(labText) + (f.required ? ' <span class="req-star">★</span>' : '');
@@ -1018,19 +1094,41 @@ function renderField(f) {
   label.dataset.hi = f.label_hi + (f.required ? ' ★' : '');
   wrap.appendChild(label);
 
+  // ── SECTION-LIST → removable chips (धाराएँ / offences) ──
+  if (f.type === 'section_list') {
+    wrap.appendChild(buildChips(f));
+    if (f.hint) wrap.appendChild(ce('div', { className: 'field__hint', textContent: f.hint }));
+    return wrap;
+  }
+
+  // ── SELECT → dropdown ──
+  if (f.type === 'select' && Array.isArray(f.options) && f.options.length) {
+    const sel = ce('select'); sel.id = `f_${f.key}`; sel.dataset.field = f.key;
+    f.options.forEach(o => { const v = (o && o.value != null) ? o.value : o; sel.appendChild(ce('option', { value: v, textContent: (o && o.label) || v })); });
+    if (state.fields[f.key] == null && f.default != null) state.fields[f.key] = f.default;
+    sel.value = state.fields[f.key] || '';
+    sel.addEventListener('change', () => _commit(f.key, sel.value));
+    wrap.appendChild(sel);
+    if (f.hint) wrap.appendChild(ce('div', { className: 'field__hint', textContent: f.hint }));
+    return wrap;
+  }
+
+  // ── text / name / date / number / money / longtext / address ──
   const isLong = f.type === 'longtext' || f.type === 'address';
   const fieldEl = isLong ? ce('textarea', { rows: 3 }) : ce('input', { type: 'text' });
   fieldEl.id = `f_${f.key}`;
   fieldEl.dataset.field = f.key;
-  fieldEl.placeholder = state.lang === 'hi' ? f.label_hi.replace(' ★', '') : f.label_en.replace(' ★', '');
+  if (f.type === 'date') fieldEl.placeholder = state.lang === 'hi' ? 'दिन/माह/वर्ष' : 'DD/MM/YYYY';
+  else fieldEl.placeholder = (state.lang === 'hi' ? f.label_hi : f.label_en).replace(' ★', '');
+  if (f.type === 'number' || f.type === 'money') fieldEl.inputMode = 'numeric';
   fieldEl.value = state.fields[f.key] || '';
-  fieldEl.addEventListener('input', () => {
-    state.fields[f.key] = fieldEl.value;
-    saveToLocalStorage();
-    scheduleAutoRegen();
-  });
+  fieldEl.addEventListener('input', () => _commit(f.key, fieldEl.value));
 
-  if (isLong) {
+  if (f.type === 'money') {
+    const m = ce('div', { className: 'money-field' });
+    m.appendChild(ce('span', { className: 'money-rs', textContent: '₹' }));
+    m.appendChild(fieldEl); wrap.appendChild(m);
+  } else if (isLong) {
     const voiceWrap = ce('div', { className: 'voice-field' });
     voiceWrap.appendChild(fieldEl);
     attachPolishBtn(fieldEl, voiceWrap, f);
@@ -1040,11 +1138,48 @@ function renderField(f) {
     wrap.appendChild(fieldEl);
   }
 
-  if (f.hint) {
-    const hint = ce('div', { className: 'field__hint', textContent: f.hint });
-    wrap.appendChild(hint);
-  }
+  if (f.hint) wrap.appendChild(ce('div', { className: 'field__hint', textContent: f.hint }));
   return wrap;
+}
+
+// ── chip input for धाराएँ / offences (section_list) ──
+function buildChips(f) {
+  const box = ce('div', { className: 'chips' });
+  const raw = state.fields[f.key];
+  const list = (Array.isArray(raw) ? raw : String(raw || '').split(',')).map(s => String(s).trim()).filter(Boolean);
+  const inp = ce('input', { type: 'text', className: 'chips__input' });
+  inp.placeholder = state.lang === 'hi' ? 'धारा जोड़ें — Enter' : 'add section — Enter';
+  const sync = () => { state.fields[f.key] = list.join(', '); saveToLocalStorage(); scheduleAutoRegen(); updateProgress(); draw(); };
+  function draw() {
+    box.querySelectorAll('.chip').forEach(c => c.remove());
+    list.forEach((s, i) => {
+      const c = ce('span', { className: 'chip' });
+      c.appendChild(ce('span', { textContent: s }));
+      const x = ce('button', { type: 'button', className: 'chip__x', textContent: '×' });
+      x.addEventListener('click', () => { list.splice(i, 1); sync(); });
+      c.appendChild(x); box.insertBefore(c, inp);
+    });
+  }
+  const add = () => { const v = inp.value.trim().replace(/,$/, ''); if (v) { list.push(v); inp.value = ''; sync(); } };
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add(); } });
+  inp.addEventListener('blur', add);
+  box.appendChild(inp); draw();
+  return box;
+}
+
+// ── live completeness meter (required fields filled) ──
+function updateProgress() {
+  const bar = document.getElementById('form-progress'); if (!bar) return;
+  const visible = f => !f.depends || state.fields[f.depends] === true || state.fields[f.depends] === 'true';
+  const reqd = (state.template && state.template.fields || []).filter(f => f.required && visible(f));
+  if (!reqd.length) { bar.style.display = 'none'; return; }
+  const done = reqd.filter(f => { const v = state.fields[f.key]; return v != null && String(v).trim() !== ''; }).length;
+  const pct = Math.round(done / reqd.length * 100);
+  bar.style.display = '';
+  bar.querySelector('.form-progress__fill').style.width = pct + '%';
+  const lbl = bar.querySelector('.form-progress__label');
+  lbl.textContent = state.lang === 'hi' ? `${done}/${reqd.length} आवश्यक भरे` : `${done}/${reqd.length} required filled`;
+  bar.classList.toggle('is-complete', done === reqd.length);
 }
 
 // ---- ✨ Polish button — refines free-form text into formal legal prose ----
@@ -1346,6 +1481,7 @@ function applyExtracted(extracted, u) {
   });
   saveToLocalStorage();
   scheduleAutoRegen();
+  updateProgress(); refreshDepends();
 }
 
 // ---- LocalStorage ----
@@ -1760,6 +1896,7 @@ async function translateFieldsForDisplay(targetLang) {
         if (v) { state.fields[k] = v; const el = $(`#f_${k}`); if (el) el.value = v; }
       });
       saveToLocalStorage();
+      updateProgress();
     }
   } catch { /* best-effort — inputs stay in source language; doc already flipped */ }
 }

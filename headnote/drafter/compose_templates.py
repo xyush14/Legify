@@ -1243,6 +1243,37 @@ _enrich_with_court_metadata()
 _HIDDEN_FROM_PICKER = {"slp_criminal", "review_petition_sc"}
 
 
+# Canonical V2 engine: these catalogue types are now served by the reviewed,
+# deterministic per-court templates (headnote/drafter/templates/*) behind the
+# universal editor (/draft/template/<id> → template_adapter). Pointing the tile
+# here swaps the old LLM/wrapper path for the V2 bundle without touching the UI.
+_V2_EDITOR = {
+    "regular_bail_hc":            "bail_hc",
+    "regular_bail_sessions":      "bail_sessions",
+    "trial_bail_437":             "bail_magistrate",
+    "anticipatory_bail_sessions": "anticipatory_bail",
+    "anticipatory_bail":          "anticipatory_bail_hc",
+    "quashing_petition":          "quashing",
+    "revision_petition":          "revision_hc",
+    "criminal_revision_sessions": "revision_sessions",
+    "appeal_conviction":          "appeal_hc",
+    "discharge_application":      "discharge_sessions",
+    "maintenance":                "maintenance",
+    "dv_act_12":                  "dv",
+    "ni_act_138":                 "cheque_138",
+    "private_complaint_200":      "parivad",
+    "vakalatnama":                "vakalatnama",
+}
+
+
+def _redirect_for(t: dict) -> str | None:
+    """V2 canonical tiles point at /draft/template/<canonical id>; everything
+    else keeps its existing wrapper redirect (or none → default template URL)."""
+    if t["id"] in _V2_EDITOR:
+        return "/draft/template/" + _V2_EDITOR[t["id"]]
+    return t.get("redirect_url")
+
+
 def list_templates_slim() -> list[dict]:
     """Slim metadata for the FE picker. Now includes court grouping fields,
     redirect_url (for wrapper templates), and quality tag (v1-ai etc)."""
@@ -1257,7 +1288,7 @@ def list_templates_slim() -> list[dict]:
             "court_label_en":  t.get("court_label_en", "Common"),
             "court_label_hi":  t.get("court_label_hi", "सामान्य"),
             "popularity":      t.get("popularity", 1),
-            "redirect_url":    t.get("redirect_url"),  # wrappers (regular_bail_sessions etc.)
+            "redirect_url":    _redirect_for(t),  # V2 canonical tiles → /draft/template/<id>; else wrapper
             "quality":         t.get("quality", "v1"),  # v1-ai / v1-wrapper / tuned
             "description":     t.get("description"),
             "example_prompts": t.get("example_prompts", []),
