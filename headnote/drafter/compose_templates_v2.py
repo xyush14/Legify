@@ -2222,10 +2222,37 @@ PRODUCTION_DOCUMENTS_SESSIONS = {
 }
 
 
+# New high-volume type discovered in his "91" folder (~18 filings) that had NO
+# catalogue tile: a woman who left home / married of her own will asks the
+# Magistrate to record HER statement (§178 BNSS) so the police cannot fabricate a
+# kidnapping case. Served by templates/statement_178.py (application + affidavit).
+STATEMENT_178 = {
+    "id":              "statement_178",
+    "name_en":         "Record Statement before Court (S.178 BNSS)",
+    "name_hi":         "दस्तयावी बयान — कथन न्यायालय के समक्ष (धारा 178 भा.ना.सु.सं.)",
+    "court":           "magistrate",
+    "court_label_en":  "Magistrate Court",
+    "court_label_hi":  "मजिस्ट्रेट न्यायालय",
+    "category":        "evidence",
+    "tier":            2,
+    "popularity":      4,
+    "quality":         "v2",
+    "description":     "Application by a person (typically a woman who left home / married of her own will) to have her own statement recorded before the Magistrate (S.178 BNSS) so a false kidnapping/abduction case cannot be built. Application + affidavit. Canonical deterministic draft.",
+    "redirect_url":    "/draft/template/statement_178",
+    "fields":          [],
+    "format_spec":     "",
+    "example_prompts": [
+        "बालिग लड़की का स्वेच्छा से विवाह — न्यायालय के समक्ष दस्तयावी बयान दर्ज कराने हेतु आवेदन",
+        "Application to record the applicant's statement before the Magistrate to prevent a false abduction case",
+    ],
+}
+
+
 NEW_TEMPLATES_V2: dict[str, dict] = {
     DISCHARGE_APPLICATION_MAGISTRATE["id"]: DISCHARGE_APPLICATION_MAGISTRATE,
     APPEAL_CONVICTION_SESSIONS["id"]:       APPEAL_CONVICTION_SESSIONS,
     PRODUCTION_DOCUMENTS_SESSIONS["id"]:    PRODUCTION_DOCUMENTS_SESSIONS,
+    STATEMENT_178["id"]:                    STATEMENT_178,
     SLP_CRIMINAL["id"]:               SLP_CRIMINAL,
     TRANSFER_PETITION_CRI["id"]:      TRANSFER_PETITION_CRI,
     REVIEW_PETITION_SC["id"]:         REVIEW_PETITION_SC,

@@ -1268,6 +1268,7 @@ _V2_EDITOR = {
     "supurdgi_451_457":            "supurdgi",
     "dispense_attendance_205":     "exemption_205",
     "compromise_320":              "compounding",
+    "hma_9_restitution":           "restitution_9",
     "maintenance":                "maintenance",
     "dv_act_12":                  "dv",
     "ni_act_138":                 "cheque_138",
