@@ -1519,8 +1519,13 @@ function restoreFromLocalStorage() {
 // the bail drafter's "live preview always visible" feel. Just ONE LLM
 // call per session opening — typing then updates via debounced auto-regen.
 async function maybeRenderInitial() {
-  if (state.document) return;            // localStorage had a draft
   if (!state.template) return;
+  // Canonical (deterministic) types render FREE + deterministically from the fields,
+  // so ALWAYS (re)generate on load — this heals any document cached before the type
+  // became a V2 canonical template (e.g. an old LLM/skeleton render still in
+  // localStorage). Non-canonical (LLM) types keep their saved draft, since
+  // re-rolling them costs an LLM call.
+  if (state.document && !state.template.deterministic) return;   // LLM type: keep saved draft
   // Pass `initial: true` so the silent-skip-when-empty guard is bypassed
   await generateDocument({ silent: true, initial: true });
 }
