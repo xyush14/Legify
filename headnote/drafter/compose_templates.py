@@ -1258,6 +1258,7 @@ _V2_EDITOR = {
     "criminal_revision_sessions": "revision_sessions",
     "appeal_conviction":          "appeal_hc",
     "discharge_application":      "discharge_sessions",
+    "production_documents_91_94":  "production_magistrate",
     "maintenance":                "maintenance",
     "dv_act_12":                  "dv",
     "ni_act_138":                 "cheque_138",

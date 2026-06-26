@@ -2197,9 +2197,35 @@ APPEAL_CONVICTION_SESSIONS = {
 }
 
 
+# Document production also runs before the Sessions Court (his §394/dacoity and
+# §302 production filings) — the magistrate document-production tile is
+# production_documents_91_94 above; this exposes the Sessions forum.
+PRODUCTION_DOCUMENTS_SESSIONS = {
+    "id":              "production_documents_sessions",
+    "name_en":         "Production of Documents — Sessions (S.94 BNSS / 91 CrPC)",
+    "name_hi":         "दस्तावेज तलब — सत्र न्यायालय (धारा 94 BNSS / 91 दं.प्र.सं.)",
+    "court":           "sessions",
+    "court_label_en":  "Sessions Court",
+    "court_label_hi":  "सत्र न्यायालय",
+    "category":        "evidence",
+    "tier":            2,
+    "popularity":      3,
+    "quality":         "v2",
+    "description":     "Application before the Sessions Court to call for / produce a document, CCTV footage, CDR, case diary or other thing material for a just decision (S.94 BNSS / 91 CrPC). Canonical deterministic draft.",
+    "redirect_url":    "/draft/template/production_sessions",
+    "fields":          [],
+    "format_spec":     "",
+    "example_prompts": [
+        "सत्र न्यायालय में धारा 91 के अंतर्गत सी.सी.टी.व्ही. फुटेज एवं सी.डी.आर. तलब करने हेतु आवेदन",
+        "Application u/s 91 before Sessions Court to summon CCTV footage and CDR",
+    ],
+}
+
+
 NEW_TEMPLATES_V2: dict[str, dict] = {
     DISCHARGE_APPLICATION_MAGISTRATE["id"]: DISCHARGE_APPLICATION_MAGISTRATE,
     APPEAL_CONVICTION_SESSIONS["id"]:       APPEAL_CONVICTION_SESSIONS,
+    PRODUCTION_DOCUMENTS_SESSIONS["id"]:    PRODUCTION_DOCUMENTS_SESSIONS,
     SLP_CRIMINAL["id"]:               SLP_CRIMINAL,
     TRANSFER_PETITION_CRI["id"]:      TRANSFER_PETITION_CRI,
     REVIEW_PETITION_SC["id"]:         REVIEW_PETITION_SC,
