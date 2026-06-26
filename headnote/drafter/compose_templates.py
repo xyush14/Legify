@@ -1263,6 +1263,7 @@ _V2_EDITOR = {
     "reply_to_bail":               "reply_hc",
     "reply_to_bail_sessions":      "reply_sessions",
     "complaint_156_3":             "complaint_156",
+    "default_bail":                "default_bail",
     "maintenance":                "maintenance",
     "dv_act_12":                  "dv",
     "ni_act_138":                 "cheque_138",
