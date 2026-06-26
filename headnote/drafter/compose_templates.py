@@ -691,8 +691,8 @@ DEFAULT_BAIL = {
 # ---------------------------------------------------------------- Discharge
 DISCHARGE_APPLICATION = {
     "id":         "discharge_application",
-    "name_en":    "Discharge Application (S.250 / 258 BNSS)",
-    "name_hi":    "उन्मोचन आवेदन (धारा 250 / 258 BNSS)",
+    "name_en":    "Discharge — Sessions (S.250 BNSS / 227 CrPC)",
+    "name_hi":    "उन्मोचन — सत्र न्यायालय (धारा 250 BNSS / 227 दं.प्र.सं.)",
     "category":   "bail",
     "tier":       2,
     "description": "Pre-trial relief: discharge the accused for want of prima facie case.",
@@ -1047,8 +1047,8 @@ REPLY_TO_BAIL = {
 # ---------------------------------------------------------------- Appeal
 APPEAL_CONVICTION = {
     "id":         "appeal_conviction",
-    "name_en":    "Appeal against Conviction (S.415/419 BNSS / S.374 CrPC)",
-    "name_hi":    "दोषसिद्धि के विरुद्ध अपील (धारा 415/419 BNSS / 374 दं.प्र.सं.)",
+    "name_en":    "Appeal against Conviction — High Court (S.415 BNSS / 374 CrPC)",
+    "name_hi":    "दोषसिद्धि अपील — उच्च न्यायालय (धारा 415 BNSS / 374 दं.प्र.सं.)",
     "category":   "appeal",
     "tier":       2,
     "description": "Appeal by a convicted accused before the Sessions / High Court / Supreme Court.",

@@ -2147,7 +2147,59 @@ MOTOR_ACCIDENT_CLAIM_166 = {
 }
 
 
+# V2-native tiles — the forum variants the catalogue was missing. The canonical
+# discharge/appeal engines already render both forums; these expose them as
+# court-wise tiles so the magistrate §239 discharge (the common warrant-case one,
+# Vishnu ji's "Arvind Sharma" filing) and the appeal-to-Sessions (against a
+# Magistrate conviction) are reachable from the drafting home. Both redirect
+# straight into the universal editor → template_adapter → canonical render.
+DISCHARGE_APPLICATION_MAGISTRATE = {
+    "id":              "discharge_application_magistrate",
+    "name_en":         "Discharge — Magistrate (S.262 BNSS / 239 CrPC)",
+    "name_hi":         "उन्मोचन — मजिस्ट्रेट (धारा 262 BNSS / 239 दं.प्र.सं.)",
+    "court":           "magistrate",
+    "court_label_en":  "Magistrate Court",
+    "court_label_hi":  "मजिस्ट्रेट न्यायालय",
+    "category":        "bail",
+    "tier":            2,
+    "popularity":      4,
+    "quality":         "v2",
+    "description":     "Discharge before the Magistrate in a warrant case on police report (S.262 BNSS / 239 CrPC) — no prima facie case made out. Canonical deterministic draft.",
+    "redirect_url":    "/draft/template/discharge_magistrate",
+    "fields":          [],
+    "format_spec":     "",
+    "example_prompts": [
+        "मजिस्ट्रेट न्यायालय में धारा 239 दं.प्र.सं. के अंतर्गत उन्मोचन आवेदन",
+        "Discharge before JMFC under S.239 CrPC — charge-sheet discloses no offence",
+    ],
+}
+
+
+APPEAL_CONVICTION_SESSIONS = {
+    "id":              "appeal_conviction_sessions",
+    "name_en":         "Appeal against Conviction — Sessions (S.415 BNSS / 374 CrPC)",
+    "name_hi":         "दोषसिद्धि अपील — सत्र न्यायालय (धारा 415 BNSS / 374 दं.प्र.सं.)",
+    "court":           "sessions",
+    "court_label_en":  "Sessions Court",
+    "court_label_hi":  "सत्र न्यायालय",
+    "category":        "appeal",
+    "tier":            2,
+    "popularity":      4,
+    "quality":         "v2",
+    "description":     "Criminal appeal to the Sessions Court against a Magistrate's conviction (S.415 BNSS / 374(3) CrPC) — grounds of appeal and acquittal prayer. Canonical deterministic draft.",
+    "redirect_url":    "/draft/template/appeal_sessions",
+    "fields":          [],
+    "format_spec":     "",
+    "example_prompts": [
+        "मजिस्ट्रेट की दोषसिद्धि के विरुद्ध सत्र न्यायालय में आपराधिक अपील",
+        "Appeal to Sessions Court against JMFC conviction under S.374 CrPC",
+    ],
+}
+
+
 NEW_TEMPLATES_V2: dict[str, dict] = {
+    DISCHARGE_APPLICATION_MAGISTRATE["id"]: DISCHARGE_APPLICATION_MAGISTRATE,
+    APPEAL_CONVICTION_SESSIONS["id"]:       APPEAL_CONVICTION_SESSIONS,
     SLP_CRIMINAL["id"]:               SLP_CRIMINAL,
     TRANSFER_PETITION_CRI["id"]:      TRANSFER_PETITION_CRI,
     REVIEW_PETITION_SC["id"]:         REVIEW_PETITION_SC,
