@@ -1267,6 +1267,7 @@ _V2_EDITOR = {
     "examination_311":             "recall_311",
     "supurdgi_451_457":            "supurdgi",
     "dispense_attendance_205":     "exemption_205",
+    "compromise_320":              "compounding",
     "maintenance":                "maintenance",
     "dv_act_12":                  "dv",
     "ni_act_138":                 "cheque_138",
