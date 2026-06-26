@@ -1262,6 +1262,7 @@ _V2_EDITOR = {
     "reply_application":           "reply_magistrate",
     "reply_to_bail":               "reply_hc",
     "reply_to_bail_sessions":      "reply_sessions",
+    "complaint_156_3":             "complaint_156",
     "maintenance":                "maintenance",
     "dv_act_12":                  "dv",
     "ni_act_138":                 "cheque_138",
