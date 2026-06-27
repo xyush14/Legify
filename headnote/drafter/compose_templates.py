@@ -1271,6 +1271,7 @@ _V2_EDITOR = {
     "hma_9_restitution":           "restitution_9",
     "ni_138b_dismiss":             "ni_138_dismiss",
     "suspension_of_sentence":      "suspension_389",
+    "mention_memo":                "mention_memo",
     "maintenance":                "maintenance",
     "dv_act_12":                  "dv",
     "ni_act_138":                 "cheque_138",
