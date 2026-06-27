@@ -301,25 +301,40 @@
 
         <div class="draft-home">
 
-          <!-- ✨ SMART DRAFTER HERO CTA (kept) -->
-          <a href="/draft/smart" class="smart-cta">
-            <div class="smart-cta__icon" aria-hidden="true">✨</div>
-            <div class="smart-cta__body">
-              <div class="smart-cta__title">Smart Drafter — just describe it</div>
-              <div class="smart-cta__sub">Voice or text — AI picks the right template and drafts it.</div>
+          <!-- ✦ Prompt drafter — describe the matter → court-ready draft (one shot).
+               POSTs /api/draft/from-prompt; wired by the inline script below. -->
+          <div class="pd" id="pd">
+            <textarea id="pd-input" class="pd__input" rows="3" autocomplete="off" spellcheck="false"
+              placeholder="Describe the matter — e.g. सत्र न्यायालय में नियमित जमानत, FIR 123/2025 थाना पनिहार, धारा 420/406, एकमात्र कमाने वाला… (हिंदी, English या दोनों)"></textarea>
+            <div class="pd__bar">
+              <div class="pd__seg" id="pd-lang" role="group" aria-label="draft language">
+                <button type="button" data-lang="hi" class="on">हिंदी</button>
+                <button type="button" data-lang="en">English</button>
+              </div>
+              <a href="/draft/smart" class="pd__voice mono">✦ voice mode</a>
+              <span class="pd__grow"></span>
+              <button type="button" id="pd-draft" class="pd__btn">Draft it →</button>
             </div>
-            <div class="smart-cta__arrow" aria-hidden="true">→</div>
-          </a>
+          </div>
 
-          <!-- ✱ Persona-completion nudge (shown only when bar profile incomplete) -->
-          <a href="/settings" id="persona-nudge" class="persona-nudge" hidden>
-            <div class="persona-nudge__icon" aria-hidden="true">⚖</div>
-            <div class="persona-nudge__body">
-              <div class="persona-nudge__title">Complete your bar profile</div>
-              <div class="persona-nudge__sub mono">2 minutes · auto-fills signature block, vakalatnama, home-court default on every draft</div>
+          <div class="pd__loading mono" id="pd-loading" hidden><span class="pd__spin" aria-hidden="true"></span><span id="pd-loading-text">Reading the matter…</span></div>
+          <div class="pd__err" id="pd-err" hidden></div>
+
+          <!-- result (hidden until a draft returns) -->
+          <div class="pd-result" id="pd-result" hidden>
+            <div class="pd-result__head">
+              <span class="pd-badge" id="pd-badge"></span>
+              <span class="pd-result__type" id="pd-rtype"></span>
+              <span class="pd-result__meta mono" id="pd-rmeta"></span>
+              <span class="pd__grow"></span>
+              <div class="pd__seg pd__seg--sm" id="pd-out-lang" hidden><button type="button" data-lang="hi" class="on">हिं</button><button type="button" data-lang="en">EN</button></div>
+              <button type="button" class="pd__btn pd__btn--ghost" id="pd-edit" hidden>Refine in editor →</button>
+              <button type="button" class="pd__btn pd__btn--ghost" id="pd-print">Print / PDF</button>
+              <button type="button" class="pd__btn pd__btn--ghost" id="pd-new">New draft</button>
             </div>
-            <div class="persona-nudge__arrow" aria-hidden="true">→</div>
-          </a>
+            <iframe class="pd-result__frame" id="pd-frame" title="draft preview"></iframe>
+            <div class="pd-notes" id="pd-notes"></div>
+          </div>
 
           <!-- Search — cross-court template search -->
           <div class="draft-search">
@@ -517,5 +532,76 @@
 
   <script src="/static/auth.js?v=20260527a" defer></script>
   <script src="/static/app.js?v=20260527a" defer></script>
+
+  <!-- Prompt drafter (drafting view) — self-contained; POSTs /api/draft/from-prompt -->
+  <script>
+  (function(){
+    var lang="hi", last=null;
+    var $=function(id){return document.getElementById(id);};
+    var input=$("pd-input"), draftBtn=$("pd-draft");
+    if(!input||!draftBtn) return;
+    var browse=$("draft-court-browse"),
+        searchBox=document.querySelector(".draft-search"),
+        searchResults=$("draft-search-results");
+    var EDIT_ROUTE={bail:"/draft/bail",anticipatory_bail:"/draft/bail",discharge:"/draft/discharge"};
+    function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+
+    $("pd-lang").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;lang=b.dataset.lang;
+      [].forEach.call(this.querySelectorAll("button"),function(x){x.classList.toggle("on",x===b);});});
+
+    function showPage(which){var h=(which==="en"?last.page_en:last.page_hi)||last.page_hi||last.page_en||"";$("pd-frame").srcdoc=h;}
+    $("pd-out-lang").addEventListener("click",function(e){var b=e.target.closest("button");if(!b||!last)return;
+      [].forEach.call(this.querySelectorAll("button"),function(x){x.classList.toggle("on",x===b);});showPage(b.dataset.lang);});
+    $("pd-print").addEventListener("click",function(){var f=$("pd-frame");if(f.contentWindow){f.contentWindow.focus();f.contentWindow.print();}});
+
+    function setBrowseHidden(h){ if(browse)browse.style.display=h?"none":""; if(searchBox)searchBox.style.display=h?"none":""; if(h&&searchResults)searchResults.hidden=true; }
+    $("pd-new").addEventListener("click",function(){$("pd-result").hidden=true;setBrowseHidden(false);input.value="";input.focus();window.scrollTo({top:0,behavior:"smooth"});});
+
+    function renderResult(res){
+      last=res;
+      var authored=res.mode==="authored", badge=$("pd-badge");
+      badge.className="pd-badge "+(authored?"pd-badge--ai":"pd-badge--ok");
+      badge.textContent=authored?"AI-authored · review":"Verbatim template";
+      $("pd-rtype").textContent=res.title||res.doc_type||"Draft";
+      var conf=res.confidence!=null?" · match "+Math.round(res.confidence*100)+"%":"";
+      $("pd-rmeta").textContent=(authored?"no fixed template — your house style":"deterministic · zero hallucination")+conf;
+      $("pd-out-lang").hidden=!(res.page_hi&&res.page_en);
+      var er=EDIT_ROUTE[res.doc_type], eb=$("pd-edit");
+      if(!authored&&er){eb.hidden=false;eb.onclick=function(){location.href=er;};}else{eb.hidden=true;}
+      showPage(lang);
+      var notes=$("pd-notes");notes.innerHTML="";
+      if(res.cite_at_hearing&&res.cite_at_hearing.length){
+        notes.insertAdjacentHTML("beforeend",'<div class="pd-note pd-note--cite"><h4>Authorities — cite at hearing (verify)</h4><ul>'+
+          res.cite_at_hearing.map(function(c){var t=c.case||c;return "<li><strong>"+esc(t)+"</strong>"+(c.point?" — "+esc(c.point):"")+"</li>";}).join("")+'</ul></div>');
+      }
+      if(res.warnings&&res.warnings.length){
+        notes.insertAdjacentHTML("beforeend",'<div class="pd-note pd-note--warn"><h4>Before you file</h4><ul>'+
+          res.warnings.map(function(w){return "<li>"+esc(w)+"</li>";}).join("")+'</ul></div>');
+      }
+      if(res.companions&&res.companions.length){
+        notes.insertAdjacentHTML("beforeend",'<div class="pd-note pd-note--comp"><h4>File alongside</h4><ul>'+
+          res.companions.map(function(w){return "<li>"+esc(w)+"</li>";}).join("")+'</ul></div>');
+      }
+      setBrowseHidden(true);
+      $("pd-result").hidden=false;
+      $("pd-result").scrollIntoView({behavior:"smooth",block:"start"});
+    }
+
+    var msgs=["Reading the matter…","Choosing the right application…","Composing in court format…","Checking sections & citations…"];
+    function draft(){
+      var prompt=input.value.trim(); if(!prompt){input.focus();return;}
+      $("pd-err").hidden=true; $("pd-result").hidden=true; draftBtn.disabled=true; $("pd-loading").hidden=false;
+      var i=0; $("pd-loading-text").textContent=msgs[0];
+      var tick=setInterval(function(){i=(i+1)%msgs.length;$("pd-loading-text").textContent=msgs[i];},2200);
+      fetch("/api/draft/from-prompt",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:prompt,lang:lang})})
+        .then(function(r){return r.json();})
+        .then(function(res){clearInterval(tick);$("pd-loading").hidden=true;draftBtn.disabled=false;
+          if(!res||res.ok===false){throw new Error((res&&res.error)||"Could not draft this — try rephrasing.");}renderResult(res);})
+        .catch(function(e){clearInterval(tick);$("pd-loading").hidden=true;draftBtn.disabled=false;$("pd-err").textContent=e.message||String(e);$("pd-err").hidden=false;});
+    }
+    draftBtn.addEventListener("click",draft);
+    input.addEventListener("keydown",function(e){if((e.metaKey||e.ctrlKey)&&e.key==="Enter")draft();});
+  })();
+  </script>
 </body>
 </html>

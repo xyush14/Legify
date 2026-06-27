@@ -168,6 +168,28 @@ def render_live(body: RenderLiveBody):
     return {"ok": True, "html": html}
 
 
+class FromPromptBody(BaseModel):
+    prompt: str = Field(..., description="freeform matter description (Hindi / English / Hinglish)")
+    lang:   Literal["hi", "en"] = "hi"
+
+
+@router.post("/from-prompt", summary="Prompt-first drafting → best court-ready draft (canonical | house-style authored)")
+def draft_from_prompt_route(body: FromPromptBody):
+    """One freeform description → the best draft we can produce: the DETERMINISTIC canonical
+    template where we have the type (zero hallucination, verbatim grounds), else the house-style
+    LLM AUTHORING engine with the verified-citation guard (long-tail criminal + any civil matter).
+    The LLM only fills structured content; the layout + citation whitelist stay ours.
+    See headnote/drafter/from_prompt.py."""
+    from fastapi.responses import JSONResponse
+    from headnote.drafter.from_prompt import draft_from_prompt
+    if not (body.prompt or "").strip():
+        return JSONResponse({"ok": False, "error": "empty prompt"}, status_code=400)
+    try:
+        return draft_from_prompt(body.prompt, body.lang)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": f"{type(e).__name__}: {e}"}, status_code=500)
+
+
 @router.get("/{draft_id}", summary="Get one draft by id")
 def get_draft(draft_id: str):
     d = storage.get_draft(draft_id)
