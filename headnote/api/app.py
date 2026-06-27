@@ -1390,6 +1390,17 @@ def draft_bail_application():
     return FileResponse(config.STATIC_DIR / "draft-bail.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
+@app.get("/draft/recovery", include_in_schema=False)
+@app.get("/draft/recovery/", include_in_schema=False)
+def draft_recovery_page():
+    """Recovery-of-money draft pack — pre-suit legal notice + summary-suit
+    (Order XXXVII CPC) plaint with verification + affidavit. Civil/author-tier
+    (outside the reviewed bail-family set): a fill-in, shareable template for the
+    personal-assist queue. Static page; placeholders fill client-side. Marked
+    noindex until advocate-reviewed."""
+    return FileResponse(config.STATIC_DIR / "draft-recovery.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
 @app.get("/draft/discharge", include_in_schema=False)
 @app.get("/draft/discharge/", include_in_schema=False)
 def draft_discharge_page():
