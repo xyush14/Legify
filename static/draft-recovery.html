@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex" /><!-- unlisted share page until advocate-reviewed -->
 <title>Recovery of Money — Draft Pack · Headnote</title>
-<meta name="description" content="A fill-in draft pack for recovery of money: pre-suit legal notice + summary suit (Order XXXVII CPC) plaint, with verification and affidavit. Author-tier — for advocate review." />
+<meta name="description" content="A fill-in draft pack for recovery of money (English + Hindi): pre-suit legal notice + summary suit (Order XXXVII CPC) plaint, with verification and affidavit. Author-tier — for advocate review." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Serif+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="/static/style.css?v=20260523b" />
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
 <style>
@@ -16,10 +16,15 @@
   body { background: var(--bg); }
   .wrap { max-width: 920px; margin: 0 auto; padding: 0 20px 96px; }
 
+  /* Language toggle — show EN by default; .hi on <body> flips to Hindi.
+     Only ever sets display:none, so the natural display is preserved when shown. */
+  body:not(.hi) .lang-hi { display: none; }
+  body.hi .lang-en { display: none; }
+
   /* Topbar */
   .rtop {
     position: sticky; top: 0; z-index: 20;
-    display: flex; align-items: center; gap: 14px;
+    display: flex; align-items: center; gap: 12px;
     padding: 12px 20px; margin: 0 -20px 0;
     background: rgba(250,250,249,0.86); backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--line);
@@ -32,6 +37,11 @@
     padding: 3px 8px; border-radius: 100px;
   }
   .rtop__spacer { flex: 1; }
+  .langtog { display: inline-flex; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .langtog__btn { font-size: 12px; font-weight: 600; padding: 6px 12px; background: var(--surface);
+    color: var(--ink-3); border: none; cursor: pointer; font-family: inherit; }
+  .langtog__btn + .langtog__btn { border-left: 1px solid var(--line); }
+  .langtog__btn.is-active { background: var(--ink); color: var(--surface); }
   .rtop__btn {
     font-size: 13px; font-weight: 500; color: var(--ink-2);
     border: 1px solid var(--line); background: var(--surface);
@@ -83,6 +93,7 @@
   .keys li { font-size: var(--t-sm); color: var(--ink-2); padding-left: 16px; position: relative; line-height: 1.45; }
   .keys li::before { content: '›'; position: absolute; left: 0; color: var(--gold); font-weight: 700; }
   .keys b { color: var(--ink); font-weight: 600; }
+  body.hi .keys h5 { font-family: 'Noto Sans Devanagari', sans-serif; letter-spacing: 0; }
 
   /* Fill panel */
   .fill__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -94,6 +105,7 @@
   @media (max-width: 560px) { .field.col-2 { grid-column: span 1; } }
   .field label { font-size: var(--t-xs); font-weight: 500; color: var(--ink-3);
     font-family: 'Geist Mono', monospace; letter-spacing: .03em; }
+  body.hi .field label { font-family: 'Noto Sans Devanagari', sans-serif; }
   .field input {
     font-family: inherit; font-size: var(--t-sm); color: var(--ink);
     border: 1px solid var(--line); border-radius: var(--radius);
@@ -116,19 +128,22 @@
   .doc__no { font-family: 'Geist Mono', monospace; font-size: 11px; color: var(--gold-deep); font-weight: 500; }
   .doc__name { font-weight: 600; font-size: var(--t-sm); flex: 1; letter-spacing: -.01em; }
   .doc__copy { font-size: 12px; color: var(--ink-2); border: 1px solid var(--line); background: var(--surface);
-    padding: 5px 11px; border-radius: var(--radius); cursor: pointer; }
+    padding: 5px 11px; border-radius: var(--radius); cursor: pointer; white-space: nowrap; }
   .doc__copy:hover { border-color: var(--gold); color: var(--ink); }
   .doc__copy.ok { color: var(--good); border-color: var(--good); }
   .paper {
     border: 1px solid var(--line); border-radius: 0 0 var(--radius-lg) var(--radius-lg);
     background: var(--surface); padding: 40px 46px;
-    font-family: Georgia, 'Times New Roman', 'Noto Sans Devanagari', serif;
+    font-family: Georgia, 'Times New Roman', serif;
     font-size: 14.5px; line-height: 1.85; color: #1a1a17;
   }
+  .paper.lang-hi { font-family: 'Noto Serif Devanagari', Georgia, serif; line-height: 1.95; }
   @media (max-width: 600px) { .paper { padding: 26px 22px; } }
   .paper .ctr { text-align: center; }
   .paper .court { font-weight: 700; text-transform: uppercase; letter-spacing: .02em; font-size: 15px; }
+  .paper.lang-hi .court { text-transform: none; }
   .paper .sup { font-size: 12.5px; letter-spacing: .04em; text-transform: uppercase; color: #555; }
+  .paper.lang-hi .sup { text-transform: none; }
   .paper .rule { border: none; border-top: 1px solid #d8d4c8; margin: 14px 0; }
   .paper .vs { text-align: center; font-style: italic; margin: 4px 0; }
   .paper .pno { display: inline-block; min-width: 1.6em; }
@@ -138,6 +153,7 @@
   .paper .sig { margin-top: 26px; text-align: right; }
   .paper h3 { font-size: 14.5px; font-weight: 700; text-align: center; margin: 18px 0 12px;
     text-transform: uppercase; letter-spacing: .03em; }
+  .paper.lang-hi h3 { text-transform: none; }
   .paper ol.prayer { margin: 0 0 12px 0; padding-left: 30px; }
   .paper ol.prayer li { margin-bottom: 8px; }
 
@@ -179,43 +195,66 @@
   <a class="rtop__brand" href="/" aria-label="Headnote home"><img src="/static/headnote-logo.svg" alt="headnote" /></a>
   <span class="rtop__tag">Personal Assist · Draft</span>
   <span class="rtop__spacer"></span>
-  <button class="rtop__btn" id="btn-print">Print / PDF</button>
-  <button class="rtop__btn rtop__btn--solid" id="btn-copyall">Copy all</button>
+  <div class="langtog" role="group" aria-label="Language">
+    <button class="langtog__btn is-active" data-lang="en">EN</button>
+    <button class="langtog__btn" data-lang="hi">हिं</button>
+  </div>
+  <button class="rtop__btn" id="btn-print"><span class="lang-en">Print / PDF</span><span class="lang-hi">प्रिंट / PDF</span></button>
+  <button class="rtop__btn rtop__btn--solid" id="btn-copyall"><span class="lang-en">Copy all</span><span class="lang-hi">सब कॉपी</span></button>
 </header>
 
 <div class="wrap">
 
   <div class="rhead">
-    <div class="rhead__eyebrow">Civil · Recovery of money</div>
-    <h1>Recovery of Money — Draft Pack</h1>
-    <p>A ready-to-file pack for a money-recovery matter: a pre-suit <b>legal notice</b> and a
-       <b>summary-suit plaint under Order XXXVII CPC</b>, with verification and affidavit.
-       Fill the details once below and every blank updates across both documents — or send this link
-       as-is and fill on the call.</p>
+    <div class="rhead__eyebrow"><span class="lang-en">Civil · Recovery of money</span><span class="lang-hi">सिविल · धन वसूली</span></div>
+    <h1><span class="lang-en">Recovery of Money — Draft Pack</span><span class="lang-hi">धन वसूली — ड्राफ्ट पैक</span></h1>
+    <p>
+      <span class="lang-en">A ready-to-file pack for a money-recovery matter: a pre-suit <b>legal notice</b> and a
+        <b>summary-suit plaint under Order XXXVII CPC</b>, with verification and affidavit.
+        Fill the details once below and every blank updates across both documents — or send this link
+        as-is and fill on the call.</span>
+      <span class="lang-hi">धन वसूली के मामले हेतु दाखिल करने योग्य पैक: वाद-पूर्व <b>विधिक सूचना</b> तथा
+        <b>आदेश 37 सी.पी.सी. के अंतर्गत संक्षिप्त वाद का वाद-पत्र</b>, सत्यापन एवं शपथ-पत्र सहित।
+        नीचे विवरण एक बार भरें — दोनों दस्तावेज़ों में सभी रिक्त स्थान स्वतः भर जाएँगे; अथवा यह लिंक
+        ज्यों का त्यों भेज दें और बातचीत के दौरान भरें।</span>
+    </p>
   </div>
 
   <!-- GUIDANCE -->
   <section class="card guidecard">
     <div class="card__pad">
-      <div class="guide__title"><span class="dot"></span> Pick the right vehicle before you fill</div>
+      <div class="guide__title"><span class="dot"></span>
+        <span class="lang-en">Pick the right vehicle before you fill</span>
+        <span class="lang-hi">भरने से पहले सही माध्यम चुनें</span>
+      </div>
       <div class="routes">
         <div class="route route--reco">
-          <h4>Summary Suit — Order XXXVII CPC <span class="badge">drafted below ↓</span></h4>
-          <p>For a <b>liquidated money debt on a written contract</b>, bill of exchange, promissory note,
-             guarantee or invoice. Faster: the defendant cannot defend as of right — they must seek
-             <b>leave to defend</b> within 10 days. Use when the debt and document are clear.</p>
+          <h4><span class="lang-en">Summary Suit — Order XXXVII CPC</span><span class="lang-hi">संक्षिप्त वाद — आदेश 37 सी.पी.सी.</span>
+            <span class="badge"><span class="lang-en">drafted below ↓</span><span class="lang-hi">नीचे ड्राफ्ट ↓</span></span></h4>
+          <p>
+            <span class="lang-en">For a <b>liquidated money debt on a written contract</b>, bill of exchange, promissory note,
+              guarantee or invoice. Faster: the defendant cannot defend as of right — they must seek
+              <b>leave to defend</b> within 10 days. Use when the debt and document are clear.</span>
+            <span class="lang-hi"><b>लिखित अनुबंध, विनिमय-पत्र, प्रॉमिसरी नोट, गारंटी या बिल</b> पर आधारित निश्चित धनराशि के
+              लिए। तेज़: प्रतिवादी अधिकारवश बचाव नहीं कर सकता — उसे 10 दिनों के भीतर <b>बचाव की अनुमति
+              (leave to defend)</b> लेनी होती है। जब ऋण व दस्तावेज़ स्पष्ट हों तब उपयोग करें।</span>
+          </p>
         </div>
         <div class="route">
-          <h4>Ordinary money suit — Order VII / §9 CPC</h4>
-          <p>When the claim is disputed or needs oral evidence, or there is no written instrument.
-             Same plaint below <b>minus</b> the Order XXXVII superscription &amp; the Order XXXVII averment
-             (para 8); ordinary summons in Form 1.</p>
+          <h4><span class="lang-en">Ordinary money suit — Order VII / §9 CPC</span><span class="lang-hi">साधारण धन वाद — आदेश 7 / धारा 9 सी.पी.सी.</span></h4>
+          <p>
+            <span class="lang-en">When the claim is disputed or needs oral evidence, or there is no written instrument.
+              Same plaint below <b>minus</b> the Order XXXVII superscription &amp; the Order XXXVII averment
+              (para 8); ordinary summons in Form 1.</span>
+            <span class="lang-hi">जब दावा विवादित हो या मौखिक साक्ष्य अपेक्षित हो, अथवा कोई लिखित लिखत न हो। नीचे वही
+              वाद-पत्र, परंतु आदेश 37 का शीर्ष-लेख तथा पैरा 8 का कथन <b>हटाकर</b>; साधारण समन प्रपत्र 1 में।</span>
+          </p>
         </div>
       </div>
 
       <div class="keys">
-        <h5>Facts to collect from the client</h5>
-        <ul>
+        <h5><span class="lang-en">Facts to collect from the client</span><span class="lang-hi">मुवक्किल से एकत्र करने योग्य तथ्य</span></h5>
+        <ul class="lang-en">
           <li><b>Parties</b> — full name, S/o, age, occupation, address of both sides.</li>
           <li><b>Principal</b> — amount advanced / due, and the date.</li>
           <li><b>Instrument</b> — agreement / pronote / invoice / cheque (the writing).</li>
@@ -223,17 +262,33 @@
           <li><b>Acknowledgment</b> — any part-payment or written admission (extends limitation, §18–19 Limitation Act).</li>
           <li><b>Default &amp; notice</b> — date of default; date the legal notice was sent.</li>
         </ul>
+        <ul class="lang-hi">
+          <li><b>पक्षकार</b> — दोनों पक्षों का पूरा नाम, पिता/पति का नाम, आयु, व्यवसाय, पता।</li>
+          <li><b>मूलधन</b> — दी गई / देय राशि तथा तिथि।</li>
+          <li><b>लिखत</b> — अनुबंध / प्रॉमिसरी नोट / बिल / चेक (लिखित आधार)।</li>
+          <li><b>शर्तें</b> — तय ब्याज दर तथा भुगतान की तिथि।</li>
+          <li><b>अभिस्वीकृति</b> — कोई आंशिक भुगतान या लिखित स्वीकृति (परिसीमा बढ़ाती है, धारा 18–19 परिसीमा अधिनियम)।</li>
+          <li><b>व्यतिक्रम व सूचना</b> — व्यतिक्रम की तिथि; विधिक सूचना भेजने की तिथि।</li>
+        </ul>
       </div>
 
       <div class="keys">
-        <h5>Checks before filing — verify for your State</h5>
-        <ul>
+        <h5><span class="lang-en">Checks before filing — verify for your State</span><span class="lang-hi">दाखिल करने से पूर्व जाँच — अपने राज्य हेतु सत्यापित करें</span></h5>
+        <ul class="lang-en">
           <li><b>Limitation</b> — generally <b>3 years</b> (money lent Art. 19; goods sold Art. 14; pronote Art. 34–35). Confirm the Article.</li>
           <li><b>Court fee</b> — <b>ad valorem</b> on the sum claimed (State Court-Fees schedule), not nominal.</li>
           <li><b>Interest</b> — contractual up to suit; <b>§34 CPC</b> for pendente lite &amp; future.</li>
           <li><b>Jurisdiction</b> — territorial (cause of action / defendant) + pecuniary (claim value).</li>
           <li><b>Commercial dispute</b> (≥ ₹3 lakh) — <b>§12A pre-institution mediation is mandatory</b> unless urgent interim relief is sought.</li>
           <li><b>Case law</b> — keep authorities for argument; cite in the plaint only if verified &amp; apposite.</li>
+        </ul>
+        <ul class="lang-hi">
+          <li><b>परिसीमा</b> — सामान्यतः <b>3 वर्ष</b> (उधार दी राशि अनु. 19; विक्रीत माल अनु. 14; प्रॉमिसरी नोट अनु. 34–35)। अनुच्छेद की पुष्टि करें।</li>
+          <li><b>न्याय शुल्क</b> — दावाकृत राशि पर <b>यथामूल्य (ad valorem)</b> (राज्य न्याय-शुल्क अनुसूची), नाममात्र नहीं।</li>
+          <li><b>ब्याज</b> — वाद तक संविदात्मक; वाद-लंबित व भविष्य हेतु <b>धारा 34 सी.पी.सी.</b></li>
+          <li><b>क्षेत्राधिकार</b> — स्थानीय (वाद कारण / प्रतिवादी) + आर्थिक (दावा मूल्य)।</li>
+          <li><b>वाणिज्यिक विवाद</b> (≥ ₹3 लाख) — तत्काल अंतरिम अनुतोष न माँगा हो तो <b>धारा 12क पूर्व-संस्थापन मध्यस्थता अनिवार्य</b>।</li>
+          <li><b>न्याय-दृष्टांत</b> — तर्क हेतु सुरक्षित रखें; वाद-पत्र में केवल सत्यापित व सुसंगत होने पर ही उद्धृत करें।</li>
         </ul>
       </div>
     </div>
@@ -243,31 +298,31 @@
   <section class="card fillcard">
     <div class="card__pad">
       <div class="fill__head">
-        <div class="guide__title"><span class="dot"></span> Fill the details</div>
+        <div class="guide__title"><span class="dot"></span>
+          <span class="lang-en">Fill the details</span><span class="lang-hi">विवरण भरें</span>
+        </div>
         <div class="fill__actions">
-          <button class="linkbtn" id="btn-sample">Load sample</button>
-          <button class="linkbtn" id="btn-reset">Clear</button>
+          <button class="linkbtn" id="btn-sample"><span class="lang-en">Load sample</span><span class="lang-hi">नमूना भरें</span></button>
+          <button class="linkbtn" id="btn-reset"><span class="lang-en">Clear</span><span class="lang-hi">साफ़ करें</span></button>
         </div>
       </div>
       <div class="fill__grid">
-        <div class="field col-2"><label>Court / forum</label><input data-f="court" placeholder="Court of the Civil Judge (Sr. Divn.), ____" /></div>
-        <div class="field"><label>Suit no. / year</label><input data-f="suit" placeholder="____ of 20__" /></div>
-        <div class="field col-2"><label>Plaintiff — name &amp; description</label><input data-f="plaintiff" placeholder="Name, S/o ____, age, occupation, r/o ____" /></div>
-        <div class="field"><label>Plaintiff short name</label><input data-f="pshort" placeholder="the Plaintiff" /></div>
-        <div class="field col-2"><label>Defendant — name &amp; description</label><input data-f="defendant" placeholder="Name, S/o ____, age, occupation, r/o ____" /></div>
-        <div class="field"><label>Defendant short name</label><input data-f="dshort" placeholder="the Defendant" /></div>
-        <div class="field"><label>Principal amount (₹)</label><input data-f="principal" placeholder="5,00,000" /></div>
-        <div class="field col-2"><label>Amount in words</label><input data-f="words" placeholder="Rupees Five Lakh only" /></div>
-        <div class="field col-2"><label>Basis / instrument</label><input data-f="instrument" placeholder="written loan agreement dated ____ / promissory note / invoice no. ____" /></div>
-        <div class="field"><label>Date of transaction</label><input data-f="txndate" placeholder="12.03.2024" /></div>
-        <div class="field"><label>Interest rate (% p.a.)</label><input data-f="interest" placeholder="18" /></div>
-        <div class="field"><label>Agreed repayment date</label><input data-f="duedate" placeholder="12.09.2024" /></div>
-        <div class="field"><label>Total amount claimed (₹)</label><input data-f="claim" placeholder="5,90,000" /></div>
-        <div class="field"><label>Legal-notice date</label><input data-f="noticedate" placeholder="05.05.2026" /></div>
-        <div class="field"><label>Notice period (days)</label><input data-f="noticedays" placeholder="15" /></div>
-        <div class="field"><label>Place (jurisdiction)</label><input data-f="place" placeholder="____" /></div>
-        <div class="field col-2"><label>Advocate — name &amp; enrolment</label><input data-f="advocate" placeholder="____, Advocate (Enrl. No. ____)" /></div>
-        <div class="field"><label>Date of draft</label><input data-f="draftdate" placeholder="DD.MM.YYYY" /></div>
+        <div class="field col-2"><label><span class="lang-en">Court / forum</span><span class="lang-hi">न्यायालय / फोरम</span></label><input data-f="court" placeholder="Court of the Civil Judge (Sr. Divn.), ____" /></div>
+        <div class="field"><label><span class="lang-en">Suit no. / year</span><span class="lang-hi">वाद संख्या / वर्ष</span></label><input data-f="suit" placeholder="____ of 20__" /></div>
+        <div class="field col-2"><label><span class="lang-en">Plaintiff — name &amp; description</span><span class="lang-hi">वादी — नाम व विवरण</span></label><input data-f="plaintiff" placeholder="Name, S/o ____, age, occupation, r/o ____" /></div>
+        <div class="field"><label><span class="lang-en">Defendant — name &amp; description</span><span class="lang-hi">प्रतिवादी — नाम व विवरण</span></label><input data-f="defendant" placeholder="Name, S/o ____, age, occupation, r/o ____" /></div>
+        <div class="field"><label><span class="lang-en">Principal amount (₹)</span><span class="lang-hi">मूलधन (₹)</span></label><input data-f="principal" placeholder="5,00,000" /></div>
+        <div class="field col-2"><label><span class="lang-en">Amount in words</span><span class="lang-hi">राशि शब्दों में</span></label><input data-f="words" placeholder="Rupees Five Lakh only" /></div>
+        <div class="field col-2"><label><span class="lang-en">Basis / instrument</span><span class="lang-hi">आधार / लिखत</span></label><input data-f="instrument" placeholder="written loan agreement dated ____ / promissory note / invoice no. ____" /></div>
+        <div class="field"><label><span class="lang-en">Date of transaction</span><span class="lang-hi">लेन-देन की तिथि</span></label><input data-f="txndate" placeholder="12.03.2024" /></div>
+        <div class="field"><label><span class="lang-en">Interest rate (% p.a.)</span><span class="lang-hi">ब्याज दर (% वार्षिक)</span></label><input data-f="interest" placeholder="18" /></div>
+        <div class="field"><label><span class="lang-en">Agreed repayment date</span><span class="lang-hi">भुगतान की तय तिथि</span></label><input data-f="duedate" placeholder="12.09.2024" /></div>
+        <div class="field"><label><span class="lang-en">Total amount claimed (₹)</span><span class="lang-hi">कुल दावाकृत राशि (₹)</span></label><input data-f="claim" placeholder="5,90,000" /></div>
+        <div class="field"><label><span class="lang-en">Legal-notice date</span><span class="lang-hi">विधिक सूचना की तिथि</span></label><input data-f="noticedate" placeholder="05.05.2026" /></div>
+        <div class="field"><label><span class="lang-en">Notice period (days)</span><span class="lang-hi">सूचना अवधि (दिन)</span></label><input data-f="noticedays" placeholder="15" /></div>
+        <div class="field"><label><span class="lang-en">Place (jurisdiction)</span><span class="lang-hi">स्थान (क्षेत्राधिकार)</span></label><input data-f="place" placeholder="____" /></div>
+        <div class="field col-2"><label><span class="lang-en">Advocate — name &amp; enrolment</span><span class="lang-hi">अधिवक्ता — नाम व नामांकन</span></label><input data-f="advocate" placeholder="____, Advocate (Enrl. No. ____)" /></div>
+        <div class="field"><label><span class="lang-en">Date of draft</span><span class="lang-hi">ड्राफ्ट की तिथि</span></label><input data-f="draftdate" placeholder="DD.MM.YYYY" /></div>
       </div>
     </div>
   </section>
@@ -276,10 +331,12 @@
   <section class="doc" id="doc-notice">
     <div class="doc__bar">
       <span class="doc__no">DOC 1</span>
-      <span class="doc__name">Legal Notice for Recovery of Money (pre-suit demand)</span>
-      <button class="doc__copy" data-copy="notice-body">Copy</button>
+      <span class="doc__name"><span class="lang-en">Legal Notice for Recovery of Money (pre-suit demand)</span><span class="lang-hi">धन वसूली हेतु विधिक सूचना (वाद-पूर्व माँग)</span></span>
+      <button class="doc__copy" data-copy="notice"><span class="lang-en">Copy</span><span class="lang-hi">कॉपी</span></button>
     </div>
-    <div class="paper" id="notice-body">
+
+    <!-- EN -->
+    <div class="paper lang-en" id="notice-body-en">
       <p class="ctr"><b>By Regd. Post A.D. / Speed Post / E-mail</b></p>
       <p class="tight"><b>REF:</b> <span class="ph" data-f="advocate" data-ph="[Advocate name & ref]">[Advocate name &amp; ref]</span></p>
       <p class="tight"><b>DATE:</b> <span class="ph" data-f="noticedate" data-ph="[date]">[date]</span></p>
@@ -312,13 +369,54 @@
       <p class="sig">_______________________<br />
         <span class="ph" data-f="advocate" data-ph="[Advocate name & enrolment]">[Advocate name &amp; enrolment]</span><br />Advocate for the Notice-Sender</p>
     </div>
+
+    <!-- HI -->
+    <div class="paper lang-hi" id="notice-body-hi">
+      <p class="ctr"><b>रजिस्टर्ड डाक ए.डी. / स्पीड पोस्ट / ई-मेल द्वारा</b></p>
+      <p class="tight"><b>संदर्भ:</b> <span class="ph" data-f="advocate" data-ph="[अधिवक्ता का नाम व संदर्भ]">[अधिवक्ता का नाम व संदर्भ]</span></p>
+      <p class="tight"><b>दिनांक:</b> <span class="ph" data-f="noticedate" data-ph="[दिनांक]">[दिनांक]</span></p>
+      <hr class="rule" />
+      <p class="tight"><b>सेवा में,</b></p>
+      <p class="indent"><span class="ph" data-f="defendant" data-ph="[प्रतिवादी — नाम व पूर्ण पता]">[प्रतिवादी — नाम व पूर्ण पता]</span></p>
+      <p><b>विषय:</b> ₹<span class="ph" data-f="claim" data-ph="[राशि]">[राशि]</span>
+         (<span class="ph" data-f="words" data-ph="[शब्दों में]">[शब्दों में]</span>) ब्याज सहित वसूली हेतु विधिक सूचना।</p>
+      <p>महोदय/महोदया,</p>
+      <p>मेरे मुवक्किल
+         <span class="ph" data-f="plaintiff" data-ph="[वादी — नाम व पता]">[वादी — नाम व पता]</span>
+         (आगे "मेरे मुवक्किल") के निर्देश पर एवं उनकी ओर से, मैं आपको निम्नलिखित सूचना देता/देती हूँ:</p>
+      <p><span class="pno">1.</span> यह कि आपने दिनांक
+         <span class="ph" data-f="txndate" data-ph="[दिनांक]">[दिनांक]</span> को
+         <span class="ph" data-f="instrument" data-ph="[लिखत]">[लिखत]</span> के माध्यम से मेरे मुवक्किल से
+         ₹<span class="ph" data-f="principal" data-ph="[मूलधन]">[मूलधन]</span> की राशि प्राप्त की / के लिए उत्तरदायी हैं।</p>
+      <p><span class="pno">2.</span> यह कि आपने उक्त राशि दिनांक
+         <span class="ph" data-f="duedate" data-ph="[दिनांक]">[दिनांक]</span> तक
+         <span class="ph" data-f="interest" data-ph="[__]">[__]</span>% वार्षिक ब्याज सहित लौटाने का वचन दिया था।</p>
+      <p><span class="pno">3.</span> यह कि बार-बार मौखिक माँग के बावजूद आपने उक्त राशि का भुगतान नहीं किया, तथा आज की
+         तिथि में ₹<span class="ph" data-f="claim" data-ph="[राशि]">[राशि]</span> (मूलधन सहित ब्याज) देय एवं बकाया है।</p>
+      <p><span class="pno">4.</span> अतः मैं आपको सूचित करता/करती हूँ कि इस सूचना की प्राप्ति के
+         <b><span class="ph" data-f="noticedays" data-ph="[15]">[15]</span> दिनों के भीतर उक्त राशि
+         ₹<span class="ph" data-f="claim" data-ph="[राशि]">[राशि]</span> ब्याज सहित भुगतान करें</b>, अन्यथा मेरे
+         मुवक्किल आपके विरुद्ध सिविल प्रक्रिया संहिता, 1908 के <b>आदेश 37 के अंतर्गत संक्षिप्त वाद</b> सहित समुचित
+         विधिक कार्यवाही करने को बाध्य होंगे, जिसका समस्त व्यय एवं परिणाम आपके जोखिम पर होगा।</p>
+      <p>इस सूचना की एक प्रति मेरे कार्यालय में अभिलेख हेतु सुरक्षित रखी गई है।</p>
+      <p class="sig">_______________________<br />
+        <span class="ph" data-f="advocate" data-ph="[अधिवक्ता का नाम व नामांकन]">[अधिवक्ता का नाम व नामांकन]</span><br />सूचना-प्रेषक के अधिवक्ता</p>
+    </div>
+
     <details class="notes">
-      <summary>Notes for the advocate</summary>
-      <div class="notes__body">
+      <summary><span class="lang-en">Notes for the advocate</span><span class="lang-hi">अधिवक्ता हेतु टिप्पणियाँ</span></summary>
+      <div class="notes__body lang-en">
         <ul>
           <li>Send by a mode that <b>proves service</b> (Regd. Post A.D. + retain the receipt and tracking); deemed service if refused/unclaimed.</li>
           <li>A pre-suit notice is <b>not legally mandatory</b> for a private money suit (§80 CPC notice is only for suits against Government/public officers) — but it crystallises default, often triggers payment, and reads well to the court.</li>
           <li>The 15-day demand here is a practice norm; align it with any notice period the contract itself fixes.</li>
+        </ul>
+      </div>
+      <div class="notes__body lang-hi">
+        <ul>
+          <li>ऐसे माध्यम से भेजें जो <b>तामील सिद्ध करे</b> (रजिस्टर्ड डाक ए.डी. + रसीद व ट्रैकिंग सुरक्षित रखें); अस्वीकार/अदावाकृत होने पर मानी हुई तामील।</li>
+          <li>निजी धन-वाद हेतु वाद-पूर्व सूचना <b>विधिक रूप से अनिवार्य नहीं</b> है (धारा 80 सी.पी.सी. की सूचना केवल शासन/लोक अधिकारी के विरुद्ध वाद हेतु है) — परंतु यह व्यतिक्रम को स्पष्ट करती है, प्रायः भुगतान करवाती है, तथा न्यायालय के समक्ष अच्छी पढ़ी जाती है।</li>
+          <li>यहाँ 15-दिन की माँग एक व्यवहार-मानक है; अनुबंध में तय किसी सूचना-अवधि के अनुरूप समायोजित करें।</li>
         </ul>
       </div>
     </details>
@@ -328,10 +426,12 @@
   <section class="doc" id="doc-plaint">
     <div class="doc__bar">
       <span class="doc__no">DOC 2</span>
-      <span class="doc__name">Plaint — Summary Suit for Recovery of Money (Order XXXVII CPC)</span>
-      <button class="doc__copy" data-copy="plaint-body">Copy</button>
+      <span class="doc__name"><span class="lang-en">Plaint — Summary Suit for Recovery of Money (Order XXXVII CPC)</span><span class="lang-hi">वाद-पत्र — धन वसूली हेतु संक्षिप्त वाद (आदेश 37 सी.पी.सी.)</span></span>
+      <button class="doc__copy" data-copy="plaint"><span class="lang-en">Copy</span><span class="lang-hi">कॉपी</span></button>
     </div>
-    <div class="paper" id="plaint-body">
+
+    <!-- EN -->
+    <div class="paper lang-en" id="plaint-body-en">
       <p class="ctr court">IN THE <span class="ph" data-f="court" data-ph="[COURT / FORUM]">[COURT / FORUM]</span></p>
       <p class="ctr">Civil Suit No. <span class="ph" data-f="suit" data-ph="[___ of 20__]">[___ of 20__]</span></p>
       <p class="ctr sup">(Under Order XXXVII of the Code of Civil Procedure, 1908)</p>
@@ -422,9 +522,97 @@
         <span class="ph" data-f="place" data-ph="[place]">[place]</span> on
         <span class="ph" data-f="draftdate" data-ph="[date]">[date]</span>.</p>
     </div>
+
+    <!-- HI -->
+    <div class="paper lang-hi" id="plaint-body-hi">
+      <p class="ctr court">न्यायालय श्रीमान् <span class="ph" data-f="court" data-ph="[न्यायालय / फोरम]">[न्यायालय / फोरम]</span> में</p>
+      <p class="ctr">सिविल वाद संख्या <span class="ph" data-f="suit" data-ph="[___ वर्ष 20__]">[___ वर्ष 20__]</span></p>
+      <p class="ctr sup">(सिविल प्रक्रिया संहिता, 1908 के आदेश 37 के अंतर्गत)</p>
+      <hr class="rule" />
+      <p class="tight"><span class="ph" data-f="plaintiff" data-ph="[वादी — नाम, पिता/पति का नाम, आयु, व्यवसाय, पता]">[वादी — नाम, पिता/पति का नाम, आयु, व्यवसाय, पता]</span> &nbsp;… <b>वादी</b></p>
+      <p class="vs">बनाम</p>
+      <p class="tight"><span class="ph" data-f="defendant" data-ph="[प्रतिवादी — नाम, पिता का नाम, आयु, व्यवसाय, पता]">[प्रतिवादी — नाम, पिता का नाम, आयु, व्यवसाय, पता]</span> &nbsp;… <b>प्रतिवादी</b></p>
+      <hr class="rule" />
+      <p class="ctr"><b>₹<span class="ph" data-f="claim" data-ph="[राशि]">[राशि]</span>
+         (<span class="ph" data-f="words" data-ph="[शब्दों में]">[शब्दों में]</span>) की वसूली हेतु वाद</b></p>
+      <p><b>उपरोक्त वादी सविनय निवेदन करता है:—</b></p>
+
+      <p><span class="pno">1.</span> यह कि वादी
+         <span class="ph" data-f="plaintiff" data-ph="[वादी का विवरण]">[वादी का विवरण]</span> है।</p>
+      <p><span class="pno">2.</span> यह कि प्रतिवादी
+         <span class="ph" data-f="defendant" data-ph="[प्रतिवादी का विवरण]">[प्रतिवादी का विवरण]</span> है।</p>
+      <p><span class="pno">3.</span> यह कि दिनांक <span class="ph" data-f="txndate" data-ph="[दिनांक]">[दिनांक]</span> को वादी ने
+         प्रतिवादी को ₹<span class="ph" data-f="principal" data-ph="[मूलधन]">[मूलधन]</span>
+         (<span class="ph" data-f="words" data-ph="[शब्दों में]">[शब्दों में]</span>)
+         <span class="ph" data-f="instrument" data-ph="[लिखित लिखत]">[लिखित लिखत]</span> के अंतर्गत, जो प्रतिवादी द्वारा
+         विधिवत निष्पादित है, उधार/अग्रिम दी / प्रतिवादी उत्तरदायी हुआ — जिसकी प्रति साथ संलग्न है।</p>
+      <p><span class="pno">4.</span> यह कि उक्त लिखत के अनुसार प्रतिवादी ने उक्त राशि दिनांक
+         <span class="ph" data-f="duedate" data-ph="[दिनांक]">[दिनांक]</span> तक
+         <span class="ph" data-f="interest" data-ph="[__]">[__]</span>% वार्षिक ब्याज सहित लौटाने का वचन दिया।</p>
+      <p><span class="pno">5.</span> यह कि [प्रतिवादी ने दिनांक ____ को ₹____ का भुगतान किया तथा दिनांक ____ को शेष राशि
+         लिखित में स्वीकार की / राशि का कोई भाग भुगतान नहीं किया गया]। <i>(किसी आंशिक भुगतान या लिखित अभिस्वीकृति
+         को उसकी तिथि सहित अभिवचन करें — परिसीमा अधिनियम, 1963 की धारा 18–19 के अंतर्गत यह परिसीमा अवधि को
+         पुनर्जीवित करता है।)</i></p>
+      <p><span class="pno">6.</span> यह कि बार-बार माँग के बावजूद प्रतिवादी ने देय राशि का भुगतान नहीं किया, तथा
+         ₹<span class="ph" data-f="claim" data-ph="[राशि]">[राशि]</span> (मूलधन सहित ब्याज) वादी को देय एवं संदेय है।</p>
+      <p><span class="pno">7.</span> यह कि वादी ने प्रतिवादी को दिनांक
+         <span class="ph" data-f="noticedate" data-ph="[दिनांक]">[दिनांक]</span> की विधिक सूचना भिजवाई, जिसका प्रतिवादी
+         ने अनुपालन नहीं किया।</p>
+      <p><span class="pno">8.</span> यह कि वर्तमान वाद <b>सिविल प्रक्रिया संहिता, 1908 के आदेश 37</b> के अंतर्गत प्रस्तुत है,
+         क्योंकि दावा उपरोक्त लिखित अनुबंध / परक्राम्य लिखत पर आधारित एक निश्चित धनराशि हेतु है।
+         <b>वादी आदेश 37 नियम 2 की परिधि से बाहर कोई अनुतोष नहीं चाहता।</b></p>
+      <p><span class="pno">9.</span> यह कि वाद कारण दिनांक
+         <span class="ph" data-f="txndate" data-ph="[दिनांक]">[दिनांक]</span> को (जब राशि दी गई / देय हुई), पुनः दिनांक
+         <span class="ph" data-f="duedate" data-ph="[दिनांक]">[दिनांक]</span> को (जब प्रतिवादी ने व्यतिक्रम किया), तथा दिनांक
+         <span class="ph" data-f="noticedate" data-ph="[दिनांक]">[दिनांक]</span> को (जब सूचना का अनुपालन नहीं हुआ) —
+         <span class="ph" data-f="place" data-ph="[स्थान]">[स्थान]</span> पर, इस माननीय न्यायालय के स्थानीय
+         क्षेत्राधिकार के भीतर उत्पन्न हुआ।</p>
+      <p><span class="pno">10.</span> यह कि इस माननीय न्यायालय को इस वाद की सुनवाई का <b>स्थानीय क्षेत्राधिकार</b> (वाद कारण
+         इसकी सीमा में पूर्णतः/अंशतः उत्पन्न हुआ, और/या प्रतिवादी इसकी सीमा में निवास/जीविकोपार्जन करता है) एवं
+         <b>आर्थिक क्षेत्राधिकार</b> प्राप्त है, मूल्य इसकी सीमा के भीतर है।</p>
+      <p><span class="pno">11.</span> यह कि वाद <b>परिसीमा अवधि के भीतर</b> है, वाद कारण उत्पन्न होने के तीन वर्ष के भीतर
+         प्रस्तुत किया जा रहा है।</p>
+      <p><span class="pno">12.</span> यह कि न्याय शुल्क एवं क्षेत्राधिकार हेतु वाद का मूल्यांकन
+         ₹<span class="ph" data-f="claim" data-ph="[राशि]">[राशि]</span> किया गया है, तथा उस पर अपेक्षित
+         <b>यथामूल्य (ad valorem) न्याय शुल्क</b> अदा किया गया है।</p>
+
+      <h3>प्रार्थना</h3>
+      <p>अतः सविनय प्रार्थना है कि यह माननीय न्यायालय कृपया:—</p>
+      <ol class="prayer">
+        <li>वादी के पक्ष में एवं प्रतिवादी के विरुद्ध ₹<span class="ph" data-f="claim" data-ph="[राशि]">[राशि]</span>
+            (<span class="ph" data-f="words" data-ph="[शब्दों में]">[शब्दों में]</span>) की डिक्री पारित करे;</li>
+        <li><b>धारा 34 सी.पी.सी.</b> के अंतर्गत डिक्री राशि पर वाद-लंबित अवधि का तथा भविष्य का ब्याज @
+            <span class="ph" data-f="interest" data-ph="[__]">[__]</span>% वार्षिक, वसूली तक, प्रदान करे;</li>
+        <li>वाद-व्यय वादी को दिलाए; तथा</li>
+        <li>न्यायहित में अन्य जो भी उचित अनुतोष हो, प्रदान करे।</li>
+      </ol>
+
+      <p class="sig">स्थान: <span class="ph" data-f="place" data-ph="[स्थान]">[स्थान]</span> &nbsp;&nbsp;&nbsp;
+        दिनांक: <span class="ph" data-f="draftdate" data-ph="[दिनांक]">[दिनांक]</span><br /><br />
+        &nbsp;<br /><b>वादी</b><br />द्वारा —
+        <span class="ph" data-f="advocate" data-ph="[अधिवक्ता]">[अधिवक्ता]</span></p>
+
+      <h3>सत्यापन</h3>
+      <p>स्थान <span class="ph" data-f="place" data-ph="[स्थान]">[स्थान]</span>, दिनांक
+        <span class="ph" data-f="draftdate" data-ph="[दिनांक]">[दिनांक]</span> को सत्यापित किया जाता है कि उपरोक्त पैरा 1 से
+        12 की विषय-वस्तु मेरी व्यक्तिगत जानकारी के अनुसार सत्य है, तथा विधिक निवेदन परामर्श अनुसार सत्य माने गए हैं;
+        कोई तथ्य छिपाया नहीं गया है।</p>
+      <p class="sig">_______________________<br /><b>वादी</b></p>
+
+      <h3>शपथ-पत्र (आदेश 37 नियम 2 सहपठित आदेश 6 नियम 15क सी.पी.सी.)</h3>
+      <p>मैं, <span class="ph" data-f="plaintiff" data-ph="[वादी / प्राधिकृत शपथकर्ता]">[वादी / प्राधिकृत शपथकर्ता]</span>,
+        सत्यनिष्ठा से शपथपूर्वक कथन करता हूँ कि मैं उपरोक्त वाद में वादी हूँ, यह शपथ-पत्र देने हेतु सक्षम हूँ, तथा
+        संलग्न वाद-पत्र के पैरा 1 से 12 में वर्णित तथ्य मेरी व्यक्तिगत जानकारी के अनुसार सत्य हैं। वाद के साथ संलग्न
+        दस्तावेज़ अपने मूल की सत्य प्रतियाँ हैं।</p>
+      <p class="sig">_______________________<br /><b>शपथकर्ता</b></p>
+      <p style="font-size:13px;color:#555;">मेरे समक्ष / नोटरी के समक्ष स्थान
+        <span class="ph" data-f="place" data-ph="[स्थान]">[स्थान]</span> दिनांक
+        <span class="ph" data-f="draftdate" data-ph="[दिनांक]">[दिनांक]</span> को शपथपूर्वक सत्यापित।</p>
+    </div>
+
     <details class="notes">
-      <summary>Notes for the advocate</summary>
-      <div class="notes__body">
+      <summary><span class="lang-en">Notes for the advocate</span><span class="lang-hi">अधिवक्ता हेतु टिप्पणियाँ</span></summary>
+      <div class="notes__body lang-en">
         <ul>
           <li><b>Order XXXVII applies</b> only to a debt / liquidated demand on a written contract, bill of exchange, hundi or promissory note (R.1). If the claim is unliquidated or disputed on facts, drop the superscription + para 8 and file an ordinary suit.</li>
           <li><b>Procedure:</b> summons in Form No. 4 Appendix B → defendant enters appearance in 10 days → Plaintiff serves summons for judgment → defendant applies for <b>leave to defend</b> in 10 days; leave may be unconditional, conditional, or refused (<b>IDBI Trusteeship v. Hubtown</b>, (2017) 1 SCC 568 — verify before citing).</li>
@@ -434,22 +622,49 @@
           <li><b>Do not insert case law into the plaint body</b> unless verified and apposite — keep authorities for the leave-to-defend stage.</li>
         </ul>
       </div>
+      <div class="notes__body lang-hi">
+        <ul>
+          <li><b>आदेश 37 केवल</b> लिखित अनुबंध, विनिमय-पत्र, हुंडी या प्रॉमिसरी नोट पर आधारित निश्चित धनराशि के दावे पर लागू है (नियम 1)। यदि दावा अनिश्चित हो या तथ्यों पर विवादित हो, तो शीर्ष-लेख व पैरा 8 हटाकर साधारण वाद दाखिल करें।</li>
+          <li><b>प्रक्रिया:</b> प्रपत्र सं. 4 परिशिष्ट ख में समन → प्रतिवादी 10 दिनों में उपस्थिति दर्ज करे → वादी निर्णय हेतु समन तामील करे → प्रतिवादी 10 दिनों में <b>बचाव की अनुमति</b> हेतु आवेदन करे; अनुमति बिना शर्त, सशर्त, या अस्वीकृत हो सकती है (<b>IDBI Trusteeship बनाम Hubtown</b>, (2017) 1 SCC 568 — उद्धृत करने से पूर्व सत्यापित करें)।</li>
+          <li><b>संलग्नक:</b> लिखित लिखत, विधिक सूचना + डाक प्रमाण, लेखा-विवरण / ब्याज गणना, तथा वादी कंपनी होने पर बोर्ड प्रस्ताव या प्राधिकार-पत्र।</li>
+          <li><b>वाणिज्यिक न्यायालय अधिनियम 2015</b> (निर्दिष्ट मूल्य ≥ ₹3 लाख): वाणिज्यिक न्यायालय में दाखिल करें, <b>सत्यता-कथन (Statement of Truth)</b> जोड़ें, तथा तत्काल अंतरिम अनुतोष न माँगा हो तो पहले <b>धारा 12क पूर्व-संस्थापन मध्यस्थता</b> पूर्ण करें (<b>Patil Automation बनाम Rakheja Engineers</b>, (2022) — अनिवार्य; सत्यापित करें)।</li>
+          <li><b>ब्याज:</b> संविदात्मक दर वाद तक चलती है; वाद-लंबित व भविष्य हेतु धारा 34 सी.पी.सी. (न्यायालय का विवेक — वाणिज्यिक न होने पर प्रायः ~6%)।</li>
+          <li><b>वाद-पत्र के मुख्य भाग में न्याय-दृष्टांत न डालें</b> जब तक वह सत्यापित व सुसंगत न हो — तर्क/अनुमति-चरण हेतु सुरक्षित रखें।</li>
+        </ul>
+      </div>
     </details>
   </section>
 
   <p class="rfoot">
-    <b>Author-tier draft, generated by Headnote for advocate review — not legal advice.</b>
-    Recovery of money is a civil matter outside the reviewed bail-family template set, so this pack is drafted
-    from the framework and is a <b>proposal for the advocate to verify, adapt and settle</b>. Confirm the
-    limitation Article, court-fee schedule, pecuniary/territorial jurisdiction and any §12A mediation
-    requirement for your State and court before filing. Verify every citation independently. Hindi version available on request.
+    <span class="lang-en"><b>Author-tier draft, generated by Headnote for advocate review — not legal advice.</b>
+      Recovery of money is a civil matter outside the reviewed bail-family template set, so this pack is drafted
+      from the framework and is a <b>proposal for the advocate to verify, adapt and settle</b>. Confirm the
+      limitation Article, court-fee schedule, pecuniary/territorial jurisdiction and any §12A mediation
+      requirement for your State and court before filing. Verify every citation independently. The Hindi text is a
+      working translation — read it against the English before filing.</span>
+    <span class="lang-hi"><b>लेखक-स्तरीय ड्राफ्ट, Headnote द्वारा अधिवक्ता-समीक्षा हेतु तैयार — विधिक सलाह नहीं।</b>
+      धन वसूली एक सिविल मामला है जो समीक्षित जमानत-वर्ग टेम्पलेट-समुच्चय से बाहर है, अतः यह पैक ढाँचे से तैयार किया गया है
+      तथा <b>अधिवक्ता द्वारा सत्यापन, अनुकूलन व अंतिम रूप देने हेतु प्रस्ताव</b> है। दाखिल करने से पूर्व अपने राज्य व न्यायालय हेतु
+      परिसीमा अनुच्छेद, न्याय-शुल्क अनुसूची, आर्थिक/स्थानीय क्षेत्राधिकार तथा धारा 12क मध्यस्थता की आवश्यकता की पुष्टि करें।
+      प्रत्येक उद्धरण स्वतंत्र रूप से सत्यापित करें। हिंदी पाठ एक कार्यकारी अनुवाद है — दाखिल करने से पूर्व अंग्रेज़ी से मिलान करें।</span>
   </p>
 
 </div>
 
 <script>
 (function () {
-  // Mirror every input into all placeholder spans sharing its data-f key.
+  // ── Language toggle (EN / हिं) — flips a class on <body>; CSS does the rest.
+  var langBtns = document.querySelectorAll('.langtog__btn');
+  function curLang() { return document.body.classList.contains('hi') ? 'hi' : 'en'; }
+  function setLang(l) {
+    document.body.classList.toggle('hi', l === 'hi');
+    document.documentElement.lang = l;
+    langBtns.forEach(function (b) { b.classList.toggle('is-active', b.dataset.lang === l); });
+  }
+  langBtns.forEach(function (b) { b.addEventListener('click', function () { setLang(b.dataset.lang); }); });
+
+  // ── Fill: mirror every input into all placeholder spans sharing its data-f key
+  //    (fills both the EN and HI documents at once).
   function apply(key, val) {
     document.querySelectorAll('.ph[data-f="' + key + '"]').forEach(function (el) {
       var d = el.getAttribute('data-ph') || '';
@@ -469,17 +684,13 @@
       apply(k, inp.value);
     });
   }
-
   document.getElementById('btn-reset').addEventListener('click', function () { setAll(null); inputs[0] && inputs[0].focus(); });
-
   document.getElementById('btn-sample').addEventListener('click', function () {
     setAll({
       court: 'Court of the Civil Judge (Senior Division), Bhopal',
       suit: '____ of 2026',
       plaintiff: 'Shri Ramesh Kumar, S/o Late Shri Mohan Lal, aged 42 years, occupation business, r/o 12 M.P. Nagar, Bhopal',
-      pshort: 'the Plaintiff',
       defendant: 'Shri Suresh Verma, S/o Shri Gopal Verma, aged 39 years, occupation business, r/o 8 Arera Colony, Bhopal',
-      dshort: 'the Defendant',
       principal: '5,00,000',
       words: 'Rupees Five Lakh only',
       instrument: 'a written loan agreement dated 12.03.2024',
@@ -495,23 +706,26 @@
     });
   });
 
-  // Copy a document as plain text.
+  // ── Copy / print — always operate on the currently visible language.
   function copyText(el, btn) {
+    if (!el) return;
     var t = el.innerText.replace(/\n{3,}/g, '\n\n').trim();
     navigator.clipboard.writeText(t).then(function () {
-      var o = btn.textContent; btn.textContent = 'Copied ✓'; btn.classList.add('ok');
-      setTimeout(function () { btn.textContent = o; btn.classList.remove('ok'); }, 1600);
+      var o = btn.textContent; btn.dataset.o = o; btn.textContent = '✓'; btn.classList.add('ok');
+      setTimeout(function () { btn.innerHTML = '<span class="lang-en">Copy</span><span class="lang-hi">कॉपी</span>'; btn.classList.remove('ok'); }, 1500);
     });
   }
   document.querySelectorAll('.doc__copy').forEach(function (btn) {
-    btn.addEventListener('click', function () { copyText(document.getElementById(btn.getAttribute('data-copy')), btn); });
+    btn.addEventListener('click', function () {
+      copyText(document.getElementById(btn.getAttribute('data-copy') + '-body-' + curLang()), btn);
+    });
   });
   document.getElementById('btn-copyall').addEventListener('click', function () {
-    var n = document.getElementById('notice-body').innerText;
-    var p = document.getElementById('plaint-body').innerText;
+    var n = document.getElementById('notice-body-' + curLang()).innerText;
+    var p = document.getElementById('plaint-body-' + curLang()).innerText;
     navigator.clipboard.writeText((n + '\n\n\n— — — — —\n\n\n' + p).trim());
-    var b = document.getElementById('btn-copyall'); var o = b.textContent;
-    b.textContent = 'Copied ✓'; setTimeout(function () { b.textContent = o; }, 1600);
+    var b = document.getElementById('btn-copyall'); var o = b.innerHTML;
+    b.textContent = '✓'; setTimeout(function () { b.innerHTML = o; }, 1500);
   });
   document.getElementById('btn-print').addEventListener('click', function () { window.print(); });
 })();
