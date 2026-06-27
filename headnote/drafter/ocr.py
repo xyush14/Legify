@@ -424,6 +424,52 @@ def _ocr_via_groq(pages: Sequence[tuple[bytes, str]], prompt: str = OCR_FIR_PROM
     return _merge_ocr_results(results)
 
 
+OCR_TEXT_PROMPT = (
+    "You are an OCR engine for Indian legal documents. Transcribe ALL text in the page image(s) "
+    "VERBATIM into plain text — Hindi (Devanagari) stays Hindi, English stays English. Preserve the "
+    "reading order and the line/paragraph breaks. Reproduce every name, date, number, FIR/crime/case "
+    "number, section, police station, address and amount EXACTLY as written. Do NOT summarise, "
+    "translate, interpret, correct, or add anything. Output ONLY the transcribed text."
+)
+
+
+def _vision_text_one_call(client, model: str, pages: Sequence[tuple[bytes, str]],
+                          *, page_offset: int = 0, total: int = 0) -> str:
+    """One vision request that returns RAW transcribed text (not JSON) for a batch."""
+    total = total or len(pages)
+    content: list[dict] = []
+    for idx, (img_bytes, mt) in enumerate(pages, start=1):
+        if total > 1:
+            content.append({"type": "text", "text": f"--- Page {page_offset + idx} of {total} ---"})
+        b64 = base64.standard_b64encode(img_bytes).decode("utf-8")
+        content.append({"type": "image_url", "image_url": {"url": f"data:{mt};base64,{b64}"}})
+    content.append({"type": "text", "text": OCR_TEXT_PROMPT})
+    resp = client.chat.completions.create(
+        model=model, messages=[{"role": "user", "content": content}], max_tokens=4000, temperature=0.0)
+    return (resp.choices[0].message.content or "").strip()
+
+
+def ocr_text_pages(pages: Sequence[tuple[bytes, str]]) -> str:
+    """OCR document pages → raw transcribed TEXT (no field parsing). Groq Llama-4-Scout
+    vision, batched to the 5-image cap. Powers the prompt drafter's 'upload a document'
+    path: the lawyer drops in an FIR/order/notice and we transcribe it for the prompt."""
+    from groq import Groq
+    groq_key = os.environ.get("GROQ_API_KEY", "")
+    if not groq_key:
+        raise RuntimeError("GROQ_API_KEY not set")
+    client = Groq(api_key=groq_key)
+    model = os.environ.get("GROQ_OCR_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
+    max_imgs = max(1, int(os.environ.get("GROQ_OCR_MAX_IMAGES", "5")))
+    total = len(pages)
+    if total <= max_imgs:
+        return _vision_text_one_call(client, model, pages, page_offset=0, total=total)
+    out: list[str] = []
+    for start in range(0, total, max_imgs):
+        chunk = pages[start:start + max_imgs]
+        out.append(_vision_text_one_call(client, model, chunk, page_offset=start, total=total))
+    return "\n\n".join(t for t in out if t)
+
+
 def _ocr_via_openrouter(pages: Sequence[tuple[bytes, str]], prompt: str = OCR_FIR_PROMPT) -> dict:
     """OPT-IN OCR fallback over any OpenAI-compatible vision endpoint.
 

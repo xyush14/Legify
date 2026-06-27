@@ -311,6 +311,8 @@
                 <button type="button" data-lang="hi" class="on">हिंदी</button>
                 <button type="button" data-lang="en">English</button>
               </div>
+              <button type="button" id="pd-upload" class="pd__btn pd__btn--ghost pd__upload" title="Upload an FIR / order / notice — we OCR it">📎 Upload</button>
+              <input type="file" id="pd-file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" multiple hidden>
               <a href="/draft/smart" class="pd__voice mono">✦ voice mode</a>
               <span class="pd__grow"></span>
               <button type="button" id="pd-draft" class="pd__btn">Draft it →</button>
@@ -543,8 +545,18 @@
     var browse=$("draft-court-browse"),
         searchBox=document.querySelector(".draft-search"),
         searchResults=$("draft-search-results");
-    var EDIT_ROUTE={bail:"/draft/bail",anticipatory_bail:"/draft/bail",discharge:"/draft/discharge"};
     function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+    // Open the SAME canonical draft in the universal editor: stash the flat fields under the
+    // editor's own localStorage key (headnote.tpl.<id>.<uid>) so its restore picks them up, then go.
+    function openInEditor(res){
+      if(!res || !res.editor_id) return;
+      try {
+        var uid=(window.headnoteAuth && window.headnoteAuth.userId && window.headnoteAuth.userId()) || 'anon';
+        localStorage.setItem("headnote.tpl."+res.editor_id+"."+uid,
+          JSON.stringify({ fields: res.editor_fields || {}, lang: lang }));
+      } catch(e){}
+      location.href="/draft/template/"+encodeURIComponent(res.editor_id);
+    }
 
     $("pd-lang").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;lang=b.dataset.lang;
       [].forEach.call(this.querySelectorAll("button"),function(x){x.classList.toggle("on",x===b);});});
@@ -566,8 +578,8 @@
       var conf=res.confidence!=null?" · match "+Math.round(res.confidence*100)+"%":"";
       $("pd-rmeta").textContent=(authored?"no fixed template — your house style":"deterministic · zero hallucination")+conf;
       $("pd-out-lang").hidden=!(res.page_hi&&res.page_en);
-      var er=EDIT_ROUTE[res.doc_type], eb=$("pd-edit");
-      if(!authored&&er){eb.hidden=false;eb.onclick=function(){location.href=er;};}else{eb.hidden=true;}
+      var eb=$("pd-edit");
+      if(!authored && res.editor_id){ eb.hidden=false; eb.onclick=function(){ openInEditor(res); }; } else { eb.hidden=true; }
       showPage(lang);
       var notes=$("pd-notes");notes.innerHTML="";
       if(res.cite_at_hearing&&res.cite_at_hearing.length){
@@ -601,6 +613,29 @@
     }
     draftBtn.addEventListener("click",draft);
     input.addEventListener("keydown",function(e){if((e.metaKey||e.ctrlKey)&&e.key==="Enter")draft();});
+
+    // Upload a document → OCR to text → drop into the prompt box for review + Draft.
+    var uploadBtn=$("pd-upload"), fileInput=$("pd-file");
+    if(uploadBtn && fileInput){
+      uploadBtn.addEventListener("click",function(){ fileInput.click(); });
+      fileInput.addEventListener("change",function(){
+        var fs=fileInput.files; if(!fs||!fs.length) return;
+        $("pd-err").hidden=true;
+        var orig=uploadBtn.textContent; uploadBtn.disabled=true;
+        uploadBtn.textContent="📄 reading "+(fs.length>1?fs.length+" pages":fs[0].name)+"…";
+        var fd=new FormData(); for(var i=0;i<fs.length;i++) fd.append("files",fs[i]);
+        fetch("/api/draft/ocr-text",{method:"POST",body:fd})
+          .then(function(r){return r.json();})
+          .then(function(j){
+            if(!j||j.ok===false||!j.text) throw new Error((j&&(j.detail||j.error))||"Couldn't read that document.");
+            var cur=input.value.trim();
+            input.value=(cur?cur+"\n\n":"")+j.text.trim();
+            input.focus(); input.scrollTop=input.scrollHeight;
+          })
+          .catch(function(e){ $("pd-err").textContent="Upload OCR failed: "+(e.message||e); $("pd-err").hidden=false; })
+          .then(function(){ uploadBtn.disabled=false; uploadBtn.textContent=orig; fileInput.value=""; });
+      });
+    }
   })();
   </script>
 </body>

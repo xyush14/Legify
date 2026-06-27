@@ -37,6 +37,33 @@ def _finalize(result: dict) -> dict:
     return result
 
 
+def _editor_handoff(module_key: str, court: str, bail_type: str, data: dict) -> tuple[str, dict]:
+    """Map a canonical draft → the universal editor's template id (+ FLAT fields) so the
+    frontend can open the SAME draft in /draft/template/<id>, pre-filled. This is the
+    inverse of template_adapter.to_data: grounds toggles flattened to top-level booleans,
+    section-lists joined to comma strings, court/bail_type dropped (encoded in the id)."""
+    from headnote.drafter import template_adapter as TA
+    bt = bail_type or "regular"
+    eid = next((k for k, (t, c, b) in TA.CANONICAL_MAP.items()
+                if t == module_key and c == court and b == bt), None)
+    if eid is None:  # court/variant didn't line up — fall back to any id for this module
+        eid = next((k for k, (t, c, b) in TA.CANONICAL_MAP.items() if t == module_key), None)
+    if eid is None:
+        return "", {}
+    flat: dict = {}
+    for k, v in (data or {}).items():
+        if k in ("grounds", "court", "bail_type"):
+            continue
+        if isinstance(v, list):
+            flat[k] = ", ".join(str(x) for x in v)
+        elif v not in (None, ""):
+            flat[k] = v
+    for gk, gv in (data.get("grounds") or {}).items():
+        if gv:
+            flat[gk] = True
+    return eid, flat
+
+
 # ---------------------------------------------------------------------------
 # 1) Classifier — prompt → {doc_type, court, bail_type, confidence}.
 # ---------------------------------------------------------------------------
@@ -246,9 +273,11 @@ def draft_from_prompt(matter: str, lang: str = "hi") -> dict:
             html_hi = mod.render_hi(data)
             html_en = mod.render_en(data) if hasattr(mod, "render_en") else ""
             cite = list(getattr(mod, "CITE_AT_HEARING", []) or [])
+            editor_id, editor_fields = _editor_handoff(key, court, bail_type, data)
             return _finalize({
                 "ok": True, "mode": "canonical", "doc_type": dt, "court": court,
                 "bail_type": bail_type, "confidence": cls["confidence"],
+                "editor_id": editor_id, "editor_fields": editor_fields,
                 "html_hi": html_hi, "html_en": html_en,
                 "data": data, "changelog": log,
                 "cite_at_hearing": cite,

@@ -190,6 +190,42 @@ def draft_from_prompt_route(body: FromPromptBody):
         return JSONResponse({"ok": False, "error": f"{type(e).__name__}: {e}"}, status_code=500)
 
 
+@router.post("/ocr-text", summary="OCR an uploaded document → raw transcribed text (feeds the prompt drafter)")
+async def ocr_text(
+    file: Optional[UploadFile] = File(None),
+    files: Optional[List[UploadFile]] = File(None),
+):
+    """Vision-OCR a photographed/scanned document (FIR, order, notice, agreement…) to PLAIN TEXT
+    so the lawyer can drop it straight into the prompt drafter. Ungated, like /from-prompt.
+    Supported: JPEG, PNG, WebP, GIF, PDF. Max 20 MB/file, 8 pages."""
+    from headnote.drafter.ocr import ocr_text_pages
+    uploads: List[UploadFile] = []
+    if files:
+        uploads.extend(files)
+    if file:
+        uploads.append(file)
+    if not uploads:
+        raise HTTPException(status_code=400, detail="upload 'file' or 'files'")
+    if len(uploads) > _OCR_MAX_PAGES:
+        raise HTTPException(status_code=400, detail=f"too many pages ({len(uploads)}); max {_OCR_MAX_PAGES}")
+    pages: list[tuple[bytes, str]] = []
+    for idx, up in enumerate(uploads, start=1):
+        mt = up.content_type or ""
+        if mt not in _OCR_ALLOWED_MIME:
+            raise HTTPException(status_code=400, detail=f"page {idx}: unsupported type {mt!r}; use JPEG, PNG, WebP, GIF, or PDF")
+        data = await up.read()
+        if not data:
+            raise HTTPException(status_code=400, detail=f"page {idx}: empty file")
+        if len(data) > _OCR_MAX_BYTES:
+            raise HTTPException(status_code=400, detail=f"page {idx}: too large; max 20 MB")
+        pages.append((data, mt))
+    try:
+        text = ocr_text_pages(pages)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"OCR failed: {e}")
+    return {"ok": True, "page_count": len(pages), "text": text}
+
+
 @router.get("/{draft_id}", summary="Get one draft by id")
 def get_draft(draft_id: str):
     d = storage.get_draft(draft_id)
