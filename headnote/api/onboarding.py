@@ -64,17 +64,45 @@ def _claim_welcome(user_id: str) -> bool:
     "won" and is the only one allowed to send. This is what stops the
     frontend's double-fire from producing two emails.
 
-    Returns True iff THIS call won the claim (and must therefore send)."""
+    Returns True iff this call should proceed to send. If the claim UPDATE
+    fails outright (column missing, transient PostgREST error, etc.) we
+    SEND ANYWAY — a duplicate welcome is a much better failure mode than
+    no welcome at all. Migration 006 adds the welcome_sent column;
+    without it every claim used to silently lose, leaving every new user
+    without a welcome email."""
     try:
         rows = _supabase.update(
             "user_profiles",
             {"welcome_sent": True},
             params={"id": f"eq.{user_id}", "welcome_sent": "not.is.true"},
         )
-        return bool(rows)
+        if rows:
+            return True
+        # UPDATE returned no rows. Two possible reasons:
+        #   (a) someone else already claimed and welcome_sent=true → don't send
+        #   (b) the row doesn't exist yet OR the column doesn't exist (PostgREST
+        #       silently 400s and _supabase.update returns []) → we have NO
+        #       evidence of a prior send. Send anyway — a duplicate is better
+        #       than the bug we just spent an hour finding.
+        # Disambiguate by reading the row back.
+        check = _supabase.select(
+            "user_profiles",
+            params={"id": f"eq.{user_id}", "select": "welcome_sent", "limit": "1"},
+        )
+        if check and check[0].get("welcome_sent") is True:
+            return False                # case (a) — genuinely already sent
+        log.warning(
+            "welcome-email: claim returned empty but profile.welcome_sent is not True for user=%.8s — "
+            "likely missing welcome_sent column. Sending anyway (run migration 006).",
+            user_id,
+        )
+        return True                     # case (b) — fall through to Resend
     except Exception as e:
-        log.warning("welcome-email: claim write failed for user=%.8s: %s", user_id, e)
-        return False
+        log.warning(
+            "welcome-email: claim write threw for user=%.8s: %s — sending anyway as fallback",
+            user_id, e,
+        )
+        return True                     # network / schema error — don't block UX
 
 
 def _release_welcome_claim(user_id: str) -> None:
