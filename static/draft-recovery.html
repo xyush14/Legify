@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" /><!-- unlisted share page until advocate-reviewed -->
+<title>Recovery of Money — Draft Pack · Headnote</title>
+<meta name="description" content="A fill-in draft pack for recovery of money: pre-suit legal notice + summary suit (Order XXXVII CPC) plaint, with verification and affidavit. Author-tier — for advocate review." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/static/style.css?v=20260523b" />
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+<style>
+  /* ── Recovery draft page — scoped, builds on style.css tokens ───────────── */
+  body { background: var(--bg); }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 0 20px 96px; }
+
+  /* Topbar */
+  .rtop {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 20px; margin: 0 -20px 0;
+    background: rgba(250,250,249,0.86); backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .rtop__brand img { height: 19px; width: auto; display: block; }
+  .rtop__tag {
+    font-family: 'Geist Mono', monospace; font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--gold-ink);
+    border: 1px solid var(--gold-line); background: var(--gold-soft);
+    padding: 3px 8px; border-radius: 100px;
+  }
+  .rtop__spacer { flex: 1; }
+  .rtop__btn {
+    font-size: 13px; font-weight: 500; color: var(--ink-2);
+    border: 1px solid var(--line); background: var(--surface);
+    padding: 7px 13px; border-radius: var(--radius); cursor: pointer;
+    transition: border-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+  }
+  .rtop__btn:hover { border-color: var(--gold); color: var(--ink); }
+  .rtop__btn--solid { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+
+  /* Page title */
+  .rhead { padding: 40px 0 18px; }
+  .rhead__eyebrow {
+    font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--gold-ink); margin-bottom: 10px;
+  }
+  .rhead h1 { font-size: var(--t-2xl); font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+  .rhead p { color: var(--ink-2); font-size: var(--t-md); margin-top: 10px; max-width: 64ch; }
+
+  /* Generic card */
+  .card {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius-lg); box-shadow: var(--shadow-card);
+    margin: 18px 0;
+  }
+  .card__pad { padding: 22px 24px; }
+
+  /* Guidance / route picker */
+  .guide__title { font-weight: 600; font-size: var(--t-md); display: flex; align-items: center; gap: 9px; }
+  .guide__title .dot { width: 7px; height: 7px; border-radius: 2px; background: var(--gold); }
+  .routes { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
+  @media (max-width: 680px) { .routes { grid-template-columns: 1fr; } }
+  .route {
+    border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px;
+    background: var(--bg);
+  }
+  .route--reco { border-color: var(--gold-line); background: var(--gold-soft); }
+  .route h4 { font-size: var(--t-sm); font-weight: 700; letter-spacing: -.01em; }
+  .route .badge {
+    font-family: 'Geist Mono', monospace; font-size: 9.5px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--gold-ink); margin-left: 6px;
+  }
+  .route p { font-size: var(--t-sm); color: var(--ink-2); margin-top: 7px; line-height: 1.5; }
+
+  .keys { margin-top: 18px; border-top: 1px dashed var(--line); padding-top: 16px; }
+  .keys h5 { font-size: var(--t-xs); font-family: 'Geist Mono', monospace; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--ink-3); margin-bottom: 10px; }
+  .keys ul { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 7px 22px; }
+  @media (max-width: 680px) { .keys ul { grid-template-columns: 1fr; } }
+  .keys li { font-size: var(--t-sm); color: var(--ink-2); padding-left: 16px; position: relative; line-height: 1.45; }
+  .keys li::before { content: '›'; position: absolute; left: 0; color: var(--gold); font-weight: 700; }
+  .keys b { color: var(--ink); font-weight: 600; }
+
+  /* Fill panel */
+  .fill__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .fill__grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px 16px; margin-top: 16px; }
+  @media (max-width: 880px) { .fill__grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 560px) { .fill__grid { grid-template-columns: 1fr; } }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field.col-2 { grid-column: span 2; }
+  @media (max-width: 560px) { .field.col-2 { grid-column: span 1; } }
+  .field label { font-size: var(--t-xs); font-weight: 500; color: var(--ink-3);
+    font-family: 'Geist Mono', monospace; letter-spacing: .03em; }
+  .field input {
+    font-family: inherit; font-size: var(--t-sm); color: var(--ink);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 8px 10px; background: var(--surface); width: 100%;
+    transition: border-color var(--t-fast) var(--ease);
+  }
+  .field input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-soft); }
+  .fill__actions { display: flex; gap: 9px; }
+  .linkbtn { background: none; border: none; cursor: pointer; font-size: 12.5px; color: var(--gold-ink);
+    font-weight: 600; padding: 4px 2px; }
+  .linkbtn:hover { color: var(--gold-deep); text-decoration: underline; }
+
+  /* Document */
+  .doc { margin: 26px 0; }
+  .doc__bar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 16px; border: 1px solid var(--line); border-bottom: none;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0; background: var(--soft);
+  }
+  .doc__no { font-family: 'Geist Mono', monospace; font-size: 11px; color: var(--gold-deep); font-weight: 500; }
+  .doc__name { font-weight: 600; font-size: var(--t-sm); flex: 1; letter-spacing: -.01em; }
+  .doc__copy { font-size: 12px; color: var(--ink-2); border: 1px solid var(--line); background: var(--surface);
+    padding: 5px 11px; border-radius: var(--radius); cursor: pointer; }
+  .doc__copy:hover { border-color: var(--gold); color: var(--ink); }
+  .doc__copy.ok { color: var(--good); border-color: var(--good); }
+  .paper {
+    border: 1px solid var(--line); border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    background: var(--surface); padding: 40px 46px;
+    font-family: Georgia, 'Times New Roman', 'Noto Sans Devanagari', serif;
+    font-size: 14.5px; line-height: 1.85; color: #1a1a17;
+  }
+  @media (max-width: 600px) { .paper { padding: 26px 22px; } }
+  .paper .ctr { text-align: center; }
+  .paper .court { font-weight: 700; text-transform: uppercase; letter-spacing: .02em; font-size: 15px; }
+  .paper .sup { font-size: 12.5px; letter-spacing: .04em; text-transform: uppercase; color: #555; }
+  .paper .rule { border: none; border-top: 1px solid #d8d4c8; margin: 14px 0; }
+  .paper .vs { text-align: center; font-style: italic; margin: 4px 0; }
+  .paper .pno { display: inline-block; min-width: 1.6em; }
+  .paper p { margin: 0 0 12px; }
+  .paper .indent { padding-left: 26px; }
+  .paper .tight { margin-bottom: 4px; }
+  .paper .sig { margin-top: 26px; text-align: right; }
+  .paper h3 { font-size: 14.5px; font-weight: 700; text-align: center; margin: 18px 0 12px;
+    text-transform: uppercase; letter-spacing: .03em; }
+  .paper ol.prayer { margin: 0 0 12px 0; padding-left: 30px; }
+  .paper ol.prayer li { margin-bottom: 8px; }
+
+  /* Placeholder chips */
+  .ph { background: var(--gold-soft); border-bottom: 1.5px solid var(--gold);
+    padding: 0 3px; border-radius: 3px 3px 0 0; color: var(--gold-ink); font-style: normal; }
+  .ph--filled { background: transparent; border-bottom: none; color: inherit; font-weight: 600; }
+
+  /* Notes */
+  .notes { margin-top: 2px; }
+  .notes summary { cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--ink-2);
+    padding: 10px 16px; border: 1px solid var(--line); border-top: none;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg); background: var(--bg); list-style: none; }
+  .notes summary::-webkit-details-marker { display: none; }
+  .notes summary::before { content: '+ '; color: var(--gold-deep); font-weight: 700; }
+  .notes[open] summary::before { content: '– '; }
+  .notes[open] summary { border-radius: 0; }
+  .notes__body { border: 1px solid var(--line); border-top: none; padding: 16px 18px;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg); font-size: 13px; color: var(--ink-2); line-height: 1.6; }
+  .notes__body li { margin-bottom: 8px; margin-left: 18px; }
+  .notes__body b { color: var(--ink); }
+
+  /* Footer */
+  .rfoot { margin-top: 36px; padding: 18px 0 0; border-top: 1px solid var(--line);
+    font-size: 12px; color: var(--ink-3); line-height: 1.6; }
+  .rfoot b { color: var(--ink-2); }
+
+  @media print {
+    .rtop, .fillcard, .guidecard, .notes, .doc__copy, .rhead__eyebrow { display: none !important; }
+    .paper { border: none; padding: 0; }
+    .doc__bar { background: none; border: none; padding: 0 0 6px; }
+    .card, .doc { box-shadow: none; }
+  }
+</style>
+</head>
+<body class="draft-recovery">
+
+<header class="rtop">
+  <a class="rtop__brand" href="/" aria-label="Headnote home"><img src="/static/headnote-logo.svg" alt="headnote" /></a>
+  <span class="rtop__tag">Personal Assist · Draft</span>
+  <span class="rtop__spacer"></span>
+  <button class="rtop__btn" id="btn-print">Print / PDF</button>
+  <button class="rtop__btn rtop__btn--solid" id="btn-copyall">Copy all</button>
+</header>
+
+<div class="wrap">
+
+  <div class="rhead">
+    <div class="rhead__eyebrow">Civil · Recovery of money</div>
+    <h1>Recovery of Money — Draft Pack</h1>
+    <p>A ready-to-file pack for a money-recovery matter: a pre-suit <b>legal notice</b> and a
+       <b>summary-suit plaint under Order XXXVII CPC</b>, with verification and affidavit.
+       Fill the details once below and every blank updates across both documents — or send this link
+       as-is and fill on the call.</p>
+  </div>
+
+  <!-- GUIDANCE -->
+  <section class="card guidecard">
+    <div class="card__pad">
+      <div class="guide__title"><span class="dot"></span> Pick the right vehicle before you fill</div>
+      <div class="routes">
+        <div class="route route--reco">
+          <h4>Summary Suit — Order XXXVII CPC <span class="badge">drafted below ↓</span></h4>
+          <p>For a <b>liquidated money debt on a written contract</b>, bill of exchange, promissory note,
+             guarantee or invoice. Faster: the defendant cannot defend as of right — they must seek
+             <b>leave to defend</b> within 10 days. Use when the debt and document are clear.</p>
+        </div>
+        <div class="route">
+          <h4>Ordinary money suit — Order VII / §9 CPC</h4>
+          <p>When the claim is disputed or needs oral evidence, or there is no written instrument.
+             Same plaint below <b>minus</b> the Order XXXVII superscription &amp; the Order XXXVII averment
+             (para 8); ordinary summons in Form 1.</p>
+        </div>
+      </div>
+
+      <div class="keys">
+        <h5>Facts to collect from the client</h5>
+        <ul>
+          <li><b>Parties</b> — full name, S/o, age, occupation, address of both sides.</li>
+          <li><b>Principal</b> — amount advanced / due, and the date.</li>
+          <li><b>Instrument</b> — agreement / pronote / invoice / cheque (the writing).</li>
+          <li><b>Terms</b> — agreed interest rate and repayment date.</li>
+          <li><b>Acknowledgment</b> — any part-payment or written admission (extends limitation, §18–19 Limitation Act).</li>
+          <li><b>Default &amp; notice</b> — date of default; date the legal notice was sent.</li>
+        </ul>
+      </div>
+
+      <div class="keys">
+        <h5>Checks before filing — verify for your State</h5>
+        <ul>
+          <li><b>Limitation</b> — generally <b>3 years</b> (money lent Art. 19; goods sold Art. 14; pronote Art. 34–35). Confirm the Article.</li>
+          <li><b>Court fee</b> — <b>ad valorem</b> on the sum claimed (State Court-Fees schedule), not nominal.</li>
+          <li><b>Interest</b> — contractual up to suit; <b>§34 CPC</b> for pendente lite &amp; future.</li>
+          <li><b>Jurisdiction</b> — territorial (cause of action / defendant) + pecuniary (claim value).</li>
+          <li><b>Commercial dispute</b> (≥ ₹3 lakh) — <b>§12A pre-institution mediation is mandatory</b> unless urgent interim relief is sought.</li>
+          <li><b>Case law</b> — keep authorities for argument; cite in the plaint only if verified &amp; apposite.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- FILL PANEL -->
+  <section class="card fillcard">
+    <div class="card__pad">
+      <div class="fill__head">
+        <div class="guide__title"><span class="dot"></span> Fill the details</div>
+        <div class="fill__actions">
+          <button class="linkbtn" id="btn-sample">Load sample</button>
+          <button class="linkbtn" id="btn-reset">Clear</button>
+        </div>
+      </div>
+      <div class="fill__grid">
+        <div class="field col-2"><label>Court / forum</label><input data-f="court" placeholder="Court of the Civil Judge (Sr. Divn.), ____" /></div>
+        <div class="field"><label>Suit no. / year</label><input data-f="suit" placeholder="____ of 20__" /></div>
+        <div class="field col-2"><label>Plaintiff — name &amp; description</label><input data-f="plaintiff" placeholder="Name, S/o ____, age, occupation, r/o ____" /></div>
+        <div class="field"><label>Plaintiff short name</label><input data-f="pshort" placeholder="the Plaintiff" /></div>
+        <div class="field col-2"><label>Defendant — name &amp; description</label><input data-f="defendant" placeholder="Name, S/o ____, age, occupation, r/o ____" /></div>
+        <div class="field"><label>Defendant short name</label><input data-f="dshort" placeholder="the Defendant" /></div>
+        <div class="field"><label>Principal amount (₹)</label><input data-f="principal" placeholder="5,00,000" /></div>
+        <div class="field col-2"><label>Amount in words</label><input data-f="words" placeholder="Rupees Five Lakh only" /></div>
+        <div class="field col-2"><label>Basis / instrument</label><input data-f="instrument" placeholder="written loan agreement dated ____ / promissory note / invoice no. ____" /></div>
+        <div class="field"><label>Date of transaction</label><input data-f="txndate" placeholder="12.03.2024" /></div>
+        <div class="field"><label>Interest rate (% p.a.)</label><input data-f="interest" placeholder="18" /></div>
+        <div class="field"><label>Agreed repayment date</label><input data-f="duedate" placeholder="12.09.2024" /></div>
+        <div class="field"><label>Total amount claimed (₹)</label><input data-f="claim" placeholder="5,90,000" /></div>
+        <div class="field"><label>Legal-notice date</label><input data-f="noticedate" placeholder="05.05.2026" /></div>
+        <div class="field"><label>Notice period (days)</label><input data-f="noticedays" placeholder="15" /></div>
+        <div class="field"><label>Place (jurisdiction)</label><input data-f="place" placeholder="____" /></div>
+        <div class="field col-2"><label>Advocate — name &amp; enrolment</label><input data-f="advocate" placeholder="____, Advocate (Enrl. No. ____)" /></div>
+        <div class="field"><label>Date of draft</label><input data-f="draftdate" placeholder="DD.MM.YYYY" /></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DOCUMENT 1 — LEGAL NOTICE -->
+  <section class="doc" id="doc-notice">
+    <div class="doc__bar">
+      <span class="doc__no">DOC 1</span>
+      <span class="doc__name">Legal Notice for Recovery of Money (pre-suit demand)</span>
+      <button class="doc__copy" data-copy="notice-body">Copy</button>
+    </div>
+    <div class="paper" id="notice-body">
+      <p class="ctr"><b>By Regd. Post A.D. / Speed Post / E-mail</b></p>
+      <p class="tight"><b>REF:</b> <span class="ph" data-f="advocate" data-ph="[Advocate name & ref]">[Advocate name &amp; ref]</span></p>
+      <p class="tight"><b>DATE:</b> <span class="ph" data-f="noticedate" data-ph="[date]">[date]</span></p>
+      <hr class="rule" />
+      <p class="tight"><b>To,</b></p>
+      <p class="indent"><span class="ph" data-f="defendant" data-ph="[Defendant — name & full address]">[Defendant — name &amp; full address]</span></p>
+      <p><b>Subject:</b> Legal notice for recovery of ₹<span class="ph" data-f="claim" data-ph="[amount]">[amount]</span>
+         (<span class="ph" data-f="words" data-ph="[in words]">[in words]</span>) with interest.</p>
+      <p>Sir/Madam,</p>
+      <p>Under instructions from and on behalf of my client,
+         <span class="ph" data-f="plaintiff" data-ph="[Plaintiff — name & address]">[Plaintiff — name &amp; address]</span>
+         (hereinafter "my client"), I serve upon you the following notice:</p>
+      <p><span class="pno">1.</span> That you obtained / are liable to my client in a sum of
+         ₹<span class="ph" data-f="principal" data-ph="[principal]">[principal]</span> vide
+         <span class="ph" data-f="instrument" data-ph="[instrument]">[instrument]</span> on
+         <span class="ph" data-f="txndate" data-ph="[date]">[date]</span>.</p>
+      <p><span class="pno">2.</span> That you agreed to repay the said amount by
+         <span class="ph" data-f="duedate" data-ph="[date]">[date]</span>, together with interest @
+         <span class="ph" data-f="interest" data-ph="[__]">[__]</span>% per annum.</p>
+      <p><span class="pno">3.</span> That despite repeated oral demands you have failed and neglected to pay the
+         said amount, and a sum of ₹<span class="ph" data-f="claim" data-ph="[amount]">[amount]</span>
+         (principal with interest) remains due and outstanding as on date.</p>
+      <p><span class="pno">4.</span> I, therefore, call upon you to <b>pay the said sum of
+         ₹<span class="ph" data-f="claim" data-ph="[amount]">[amount]</span> together with further interest
+         within <span class="ph" data-f="noticedays" data-ph="[15]">[15]</span> days</b> of receipt of this
+         notice, failing which my client shall be constrained to institute appropriate civil proceedings,
+         including a <b>summary suit under Order XXXVII of the Code of Civil Procedure, 1908</b>, for recovery
+         of the said amount with interest and costs — entirely at your risk as to cost and consequences.</p>
+      <p>A copy of this notice is retained in my office for record and future reference.</p>
+      <p class="sig">_______________________<br />
+        <span class="ph" data-f="advocate" data-ph="[Advocate name & enrolment]">[Advocate name &amp; enrolment]</span><br />Advocate for the Notice-Sender</p>
+    </div>
+    <details class="notes">
+      <summary>Notes for the advocate</summary>
+      <div class="notes__body">
+        <ul>
+          <li>Send by a mode that <b>proves service</b> (Regd. Post A.D. + retain the receipt and tracking); deemed service if refused/unclaimed.</li>
+          <li>A pre-suit notice is <b>not legally mandatory</b> for a private money suit (§80 CPC notice is only for suits against Government/public officers) — but it crystallises default, often triggers payment, and reads well to the court.</li>
+          <li>The 15-day demand here is a practice norm; align it with any notice period the contract itself fixes.</li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  <!-- DOCUMENT 2 — PLAINT (ORDER XXXVII) -->
+  <section class="doc" id="doc-plaint">
+    <div class="doc__bar">
+      <span class="doc__no">DOC 2</span>
+      <span class="doc__name">Plaint — Summary Suit for Recovery of Money (Order XXXVII CPC)</span>
+      <button class="doc__copy" data-copy="plaint-body">Copy</button>
+    </div>
+    <div class="paper" id="plaint-body">
+      <p class="ctr court">IN THE <span class="ph" data-f="court" data-ph="[COURT / FORUM]">[COURT / FORUM]</span></p>
+      <p class="ctr">Civil Suit No. <span class="ph" data-f="suit" data-ph="[___ of 20__]">[___ of 20__]</span></p>
+      <p class="ctr sup">(Under Order XXXVII of the Code of Civil Procedure, 1908)</p>
+      <hr class="rule" />
+      <p class="tight"><span class="ph" data-f="plaintiff" data-ph="[Plaintiff — name, parentage, age, occupation, address]">[Plaintiff — name, parentage, age, occupation, address]</span> &nbsp;… <b>Plaintiff</b></p>
+      <p class="vs">VERSUS</p>
+      <p class="tight"><span class="ph" data-f="defendant" data-ph="[Defendant — name, parentage, age, occupation, address]">[Defendant — name, parentage, age, occupation, address]</span> &nbsp;… <b>Defendant</b></p>
+      <hr class="rule" />
+      <p class="ctr"><b>SUIT FOR RECOVERY OF ₹<span class="ph" data-f="claim" data-ph="[amount]">[amount]</span>
+         (<span class="ph" data-f="words" data-ph="[in words]">[in words]</span>)</b></p>
+      <p><b>The Plaintiff above-named most respectfully submits as under:—</b></p>
+
+      <p><span class="pno">1.</span> That the Plaintiff is
+         <span class="ph" data-f="plaintiff" data-ph="[description of the Plaintiff]">[description of the Plaintiff]</span>.</p>
+      <p><span class="pno">2.</span> That the Defendant is
+         <span class="ph" data-f="defendant" data-ph="[description of the Defendant]">[description of the Defendant]</span>.</p>
+      <p><span class="pno">3.</span> That on <span class="ph" data-f="txndate" data-ph="[date]">[date]</span>, the
+         Plaintiff advanced / the Defendant became liable to the Plaintiff in a sum of
+         ₹<span class="ph" data-f="principal" data-ph="[principal]">[principal]</span>
+         (<span class="ph" data-f="words" data-ph="[in words]">[in words]</span>) under and by virtue of
+         <span class="ph" data-f="instrument" data-ph="[the written instrument]">[the written instrument]</span>,
+         duly executed by the Defendant — a copy whereof is filed herewith.</p>
+      <p><span class="pno">4.</span> That under the said instrument the Defendant agreed to repay the said
+         amount by <span class="ph" data-f="duedate" data-ph="[date]">[date]</span>, together with interest @
+         <span class="ph" data-f="interest" data-ph="[__]">[__]</span>% per annum.</p>
+      <p><span class="pno">5.</span> That [the Defendant paid ₹____ on ____ and acknowledged the balance in
+         writing on ____ / no part of the amount has been paid]. <i>(Plead any part-payment or written
+         acknowledgment with its date — it is within limitation and revives time under §§18–19 of the
+         Limitation Act, 1963.)</i></p>
+      <p><span class="pno">6.</span> That despite repeated demands the Defendant has failed and neglected to
+         pay the amount due, and a sum of ₹<span class="ph" data-f="claim" data-ph="[amount]">[amount]</span>
+         (principal together with interest) is due and payable by the Defendant to the Plaintiff.</p>
+      <p><span class="pno">7.</span> That the Plaintiff got served upon the Defendant a legal notice dated
+         <span class="ph" data-f="noticedate" data-ph="[date]">[date]</span> demanding payment, which the
+         Defendant has failed to comply with.</p>
+      <p><span class="pno">8.</span> That the present suit is filed under <b>Order XXXVII of the Code of Civil
+         Procedure, 1908</b>, the claim being for a liquidated demand in money arising upon a written
+         contract / negotiable instrument as aforesaid. <b>The Plaintiff seeks no relief that does not fall
+         within the scope of Order XXXVII Rule 2 CPC.</b></p>
+      <p><span class="pno">9.</span> That the cause of action arose on
+         <span class="ph" data-f="txndate" data-ph="[date]">[date]</span> when the amount was advanced /
+         became due, again on <span class="ph" data-f="duedate" data-ph="[date]">[date]</span> when the
+         Defendant defaulted, and on <span class="ph" data-f="noticedate" data-ph="[date]">[date]</span> when
+         the notice went uncomplied — at <span class="ph" data-f="place" data-ph="[place]">[place]</span>,
+         within the territorial jurisdiction of this Hon'ble Court.</p>
+      <p><span class="pno">10.</span> That this Hon'ble Court has <b>territorial jurisdiction</b> (the cause of
+         action having wholly/partly arisen, and/or the Defendant residing/working for gain, within its
+         limits) and <b>pecuniary jurisdiction</b> to try the suit, the value being within its limits.</p>
+      <p><span class="pno">11.</span> That the suit is <b>within limitation</b>, being filed within three years
+         of the accrual of the cause of action.</p>
+      <p><span class="pno">12.</span> That for the purposes of court fee and jurisdiction the suit is valued at
+         ₹<span class="ph" data-f="claim" data-ph="[amount]">[amount]</span>, and the requisite
+         <b>ad valorem court fee</b> is paid thereon.</p>
+
+      <h3>Prayer</h3>
+      <p>It is therefore most respectfully prayed that this Hon'ble Court may be pleased to:—</p>
+      <ol class="prayer">
+        <li>pass a decree for ₹<span class="ph" data-f="claim" data-ph="[amount]">[amount]</span>
+            (<span class="ph" data-f="words" data-ph="[in words]">[in words]</span>) in favour of the
+            Plaintiff and against the Defendant;</li>
+        <li>award <b>pendente lite and future interest</b> @
+            <span class="ph" data-f="interest" data-ph="[__]">[__]</span>% per annum on the decretal amount
+            under <b>Section 34 CPC</b> till realisation;</li>
+        <li>award costs of the suit to the Plaintiff; and</li>
+        <li>grant any other relief this Hon'ble Court deems fit in the interest of justice.</li>
+      </ol>
+
+      <p class="sig">Place: <span class="ph" data-f="place" data-ph="[place]">[place]</span> &nbsp;&nbsp;&nbsp;
+        Date: <span class="ph" data-f="draftdate" data-ph="[date]">[date]</span><br /><br />
+        &nbsp;<br /><b>PLAINTIFF</b><br />Through —
+        <span class="ph" data-f="advocate" data-ph="[Advocate]">[Advocate]</span></p>
+
+      <h3>Verification</h3>
+      <p>Verified at <span class="ph" data-f="place" data-ph="[place]">[place]</span> on
+        <span class="ph" data-f="draftdate" data-ph="[date]">[date]</span> that the contents of paras 1 to 12
+        above are true to my personal knowledge, and the legal submissions are believed to be true on advice;
+        nothing material has been concealed.</p>
+      <p class="sig">_______________________<br /><b>PLAINTIFF</b></p>
+
+      <h3>Affidavit in support (Order XXXVII Rule 2 r/w Order VI Rule 15A CPC)</h3>
+      <p>I, <span class="ph" data-f="plaintiff" data-ph="[Plaintiff / authorised deponent]">[Plaintiff / authorised deponent]</span>,
+        do hereby solemnly affirm and state on oath that I am the Plaintiff in the above suit, that I am
+        competent to swear this affidavit, and that the facts stated in paras 1 to 12 of the accompanying
+        plaint are true to my personal knowledge and are not repeated here for the sake of brevity. The
+        documents filed with the plaint are true copies of their originals.</p>
+      <p class="sig">_______________________<br /><b>DEPONENT</b></p>
+      <p style="font-size:13px;color:#555;">Solemnly affirmed before me / Notary at
+        <span class="ph" data-f="place" data-ph="[place]">[place]</span> on
+        <span class="ph" data-f="draftdate" data-ph="[date]">[date]</span>.</p>
+    </div>
+    <details class="notes">
+      <summary>Notes for the advocate</summary>
+      <div class="notes__body">
+        <ul>
+          <li><b>Order XXXVII applies</b> only to a debt / liquidated demand on a written contract, bill of exchange, hundi or promissory note (R.1). If the claim is unliquidated or disputed on facts, drop the superscription + para 8 and file an ordinary suit.</li>
+          <li><b>Procedure:</b> summons in Form No. 4 Appendix B → defendant enters appearance in 10 days → Plaintiff serves summons for judgment → defendant applies for <b>leave to defend</b> in 10 days; leave may be unconditional, conditional, or refused (<b>IDBI Trusteeship v. Hubtown</b>, (2017) 1 SCC 568 — verify before citing).</li>
+          <li><b>Annexures:</b> the written instrument, the legal notice + postal proof, statement of account / interest computation, board resolution or authority letter if the Plaintiff is a company.</li>
+          <li><b>Commercial Courts Act 2015</b> (specified value ≥ ₹3 lakh): file before the Commercial Court, add a <b>Statement of Truth</b>, and complete <b>§12A pre-institution mediation</b> first unless urgent interim relief is sought (<b>Patil Automation v. Rakheja Engineers</b>, (2022) — mandatory; verify).</li>
+          <li><b>Interest:</b> the contractual rate runs up to suit; §34 CPC governs pendente lite &amp; future (court's discretion — often ~6% unless commercial).</li>
+          <li><b>Do not insert case law into the plaint body</b> unless verified and apposite — keep authorities for the leave-to-defend stage.</li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  <p class="rfoot">
+    <b>Author-tier draft, generated by Headnote for advocate review — not legal advice.</b>
+    Recovery of money is a civil matter outside the reviewed bail-family template set, so this pack is drafted
+    from the framework and is a <b>proposal for the advocate to verify, adapt and settle</b>. Confirm the
+    limitation Article, court-fee schedule, pecuniary/territorial jurisdiction and any §12A mediation
+    requirement for your State and court before filing. Verify every citation independently. Hindi version available on request.
+  </p>
+
+</div>
+
+<script>
+(function () {
+  // Mirror every input into all placeholder spans sharing its data-f key.
+  function apply(key, val) {
+    document.querySelectorAll('.ph[data-f="' + key + '"]').forEach(function (el) {
+      var d = el.getAttribute('data-ph') || '';
+      if (val && val.trim()) { el.textContent = val; el.classList.add('ph--filled'); }
+      else { el.textContent = d; el.classList.remove('ph--filled'); }
+    });
+  }
+  var inputs = document.querySelectorAll('.field input[data-f]');
+  inputs.forEach(function (inp) {
+    inp.addEventListener('input', function () { apply(inp.getAttribute('data-f'), inp.value); });
+  });
+
+  function setAll(map) {
+    inputs.forEach(function (inp) {
+      var k = inp.getAttribute('data-f');
+      inp.value = map && map[k] != null ? map[k] : '';
+      apply(k, inp.value);
+    });
+  }
+
+  document.getElementById('btn-reset').addEventListener('click', function () { setAll(null); inputs[0] && inputs[0].focus(); });
+
+  document.getElementById('btn-sample').addEventListener('click', function () {
+    setAll({
+      court: 'Court of the Civil Judge (Senior Division), Bhopal',
+      suit: '____ of 2026',
+      plaintiff: 'Shri Ramesh Kumar, S/o Late Shri Mohan Lal, aged 42 years, occupation business, r/o 12 M.P. Nagar, Bhopal',
+      pshort: 'the Plaintiff',
+      defendant: 'Shri Suresh Verma, S/o Shri Gopal Verma, aged 39 years, occupation business, r/o 8 Arera Colony, Bhopal',
+      dshort: 'the Defendant',
+      principal: '5,00,000',
+      words: 'Rupees Five Lakh only',
+      instrument: 'a written loan agreement dated 12.03.2024',
+      txndate: '12.03.2024',
+      interest: '18',
+      duedate: '12.09.2024',
+      claim: '5,90,000',
+      noticedate: '05.05.2026',
+      noticedays: '15',
+      place: 'Bhopal',
+      advocate: '____, Advocate (Enrl. No. ____)',
+      draftdate: '22.06.2026'
+    });
+  });
+
+  // Copy a document as plain text.
+  function copyText(el, btn) {
+    var t = el.innerText.replace(/\n{3,}/g, '\n\n').trim();
+    navigator.clipboard.writeText(t).then(function () {
+      var o = btn.textContent; btn.textContent = 'Copied ✓'; btn.classList.add('ok');
+      setTimeout(function () { btn.textContent = o; btn.classList.remove('ok'); }, 1600);
+    });
+  }
+  document.querySelectorAll('.doc__copy').forEach(function (btn) {
+    btn.addEventListener('click', function () { copyText(document.getElementById(btn.getAttribute('data-copy')), btn); });
+  });
+  document.getElementById('btn-copyall').addEventListener('click', function () {
+    var n = document.getElementById('notice-body').innerText;
+    var p = document.getElementById('plaint-body').innerText;
+    navigator.clipboard.writeText((n + '\n\n\n— — — — —\n\n\n' + p).trim());
+    var b = document.getElementById('btn-copyall'); var o = b.textContent;
+    b.textContent = 'Copied ✓'; setTimeout(function () { b.textContent = o; }, 1600);
+  });
+  document.getElementById('btn-print').addEventListener('click', function () { window.print(); });
+})();
+</script>
+</body>
+</html>
