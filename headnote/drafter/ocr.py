@@ -460,6 +460,7 @@ def ocr_text_pages(pages: Sequence[tuple[bytes, str]]) -> str:
     client = Groq(api_key=groq_key)
     model = os.environ.get("GROQ_OCR_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
     max_imgs = max(1, int(os.environ.get("GROQ_OCR_MAX_IMAGES", "5")))
+    pages = _rasterize_pdfs(pages)   # PDF → per-page PNG (Groq vision = images only; else "invalid image data")
     total = len(pages)
     if total <= max_imgs:
         return _vision_text_one_call(client, model, pages, page_offset=0, total=total)
