@@ -134,6 +134,10 @@
   .lenspop__case .ttl{font-size:12.5px;color:var(--ink);margin-top:3px;line-height:1.4;}
   .lenspop__foot{font-size:11px;color:var(--ink-3);margin-top:10px;}
   .lenspop__foot a{color:var(--ink-2);border-bottom:1px solid var(--line);}
+  .lenspop__ai{display:flex;align-items:center;gap:6px;font-size:11px;color:#9a7400;background:rgba(176,132,0,.10);border-radius:999px;padding:3px 9px;margin-top:10px;width:fit-content;}
+  .explainchip{position:fixed;z-index:260;display:none;align-items:center;gap:6px;background:var(--ink);color:#fff;border:0;border-radius:999px;font:inherit;font-size:12px;font-weight:500;padding:7px 13px;cursor:pointer;box-shadow:var(--shadow-lift);}
+  .explainchip.is-open{display:inline-flex;}
+  .explainchip:hover{filter:brightness(1.15);}
 
   /* ---- mobile ---- */
   .reader__heading .sub.show-m{display:none;}
@@ -256,8 +260,9 @@
   <div class="lb__body" id="lbBody"></div>
 </div>
 
-<!-- legal lens popover -->
+<!-- legal lens popover + select-to-explain chip -->
 <div class="lenspop" id="lensPop"></div>
+<button class="explainchip" id="explainChip"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg> Explain</button>
 
 <!-- confirm dialog -->
 <div class="modal" id="confirm">
@@ -371,16 +376,58 @@ function wrapMatches(root, phrase, idx){
 }
 $('#docText').addEventListener('click',e=>{ const s=e.target.closest('.ll'); if(s){ e.stopPropagation(); openLensPop(s); } });
 
-function openLensPop(span){
-  const m=LENS[+span.dataset.i]; if(!m) return;
-  const pop=$('#lensPop'); pop.innerHTML = m.kind==='section'? sectionPopHTML(m) : termPopHTML(m);
-  pop.classList.add('is-open');
-  const r=span.getBoundingClientRect(), pw=Math.min(330, window.innerWidth-24), ph=pop.offsetHeight;
+function placePop(r){
+  const pop=$('#lensPop'), pw=Math.min(330, window.innerWidth-24), ph=pop.offsetHeight;
   let left=Math.min(r.left, window.innerWidth-pw-12); left=Math.max(12,left);
   let top=r.bottom+8; if(top+ph>window.innerHeight-12) top=Math.max(12, r.top-ph-8);
   pop.style.left=left+'px'; pop.style.top=top+'px';
 }
+function openLensPop(span){
+  const m=LENS[+span.dataset.i]; if(!m) return;
+  const pop=$('#lensPop'); pop.innerHTML = m.kind==='section'? sectionPopHTML(m) : termPopHTML(m);
+  pop.classList.add('is-open'); placePop(span.getBoundingClientRect());
+}
 function closeLensPop(){ $('#lensPop').classList.remove('is-open'); }
+
+/* ---- select any term → Explain (curated-first, AI fallback) ---- */
+let selPick={text:'',ctx:''};
+function clearChip(){ $('#explainChip').classList.remove('is-open'); }
+function onDocSelect(){ setTimeout(()=>{
+  const sel=window.getSelection();
+  if(!sel||sel.isCollapsed){ clearChip(); return; }
+  const text=sel.toString().trim().replace(/\s+/g,' ');
+  const node=sel.anchorNode;
+  if(text.length<2||text.length>80||!node||!$('#docText').contains(node)){ clearChip(); return; }
+  const full=$('#docText').textContent||'', i=full.indexOf(text);
+  selPick={text, ctx: i>=0 ? full.slice(Math.max(0,i-90), i+text.length+90) : ''};
+  let r; try{ r=sel.getRangeAt(0).getBoundingClientRect(); }catch(e){ return; }
+  const chip=$('#explainChip'); chip.classList.add('is-open');
+  const cw=chip.offsetWidth||96; let left=r.left+r.width/2-cw/2;
+  left=Math.max(8, Math.min(left, window.innerWidth-cw-8));
+  let top=r.top-42; if(top<8) top=r.bottom+8;
+  chip.style.left=left+'px'; chip.style.top=top+'px';
+},10); }
+$('#docText').addEventListener('mouseup', onDocSelect);
+$('#docText').addEventListener('touchend', onDocSelect);
+document.addEventListener('selectionchange',()=>{ const s=window.getSelection(); if(!s||s.isCollapsed) clearChip(); });
+$('#explainChip').addEventListener('mousedown', e=>e.preventDefault());  // keep the selection alive
+$('#explainChip').addEventListener('click', async e=>{
+  e.stopPropagation(); const {text,ctx}=selPick; if(!text) return;
+  let rect; try{ rect=window.getSelection().getRangeAt(0).getBoundingClientRect(); }catch(_){ rect={left:60,bottom:120,top:100,width:0}; }
+  clearChip();
+  const pop=$('#lensPop'); pop.innerHTML=`<div class="lenspop__t">${esc(text)}</div><div class="miniload" style="margin-top:8px"><span class="spin"></span> explaining…</div>`;
+  pop.classList.add('is-open'); placePop(rect);
+  try{ const r=await fetch('/api/lexicon/explain',{method:'POST',headers:H(true),body:JSON.stringify({term:text,context:ctx})});
+    const d=await r.json(); pop.innerHTML=explainPopHTML(d); placePop(rect);
+  }catch(err){ pop.innerHTML=explainPopHTML({source:'none',term:text,definition:'Couldn’t fetch an explanation right now.'}); }
+});
+function explainPopHTML(d){
+  let h=`<div class="lenspop__t">${esc(d.term)}</div>`;
+  h+=`<div class="lenspop__def">${esc(d.definition||'')}</div>`;
+  if(d.source==='curated'){ if(d.section) h+=`<div class="lenspop__chips"><span>${esc(d.section)}</span></div>`; h+=`<div class="lenspop__foot">verified glossary</div>`; }
+  else if(d.source==='ai'){ h+=`<div class="lenspop__ai">✦ AI explanation · not a verified definition</div>`; }
+  return h;
+}
 document.addEventListener('click',e=>{ if(!e.target.closest('.lenspop')&&!e.target.closest('.ll')) closeLensPop(); });
 window.addEventListener('resize',closeLensPop);
 $('.reader__scroll')&&document.addEventListener('scroll',()=>closeLensPop(),true);

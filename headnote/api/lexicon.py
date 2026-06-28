@@ -152,6 +152,25 @@ def _lexicon() -> list[tuple[re.Pattern, dict]]:
     return out
 
 
+@functools.lru_cache(maxsize=1)
+def _lexicon_lookup() -> dict:
+    """normalised term/alias/hi -> payload, for exact 'select → Explain' hits."""
+    path = config.PACKAGE_DIR / "data" / "legal_lexicon.json"
+    try:
+        terms = json.loads(path.read_text(encoding="utf-8")).get("terms", [])
+    except Exception:  # noqa: BLE001
+        return {}
+    idx: dict = {}
+    for t in terms:
+        payload = {"term": t.get("term", ""), "hi": t.get("hi", ""),
+                   "definition": t.get("def", ""), "section": t.get("section", "")}
+        for f in [t.get("term", "")] + list(t.get("aliases") or []) + ([t["hi"]] if t.get("hi") else []):
+            k = re.sub(r"\s+", " ", (f or "").strip().lower())
+            if k:
+                idx[k] = payload
+    return idx
+
+
 # --------------------------------------------------------------- sections
 
 def _attrs_from_result(res: dict) -> list[dict]:
@@ -271,6 +290,57 @@ def _detect_terms(text: str, taken: list[str]) -> list[dict]:
         seen.add(key)
         out.append({**payload, "match": lit})
     return out
+
+
+_EXPLAIN_SYSTEM = (
+    "You are a precise legal assistant for Indian advocates. The user selected a "
+    "term or short phrase from a legal or medico-legal document (e.g. an FIR, "
+    "bail order, post-mortem / injury report) and wants to understand it. Define "
+    "it in plain language in 2-4 short sentences. If it is a medical / forensic "
+    "term, say what it is and why it matters in a legal context (e.g. its bearing "
+    "on cause of death, injury severity, or intent). Be accurate and neutral. "
+    "Do NOT cite cases, do NOT invent statute or section numbers, do NOT add "
+    "disclaimers. If you are not certain what the term means, say so plainly. "
+    "Output only the explanation text."
+)
+
+
+class ExplainBody(BaseModel):
+    term: str = Field("", max_length=160)
+    context: str = Field("", max_length=600)
+
+
+@router.post("/explain", summary="Explain a selected term — curated first, AI fallback (labelled)")
+def explain(body: ExplainBody, user: CurrentUser = Depends(get_current_user)) -> dict:
+    term = re.sub(r"\s+", " ", (body.term or "").strip()).strip(" .,:;\"'()[]")
+    if len(term) < 2:
+        return {"source": "none", "term": term, "definition": ""}
+
+    # 1) verified glossary (instant, free)
+    hit = _lexicon_lookup().get(term.lower())
+    if hit:
+        return {"source": "curated", "term": hit["term"] or term,
+                "definition": hit["definition"], "hi": hit["hi"], "section": hit["section"]}
+
+    # 2) labelled AI fallback (cheap model: DeepSeek → free Groq). Definitions
+    # only — the system prompt forbids cases / fabricated sections.
+    try:
+        from headnote.llm.client import _call_deepseek_or_groq
+        user_prompt = f'Term: "{term}"'
+        if body.context:
+            user_prompt += f'\nSurrounding text: "{body.context.strip()[:500]}"'
+        user_prompt += "\nExplain this term."
+        text, _meta = _call_deepseek_or_groq(
+            _EXPLAIN_SYSTEM, user_prompt, max_tokens=240,
+            claude_model="claude-haiku-4-5-20251001",
+        )
+        definition = re.sub(r"\s+\n", "\n", (text or "").strip())
+        if not definition:
+            raise RuntimeError("empty")
+        return {"source": "ai", "term": term, "definition": definition}
+    except Exception:  # noqa: BLE001
+        return {"source": "none", "term": term,
+                "definition": "Couldn't fetch an explanation right now — try again."}
 
 
 class AnnotateBody(BaseModel):
