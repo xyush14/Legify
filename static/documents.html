@@ -111,6 +111,30 @@
   .btn--danger{background:var(--bad);border-color:var(--bad);color:#fff;}
   .btn--danger:hover{filter:brightness(.94);}
 
+  /* legal lens */
+  .lensbtn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:999px;font:inherit;font-size:12px;font-weight:500;color:var(--ink-3);padding:6px 12px;cursor:pointer;}
+  .lensbtn:hover{border-color:var(--ink-3);color:var(--ink);}
+  .lensbtn.is-on{background:var(--ink);border-color:var(--ink);color:#fff;}
+  .ll{cursor:pointer;transition:background .12s;}
+  .ll--info{border-bottom:1.5px dotted var(--ink-3);}
+  .ll--info:hover{background:var(--soft);}
+  .ll--advisory{border-bottom:2px solid #b8860b;background:rgba(184,134,11,.10);border-radius:2px;padding:0 1px;}
+  .ll--advisory:hover{background:rgba(184,134,11,.20);}
+  .lenspop{position:fixed;z-index:250;display:none;max-width:330px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-lift);padding:14px 16px;font-family:'Geist',sans-serif;}
+  .lenspop.is-open{display:block;}
+  .lenspop__t{font-size:14px;font-weight:600;color:var(--ink);letter-spacing:-0.01em;}
+  .lenspop__sub{font-size:11.5px;color:var(--ink-3);margin-top:2px;}
+  .lenspop__adv{display:flex;gap:7px;align-items:flex-start;background:rgba(184,134,11,.10);border-radius:8px;padding:8px 10px;margin:10px 0;font-size:12.5px;line-height:1.45;color:#7a5b00;}
+  .lenspop__adv b{color:#5e4600;}
+  .lenspop__chips{display:flex;flex-wrap:wrap;gap:5px;margin:9px 0;}
+  .lenspop__chips span{font-family:'Geist Mono',monospace;font-size:10px;color:var(--ink-2);background:var(--soft);border:1px solid var(--line-2);border-radius:999px;padding:2px 8px;}
+  .lenspop__def{font-size:13px;line-height:1.55;color:var(--ink-2);margin-top:4px;}
+  .lenspop__case{border-top:1px solid var(--line-2);margin-top:10px;padding-top:9px;}
+  .lenspop__case .lbl{font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-3);}
+  .lenspop__case .ttl{font-size:12.5px;color:var(--ink);margin-top:3px;line-height:1.4;}
+  .lenspop__foot{font-size:11px;color:var(--ink-3);margin-top:10px;}
+  .lenspop__foot a{color:var(--ink-2);border-bottom:1px solid var(--line);}
+
   /* ---- mobile ---- */
   .reader__heading .sub.show-m{display:none;}
   @media (max-width:768px){
@@ -187,6 +211,10 @@
               </div>
             </div>
             <div class="reader__acts pos-rel">
+              <button class="lensbtn is-on" id="lensBtn" onclick="toggleLens()" title="Legal Lens — explain legal terms &amp; sections">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>
+                Lens
+              </button>
               <span class="seg" id="seg">
                 <button data-l="en" onclick="setLang('en')">EN</button>
                 <button data-l="hi" onclick="setLang('hi')">हिं</button>
@@ -228,6 +256,9 @@
   <div class="lb__body" id="lbBody"></div>
 </div>
 
+<!-- legal lens popover -->
+<div class="lenspop" id="lensPop"></div>
+
 <!-- confirm dialog -->
 <div class="modal" id="confirm">
   <div class="modal__card">
@@ -245,6 +276,7 @@
 <script>
 const $ = s => document.querySelector(s);
 let DOCS=[], CUR=null, CURID=null, blobURLs=[], curLang='en';
+let lensOn=true, shownText='', LENS=[], lensSeq=0;
 
 function authToken(){ try{ for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i);
   if(/sb-.*-auth-token/.test(k)){ const v=JSON.parse(localStorage.getItem(k)); if(v&&v.access_token) return v.access_token; if(Array.isArray(v)&&v[0]) return v[0]; } } }catch(e){} return null; }
@@ -301,6 +333,76 @@ function mdToHtml(src){
   return html || '<p class="muted">(no text)</p>';
 }
 function setText(t){ const el=$('#docText'); el.innerHTML=mdToHtml(t||''); el.classList.toggle('is-hi', isHindi(t)); }
+// render text + (if on) overlay the legal lens
+function showText(t){ shownText=t||''; setText(shownText); closeLensPop(); if(lensOn) runLens(shownText); }
+
+/* ---- legal lens ---- */
+function toggleLens(){ lensOn=!lensOn; $('#lensBtn').classList.toggle('is-on', lensOn); closeLensPop();
+  if(lensOn) runLens(shownText); else setText(shownText); }
+
+async function runLens(text){
+  const seq=++lensSeq;
+  if(!text||!text.trim()) return;
+  try{ const r=await fetch('/api/lexicon/annotate',{method:'POST',headers:H(true),body:JSON.stringify({text})});
+    const d=await r.json(); if(seq!==lensSeq||!lensOn) return;  // stale / toggled off
+    LENS=d.matches||[]; highlightLens();
+  }catch(e){}
+}
+function highlightLens(){
+  const root=$('#docText');
+  LENS.forEach((m,i)=>{ if(m.match) wrapMatches(root, m.match, i); });
+}
+// wrap every occurrence of `phrase` (word-bounded) under root in a .ll span,
+// skipping text already inside a .ll. Longest matches run first (server-sorted).
+function wrapMatches(root, phrase, idx){
+  const m=LENS[idx]; const cls = m.kind==='section' && (m.repealed||m.assumed) ? 'll ll--advisory' : 'll ll--info';
+  const rx=new RegExp('(?<![\\wऀ-ॿ])'+phrase.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?![\\wऀ-ॿ])','i');
+  const walker=document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {acceptNode:n=>{
+    if(n.parentElement.closest('.ll')) return NodeFilter.FILTER_REJECT;
+    return rx.test(n.nodeValue)?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_SKIP;
+  }});
+  const nodes=[]; let n; while(n=walker.nextNode()) nodes.push(n);
+  nodes.forEach(node=>{
+    let mm=rx.exec(node.nodeValue); if(!mm) return;
+    const span=document.createElement('span'); span.className=cls; span.dataset.i=idx; span.textContent=mm[0];
+    const after=node.splitText(mm.index); after.nodeValue=after.nodeValue.slice(mm[0].length);
+    node.parentNode.insertBefore(span, after);
+  });
+}
+$('#docText').addEventListener('click',e=>{ const s=e.target.closest('.ll'); if(s){ e.stopPropagation(); openLensPop(s); } });
+
+function openLensPop(span){
+  const m=LENS[+span.dataset.i]; if(!m) return;
+  const pop=$('#lensPop'); pop.innerHTML = m.kind==='section'? sectionPopHTML(m) : termPopHTML(m);
+  pop.classList.add('is-open');
+  const r=span.getBoundingClientRect(), pw=Math.min(330, window.innerWidth-24), ph=pop.offsetHeight;
+  let left=Math.min(r.left, window.innerWidth-pw-12); left=Math.max(12,left);
+  let top=r.bottom+8; if(top+ph>window.innerHeight-12) top=Math.max(12, r.top-ph-8);
+  pop.style.left=left+'px'; pop.style.top=top+'px';
+}
+function closeLensPop(){ $('#lensPop').classList.remove('is-open'); }
+document.addEventListener('click',e=>{ if(!e.target.closest('.lenspop')&&!e.target.closest('.ll')) closeLensPop(); });
+window.addEventListener('resize',closeLensPop);
+$('.reader__scroll')&&document.addEventListener('scroll',()=>closeLensPop(),true);
+
+function sectionPopHTML(m){
+  let h=`<div class="lenspop__t">${esc(m.display)}</div>`;
+  if(m.title) h+=`<div class="lenspop__sub">${esc(m.title)}</div>`;
+  if(m.repealed && m.new){ h+=`<div class="lenspop__adv">⚠ <div>${esc((m.old&&m.old.code)||'This code')} is repealed (new code, 2023). Equivalent: <b>${esc(m.new.code)} ${esc(m.new.section)}</b>.</div></div>`; }
+  else if(m.new && m.old){ h+=`<div class="lenspop__sub" style="margin-top:8px">Now: <b>${esc(m.new.code)} ${esc(m.new.section)}</b></div>`; }
+  if(m.attrs&&m.attrs.length){ h+=`<div class="lenspop__chips">`+m.attrs.map(a=>`<span>${esc(a.value)}</span>`).join('')+`</div>`; }
+  if(m.summary) h+=`<div class="lenspop__def">${esc(m.summary)}</div>`;
+  if(m.case){ h+=`<div class="lenspop__case"><div class="lbl">leading case · verified</div><div class="ttl">${esc(m.case.title)}${m.case.citation?' — '+esc(m.case.citation):''}</div></div>`; }
+  let foot=[]; if(m.assumed) foot.push('read as IPC'); foot.push('<a href="/sections" target="_blank">open in IPC → BNS</a>');
+  h+=`<div class="lenspop__foot">${foot.join(' · ')}</div>`;
+  return h;
+}
+function termPopHTML(m){
+  let h=`<div class="lenspop__t">${esc(m.term)}${m.hi?` <span style="font-weight:400;color:var(--ink-3)" class="hi">· ${esc(m.hi)}</span>`:''}</div>`;
+  h+=`<div class="lenspop__def">${esc(m.definition)}</div>`;
+  if(m.section) h+=`<div class="lenspop__chips"><span>${esc(m.section)}</span></div>`;
+  return h;
+}
 
 async function selectDoc(id){
   CURID=id; renderRail(DOCS);
@@ -315,7 +417,7 @@ async function selectDoc(id){
     curLang = isHindi(CUR.full_text) ? 'hi' : 'en';
     CUR._tr[curLang] = CUR.full_text || '';
     document.querySelectorAll('#seg button').forEach(b=>b.classList.toggle('is-active', b.dataset.l===curLang));
-    setText(CUR.full_text);
+    showText(CUR.full_text);
     loadPages(CUR);
   }catch(e){ toast(e.message,'error'); }
 }
@@ -339,12 +441,12 @@ async function setLang(lang){
   curLang=lang;
   document.querySelectorAll('#seg button').forEach(b=>b.classList.toggle('is-active', b.dataset.l===lang));
   if(!CUR) return;
-  if(CUR._tr[lang]!=null){ setText(CUR._tr[lang]); return; }
-  $('#docText').innerHTML='<span class="miniload"><span class="spin"></span> translating…</span>';
+  if(CUR._tr[lang]!=null){ showText(CUR._tr[lang]); return; }
+  closeLensPop(); $('#docText').innerHTML='<span class="miniload"><span class="spin"></span> translating…</span>';
   try{ const r=await fetch(`/api/documents/${CUR.id}/translate?lang=${lang}`,{headers:H()});
     const d=await r.json(); if(!r.ok) throw new Error(d.detail||'translate failed');
-    CUR._tr[lang]=d.text; if(curLang===lang) setText(d.text);
-  }catch(e){ setText(CUR.full_text); toast(e.message,'error'); } }
+    CUR._tr[lang]=d.text; if(curLang===lang) showText(d.text);
+  }catch(e){ showText(CUR.full_text); toast(e.message,'error'); } }
 
 /* ---- lightbox ---- */
 function openLightbox(){ if(!CUR||!CUR._pages||!CUR._pages.length) return;

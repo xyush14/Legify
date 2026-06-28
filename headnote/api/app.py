@@ -1050,6 +1050,11 @@ from headnote.documents.storage import init_documents_db as _init_documents_db
 app.include_router(_documents_router)
 _init_documents_db()
 
+# Legal Lens — annotate document text with explainable terms + statute refs
+# (curated/verified data only): /api/lexicon/annotate. See headnote/api/lexicon.py.
+from headnote.api.lexicon import router as _lexicon_router
+app.include_router(_lexicon_router)
+
 # In-app judgment viewer — /case/<doc_id> + /api/case/<doc_id>
 # Lawyers click "Read judgment" → land here instead of an IK search redirect.
 # Critical for the trust moat: full text, clean caption, provenance footer.
