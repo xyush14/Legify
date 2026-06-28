@@ -101,6 +101,16 @@
   .lb__body img{max-width:min(920px,100%);border-radius:8px;background:#fff;box-shadow:0 12px 40px rgba(0,0,0,.4);cursor:zoom-in;}
   .lb__body img.zoomed{max-width:none;width:auto;cursor:zoom-out;}
 
+  /* confirm dialog (our own — never the browser's) */
+  .modal{position:fixed;inset:0;background:rgba(18,18,16,.42);z-index:300;display:none;align-items:center;justify-content:center;padding:20px;}
+  .modal.is-open{display:flex;}
+  .modal__card{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-lift);max-width:380px;width:100%;padding:22px 22px 18px;}
+  .modal__title{font-size:16px;font-weight:600;letter-spacing:-0.01em;margin:0 0 8px;}
+  .modal__body{font-size:13.5px;color:var(--ink-2);line-height:1.55;margin:0 0 20px;}
+  .modal__acts{display:flex;justify-content:flex-end;gap:10px;}
+  .btn--danger{background:var(--bad);border-color:var(--bad);color:#fff;}
+  .btn--danger:hover{filter:brightness(.94);}
+
   /* ---- mobile ---- */
   .reader__heading .sub.show-m{display:none;}
   @media (max-width:768px){
@@ -216,6 +226,18 @@
     <button class="lb__x" onclick="closeLightbox()" aria-label="close">×</button>
   </div>
   <div class="lb__body" id="lbBody"></div>
+</div>
+
+<!-- confirm dialog -->
+<div class="modal" id="confirm">
+  <div class="modal__card">
+    <div class="modal__title" id="confirmTitle">Are you sure?</div>
+    <div class="modal__body hi" id="confirmBody"></div>
+    <div class="modal__acts">
+      <button class="btn" id="confirmCancel">Cancel</button>
+      <button class="btn btn--danger" id="confirmOk">Delete</button>
+    </div>
+  </div>
 </div>
 
 <div class="toasts" id="toasts"></div>
@@ -339,9 +361,24 @@ function downloadText(){ if(!CUR) return; const t=(CUR._tr&&CUR._tr[curLang]!=nu
 
 function toggleMenu(ev){ ev.stopPropagation(); $('#menu').classList.toggle('open'); }
 document.addEventListener('click',()=>{ const m=$('#menu'); if(m) m.classList.remove('open'); });
-document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeLightbox(); } });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeLightbox(); if($('#confirm').classList.contains('is-open')) $('#confirmCancel').click(); } });
 
-async function deleteCur(){ if(!CUR||!confirm('Delete this document?')) return;
+// Our own confirm dialog (styled), returns a Promise<boolean>.
+function askConfirm({title='Are you sure?', body='', okLabel='Delete', danger=true}={}){
+  return new Promise(res=>{
+    const modal=$('#confirm'), ok=$('#confirmOk'), cancel=$('#confirmCancel');
+    $('#confirmTitle').textContent=title; $('#confirmBody').textContent=body;
+    ok.textContent=okLabel; ok.className='btn '+(danger?'btn--danger':'btn--primary');
+    const done=v=>{ modal.classList.remove('is-open'); ok.onclick=cancel.onclick=modal.onclick=null; res(v); };
+    ok.onclick=()=>done(true); cancel.onclick=()=>done(false);
+    modal.onclick=e=>{ if(e.target===modal) done(false); };
+    modal.classList.add('is-open'); ok.focus();
+  });
+}
+
+async function deleteCur(){ if(!CUR) return;
+  const yes=await askConfirm({title:'Delete document?', body:'“'+(CUR.title||'This document')+'” and its text will be permanently removed.', okLabel:'Delete'});
+  if(!yes) return;
   try{ await fetch('/api/documents/'+CUR.id,{method:'DELETE',headers:H()}); toast('Deleted');
     CURID=null; CUR=null; clearBlobs(); $('#readerDoc').style.display='none'; $('#readerEmpty').style.display='flex'; backToList();
     await load();
