@@ -66,8 +66,17 @@
   .scan__zoom{position:absolute;bottom:14px;right:14px;background:var(--surface);border:1px solid var(--line);border-radius:7px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:var(--ink-2);}
   .scan__badge{position:absolute;top:14px;left:14px;background:rgba(0,0,0,.62);color:#fff;font-family:'Geist Mono',monospace;font-size:10px;border-radius:999px;padding:2px 8px;}
   .scan__cap{font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.07em;color:var(--ink-3);text-align:center;margin-top:8px;}
-  .doctext{font-family:'Source Serif 4','Noto Sans Devanagari',Georgia,serif;font-size:17.5px;line-height:1.85;color:var(--ink);white-space:pre-wrap;word-wrap:break-word;}
+  .doctext{font-family:'Source Serif 4','Noto Sans Devanagari',Georgia,serif;font-size:17.5px;line-height:1.85;color:var(--ink);word-wrap:break-word;}
   .doctext.is-hi{font-family:'Noto Sans Devanagari','Source Serif 4',serif;font-size:17px;line-height:1.9;}
+  .doctext h2{font-family:'Geist',sans-serif;font-size:17px;font-weight:600;letter-spacing:-0.01em;line-height:1.35;margin:1.7em 0 .6em;color:var(--ink);}
+  .doctext.is-hi h2{font-family:'Noto Sans Devanagari','Geist',sans-serif;}
+  .doctext h2:first-child{margin-top:0;}
+  .doctext h3,.doctext h4{font-family:'Geist',sans-serif;font-size:14.5px;font-weight:600;margin:1.3em 0 .4em;color:var(--ink-2);text-transform:none;}
+  .doctext p{margin:0 0 1.05em;}
+  .doctext ul,.doctext ol{margin:0 0 1.05em;padding-left:1.45em;}
+  .doctext li{margin:.25em 0;padding-left:.15em;}
+  .doctext p:last-child,.doctext ul:last-child,.doctext ol:last-child{margin-bottom:0;}
+  .doctext .muted{color:var(--ink-3);}
   .miniload{font-size:13px;color:var(--ink-3);display:inline-flex;align-items:center;gap:9px;font-family:'Geist',sans-serif;}
   .spin{width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--ink-2);border-radius:50%;animation:sp .7s linear infinite;display:inline-block;}
   @keyframes sp{to{transform:rotate(360deg)}}
@@ -238,7 +247,36 @@ function renderRail(list){
 
 /* ---- reader ---- */
 function clearBlobs(){ blobURLs.forEach(u=>URL.revokeObjectURL(u)); blobURLs=[]; }
-function setText(t){ const el=$('#docText'); el.textContent=t||'(no text)'; el.classList.toggle('is-hi', isHindi(t)); }
+
+// Minimal, safe Markdown → HTML for the reader. Escapes first (OCR text is
+// untrusted), then structures headings / paragraphs / lists. Plain text (old
+// docs, translations) still renders sensibly as paragraphs.
+function mdToHtml(src){
+  const esc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  const inline=s=>s.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+  const lines=(src||'').replace(/\r/g,'').replace(/^```[a-z]*\s*|\s*```$/g,'').split('\n');
+  let html='', para=[], list=[], listType=null;
+  // A short, mostly-UPPERCASE single line reads as a section heading even when
+  // the model didn't emit '## ' — catches form titles like "REMARKS BY MEDICAL OFFICER".
+  const headish=s=>{ if(s.length>60) return false; const L=(s.match(/[A-Za-z]/g)||[]); if(L.length<6) return false; return (s.match(/[A-Z]/g)||[]).length/L.length>=0.8; };
+  const flushP=()=>{ if(!para.length) return;
+    if(para.length===1 && headish(para[0])) html+='<h2>'+inline(esc(para[0]))+'</h2>';
+    else html+='<p>'+inline(esc(para.join(' ')))+'</p>';
+    para=[]; };
+  const flushL=()=>{ if(list.length){ html+='<'+listType+'>'+list.map(li=>'<li>'+inline(esc(li))+'</li>').join('')+'</'+listType+'>'; list=[]; listType=null; } };
+  for(const raw of lines){
+    const line=raw.trim(); let m;
+    if(!line){ flushP(); flushL(); continue; }
+    if(m=line.match(/^(#{1,6})\s+(.*)$/)){ flushP(); flushL(); const lvl=Math.min(m[1].length+1,4); html+='<h'+lvl+'>'+inline(esc(m[2]))+'</h'+lvl+'>'; continue; }
+    if(m=line.match(/^[-*•]\s+(.*)$/)){ flushP(); if(listType!=='ul'){flushL();listType='ul';} list.push(m[1]); continue; }
+    // numbered items ("1. Injury") are kept VERBATIM as their own line — never
+    // re-numbered by an <ol> (the digit is part of the scanned text).
+    flushL(); para.push(line);
+  }
+  flushP(); flushL();
+  return html || '<p class="muted">(no text)</p>';
+}
+function setText(t){ const el=$('#docText'); el.innerHTML=mdToHtml(t||''); el.classList.toggle('is-hi', isHindi(t)); }
 
 async function selectDoc(id){
   CURID=id; renderRail(DOCS);

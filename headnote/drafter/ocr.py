@@ -433,8 +433,29 @@ OCR_TEXT_PROMPT = (
 )
 
 
+# Same VERBATIM rule as OCR_TEXT_PROMPT, but lay the transcription out as clean
+# Markdown so it READS well (the document vault renders this). Structure only —
+# never reword. Used for the searchable-document reader; the drafter path keeps
+# the plain-text prompt above.
+OCR_MARKDOWN_PROMPT = (
+    "You are an OCR engine for Indian legal documents. Transcribe ALL text in the page image(s) "
+    "VERBATIM — Hindi (Devanagari) stays Hindi, English stays English. Reproduce every name, date, "
+    "number, FIR/crime/case number, section, police station, address and amount EXACTLY as written. "
+    "Do NOT translate, correct spelling, summarise, interpret, or add anything.\n\n"
+    "Lay the transcription out as clean GitHub-flavoured Markdown so it reads well:\n"
+    "- Use '## ' for section headings / form titles (e.g. a hospital name, 'REMARKS BY MEDICAL OFFICER').\n"
+    "- Group running text into paragraphs separated by a blank line; rejoin a sentence that the scan "
+    "wrapped across several lines into one paragraph (a single hard line break inside a sentence is a "
+    "scan artefact, not real structure).\n"
+    "- Use '- ' for genuine list/enumerated items.\n"
+    "- Keep signatures, dates and stamps on their own short lines.\n"
+    "Do not wrap the output in code fences. Output ONLY the Markdown transcription."
+)
+
+
 def _vision_text_one_call(client, model: str, pages: Sequence[tuple[bytes, str]],
-                          *, page_offset: int = 0, total: int = 0) -> str:
+                          *, page_offset: int = 0, total: int = 0,
+                          prompt: str = OCR_TEXT_PROMPT) -> str:
     """One vision request that returns RAW transcribed text (not JSON) for a batch."""
     total = total or len(pages)
     content: list[dict] = []
@@ -443,16 +464,18 @@ def _vision_text_one_call(client, model: str, pages: Sequence[tuple[bytes, str]]
             content.append({"type": "text", "text": f"--- Page {page_offset + idx} of {total} ---"})
         b64 = base64.standard_b64encode(img_bytes).decode("utf-8")
         content.append({"type": "image_url", "image_url": {"url": f"data:{mt};base64,{b64}"}})
-    content.append({"type": "text", "text": OCR_TEXT_PROMPT})
+    content.append({"type": "text", "text": prompt})
     resp = client.chat.completions.create(
         model=model, messages=[{"role": "user", "content": content}], max_tokens=4000, temperature=0.0)
     return (resp.choices[0].message.content or "").strip()
 
 
-def ocr_text_pages(pages: Sequence[tuple[bytes, str]]) -> str:
-    """OCR document pages → raw transcribed TEXT (no field parsing). Groq Llama-4-Scout
+def ocr_text_pages(pages: Sequence[tuple[bytes, str]],
+                   *, prompt: str = OCR_TEXT_PROMPT) -> str:
+    """OCR document pages → transcribed TEXT (no field parsing). Groq Llama-4-Scout
     vision, batched to the 5-image cap. Powers the prompt drafter's 'upload a document'
-    path: the lawyer drops in an FIR/order/notice and we transcribe it for the prompt."""
+    path (default plain-text prompt) and the document vault (Markdown prompt, passed
+    in) — same verbatim transcription, different layout."""
     from groq import Groq
     groq_key = os.environ.get("GROQ_API_KEY", "")
     if not groq_key:
@@ -463,11 +486,11 @@ def ocr_text_pages(pages: Sequence[tuple[bytes, str]]) -> str:
     pages = _rasterize_pdfs(pages)   # PDF → per-page PNG (Groq vision = images only; else "invalid image data")
     total = len(pages)
     if total <= max_imgs:
-        return _vision_text_one_call(client, model, pages, page_offset=0, total=total)
+        return _vision_text_one_call(client, model, pages, page_offset=0, total=total, prompt=prompt)
     out: list[str] = []
     for start in range(0, total, max_imgs):
         chunk = pages[start:start + max_imgs]
-        out.append(_vision_text_one_call(client, model, chunk, page_offset=start, total=total))
+        out.append(_vision_text_one_call(client, model, chunk, page_offset=start, total=total, prompt=prompt))
     return "\n\n".join(t for t in out if t)
 
 

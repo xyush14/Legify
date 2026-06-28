@@ -57,7 +57,7 @@ async def upload_document(
 
     Supported: JPEG, PNG, WebP, GIF, PDF. Max 20 MB/page, 8 pages.
     """
-    from headnote.drafter.ocr import ocr_text_pages, _rasterize_pdfs
+    from headnote.drafter.ocr import ocr_text_pages, _rasterize_pdfs, OCR_MARKDOWN_PROMPT
 
     uploads: List[UploadFile] = []
     if files:
@@ -99,7 +99,7 @@ async def upload_document(
 
     with check_and_record(user.id, "draft", endpoint="documents_upload", email=user.email) as _record:
         try:
-            text = ocr_text_pages(pages)
+            text = ocr_text_pages(pages, prompt=OCR_MARKDOWN_PROMPT)
         except ValueError as e:
             raise HTTPException(status_code=502, detail=f"OCR failed: {e}")
         except Exception as e:  # noqa: BLE001
