@@ -48,6 +48,49 @@ except ImportError:
 EMBED_BATCH_SIZE = 32
 
 
+# --- shared process-wide model singleton -----------------------------------
+# The fastembed model is ~80MB in RAM. Everything that needs to embed text
+# (the judgment index, the document vault, …) shares ONE instance via these
+# module-level helpers so we never pay for the model twice. Whichever caller
+# touches it first loads it; the boot-time warm-up primes it for the rest.
+_SHARED_MODEL = None
+_SHARED_MODEL_LOCK = threading.Lock()
+
+
+def get_embedding_model():
+    """Return the process-wide fastembed TextEmbedding, loading it on first use."""
+    global _SHARED_MODEL
+    if _SHARED_MODEL is not None:
+        return _SHARED_MODEL
+    with _SHARED_MODEL_LOCK:
+        if _SHARED_MODEL is None:
+            from fastembed import TextEmbedding  # heavy import — pay once
+            t0 = time.time()
+            _SHARED_MODEL = TextEmbedding(EMBED_MODEL_NAME)
+            print(f"[embeddings] loaded {EMBED_MODEL_NAME} in {time.time()-t0:.1f}s")
+    return _SHARED_MODEL
+
+
+def embed_texts(texts: Iterable[str]) -> list["np.ndarray"]:
+    """Embed strings → L2-normalised float32 unit vectors (cosine = dot product).
+
+    The generic embedding entrypoint reused by callers outside the judgment
+    index (e.g. the document vault). Returns one vector per input, in order.
+    """
+    items = list(texts)
+    if not items:
+        return []
+    model = get_embedding_model()
+    out: list[np.ndarray] = []
+    for v in model.embed(items, batch_size=EMBED_BATCH_SIZE):
+        v = v.astype(np.float32, copy=False)
+        norm = float(np.linalg.norm(v))
+        if norm > 0:
+            v = v / norm
+        out.append(v)
+    return out
+
+
 @dataclass(frozen=True)
 class EmbeddingHit:
     case_id: str
@@ -109,15 +152,9 @@ class EmbeddingIndex:
     # --- model (lazy)
 
     def _get_model(self):
-        if self._model is not None:
-            return self._model
-        with self._model_lock:
-            if self._model is None:
-                # Heavy import — only pay when we actually need to embed.
-                from fastembed import TextEmbedding
-                t0 = time.time()
-                self._model = TextEmbedding(EMBED_MODEL_NAME)
-                print(f"[embeddings] loaded {EMBED_MODEL_NAME} in {time.time()-t0:.1f}s")
+        # Share the process-wide singleton so the model loads at most once.
+        if self._model is None:
+            self._model = get_embedding_model()
         return self._model
 
     # --- upsert + load

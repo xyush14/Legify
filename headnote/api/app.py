@@ -1042,6 +1042,14 @@ from headnote.drafter.storage import init_drafts_db as _init_drafts_db
 app.include_router(_drafter_router)
 _init_drafts_db()
 
+# Document Vault — OCR + searchable scanned case documents: /api/documents/*
+# (SQLite, next to drafts; reuses the Groq vision OCR + the shared fastembed
+# model for hybrid keyword + semantic search — see headnote/documents/.)
+from headnote.api.documents import router as _documents_router
+from headnote.documents.storage import init_documents_db as _init_documents_db
+app.include_router(_documents_router)
+_init_documents_db()
+
 # In-app judgment viewer — /case/<doc_id> + /api/case/<doc_id>
 # Lawyers click "Read judgment" → land here instead of an IK search redirect.
 # Critical for the trust moat: full text, clean caption, provenance footer.
@@ -1388,6 +1396,15 @@ def draft_bail_application():
     courts. English render falls back for HC English benches.
     """
     return FileResponse(config.STATIC_DIR / "draft-bail.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
+@app.get("/documents", include_in_schema=False)
+@app.get("/documents/", include_in_schema=False)
+def documents_page():
+    """Document Vault — upload scanned/handwritten case documents (postmortem
+    notes, FIRs, affidavits, orders), OCR them, and read the text beside the
+    original page (EN ⇄ हिं). Static SPA; talks to /api/documents/*."""
+    return FileResponse(config.STATIC_DIR / "documents.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
 @app.get("/draft/recovery", include_in_schema=False)
