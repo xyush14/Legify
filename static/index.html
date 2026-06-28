@@ -311,12 +311,13 @@
                 <button type="button" data-lang="hi" class="on">हिंदी</button>
                 <button type="button" data-lang="en">English</button>
               </div>
-              <button type="button" id="pd-upload" class="pd__btn pd__btn--ghost pd__upload" title="Upload an FIR / order / notice — we OCR it">📎 Upload</button>
+              <button type="button" id="pd-upload" class="pd__btn pd__btn--ghost pd__upload" title="Attach an FIR / order / notice — we draft from it">📎 Attach</button>
               <input type="file" id="pd-file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" multiple hidden>
               <a href="/draft/smart" class="pd__voice mono">✦ voice mode</a>
               <span class="pd__grow"></span>
               <button type="button" id="pd-draft" class="pd__btn">Draft it →</button>
             </div>
+            <div class="pd__attached" id="pd-attached" hidden></div>
           </div>
 
           <div class="pd__loading mono" id="pd-loading" hidden><span class="pd__spin" aria-hidden="true"></span><span id="pd-loading-text">Reading the matter…</span></div>
@@ -538,13 +539,23 @@
   <!-- Prompt drafter (drafting view) — self-contained; POSTs /api/draft/from-prompt -->
   <script>
   (function(){
-    var lang="hi", last=null;
+    var lang="hi", last=null, attached=null;
     var $=function(id){return document.getElementById(id);};
-    var input=$("pd-input"), draftBtn=$("pd-draft");
+    var input=$("pd-input"), draftBtn=$("pd-draft"), uploadBtn=$("pd-upload"), fileInput=$("pd-file");
     if(!input||!draftBtn) return;
     var browse=$("draft-court-browse"),
         searchBox=document.querySelector(".draft-search"),
         searchResults=$("draft-search-results");
+    // Show the attached reference doc as a chip (it drives the next Draft; not OCR'd into the box).
+    function renderAttached(){
+      var el=$("pd-attached"); if(!el) return;
+      if(!attached||!attached.length){ el.hidden=true; el.innerHTML=""; return; }
+      var label = attached.length===1 ? attached[0].name : (attached.length+" pages");
+      el.hidden=false;
+      el.innerHTML='<span class="pd__chip">📎 '+esc(label)+' <button type="button" id="pd-attach-x" aria-label="remove attachment">✕</button></span>'+
+                   '<span class="pd__attach-note mono">reference — we’ll draft from it</span>';
+      var x=$("pd-attach-x"); if(x) x.onclick=function(){ attached=null; if(fileInput) fileInput.value=""; renderAttached(); };
+    }
     function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
     // Open the SAME canonical draft in the universal editor: stash the flat fields under the
     // editor's own localStorage key (headnote.tpl.<id>.<uid>) so its restore picks them up, then go.
@@ -567,7 +578,7 @@
     $("pd-print").addEventListener("click",function(){var f=$("pd-frame");if(f.contentWindow){f.contentWindow.focus();f.contentWindow.print();}});
 
     function setBrowseHidden(h){ if(browse)browse.style.display=h?"none":""; if(searchBox)searchBox.style.display=h?"none":""; if(h&&searchResults)searchResults.hidden=true; }
-    $("pd-new").addEventListener("click",function(){$("pd-result").hidden=true;setBrowseHidden(false);input.value="";input.focus();window.scrollTo({top:0,behavior:"smooth"});});
+    $("pd-new").addEventListener("click",function(){$("pd-result").hidden=true;setBrowseHidden(false);input.value="";attached=null;if(fileInput)fileInput.value="";renderAttached();input.focus();window.scrollTo({top:0,behavior:"smooth"});});
 
     function renderResult(res){
       last=res;
@@ -599,41 +610,36 @@
       $("pd-result").scrollIntoView({behavior:"smooth",block:"start"});
     }
 
-    var msgs=["Reading the matter…","Choosing the right application…","Composing in court format…","Checking sections & citations…"];
     function draft(){
-      var prompt=input.value.trim(); if(!prompt){input.focus();return;}
+      var prompt=input.value.trim(), hasDoc=!!(attached&&attached.length);
+      if(!prompt && !hasDoc){ input.focus(); return; }
       $("pd-err").hidden=true; $("pd-result").hidden=true; draftBtn.disabled=true; $("pd-loading").hidden=false;
+      var msgs=[hasDoc?"Reading the document…":"Reading the matter…","Choosing the right application…","Composing in court format…","Checking sections & citations…"];
       var i=0; $("pd-loading-text").textContent=msgs[0];
       var tick=setInterval(function(){i=(i+1)%msgs.length;$("pd-loading-text").textContent=msgs[i];},2200);
-      fetch("/api/draft/from-prompt",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:prompt,lang:lang})})
-        .then(function(r){return r.json();})
+      var req;
+      if(hasDoc){
+        var fd=new FormData(); fd.append("prompt",prompt); fd.append("lang",lang);
+        for(var k=0;k<attached.length;k++) fd.append("files",attached[k]);
+        req=fetch("/api/draft/from-document",{method:"POST",body:fd});
+      } else {
+        req=fetch("/api/draft/from-prompt",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:prompt,lang:lang})});
+      }
+      req.then(function(r){return r.json();})
         .then(function(res){clearInterval(tick);$("pd-loading").hidden=true;draftBtn.disabled=false;
-          if(!res||res.ok===false){throw new Error((res&&res.error)||"Could not draft this — try rephrasing.");}renderResult(res);})
-        .catch(function(e){clearInterval(tick);$("pd-loading").hidden=true;draftBtn.disabled=false;$("pd-err").textContent=e.message||String(e);$("pd-err").hidden=false;});
+          if(!res||res.ok===false){throw new Error((res&&(res.error||res.detail))||"Could not draft this — try rephrasing or attach a clearer document.");}renderResult(res);})
+        .catch(function(e){clearInterval(tick);$("pd-loading").hidden=true;draftBtn.disabled=false;$("pd-err").textContent=(e.message||String(e));$("pd-err").hidden=false;});
     }
     draftBtn.addEventListener("click",draft);
     input.addEventListener("keydown",function(e){if((e.metaKey||e.ctrlKey)&&e.key==="Enter")draft();});
 
-    // Upload a document → OCR to text → drop into the prompt box for review + Draft.
-    var uploadBtn=$("pd-upload"), fileInput=$("pd-file");
+    // Attach a reference document — held for the next Draft (server OCRs it + drafts from it).
     if(uploadBtn && fileInput){
       uploadBtn.addEventListener("click",function(){ fileInput.click(); });
       fileInput.addEventListener("change",function(){
-        var fs=fileInput.files; if(!fs||!fs.length) return;
-        $("pd-err").hidden=true;
-        var orig=uploadBtn.textContent; uploadBtn.disabled=true;
-        uploadBtn.textContent="📄 reading "+(fs.length>1?fs.length+" pages":fs[0].name)+"…";
-        var fd=new FormData(); for(var i=0;i<fs.length;i++) fd.append("files",fs[i]);
-        fetch("/api/draft/ocr-text",{method:"POST",body:fd})
-          .then(function(r){return r.json();})
-          .then(function(j){
-            if(!j||j.ok===false||!j.text) throw new Error((j&&(j.detail||j.error))||"Couldn't read that document.");
-            var cur=input.value.trim();
-            input.value=(cur?cur+"\n\n":"")+j.text.trim();
-            input.focus(); input.scrollTop=input.scrollHeight;
-          })
-          .catch(function(e){ $("pd-err").textContent="Upload OCR failed: "+(e.message||e); $("pd-err").hidden=false; })
-          .then(function(){ uploadBtn.disabled=false; uploadBtn.textContent=orig; fileInput.value=""; });
+        attached = (fileInput.files && fileInput.files.length) ? fileInput.files : null;
+        renderAttached();
+        if(attached) input.focus();
       });
     }
   })();

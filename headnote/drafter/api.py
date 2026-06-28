@@ -190,40 +190,59 @@ def draft_from_prompt_route(body: FromPromptBody):
         return JSONResponse({"ok": False, "error": f"{type(e).__name__}: {e}"}, status_code=500)
 
 
-@router.post("/ocr-text", summary="OCR an uploaded document → raw transcribed text (feeds the prompt drafter)")
-async def ocr_text(
+@router.post("/from-document", summary="Draft from an attached reference document — OCR it, then run the draft pipeline")
+async def draft_from_document(
+    prompt: str = Form(""),
+    lang: str = Form("hi"),
     file: Optional[UploadFile] = File(None),
     files: Optional[List[UploadFile]] = File(None),
 ):
-    """Vision-OCR a photographed/scanned document (FIR, order, notice, agreement…) to PLAIN TEXT
-    so the lawyer can drop it straight into the prompt drafter. Ungated, like /from-prompt.
-    Supported: JPEG, PNG, WebP, GIF, PDF. Max 20 MB/file, 8 pages."""
+    """The lawyer ATTACHES a reference document (FIR / order / notice) to draft FROM. We read it
+    and run it through the SAME draft pipeline as a typed prompt (classify → deterministic canonical
+    | house-style author), so the DOCUMENT drives the draft. The OCR'd content is used INTERNALLY as
+    the matter's facts — never shown as a raw-text dump. An optional typed prompt adds intent (the
+    relief sought / draft type). Ungated, like /from-prompt. Images or PDF; max 20 MB/file, 8 pages."""
+    from fastapi.responses import JSONResponse
     from headnote.drafter.ocr import ocr_text_pages
+    from headnote.drafter.from_prompt import draft_from_prompt
+
     uploads: List[UploadFile] = []
     if files:
         uploads.extend(files)
     if file:
         uploads.append(file)
-    if not uploads:
-        raise HTTPException(status_code=400, detail="upload 'file' or 'files'")
-    if len(uploads) > _OCR_MAX_PAGES:
-        raise HTTPException(status_code=400, detail=f"too many pages ({len(uploads)}); max {_OCR_MAX_PAGES}")
-    pages: list[tuple[bytes, str]] = []
-    for idx, up in enumerate(uploads, start=1):
-        mt = up.content_type or ""
-        if mt not in _OCR_ALLOWED_MIME:
-            raise HTTPException(status_code=400, detail=f"page {idx}: unsupported type {mt!r}; use JPEG, PNG, WebP, GIF, or PDF")
-        data = await up.read()
-        if not data:
-            raise HTTPException(status_code=400, detail=f"page {idx}: empty file")
-        if len(data) > _OCR_MAX_BYTES:
-            raise HTTPException(status_code=400, detail=f"page {idx}: too large; max 20 MB")
-        pages.append((data, mt))
+    if not uploads and not (prompt or "").strip():
+        return JSONResponse({"ok": False, "error": "attach a document or describe the matter"}, status_code=400)
+
+    doc_text = ""
+    if uploads:
+        if len(uploads) > _OCR_MAX_PAGES:
+            return JSONResponse({"ok": False, "error": f"too many pages ({len(uploads)}); max {_OCR_MAX_PAGES}"}, status_code=400)
+        pages: list[tuple[bytes, str]] = []
+        for idx, up in enumerate(uploads, start=1):
+            mt = up.content_type or ""
+            if mt not in _OCR_ALLOWED_MIME:
+                return JSONResponse({"ok": False, "error": f"page {idx}: unsupported type {mt!r}; use an image or PDF"}, status_code=400)
+            data = await up.read()
+            if not data:
+                return JSONResponse({"ok": False, "error": f"page {idx}: empty file"}, status_code=400)
+            if len(data) > _OCR_MAX_BYTES:
+                return JSONResponse({"ok": False, "error": f"page {idx}: too large; max 20 MB"}, status_code=400)
+            pages.append((data, mt))
+        try:
+            doc_text = ocr_text_pages(pages)
+        except Exception as e:
+            return JSONResponse({"ok": False, "error": f"could not read the document: {e}"}, status_code=502)
+
+    # The document is the source of facts; an optional typed prompt adds intent. Both → the matter.
+    matter = (prompt or "").strip()
+    if doc_text.strip():
+        ref = "संलग्न दस्तावेज से तथ्य" if lang == "hi" else "Facts from the attached document"
+        matter = (matter + "\n\n" if matter else "") + ref + ":\n" + doc_text.strip()
     try:
-        text = ocr_text_pages(pages)
+        return draft_from_prompt(matter, lang)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"OCR failed: {e}")
-    return {"ok": True, "page_count": len(pages), "text": text}
+        return JSONResponse({"ok": False, "error": f"{type(e).__name__}: {e}"}, status_code=500)
 
 
 @router.get("/{draft_id}", summary="Get one draft by id")
