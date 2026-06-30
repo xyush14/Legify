@@ -155,11 +155,27 @@
   .toast--warn { background: var(--warn); }
 
   /* ---------- mobile ---------- */
+  .mobile-tabs { display: none; }
   @media (max-width: 880px) {
     .split { display: block; height: auto; }
+    .mobile-tabs {
+      display: flex; position: sticky; top: 0; z-index: 60;
+      gap: 6px; padding: 6px;
+      background: var(--panel); border-bottom: 1px solid var(--line);
+    }
+    .mobile-tabs__btn {
+      flex: 1; padding: 10px 0; border: none; border-radius: 8px;
+      background: transparent; color: var(--muted);
+      font-family: inherit; font-size: 13px; font-weight: 600;
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
+    .mobile-tabs__btn.is-active { background: var(--ink); color: var(--panel); }
+    body.lang-hi .mobile-tabs { font-family: 'Noto Sans Devanagari', sans-serif; }
     .form-pane { display: block; max-height: none; padding: 16px 14px 40px; border-right: none; }
-    .doc-pane { padding: 16px 8px 60px; }
-    .doc-page { padding: 28px 22px 48px; }
+    .doc-pane { display: none; padding: 14px 8px 80px; }
+    body.mview-preview .form-pane { display: none; }
+    body.mview-preview .doc-pane { display: block; }
+    .doc-page { padding: 26px 18px 48px; font-size: 13px; max-width: none; width: 100%; }
     .topbar { padding: 10px 12px; }
     .topbar__sub { display: none; }
     .topbar__right { gap: 4px; }
@@ -200,6 +216,13 @@
     <button class="btn" id="btn-edit" data-en="✏️ Edit" data-hi="✏️ संपादन">✏️ संपादन</button>
     <button class="btn btn--primary" id="btn-share">📱 WhatsApp</button>
   </div>
+</div>
+
+<!-- Mobile-only: switch between filling the form and reading the full-width
+     preview. -->
+<div class="mobile-tabs" id="mobile-tabs" role="tablist">
+  <button type="button" class="mobile-tabs__btn is-active" id="mtab-form" role="tab" data-en="Form" data-hi="फ़ॉर्म">फ़ॉर्म</button>
+  <button type="button" class="mobile-tabs__btn" id="mtab-preview" role="tab" data-en="Preview" data-hi="प्रीव्यू">प्रीव्यू</button>
 </div>
 
 <div class="split">
@@ -757,6 +780,18 @@ function _downloadAndWA(blob, filename, text) {
 
 $('#lang-en').addEventListener('click', () => switchLang('en'));
 $('#lang-hi').addEventListener('click', () => switchLang('hi'));
+
+// ---- Mobile Form/Preview tabs (inert on desktop, where both panes show) ----
+function setMobileView(v) {
+  const preview = v === 'preview';
+  document.body.classList.toggle('mview-preview', preview);
+  const f = $('#mtab-form'), p = $('#mtab-preview');
+  if (f) f.classList.toggle('is-active', !preview);
+  if (p) p.classList.toggle('is-active', preview);
+  if (preview) { const dp = $('#doc-page'); if (dp) dp.scrollTop = 0; window.scrollTo(0, 0); }
+}
+$('#mtab-form')?.addEventListener('click', () => setMobileView('form'));
+$('#mtab-preview')?.addEventListener('click', () => setMobileView('preview'));
 
 // =========================================================================
 // Toast + light persistence (lawyer's own prefs only — NEVER client data)
