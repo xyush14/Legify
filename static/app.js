@@ -5,7 +5,6 @@
  *
  * Research auto-detects the user's intent from the input:
  *   - >1800 chars + paragraph breaks  → Headnote (Cri.L.J. format generation)
- *   - <80 chars, no sentence punctuation → Digest (topic research)
  *   - default                          → Situation (facts → ranked precedents)
  *
  * The user can override via the mode chip if detection is wrong.
@@ -229,15 +228,13 @@
     // Headnote: long judgment-like text with multiple paragraphs
     if (t.length > 1800 && (t.match(/\n\s*\n/g) || []).length >= 1) return 'headnote';
     if (t.length > 3000) return 'headnote';
-    // Digest: short doctrinal phrase, no sentence punctuation
-    const sentenceMarks = (t.match(/[.?!।]/g) || []).length;
-    if (t.length < 80 && sentenceMarks === 0) return 'digest';
+    // Everything else is a situation → ranked precedents. Short queries are
+    // treated as a situation too (no separate "digest" mode).
     return 'situation';
   }
 
   function describeMode(intent) {
     if (intent === 'headnote') return 'detected: long judgment text → cri.l.j. headnote';
-    if (intent === 'digest')   return 'detected: short doctrinal phrase → research digest';
     return 'detected: factual situation → ranked precedents';
   }
 
@@ -1188,34 +1185,7 @@
     return head;
   }
 
-  // ---- digest + headnote views ----
-  function renderDigest(parsed) {
-    const wrap = ce('div', { cls: 'results' });
-    const sections = parsed.sections || parsed.subtopics || [];
-    if (!sections.length) {
-      wrap.appendChild(ce('div', { cls: 'empty', children: [
-        ce('h2', { text: 'no digest sections returned' }),
-        ce('p', { text: 'try rephrasing the topic — be specific about the doctrine and statute.' }),
-      ]}));
-      return wrap;
-    }
-    sections.forEach(s => {
-      const block = ce('div', { cls: 'digest-block', children: [
-        ce('div', { cls: 'digest-subhead', text: s.subhead || s.title || '—' }),
-        ce('div', { cls: 'digest-text', text: s.summary || s.discussion || s.text || '' }),
-      ]});
-      const cases = (s.leading_cases || s.cases || []).filter(Boolean);
-      if (cases.length) {
-        block.appendChild(ce('div', {
-          cls: 'digest-cases',
-          text: 'leading authority: ' + cases.map(c => typeof c === 'string' ? c : (c.case_id || c.title || '?')).join(' · '),
-        }));
-      }
-      wrap.appendChild(block);
-    });
-    return wrap;
-  }
-
+  // ---- headnote view ----
   function renderHeadnotes(parsed) {
     const wrap = ce('div', { cls: 'results' });
     const list = parsed.headnotes || [];
@@ -1312,9 +1282,6 @@
       target.appendChild(state.resultView === 'table' ? renderCasesAsTable(cases) : renderCasesAsCards(cases));
       // CTA after every successful research response — even when results
       // look good. Drives the 15-min personal-assist flow.
-      target.appendChild(renderAssistCta('research', query));
-    } else if (autoMode === 'digest') {
-      target.appendChild(renderDigest(parsed));
       target.appendChild(renderAssistCta('research', query));
     } else if (autoMode === 'headnote') {
       target.appendChild(renderHeadnotes(parsed));
@@ -1422,15 +1389,11 @@
       'searching across 3.5 crore judgments',
       'reasoning through candidates',
       'preparing case cards',
-    ] : intent === 'headnote' ? [
+    ] : [
       'reading the judgment',
       'extracting points of law',
       'generating cri.l.j. headnote',
       'verifying with haiku',
-    ] : [
-      'reading the topic',
-      'sweeping curated authority',
-      'generating digest',
     ];
     stagePanel = renderStagesPanel(stages);
     target.appendChild(stagePanel);
@@ -1473,7 +1436,10 @@
 
     try {
       let resp;
-      if (intent === 'situation') {
+      if (intent === 'headnote') {
+        resp = await post('/api/headnote', { judgment_text: input });
+      } else {
+        // Situation / ranked-precedents — the default for any normal query.
         const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
         const raw = await fetch('/api/situation', {
           method: 'POST',
@@ -1492,10 +1458,6 @@
         if (handleEntitlementError(raw.status, data)) throw new Error((data.detail && data.detail.message) || 'upgrade required');
         if (!raw.ok) throw new Error(friendlyError(raw.status, data.error || (data.detail && data.detail.message)));
         resp = data;
-      } else if (intent === 'digest') {
-        resp = await post('/api/digest', { topic: input, deep_mode: state.deepMode });
-      } else {
-        resp = await post('/api/headnote', { judgment_text: input });
       }
 
       // Resolve decomposition (best-effort enrichment)
