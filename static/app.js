@@ -715,6 +715,11 @@
       official_pdf_url: c.official_pdf_url || (c.official_doc_id ? '/api/judgment/pdf/' + c.official_doc_id : ''),
       official_citation: c.official_citation || '',
       is_official_copy: !!c.is_official_copy,
+      // "Reported in" — every reporter this judgment appears in (SCC/AIR/…),
+      // plus the free court-issued neutral citation (shown apart from the
+      // paid reporters). Parsed from IK; falls back to nothing when unreported.
+      citations_all: Array.isArray(c.citations_all) ? c.citations_all : [],
+      neutral_citation: c.neutral_citation || c.official_citation || '',
       fame_indicator: c.fame_indicator,
       source: c.source,
       source_language: c.source_language || (c.source && String(c.source).startsWith('hf') ? null : 'en'),
@@ -745,6 +750,120 @@
   }
   function verifiedBadge() {
     return ce('span', { cls: 'badge badge--verified', text: 'verified' });
+  }
+  // A citation is "neutral" (free, court-issued) rather than a paid reporter
+  // when it carries the SC/HC neutral form or the official S.C.R. report:
+  //   2022 INSC 690 · [2024] 10 S.C.R. 108 · 2023:MPHC-JBP:18421
+  function isNeutralCite(s) {
+    // INSC has no word boundary in the compact official form "2008INSC1281",
+    // so match it bare — no paid reporter name contains "INSC".
+    return /INSC/i.test(s)
+        || /\bS\.?\s*C\.?\s*R\.?\b/i.test(s)
+        || /^\s*\[?\d{4}\]?\s*:/.test(s);   // HC neutral form YYYY:COURT:NUMBER
+  }
+  // Real SC judgments are reported in 50+ places — SCC and AIR alongside dozens
+  // of obscure regional reporters (KER LT, ORISSA LR, MAH LJ …). A lawyer only
+  // ever cites the recognised national reporters, so rank those to the front
+  // and collapse the rest behind a "+N more". Lower rank = shown first; 90 = the
+  // regional long tail that stays hidden until expanded.
+  function reporterRank(s) {
+    if (/SCC\s*OnLine/i.test(s)) return 2;
+    if (/SCC\s*\(?\s*CRI/i.test(s)) return 7;
+    if (/\bSCC\b/i.test(s)) return 1;
+    if (/\bAIR\b.*\bSCW\b/i.test(s)) return 5;
+    if (/\bAIR\b.*SC\s*\(\s*CRI/i.test(s)) return 6;
+    if (/\bAIR\b.*(SUPREME\s+COURT|\bSC\b)/i.test(s)) return 3;
+    if (/\bAIR\b/i.test(s)) return 4;                              // AIR <State> — HC cases
+    if (/CRI\.?\s*L\.?\s*J\.?|CRILJ|CRI\s+LJ/i.test(s)) return 8;
+    if (/\bSCALE\b/i.test(s)) return 9;
+    if (/\bJT\b/i.test(s)) return 10;
+    return 90;
+  }
+  // Builds the "Reported in" row: the reporters a lawyer pastes into a pleading,
+  // recognised national reporters first (primary highlighted), the free neutral
+  // citation greyed apart, the regional long tail collapsed behind "+N more",
+  // and a copy button for the clean citeable string. Returns null when the
+  // judgment is unreported so the row simply doesn't appear (unchanged card).
+  function buildReportedRow(c) {
+    const seen = new Set();
+    const all = [];
+    (c.citations_all || []).forEach(s => {
+      const v = String(s || '').trim();
+      if (v && !seen.has(v)) { seen.add(v); all.push(v); }
+    });
+    const neutral = String(c.neutral_citation || '').trim();
+    if (neutral && !seen.has(neutral)) { seen.add(neutral); all.push(neutral); }
+    if (!all.length) return null;
+
+    const primary = String(c.citation || '').trim();
+    const neutrals  = all.filter(isNeutralCite);
+    let   reporters = all.filter(s => !isNeutralCite(s));
+    // Rank: the card's own primary citation always leads, then recognised
+    // national reporters, then the regional tail (stable within each rank).
+    reporters = reporters
+      .map((s, i) => ({ s, i, r: (s === primary ? 0 : reporterRank(s)) }))
+      .sort((a, b) => (a.r - b.r) || (a.i - b.i))
+      .map(o => o.s);
+
+    const MAJOR_CAP = 5;
+    const major = reporters.filter(s => s === primary || reporterRank(s) < 90).slice(0, MAJOR_CAP);
+    const extra = reporters.filter(s => !major.includes(s));
+    // The clean string a lawyer pastes — recognised reporters + neutral.
+    const copyStr = major.concat(neutrals).join(' : ');
+
+    const cites = ce('div', { cls: 'cites' });
+    let shown = 0;
+    const addChip = (s, isPrimary) => {
+      if (shown > 0) cites.appendChild(ce('span', { cls: 'cite-sep', text: ':' }));
+      let cls = 'cite';
+      if (isNeutralCite(s)) cls += ' cite--neutral';
+      else if (isPrimary) cls += ' cite--primary';
+      cites.appendChild(ce('span', { cls, text: s }));
+      shown++;
+    };
+    major.forEach(s => addChip(s, s === primary || (!primary && s === major[0])));
+
+    // "+N more" — reveals the regional reporters inline, then removes itself.
+    if (extra.length) {
+      const moreBtn = ce('button', {
+        cls: 'cite-more', text: '+' + extra.length + ' more',
+        attrs: { type: 'button', title: 'Show all reporters' },
+      });
+      moreBtn.addEventListener('click', () => {
+        const sep = document.createDocumentFragment();
+        extra.forEach(s => {
+          sep.appendChild(ce('span', { cls: 'cite-sep', text: ':' }));
+          sep.appendChild(ce('span', { cls: 'cite cite--minor', text: s }));
+        });
+        cites.insertBefore(sep, moreBtn);
+        moreBtn.remove();
+      });
+      cites.appendChild(moreBtn);
+    }
+
+    // Neutral citation(s) trail, greyed apart from the paid reporters.
+    neutrals.forEach(s => addChip(s, false));
+
+    const copyBtn = ce('button', {
+      cls: 'cite-copy', text: '⧉ copy',
+      attrs: { type: 'button', title: 'Copy citation' },
+    });
+    copyBtn.addEventListener('click', () => {
+      const done = () => {
+        copyBtn.textContent = '✓ copied';
+        copyBtn.classList.add('copied');
+        setTimeout(() => { copyBtn.textContent = '⧉ copy'; copyBtn.classList.remove('copied'); }, 1400);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(copyStr).then(done).catch(done);
+      } else { done(); }
+    });
+    cites.appendChild(copyBtn);
+
+    return ce('div', { cls: 'case-card__row case-card__row--reported', children: [
+      ce('div', { cls: 'case-card__rowlabel', text: 'reported in' }),
+      cites,
+    ]});
   }
   function judgmentLink(case_) {
     if (!case_.kanoon_url) return null;
@@ -783,10 +902,13 @@
     head.appendChild(titleEl);
     head.appendChild(ce('div', { cls: 'case-card__meta mono', text: `#${idx + 1}` }));
 
-    // Meta line: court · year · bench · citation
+    // Meta line: court · year · bench · citation. When the full "Reported in"
+    // row will render below, drop the single citation here so it isn't shown
+    // twice.
+    const hasReportedRow = (c.citations_all && c.citations_all.length) || c.neutral_citation;
     const metaLine = ce('div', { cls: 'case-card__meta mono' });
     metaBits(c).forEach(b => metaLine.appendChild(ce('span', { text: b })));
-    if (c.citation) metaLine.appendChild(ce('span', { text: c.citation }));
+    if (c.citation && !hasReportedRow) metaLine.appendChild(ce('span', { text: c.citation }));
 
     // Catchword chain (journal style only) — shows above the body
     const preBody = [];
@@ -889,6 +1011,13 @@
         ce('div', { cls: 'case-card__rowtext mono', text: c.cross_refs.join(' · ') }),
       ]}));
     }
+
+    // 8. "Reported in" — the full reporter list a lawyer pastes into a pleading,
+    // joined the conventional way with " : ". Paid reporters (SCC/AIR/Cri.L.J./
+    // SCALE) lead; the free court-issued neutral citation (INSC / S.C.R. / HC
+    // neutral) is shown apart, greyed. One tap copies the whole string.
+    const reportedRow = buildReportedRow(c);
+    if (reportedRow) rows.push(reportedRow);
 
     const badges = ce('div', { cls: 'case-card__badges' });
     const ob = outcomeBadge(c); if (ob) badges.appendChild(ob);

@@ -274,6 +274,16 @@ def _enrich_case(case: dict, meta_by_id: dict, refined_dual_map: list[dict] | No
         case["is_official_copy"] = True
         if meta.get("official_citation"):
             case["official_citation"] = meta["official_citation"]
+    # "Reported in" row — every reporter the judgment appears in (SCC / AIR /
+    # Cri.L.J. / SCALE …), plus the free court-issued neutral citation. Parsed
+    # from IK but dropped on the way out until now; carry it through so the card
+    # can show the full citation string a lawyer pastes into a pleading.
+    cites_all = meta.get("citations_all") or []
+    if cites_all and not case.get("citations_all"):
+        case["citations_all"] = list(cites_all)
+    neutral = meta.get("neutral_citation") or meta.get("official_citation") or ""
+    if neutral and not case.get("neutral_citation"):
+        case["neutral_citation"] = neutral
     if "fame_indicator" not in case:
         # Curated cases have no IK citation count, so the "obscure" bucket would
         # be misleading. Label them as curated to signal editorial provenance.
@@ -2806,6 +2816,10 @@ def _api_situation_impl(req: SituationRequest, _record):
             "official_citation": (getattr(cs, "neutral_citation", "")
                                   or getattr(cs, "scr_citation", "") or ""),
             "is_official_copy": bool(getattr(cs, "is_official_copy", False)),
+            # Full reporter list for the "Reported in" row + the free court-issued
+            # neutral citation (greyed apart from the paid reporters in the UI).
+            "citations_all":    list(getattr(cs, "citations_all", []) or []),
+            "neutral_citation": getattr(cs, "neutral_citation", "") or "",
         }
     for c in curated:
         if c.get("id"):
