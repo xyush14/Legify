@@ -963,6 +963,42 @@ button { font-family: inherit; }
 }
 .cite-more:hover { color: var(--ink); border-color: var(--ink-3); }
 .cite-more:focus-visible { outline: 2px solid var(--ink-3); outline-offset: 2px; }
+
+/* Progressive research — Tier-1 shell cards (real cases, analysis streaming in).
+   Shares .case-card styling; only the pending-analysis area is bespoke. */
+.case-card__row--pending .case-card__rowtext {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.analyzing {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Geist Mono', monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  color: var(--gold-ink);
+}
+.analyzing__dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--gold);
+  animation: hnPulse 1s var(--ease) infinite;
+}
+@keyframes hnPulse { 0%,100% { opacity:.35; transform:scale(.8); } 50% { opacity:1; transform:scale(1.15); } }
+.shimmer {
+  height: 11px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--line-2) 25%, var(--soft) 37%, var(--line-2) 63%);
+  background-size: 400% 100%;
+  animation: hnShimmer 1.3s ease infinite;
+}
+.shimmer--w1 { width: 92%; }
+.shimmer--w2 { width: 70%; }
+@keyframes hnShimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) { .analyzing__dot, .shimmer { animation: none; } }
 .cite-sep {
   font-family: 'Geist Mono', monospace;
   font-size: 12px;

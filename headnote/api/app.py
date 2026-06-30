@@ -38,7 +38,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import FastAPI, Header, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -2223,7 +2223,124 @@ def api_situation(
         return _api_situation_impl(req, _record)
 
 
-def _api_situation_impl(req: SituationRequest, _record):
+def _build_situation_shells(retrieval_cases: list, limit: int = 6) -> list:
+    """Lightweight, REAL card previews emitted before the LLM writes analysis.
+
+    Each shell is a verified retrieved case (never fabricated) carrying enough
+    to render a card immediately: title, court, year, the "Reported in"
+    citations, authority count, and a provisional "why" lifted from the
+    top-ranked Indian Kanoon paragraph. The LLM's final selection is a subset
+    of these (the client matches by case_id), so painting them early never
+    surfaces a case that later gets retracted.
+    """
+    shells: list = []
+    ordered = sorted(
+        retrieval_cases,
+        key=lambda cs: getattr(cs, "relevance_score", 0.0) or 0.0,
+        reverse=True,
+    )
+    for cs in ordered[:limit]:
+        paras = getattr(cs, "paragraphs", None) or []
+        why = ""
+        if paras:
+            why = (getattr(paras[0], "text", "") or "").strip()
+            if len(why) > 240:
+                why = why[:237].rstrip() + "…"
+        src = getattr(cs, "source", "ik") or "ik"
+        shells.append({
+            "case_id": cs.case_id,
+            "title": cs.title,
+            "court": cs.court,
+            "year": cs.year,
+            "citation": cs.citation,
+            "citations_all": list(getattr(cs, "citations_all", []) or []),
+            "neutral_citation": (getattr(cs, "neutral_citation", "")
+                                 or getattr(cs, "scr_citation", "") or ""),
+            "numcitedby": getattr(cs, "numcitedby", 0) or 0,
+            "fame_indicator": ("curated" if src == "curated"
+                               else _fame_indicator(getattr(cs, "numcitedby", 0) or 0)),
+            "official_doc_id": getattr(cs, "official_doc_id", "") or "",
+            "source": src,
+            "why_provisional": why,
+        })
+    return shells
+
+
+@app.post("/api/situation/stream", summary="Situation -> progressive precedents (NDJSON)")
+def api_situation_stream(
+    req: SituationRequest,
+    user: CurrentUser = Depends(get_current_user),
+):
+    """Progressive variant of /api/situation. Streams newline-delimited JSON:
+
+      {"type":"shells","cases":[...]}   real verified cases, the instant
+                                        retrieval finishes (before the LLM)
+      {"type":"result", ...}            full payload, identical to
+                                        /api/situation, once analysis is done
+      {"type":"error","message":...}    pipeline failure; client falls back
+
+    /api/situation is unchanged and remains the client's fallback. Same gate
+    (deep_search) and same single quota charge as the classic endpoint.
+    """
+    # Gate up-front: quota / entitlement errors must surface as a clean status
+    # BEFORE the 200 stream opens (a half-open stream can't carry a 402/429).
+    _cm = check_and_record(user.id, "deep_search", endpoint="situation", email=user.email)
+    _record = _cm.__enter__()
+
+    def generate():
+        import queue as _queue
+        import threading as _threading
+        _SENTINEL = object()
+        bus: "_queue.Queue" = _queue.Queue()
+
+        def _on_retrieved(shells):
+            bus.put(("shells", {"cases": shells}))
+
+        def _worker():
+            try:
+                res = _api_situation_impl(req, _record, on_retrieved=_on_retrieved)
+                bus.put(("result", res))
+            except Exception as exc:  # surfaced to the client + logged
+                print(f"[situation-stream] pipeline error: {type(exc).__name__}: {exc}")
+                bus.put(("error", {"message": str(exc)}))
+            finally:
+                bus.put(_SENTINEL)
+
+        worker = _threading.Thread(target=_worker, daemon=True)
+        worker.start()
+        errored = False
+        try:
+            while True:
+                item = bus.get()
+                if item is _SENTINEL:
+                    break
+                kind, data = item
+                if kind == "error":
+                    errored = True
+                payload = {"type": kind}
+                payload.update(data)
+                yield json.dumps(payload, ensure_ascii=False) + "\n"
+            worker.join(timeout=2)
+        finally:
+            # Meter on success; on failure pass the exception into the CM so the
+            # quota increment is SKIPPED — a client fallback to /api/situation
+            # then charges exactly once.
+            try:
+                if errored:
+                    _cm.__exit__(RuntimeError, RuntimeError("situation stream failed"), None)
+                else:
+                    _cm.__exit__(None, None, None)
+            except Exception:
+                pass
+
+    return StreamingResponse(generate(), media_type="application/x-ndjson")
+
+
+def _api_situation_impl(req: SituationRequest, _record, on_retrieved=None):
+    # `on_retrieved`: optional callback(shells: list[dict]) invoked the moment
+    # retrieval finishes — BEFORE the 10-30s LLM call — so the streaming
+    # endpoint can paint real card shells immediately. None on the classic
+    # JSON path, which then behaves exactly as before.
     # Per-stage wall-clock timing. Logged at the end of the function so
     # Railway logs show exactly where the seconds went on a slow query.
     # This is the difference between "blindly tweaking the pipeline" and
@@ -2498,6 +2615,16 @@ def _api_situation_impl(req: SituationRequest, _record):
             f"[situation] pipeline deadline: {_elapsed_so_far:.1f}s elapsed, "
             f"{_remaining:.1f}s remaining — disabling extended thinking"
         )
+
+    # Progressive reveal (streaming endpoint only): emit the real, verified
+    # cases now — retrieval is done, the LLM hasn't run yet — so the UI can
+    # show card shells immediately and stream the analysis in. No-op on the
+    # classic JSON path (on_retrieved is None).
+    if on_retrieved is not None:
+        try:
+            on_retrieved(_build_situation_shells(retrieval_cases))
+        except Exception as _shell_exc:  # never let shell-prep break the pipeline
+            print(f"[situation-stream] shell build failed: {_shell_exc}")
 
     payload = {
         "system_prompt": sys_prompt,

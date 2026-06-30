@@ -1116,6 +1116,62 @@
     }
   }
 
+  // Tier-1 of progressive research: paint REAL retrieved cases the moment
+  // retrieval finishes — provisional "why" + the "Reported in" citations —
+  // while the analysis (held/quote/match) streams in. Replaced wholesale by
+  // renderResearchResult() once the final result arrives.
+  function renderShellCards(shells, target, stagePanel) {
+    if (!shells || !shells.length) return;
+    target.innerHTML = '';
+    if (stagePanel) advanceStage(stagePanel, 2, true);   // "searching" done → "preparing"
+    target.appendChild(ce('div', { cls: 'researching', children: [
+      ce('div', { cls: 'researching__label', text: 'found ' + shells.length + ' cases' }),
+      ce('div', { cls: 'researching__line', children: [
+        ce('div', { cls: 'researching__text', text: 'writing analysis…' }),
+      ]}),
+    ]}));
+    const list = ce('div', { cls: 'results' });
+    shells.forEach((s, i) => list.appendChild(renderShellCard(s, i)));
+    target.appendChild(list);
+  }
+
+  function renderShellCard(s, idx) {
+    const head = ce('div', { cls: 'case-card__head', children: [
+      ce('div', { cls: 'case-card__title', text: s.title || 'untitled' }),
+      ce('div', { cls: 'case-card__meta mono', text: '#' + (idx + 1) }),
+    ]});
+    const meta = ce('div', { cls: 'case-card__meta mono' });
+    if (s.court) meta.appendChild(ce('span', { text: s.court }));
+    if (s.year)  meta.appendChild(ce('span', { text: String(s.year) }));
+
+    const rows = [];
+    if (s.why_provisional) {
+      rows.push(ce('div', { cls: 'case-card__row case-card__row--factmatch', children: [
+        ce('div', { cls: 'case-card__rowlabel', text: 'why' }),
+        ce('div', { cls: 'case-card__rowtext', text: s.why_provisional }),
+      ]}));
+    }
+    rows.push(ce('div', { cls: 'case-card__row case-card__row--pending', children: [
+      ce('div', { cls: 'case-card__rowlabel', text: 'held' }),
+      ce('div', { cls: 'case-card__rowtext', children: [
+        ce('span', { cls: 'analyzing', children: [
+          ce('span', { cls: 'analyzing__dot' }),
+          ce('span', { text: 'writing analysis…' }),
+        ]}),
+        ce('div', { cls: 'shimmer shimmer--w1' }),
+        ce('div', { cls: 'shimmer shimmer--w2' }),
+      ]}),
+    ]}));
+
+    const card = ce('div', { cls: 'case-card case-card--shell', children: [head, meta, ...rows] });
+    const reported = buildReportedRow(s);
+    if (reported) card.appendChild(reported);
+    const badges = ce('div', { cls: 'case-card__badges', children: [verifiedBadge()] });
+    const fb = fameBadge(s); if (fb) badges.appendChild(fb);
+    card.appendChild(badges);
+    return card;
+  }
+
   function renderCasesAsCards(cases) {
     const list = ce('div', { cls: 'results' });
     cases.forEach((c, i) => list.appendChild(renderCaseCard(c, i)));
@@ -1369,6 +1425,59 @@
   window.renderAssistCta = renderAssistCta;
 
   // -------------------------------------------------------------- submit
+  // Progressive research. Hits /api/situation/stream, which emits real card
+  // shells the instant retrieval finishes (before the 10-30s LLM call), then
+  // the full result. Falls back to the classic /api/situation on ANY problem
+  // (older server, proxy buffering, no ReadableStream, parse error) so the
+  // proven path always backs it. Returns the same shape as /api/situation.
+  async function researchSituation(body, headers, signal, stagePanel, target) {
+    try {
+      const r = await fetch('/api/situation/stream', { method: 'POST', headers, body, signal });
+      if (!r.ok) {
+        // Gate / server error arrives BEFORE the stream opens — treat as classic.
+        const data = await r.json().catch(() => ({}));
+        if (handleEntitlementError(r.status, data)) {
+          const e = new Error((data.detail && data.detail.message) || 'upgrade required'); e.noFallback = true; throw e;
+        }
+        const e = new Error(friendlyError(r.status, data.error || (data.detail && data.detail.message))); e.noFallback = true; throw e;
+      }
+      if (!r.body || typeof r.body.getReader !== 'function') throw new Error('streaming unsupported');
+
+      const reader = r.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '', finalResp = null, streamError = null;
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        let nl;
+        while ((nl = buf.indexOf('\n')) >= 0) {
+          const line = buf.slice(0, nl).trim();
+          buf = buf.slice(nl + 1);
+          if (!line) continue;
+          let evt; try { evt = JSON.parse(line); } catch (e) { continue; }
+          if (evt.type === 'shells') {
+            try { renderShellCards(evt.cases || [], target, stagePanel); } catch (e) { /* non-fatal */ }
+          } else if (evt.type === 'result') {
+            finalResp = { result: evt.result, raw: evt.raw, dropped_hallucinations: evt.dropped_hallucinations, meta: evt.meta };
+          } else if (evt.type === 'error') {
+            streamError = evt.message || 'stream error';
+          }
+        }
+      }
+      if (finalResp) return finalResp;
+      throw new Error(streamError || 'stream ended without a result');
+    } catch (err) {
+      if (err.name === 'AbortError' || err.noFallback) throw err;
+      console.warn('[research] streaming failed → classic fallback:', err && err.message);
+      const r2 = await fetch('/api/situation', { method: 'POST', headers, body, signal });
+      const data = await r2.json().catch(() => ({}));
+      if (handleEntitlementError(r2.status, data)) throw new Error((data.detail && data.detail.message) || 'upgrade required');
+      if (!r2.ok) throw new Error(friendlyError(r2.status, data.error || (data.detail && data.detail.message)));
+      return data;
+    }
+  }
+
   async function submitResearch() {
     const input = $('#situation-input').value.trim();
     if (!input) { toast('type something first', 'error'); return; }
@@ -1439,25 +1548,19 @@
       if (intent === 'headnote') {
         resp = await post('/api/headnote', { judgment_text: input });
       } else {
-        // Situation / ranked-precedents — the default for any normal query.
+        // Situation / ranked-precedents — progressive streaming (real card
+        // shells the moment retrieval finishes, analysis streamed in), with a
+        // clean fallback to the classic single-shot endpoint on any problem.
         const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
-        const raw = await fetch('/api/situation', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            situation: input,
-            style: state.style,
-            deep_mode: state.deepMode,
-            mode: state.mode,
-            jurisdiction: state.jurisdiction || null,
-          }),
-          signal: abortCtrl.signal,
+        const body = JSON.stringify({
+          situation: input,
+          style: state.style,
+          deep_mode: state.deepMode,
+          mode: state.mode,
+          jurisdiction: state.jurisdiction || null,
         });
+        resp = await researchSituation(body, headers, abortCtrl.signal, stagePanel, target);
         clearTimeout(abortTimer);
-        const data = await raw.json().catch(() => ({}));
-        if (handleEntitlementError(raw.status, data)) throw new Error((data.detail && data.detail.message) || 'upgrade required');
-        if (!raw.ok) throw new Error(friendlyError(raw.status, data.error || (data.detail && data.detail.message)));
-        resp = data;
       }
 
       // Resolve decomposition (best-effort enrichment)
