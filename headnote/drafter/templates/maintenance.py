@@ -244,7 +244,7 @@ def field_spec() -> dict:
         F.f("court_city", "जिला / शहर", "District / City", required=True, section="court", hint="लोकेशन से स्वतः → कुटुम्ब न्यायालय नाम"),
         F.f("court_name", "न्यायालय का नाम (स्वतः)", "Court name (auto)", section="court", auto=True),
         F.f("case_number", "प्रकरण क्रमांक", "Case no.", section="court"),
-        F.f("case_year", "वर्ष", "Year", F.DATE, section="court"),
+        F.f("case_year", "वर्ष", "Year", F.NUMBER, section="court"),
         F.f("petitioner_name", "आवेदिका का नाम", "Petitioner (wife) name", F.NAME, True, "parties"),
         F.f("petitioner_father", "आवेदिका के पिता का नाम", "Petitioner's father", F.NAME, section="parties"),
         F.f("petitioner_age", "आयु", "Age", F.NUMBER, section="parties"),
@@ -262,6 +262,8 @@ def field_spec() -> dict:
         F.f("advocate_name", "अधिवक्ता का नाम", "Advocate name", F.NAME, section="filing"),
         F.f("filing_date", "दिनांक", "Date", F.DATE, section="filing", auto=True),
     ]
+    flds.append(F.custom_grounds())
+    flds.append(F.f("state_name", "राज्य", "State", section="parties", hint="रिक्त रखने पर म.प्र."))
     return F.build_spec("maintenance", flds, _TOGGLES,
                         companions=["Rajnesh assets-&-liabilities affidavit (mandatory)",
                                     "interim-maintenance application", "§13 counsel-appointment", "vakalatnama"])

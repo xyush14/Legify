@@ -351,7 +351,7 @@ def field_spec() -> dict:
     flds = [
         F.f("court_name", "न्यायालय का नाम", "Court name", required=True, section="court"),
         F.f("case_number", "केस क्रमांक", "Case no.", section="court"),
-        F.f("case_year", "वर्ष", "Year", F.DATE, section="court"),
+        F.f("case_year", "वर्ष", "Year", F.NUMBER, section="court"),
         F.f("complainant_name", "अभियोगी का नाम", "Complainant name", F.NAME, True, "parties"),
         F.f("complainant_father", "पिता/पति का नाम", "Father/Husband", F.NAME, section="parties"),
         F.f("complainant_age", "आयु", "Age", F.NUMBER, section="parties"),

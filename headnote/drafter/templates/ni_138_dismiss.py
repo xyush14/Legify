@@ -128,7 +128,7 @@ def field_spec(court: str = "magistrate") -> dict:
         F.f("court_city", "जिला / शहर", "District / City", section="court", hint="लोकेशन से स्वतः → न्यायालय नाम"),
         F.f("court_name", "न्यायालय का नाम (स्वतः/ओवरराइड)", "Court name", required=True, section="court", auto=True),
         F.f("case_number", "परिवाद क्रमांक", "Complaint no.", required=True, section="court", ocr="order"),
-        F.f("case_year", "वर्ष", "Year", F.DATE, section="court"),
+        F.f("case_year", "वर्ष", "Year", F.NUMBER, section="court"),
         F.f("complainant_name", "परिवादी का नाम", "Complainant name", F.NAME, True, "parties"),
         F.f("accused_name", "प्रार्थी/अभियुक्त का नाम", "Accused name", F.NAME, True, "parties"),
         F.f("facts_narrative", "सूचना-पत्र तामील का दोष", "Notice-service defect", F.LONGTEXT, True, "facts",
@@ -136,6 +136,8 @@ def field_spec(court: str = "magistrate") -> dict:
         F.f("advocate_name", "अधिवक्ता का नाम", "Advocate name", F.NAME, section="filing"),
         F.f("filing_date", "दिनांक", "Date", F.DATE, section="filing", auto=True),
     ]
+    flds.append(F.custom_grounds())
+    flds.append(F.f("case_type", "प्रकरण प्रकार", "Case type", section="court", hint="जैसे आर.सी.टी. / सत्रवाद — शीर्षक का प्रकरण-कोड"))
     return F.build_spec("ni_138_dismiss", flds, _TOGGLES, companions=["vakalatnama"])
 
 

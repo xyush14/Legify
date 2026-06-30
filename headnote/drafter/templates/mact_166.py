@@ -88,7 +88,7 @@ def field_spec(court: str = "") -> dict:
         F.f("court_name", "अधिकरण का नाम", "Tribunal name", required=True, section="court",
             hint="जैसे: मोटर दुर्घटना दावा अधिकरण, ____"),
         F.f("case_number", "दावा प्रकरण क्रमांक", "Claim case no.", section="court"),
-        F.f("case_year", "वर्ष", "Year", F.DATE, section="court"),
+        F.f("case_year", "वर्ष", "Year", F.NUMBER, section="court"),
         F.f("claimant_name", "दावेदार का नाम", "Claimant name", F.NAME, True, "parties"),
         F.f("respondent_name", "अनावेदकगण (चालक/स्वामी/बीमा)", "Respondents (driver/owner/insurer)", F.NAME, True, "parties"),
         F.f("vehicle_no", "वाहन क्रमांक", "Vehicle no.", section="facts"),
@@ -98,6 +98,8 @@ def field_spec(court: str = "") -> dict:
         F.f("advocate_name", "अधिवक्ता का नाम", "Advocate name", F.NAME, section="filing"),
         F.f("filing_date", "दिनांक", "Date", F.DATE, section="filing", auto=True),
     ]
+    flds.append(F.custom_grounds())
+    flds.append(F.f("case_code", "प्रकरण कोड", "Case code", section="court", hint="जैसे एम.सी.आर.सी. / सी.आर.ए. / सी.आर.आर. / डब्ल्यू.पी."))
     return F.build_spec("mact_166", flds, _TOGGLES, companions=["affidavit", "vakalatnama", "FIR/charge-sheet, PM/MLC, vehicle docs"])
 
 

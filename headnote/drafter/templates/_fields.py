@@ -21,13 +21,23 @@ TEXT, NAME, DATE, NUMBER, MONEY, ADDRESS, SECTION_LIST, LONGTEXT, SELECT, TABLE 
 TOGGLE = "toggle"
 
 # ---- UI section groups (ordered) ----
+# NOTE: every id here must have a matching label in the editor's SECTION_LABELS
+# (static/draft-template.html); the editor groups fields by each field's own
+# `section`, so an id missing a label would render with its raw string.
 SECTION_ORDER = [
-    ("court",   {"hi": "न्यायालय",        "en": "Court"}),
-    ("parties", {"hi": "पक्षकार",          "en": "Parties"}),
-    ("crime",   {"hi": "अपराध / प्रकरण",   "en": "Crime / Matter"}),
-    ("facts",   {"hi": "तथ्य",             "en": "Facts"}),
-    ("grounds", {"hi": "आधार / विकल्प",    "en": "Grounds / Options"}),
-    ("filing",  {"hi": "दाखिल",            "en": "Filing"}),
+    ("court",      {"hi": "न्यायालय",        "en": "Court"}),
+    ("parties",    {"hi": "पक्षकार",          "en": "Parties"}),
+    ("applicant",  {"hi": "आवेदक",            "en": "Applicant"}),
+    ("respondent", {"hi": "प्रत्यर्थी",        "en": "Respondent"}),
+    ("crime",      {"hi": "अपराध / प्रकरण",   "en": "Crime / Matter"}),
+    ("custody",    {"hi": "निरोध एवं विवेचना", "en": "Custody / Investigation"}),
+    ("order",      {"hi": "विवादित आदेश",     "en": "Impugned Order"}),
+    ("conviction", {"hi": "दोषसिद्धि विवरण",   "en": "Conviction Details"}),
+    ("marriage",   {"hi": "विवाह एवं परिवार",  "en": "Marriage & Family"}),
+    ("income",     {"hi": "आय एवं भरण-पोषण",  "en": "Income & Maintenance"}),
+    ("facts",      {"hi": "तथ्य",             "en": "Facts"}),
+    ("grounds",    {"hi": "आधार / विकल्प",    "en": "Grounds / Options"}),
+    ("filing",     {"hi": "दाखिल",            "en": "Filing"}),
 ]
 
 
@@ -47,6 +57,16 @@ def toggle(key, hi, en, default=False, *, hint=""):
     """A conditional ground / optional section the lawyer switches on or off."""
     return {"key": key, "label": {"hi": hi, "en": en}, "type": TOGGLE,
             "default": default, "hint": hint}
+
+
+def custom_grounds(hi="अतिरिक्त आधार (प्रति पंक्ति एक)",
+                   en="Additional grounds (one per line)"):
+    """The lawyer's free-text case-specific grounds. EVERY render already reads
+    `a.get("custom_grounds")` as a list and appends one `यह कि …` para per entry;
+    this exposes the field so that escape-hatch is reachable from the form.
+    `to_data` splits the textarea on newlines back into that list."""
+    return f("custom_grounds", hi, en, LONGTEXT, section="grounds",
+             hint="प्रत्येक आधार नई पंक्ति में — ज्यों-का-त्यों 'यह कि' पैरा बनेगा")
 
 
 def build_spec(doc_type, fields, toggles=None, *, variants=None, companions=None):

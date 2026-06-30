@@ -262,7 +262,7 @@ def field_spec(court: str = "hc") -> dict:
     flds = [
         F.f("court_name", "उच्च न्यायालय खण्डपीठ (स्वतः)", "High Court Bench (auto)", required=True, section="court", auto=True),
         F.f("case_number", "एम.सी.आर.सी. क्रमांक", "M.Cr.C. no.", section="court"),
-        F.f("case_year", "वर्ष", "Year", F.DATE, section="court"),
+        F.f("case_year", "वर्ष", "Year", F.NUMBER, section="court"),
         F.f("section_title", "याचिका का प्रावधान", "Petition provision", section="court",
             hint="धारा 528 भा.ना.सु.सं. (482 दं.प्र.सं.) — सम्पादनीय"),
         F.f("applicant_name", "आवेदक का नाम", "Applicant name", F.NAME, True, "parties"),
@@ -282,6 +282,8 @@ def field_spec(court: str = "hc") -> dict:
         F.f("advocate_name", "अधिवक्ता का नाम", "Advocate name", F.NAME, section="filing"),
         F.f("filing_date", "दिनांक", "Date", F.DATE, section="filing", auto=True),
     ]
+    flds.append(F.custom_grounds())
+    flds.append(F.f("state_name", "राज्य", "State", section="parties", hint="रिक्त रखने पर म.प्र."))
     return F.build_spec("quashing:hc", flds, _TOGGLES,
                         companions=["stay application + affidavit", "compromise deed (राजीनामा)",
                                     "index (इन्डेक्स)", "certified copy of FIR + impugned judgment (annexures)",

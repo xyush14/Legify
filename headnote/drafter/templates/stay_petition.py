@@ -75,7 +75,7 @@ def field_spec(court: str = "hc") -> dict:
         F.f("court_city", "बैंच / जिला", "Bench / District", section="court", hint="लोकेशन से स्वतः → न्यायालय"),
         F.f("court_name", "न्यायालय का नाम (स्वतः/ओवरराइड)", "Court name", required=True, section="court", auto=True),
         F.f("case_number", "आई.ए. / प्रकरण क्रमांक", "I.A. / case no.", section="court"),
-        F.f("case_year", "वर्ष", "Year", F.DATE, section="court"),
+        F.f("case_year", "वर्ष", "Year", F.NUMBER, section="court"),
         F.f("main_matter", "मुख्य प्रकरण (रिट/अपील/पुनरीक्षण क्रमांक)", "Main matter (W.P./Appeal/Revision no.)", required=True, section="court"),
         F.f("applicant_name", "आवेदक का नाम", "Applicant name", F.NAME, True, "parties"),
         F.f("respondent_name", "अनावेदक का नाम", "Respondent name", F.NAME, section="parties"),
@@ -85,6 +85,8 @@ def field_spec(court: str = "hc") -> dict:
         F.f("advocate_name", "अधिवक्ता का नाम", "Advocate name", F.NAME, section="filing"),
         F.f("filing_date", "दिनांक", "Date", F.DATE, section="filing", auto=True),
     ]
+    flds.append(F.custom_grounds())
+    flds.append(F.f("case_code", "प्रकरण कोड", "Case code", section="court", hint="जैसे एम.सी.आर.सी. / सी.आर.ए. / सी.आर.आर. / डब्ल्यू.पी."))
     return F.build_spec("stay_petition", flds, _TOGGLES, companions=["affidavit", "vakalatnama"])
 
 

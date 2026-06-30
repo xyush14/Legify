@@ -238,7 +238,7 @@ def field_spec(court: str = "hc") -> dict:
         F.f("court_city", "जिला / शहर", "District / City", section="court", hint="लोकेशन से स्वतः → न्यायालय नाम"),
         F.f("court_name", "न्यायालय का नाम (स्वतः)", "Court name (auto)", required=True, section="court", auto=True),
         F.f("case_number", "पुनरीक्षण क्रमांक", "Revision no.", section="court"),
-        F.f("case_year", "वर्ष", "Year", F.DATE, section="court"),
+        F.f("case_year", "वर्ष", "Year", F.NUMBER, section="court"),
         F.f("revisionist_name", "पुनरीक्षणकर्ता का नाम", "Revisionist name", F.NAME, True, "parties"),
         F.f("revisionist_father", "पिता का नाम", "Father", F.NAME, section="parties"),
         F.f("revisionist_age", "आयु", "Age", F.NUMBER, section="parties"),
@@ -256,6 +256,8 @@ def field_spec(court: str = "hc") -> dict:
         F.f("advocate_name", "अधिवक्ता का नाम", "Advocate name", F.NAME, section="filing"),
         F.f("filing_date", "दिनांक", "Date", F.DATE, section="filing", auto=True),
     ]
+    flds.append(F.custom_grounds())
+    flds.append(F.f("state_name", "राज्य", "State", section="parties", hint="रिक्त रखने पर म.प्र."))
     return F.build_spec(f"revision:{court}", flds, _TOGGLES,
                         variants={"court": ["hc", "sessions"]},
                         companions=["index (इन्डेक्स)", "certified copy of impugned order (annexure)",

@@ -128,7 +128,7 @@ def field_spec(court: str = "hc") -> dict:
         F.f("court_city", "बैंच / जिला", "Bench / District", section="court", hint="लोकेशन से स्वतः → HC बैंच"),
         F.f("court_name", "न्यायालय का नाम (स्वतः/ओवरराइड)", "Court name", required=True, section="court", auto=True),
         F.f("case_number", "याचिका क्रमांक", "Petition no.", section="court"),
-        F.f("case_year", "वर्ष", "Year", F.DATE, section="court"),
+        F.f("case_year", "वर्ष", "Year", F.NUMBER, section="court"),
         F.f("articles", "अनुच्छेद", "Article(s)", section="court", default="226/227"),
         F.f("petitioner_name", "याचिकाकर्ता का नाम", "Petitioner name", F.NAME, True, "parties"),
         F.f("respondent_name", "प्रत्यर्थीगण (राज्य/प्राधिकारी)", "Respondents (State/authority)", F.NAME, True, "parties"),
@@ -141,6 +141,8 @@ def field_spec(court: str = "hc") -> dict:
         F.f("advocate_name", "अधिवक्ता का नाम", "Advocate name", F.NAME, section="filing"),
         F.f("filing_date", "दिनांक", "Date", F.DATE, section="filing", auto=True),
     ]
+    flds.append(F.custom_grounds())
+    flds.append(F.f("case_code", "प्रकरण कोड", "Case code", section="court", hint="जैसे एम.सी.आर.सी. / सी.आर.ए. / सी.आर.आर. / डब्ल्यू.पी."))
     return F.build_spec("writ_petition", flds, _TOGGLES, companions=["affidavit", "vakalatnama", "annexures (impugned order)"])
 
 

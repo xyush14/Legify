@@ -121,7 +121,7 @@ def field_spec(court: str = "") -> dict:
     flds = [
         F.f("court_name", "न्यायालय का नाम", "Court name", required=True, section="court"),
         F.f("case_no", "प्रकरण/अपराध क्रमांक", "Case/Crime no.", section="court"),
-        F.f("case_year", "वर्ष", "Year", F.DATE, section="court"),
+        F.f("case_year", "वर्ष", "Year", F.NUMBER, section="court"),
         F.f("party_role", "पक्षकार की हैसियत", "Party role", section="parties",
             hint="आवेदक / प्रार्थी / अभियुक्त / वादी / प्रतिवादी"),
         F.f("client_name", "मुवक्किल का नाम", "Client name", F.NAME, True, "parties"),
@@ -133,6 +133,7 @@ def field_spec(court: str = "") -> dict:
         F.f("place", "स्थान", "Place", section="filing"),
         F.f("filing_date", "दिनांक", "Date", F.DATE, section="filing", auto=True),
     ]
+    flds.append(F.f("state_name", "राज्य", "State", section="parties", hint="रिक्त रखने पर म.प्र."))
     return F.build_spec("vakalatnama:any", flds, [], companions=["court-fee / welfare-stamp where applicable"])
 
 

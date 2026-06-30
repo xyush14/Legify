@@ -150,7 +150,7 @@ def field_spec(court: str = "hc") -> dict:
         F.f("court_city", "जिला / शहर / बैंच", "District / Bench", section="court", hint="लोकेशन से स्वतः → न्यायालय नाम"),
         F.f("court_name", "न्यायालय का नाम (स्वतः/ओवरराइड)", "Court name", required=True, section="court", auto=True),
         F.f("appeal_number", "अपील क्रमांक", "Appeal no.", section="court"),
-        F.f("appeal_year", "वर्ष", "Year", F.DATE, section="court"),
+        F.f("appeal_year", "वर्ष", "Year", F.NUMBER, section="court"),
         F.f("appellant_name", "अपीलार्थी का नाम", "Appellant name", F.NAME, True, "parties"),
         F.f("state_name", "प्रतिअपीलार्थी (राज्य)", "Respondent (State)", section="parties", default="म.प्र. शासन"),
         F.f("trial_court", "विचारण न्यायालय", "Trial court", required=True, section="order",
@@ -164,6 +164,7 @@ def field_spec(court: str = "hc") -> dict:
         F.f("advocate_name", "अधिवक्ता का नाम", "Advocate name", F.NAME, section="filing"),
         F.f("filing_date", "दिनांक", "Date", F.DATE, section="filing", auto=True),
     ]
+    flds.append(F.custom_grounds())
     return F.build_spec(f"suspension_389:{court}", flds, _TOGGLES,
                         variants={"court": ["hc", "sessions"]}, companions=["vakalatnama", "certified copy of judgment"])
 

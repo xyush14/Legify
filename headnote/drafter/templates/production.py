@@ -229,7 +229,7 @@ def field_spec(court: str = "magistrate") -> dict:
         F.f("court_city", "जिला / शहर", "District / City", section="court", hint="लोकेशन से स्वतः → न्यायालय नाम"),
         F.f("court_name", "न्यायालय का नाम (स्वतः/ओवरराइड)", "Court name", required=True, section="court", auto=True),
         F.f("case_number", "प्रकरण क्रमांक", "Case no.", required=True, section="court", ocr="order"),
-        F.f("case_year", "वर्ष", "Year", F.DATE, section="court"),
+        F.f("case_year", "वर्ष", "Year", F.NUMBER, section="court"),
         F.f("case_type", "प्रकरण प्रकार", "Case type", F.SELECT, section="court",
             options=[{"value": "आर.सी.टी.", "label": "आर.सी.टी. (RCT)"},
                      {"value": "सत्रवाद", "label": "सत्रवाद (Sessions)"},
@@ -251,6 +251,7 @@ def field_spec(court: str = "magistrate") -> dict:
         F.f("advocate_name", "अधिवक्ता का नाम", "Advocate name", F.NAME, section="filing"),
         F.f("filing_date", "दिनांक", "Date", F.DATE, section="filing", auto=True),
     ]
+    flds.append(F.custom_grounds())
     return F.build_spec(f"production:{court}", flds, _TOGGLES,
                         variants={"court": ["magistrate", "sessions"]},
                         companions=["vakalatnama"])

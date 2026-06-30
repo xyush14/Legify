@@ -574,7 +574,7 @@ def field_spec(court: str = "sessions", bail_type: str = "regular") -> dict:
             hint="डिवाइस-लोकेशन से स्वतः; इसी से न्यायालय का नाम बनता है"),
         F.f("court_name", "न्यायालय का नाम (स्वतः)", "Court name (auto)", section="court", auto=True),
         F.f("case_number", "प्रकरण/केस क्रमांक", "Case no.", section="court"),
-        F.f("case_year", "वर्ष", "Year", F.DATE, section="court"),
+        F.f("case_year", "वर्ष", "Year", F.NUMBER, section="court"),
         F.f("application_number", "आवेदन क्रमांक (प्रथम/द्वितीय…)", "Application no.", F.NUMBER, section="court", default=1),
         F.f("applicant_name", "आवेदक का नाम", "Applicant name", F.NAME, True, "parties", ocr="fir"),
         F.f("applicant_father", "पिता/पति का नाम", "Father/Husband", F.NAME, section="parties", ocr="fir"),
@@ -610,6 +610,8 @@ def field_spec(court: str = "sessions", bail_type: str = "regular") -> dict:
     companions = ["vakalatnama"]
     if court == "hc":
         companions += ["शपथ पत्र (separate sheet)", "index/annexures (lower-court order + FIR)"]
+    flds.append(F.custom_grounds())
+    flds.append(F.f("state_name", "राज्य", "State", section="parties", hint="रिक्त रखने पर म.प्र."))
     return F.build_spec(f"bail:{court}:{bail_type}", flds, _TOGGLES,
                         variants={"court": ["magistrate", "sessions", "hc"], "bail_type": ["regular", "anticipatory"]},
                         companions=companions)

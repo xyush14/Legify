@@ -161,6 +161,9 @@ def to_data(tid: str, fields: dict) -> dict:
     for k, v in (fields or {}).items():
         if k in toggle_keys:
             grounds[k] = v in (True, "true", "on", 1, "1")
+        elif k == "custom_grounds":
+            # free-text textarea (one ground per line) → the list every render expects
+            data[k] = [ln.strip() for ln in str(v or "").splitlines() if ln.strip()]
         elif k in list_keys:
             data[k] = [x.strip() for x in str(v or "").split(",") if x.strip()]
         else:

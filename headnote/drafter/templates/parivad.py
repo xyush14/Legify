@@ -195,7 +195,7 @@ def field_spec(court: str = "magistrate") -> dict:
         F.f("court_city", "जिला / शहर", "District / City", section="court", hint="लोकेशन से स्वतः → न्यायालय नाम"),
         F.f("court_name", "न्यायालय का नाम (स्वतः)", "Court name (auto)", required=True, section="court", auto=True),
         F.f("case_number", "प्रकरण क्रमांक", "Case no.", section="court"),
-        F.f("case_year", "वर्ष", "Year", F.DATE, section="court"),
+        F.f("case_year", "वर्ष", "Year", F.NUMBER, section="court"),
         F.f("complainant_name", "परिवादी का नाम", "Complainant name", F.NAME, True, "parties"),
         F.f("complainant_spouse", "पति/पत्नी का नाम (यदि लागू)", "Spouse name (if applicable)", F.NAME, section="parties"),
         F.f("complainant_father", "पिता का नाम", "Father's name", F.NAME, section="parties"),
@@ -210,6 +210,7 @@ def field_spec(court: str = "magistrate") -> dict:
         F.f("advocate_name", "अधिवक्ता का नाम", "Advocate name", F.NAME, section="filing"),
         F.f("filing_date", "दिनांक", "Date", F.DATE, section="filing", auto=True),
     ]
+    flds.append(F.f("state_name", "राज्य", "State", section="parties", hint="रिक्त रखने पर म.प्र."))
     return F.build_spec("parivad:magistrate", flds, _TOGGLES,
                         companions=["§223 BNSS examination of complainant on oath", "witness list (साक्ष्य सूची)",
                                     "documents / annexures", "vakalatnama"])

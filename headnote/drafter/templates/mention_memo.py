@@ -117,7 +117,7 @@ def field_spec(court: str = "hc") -> dict:
         F.f("court_city", "जिला / शहर / बैंच", "District / Bench", section="court", hint="लोकेशन से स्वतः → न्यायालय नाम"),
         F.f("court_name", "न्यायालय का नाम (स्वतः/ओवरराइड)", "Court name", required=True, section="court", auto=True),
         F.f("case_number", "प्रकरण क्रमांक", "Case no.", required=True, section="court"),
-        F.f("case_year", "वर्ष", "Year", F.DATE, section="court"),
+        F.f("case_year", "वर्ष", "Year", F.NUMBER, section="court"),
         F.f("applicant_name", "आवेदक का नाम", "Applicant name", F.NAME, True, "parties"),
         F.f("respondent_name", "अनावेदक का नाम", "Respondent name", F.NAME, section="parties"),
         F.f("next_date", "वर्तमान नियत दिनांक", "Current next date", F.DATE, section="facts"),
@@ -127,6 +127,9 @@ def field_spec(court: str = "hc") -> dict:
         F.f("advocate_name", "अधिवक्ता का नाम", "Advocate name", F.NAME, section="filing"),
         F.f("filing_date", "दिनांक", "Date", F.DATE, section="filing", auto=True),
     ]
+    flds.append(F.custom_grounds())
+    flds.append(F.f("case_type", "प्रकरण प्रकार", "Case type", section="court", hint="जैसे आर.सी.टी. / सत्रवाद — शीर्षक का प्रकरण-कोड"))
+    flds.append(F.f("case_code", "प्रकरण कोड", "Case code", section="court", hint="जैसे एम.सी.आर.सी. / सी.आर.ए. / सी.आर.आर. / डब्ल्यू.पी."))
     return F.build_spec(f"mention_memo:{court}", flds, _TOGGLES,
                         variants={"court": ["hc", "sessions", "magistrate", "family"]}, companions=[])
 

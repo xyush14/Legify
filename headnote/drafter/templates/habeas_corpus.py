@@ -80,7 +80,7 @@ def field_spec(court: str = "hc") -> dict:
         F.f("court_city", "बैंच / जिला", "Bench / District", section="court", hint="लोकेशन से स्वतः → HC बैंच"),
         F.f("court_name", "न्यायालय का नाम (स्वतः/ओवरराइड)", "Court name", required=True, section="court", auto=True),
         F.f("case_number", "याचिका क्रमांक", "Petition no.", section="court"),
-        F.f("case_year", "वर्ष", "Year", F.DATE, section="court"),
+        F.f("case_year", "वर्ष", "Year", F.NUMBER, section="court"),
         F.f("petitioner_name", "याचिकाकर्ता का नाम", "Petitioner name", F.NAME, True, "parties"),
         F.f("detenu_name", "बन्दी का नाम", "Detenu's name", F.NAME, True, "parties"),
         F.f("relation", "याचिकाकर्ता से सम्बन्ध", "Relation to petitioner", section="parties"),

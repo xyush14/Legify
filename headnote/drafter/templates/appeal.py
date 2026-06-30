@@ -311,7 +311,7 @@ def field_spec(court: str = "sessions") -> dict:
         F.f("court_city", "जिला / शहर", "District / City", section="court", hint="लोकेशन से स्वतः → न्यायालय नाम"),
         F.f("court_name", "अपीलीय न्यायालय का नाम (स्वतः)", "Appellate court name (auto)", required=True, section="court", auto=True),
         F.f("case_number", "अपील क्रमांक", "Appeal no.", section="court"),
-        F.f("case_year", "वर्ष", "Year", F.DATE, section="court"),
+        F.f("case_year", "वर्ष", "Year", F.NUMBER, section="court"),
         F.f("section_title", "अपील का प्रावधान", "Appeal provision", section="court",
             hint="धारा 415 भा.ना.सु.सं. (374 दं.प्र.सं.) — सम्पादनीय"),
         F.f("appellant_name", "अपीलार्थी का नाम", "Appellant name", F.NAME, True, "parties"),
@@ -337,6 +337,7 @@ def field_spec(court: str = "sessions") -> dict:
         F.f("advocate_name", "अधिवक्ता का नाम", "Advocate name", F.NAME, section="filing"),
         F.f("filing_date", "दिनांक", "Date", F.DATE, section="filing", auto=True),
     ]
+    flds.append(F.custom_grounds())
     return F.build_spec(f"appeal:{court}", flds, _TOGGLES,
                         variants={"court": ["sessions", "hc"]},
                         companions=["certified copy of impugned judgment (annexure)", "vakalatnama",
