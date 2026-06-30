@@ -82,17 +82,34 @@
   .split { display: grid; grid-template-columns: 460px 1fr; height: calc(100vh - 56px); }
   @media (max-width: 1100px) { .split { grid-template-columns: 380px 1fr; } }
 
-  /* Preview sheet handle — visible only on mobile (acts as the always-on
-     button that toggles the floating preview between collapsed / half / full). */
+  /* Legacy mobile bottom-sheet handle — replaced by the Form/Preview tabs. */
   .preview-handle { display: none; }
+  /* Mobile-only segmented tabs (Form | Preview); hidden on desktop. */
+  .mobile-tabs { display: none; }
 
   @media (max-width: 880px) {
-    /* Form takes full width; preview becomes a floating bottom sheet */
-    .split {
-      display: block;
-      height: auto;
-      padding-bottom: 64px;  /* room for the collapsed sheet */
+    /* Mobile = one pane at a time (Form OR Preview), each full width.
+       No more squeezed side-by-side / bottom-sheet preview. */
+    .split { display: block; height: auto; }
+
+    /* Segmented tab bar, sticky under the topbar */
+    .mobile-tabs {
+      display: flex;
+      position: sticky; top: 0; z-index: 60;
+      gap: 6px; padding: 6px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
     }
+    .mobile-tabs__btn {
+      flex: 1; padding: 10px 0; border: none; border-radius: 8px;
+      background: transparent; color: var(--muted);
+      font-family: inherit; font-size: 13px; font-weight: 600;
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
+    .mobile-tabs__btn.is-active { background: var(--ink); color: var(--panel); }
+    body.lang-hi .mobile-tabs { font-family: 'Noto Sans Devanagari', sans-serif; }
+
+    /* Form is the default visible pane */
     .form-pane {
       display: block;
       max-height: none;
@@ -100,75 +117,23 @@
       border-right: none;
     }
 
-    /* Floating preview sheet — fixed to bottom, 3 states via JS */
-    .doc-pane {
-      position: fixed;
-      left: 0; right: 0; bottom: 0;
-      height: 56px;                          /* collapsed default */
-      max-height: 100vh;
-      z-index: 70;
-      background: var(--panel);
-      border-top: 1px solid var(--line-strong);
-      box-shadow: 0 -3px 16px rgba(0,0,0,0.12);
-      transition: height 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-      overflow: hidden;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-    }
-    .doc-pane[data-state="half"] { height: 56vh; }
-    .doc-pane[data-state="full"] { height: 90vh; }
+    /* Preview pane: hidden until the Preview tab is active, then full width */
+    .doc-pane { display: none; background: #e8e6df; padding: 14px 8px 80px; }
+    body.mview-preview .form-pane { display: none; }
+    body.mview-preview .doc-pane { display: block; }
+    /* When previewing, the sticky tab bar still lets the user jump back */
+    .preview-handle { display: none !important; }
 
-    /* Always-visible header bar with grip + label + chevron */
-    .preview-handle {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 16px;
-      height: 56px;
-      min-height: 56px;
-      width: 100%;
-      background: var(--panel);
-      border: none;
-      cursor: pointer;
-      font-family: inherit;
-      font-weight: 600;
-      font-size: 13px;
-      color: var(--ink);
-      -webkit-tap-highlight-color: transparent;
-      position: relative;
-      flex-shrink: 0;
-    }
-    .preview-handle__grip {
-      position: absolute;
-      top: 6px; left: 50%;
-      transform: translateX(-50%);
-      width: 36px; height: 4px;
-      background: var(--line-strong);
-      border-radius: 2px;
-    }
-    .preview-handle__label { display: flex; align-items: center; gap: 6px; }
-    .preview-handle__pages { color: var(--muted); font-weight: 500; font-size: 12px; }
-    .preview-handle__chevron {
-      font-size: 11px;
-      color: var(--muted);
-      transition: transform 0.22s ease;
-    }
-    .doc-pane[data-state="half"] .preview-handle__chevron,
-    .doc-pane[data-state="full"] .preview-handle__chevron { transform: rotate(180deg); }
-    body.lang-hi .preview-handle { font-family: 'Noto Sans Devanagari', sans-serif; }
-
-    /* The actual document scrolls inside the sheet body */
+    /* Document scaled to phone width — readable, not crushed */
     .doc-pane .doc-page {
-      flex: 1;
-      overflow-y: auto;
-      margin: 0;
-      padding: 24px 20px 60px;
-      transform: none;
-      max-width: none;
-      box-shadow: none;
-      border-radius: 0;
+      max-width: none; width: 100%; margin: 0 auto;
+      padding: 26px 18px 48px;
+      min-height: auto;
+      font-size: 13px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      border-radius: 4px;
     }
+    .doc-pane .bail-doc .bd-court { font-size: 19px; }
 
     /* Condensed topbar — title only, hide subtitle and label text */
     .topbar { padding: 10px 12px; }
@@ -662,6 +627,13 @@
     <button class="btn" id="btn-edit" data-en="✏️ Edit" data-hi="✏️ संपादन">✏️ संपादन</button>
     <button class="btn btn--primary" id="btn-share">📱 WhatsApp</button>
   </div>
+</div>
+
+<!-- Mobile-only: switch between filling the form and reading the full-width
+     preview. Replaces the old squeezed bottom-sheet. -->
+<div class="mobile-tabs" id="mobile-tabs" role="tablist">
+  <button type="button" class="mobile-tabs__btn is-active" id="mtab-form" role="tab" data-en="Form" data-hi="फ़ॉर्म">फ़ॉर्म</button>
+  <button type="button" class="mobile-tabs__btn" id="mtab-preview" role="tab" data-en="Preview" data-hi="प्रीव्यू">प्रीव्यू</button>
 </div>
 
 <div class="split" id="split">
@@ -1795,6 +1767,10 @@ function bindInputs() {
       state.answers[field] = e.target.value;
       onChange();
     });
+    // Prose fields auto-translate to the draft language when the user moves on.
+    if (PROSE_FIELDS.has(field)) {
+      input.addEventListener('blur', () => maybeAutoTranslateField(field, input));
+    }
   });
 
   document.querySelectorAll('[data-ground]').forEach(cb => {
@@ -3471,6 +3447,65 @@ const TRANSLATABLE_FORM_FIELDS = [
   'custom_ground_1', 'grounds_medical',
 ];
 
+// Prose fields that should auto-translate to the draft language when the user
+// finishes (blurs) the field. Names/places are handled live by xlit() in the
+// preview, so they're not here — these are free-text blocks where phonetic
+// transliteration would be gibberish and real translation is needed.
+const PROSE_FIELDS = new Set([
+  'facts_narrative', 'cancellation_history', 'lower_court_history',
+  'custom_ground_1', 'grounds_medical',
+]);
+const _xlatedCache = {};   // field -> last value we already translated (skip repeats)
+const _xlating = {};       // field -> true while a translation is in flight
+
+// On blur of a prose field: if the typed text is in the wrong script for the
+// current draft language, translate it (DeepSeek, debounced by blur — never
+// per-keystroke). English typed into a Hindi draft becomes Hindi in the preview.
+async function maybeAutoTranslateField(field, input) {
+  const value = (state.answers[field] || '').trim();
+  if (!value) return;
+  if (_xlating[field] || _xlatedCache[field] === value) return;
+
+  const hasDeva = /[ऀ-ॿ]/.test(value);
+  const hasLatin = /[A-Za-z]/.test(value);
+  // hi draft + Latin-only text → translate to Hindi; en draft + Devanagari → English.
+  const needsHi = state.lang === 'hi' && hasLatin && !hasDeva;
+  const needsEn = state.lang === 'en' && hasDeva && !hasLatin;
+  if (!needsHi && !needsEn) return;
+
+  _xlating[field] = true;
+  const isHi = state.lang === 'hi';
+  toast(isHi ? 'अनुवाद हो रहा है…' : 'Translating…', 'ok');
+  try {
+    const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
+    const r = await fetch('/api/draft/translate-fields', {
+      method: 'POST', headers,
+      body: JSON.stringify({ fields: { [field]: value }, target: state.lang }),
+    });
+    if (r.ok) {
+      const data = await r.json();
+      const out = data.translated && data.translated[field];
+      if (out && !data.skipped) {
+        // Keep both-language stashes in sync for facts_narrative so the EN/हिं
+        // toggle stays instant and doesn't re-translate.
+        if (field === 'facts_narrative') {
+          if (isHi) { state.answers._narrative_hi = out; state.answers._narrative_en = value; }
+          else      { state.answers._narrative_en = out; state.answers._narrative_hi = value; }
+        }
+        state.answers[field] = out;
+        if (input) input.value = out;
+        _xlatedCache[field] = out;
+        onChange();
+        scheduleSave();
+      }
+    }
+  } catch (e) {
+    // Silent — leave the user's text as typed if translation is unavailable.
+  } finally {
+    _xlating[field] = false;
+  }
+}
+
 async function switchLang(newLang) {
   if (state.lang === newLang) return;
   const prevLang = state.lang;
@@ -3534,55 +3569,36 @@ document.getElementById('lang-en').addEventListener('click', () => switchLang('e
 document.getElementById('lang-hi').addEventListener('click', () => switchLang('hi'));
 
 // =========================================================================
-// Mobile preview sheet — three-state pull-up (collapsed / half / full).
-// On desktop (>880px) the preview is a static right pane and this is inert.
+// Mobile Form/Preview tabs. On desktop (>880px) both panes are always shown
+// side by side and these classes/handlers are inert.
 // =========================================================================
-const PREVIEW_STATES = ['collapsed', 'half', 'full'];
-
-function cyclePreviewSheet() {
-  const wrap = document.getElementById('doc-pane-wrap');
-  if (!wrap) return;
-  const cur = wrap.dataset.state || 'collapsed';
-  const next = PREVIEW_STATES[(PREVIEW_STATES.indexOf(cur) + 1) % PREVIEW_STATES.length];
-  setPreviewSheet(next);
-}
-function setPreviewSheet(s) {
-  const wrap = document.getElementById('doc-pane-wrap');
-  if (!wrap) return;
-  wrap.dataset.state = s;
-  const handle = document.getElementById('preview-handle');
-  if (handle) handle.setAttribute('aria-expanded', s !== 'collapsed');
-  // When opening, scroll the preview body to the top
-  if (s !== 'collapsed') {
-    const body = wrap.querySelector('.doc-page');
-    if (body) body.scrollTop = 0;
+function setMobileView(v) {
+  const preview = v === 'preview';
+  document.body.classList.toggle('mview-preview', preview);
+  document.getElementById('mtab-form')?.classList.toggle('is-active', !preview);
+  document.getElementById('mtab-preview')?.classList.toggle('is-active', preview);
+  if (preview) {
+    // Jump to the top of the freshly-shown document
+    const dp = document.getElementById('doc-page');
+    if (dp) dp.scrollTop = 0;
+    window.scrollTo(0, 0);
   }
 }
-document.getElementById('preview-handle')?.addEventListener('click', cyclePreviewSheet);
+document.getElementById('mtab-form')?.addEventListener('click', () => setMobileView('form'));
+document.getElementById('mtab-preview')?.addEventListener('click', () => setMobileView('preview'));
 
-// Tap anywhere outside the sheet while it's open → collapse it (form-first UX)
-document.addEventListener('click', (e) => {
-  const wrap = document.getElementById('doc-pane-wrap');
-  if (!wrap) return;
-  if (wrap.dataset.state === 'collapsed') return;
-  if (wrap.contains(e.target)) return;
-  // Only collapse on mobile (≤880px) — on desktop the pane is static
-  if (window.matchMedia('(max-width: 880px)').matches) {
-    setPreviewSheet('collapsed');
-  }
-});
-
-// Update the page-count badge on the handle whenever the preview re-renders
+// Reflect the page count on the Preview tab label so the user knows how long
+// the draft is without opening it.
 function updatePreviewPageCount() {
-  const handle = document.getElementById('preview-handle-pages');
-  if (!handle) return;
-  // Rough estimate: 1 A4 page ≈ 800 pixels of rendered content height
+  const tab = document.getElementById('mtab-preview');
   const docPage = document.getElementById('doc-page');
-  if (!docPage) return;
+  if (!tab || !docPage) return;
+  const base = state.lang === 'hi' ? 'प्रीव्यू' : 'Preview';
+  // Rough estimate: 1 A4 page ≈ 800 pixels of rendered content height
   const pages = Math.max(1, Math.ceil(docPage.scrollHeight / 800));
-  handle.textContent = pages > 1
-    ? (state.lang === 'hi' ? ` · ${pages} पन्ने` : ` · ${pages} pages`)
-    : '';
+  tab.textContent = pages > 1
+    ? `${base} · ${pages}${state.lang === 'hi' ? ' पन्ने' : ' pg'}`
+    : base;
 }
 
 // =========================================================================
