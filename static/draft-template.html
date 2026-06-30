@@ -172,6 +172,10 @@
     0%, 100% { box-shadow: 0 0 0 0 rgba(192, 57, 43, 0.45); }
     50%      { box-shadow: 0 0 0 8px rgba(192, 57, 43, 0); }
   }
+  /* processing — Whisper transcription round-trip (fallback path) */
+  .voice-mic--proc { background: var(--warn, #c9923a); border-color: var(--warn, #c9923a); }
+  .voice-mic--proc svg { color: #fff; animation: voice-spin 1s linear infinite; }
+  @keyframes voice-spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
   .voice-field textarea, .voice-field input { padding-right: 76px; }
 
   /* Upload drop zone (FIR / impugned order / etc.) — matches bail's OCR zone */
@@ -306,44 +310,44 @@
   .toast--ok { background: var(--good); }
   .toast--warn { background: var(--warn); }
 
-  /* Pull-up preview sheet on mobile */
+  /* Legacy mobile bottom-sheet handle — replaced by Form/Preview tabs. */
   .preview-handle { display: none; }
+  .mobile-tabs { display: none; }
   @media (max-width: 880px) {
-    .split { display: block; height: auto; padding-bottom: 64px; }
+    /* Mobile = one full-width pane at a time (Form OR Preview). */
+    .split { display: block; height: auto; }
+
+    .mobile-tabs {
+      display: flex; position: sticky; top: 0; z-index: 60;
+      gap: 6px; padding: 6px;
+      background: var(--panel); border-bottom: 1px solid var(--line);
+    }
+    .mobile-tabs__btn {
+      flex: 1; padding: 10px 0; border: none; border-radius: 8px;
+      background: transparent; color: var(--muted);
+      font-family: inherit; font-size: 13px; font-weight: 600;
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
+    .mobile-tabs__btn.is-active { background: var(--ink); color: var(--panel); }
+    body.lang-hi .mobile-tabs { font-family: 'Noto Sans Devanagari', sans-serif; }
+
     .form-pane { padding: 16px 14px 100px; border-right: none; }
     .form-cta { margin: 16px -14px 0; padding: 12px 14px 14px; }
-    .doc-pane {
-      position: fixed; left: 0; right: 0; bottom: 0;
-      height: 56px; max-height: 100vh; z-index: 70;
-      background: var(--panel); border-top: 1px solid var(--line-strong);
-      box-shadow: 0 -3px 16px rgba(0,0,0,0.12);
-      transition: height 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-      overflow: hidden; padding: 0;
+
+    /* Preview pane: hidden until the Preview tab is active, then full width */
+    .doc-pane { display: none; position: static; background: #e8e6df; padding: 14px 8px 80px; }
+    body.mview-preview .form-pane { display: none; }
+    body.mview-preview .doc-pane { display: block; }
+    .preview-handle { display: none !important; }
+    .doc-pane > .doc-empty { display: block; }
+
+    /* Document scaled to phone width — readable, not crushed */
+    .doc-page {
+      padding: 26px 18px 48px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      border-radius: 4px; max-width: none; width: 100%; min-height: auto; font-size: 13px;
     }
-    .doc-pane[data-state="half"] { height: 56vh; }
-    .doc-pane[data-state="full"] { height: 90vh; }
-    .preview-handle {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0 16px; height: 56px; min-height: 56px;
-      background: var(--panel); border: none; cursor: pointer;
-      font-family: inherit; font-weight: 600; font-size: 13px; color: var(--ink);
-      position: relative; -webkit-tap-highlight-color: transparent;
-      flex-shrink: 0;
-    }
-    .preview-handle__grip {
-      position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
-      width: 36px; height: 4px; background: var(--line-strong); border-radius: 2px;
-    }
-    .preview-handle__chevron { font-size: 11px; color: var(--muted); transition: transform 0.22s ease; }
-    .doc-pane[data-state="half"] .preview-handle__chevron,
-    .doc-pane[data-state="full"] .preview-handle__chevron { transform: rotate(180deg); }
-    .doc-pane > .doc-page, .doc-pane > .doc-empty { display: none; }
-    .doc-pane[data-state="half"] > .doc-page,
-    .doc-pane[data-state="full"] > .doc-page,
-    .doc-pane[data-state="half"] > .doc-empty,
-    .doc-pane[data-state="full"] > .doc-empty { display: block; flex: 1; overflow-y: auto; }
-    .doc-page { padding: 28px 22px 50px; box-shadow: none; border-radius: 0; max-width: none; min-height: 60vh; }
-    body.lang-hi .preview-handle { font-family: 'Noto Sans Devanagari', sans-serif; }
+    .doc-page .doc-court { font-size: 19px; }
+
     .topbar { padding: 10px 12px; }
     .topbar__sub { display: none; }
     .topbar__title { font-size: 13px; }
@@ -439,6 +443,13 @@
   </div>
 </div>
 
+<!-- Mobile-only: switch between filling the form and reading the full-width
+     preview. Replaces the old squeezed bottom-sheet. -->
+<div class="mobile-tabs" id="mobile-tabs" role="tablist">
+  <button type="button" class="mobile-tabs__btn is-active" id="mtab-form" role="tab" data-en="Form" data-hi="फ़ॉर्म">फ़ॉर्म</button>
+  <button type="button" class="mobile-tabs__btn" id="mtab-preview" role="tab" data-en="Preview" data-hi="प्रीव्यू">प्रीव्यू</button>
+</div>
+
 <div class="split">
   <!-- LEFT: form -->
   <div class="form-pane" id="form-pane">
@@ -472,6 +483,7 @@
 <div class="toast" id="toast"></div>
 
 <script src="/static/auth.js?v=20260527a"></script>
+<script src="/static/voice.js?v=20260626a"></script>
 <!-- PDFs now render server-side via POST /api/draft/pdf (replaced html2pdf.js) -->
 <script>
 // =========================================================================
@@ -1396,45 +1408,64 @@ function attachPolishBtn(fieldEl, wrap, f) {
   wrap.appendChild(btn);
 }
 
-// ---- Voice mic ----
-const HAS_SR = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+// ---- Voice mic (shared HeadnoteVoice engine) ----
+// Tap to dictate into a long-text field. Web Speech where available, else a
+// MediaRecorder → /api/draft/transcribe (Groq Whisper) fallback — so the mic
+// renders and works on every browser (Firefox, in-app webviews, Safari), not
+// just Chrome. Each final phrase is appended and an 'input' event is fired so
+// the existing _commit path (save + live preview regen) runs unchanged.
 function attachVoiceMic(fieldEl, wrap) {
-  if (!HAS_SR) return;
+  const V = window.HeadnoteVoice;
+  if (!V || !V.supported) return;           // no STT at all → no mic button
   const btn = ce('button', { type: 'button', className: 'voice-mic' });
   btn.setAttribute('aria-label', state.lang === 'hi' ? 'आवाज़ से लिखें' : 'Voice input');
+  btn.setAttribute('aria-pressed', 'false');
   btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
     <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
     <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
     <line x1="12" y1="19" x2="12" y2="23"/>
     <line x1="8" y1="23" x2="16" y2="23"/>
   </svg>`;
-  let rec = null, active = false;
-  btn.addEventListener('click', () => {
-    if (active) { try { rec && rec.stop(); } catch {} return; }
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    rec = new SR();
-    rec.lang = state.lang === 'en' ? 'en-IN' : 'hi-IN';
-    rec.continuous = true; rec.interimResults = false;
-    rec.onresult = (e) => {
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) {
-          const t = e.results[i][0].transcript.trim();
-          const cur = (fieldEl.value || '').trim();
-          fieldEl.value = (cur ? cur + ' ' : '') + t;
-          state.fields[fieldEl.dataset.field] = fieldEl.value;
-          saveToLocalStorage();
-          scheduleAutoRegen();
-        }
-      }
-    };
-    rec.onerror = (e) => {
-      if (e.error === 'not-allowed') toast(state.lang === 'hi' ? 'माइक की अनुमति दें' : 'Allow mic access', 'err');
-      stopRec();
-    };
-    rec.onend = () => { if (active) { try { rec.start(); } catch { stopRec(); } } };
-    function stopRec() { active = false; btn.classList.remove('voice-mic--rec'); }
-    active = true; btn.classList.add('voice-mic--rec');
-    rec.start();
+  let handle = null;
+
+  function appendText(t) {
+    if (!t) return;
+    const cur = (fieldEl.value || '').trim();
+    const sep = cur && !/[\s।.,?!\-]$/.test(cur) ? ' ' : '';
+    fieldEl.value = cur + sep + t;
+    fieldEl.dispatchEvent(new Event('input', { bubbles: true }));   // → _commit (save + regen)
+  }
+  function reset() {
+    handle = null;
+    btn.classList.remove('voice-mic--rec', 'voice-mic--proc');
+    btn.setAttribute('aria-pressed', 'false');
+  }
+
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (handle) { try { handle.stop(); } catch (_) {} return; }   // tap again to stop
+    btn.classList.add('voice-mic--rec');
+    btn.setAttribute('aria-pressed', 'true');
+    handle = V.dictate({
+      mode: 'continuous',
+      lang: state.lang,
+      getAuthHeaders: authHeaders,
+      onFinal: (t) => appendText(t),
+      onState: (s) => {
+        if (s === 'listening') { btn.classList.add('voice-mic--rec'); btn.classList.remove('voice-mic--proc'); }
+        else if (s === 'processing') { btn.classList.add('voice-mic--proc'); btn.classList.remove('voice-mic--rec'); }
+        else if (s === 'stopped') reset();
+      },
+      onError: (kind, msg) => {
+        const hi = state.lang === 'hi';
+        if (kind === 'denied') toast(hi ? 'माइक की अनुमति दें' : 'Allow microphone access', 'err');
+        else if (kind === 'auth') handleAuthError(401);
+        else if (kind === 'network') toast(hi ? 'नेटवर्क समस्या — टाइप करें' : 'Network issue — type instead', 'err');
+        else if (kind === 'transcribe') toast((hi ? 'लिप्यंतरण विफल' : 'Transcription failed') + (msg ? ': ' + msg : ''), 'err');
+        else if (kind === 'unsupported') toast(hi ? 'इस ब्राउज़र में आवाज़ नहीं' : 'Voice not supported here', 'err');
+        reset();
+      },
+    });
   });
   wrap.appendChild(btn);
 }
@@ -1814,9 +1845,8 @@ function renderDocument() {
   page.innerHTML = (typeof state.document === 'string' && state.document.trimStart().startsWith('<'))
     ? state.document
     : parseDocToHtml(state.document);
-  if (window.matchMedia('(max-width: 880px)').matches && $('#doc-pane').dataset.state === 'collapsed') {
-    setPreview('half');
-  }
+  // Don't yank the user to the preview while they're typing — the Form/Preview
+  // tabs let them switch when they're ready.
 }
 
 function parseDocToHtml(text) {
@@ -1977,16 +2007,22 @@ function buildSkeletonDoc(fields, lang) {
   return L.join('\n');
 }
 
-// ---- Mobile preview sheet ----
-const PREV_STATES = ['collapsed', 'half', 'full'];
-function setPreview(s) {
-  $('#doc-pane').dataset.state = s;
-  $('#preview-handle').setAttribute('aria-expanded', s !== 'collapsed');
+// ---- Mobile Form/Preview tabs (inert on desktop, where both panes show) ----
+function setPreview(v) {
+  // Back-compat shim: old callers passed sheet states ('half'/'full'/'collapsed').
+  // Treat anything non-collapsed as "show preview".
+  setMobileView(v && v !== 'collapsed' ? 'preview' : 'form');
 }
-$('#preview-handle').addEventListener('click', () => {
-  const cur = $('#doc-pane').dataset.state || 'collapsed';
-  setPreview(PREV_STATES[(PREV_STATES.indexOf(cur) + 1) % PREV_STATES.length]);
-});
+function setMobileView(v) {
+  const preview = v === 'preview';
+  document.body.classList.toggle('mview-preview', preview);
+  const f = $('#mtab-form'), p = $('#mtab-preview');
+  if (f) f.classList.toggle('is-active', !preview);
+  if (p) p.classList.toggle('is-active', preview);
+  if (preview) { const dp = $('#doc-page'); if (dp) dp.scrollTop = 0; window.scrollTo(0, 0); }
+}
+$('#mtab-form')?.addEventListener('click', () => setMobileView('form'));
+$('#mtab-preview')?.addEventListener('click', () => setMobileView('preview'));
 
 // ---- Language toggle ----
 async function setLang(newLang) {
