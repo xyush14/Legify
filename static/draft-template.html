@@ -485,11 +485,38 @@
   @media (prefers-reduced-motion: reduce) {
     .sk, .doc-loader__spin { animation: none; }
   }
+
+  /* Full-screen boot loader while the drafter opens (template schema fetch +
+     first render). Replaces the bare "Loading…" with the page-writing feel,
+     visible on every device regardless of which tab is active. */
+  .boot-loader {
+    position: fixed; inset: 0; z-index: 200; background: #e8e6df;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+    gap: 22px; padding: 34px 16px; overflow: hidden;
+  }
+  .boot-loader[hidden] { display: none; }
+  .boot-loader .doc-loader__sheet { max-width: 620px; }
 </style>
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/static/favicon.svg">
 </head>
 <body class="lang-hi">
+
+<!-- Boot loader: shown immediately on open, hidden once the form is ready -->
+<div class="boot-loader" id="boot-loader">
+  <div class="doc-loader__sheet" aria-hidden="true">
+    <span class="sk sk--court"></span>
+    <span class="sk sk--sub"></span>
+    <span class="sk sk--title"></span>
+    <span class="sk sk--p"></span><span class="sk sk--p"></span><span class="sk sk--p sk--short"></span>
+    <span class="sk sk--p"></span><span class="sk sk--p"></span><span class="sk sk--p sk--short"></span>
+    <span class="sk sk--p"></span><span class="sk sk--p sk--short"></span>
+  </div>
+  <div class="doc-loader__cap" aria-live="polite">
+    <span class="doc-loader__spin"></span>
+    <span id="boot-loader-cap" data-en="Opening your drafter…" data-hi="आपका ड्राफ्टर खुल रहा है…">आपका ड्राफ्टर खुल रहा है…</span>
+  </div>
+</div>
 
 <div class="topbar">
   <div class="topbar__left">
@@ -958,6 +985,7 @@ async function loadTemplate() {
     updateTitle();
     renderForm();
     applyLang();
+    hideBootLoader();   // form is interactive — drop the boot screen
     const hadDraft = restoreFromLocalStorage();
     await prefillFromPersona();
     if (!hadDraft) {
@@ -1003,6 +1031,7 @@ async function prefillFromPersona() {
   } catch (e) { /* non-fatal */ }
 }
 function showError(msg) {
+  hideBootLoader();
   $('#template-title').textContent = 'Error';
   $('#form-container').innerHTML = `<div style="color:var(--bad);padding:20px;">${esc(msg)}</div>`;
 }
@@ -2142,6 +2171,23 @@ function hideLoader() {
   $('#doc-pane')?.classList.remove('is-loading');
   clearInterval(_loaderTimer); _loaderTimer = null;
 }
+
+// ---- Boot loader (initial page open, before the form is ready) ----
+let _bootTimer = null;
+function hideBootLoader() {
+  const b = $('#boot-loader'); if (b) b.hidden = true;
+  clearInterval(_bootTimer); _bootTimer = null;
+}
+(function rotateBoot() {
+  const cap = $('#boot-loader-cap'); if (!cap) return;
+  const caps = document.body.classList.contains('lang-hi')
+    ? ['आपका ड्राफ्टर खुल रहा है…', 'प्रारूप तैयार हो रहा है…', 'फ़ील्ड सजाए जा रहे हैं…']
+    : ['Opening your drafter…', 'Preparing the format…', 'Laying out the fields…'];
+  let i = 0;
+  _bootTimer = setInterval(() => { i = (i + 1) % caps.length; cap.textContent = caps[i]; }, 1400);
+})();
+// Safety net: never let the boot loader stick if the schema fetch hangs.
+setTimeout(hideBootLoader, 10000);
 
 // ---- Topbar overflow menu (mobile) ----
 (function wireMore() {
