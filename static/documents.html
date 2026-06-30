@@ -32,6 +32,9 @@
   .docrow__t{font-size:14px;font-weight:600;color:var(--ink);line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .docrow__m{font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--ink-3);margin-top:4px;}
   .rail__empty{padding:22px 14px;color:var(--ink-3);font-size:13px;line-height:1.6;}
+  .rail__error{color:var(--ink-2);}
+  .rail__retry{display:inline-block;margin-top:12px;padding:8px 16px;border:1px solid var(--line,#d8d8d8);border-radius:8px;background:var(--panel,#fff);color:var(--ink-1);font:inherit;font-size:13px;cursor:pointer;text-decoration:none;}
+  .rail__retry:hover{background:var(--bg-2,#f5f5f5);}
 
   /* ---- reader ---- */
   .reader{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;}
@@ -557,12 +560,39 @@ $('#search').addEventListener('input',()=>{ clearTimeout(sT); const q=$('#search
       const d=await r.json(); renderRail(d.results||[]); }catch(e){} }, 280); });
 
 /* ---- load ---- */
-async function load(){ try{ const r=await fetch('/api/documents',{headers:H()}); DOCS=(await r.json()).items||[];
+// Distinct states so a network/server hiccup never masquerades as an empty
+// vault. A failed fetch shows an error + Retry instead of "No documents yet".
+function renderRailError(msg, isAuth){
+  const action = isAuth
+    ? `<a class="rail__retry" href="/app#research">Sign in</a>`
+    : `<button class="rail__retry" type="button" onclick="load()">Retry</button>`;
+  $('#list').innerHTML = `<div class="rail__empty rail__error">${esc(msg)}<div>${action}</div></div>`;
+}
+async function load(){
+  $('#list').innerHTML = `<div class="rail__empty">Loading your documents…</div>`;
+  let r;
+  try{
+    r = await fetch('/api/documents',{headers:H()});
+  }catch(e){
+    renderRailError('Couldn’t reach the server. Check your connection and try again.');
+    return;
+  }
+  if(!r.ok){
+    if(r.status===401){ renderRailError('Your session has expired — please sign in again.', true); }
+    else { renderRailError('Couldn’t load your documents (error '+r.status+').'); }
+    return;
+  }
+  try{
+    DOCS=(await r.json()).items||[];
+  }catch(e){
+    renderRailError('Couldn’t read the server response. Please retry.');
+    return;
+  }
   renderRail(DOCS);
   const wide = window.matchMedia('(min-width:769px)').matches;
   if(wide && !CURID && DOCS.length) selectDoc(DOCS[0].id);
   if(!DOCS.length){ $('#readerDoc').style.display='none'; $('#readerEmpty').style.display='flex'; }
-  }catch(e){ toast('Could not load documents: '+e.message,'error'); } }
+}
 load();
 </script>
 </body>
