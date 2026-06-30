@@ -194,6 +194,9 @@ async function initAuth() {
     const prevUserId = currentUser?.id || null;
     if (session?.user) {
       currentUser = session.user;
+      // Analytics: tie this session (and all prior anonymous events) to the
+      // user, so funnels split by free/paid and session replay is per-advocate.
+      try { window.hn?.identify(session.user); } catch (e) {}
       // CRITICAL: the user_profiles row fetch can hang for 5-10s on
       // a cold Supabase region or under RLS-policy load. Without a
       // timeout here, the user sees the loading state until forever.
@@ -219,6 +222,8 @@ async function initAuth() {
         // product, capture the name from Google silently, and defer the phone to
         // a contextual ask (before a draft / payment).
         _revealApp();
+        // Analytics: first-ever sign-in = the activation moment. Funnel step.
+        try { window.hn?.track('signup_completed'); } catch (e) {}
         // Create the profile row FIRST, then fire the welcome email. The
         // backend claims welcome_sent on an EXISTING row, so the email send
         // must not race the row's creation (otherwise the claim finds no row
@@ -229,6 +234,8 @@ async function initAuth() {
       }
     } else {
       currentUser = null;
+      // Analytics: stop attributing events to the signed-out user.
+      try { window.hn?.reset(); } catch (e) {}
       _cancelWatchdog();
       _showLoginModal();
     }
@@ -382,6 +389,7 @@ async function signInInline() {
     console.error('[auth] signInInline: Supabase client not ready');
     return;
   }
+  try { window.hn?.track('signup_started', { method: 'google_inline' }); } catch (e) {}
   const redirectUrl = window.location.href.split('#')[0].split('?')[0];
   console.log('[auth] Inline sign-in, redirectTo:', redirectUrl);
   const { error } = await _sb.auth.signInWithOAuth({
@@ -452,6 +460,7 @@ window.headnoteAuth = {
 
 async function signInWithGoogle() {
   if (!_sb) return;
+  try { window.hn?.track('signup_started', { method: 'google' }); } catch (e) {}
   _setGoogleBtnLoading(true);
   try {
     // Use the current origin + /app as the post-auth redirect.
