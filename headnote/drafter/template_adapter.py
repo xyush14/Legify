@@ -145,6 +145,7 @@ def schema(tid: str) -> dict:
             "key": tg["key"], "label_en": tg["label"]["en"], "label_hi": tg["label"]["hi"],
             "type": "toggle", "required": False, "section": "grounds",
             "default": bool(tg.get("default")),
+            "hint": tg.get("hint", ""),   # one-line description → shown on the ground card
         })
     lab = LABELS.get(tid, {"en": tid, "hi": tid})
     return {"id": tid, "label_en": lab["en"], "label_hi": lab["hi"],

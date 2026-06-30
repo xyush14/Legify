@@ -374,6 +374,43 @@
     #doc-page .ph { color: #555 !important; font-style: normal !important; }
     table { page-break-inside: avoid; border-collapse: collapse; }
   }
+  /* ── redesign: start strip · ground cards · optional fold ── */
+  .startcard { border: 1px solid #d9c79e; background: #fbf6ea; border-radius: 13px; padding: 13px 14px; margin-bottom: 22px; }
+  .startcard__h { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+  .startcard__p { font-size: 12px; color: var(--muted); margin: 3px 0 11px; line-height: 1.45; }
+  .startmodes { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .startmode { border: 1px solid var(--line); background: var(--panel); border-radius: 10px; padding: 10px 8px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 5px; font-family: inherit; color: var(--ink); transition: all 0.15s; }
+  .startmode:hover { border-color: #c9a96e; }
+  .startmode.on { border-color: #a8772a; box-shadow: inset 0 0 0 1px #a8772a; background: #fff; }
+  .startmode svg { width: 19px; height: 19px; stroke: #8a6018; }
+  .startmode b { font-size: 12px; font-weight: 560; }
+  .startmode span { font-size: 10.5px; color: var(--muted); }
+  .startbody { margin-top: 10px; }
+  .startbody:empty { display: none; }
+  .startbody .autofill { margin: 0; }
+  .starthint { font-size: 12px; color: var(--muted); background: var(--soft); border: 1px solid var(--line); border-radius: 9px; padding: 10px 12px; line-height: 1.45; }
+  .grounds-sub { font-family: 'Geist Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 4px 0 9px; }
+  body.lang-hi .grounds-sub { font-family: 'Noto Sans Devanagari', monospace; letter-spacing: 0; text-transform: none; }
+  .grounds-deck { display: flex; flex-direction: column; gap: 8px; }
+  .gcard { display: flex; gap: 11px; align-items: flex-start; border: 1px solid var(--line); background: var(--panel); border-radius: 11px; padding: 10px 12px; cursor: pointer; transition: border-color 0.13s, background 0.13s, box-shadow 0.13s; }
+  .gcard:hover { border-color: #c9a96e; }
+  .gcard.on { border-color: #a8772a; background: #fffdf8; box-shadow: inset 0 0 0 1px #a8772a; }
+  .gcard__box { width: 18px; height: 18px; border-radius: 5px; border: 1.6px solid var(--line-strong); flex: 0 0 auto; margin-top: 1px; display: flex; align-items: center; justify-content: center; }
+  .gcard.on .gcard__box { background: #a8772a; border-color: #a8772a; }
+  .gcard.on .gcard__box::after { content: '\2713'; color: #fff; font-size: 12px; line-height: 1; }
+  .gcard__t { font-size: 13px; font-weight: 560; color: var(--ink); }
+  .gcard__d { font-size: 11.5px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+  .gadd-wrap { margin-top: 10px; }
+  .gadd { width: 100%; border: 1px dashed #c9a96e; border-radius: 11px; padding: 10px; color: #8a6018; font-size: 12.5px; cursor: pointer; background: rgba(255,255,255,0.4); font-family: inherit; }
+  .gadd:hover { background: #fff; }
+  .gadd-inner { display: none; margin-top: 9px; }
+  .gadd-wrap.open .gadd-inner { display: block; }
+  .gadd-wrap.open .gadd { display: none; }
+  .more-wrap { margin-top: 2px; }
+  .more-toggle { border: 0; background: transparent; color: #8a6018; font-size: 12px; font-family: inherit; cursor: pointer; padding: 5px 0; }
+  .more-toggle:hover { text-decoration: underline; }
+  .more-inner { display: none; margin-top: 8px; }
+  .more-wrap.open .more-inner { display: block; }
 </style>
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/static/favicon.svg">
@@ -979,21 +1016,14 @@ function renderForm() {
   const tpl = state.template;
   if (!tpl) return;
 
-  // Live completeness meter — fills as required fields are answered.
+  // Readiness meter — fills as the essentials are answered.
   const prog = ce('div', { className: 'form-progress', id: 'form-progress' });
   prog.innerHTML = '<div class="form-progress__track"><div class="form-progress__fill"></div></div><div class="form-progress__label"></div>';
   container.appendChild(prog);
 
-  // Supporting-doc upload zone(s) at the very top, just like bail's FIR shortcut.
-  // Specialised uploads (FIR / bail-order / impugned-order) take precedence;
-  // otherwise every template gets the universal "auto-fill from a document"
-  // zone so OCR works everywhere on the same principle.
-  if (Array.isArray(tpl.uploads) && tpl.uploads.length) {
-    tpl.uploads.forEach(u => container.appendChild(renderUploadZone(u)));
-  } else {
-    const az = renderAutoFillZone();
-    if (az) container.appendChild(az);
-  }
+  // "Start from a document" strip — wraps the existing OCR auto-fill so the
+  // panel opens on a clear first action instead of a wall of empty boxes.
+  container.appendChild(renderStartStrip(tpl));
 
   // Group fields by their declared section, preserving first-occurrence order
   const sectionOrder = [];
@@ -1046,13 +1076,142 @@ function renderForm() {
     }
 
     const body = ce('div', { className: 'section__body' });
-    groups[sectionId].forEach(f => body.appendChild(renderField(f)));
+    if (sectionId === 'grounds') renderGroundsInto(body, groups[sectionId]);
+    else renderSectionInto(body, groups[sectionId]);
     sec.appendChild(body);
     container.appendChild(sec);
   });
 
   updateProgress();
   refreshDepends();
+}
+
+// Essentials first; tuck two-or-more optional fields behind an inline expander
+// so the section leads with what matters. Never hides required/select/list inputs.
+function renderSectionInto(body, fields) {
+  const isEss = f => f.required || f.type === 'select' || f.type === 'section_list';
+  const ess = fields.filter(isEss);
+  const opt = fields.filter(f => !isEss(f));
+  if (!ess.length || opt.length < 2) {   // nothing to gain — render all inline
+    fields.forEach(f => body.appendChild(renderField(f)));
+    return;
+  }
+  ess.forEach(f => body.appendChild(renderField(f)));
+  const more = ce('div', { className: 'more-wrap' });
+  const labMore = state.lang === 'hi' ? `+ ${opt.length} वैकल्पिक विवरण` : `+ ${opt.length} optional details`;
+  const labLess = state.lang === 'hi' ? '− कम दिखाएँ' : '− show less';
+  const btn = ce('button', { className: 'more-toggle', type: 'button', textContent: labMore });
+  const inner = ce('div', { className: 'more-inner' });
+  opt.forEach(f => inner.appendChild(renderField(f)));
+  btn.addEventListener('click', () => {
+    more.classList.toggle('open');
+    btn.textContent = more.classList.contains('open') ? labLess : labMore;
+    refreshDepends();
+  });
+  more.appendChild(btn); more.appendChild(inner); body.appendChild(more);
+}
+
+// Grounds become a pick-your-arguments deck: each toggle is a selectable card
+// (label + its one-line legal description), with a free-text "add your own".
+function renderGroundsInto(body, fields) {
+  const toggles = fields.filter(f => f.type === 'toggle');
+  const custom = fields.find(f => f.key === 'custom_grounds');
+  const others = fields.filter(f => f.type !== 'toggle' && f.key !== 'custom_grounds');
+  others.forEach(f => body.appendChild(renderField(f)));
+  if (toggles.length) {
+    const sub = ce('div', { className: 'grounds-sub' });
+    sub.dataset.en = 'Choose the grounds that apply'; sub.dataset.hi = 'लागू आधार चुनें';
+    sub.textContent = state.lang === 'hi' ? 'लागू आधार चुनें' : 'Choose the grounds that apply';
+    body.appendChild(sub);
+    const deck = ce('div', { className: 'grounds-deck' });
+    toggles.forEach(f => deck.appendChild(renderGroundCard(f)));
+    body.appendChild(deck);
+  }
+  if (custom) {
+    const wrap = ce('div', { className: 'gadd-wrap' });
+    const btn = ce('button', { className: 'gadd', type: 'button' });
+    btn.dataset.en = '＋ Add a ground in your own words';
+    btn.dataset.hi = '＋ अपने शब्दों में आधार जोड़ें';
+    btn.textContent = state.lang === 'hi' ? btn.dataset.hi : btn.dataset.en;
+    const holder = ce('div', { className: 'gadd-inner' });
+    holder.appendChild(renderField(custom));
+    const cur = state.fields[custom.key];
+    if (cur && String(cur).trim()) wrap.classList.add('open');
+    btn.addEventListener('click', () => wrap.classList.toggle('open'));
+    wrap.appendChild(btn); wrap.appendChild(holder); body.appendChild(wrap);
+  }
+}
+
+function renderGroundCard(f) {
+  const card = ce('div', { className: 'gcard' });
+  if (f.depends) card.dataset.depends = f.depends;
+  const cb = ce('input', { type: 'checkbox' });
+  cb.id = `f_${f.key}`; cb.dataset.field = f.key; cb.style.display = 'none';
+  const cur = state.fields[f.key];
+  cb.checked = (cur === true || cur === 'true' || (cur === undefined && !!f.default));
+  if (cb.checked) { state.fields[f.key] = true; card.classList.add('on'); }
+  const box = ce('span', { className: 'gcard__box' });
+  const txt = ce('div', { className: 'gcard__txt' });
+  const t = ce('div', { className: 'gcard__t' });
+  t.dataset.en = f.label_en; t.dataset.hi = f.label_hi;
+  t.textContent = state.lang === 'hi' ? f.label_hi : f.label_en;
+  txt.appendChild(t);
+  if (f.hint) { const d = ce('div', { className: 'gcard__d' }); d.textContent = f.hint; txt.appendChild(d); }
+  card.appendChild(cb); card.appendChild(box); card.appendChild(txt);
+  card.addEventListener('click', () => {
+    cb.checked = !cb.checked;
+    card.classList.toggle('on', cb.checked);
+    _commit(f.key, cb.checked);
+  });
+  return card;
+}
+
+// The "how do you want to start" strip. Re-uses the existing OCR auto-fill /
+// specialised upload zones (no change to that logic) under the "document" mode.
+function renderStartStrip(tpl) {
+  const hi = state.lang === 'hi';
+  const card = ce('div', { className: 'startcard' });
+  const h = ce('div', { className: 'startcard__h' });
+  h.dataset.en = 'Start from a document, not a blank form';
+  h.dataset.hi = 'खाली फ़ॉर्म नहीं — दस्तावेज़ से शुरू करें';
+  h.textContent = hi ? h.dataset.hi : h.dataset.en;
+  const p = ce('div', { className: 'startcard__p' });
+  p.dataset.en = 'Upload the FIR / order / judgment and the details fill themselves — or dictate, or fill in by hand.';
+  p.dataset.hi = 'FIR / आदेश / निर्णय अपलोड करें — विवरण अपने-आप भर जाएँगे; या बोलकर, या हाथ से भरें।';
+  p.textContent = hi ? p.dataset.hi : p.dataset.en;
+  card.appendChild(h); card.appendChild(p);
+
+  const modes = ce('div', { className: 'startmodes' });
+  const sbody = ce('div', { className: 'startbody' });
+  const defs = [
+    { m: 'doc',   t: [hi ? 'दस्तावेज़ से' : 'From a document', hi ? 'ऑटो-भरें' : 'auto-fill'], icon: '<path d="M14 3v5h5M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>' },
+    { m: 'voice', t: [hi ? 'बोलकर' : 'Dictate', hi ? 'हिन्दी / EN' : 'हिन्दी / EN'], icon: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>' },
+    { m: 'type',  t: [hi ? 'हाथ से' : 'Fill in', hi ? 'स्वयं' : 'by hand'], icon: '<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>' },
+  ];
+  function setMode(m) {
+    modes.querySelectorAll('.startmode').forEach(el => el.classList.toggle('on', el.dataset.m === m));
+    sbody.innerHTML = '';
+    if (m === 'doc') {
+      if (Array.isArray(tpl.uploads) && tpl.uploads.length) tpl.uploads.forEach(u => sbody.appendChild(renderUploadZone(u)));
+      else { const az = renderAutoFillZone(); if (az) sbody.appendChild(az); }
+    } else {
+      const hint = ce('div', { className: 'starthint' });
+      hint.textContent = m === 'voice'
+        ? (hi ? 'नीचे किसी भी बड़े खाने पर 🎙️ दबाकर बोलें — हिन्दी या अंग्रेज़ी।' : 'Tap the 🎙️ on any long field below to dictate — Hindi or English.')
+        : (hi ? 'नीचे दिए गए खाने भरें।' : 'Fill in the fields below.');
+      sbody.appendChild(hint);
+    }
+  }
+  defs.forEach(d => {
+    const b = ce('button', { className: 'startmode', type: 'button' });
+    b.dataset.m = d.m;
+    b.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">${d.icon}</svg><b>${esc(d.t[0])}</b><span>${esc(d.t[1])}</span>`;
+    b.addEventListener('click', () => setMode(d.m));
+    modes.appendChild(b);
+  });
+  card.appendChild(modes); card.appendChild(sbody);
+  setMode('doc');
+  return card;
 }
 
 function _commit(key, val) { state.fields[key] = val; saveToLocalStorage(); scheduleAutoRegen(); updateProgress(); refreshDepends(); }
@@ -1178,7 +1337,7 @@ function updateProgress() {
   bar.style.display = '';
   bar.querySelector('.form-progress__fill').style.width = pct + '%';
   const lbl = bar.querySelector('.form-progress__label');
-  lbl.textContent = state.lang === 'hi' ? `${done}/${reqd.length} आवश्यक भरे` : `${done}/${reqd.length} required filled`;
+  lbl.textContent = state.lang === 'hi' ? `${done} / ${reqd.length} आवश्यक विवरण` : `${done} / ${reqd.length} essentials`;
   bar.classList.toggle('is-complete', done === reqd.length);
 }
 
