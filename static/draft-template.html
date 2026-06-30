@@ -314,6 +314,8 @@
   .preview-handle { display: none; }
   .mobile-tabs { display: none; }
   @media (max-width: 880px) {
+    /* Never let any wide child scroll the whole page sideways. */
+    html, body { overflow-x: hidden; }
     /* Mobile = one full-width pane at a time (Form OR Preview). */
     .split { display: block; height: auto; }
 
@@ -334,19 +336,28 @@
     .form-pane { padding: 16px 14px 100px; border-right: none; }
     .form-cta { margin: 16px -14px 0; padding: 12px 14px 14px; }
 
-    /* Preview pane: hidden until the Preview tab is active, then full width */
-    .doc-pane { display: none; position: static; background: #e8e6df; padding: 14px 8px 80px; }
+    /* Preview pane: hidden until the Preview tab is active, then full width.
+       Acts as the grey "desk" the page sheet sits on. */
+    .doc-pane { display: none; position: static; background: #e8e6df; padding: 14px 10px 80px; overflow-x: hidden; }
     body.mview-preview .form-pane { display: none; }
     body.mview-preview .doc-pane { display: block; }
     .preview-handle { display: none !important; }
     .doc-pane > .doc-empty { display: block; }
 
-    /* Document scaled to phone width — readable, not crushed */
+    /* Preview as a real PAGE: a white sheet on the grey desk — contained to the
+       screen, content wraps, wide tables scroll inside rather than blowing the
+       page out (which was clipping the text on both edges). */
     .doc-page {
-      padding: 26px 18px 48px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-      border-radius: 4px; max-width: none; width: 100%; min-height: auto; font-size: 13px;
+      width: 100%; max-width: 100%; box-sizing: border-box; margin: 0 auto;
+      padding: 28px 20px 40px;
+      background: #fff; border-radius: 6px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.13);
+      min-height: auto; font-size: 13px;
+      overflow-wrap: break-word;
     }
-    .doc-page .doc-court { font-size: 19px; }
+    .doc-page .doc-court { font-size: 18px; overflow-wrap: break-word; }
+    .doc-page table { display: block; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .doc-page .doc-pl-date { flex-wrap: wrap; gap: 6px 16px; }
 
     .topbar { padding: 10px 12px; }
     .topbar__sub { display: none; }
@@ -416,6 +427,64 @@
   .more-toggle:hover { text-decoration: underline; }
   .more-inner { display: none; margin-top: 8px; }
   .more-wrap.open .more-inner { display: block; }
+
+  /* ---- Topbar overflow menu (declutters the action row on mobile) ---- */
+  .topbar__more-wrap { position: relative; display: none; }
+  .topbar__more { font-size: 20px; line-height: 1; padding: 4px 11px; }
+  .topbar__menu {
+    position: absolute; top: calc(100% + 8px); right: 0;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+    padding: 6px; min-width: 210px; z-index: 120;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .topbar__menu[hidden] { display: none; }
+  .topbar__menu button {
+    text-align: left; border: 0; background: transparent; width: 100%;
+    font-family: inherit; font-size: 14px; color: var(--ink);
+    padding: 12px 12px; border-radius: 8px; cursor: pointer;
+  }
+  .topbar__menu button:hover, .topbar__menu button:active { background: var(--soft, #f4f2ec); }
+  body.lang-hi .topbar__menu { font-family: 'Noto Sans Devanagari', sans-serif; }
+  @media (max-width: 880px) {
+    .topbar__right #btn-pdf, .topbar__right #btn-print,
+    .topbar__right #btn-edit, .topbar__right #btn-share,
+    .topbar__right .savestate { display: none; }
+    .topbar__more-wrap { display: inline-block; }
+  }
+
+  /* ---- Draft loading state — a page writing itself (calm, on-brand) ---- */
+  .doc-loader { display: none; flex-direction: column; align-items: center; gap: 20px; padding: 24px 10px 48px; }
+  .doc-pane.is-loading .doc-loader { display: flex; }
+  .doc-pane.is-loading > .doc-page,
+  .doc-pane.is-loading > .doc-empty { display: none !important; }
+  .doc-loader__sheet {
+    width: 100%; max-width: 760px; box-sizing: border-box; background: #fff;
+    border-radius: 6px; box-shadow: 0 2px 14px rgba(0,0,0,0.10);
+    padding: 44px 46px 56px; display: flex; flex-direction: column; gap: 14px;
+  }
+  .sk {
+    height: 13px; border-radius: 6px;
+    background: linear-gradient(90deg, #efece6 25%, #f8f5ef 37%, #efece6 63%);
+    background-size: 400% 100%; animation: sk-shimmer 1.4s ease-in-out infinite;
+  }
+  .sk--court { height: 22px; width: 62%; align-self: center; }
+  .sk--sub   { height: 11px; width: 38%; align-self: center; margin-bottom: 12px; }
+  .sk--title { height: 14px; width: 54%; align-self: center; margin: 14px 0 18px; }
+  .sk--p     { width: 100%; }
+  .sk--short { width: 70%; }
+  @keyframes sk-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+  .doc-loader__cap { display: flex; align-items: center; gap: 10px; color: var(--ink); font-size: 13.5px; font-weight: 600; text-align: center; }
+  body.lang-hi .doc-loader__cap { font-family: 'Noto Sans Devanagari', sans-serif; }
+  .doc-loader__spin {
+    width: 16px; height: 16px; flex-shrink: 0;
+    border: 2px solid var(--line-strong, #d8d4cc); border-top-color: var(--gold, #c9a96e);
+    border-radius: 50%; animation: sk-spin 0.8s linear infinite;
+  }
+  @keyframes sk-spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) {
+    .sk, .doc-loader__spin { animation: none; }
+  }
 </style>
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/static/favicon.svg">
@@ -440,6 +509,16 @@
     <button class="btn" id="btn-print" title="Print" data-en="🖨 Print" data-hi="🖨 प्रिंट">🖨 <span class="btn-long">प्रिंट</span></button>
     <button class="btn" id="btn-edit" title="Edit document directly" data-en="✏️ Edit" data-hi="✏️ संपादन">✏️ संपादन</button>
     <button class="btn" id="btn-share" title="Share on WhatsApp">📱 <span class="btn-long">WhatsApp</span></button>
+    <!-- Mobile: the four actions above collapse into this single menu -->
+    <div class="topbar__more-wrap" id="topbar-more-wrap">
+      <button class="btn topbar__more" id="btn-more" aria-label="More actions" aria-haspopup="true" aria-expanded="false">⋯</button>
+      <div class="topbar__menu" id="topbar-menu" hidden>
+        <button type="button" data-act="pdf"   data-en="⬇ Download PDF"      data-hi="⬇ PDF डाउनलोड">⬇ PDF डाउनलोड</button>
+        <button type="button" data-act="print" data-en="🖨 Print"            data-hi="🖨 प्रिंट">🖨 प्रिंट</button>
+        <button type="button" data-act="edit"  data-en="✏️ Edit document"     data-hi="✏️ दस्तावेज़ संपादन">✏️ दस्तावेज़ संपादन</button>
+        <button type="button" data-act="share" data-en="📱 Share on WhatsApp" data-hi="📱 WhatsApp पर भेजें">📱 WhatsApp पर भेजें</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -475,6 +554,21 @@
     <div class="doc-empty" id="doc-empty">
       <div class="doc-empty__icon">📄</div>
       <div data-en="Fill the form — the document writes itself as you type." data-hi="फॉर्म भरें — दस्तावेज़ अपने आप लिखता जाएगा।">फॉर्म भरें — दस्तावेज़ अपने आप लिखता जाएगा।</div>
+    </div>
+    <!-- Engaging loading state: a page visibly writing itself -->
+    <div class="doc-loader" id="doc-loader" aria-hidden="true">
+      <div class="doc-loader__sheet" aria-hidden="true">
+        <span class="sk sk--court"></span>
+        <span class="sk sk--sub"></span>
+        <span class="sk sk--title"></span>
+        <span class="sk sk--p"></span><span class="sk sk--p"></span><span class="sk sk--p sk--short"></span>
+        <span class="sk sk--p"></span><span class="sk sk--p"></span><span class="sk sk--p sk--short"></span>
+        <span class="sk sk--p"></span><span class="sk sk--p sk--short"></span>
+      </div>
+      <div class="doc-loader__cap" aria-live="polite">
+        <span class="doc-loader__spin"></span>
+        <span id="doc-loader-cap" data-en="Preparing your draft…" data-hi="आपका ड्राफ्ट तैयार हो रहा है…">आपका ड्राफ्ट तैयार हो रहा है…</span>
+      </div>
     </div>
     <div class="doc-page" id="doc-page" style="display:none;"></div>
   </div>
@@ -1738,9 +1832,14 @@ async function generateDocument(opts) {
   state.generating = true;
   $('#doc-pane').classList.add('is-generating');
   $('#btn-generate').disabled = true;
+  // Rich loading state only when we'll actually wait on the LLM (deterministic
+  // renders are instant — a loader would just flicker) and this is a real load
+  // (first paint or an explicit refresh), not a per-keystroke silent regen.
+  const showRich = (!silent || !state.document) && !DETERMINISTIC_RENDERERS[state.docType];
+  if (showRich) showLoader();
   if (!silent) {
     $('#gen-label').textContent = state.lang === 'hi' ? '⏳ बना रहे हैं…' : '⏳ Drafting…';
-    if (window.matchMedia('(max-width: 880px)').matches && !state.document) setPreview('half');
+    if (window.matchMedia('(max-width: 880px)').matches && (showRich || !state.document)) setPreview('half');
   }
   const prevScroll = $('#doc-page')?.scrollTop || 0;
   // Snapshot the language + content version THIS request is built from. The
@@ -1791,6 +1890,7 @@ async function generateDocument(opts) {
     if (!silent) toast('Error: ' + e.message, 'err', 4000);
   } finally {
     state.generating = false;
+    hideLoader();
     $('#doc-pane').classList.remove('is-generating');
     $('#btn-generate').disabled = false;
     $('#gen-label').textContent = state.lang === 'hi' ? '✨ दस्तावेज़ ताज़ा करें' : '✨ Refresh Draft';
@@ -2023,6 +2123,45 @@ function setMobileView(v) {
 }
 $('#mtab-form')?.addEventListener('click', () => setMobileView('form'));
 $('#mtab-preview')?.addEventListener('click', () => setMobileView('preview'));
+
+// ---- Engaging draft loading state ----
+let _loaderTimer = null;
+function showLoader() {
+  const pane = $('#doc-pane'); if (!pane) return;
+  pane.classList.add('is-loading');
+  const cap = $('#doc-loader-cap');
+  const caps = state.lang === 'hi'
+    ? ['विषय समझ रहे हैं…', 'ढांचा तैयार कर रहे हैं…', 'ड्राफ्ट लिखा जा रहा है…', 'कोर्ट फ़ॉर्मेट लगा रहे हैं…']
+    : ['Understanding the matter…', 'Structuring the draft…', 'Writing the draft…', 'Applying court format…'];
+  let i = 0;
+  if (cap) cap.textContent = caps[0];
+  clearInterval(_loaderTimer);
+  _loaderTimer = setInterval(() => { i = (i + 1) % caps.length; if (cap) cap.textContent = caps[i]; }, 1400);
+}
+function hideLoader() {
+  $('#doc-pane')?.classList.remove('is-loading');
+  clearInterval(_loaderTimer); _loaderTimer = null;
+}
+
+// ---- Topbar overflow menu (mobile) ----
+(function wireMore() {
+  const btn = $('#btn-more'), menu = $('#topbar-menu');
+  if (!btn || !menu) return;
+  const close = () => { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const open = menu.hidden;
+    menu.hidden = !open;
+    btn.setAttribute('aria-expanded', String(open));
+  });
+  const MAP = { pdf: 'btn-pdf', print: 'btn-print', edit: 'btn-edit', share: 'btn-share' };
+  menu.querySelectorAll('button[data-act]').forEach(b => {
+    b.addEventListener('click', () => { close(); $('#' + MAP[b.dataset.act])?.click(); });
+  });
+  document.addEventListener('click', (e) => {
+    if (!menu.hidden && !e.target.closest('#topbar-more-wrap')) close();
+  });
+})();
 
 // ---- Language toggle ----
 async function setLang(newLang) {
