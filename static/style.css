@@ -1582,6 +1582,20 @@ button { font-family: inherit; }
 .pd__btn--ghost { background: var(--surface); color: var(--ink); border-color: var(--line); font-weight: 500; }
 .pd__btn--ghost:hover { border-color: var(--ink); filter: none; }
 .pd__attached { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+
+/* Composer CTA row on phones — don't squeeze the language toggle, Attach,
+   voice mode AND "Draft it" into one cramped no-wrap line (which clipped the
+   toggle to "हि" and wrapped the button). Wrap the secondary controls, drop
+   the flex spacer, and make "Draft it" a full-width primary tap target. */
+@media (max-width: 560px) {
+  .pd { padding: 12px 13px 12px; }
+  .pd__bar { flex-wrap: wrap; gap: 8px 10px; }
+  .pd__grow { display: none; }
+  .pd__bar .pd__seg button { padding: 8px 14px; font-size: 13px; }
+  .pd__upload { padding: 8px 12px; }
+  .pd__voice { font-size: 12.5px; padding: 4px 2px; }
+  #pd-draft { flex: 1 1 100%; padding: 12px; font-size: 14px; text-align: center; }
+}
 .pd__attached[hidden] { display: none; }
 .pd__chip { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; background: var(--gold-soft, #faf7ed); border: 1px solid var(--gold-line, #ece3c8); color: var(--gold-ink, #8c7549); border-radius: 999px; padding: 5px 6px 5px 12px; }
 .pd__chip button { border: 0; background: rgba(12,12,10,0.07); color: inherit; width: 18px; height: 18px; border-radius: 50%; cursor: pointer; font-size: 10px; line-height: 1; display: grid; place-items: center; }
