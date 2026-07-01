@@ -182,11 +182,25 @@
     font-size: 12px; color: var(--ink-3); line-height: 1.6; }
   .rfoot b { color: var(--ink-2); }
 
+  /* Party block — descriptor left, designation pinned to the extreme right (court format) */
+  .paper .party { display: flex; justify-content: space-between; align-items: flex-end; gap: 18px; margin: 0 0 4px; }
+  .paper .party__d { flex: 1; }
+  .paper .party__t { white-space: nowrap; font-weight: 700; }
+  /* Per-document Save-PDF button */
+  .doc__pdf { font-size: 12px; color: var(--ink-2); border: 1px solid var(--line); background: var(--surface);
+    padding: 5px 11px; border-radius: var(--radius); cursor: pointer; white-space: nowrap; }
+  .doc__pdf:hover { border-color: var(--gold); color: var(--ink); }
+
   @media print {
-    .rtop, .fillcard, .guidecard, .notes, .doc__copy, .rhead__eyebrow { display: none !important; }
+    /* Print/save the DOCUMENT only — never the page chrome */
+    .rtop, .rhead, .fillcard, .guidecard, .notes, .doc__bar { display: none !important; }
     .paper { border: none; padding: 0; }
-    .doc__bar { background: none; border: none; padding: 0 0 6px; }
-    .card, .doc { box-shadow: none; }
+    .card, .doc { box-shadow: none; margin: 0; }
+    .doc { page-break-after: always; }
+    .doc:last-of-type { page-break-after: auto; }
+    /* Per-document print: show only the chosen document */
+    body.print-one .doc { display: none !important; }
+    body.print-one .doc.print-target { display: block !important; page-break-after: auto; }
   }
 </style>
 </head>
@@ -437,9 +451,9 @@
       <p class="ctr">Civil Suit No. <span class="ph" data-f="suit" data-ph="[___ of 20__]">[___ of 20__]</span></p>
       <p class="ctr sup">(Under Order XXXVII of the Code of Civil Procedure, 1908)</p>
       <hr class="rule" />
-      <p class="tight"><span class="ph" data-f="plaintiff" data-ph="[Plaintiff — name, parentage, age, occupation, address]">[Plaintiff — name, parentage, age, occupation, address]</span> &nbsp;… <b>Plaintiff</b></p>
+      <p class="party"><span class="party__d"><span class="ph" data-f="plaintiff" data-ph="[Plaintiff — name, parentage, age, occupation, address]">[Plaintiff — name, parentage, age, occupation, address]</span></span><b class="party__t">… Plaintiff</b></p>
       <p class="vs">VERSUS</p>
-      <p class="tight"><span class="ph" data-f="defendant" data-ph="[Defendant — name, parentage, age, occupation, address]">[Defendant — name, parentage, age, occupation, address]</span> &nbsp;… <b>Defendant</b></p>
+      <p class="party"><span class="party__d"><span class="ph" data-f="defendant" data-ph="[Defendant — name, parentage, age, occupation, address]">[Defendant — name, parentage, age, occupation, address]</span></span><b class="party__t">… Defendant</b></p>
       <hr class="rule" />
       <p class="ctr"><b>SUIT FOR RECOVERY OF ₹<span class="ph" data-f="claim" data-ph="[amount]">[amount]</span>
          (<span class="ph" data-f="words" data-ph="[in words]">[in words]</span>)</b></p>
@@ -530,9 +544,9 @@
       <p class="ctr">सिविल वाद संख्या <span class="ph" data-f="suit" data-ph="[___ वर्ष 20__]">[___ वर्ष 20__]</span></p>
       <p class="ctr sup">(सिविल प्रक्रिया संहिता, 1908 के आदेश 37 के अंतर्गत)</p>
       <hr class="rule" />
-      <p class="tight"><span class="ph" data-f="plaintiff" data-ph="[वादी — नाम, पिता/पति का नाम, आयु, व्यवसाय, पता]">[वादी — नाम, पिता/पति का नाम, आयु, व्यवसाय, पता]</span> &nbsp;… <b>वादी</b></p>
+      <p class="party"><span class="party__d"><span class="ph" data-f="plaintiff" data-ph="[वादी — नाम, पिता/पति का नाम, आयु, व्यवसाय, पता]">[वादी — नाम, पिता/पति का नाम, आयु, व्यवसाय, पता]</span></span><b class="party__t">… वादी</b></p>
       <p class="vs">बनाम</p>
-      <p class="tight"><span class="ph" data-f="defendant" data-ph="[प्रतिवादी — नाम, पिता का नाम, आयु, व्यवसाय, पता]">[प्रतिवादी — नाम, पिता का नाम, आयु, व्यवसाय, पता]</span> &nbsp;… <b>प्रतिवादी</b></p>
+      <p class="party"><span class="party__d"><span class="ph" data-f="defendant" data-ph="[प्रतिवादी — नाम, पिता का नाम, आयु, व्यवसाय, पता]">[प्रतिवादी — नाम, पिता का नाम, आयु, व्यवसाय, पता]</span></span><b class="party__t">… प्रतिवादी</b></p>
       <hr class="rule" />
       <p class="ctr"><b>₹<span class="ph" data-f="claim" data-ph="[राशि]">[राशि]</span>
          (<span class="ph" data-f="words" data-ph="[शब्दों में]">[शब्दों में]</span>) की वसूली हेतु वाद</b></p>
@@ -657,10 +671,36 @@
   // ── Language toggle (EN / हिं) — flips a class on <body>; CSS does the rest.
   var langBtns = document.querySelectorAll('.langtog__btn');
   function curLang() { return document.body.classList.contains('hi') ? 'hi' : 'en'; }
+
+  // Field placeholders switch with the language too (labels are already bilingual).
+  var PH = {
+    court:      { en: 'Court of the Civil Judge (Sr. Divn.), ____',                          hi: 'सिविल न्यायाधीश (व.श्रे.) न्यायालय, ____' },
+    suit:       { en: '____ of 20__',                                                        hi: '____ वर्ष 20__' },
+    plaintiff:  { en: 'Name, S/o ____, age, occupation, r/o ____',                           hi: 'नाम, पुत्र श्री ____, आयु, व्यवसाय, निवासी ____' },
+    defendant:  { en: 'Name, S/o ____, age, occupation, r/o ____',                           hi: 'नाम, पुत्र श्री ____, आयु, व्यवसाय, निवासी ____' },
+    principal:  { en: '5,00,000',                                                            hi: '5,00,000' },
+    words:      { en: 'Rupees Five Lakh only',                                               hi: 'रुपये पाँच लाख मात्र' },
+    instrument: { en: 'written loan agreement dated ____ / promissory note / invoice no. ____', hi: 'लिखित ऋण अनुबंध दिनांक ____ / प्रॉमिसरी नोट / बिल सं. ____' },
+    txndate:    { en: '12.03.2024',                                                          hi: '12.03.2024' },
+    interest:   { en: '18',                                                                  hi: '18' },
+    duedate:    { en: '12.09.2024',                                                          hi: '12.09.2024' },
+    claim:      { en: '5,90,000',                                                            hi: '5,90,000' },
+    noticedate: { en: '05.05.2026',                                                          hi: '05.05.2026' },
+    noticedays: { en: '15',                                                                  hi: '15' },
+    place:      { en: '____',                                                                hi: '____' },
+    advocate:   { en: '____, Advocate (Enrl. No. ____)',                                     hi: '____, अधिवक्ता (नामांकन सं. ____)' },
+    draftdate:  { en: 'DD.MM.YYYY',                                                          hi: 'दि.मा.वर्ष' }
+  };
+  function applyPlaceholders(l) {
+    document.querySelectorAll('.field input[data-f]').forEach(function (inp) {
+      var m = PH[inp.getAttribute('data-f')]; if (m) inp.placeholder = m[l] || m.en;
+    });
+  }
   function setLang(l) {
     document.body.classList.toggle('hi', l === 'hi');
     document.documentElement.lang = l;
     langBtns.forEach(function (b) { b.classList.toggle('is-active', b.dataset.lang === l); });
+    applyPlaceholders(l);
   }
   langBtns.forEach(function (b) { b.addEventListener('click', function () { setLang(b.dataset.lang); }); });
 
@@ -729,6 +769,24 @@
     b.textContent = '✓'; setTimeout(function () { b.innerHTML = o; }, 1500);
   });
   document.getElementById('btn-print').addEventListener('click', function () { window.print(); });
+
+  // Per-document "Save PDF" — prints ONLY that document, not the whole page.
+  document.querySelectorAll('.doc').forEach(function (sec) {
+    var bar = sec.querySelector('.doc__bar'); if (!bar) return;
+    var b = document.createElement('button');
+    b.className = 'doc__pdf';
+    b.innerHTML = '<span class="lang-en">Save PDF</span><span class="lang-hi">PDF सेव करें</span>';
+    b.addEventListener('click', function () {
+      document.querySelectorAll('.doc').forEach(function (d) { d.classList.remove('print-target'); });
+      sec.classList.add('print-target'); document.body.classList.add('print-one');
+      window.print();
+    });
+    bar.appendChild(b);
+  });
+  window.addEventListener('afterprint', function () {
+    document.body.classList.remove('print-one');
+    document.querySelectorAll('.doc').forEach(function (d) { d.classList.remove('print-target'); });
+  });
 })();
 </script>
 </body>

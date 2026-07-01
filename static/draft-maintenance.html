@@ -134,11 +134,25 @@
     font-size: 12px; color: var(--ink-3); line-height: 1.6; }
   .rfoot b { color: var(--ink-2); }
 
+  /* Party block — descriptor left, designation pinned to the extreme right (court format) */
+  .paper .party { display: flex; justify-content: space-between; align-items: flex-end; gap: 18px; margin: 0 0 4px; }
+  .paper .party__d { flex: 1; }
+  .paper .party__t { white-space: nowrap; font-weight: 700; }
+  /* Per-document Save-PDF button */
+  .doc__pdf { font-size: 12px; color: var(--ink-2); border: 1px solid var(--line); background: var(--surface);
+    padding: 5px 11px; border-radius: var(--radius); cursor: pointer; white-space: nowrap; }
+  .doc__pdf:hover { border-color: var(--gold); color: var(--ink); }
+
   @media print {
-    .rtop, .fillcard, .guidecard, .notes, .doc__copy, .rhead__eyebrow { display: none !important; }
+    /* Print/save the DOCUMENT only — never the page chrome */
+    .rtop, .rhead, .fillcard, .guidecard, .notes, .doc__bar { display: none !important; }
     .paper { border: none; padding: 0; }
-    .doc__bar { background: none; border: none; padding: 0 0 6px; }
-    .card, .doc { box-shadow: none; }
+    .card, .doc { box-shadow: none; margin: 0; }
+    .doc { page-break-after: always; }
+    .doc:last-of-type { page-break-after: auto; }
+    /* Per-document print: show only the chosen document */
+    body.print-one .doc { display: none !important; }
+    body.print-one .doc.print-target { display: block !important; page-break-after: auto; }
   }
 </style>
 </head>
@@ -277,9 +291,9 @@
       <p class="ctr">Criminal Misc. Case No. <span class="ph" data-f="case" data-ph="[___ of 20__]">[___ of 20__]</span></p>
       <p class="ctr">Application under Section 144 BNSS, 2023 (Section 125 CrPC, 1973)</p>
       <hr class="rule" />
-      <p class="tight"><span class="ph" data-f="wife" data-ph="[Petitioner — wife, W/o, age, occupation, address]">[Petitioner — wife, W/o, age, occupation, address]</span> &nbsp;… <b>Petitioner</b></p>
+      <p class="party"><span class="party__d"><span class="ph" data-f="wife" data-ph="[Petitioner — wife, W/o, age, occupation, address]">[Petitioner — wife, W/o, age, occupation, address]</span></span><b class="party__t">… Petitioner</b></p>
       <p class="vs">VERSUS</p>
-      <p class="tight"><span class="ph" data-f="husband" data-ph="[Respondent — husband, S/o, age, occupation, address]">[Respondent — husband, S/o, age, occupation, address]</span> &nbsp;… <b>Respondent</b></p>
+      <p class="party"><span class="party__d"><span class="ph" data-f="husband" data-ph="[Respondent — husband, S/o, age, occupation, address]">[Respondent — husband, S/o, age, occupation, address]</span></span><b class="party__t">… Respondent</b></p>
       <hr class="rule" />
       <p class="ctr"><b>APPLICATION FOR MAINTENANCE UNDER SECTION 144 BNSS (SECTION 125 CrPC)</b></p>
       <p><b>The Petitioner most respectfully submits as under:—</b></p>
@@ -314,9 +328,9 @@
       <p class="ctr">आपराधिक विविध प्रकरण क्रमांक <span class="ph" data-f="case" data-ph="[___ वर्ष 20__]">[___ वर्ष 20__]</span></p>
       <p class="ctr">आवेदन अंतर्गत धारा 144 बी.एन.एस.एस., 2023 (धारा 125 दं.प्र.सं., 1973)</p>
       <hr class="rule" />
-      <p class="tight"><span class="ph" data-f="wife" data-ph="[आवेदिका — पत्नी, पत्नी श्री ____, आयु, व्यवसाय, पता]">[आवेदिका — पत्नी, पत्नी श्री ____, आयु, व्यवसाय, पता]</span> &nbsp;… <b>आवेदिका</b></p>
+      <p class="party"><span class="party__d"><span class="ph" data-f="wife" data-ph="[आवेदिका — पत्नी, पत्नी श्री ____, आयु, व्यवसाय, पता]">[आवेदिका — पत्नी, पत्नी श्री ____, आयु, व्यवसाय, पता]</span></span><b class="party__t">… आवेदिका</b></p>
       <p class="vs">बनाम</p>
-      <p class="tight"><span class="ph" data-f="husband" data-ph="[अनावेदक — पति, पुत्र श्री ____, आयु, व्यवसाय, पता]">[अनावेदक — पति, पुत्र श्री ____, आयु, व्यवसाय, पता]</span> &nbsp;… <b>अनावेदक</b></p>
+      <p class="party"><span class="party__d"><span class="ph" data-f="husband" data-ph="[अनावेदक — पति, पुत्र श्री ____, आयु, व्यवसाय, पता]">[अनावेदक — पति, पुत्र श्री ____, आयु, व्यवसाय, पता]</span></span><b class="party__t">… अनावेदक</b></p>
       <hr class="rule" />
       <p class="ctr"><b>धारा 144 बी.एन.एस.एस. (धारा 125 दं.प्र.सं.) के अंतर्गत भरण-पोषण हेतु आवेदन</b></p>
       <p><b>आवेदिका सविनय निवेदन करती है:—</b></p>
@@ -452,10 +466,35 @@
 (function () {
   var langBtns = document.querySelectorAll('.langtog__btn');
   function curLang() { return document.body.classList.contains('hi') ? 'hi' : 'en'; }
+
+  // Field placeholders switch with the language too (labels are already bilingual).
+  var PH = {
+    court:      { en: 'Family Court / JMFC, ____',                 hi: 'कुटुम्ब न्यायालय / जे.एम.एफ.सी., ____' },
+    case:       { en: '____ of 20__',                              hi: '____ वर्ष 20__' },
+    wife:       { en: 'Name, W/o ____, age, occupation, r/o ____', hi: 'नाम, पत्नी श्री ____, आयु, व्यवसाय, निवासी ____' },
+    husband:    { en: 'Name, S/o ____, age, occupation, r/o ____', hi: 'नाम, पुत्र श्री ____, आयु, व्यवसाय, निवासी ____' },
+    marrydate:  { en: '15.05.2018',                                hi: '15.05.2018' },
+    marryplace: { en: '____',                                      hi: '____' },
+    children:   { en: '____',                                      hi: '____' },
+    neglect:    { en: 'dowry demand, cruelty, driven out on ____', hi: 'दहेज माँग, क्रूरता, दिनांक ____ को घर से निकाला' },
+    occupation: { en: 'business / service ____',                   hi: 'व्यवसाय / नौकरी ____' },
+    income:     { en: '60,000',                                    hi: '60,000' },
+    amount:     { en: '25,000',                                    hi: '25,000' },
+    interim:    { en: '15,000',                                    hi: '15,000' },
+    place:      { en: '____',                                      hi: '____' },
+    advocate:   { en: '____, Advocate (Enrl. No. ____)',           hi: '____, अधिवक्ता (नामांकन सं. ____)' },
+    draftdate:  { en: 'DD.MM.YYYY',                                hi: 'दि.मा.वर्ष' }
+  };
+  function applyPlaceholders(l) {
+    document.querySelectorAll('.field input[data-f]').forEach(function (inp) {
+      var m = PH[inp.getAttribute('data-f')]; if (m) inp.placeholder = m[l] || m.en;
+    });
+  }
   function setLang(l) {
     document.body.classList.toggle('hi', l === 'hi');
     document.documentElement.lang = l;
     langBtns.forEach(function (b) { b.classList.toggle('is-active', b.dataset.lang === l); });
+    applyPlaceholders(l);
   }
   langBtns.forEach(function (b) { b.addEventListener('click', function () { setLang(b.dataset.lang); }); });
 
@@ -516,6 +555,24 @@
     setTimeout(function () { b.innerHTML = o; }, 1500);
   });
   document.getElementById('btn-print').addEventListener('click', function () { window.print(); });
+
+  // Per-document "Save PDF" — prints ONLY that document, not the whole page.
+  document.querySelectorAll('.doc').forEach(function (sec) {
+    var bar = sec.querySelector('.doc__bar'); if (!bar) return;
+    var b = document.createElement('button');
+    b.className = 'doc__pdf';
+    b.innerHTML = '<span class="lang-en">Save PDF</span><span class="lang-hi">PDF सेव करें</span>';
+    b.addEventListener('click', function () {
+      document.querySelectorAll('.doc').forEach(function (d) { d.classList.remove('print-target'); });
+      sec.classList.add('print-target'); document.body.classList.add('print-one');
+      window.print();
+    });
+    bar.appendChild(b);
+  });
+  window.addEventListener('afterprint', function () {
+    document.body.classList.remove('print-one');
+    document.querySelectorAll('.doc').forEach(function (d) { d.classList.remove('print-target'); });
+  });
 })();
 </script>
 </body>
