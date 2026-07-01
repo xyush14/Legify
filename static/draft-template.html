@@ -496,6 +496,13 @@
   }
   .boot-loader[hidden] { display: none; }
   .boot-loader .doc-loader__sheet { max-width: 620px; }
+  /* preview fit-to-width — wrapper sized by JS to the scaled sheet so there's no
+     dead space; desktop is 1:1; PDF is server-side and unaffected. */
+  .fitwrap { margin: 0 auto; }
+  @media print {
+    .fitwrap { width: auto !important; height: auto !important; overflow: visible !important; }
+    .fitwrap > .v2-bundle { transform: none !important; }
+  }
 </style>
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/static/favicon.svg">
@@ -1976,6 +1983,48 @@ function renderDocument() {
     : parseDocToHtml(state.document);
   // Don't yank the user to the preview while they're typing — the Form/Preview
   // tabs let them switch when they're ready.
+  fitDocToWidth();
+  requestAnimationFrame(fitDocToWidth);   // re-measure once fonts/layout settle
+}
+
+// The canonical draft is a fixed 210mm A4 sheet (.doc-a4). On a screen narrower
+// than the sheet it used to clip — lines ran off the right edge, unreadable.
+// Scale the whole sheet down to fit the pane so every line is visible; desktop
+// (pane ≥ sheet) stays 1:1, and the PDF is generated server-side so it's untouched.
+function fitDocToWidth() {
+  const page = document.getElementById('doc-page');
+  if (!page) return;
+  const bundle = page.querySelector('.v2-bundle');
+  if (!bundle) return;               // legacy .doc-page docs already reflow responsively
+  const sheet = bundle.querySelector('.doc-a4');
+  if (!sheet) return;
+  let wrap = (bundle.parentElement && bundle.parentElement.classList.contains('fitwrap'))
+    ? bundle.parentElement : null;
+  bundle.style.transform = '';       // reset before measuring natural size
+  if (wrap) { wrap.style.width = ''; wrap.style.height = ''; }
+  const avail = page.clientWidth;
+  const naturalW = sheet.offsetWidth;
+  if (!avail || !naturalW) return;
+  const scale = Math.min(1, (avail - 2) / naturalW);
+  if (scale >= 0.999) { if (wrap) wrap.replaceWith(bundle); return; }   // room enough → no scaling
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.className = 'fitwrap';
+    bundle.parentNode.insertBefore(wrap, bundle);
+    wrap.appendChild(bundle);
+  }
+  const naturalH = bundle.offsetHeight;
+  bundle.style.transformOrigin = 'top left';
+  bundle.style.transform = 'scale(' + scale + ')';
+  wrap.style.width = Math.ceil(naturalW * scale) + 'px';
+  wrap.style.height = Math.ceil(naturalH * scale) + 'px';
+}
+if (!window.__fitDocBound) {
+  window.__fitDocBound = true;
+  window.addEventListener('resize', () => {
+    clearTimeout(window.__fitDocT);
+    window.__fitDocT = setTimeout(fitDocToWidth, 120);
+  });
 }
 
 function parseDocToHtml(text) {
