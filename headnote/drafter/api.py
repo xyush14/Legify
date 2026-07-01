@@ -170,7 +170,7 @@ def render_live(body: RenderLiveBody):
 
 class FromPromptBody(BaseModel):
     prompt: str = Field(..., description="freeform matter description (Hindi / English / Hinglish)")
-    lang:   Literal["hi", "en"] = "hi"
+    lang:   Literal["hi", "en", "auto"] = "auto"  # 'auto' → intent-aware detect from the prompt
 
 
 @router.post("/from-prompt", summary="Prompt-first drafting → best court-ready draft (canonical | house-style authored)")
@@ -193,7 +193,7 @@ def draft_from_prompt_route(body: FromPromptBody):
 @router.post("/from-document", summary="Draft from an attached document — as source facts, or as a style reference to mirror")
 async def draft_from_document(
     prompt: str = Form(""),
-    lang: str = Form("hi"),
+    lang: str = Form("auto"),
     role: str = Form("facts"),
     file: Optional[UploadFile] = File(None),
     files: Optional[List[UploadFile]] = File(None),
@@ -258,7 +258,7 @@ class RefineBody(BaseModel):
     prev_html: str = Field(..., description="the advocate's current authored draft (HTML or text)")
     instruction: str = Field(..., description="what to change, in plain Hindi/English")
     doc_type: str = Field("other_criminal", description="the draft's doc_type, echoed from the result")
-    lang: Literal["hi", "en"] = "hi"
+    lang: Literal["hi", "en", "auto"] = "auto"  # normally the resolved lang echoed from the result
 
 
 @router.post("/refine", summary="Instruction-based refine of an AUTHORED draft (the edit path for non-canonical drafts)")
@@ -268,16 +268,17 @@ def refine_route(body: RefineBody):
     revise the current draft and return the same unified shape as /from-prompt (with page_hi/page_en)."""
     from fastapi.responses import JSONResponse
     from headnote.drafter.author import revise_document
-    from headnote.drafter.from_prompt import _finalize
+    from headnote.drafter.from_prompt import _finalize, resolve_lang
     if not (body.instruction or "").strip():
         return JSONResponse({"ok": False, "error": "tell us what to change"}, status_code=400)
     if not (body.prev_html or "").strip():
         return JSONResponse({"ok": False, "error": "nothing to refine"}, status_code=400)
+    lang = resolve_lang(body.lang, body.prev_html + " " + body.instruction)
     try:
-        result = revise_document(body.prev_html, body.instruction, body.doc_type, body.lang)
+        result = revise_document(body.prev_html, body.instruction, body.doc_type, lang)
         result.update({
-            "html_hi": result["html"] if body.lang != "en" else "",
-            "html_en": result["html"] if body.lang == "en" else "",
+            "html_hi": result["html"] if lang != "en" else "",
+            "html_en": result["html"] if lang == "en" else "",
         })
         return _finalize(result)
     except Exception as e:

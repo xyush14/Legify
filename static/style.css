@@ -1607,8 +1607,18 @@ button { font-family: inherit; }
 .pd__seg button { border: 0; background: var(--surface); color: var(--muted, #6b6960); font-family: inherit; font-size: 12.5px; font-weight: 600; padding: 6px 12px; cursor: pointer; }
 .pd__seg button.on { background: var(--ink); color: var(--surface); }
 .pd__seg--sm button { font-size: 11px; padding: 4px 9px; }
-.pd__voice { font-size: 12px; color: var(--gold-ink, #8c7549); text-decoration: none; opacity: 0.85; white-space: nowrap; }
-.pd__voice:hover { opacity: 1; text-decoration: underline; }
+/* Attach actions — quiet secondary controls so the ONLY prominent CTA is "Draft it". */
+.pd__attach-btn {
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  border: 0; background: none; color: var(--muted, #6b6960);
+  font-family: inherit; font-size: 13px; font-weight: 500; padding: 5px 4px;
+  border-radius: 7px; cursor: pointer; text-decoration: none; transition: color 0.12s, background 0.12s;
+}
+.pd__attach-btn:hover { color: var(--ink, #0c0c0a); background: rgba(12,12,10,0.04); }
+.pd__attach-btn--ref { color: var(--gold-ink, #8c7549); }
+.pd__attach-btn--ref:hover { color: var(--gold-deep, #b4894b); background: var(--gold-soft, #faf7ed); }
+.pd__voice { color: var(--gold-ink, #8c7549); }
+.pd__auto { font-size: 11px; color: var(--muted, #9a988f); white-space: nowrap; opacity: 0.8; }
 .pd__btn {
   border: 1px solid var(--gold-deep, #b4894b); background: var(--gold, #c9a96e); color: #1a1611;
   font-family: inherit; font-size: 13px; font-weight: 600; padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: filter 0.12s;
@@ -1619,18 +1629,18 @@ button { font-family: inherit; }
 .pd__btn--ghost:hover { border-color: var(--ink); filter: none; }
 .pd__attached { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
 
-/* Composer CTA row on phones — don't squeeze the language toggle, Attach,
-   voice mode AND "Draft it" into one cramped no-wrap line (which clipped the
-   toggle to "हि" and wrapped the button). Wrap the secondary controls, drop
-   the flex spacer, and make "Draft it" a full-width primary tap target. */
+/* Composer CTA row on phones — attach actions become tappable chips that wrap,
+   the auto-detect hint sits centered, and "Draft it" is a full-width primary. */
 @media (max-width: 560px) {
   .pd { padding: 12px 13px 12px; }
-  .pd__bar { flex-wrap: wrap; gap: 8px 10px; }
+  .pd__bar { flex-wrap: wrap; gap: 8px; }
   .pd__grow { display: none; }
-  .pd__bar .pd__seg button { padding: 8px 14px; font-size: 13px; }
-  .pd__upload { padding: 8px 12px; }
-  .pd__voice { font-size: 12.5px; padding: 4px 2px; }
-  #pd-draft { flex: 1 1 100%; padding: 12px; font-size: 14px; text-align: center; }
+  .pd__attach-btn {
+    border: 1px solid var(--gold-line, #ece3c8); background: var(--gold-soft, #faf7ed);
+    color: var(--gold-ink, #8c7549); padding: 8px 12px; font-size: 12.5px;
+  }
+  .pd__auto { flex: 1 1 100%; order: 3; text-align: center; padding: 2px 0; }
+  #pd-draft { flex: 1 1 100%; order: 4; padding: 12px; font-size: 14px; text-align: center; }
 }
 .pd__attached[hidden] { display: none; }
 .pd__chip { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; background: var(--gold-soft, #faf7ed); border: 1px solid var(--gold-line, #ece3c8); color: var(--gold-ink, #8c7549); border-radius: 999px; padding: 5px 6px 5px 12px; }
@@ -1662,15 +1672,8 @@ button { font-family: inherit; }
 .pd-note--mirror h4 { color: var(--gold-ink, #8c7549); }
 .pd-note--mirror p { margin: 0; }
 
-/* ---- Reference-draft upload — the "match this document's style" affordance.
-   Gold-accented so it reads as a distinct, premium capability vs neutral Case papers. */
-.pd__upload--ref {
-  border-color: var(--gold-line, #ece3c8);
-  background: var(--gold-soft, #faf7ed);
-  color: var(--gold-ink, #8c7549);
-  font-weight: 600;
-}
-.pd__upload--ref:hover { border-color: var(--gold-deep, #b4894b); filter: none; }
+/* Reference-draft chip after selecting a file — gold-outlined so it reads as the
+   "match this document's style" affordance (the button itself is quiet in the bar). */
 .pd__chip--ref { background: #fff; border-color: var(--gold-deep, #b4894b); color: var(--gold-ink, #8c7549); }
 .pd__attach-note--ref { color: var(--gold-ink, #8c7549); max-width: 640px; line-height: 1.5; }
 

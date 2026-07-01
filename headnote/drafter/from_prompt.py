@@ -70,7 +70,14 @@ def _editor_handoff(module_key: str, court: str, bail_type: str, data: dict) -> 
 CLASSIFY_SYSTEM = """You are the intake router for an Indian litigation drafting tool (Madhya Pradesh trial
 courts + High Court). Read the advocate's description of what they want to draft — it may be in Hindi, English
 or Hinglish — and classify it. Output ONLY valid JSON, no prose:
-{"doc_type": "<one key below>", "court": "magistrate"|"sessions"|"hc"|"family"|"", "bail_type": "regular"|"anticipatory"|"", "confidence": 0.0-1.0, "reason": "<short>"}
+{"doc_type": "<one key below>", "court": "magistrate"|"sessions"|"hc"|"family"|"", "bail_type": "regular"|"anticipatory"|"", "language": "hi"|"en", "confidence": 0.0-1.0, "reason": "<short>"}
+
+"language" = the language the DRAFT should be written in, inferred from how the advocate wrote:
+  • Devanagari (Hindi) text → "hi".
+  • Hinglish — Hindi words typed in Latin/Roman script ("regular bail FIR 123 dhara 420 ka ekmatra kamane wala") → "hi".
+    These lawyers want a HINDI court draft; the Roman typing is just input convenience.
+  • Genuine English prose (an English sentence a court would accept as English) → "en".
+  • If unsure, default to "hi" (this is an MP district-court tool).
 
 doc_type keys (pick the SINGLE best fit):
   bail               regular bail after arrest/custody (BNSS §483/§480; CrPC §439/§437)
@@ -99,8 +106,26 @@ Rules:
 """
 
 
+def _detect_lang(text: str) -> str:
+    """Instant script heuristic used when the LLM can't decide: any Devanagari → 'hi',
+    else 'en'. (The intent-aware call handles Hinglish; this is only the offline fallback.)"""
+    return "hi" if any("ऀ" <= ch <= "ॿ" for ch in (text or "")) else "en"
+
+
+def resolve_lang(requested: str, text: str, cls_language: str = "") -> str:
+    """Resolve the draft language. An explicit 'hi'/'en' from the caller always wins; otherwise
+    (requested 'auto' or blank) use the classifier's intent-aware call, then the script heuristic."""
+    r = (requested or "").strip().lower()
+    if r in ("hi", "en"):
+        return r
+    cl = (cls_language or "").strip().lower()
+    if cl in ("hi", "en"):
+        return cl
+    return _detect_lang(text)
+
+
 def classify(matter: str, lang: str = "hi") -> dict:
-    """Map a freeform matter description to {doc_type, court, bail_type, confidence}.
+    """Map a freeform matter description to {doc_type, court, bail_type, language, confidence}.
     Falls back to a safe heuristic if the LLM is unavailable."""
     from headnote.llm.client import _call_deepseek_or_groq, parse_json_response
     try:
@@ -110,15 +135,20 @@ def classify(matter: str, lang: str = "hi") -> dict:
         dt = (out.get("doc_type") or "").strip()
         if dt not in _VOCAB:
             dt = _heuristic_type(matter)
+        language = (out.get("language") or "").strip().lower()
+        if language not in ("hi", "en"):
+            language = _detect_lang(matter)
         return {
             "doc_type": dt,
             "court": (out.get("court") or "").strip(),
             "bail_type": (out.get("bail_type") or "").strip(),
+            "language": language,
             "confidence": float(out.get("confidence") or 0.5),
             "reason": out.get("reason") or "",
         }
     except Exception:
         return {"doc_type": _heuristic_type(matter), "court": "", "bail_type": "",
+                "language": _detect_lang(matter),
                 "confidence": 0.3, "reason": "heuristic (LLM unavailable)"}
 
 
@@ -241,7 +271,7 @@ def extract_fields(spec: dict, matter: str) -> tuple[dict, list[str]]:
 # ---------------------------------------------------------------------------
 # 4) Orchestrate — the public entry point.
 # ---------------------------------------------------------------------------
-def draft_from_prompt(matter: str, lang: str = "hi", reference_text: str = "") -> dict:
+def draft_from_prompt(matter: str, lang: str = "auto", reference_text: str = "") -> dict:
     """Freeform prompt → best-effort court-ready draft. Returns a unified result:
       {ok, mode: "canonical"|"authored", doc_type, court, confidence, html_hi,
        html_en, data?, cite_at_hearing, companions, warnings, title, meta}
@@ -259,6 +289,9 @@ def draft_from_prompt(matter: str, lang: str = "hi", reference_text: str = "") -
 
     cls = classify(matter or reference_text, lang)
     dt = cls["doc_type"]
+    # Auto-detect the draft language from the advocate's input (intent-aware), unless the
+    # caller pinned 'hi'/'en'. Everything downstream renders/authors in this resolved lang.
+    lang = resolve_lang(lang, matter or reference_text, cls.get("language"))
 
     # --- style-reference path — mirror the uploaded draft's shape/voice (authored) ---
     if reference_text:
@@ -306,7 +339,7 @@ def draft_from_prompt(matter: str, lang: str = "hi", reference_text: str = "") -
             editor_id, editor_fields = _editor_handoff(key, court, bail_type, data)
             return _finalize({
                 "ok": True, "mode": "canonical", "doc_type": dt, "court": court,
-                "bail_type": bail_type, "confidence": cls["confidence"],
+                "bail_type": bail_type, "lang": lang, "confidence": cls["confidence"],
                 "editor_id": editor_id, "editor_fields": editor_fields,
                 "html_hi": html_hi, "html_en": html_en,
                 "data": data, "changelog": log,

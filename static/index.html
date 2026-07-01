@@ -314,16 +314,13 @@
             <textarea id="pd-input" class="pd__input" rows="3" autocomplete="off" spellcheck="false"
               placeholder="Describe the matter — e.g. सत्र न्यायालय में नियमित जमानत, FIR 123/2025 थाना पनिहार, धारा 420/406, एकमात्र कमाने वाला… (हिंदी, English या दोनों)"></textarea>
             <div class="pd__bar">
-              <div class="pd__seg" id="pd-lang" role="group" aria-label="draft language">
-                <button type="button" data-lang="hi" class="on">हिंदी</button>
-                <button type="button" data-lang="en">English</button>
-              </div>
-              <button type="button" id="pd-upload" class="pd__btn pd__btn--ghost pd__upload" title="Attach case papers — an FIR / order / notice. We draft FROM its facts.">📎 Case papers</button>
+              <button type="button" id="pd-upload" class="pd__attach-btn" title="Attach case papers — an FIR / order / notice. We draft FROM its facts.">📎 Case papers</button>
               <input type="file" id="pd-file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,.doc,.docx,.xls,.xlsx" multiple hidden>
-              <button type="button" id="pd-ref-upload" class="pd__btn pd__btn--ghost pd__upload pd__upload--ref" title="Upload a draft you like — we match its structure, formatting & writing style.">✦ Match a reference draft</button>
+              <button type="button" id="pd-ref-upload" class="pd__attach-btn pd__attach-btn--ref" title="Upload a draft you like — we match its structure, formatting & writing style.">✦ Reference draft</button>
               <input type="file" id="pd-ref-file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,.doc,.docx,.xls,.xlsx" multiple hidden>
-              <a href="/draft/smart" class="pd__voice mono">✦ voice mode</a>
+              <a href="/draft/smart" class="pd__attach-btn pd__voice" title="Dictate your matter, hands-free">🎙 Voice</a>
               <span class="pd__grow"></span>
+              <span class="pd__auto mono" id="pd-auto" title="We draft in the language you type — no need to choose">auto-detects language</span>
               <button type="button" id="pd-draft" class="pd__btn">Draft it →</button>
             </div>
             <div class="pd__attached" id="pd-attached" hidden></div>
@@ -602,7 +599,7 @@
   <!-- Prompt drafter (drafting view) — self-contained; POSTs /api/draft/from-prompt -->
   <script>
   (function(){
-    var lang="hi", last=null, attached=null, refAttached=null;
+    var lang="auto", outLang="hi", last=null, attached=null, refAttached=null;
     var $=function(id){return document.getElementById(id);};
     var input=$("pd-input"), draftBtn=$("pd-draft"), uploadBtn=$("pd-upload"), fileInput=$("pd-file");
     var refUploadBtn=$("pd-ref-upload"), refFileInput=$("pd-ref-file");
@@ -638,17 +635,23 @@
       try {
         var uid=(window.headnoteAuth && window.headnoteAuth.userId && window.headnoteAuth.userId()) || 'anon';
         localStorage.setItem("headnote.tpl."+res.editor_id+"."+uid,
-          JSON.stringify({ fields: res.editor_fields || {}, lang: lang }));
+          JSON.stringify({ fields: res.editor_fields || {}, lang: outLang }));
       } catch(e){}
       location.href="/draft/template/"+encodeURIComponent(res.editor_id);
     }
 
-    $("pd-lang").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;lang=b.dataset.lang;
-      [].forEach.call(this.querySelectorAll("button"),function(x){x.classList.toggle("on",x===b);});});
+    // Draft language is auto-detected (intent-aware, server-side) from what the advocate types.
+    // This hint just surfaces the obvious script cue so the choice feels visible, not hidden.
+    var autoEl=$("pd-auto");
+    function updateAutoHint(){
+      if(!autoEl) return;
+      autoEl.textContent = /[ऀ-ॿ]/.test(input.value||"") ? "auto · हिंदी" : "auto-detects language";
+    }
+    input.addEventListener("input",updateAutoHint);
 
     function showPage(which){var h=(which==="en"?last.page_en:last.page_hi)||last.page_hi||last.page_en||"";$("pd-frame").srcdoc=h;}
-    $("pd-out-lang").addEventListener("click",function(e){var b=e.target.closest("button");if(!b||!last)return;
-      [].forEach.call(this.querySelectorAll("button"),function(x){x.classList.toggle("on",x===b);});showPage(b.dataset.lang);});
+    $("pd-out-lang").addEventListener("click",function(e){var b=e.target.closest("button");if(!b||!last)return;outLang=b.dataset.lang;
+      [].forEach.call(this.querySelectorAll("button"),function(x){x.classList.toggle("on",x===b);});showPage(outLang);});
     $("pd-print").addEventListener("click",function(){var f=$("pd-frame");if(f.contentWindow){f.contentWindow.focus();f.contentWindow.print();}});
 
     function setBrowseHidden(h){ if(browse)browse.style.display=h?"none":""; if(searchBox)searchBox.style.display=h?"none":""; if(h&&searchResults)searchResults.hidden=true; }
@@ -694,11 +697,14 @@
       var metaTxt=authored?"no fixed template — your house style":"deterministic · zero hallucination";
       if(res.mirrored) metaTxt="matched to your reference draft";
       $("pd-rmeta").textContent=metaTxt+conf;
+      // Draft language was auto-detected server-side — reflect the resolved language everywhere.
+      outLang = (res.lang==="en"||res.lang==="hi") ? res.lang : (res.page_hi ? "hi" : "en");
       $("pd-out-lang").hidden=!(res.page_hi&&res.page_en);
+      [].forEach.call($("pd-out-lang").querySelectorAll("button"),function(x){x.classList.toggle("on",x.dataset.lang===outLang);});
       // Edit CTA + editbar are ALWAYS available now — canonical → field editor, authored → refine panel.
       $("pd-edit").textContent = (!authored && res.editor_id) ? "✎ Edit in field editor" : "✎ Refine this draft";
       $("pd-refine").hidden=true; // collapsed until the user opts to refine
-      showPage(lang);
+      showPage(outLang);
       var notes=$("pd-notes");notes.innerHTML="";
       if(res.mirrored){
         notes.insertAdjacentHTML("beforeend",'<div class="pd-note pd-note--mirror"><h4>Matched to your reference</h4>'+
@@ -760,11 +766,11 @@
       if(!last) return;
       var instruction=($("pd-refine-input").value||"").trim();
       if(!instruction){ $("pd-refine-input").focus(); return; }
-      var prev = (lang==="en" ? (last.html_en||last.html_hi) : (last.html_hi||last.html_en)) || "";
+      var prev = (outLang==="en" ? (last.html_en||last.html_hi) : (last.html_hi||last.html_en)) || "";
       var goBtn=$("pd-refine-go"); goBtn.disabled=true;
       var hint=$("pd-refine-hint"); var prevHint=hint.textContent; hint.textContent="Applying your changes…";
       fetch("/api/draft/refine",{method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({prev_html:prev,instruction:instruction,doc_type:last.doc_type||"other_criminal",lang:lang})})
+        body:JSON.stringify({prev_html:prev,instruction:instruction,doc_type:last.doc_type||"other_criminal",lang:outLang})})
         .then(function(r){return r.json();})
         .then(function(res){goBtn.disabled=false;hint.textContent=prevHint;
           if(!res||res.ok===false){throw new Error((res&&(res.error||res.detail))||"Could not apply that change — try rephrasing.");}
