@@ -87,6 +87,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">
 
+<!-- Calendly popup — "Book a call" opens a booking modal over the page -->
+<link href="https://assets.calendly.com/assets/external/widget.css" rel="stylesheet">
+<script src="https://assets.calendly.com/assets/external/widget.js" async></script>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/static/auth.js?v=20260527a" defer></script>
 
@@ -733,6 +737,86 @@
   .demo-card__footer span::before { content: "· "; color: var(--gold); }
   .demo-card__footer span:first-child::before { content: ""; }
 
+  /* nav "Book a call" — secondary, always visible (even when nav-links hide) */
+  .nav-book { padding: 8px 14px; }
+  .nav-book svg { color: var(--gold-deep); }
+  @media (max-width: 420px) { .nav-book { padding: 8px 11px; } .nav-book svg { display: none; } }
+
+  /* ============= BOOK A CALL — court cause-list ============= */
+  .diary { background: var(--bg-2); border-top: 1px solid var(--line); }
+  .diary-grid { display: grid; grid-template-columns: 0.82fr 1.18fr; gap: 60px; align-items: center; }
+  @media (max-width: 880px) { .diary-grid { grid-template-columns: 1fr; gap: 40px; } }
+  .diary-copy h2 {
+    font-family: 'Geist', sans-serif; font-size: clamp(28px, 3.8vw, 46px);
+    font-weight: 600; letter-spacing: -0.035em; line-height: 1.05; color: var(--ink); margin-bottom: 18px;
+  }
+  .diary-copy p { font-size: 15px; color: var(--ink-2); line-height: 1.66; max-width: 400px; margin-bottom: 26px; }
+  .diary-cta-note { font-size: 12px; color: var(--ink-3); margin-top: 14px; }
+
+  /* the sheet — a page from the diary */
+  .sheet {
+    position: relative; background: #fdfcf9;
+    border: 1px solid var(--line-2); border-radius: 4px;
+    box-shadow: var(--shadow-md), 0 2px 0 #f1ebdc, 0 4px 0 #ece5d4;  /* stacked-paper edge */
+    overflow: hidden;
+  }
+  .sheet-head {
+    position: relative; text-align: center; padding: 26px 26px 20px;
+    border-bottom: 3px double var(--line-2); background: #fff;
+  }
+  .sheet-head .k { font-family: 'Geist Mono', monospace; font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--ink-3); }
+  .sheet-head .t { font-family: 'Noto Sans Devanagari', 'Geist', sans-serif; font-weight: 600; font-size: 21px; letter-spacing: -0.01em; color: var(--ink); margin-top: 7px; }
+  .sheet-head .s { font-size: 11.5px; color: var(--ink-3); margin-top: 6px; }
+  /* faint registry seal, top-right */
+  .sheet-seal {
+    position: absolute; top: 16px; right: 18px; width: 62px; height: 62px; border-radius: 50%;
+    border: 1.5px solid rgba(154,120,32,0.32); color: var(--gold);
+    display: grid; place-items: center; text-align: center; transform: rotate(-11deg);
+    font-family: 'Geist Mono', monospace; font-size: 7.5px; letter-spacing: 0.14em; line-height: 1.5;
+    text-transform: uppercase; opacity: 0.75;
+  }
+  @media (max-width: 460px) { .sheet-seal { display: none; } }
+
+  /* ruled entry area with a red margin rule */
+  .sheet-rows { position: relative; padding: 8px 24px 12px 0;
+    background: repeating-linear-gradient(180deg, transparent, transparent 39px, #ece4d3 39px, #ece4d3 40px);
+  }
+  .sheet-rows::before { content: ""; position: absolute; top: 0; bottom: 0; left: 52px; width: 1px; background: rgba(196,69,111,0.3); }
+  .sheet-row {
+    display: grid; grid-template-columns: 52px 1fr auto; gap: 16px; align-items: center;
+    height: 40px; font-size: 13.5px; color: var(--ink);
+  }
+  .sheet-row .sn { text-align: center; font-family: 'Geist Mono', monospace; font-size: 12px; color: var(--ink-3); }
+  .sheet-row .mt { color: var(--ink-2); }
+  .sheet-row .mt b { color: var(--ink); font-weight: 600; }
+  .sheet-row .tm { font-family: 'Geist Mono', monospace; font-size: 11.5px; color: var(--gold-deep); white-space: nowrap; }
+  .sheet-row--head { height: 34px; }
+  .sheet-row--head span { font-family: 'Geist Mono', monospace; font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-4); }
+  .sheet-row--head .tm { color: var(--ink-4); }
+
+  .sheet-foot {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    padding: 18px 26px; border-top: 1px solid var(--line-2); background: #fff;
+  }
+  .sheet-foot .ff { font-size: 12px; color: var(--ink-2); }
+  .sheet-foot .ff b { font-family: 'Geist Mono', monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); display: block; margin-bottom: 2px; }
+  .sheet-foot .order {
+    font-family: 'Geist Mono', monospace; font-size: 12.5px; color: var(--gold-deep); font-weight: 500;
+    display: inline-flex; align-items: center; gap: 6px; transition: gap 0.16s ease;
+  }
+  .sheet-foot .order:hover { gap: 10px; }
+  /* mobile — let rows grow, swap ruled texture for clean separators */
+  @media (max-width: 560px) {
+    .sheet-rows { background: none; padding: 2px 16px 6px 0; }
+    .sheet-rows::before { left: 44px; }
+    .sheet-row { height: auto; min-height: 44px; align-items: start; padding: 11px 0; gap: 12px;
+      grid-template-columns: 44px 1fr auto; border-bottom: 1px solid var(--line); }
+    .sheet-row:last-child { border-bottom: none; }
+    .sheet-row .sn, .sheet-row .tm { padding-top: 1px; }
+    .sheet-row .mt { line-height: 1.45; }
+    .sheet-row--head { min-height: 0; }
+  }
+
   /* ============= FINAL CTA ============= */
   .cta-section { background: var(--night); color: #fff; padding: 130px 24px; text-align: center; position: relative; overflow: hidden; isolation: isolate; }
   .cta-section::before {
@@ -781,6 +865,10 @@
       <a href="#pricing">Pricing</a>
     </div>
     <div class="nav-spacer"></div>
+    <a href="#" class="btn btn--ghost nav-book" id="nav-book" onclick="return bookCall(event)">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      Book a call
+    </a>
     <a href="/app" class="btn btn--gold" id="nav-cta">Start free</a>
   </div>
 </nav>
@@ -1203,6 +1291,64 @@
   </div>
 </section>
 
+<!-- ============ BOOK A CALL — court cause-list ============ -->
+<section class="diary block" id="talk">
+  <div class="wrap">
+    <div class="diary-grid">
+      <div class="diary-copy reveal">
+        <div class="section-eyebrow"><span class="num">06</span> Book a call</div>
+        <h2>Get your matter listed.</h2>
+        <p>
+          Fix a fifteen-minute slot and we'll take a live matter end to end — researched,
+          drafted and exported to PDF while you watch. No slides. No pitch.
+        </p>
+        <a href="#" class="btn btn--gold btn--lg" onclick="return bookCall(event)">Fix a date &amp; time →</a>
+        <div class="diary-cta-note">Free · no obligation · Hindi or English</div>
+      </div>
+
+      <div class="sheet reveal" role="group" aria-label="Book a call — cause list">
+        <div class="sheet-head">
+          <div class="sheet-seal">Head<br>note<br>·reg·</div>
+          <div class="k">In the chambers of Headnote</div>
+          <div class="t">वाद सूची · Cause List</div>
+          <div class="s">Fixed for hearing — a 15-minute video call</div>
+        </div>
+        <div class="sheet-rows">
+          <div class="sheet-row sheet-row--head">
+            <span class="sn" style="text-align:center;">Item</span>
+            <span>Matter fixed for hearing</span>
+            <span class="tm">Time</span>
+          </div>
+          <div class="sheet-row">
+            <div class="sn">01</div>
+            <div class="mt"><b>Your matter, researched live</b> — verified authorities</div>
+            <div class="tm">15 min</div>
+          </div>
+          <div class="sheet-row">
+            <div class="sn">02</div>
+            <div class="mt"><b>The application, drafted</b> — bail, maintenance or your format</div>
+            <div class="tm">live</div>
+          </div>
+          <div class="sheet-row">
+            <div class="sn">03</div>
+            <div class="mt"><b>Your questions</b> — verification, Hindi output, your court</div>
+            <div class="tm">open</div>
+          </div>
+          <div class="sheet-row">
+            <div class="sn">04</div>
+            <div class="mt"><b>Set up on the free demo</b> before you rise</div>
+            <div class="tm">free</div>
+          </div>
+        </div>
+        <div class="sheet-foot">
+          <div class="ff"><b>Fixed for</b>a date &amp; time that suit you</div>
+          <a href="#" class="order" onclick="return bookCall(event)">Enter your matter in the diary →</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ============ FINAL CTA ============ -->
 <section class="cta-section">
   <h2>The bar room finds out eventually.<br><span class="gold">Be early.</span></h2>
@@ -1239,6 +1385,7 @@
     <div class="foot-col">
       <h5>Reach us</h5>
       <ul>
+        <li><a href="#" onclick="return bookCall(event)">Book a call</a></li>
         <li><a href="mailto:hello@headnote.in">hello@headnote.in</a></li>
         <li><a href="https://wa.me/918815621916" target="_blank" rel="noopener">+91 88156 21916</a></li>
       </ul>
@@ -1251,6 +1398,20 @@
 </footer>
 
 <script>
+  // ---- Book a call (Calendly popup) ----
+  const CALENDLY_URL = "https://calendly.com/hello-headnote/headnote-demo";
+  function bookCall(e) {
+    if (e) e.preventDefault();
+    if (window.Calendly && typeof window.Calendly.initPopupWidget === 'function') {
+      window.Calendly.initPopupWidget({ url: CALENDLY_URL });
+    } else {
+      window.open(CALENDLY_URL, '_blank', 'noopener');
+    }
+    if (window.hn && window.hn.track) { try { window.hn.track('book_call_click'); } catch (_) {} }
+    return false;
+  }
+  window.bookCall = bookCall;
+
   // ---- Nav shadow on scroll ----
   (function navScroll() {
     const nav = document.getElementById('nav');
