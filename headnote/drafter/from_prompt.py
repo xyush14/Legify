@@ -241,17 +241,47 @@ def extract_fields(spec: dict, matter: str) -> tuple[dict, list[str]]:
 # ---------------------------------------------------------------------------
 # 4) Orchestrate — the public entry point.
 # ---------------------------------------------------------------------------
-def draft_from_prompt(matter: str, lang: str = "hi") -> dict:
+def draft_from_prompt(matter: str, lang: str = "hi", reference_text: str = "") -> dict:
     """Freeform prompt → best-effort court-ready draft. Returns a unified result:
       {ok, mode: "canonical"|"authored", doc_type, court, confidence, html_hi,
        html_en, data?, cite_at_hearing, companions, warnings, title, meta}
+
+    If `reference_text` is given, the advocate uploaded a FILED draft as a STYLE
+    reference: we author the draft to MIRROR that document's structure, headings, tone
+    and formatting (the user's facts fill the dynamic slots). The explicit "match THIS
+    document" intent wins over the canonical templates, so a reference always routes to
+    the house-style authoring engine (which keeps the verified-citation guard).
     """
     matter = (matter or "").strip()
-    if not matter:
+    reference_text = (reference_text or "").strip()
+    if not matter and not reference_text:
         return {"ok": False, "error": "empty prompt"}
 
-    cls = classify(matter, lang)
+    cls = classify(matter or reference_text, lang)
     dt = cls["doc_type"]
+
+    # --- style-reference path — mirror the uploaded draft's shape/voice (authored) ---
+    if reference_text:
+        skeleton = author.extract_reference_skeleton(reference_text, lang)
+        author_type = dt if dt in author.TYPE_BRIEFS else (
+            "other_civil" if dt == "other_civil" else "other_criminal")
+        result = author.author_document(
+            matter, author_type, lang, court=cls.get("court") or "",
+            reference_skeleton=skeleton)
+        result.update({
+            "court": cls.get("court") or author.brief_for(author_type).get("court"),
+            "confidence": cls["confidence"],
+            "html_hi": result["html"] if lang != "en" else "",
+            "html_en": result["html"] if lang == "en" else "",
+            "reason": "mirrored your reference draft",
+            "classified_as": dt,
+            "mirrored": True,
+            "mirror_ok": bool(skeleton),
+        })
+        if not skeleton:
+            result.setdefault("warnings", []).insert(
+                0, "Could not read the reference clearly — drafted in the standard house style instead.")
+        return _finalize(result)
 
     # --- deterministic (canonical template) path — the moat ---
     if dt in _DETERMINISTIC:

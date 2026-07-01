@@ -190,19 +190,24 @@ def draft_from_prompt_route(body: FromPromptBody):
         return JSONResponse({"ok": False, "error": f"{type(e).__name__}: {e}"}, status_code=500)
 
 
-@router.post("/from-document", summary="Draft from an attached reference document — OCR it, then run the draft pipeline")
+@router.post("/from-document", summary="Draft from an attached document — as source facts, or as a style reference to mirror")
 async def draft_from_document(
     prompt: str = Form(""),
     lang: str = Form("hi"),
+    role: str = Form("facts"),
     file: Optional[UploadFile] = File(None),
     files: Optional[List[UploadFile]] = File(None),
 ):
-    """The lawyer ATTACHES a reference document (FIR / order / notice) to draft FROM. We read it
-    and run it through the SAME draft pipeline as a typed prompt (classify → deterministic canonical
-    | house-style author), so the DOCUMENT drives the draft. The OCR'd content is used INTERNALLY as
-    the matter's facts — never shown as a raw-text dump. An optional typed prompt adds intent (the
-    relief sought / draft type). Ungated, like /from-prompt. Image, PDF, Word (.docx) or Excel (.xlsx);
-    max 20 MB/file, 8 pages."""
+    """One upload endpoint, TWO intents chosen by `role`:
+
+    • role="facts" (default) — the file is CASE PAPERS (FIR / order / notice). We OCR it and
+      run it through the draft pipeline as the matter's FACTS, so the document drives the draft.
+
+    • role="reference" — the file is a FILED DRAFT the advocate likes. We OCR it and MIRROR its
+      structure, headings, tone and formatting, filling the dynamic slots with the typed prompt's
+      facts. The reference's own facts/citations are never copied. See draft_from_prompt(reference_text=…).
+
+    Ungated. Image, PDF, Word (.docx) or Excel (.xlsx); max 20 MB/file, 8 pages."""
     from fastapi.responses import JSONResponse
     from headnote.drafter.ocr import ocr_text_pages
     from headnote.drafter.from_prompt import draft_from_prompt
@@ -229,13 +234,52 @@ async def draft_from_document(
         except Exception as e:
             return JSONResponse({"ok": False, "error": f"could not read the document: {e}"}, status_code=502)
 
-    # The document is the source of facts; an optional typed prompt adds intent. Both → the matter.
+    # role="reference": the document is a STYLE reference to mirror; the typed prompt carries the facts.
+    if role == "reference":
+        if not doc_text.strip():
+            return JSONResponse({"ok": False, "error": "could not read the reference document"}, status_code=400)
+        try:
+            return draft_from_prompt((prompt or "").strip(), lang, reference_text=doc_text.strip())
+        except Exception as e:
+            return JSONResponse({"ok": False, "error": f"{type(e).__name__}: {e}"}, status_code=500)
+
+    # role="facts" (default): the document is the source of facts; a typed prompt adds intent.
     matter = (prompt or "").strip()
     if doc_text.strip():
         ref = "संलग्न दस्तावेज से तथ्य" if lang == "hi" else "Facts from the attached document"
         matter = (matter + "\n\n" if matter else "") + ref + ":\n" + doc_text.strip()
     try:
         return draft_from_prompt(matter, lang)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": f"{type(e).__name__}: {e}"}, status_code=500)
+
+
+class RefineBody(BaseModel):
+    prev_html: str = Field(..., description="the advocate's current authored draft (HTML or text)")
+    instruction: str = Field(..., description="what to change, in plain Hindi/English")
+    doc_type: str = Field("other_criminal", description="the draft's doc_type, echoed from the result")
+    lang: Literal["hi", "en"] = "hi"
+
+
+@router.post("/refine", summary="Instruction-based refine of an AUTHORED draft (the edit path for non-canonical drafts)")
+def refine_route(body: RefineBody):
+    """Authored (house-style, non-canonical) drafts have no structured fields, so the advocate refines
+    them by INSTRUCTION: 'make it more concise', 'add a ground on parity', 'change court to CJM'. We
+    revise the current draft and return the same unified shape as /from-prompt (with page_hi/page_en)."""
+    from fastapi.responses import JSONResponse
+    from headnote.drafter.author import revise_document
+    from headnote.drafter.from_prompt import _finalize
+    if not (body.instruction or "").strip():
+        return JSONResponse({"ok": False, "error": "tell us what to change"}, status_code=400)
+    if not (body.prev_html or "").strip():
+        return JSONResponse({"ok": False, "error": "nothing to refine"}, status_code=400)
+    try:
+        result = revise_document(body.prev_html, body.instruction, body.doc_type, body.lang)
+        result.update({
+            "html_hi": result["html"] if body.lang != "en" else "",
+            "html_en": result["html"] if body.lang == "en" else "",
+        })
+        return _finalize(result)
     except Exception as e:
         return JSONResponse({"ok": False, "error": f"{type(e).__name__}: {e}"}, status_code=500)
 

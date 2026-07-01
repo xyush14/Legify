@@ -651,24 +651,13 @@ def render_authored(p: dict, lang: str = "hi") -> dict:
 # ===========================================================================
 # 6) AUTHOR  — prompt → structured payload (LLM) → guarded → rendered HTML.
 # ===========================================================================
-def author_payload(matter: str, doc_type: str, lang: str = "hi", *, court: str = "") -> dict:
-    """Call the runtime LLM (DeepSeek → Groq; never Claude) and return the parsed,
-    schema-shaped payload. Raises on LLM/parse failure (caller decides fallback)."""
-    from headnote.llm.client import _call_deepseek_or_groq, parse_json_response
-    system = _author_system(doc_type, lang)
-    b = brief_for(doc_type)
-    user = (
-        f"MATTER (the advocate's instructions / facts — use ONLY these facts):\n{matter.strip()}\n\n"
-        f"Court level (use if sensible, else infer): {court or b.get('court')}\n"
-        f"Draft the {b['label_en']} now, in {'Hindi' if lang == 'hi' else 'English'}, as JSON per the schema."
-    )
-    # V3 (deepseek-chat) = fast structured assembly; the heavy reasoning is in the prompt.
-    raw, meta = _call_deepseek_or_groq(system, user, max_tokens=4000, claude_model="claude-haiku-4-5")
-    payload = parse_json_response(raw)
+def _shape_payload(payload: dict, doc_type: str, b: dict, meta) -> dict:
+    """Apply the invariant post-parse defaults every authored/revised payload needs:
+    doc_type stamp, verification/affidavit defaults, and the law-mandated companions
+    unioned in so the advocate never misses one."""
     payload["_doc_type"] = doc_type
     payload.setdefault("needs_verification", b.get("needs_verification", True))
     payload.setdefault("needs_affidavit", b.get("needs_affidavit", False))
-    # union the law-mandated companions so the advocate never misses one
     comps = list(payload.get("companions") or [])
     for c in b.get("companions", []):
         if c not in comps:
@@ -678,10 +667,137 @@ def author_payload(matter: str, doc_type: str, lang: str = "hi", *, court: str =
     return payload
 
 
-def author_document(matter: str, doc_type: str, lang: str = "hi", *, court: str = "") -> dict:
+# The advocate uploaded a FILED draft as a STYLE reference — we mirror its shape/voice,
+# never its facts or its (unverified) citations. See extract_reference_skeleton().
+REF_SKELETON_SYSTEM = """An Indian advocate has uploaded a FILED court document as a STYLE REFERENCE for a NEW
+draft about a DIFFERENT matter. Your job is NOT to copy its facts — it is to capture its STRUCTURE, FORMAT and
+VOICE so the new draft can be authored to look and read like it.
+
+Output ONLY valid JSON (no prose, no markdown fence):
+{
+  "doc_kind": "<what kind of application/petition/reply this is — Hindi + English>",
+  "cause_title_style": "<how the court / cause-title line is laid out>",
+  "title_line_style": "<the underlined title-line pattern, with the matter-specific bits blanked>",
+  "party_block_style": "<how parties + their descriptor lines are formatted and labelled>",
+  "section_order": ["<ordered list of the sections / headings / paragraph-groups as they appear>"],
+  "para_conventions": "<opening word of each numbered para (e.g. 'यह कि'), numbering, register, sentence style>",
+  "prayer_style": "<how the prayer opens and closes — the verbatim framing, specifics blanked>",
+  "signoff_style": "<verification / affidavit / signatory-block conventions>",
+  "tone": "<register + voice notes an author must match>",
+  "dynamic_fields": ["<the kinds of matter-specific values that vary: names, dates, FIR no., sections, amounts, addresses>"]
+}
+Capture PATTERNS, never the specific facts of the reference. If it cites judgments, note THAT it relies on
+authority and where — but DO NOT reproduce any citation (every citation must be re-verified downstream)."""
+
+
+def extract_reference_skeleton(reference_text: str, lang: str = "hi") -> str:
+    """Templatize pass: a filed reference draft → a compact, human-readable STRUCTURE spec
+    the authoring prompt can mirror. Returns "" on any failure (caller degrades to a plain
+    authored draft). Never surfaces the reference's facts or citations."""
+    reference_text = (reference_text or "").strip()
+    if not reference_text:
+        return ""
+    from headnote.llm.client import _call_deepseek_or_groq, parse_json_response
+    try:
+        raw, _meta = _call_deepseek_or_groq(
+            REF_SKELETON_SYSTEM, reference_text[:12000], max_tokens=1200,
+            claude_model="claude-haiku-4-5")
+        spec = parse_json_response(raw)
+    except Exception:
+        return ""
+    lines: list[str] = []
+
+    def add(label, val):
+        if not val:
+            return
+        if isinstance(val, list):
+            val = "; ".join(str(x) for x in val if str(x).strip())
+        if str(val).strip():
+            lines.append(f"• {label}: {val}")
+    add("Document kind", spec.get("doc_kind"))
+    add("Cause-title layout", spec.get("cause_title_style"))
+    add("Title-line pattern", spec.get("title_line_style"))
+    add("Party block", spec.get("party_block_style"))
+    add("Section order", spec.get("section_order"))
+    add("Paragraph conventions", spec.get("para_conventions"))
+    add("Prayer framing", spec.get("prayer_style"))
+    add("Sign-off", spec.get("signoff_style"))
+    add("Tone / register", spec.get("tone"))
+    add("Dynamic fields that vary", spec.get("dynamic_fields"))
+    return "\n".join(lines)
+
+
+def _mirror_instruction(reference_skeleton: str) -> str:
+    return (
+        "\n\nMIRROR THIS STRUCTURE — the advocate uploaded a reference draft they want the output to match. "
+        "Follow its section order, headings, paragraph conventions, cause-title, title-line, prayer and sign-off "
+        "style, and match its tone and register as closely as you can. Fill it with THIS matter's facts (write "
+        "____ for anything unknown). Do NOT copy the reference's own facts, and do NOT reproduce any citation from "
+        "it — re-derive all content for this matter under the zero-fabrication rule.\n"
+        "REFERENCE STRUCTURE TO MATCH:\n" + reference_skeleton
+    )
+
+
+def author_payload(matter: str, doc_type: str, lang: str = "hi", *, court: str = "",
+                   reference_skeleton: str = "") -> dict:
+    """Call the runtime LLM (DeepSeek → Groq; never Claude) and return the parsed,
+    schema-shaped payload. Raises on LLM/parse failure (caller decides fallback).
+    If `reference_skeleton` is given, the draft is authored to MIRROR that structure/voice."""
+    from headnote.llm.client import _call_deepseek_or_groq, parse_json_response
+    system = _author_system(doc_type, lang)
+    b = brief_for(doc_type)
+    user = (
+        f"MATTER (the advocate's instructions / facts — use ONLY these facts):\n{matter.strip()}\n\n"
+        f"Court level (use if sensible, else infer): {court or b.get('court')}\n"
+        f"Draft the {b['label_en']} now, in {'Hindi' if lang == 'hi' else 'English'}, as JSON per the schema."
+    )
+    if reference_skeleton:
+        user += _mirror_instruction(reference_skeleton)
+    # V3 (deepseek-chat) = fast structured assembly; the heavy reasoning is in the prompt.
+    raw, meta = _call_deepseek_or_groq(system, user, max_tokens=4000, claude_model="claude-haiku-4-5")
+    payload = parse_json_response(raw)
+    return _shape_payload(payload, doc_type, b, meta)
+
+
+def author_document(matter: str, doc_type: str, lang: str = "hi", *, court: str = "",
+                    reference_skeleton: str = "") -> dict:
     """End-to-end authoring: prompt → house-style court-ready HTML + flagged extras.
     Returns {ok, mode, doc_type, html, cite_at_hearing, companions, warnings, meta}."""
-    payload = author_payload(matter, doc_type, lang, court=court)
+    payload = author_payload(matter, doc_type, lang, court=court, reference_skeleton=reference_skeleton)
+    rendered = render_authored(payload, lang)
+    return {
+        "ok": True,
+        "mode": "authored",
+        "doc_type": doc_type,
+        "lang": lang,
+        "html": rendered["html"],
+        "cite_at_hearing": rendered["cite_at_hearing"],
+        "companions": rendered["companions"],
+        "needs_affidavit": rendered["needs_affidavit"],
+        "warnings": rendered["warnings"],
+        "title": payload.get("title_line") or brief_for(doc_type)["label_hi"],
+        "meta": payload.get("_meta"),
+    }
+
+
+def revise_document(prior_text: str, instruction: str, doc_type: str = "other_criminal",
+                    lang: str = "hi", *, court: str = "") -> dict:
+    """Instruction-based refine of an already-authored draft: the advocate's CURRENT draft
+    + a change request → the FULL revised draft, still under house-style + zero-fabrication.
+    This is the edit path for authored (non-canonical) drafts, which have no structured fields."""
+    from headnote.llm.client import _call_deepseek_or_groq, parse_json_response
+    system = _author_system(doc_type, lang)
+    b = brief_for(doc_type)
+    user = (
+        "REVISION TASK — the advocate already has the draft below and wants changes made to it.\n\n"
+        f"CURRENT DRAFT:\n{(prior_text or '').strip()}\n\n"
+        f"REQUESTED CHANGES:\n{(instruction or '').strip()}\n\n"
+        f"Return the FULL revised draft as JSON per the schema, in {'Hindi' if lang == 'hi' else 'English'}. "
+        "Preserve everything the advocate did NOT ask to change; apply only the requested changes. "
+        "Keep the house style and the zero-fabrication rules in force."
+    )
+    raw, meta = _call_deepseek_or_groq(system, user, max_tokens=4000, claude_model="claude-haiku-4-5")
+    payload = _shape_payload(parse_json_response(raw), doc_type, b, meta)
     rendered = render_authored(payload, lang)
     return {
         "ok": True,

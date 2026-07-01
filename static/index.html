@@ -318,13 +318,16 @@
                 <button type="button" data-lang="hi" class="on">हिंदी</button>
                 <button type="button" data-lang="en">English</button>
               </div>
-              <button type="button" id="pd-upload" class="pd__btn pd__btn--ghost pd__upload" title="Attach an FIR / order / notice — we draft from it">📎 Attach</button>
+              <button type="button" id="pd-upload" class="pd__btn pd__btn--ghost pd__upload" title="Attach case papers — an FIR / order / notice. We draft FROM its facts.">📎 Case papers</button>
               <input type="file" id="pd-file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,.doc,.docx,.xls,.xlsx" multiple hidden>
+              <button type="button" id="pd-ref-upload" class="pd__btn pd__btn--ghost pd__upload pd__upload--ref" title="Upload a draft you like — we match its structure, formatting & writing style.">✦ Match a reference draft</button>
+              <input type="file" id="pd-ref-file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,.doc,.docx,.xls,.xlsx" multiple hidden>
               <a href="/draft/smart" class="pd__voice mono">✦ voice mode</a>
               <span class="pd__grow"></span>
               <button type="button" id="pd-draft" class="pd__btn">Draft it →</button>
             </div>
             <div class="pd__attached" id="pd-attached" hidden></div>
+            <div class="pd__attached pd__attached--ref" id="pd-ref-attached" hidden></div>
           </div>
 
           <div class="pd__loading mono" id="pd-loading" hidden><span class="pd__spin" aria-hidden="true"></span><span id="pd-loading-text">Reading the matter…</span></div>
@@ -338,11 +341,39 @@
               <span class="pd-result__meta mono" id="pd-rmeta"></span>
               <span class="pd__grow"></span>
               <div class="pd__seg pd__seg--sm" id="pd-out-lang" hidden><button type="button" data-lang="hi" class="on">हिं</button><button type="button" data-lang="en">EN</button></div>
-              <button type="button" class="pd__btn pd__btn--ghost" id="pd-edit" hidden>Refine in editor →</button>
+              <!-- Edit is the PRIMARY next step, not a ghost. Coach-mark points here on first draft. -->
+              <span class="pd-edit-wrap">
+                <button type="button" class="pd__btn pd__btn--primary" id="pd-edit">✎ Edit this draft</button>
+                <span class="pd-coach" id="pd-coach" hidden>
+                  <strong>Not quite right? Edit it.</strong>
+                  Change names, dates &amp; sections, toggle grounds, fix any line — nothing here is final.
+                  <button type="button" class="pd-coach__x" id="pd-coach-x" aria-label="got it">Got it</button>
+                </span>
+              </span>
               <button type="button" class="pd__btn pd__btn--ghost" id="pd-print">Print / PDF</button>
               <button type="button" class="pd__btn pd__btn--ghost" id="pd-new">New draft</button>
             </div>
+
+            <!-- Editability strip — sits right where the eyes are (on the document). -->
+            <div class="pd-editbar" id="pd-editbar">
+              <span class="pd-editbar__txt">This is a working draft you can edit — swap details, toggle grounds &amp; fix any line before you file.</span>
+              <button type="button" class="pd-editbar__btn" id="pd-editbar-btn">Edit this draft →</button>
+            </div>
+
             <iframe class="pd-result__frame" id="pd-frame" title="draft preview"></iframe>
+
+            <!-- Inline refine panel — the edit path for AI-authored drafts (no fixed fields to open). -->
+            <div class="pd-refine" id="pd-refine" hidden>
+              <div class="pd-refine__label mono">Refine this draft — tell us what to change</div>
+              <textarea id="pd-refine-input" class="pd-refine__input" rows="2"
+                placeholder="e.g. make it more concise · add a ground on parity · change court to CJM · stronger prayer"></textarea>
+              <div class="pd-refine__bar">
+                <span class="pd-refine__hint mono" id="pd-refine-hint">We keep everything you don’t ask to change.</span>
+                <span class="pd__grow"></span>
+                <button type="button" class="pd__btn pd__btn--primary" id="pd-refine-go">Apply changes →</button>
+              </div>
+            </div>
+
             <div class="pd-notes" id="pd-notes"></div>
           </div>
 
@@ -571,24 +602,35 @@
   <!-- Prompt drafter (drafting view) — self-contained; POSTs /api/draft/from-prompt -->
   <script>
   (function(){
-    var lang="hi", last=null, attached=null;
+    var lang="hi", last=null, attached=null, refAttached=null;
     var $=function(id){return document.getElementById(id);};
     var input=$("pd-input"), draftBtn=$("pd-draft"), uploadBtn=$("pd-upload"), fileInput=$("pd-file");
+    var refUploadBtn=$("pd-ref-upload"), refFileInput=$("pd-ref-file");
     if(!input||!draftBtn) return;
     var browse=$("draft-court-browse"),
         searchBox=document.querySelector(".draft-search"),
         searchResults=$("draft-search-results");
-    // Show the attached reference doc as a chip (it drives the next Draft; not OCR'd into the box).
+    function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+    // Case papers = the FACTS to draft FROM (FIR / order / notice).
     function renderAttached(){
       var el=$("pd-attached"); if(!el) return;
       if(!attached||!attached.length){ el.hidden=true; el.innerHTML=""; return; }
       var label = attached.length===1 ? attached[0].name : (attached.length+" pages");
       el.hidden=false;
       el.innerHTML='<span class="pd__chip">📎 '+esc(label)+' <button type="button" id="pd-attach-x" aria-label="remove attachment">✕</button></span>'+
-                   '<span class="pd__attach-note mono">reference — we’ll draft from it</span>';
+                   '<span class="pd__attach-note mono">case papers — we’ll draft from its facts</span>';
       var x=$("pd-attach-x"); if(x) x.onclick=function(){ attached=null; if(fileInput) fileInput.value=""; renderAttached(); };
     }
-    function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+    // Reference draft = a filed document whose STRUCTURE / FORMAT / STYLE we mirror.
+    function renderRefAttached(){
+      var el=$("pd-ref-attached"); if(!el) return;
+      if(!refAttached||!refAttached.length){ el.hidden=true; el.innerHTML=""; return; }
+      var label = refAttached.length===1 ? refAttached[0].name : (refAttached.length+" pages");
+      el.hidden=false;
+      el.innerHTML='<span class="pd__chip pd__chip--ref">✦ '+esc(label)+' <button type="button" id="pd-ref-x" aria-label="remove reference">✕</button></span>'+
+                   '<span class="pd__attach-note pd__attach-note--ref mono">Reference — we’ll match its structure, formatting &amp; writing style, and generate a draft of similar quality with your details.</span>';
+      var x=$("pd-ref-x"); if(x) x.onclick=function(){ refAttached=null; if(refFileInput) refFileInput.value=""; renderRefAttached(); };
+    }
     // Open the SAME canonical draft in the universal editor: stash the flat fields under the
     // editor's own localStorage key (headnote.tpl.<id>.<uid>) so its restore picks them up, then go.
     function openInEditor(res){
@@ -610,7 +652,37 @@
     $("pd-print").addEventListener("click",function(){var f=$("pd-frame");if(f.contentWindow){f.contentWindow.focus();f.contentWindow.print();}});
 
     function setBrowseHidden(h){ if(browse)browse.style.display=h?"none":""; if(searchBox)searchBox.style.display=h?"none":""; if(h&&searchResults)searchResults.hidden=true; }
-    $("pd-new").addEventListener("click",function(){$("pd-result").hidden=true;setBrowseHidden(false);input.value="";attached=null;if(fileInput)fileInput.value="";renderAttached();input.focus();window.scrollTo({top:0,behavior:"smooth"});});
+    function resetComposer(){
+      input.value=""; attached=null; refAttached=null;
+      if(fileInput)fileInput.value=""; if(refFileInput)refFileInput.value="";
+      renderAttached(); renderRefAttached();
+    }
+    $("pd-new").addEventListener("click",function(){
+      $("pd-result").hidden=true; $("pd-refine").hidden=true; hideCoach();
+      setBrowseHidden(false); resetComposer(); input.focus();
+      window.scrollTo({top:0,behavior:"smooth"});
+    });
+
+    // ---- Editability: make "edit after generation" impossible to miss ----
+    // Canonical drafts open the structured field editor; authored drafts open the
+    // inline instruction-based refine panel (they have no fixed fields to open).
+    var COACH_KEY="headnote.pd.editCoachSeen";
+    function hideCoach(){ var c=$("pd-coach"); if(c) c.hidden=true; }
+    function maybeCoach(){
+      var c=$("pd-coach"); if(!c) return;
+      try{ if(localStorage.getItem(COACH_KEY)){ c.hidden=true; return; } }catch(e){}
+      c.hidden=false;
+    }
+    function dismissCoach(){ hideCoach(); try{ localStorage.setItem(COACH_KEY,"1"); }catch(e){} }
+    function openEdit(){
+      dismissCoach();
+      if(last && last.mode!=="authored" && last.editor_id){ openInEditor(last); return; }
+      // authored → reveal + focus the refine panel
+      var rp=$("pd-refine"); if(rp){ rp.hidden=false; rp.scrollIntoView({behavior:"smooth",block:"center"}); var ri=$("pd-refine-input"); if(ri) ri.focus(); }
+    }
+    $("pd-edit").addEventListener("click",openEdit);
+    $("pd-editbar-btn").addEventListener("click",openEdit);
+    var coachX=$("pd-coach-x"); if(coachX) coachX.addEventListener("click",function(e){e.stopPropagation();dismissCoach();});
 
     function renderResult(res){
       last=res;
@@ -619,12 +691,19 @@
       badge.textContent=authored?"AI-authored · review":"Verbatim template";
       $("pd-rtype").textContent=res.title||res.doc_type||"Draft";
       var conf=res.confidence!=null?" · match "+Math.round(res.confidence*100)+"%":"";
-      $("pd-rmeta").textContent=(authored?"no fixed template — your house style":"deterministic · zero hallucination")+conf;
+      var metaTxt=authored?"no fixed template — your house style":"deterministic · zero hallucination";
+      if(res.mirrored) metaTxt="matched to your reference draft";
+      $("pd-rmeta").textContent=metaTxt+conf;
       $("pd-out-lang").hidden=!(res.page_hi&&res.page_en);
-      var eb=$("pd-edit");
-      if(!authored && res.editor_id){ eb.hidden=false; eb.onclick=function(){ openInEditor(res); }; } else { eb.hidden=true; }
+      // Edit CTA + editbar are ALWAYS available now — canonical → field editor, authored → refine panel.
+      $("pd-edit").textContent = (!authored && res.editor_id) ? "✎ Edit in field editor" : "✎ Refine this draft";
+      $("pd-refine").hidden=true; // collapsed until the user opts to refine
       showPage(lang);
       var notes=$("pd-notes");notes.innerHTML="";
+      if(res.mirrored){
+        notes.insertAdjacentHTML("beforeend",'<div class="pd-note pd-note--mirror"><h4>Matched to your reference</h4>'+
+          '<p>Structured, formatted and written in your reference draft’s style — with this matter’s details. Review the specifics: only facts you provided are filled; blanks (____) are yours to complete.</p></div>');
+      }
       if(res.cite_at_hearing&&res.cite_at_hearing.length){
         notes.insertAdjacentHTML("beforeend",'<div class="pd-note pd-note--cite"><h4>Authorities — cite at hearing (verify)</h4><ul>'+
           res.cite_at_hearing.map(function(c){var t=c.case||c;return "<li><strong>"+esc(t)+"</strong>"+(c.point?" — "+esc(c.point):"")+"</li>";}).join("")+'</ul></div>');
@@ -640,18 +719,29 @@
       setBrowseHidden(true);
       $("pd-result").hidden=false;
       $("pd-result").scrollIntoView({behavior:"smooth",block:"start"});
+      maybeCoach();
     }
 
     function draft(){
-      var prompt=input.value.trim(), hasDoc=!!(attached&&attached.length);
-      if(!prompt && !hasDoc){ input.focus(); return; }
+      var prompt=input.value.trim(),
+          hasRef=!!(refAttached&&refAttached.length),
+          hasDoc=!!(attached&&attached.length);
+      if(!prompt && !hasDoc && !hasRef){ input.focus(); return; }
+      // A reference with no typed facts would produce an all-blank shell — nudge for details.
+      if(hasRef && !prompt){ input.focus(); $("pd-err").textContent="Add a line about your matter (names, FIR, sections) so we can fill the reference’s format with your details.";$("pd-err").hidden=false; return; }
       $("pd-err").hidden=true; $("pd-result").hidden=true; draftBtn.disabled=true; $("pd-loading").hidden=false;
-      var msgs=[hasDoc?"Reading the document…":"Reading the matter…","Choosing the right application…","Composing in court format…","Checking sections & citations…"];
+      var reading = hasRef?"Reading your reference draft…":(hasDoc?"Reading the document…":"Reading the matter…");
+      var second = hasRef?"Learning its structure & style…":"Choosing the right application…";
+      var msgs=[reading,second,"Composing in court format…","Checking sections & citations…"];
       var i=0; $("pd-loading-text").textContent=msgs[0];
       var tick=setInterval(function(){i=(i+1)%msgs.length;$("pd-loading-text").textContent=msgs[i];},2200);
       var req;
-      if(hasDoc){
-        var fd=new FormData(); fd.append("prompt",prompt); fd.append("lang",lang);
+      if(hasRef){
+        var rfd=new FormData(); rfd.append("prompt",prompt); rfd.append("lang",lang); rfd.append("role","reference");
+        for(var j=0;j<refAttached.length;j++) rfd.append("files",refAttached[j]);
+        req=fetch("/api/draft/from-document",{method:"POST",body:rfd});
+      } else if(hasDoc){
+        var fd=new FormData(); fd.append("prompt",prompt); fd.append("lang",lang); fd.append("role","facts");
         for(var k=0;k<attached.length;k++) fd.append("files",attached[k]);
         req=fetch("/api/draft/from-document",{method:"POST",body:fd});
       } else {
@@ -665,13 +755,40 @@
     draftBtn.addEventListener("click",draft);
     input.addEventListener("keydown",function(e){if((e.metaKey||e.ctrlKey)&&e.key==="Enter")draft();});
 
-    // Attach a reference document — held for the next Draft (server OCRs it + drafts from it).
+    // ---- Refine an authored draft by instruction → /api/draft/refine ----
+    function refine(){
+      if(!last) return;
+      var instruction=($("pd-refine-input").value||"").trim();
+      if(!instruction){ $("pd-refine-input").focus(); return; }
+      var prev = (lang==="en" ? (last.html_en||last.html_hi) : (last.html_hi||last.html_en)) || "";
+      var goBtn=$("pd-refine-go"); goBtn.disabled=true;
+      var hint=$("pd-refine-hint"); var prevHint=hint.textContent; hint.textContent="Applying your changes…";
+      fetch("/api/draft/refine",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({prev_html:prev,instruction:instruction,doc_type:last.doc_type||"other_criminal",lang:lang})})
+        .then(function(r){return r.json();})
+        .then(function(res){goBtn.disabled=false;hint.textContent=prevHint;
+          if(!res||res.ok===false){throw new Error((res&&(res.error||res.detail))||"Could not apply that change — try rephrasing.");}
+          $("pd-refine-input").value=""; renderResult(res);})
+        .catch(function(e){goBtn.disabled=false;hint.textContent=(e.message||String(e));});
+    }
+    $("pd-refine-go").addEventListener("click",refine);
+    $("pd-refine-input").addEventListener("keydown",function(e){if((e.metaKey||e.ctrlKey)&&e.key==="Enter")refine();});
+
+    // ---- Two distinct uploads, mutually exclusive (facts vs style reference) ----
     if(uploadBtn && fileInput){
       uploadBtn.addEventListener("click",function(){ fileInput.click(); });
       fileInput.addEventListener("change",function(){
         attached = (fileInput.files && fileInput.files.length) ? fileInput.files : null;
-        renderAttached();
-        if(attached) input.focus();
+        if(attached){ refAttached=null; if(refFileInput)refFileInput.value=""; renderRefAttached(); }
+        renderAttached(); if(attached) input.focus();
+      });
+    }
+    if(refUploadBtn && refFileInput){
+      refUploadBtn.addEventListener("click",function(){ refFileInput.click(); });
+      refFileInput.addEventListener("change",function(){
+        refAttached = (refFileInput.files && refFileInput.files.length) ? refFileInput.files : null;
+        if(refAttached){ attached=null; if(fileInput)fileInput.value=""; renderAttached(); }
+        renderRefAttached(); if(refAttached) input.focus();
       });
     }
   })();
