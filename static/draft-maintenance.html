@@ -527,7 +527,7 @@
     function m(list) { for (var a = 0; a < list.length; a++) { if (s.substr(i, list[a].length) === list[a]) return list[a]; } return null; }
     while (i < s.length) {
       var c = m(CK);
-      if (c) { out += HMAP[c]; i += c.length; var v = m(VK); if (v) { out += VMAT[v]; i += v.length; } else if (i < s.length) { out += '्'; } prevC = false; }
+      if (c) { out += HMAP[c]; i += c.length; var v = m(VK); if (v) { out += VMAT[v]; i += v.length; } else if (i < s.length && (s[i] === 'r' || s[i] === 'y')) { out += '्'; } prevC = false; }
       else { var v = m(VK); if (v) { out += (out === '' || !prevC) ? VIND[v] : VMAT[v]; i += v.length; prevC = false; } else { out += s[i]; i++; prevC = false; } }
     }
     return out;
