@@ -2000,24 +2000,29 @@ function fitDocToWidth() {
   if (!sheet) return;
   let wrap = (bundle.parentElement && bundle.parentElement.classList.contains('fitwrap'))
     ? bundle.parentElement : null;
-  bundle.style.transform = '';       // reset before measuring natural size
+  // reset any prior fit before measuring the sheet's true (unscaled) width
+  bundle.style.transform = ''; bundle.style.transformOrigin = ''; bundle.style.width = '';
   if (wrap) { wrap.style.width = ''; wrap.style.height = ''; }
   const avail = page.clientWidth;
-  const naturalW = sheet.offsetWidth;
+  const naturalW = sheet.offsetWidth;   // the fixed 210mm sheet, independent of the bundle width
   if (!avail || !naturalW) return;
   const scale = Math.min(1, (avail - 2) / naturalW);
-  if (scale >= 0.999) { if (wrap) wrap.replaceWith(bundle); return; }   // room enough → no scaling
+  if (scale >= 0.999) { if (wrap) wrap.replaceWith(bundle); return; }   // desktop: room enough, no scaling
   if (!wrap) {
     wrap = document.createElement('div');
     wrap.className = 'fitwrap';
     bundle.parentNode.insertBefore(wrap, bundle);
     wrap.appendChild(bundle);
   }
+  // Pin the bundle to the real sheet width (it defaults to width:100%, which
+  // would make the sheet overflow a scaled wrapper and jam it to the left).
+  bundle.style.width = naturalW + 'px';
   const naturalH = bundle.offsetHeight;
   bundle.style.transformOrigin = 'top left';
   bundle.style.transform = 'scale(' + scale + ')';
   wrap.style.width = Math.ceil(naturalW * scale) + 'px';
   wrap.style.height = Math.ceil(naturalH * scale) + 'px';
+  wrap.style.margin = '0 auto';       // centre the fitted sheet in the pane
 }
 if (!window.__fitDocBound) {
   window.__fitDocBound = true;
