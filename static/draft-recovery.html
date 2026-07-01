@@ -150,7 +150,7 @@
   .paper .sup { font-size: 12.5px; letter-spacing: .04em; text-transform: uppercase; color: #555; }
   .paper.lang-hi .sup { text-transform: none; }
   .paper .rule { border: none; border-top: 1px solid #d8d4c8; margin: 14px 0; }
-  .paper .vs { text-align: center; font-style: italic; margin: 4px 0; }
+  .paper .vs { text-align: center; font-style: italic; margin: 3px 0; padding-left: 40%; }
   .paper .pno { display: inline-block; min-width: 1.6em; }
   .paper p { margin: 0 0 12px; }
   .paper .indent { padding-left: 26px; }
@@ -186,10 +186,11 @@
     font-size: 12px; color: var(--ink-3); line-height: 1.6; }
   .rfoot b { color: var(--ink-2); }
 
-  /* Party block — descriptor left, designation pinned to the extreme right (court format) */
-  .paper .party { display: flex; justify-content: space-between; align-items: flex-end; gap: 18px; margin: 0 0 4px; }
-  .paper .party__d { flex: 1; }
-  .paper .party__t { white-space: nowrap; font-weight: 700; }
+  /* Party block — canonical cause-title: designation label + rule on the LEFT, descriptor indented RIGHT */
+  .paper .party { display: grid; grid-template-columns: 40% 60%; column-gap: 10px; align-items: start; margin: 2px 0 6px; }
+  .paper .party__label { display: flex; align-items: flex-end; gap: 7px; white-space: nowrap; font-weight: 700; }
+  .paper .party__label .ln { flex: 1; border-bottom: 1px solid #b7b09c; margin-bottom: 4px; }
+  .paper .party__desc { align-self: start; }
   /* Per-document Save-PDF button */
   .doc__pdf { font-size: 12px; color: var(--ink-2); border: 1px solid var(--line); background: var(--surface);
     padding: 5px 11px; border-radius: var(--radius); cursor: pointer; white-space: nowrap; }
@@ -344,6 +345,7 @@
         <div class="field col-2"><label><span class="lang-en">Advocate — name &amp; enrolment</span><span class="lang-hi">अधिवक्ता — नाम व नामांकन</span></label><input data-f="advocate" placeholder="____, Advocate (Enrl. No. ____)" /></div>
         <div class="field"><label><span class="lang-en">Date of draft</span><span class="lang-hi">ड्राफ्ट की तिथि</span></label><input data-f="draftdate" placeholder="DD.MM.YYYY" /></div>
       </div>
+      <p style="margin-top:14px;font-size:12px;color:var(--gold-ink);line-height:1.5;"><span class="lang-en">Names &amp; places typed in English auto-convert to Devanagari in the हिंदी view — please verify the spelling of proper names.</span><span class="lang-hi">अंग्रेज़ी में लिखे नाम व स्थान हिंदी दृश्य में स्वतः देवनागरी में बदल जाते हैं — कृपया नामों की वर्तनी जाँच लें।</span></p>
     </div>
   </section>
 
@@ -456,9 +458,9 @@
       <p class="ctr">Civil Suit No. <span class="ph" data-f="suit" data-ph="[___ of 20__]">[___ of 20__]</span></p>
       <p class="ctr sup">(Under Order XXXVII of the Code of Civil Procedure, 1908)</p>
       <hr class="rule" />
-      <p class="party"><span class="party__d"><span class="ph" data-f="plaintiff" data-ph="[Plaintiff — name, parentage, age, occupation, address]">[Plaintiff — name, parentage, age, occupation, address]</span></span><b class="party__t">… Plaintiff</b></p>
+      <div class="party"><span class="party__label">Plaintiff<span class="ln"></span></span><span class="party__desc"><span class="ph" data-f="plaintiff" data-ph="[plaintiff — name, parentage, age, occupation, address]">[plaintiff — name, parentage, age, occupation, address]</span></span></div>
       <p class="vs">VERSUS</p>
-      <p class="party"><span class="party__d"><span class="ph" data-f="defendant" data-ph="[Defendant — name, parentage, age, occupation, address]">[Defendant — name, parentage, age, occupation, address]</span></span><b class="party__t">… Defendant</b></p>
+      <div class="party"><span class="party__label">Defendant<span class="ln"></span></span><span class="party__desc"><span class="ph" data-f="defendant" data-ph="[defendant — name, parentage, age, occupation, address]">[defendant — name, parentage, age, occupation, address]</span></span></div>
       <hr class="rule" />
       <p class="ctr"><b>SUIT FOR RECOVERY OF ₹<span class="ph" data-f="claim" data-ph="[amount]">[amount]</span>
          (<span class="ph" data-f="words" data-ph="[in words]">[in words]</span>)</b></p>
@@ -549,9 +551,9 @@
       <p class="ctr">सिविल वाद संख्या <span class="ph" data-f="suit" data-ph="[___ वर्ष 20__]">[___ वर्ष 20__]</span></p>
       <p class="ctr sup">(सिविल प्रक्रिया संहिता, 1908 के आदेश 37 के अंतर्गत)</p>
       <hr class="rule" />
-      <p class="party"><span class="party__d"><span class="ph" data-f="plaintiff" data-ph="[वादी — नाम, पिता/पति का नाम, आयु, व्यवसाय, पता]">[वादी — नाम, पिता/पति का नाम, आयु, व्यवसाय, पता]</span></span><b class="party__t">… वादी</b></p>
+      <div class="party"><span class="party__label">वादी<span class="ln"></span></span><span class="party__desc"><span class="ph" data-f="plaintiff" data-ph="[नाम, पिता/पति श्री ____, आयु, व्यवसाय, निवासी ____]">[नाम, पिता/पति श्री ____, आयु, व्यवसाय, निवासी ____]</span></span></div>
       <p class="vs">बनाम</p>
-      <p class="party"><span class="party__d"><span class="ph" data-f="defendant" data-ph="[प्रतिवादी — नाम, पिता का नाम, आयु, व्यवसाय, पता]">[प्रतिवादी — नाम, पिता का नाम, आयु, व्यवसाय, पता]</span></span><b class="party__t">… प्रतिवादी</b></p>
+      <div class="party"><span class="party__label">प्रतिवादी<span class="ln"></span></span><span class="party__desc"><span class="ph" data-f="defendant" data-ph="[नाम, पिता श्री ____, आयु, व्यवसाय, निवासी ____]">[नाम, पिता श्री ____, आयु, व्यवसाय, निवासी ____]</span></span></div>
       <hr class="rule" />
       <p class="ctr"><b>₹<span class="ph" data-f="claim" data-ph="[राशि]">[राशि]</span>
          (<span class="ph" data-f="words" data-ph="[शब्दों में]">[शब्दों में]</span>) की वसूली हेतु वाद</b></p>
@@ -711,11 +713,48 @@
 
   // ── Fill: mirror every input into all placeholder spans sharing its data-f key
   //    (fills both the EN and HI documents at once).
+  // ── English → Devanagari transliteration (on-device; for the Hindi view).
+  var TRANSLIT = ['plaintiff', 'defendant', 'place', 'advocate'];
+  var OVR = { kumar:'कुमार', verma:'वर्मा', sharma:'शर्मा', singh:'सिंह', devi:'देवी', bai:'बाई', ram:'राम',
+    shri:'श्री', smt:'श्रीमती', kumari:'कुमारी', prasad:'प्रसाद', lal:'लाल', yadav:'यादव', gupta:'गुप्ता',
+    jain:'जैन', patel:'पटेल', mishra:'मिश्रा', tiwari:'तिवारी', chouhan:'चौहान', rao:'राव', reddy:'रेड्डी',
+    bhopal:'भोपाल', indore:'इंदौर', gwalior:'ग्वालियर', jabalpur:'जबलपुर', ujjain:'उज्जैन', sagar:'सागर',
+    wo:'पत्नी', so:'पुत्र', 'do':'पुत्री', aged:'आयु', age:'आयु', years:'वर्ष', occupation:'व्यवसाय',
+    business:'व्यापार', service:'नौकरी', resident:'निवासी', road:'रोड', colony:'कॉलोनी', nagar:'नगर' };
+  var HMAP = { chh:'छ', ch:'च', sh:'श', th:'थ', dh:'ध', bh:'भ', ph:'फ', gh:'घ', kh:'ख', jh:'झ',
+    k:'क', g:'ग', j:'ज', t:'त', d:'द', n:'न', p:'प', b:'ब', m:'म', y:'य', r:'र', l:'ल', v:'व', w:'व', s:'स', h:'ह', f:'फ़', z:'ज़', c:'क', q:'क', x:'क्स' };
+  var VIND = { aa:'आ', a:'अ', ii:'ई', ee:'ई', i:'इ', uu:'ऊ', oo:'ऊ', u:'उ', ai:'ऐ', au:'औ', e:'ए', o:'ओ' };
+  var VMAT = { aa:'ा', a:'', ii:'ी', ee:'ी', i:'ि', uu:'ू', oo:'ू', u:'ु', ai:'ै', au:'ौ', e:'े', o:'ो' };
+  var CK = ['chh','ch','sh','th','dh','bh','ph','gh','kh','jh','k','g','j','t','d','n','p','b','m','y','r','l','v','w','s','h','f','z','c','q','x'];
+  var VK = ['aa','ii','ee','uu','oo','ai','au','a','i','u','e','o'];
+  function trWord(w) {
+    var lw = w.toLowerCase();
+    if (OVR[lw] != null) return OVR[lw];
+    var s = lw, out = '', i = 0, prevC = false;
+    function m(list) { for (var a = 0; a < list.length; a++) { if (s.substr(i, list[a].length) === list[a]) return list[a]; } return null; }
+    while (i < s.length) {
+      var c = m(CK);
+      if (c) { out += HMAP[c]; i += c.length; var v = m(VK); if (v) { out += VMAT[v]; i += v.length; } else if (i < s.length) { out += '्'; } prevC = false; }
+      else { var v = m(VK); if (v) { out += (out === '' || !prevC) ? VIND[v] : VMAT[v]; i += v.length; prevC = false; } else { out += s[i]; i++; prevC = false; } }
+    }
+    return out;
+  }
+  function toDev(t) {
+    if (!t) return t;
+    t = t.replace(/\bw\/o\b/gi, 'पत्नी').replace(/\bs\/o\b/gi, 'पुत्र').replace(/\bd\/o\b/gi, 'पुत्री')
+         .replace(/\br\/o\b/gi, 'निवासी').replace(/\bc\/o\b/gi, 'द्वारा');
+    return t.replace(/[A-Za-z]+/g, function (w) { return trWord(w); });
+  }
+
   function apply(key, val) {
+    var has = val && val.trim();
     document.querySelectorAll('.ph[data-f="' + key + '"]').forEach(function (el) {
       var d = el.getAttribute('data-ph') || '';
-      if (val && val.trim()) { el.textContent = val; el.classList.add('ph--filled'); }
-      else { el.textContent = d; el.classList.remove('ph--filled'); }
+      if (has) {
+        var hi = el.closest('.lang-hi') != null;
+        el.textContent = (hi && TRANSLIT.indexOf(key) >= 0) ? toDev(val) : val;
+        el.classList.add('ph--filled');
+      } else { el.textContent = d; el.classList.remove('ph--filled'); }
     });
   }
   var inputs = document.querySelectorAll('.field input[data-f]');
