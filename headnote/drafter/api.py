@@ -21,7 +21,7 @@ from typing import List, Literal, Optional
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
-from headnote.drafter import storage, stories
+from headnote.drafter import office, storage, stories
 from headnote.entitlements import (
     CurrentUser,
     check_and_record,
@@ -201,7 +201,8 @@ async def draft_from_document(
     and run it through the SAME draft pipeline as a typed prompt (classify → deterministic canonical
     | house-style author), so the DOCUMENT drives the draft. The OCR'd content is used INTERNALLY as
     the matter's facts — never shown as a raw-text dump. An optional typed prompt adds intent (the
-    relief sought / draft type). Ungated, like /from-prompt. Images or PDF; max 20 MB/file, 8 pages."""
+    relief sought / draft type). Ungated, like /from-prompt. Image, PDF, Word (.docx) or Excel (.xlsx);
+    max 20 MB/file, 8 pages."""
     from fastapi.responses import JSONResponse
     from headnote.drafter.ocr import ocr_text_pages
     from headnote.drafter.from_prompt import draft_from_prompt
@@ -218,19 +219,13 @@ async def draft_from_document(
     if uploads:
         if len(uploads) > _OCR_MAX_PAGES:
             return JSONResponse({"ok": False, "error": f"too many pages ({len(uploads)}); max {_OCR_MAX_PAGES}"}, status_code=400)
-        pages: list[tuple[bytes, str]] = []
-        for idx, up in enumerate(uploads, start=1):
-            mt = up.content_type or ""
-            if mt not in _OCR_ALLOWED_MIME:
-                return JSONResponse({"ok": False, "error": f"page {idx}: unsupported type {mt!r}; use an image or PDF"}, status_code=400)
-            data = await up.read()
-            if not data:
-                return JSONResponse({"ok": False, "error": f"page {idx}: empty file"}, status_code=400)
-            if len(data) > _OCR_MAX_BYTES:
-                return JSONResponse({"ok": False, "error": f"page {idx}: too large; max 20 MB"}, status_code=400)
-            pages.append((data, mt))
+        entries = [(await up.read(), up.content_type or "", up.filename or "") for up in uploads]
         try:
-            doc_text = ocr_text_pages(pages)
+            pages, office_text = office.collect_uploads(entries, max_bytes=_OCR_MAX_BYTES)
+        except ValueError as e:
+            return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+        try:
+            doc_text = ocr_text_pages(pages, office_text=office_text)
         except Exception as e:
             return JSONResponse({"ok": False, "error": f"could not read the document: {e}"}, status_code=502)
 
@@ -396,9 +391,8 @@ async def translate_fields(
 
 # ----------------------------------------------------------- OCR
 
-_OCR_ALLOWED_MIME = {
-    "image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf",
-}
+# Upload type validation lives in headnote.drafter.office.collect_uploads:
+# image/PDF take the vision-OCR path, Word (.docx) / Excel (.xlsx) are text-extracted.
 _OCR_MAX_BYTES = 20 * 1024 * 1024
 _OCR_MAX_PAGES = 8  # NCRB I.I.F.-I is at most 4-5 pages; cap generously
 
@@ -437,24 +431,15 @@ async def ocr_fir(
             detail=f"too many pages ({len(uploads)}); max {_OCR_MAX_PAGES}",
         )
 
-    pages: list[tuple[bytes, str]] = []
-    for idx, up in enumerate(uploads, start=1):
-        mt = up.content_type or ""
-        if mt not in _OCR_ALLOWED_MIME:
-            raise HTTPException(
-                status_code=400,
-                detail=f"page {idx}: unsupported file type {mt!r}; use JPEG, PNG, WebP, GIF, or PDF",
-            )
-        data = await up.read()
-        if not data:
-            raise HTTPException(status_code=400, detail=f"page {idx}: empty file")
-        if len(data) > _OCR_MAX_BYTES:
-            raise HTTPException(status_code=400, detail=f"page {idx}: too large; max 20 MB")
-        pages.append((data, mt))
+    entries = [(await up.read(), up.content_type or "", up.filename or "") for up in uploads]
+    try:
+        pages, office_text = office.collect_uploads(entries, max_bytes=_OCR_MAX_BYTES)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     with check_and_record(user.id, "draft", endpoint="ocr_fir", email=user.email) as _record:
         try:
-            parsed = ocr_fir_pages(pages)
+            parsed = ocr_fir_pages(pages, office_text=office_text)
         except ValueError as e:
             raise HTTPException(status_code=502, detail=f"OCR failed: {e}")
         except Exception as e:
@@ -462,7 +447,7 @@ async def ocr_fir(
 
         # Cost scales roughly with page count. 300p per page is conservative.
         _record(cost_paise=0, model="groq/llama-4-scout-vision")
-        return {"ok": True, "page_count": len(pages), "extracted": parsed}
+        return {"ok": True, "page_count": len(uploads), "extracted": parsed}
 
 
 @router.post("/ocr-bail-order", summary="OCR a Sessions/Magistrate bail order → structured fields")
@@ -500,31 +485,22 @@ async def ocr_bail_order(
             detail=f"too many pages ({len(uploads)}); max {_OCR_MAX_PAGES}",
         )
 
-    pages: list[tuple[bytes, str]] = []
-    for idx, up in enumerate(uploads, start=1):
-        mt = up.content_type or ""
-        if mt not in _OCR_ALLOWED_MIME:
-            raise HTTPException(
-                status_code=400,
-                detail=f"page {idx}: unsupported file type {mt!r}; use JPEG, PNG, WebP, GIF, or PDF",
-            )
-        data = await up.read()
-        if not data:
-            raise HTTPException(status_code=400, detail=f"page {idx}: empty file")
-        if len(data) > _OCR_MAX_BYTES:
-            raise HTTPException(status_code=400, detail=f"page {idx}: too large; max 20 MB")
-        pages.append((data, mt))
+    entries = [(await up.read(), up.content_type or "", up.filename or "") for up in uploads]
+    try:
+        pages, office_text = office.collect_uploads(entries, max_bytes=_OCR_MAX_BYTES)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     with check_and_record(user.id, "draft", endpoint="ocr_bail_order", email=user.email) as _record:
         try:
-            parsed = ocr_bail_order_pages(pages)
+            parsed = ocr_bail_order_pages(pages, office_text=office_text)
         except ValueError as e:
             raise HTTPException(status_code=502, detail=f"OCR failed: {e}")
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"OCR error: {e}")
 
         _record(cost_paise=0, model="groq/llama-4-scout-vision")
-        return {"ok": True, "page_count": len(pages), "extracted": parsed}
+        return {"ok": True, "page_count": len(uploads), "extracted": parsed}
 
 
 @router.post("/ocr-impugned-order", summary="OCR a govt / tribunal / lower-court order → structured writ-draft fields")
@@ -564,31 +540,22 @@ async def ocr_impugned_order(
             detail=f"too many pages ({len(uploads)}); max {_OCR_MAX_PAGES}",
         )
 
-    pages: list[tuple[bytes, str]] = []
-    for idx, up in enumerate(uploads, start=1):
-        mt = up.content_type or ""
-        if mt not in _OCR_ALLOWED_MIME:
-            raise HTTPException(
-                status_code=400,
-                detail=f"page {idx}: unsupported file type {mt!r}; use JPEG, PNG, WebP, GIF, or PDF",
-            )
-        data = await up.read()
-        if not data:
-            raise HTTPException(status_code=400, detail=f"page {idx}: empty file")
-        if len(data) > _OCR_MAX_BYTES:
-            raise HTTPException(status_code=400, detail=f"page {idx}: too large; max 20 MB")
-        pages.append((data, mt))
+    entries = [(await up.read(), up.content_type or "", up.filename or "") for up in uploads]
+    try:
+        pages, office_text = office.collect_uploads(entries, max_bytes=_OCR_MAX_BYTES)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     with check_and_record(user.id, "draft", endpoint="ocr_impugned_order", email=user.email) as _record:
         try:
-            parsed = ocr_impugned_order_pages(pages)
+            parsed = ocr_impugned_order_pages(pages, office_text=office_text)
         except ValueError as e:
             raise HTTPException(status_code=502, detail=f"OCR failed: {e}")
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"OCR error: {e}")
 
         _record(cost_paise=0, model="groq/llama-4-scout-vision")
-        return {"ok": True, "page_count": len(pages), "extracted": parsed}
+        return {"ok": True, "page_count": len(uploads), "extracted": parsed}
 
 
 @router.post("/ocr-generic", summary="OCR any document → fill a template's own fields (Groq vision)")
@@ -629,28 +596,22 @@ async def ocr_generic(
     if not fields:
         raise HTTPException(status_code=400, detail="no target fields provided")
 
-    pages: list[tuple[bytes, str]] = []
-    for idx, up in enumerate(uploads, start=1):
-        mt = up.content_type or ""
-        if mt not in _OCR_ALLOWED_MIME:
-            raise HTTPException(status_code=400, detail=f"page {idx}: unsupported file type {mt!r}; use JPEG, PNG, WebP, GIF, or PDF")
-        data = await up.read()
-        if not data:
-            raise HTTPException(status_code=400, detail=f"page {idx}: empty file")
-        if len(data) > _OCR_MAX_BYTES:
-            raise HTTPException(status_code=400, detail=f"page {idx}: too large; max 20 MB")
-        pages.append((data, mt))
+    entries = [(await up.read(), up.content_type or "", up.filename or "") for up in uploads]
+    try:
+        pages, office_text = office.collect_uploads(entries, max_bytes=_OCR_MAX_BYTES)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     with check_and_record(user.id, "draft", endpoint="ocr_generic", email=user.email) as _record:
         try:
-            extracted = ocr_generic_pages(pages, fields, doc_label)
+            extracted = ocr_generic_pages(pages, fields, doc_label, office_text=office_text)
         except ValueError as e:
             raise HTTPException(status_code=502, detail=f"OCR failed: {e}")
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"OCR error: {e}")
 
         _record(cost_paise=0, model="groq/llama-4-scout-vision")
-        return {"ok": True, "page_count": len(pages), "extracted": extracted}
+        return {"ok": True, "page_count": len(uploads), "extracted": extracted}
 
 
 # ----------------------------------------------------------- Voice transcription

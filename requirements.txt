@@ -93,6 +93,12 @@ weasyprint>=60
 # before injection so the whole doc renders in one consistent legacy font.
 docxtpl>=0.18
 
+# ---- Word/Excel attachments. Lawyers routinely have drafts and cause-lists
+# as .docx/.xlsx; these are already-digital text, so we extract them directly
+# (no vision OCR) wherever we accept PDFs/images. python-docx already ships via
+# docxtpl above; openpyxl reads .xlsx sheets (pure-Python, no system deps).
+openpyxl>=3.1
+
 # ---- HEIC/HEIF reader so we can OCR iPhone photos. The default iOS photo
 # format isn't accepted by Groq/Anthropic vision; Pillow + pillow-heif
 # decodes it and we re-encode as JPEG before sending to the OCR provider.

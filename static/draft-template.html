@@ -1613,7 +1613,7 @@ function renderUploadZone(u) {
 
   const zone = ce('label', { className: 'ocr-zone', id: `oz_${u.id}` });
   zone.innerHTML = `
-    <input type="file" accept="${u.accept || 'image/*,application/pdf'}" ${u.multiple ? 'multiple' : ''}>
+    <input type="file" accept="${u.accept || 'image/*,application/pdf,.doc,.docx,.xls,.xlsx'}" ${u.multiple ? 'multiple' : ''}>
     <div class="ocr-zone__icon">📷</div>
     <div class="ocr-zone__title" data-en="${esc(u.label_en)}" data-hi="${esc(u.label_hi)}">${esc(state.lang === 'hi' ? u.label_hi : u.label_en)}</div>
     <div class="ocr-zone__sub" data-en="${esc(u.sub_en || '')}" data-hi="${esc(u.sub_hi || '')}">${esc(state.lang === 'hi' ? (u.sub_hi || '') : (u.sub_en || ''))}</div>
@@ -1663,7 +1663,8 @@ function refreshUploadUI(u) {
       const img = ce('img'); img.src = URL.createObjectURL(file);
       w.appendChild(img);
     } else {
-      w.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:11px;color:var(--muted);">PDF</div>`;
+      const ext = (file.name.split('.').pop() || 'FILE').toUpperCase().slice(0, 4);
+      w.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:11px;color:var(--muted);">${ext}</div>`;
     }
     const num = ce('div', { className: 'ocr-page__num', textContent: idx + 1 });
     w.appendChild(num);

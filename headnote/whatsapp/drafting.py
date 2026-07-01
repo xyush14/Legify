@@ -561,25 +561,38 @@ async def ocr_for_draft(media_urls: list[str], *, variant: str = "sessions") -> 
         return {}
     from headnote.whatsapp.providers import twilio as _twi
     from headnote.drafter.ocr import ocr_fir_pages, ocr_bail_order_pages
+    from headnote.drafter import office
 
     pages: list[tuple[bytes, str]] = []
+    office_texts: list[str] = []
     for u in media_urls[:6]:                       # cap pages
         try:
             data, ct = await asyncio.to_thread(_twi.download_media, u)
+            # Word/Excel attachments carry a distinctive MIME — extract their
+            # text directly (no vision OCR) instead of treating them as images.
+            if office.office_kind(ct, "") is not None:
+                try:
+                    office_texts.append(office.extract_office_text(data, ct, ""))
+                except Exception:
+                    log.exception("could not read WhatsApp office attachment %s", u[:80])
+                continue
             if not ct or ct == "application/octet-stream":
                 ct = "image/jpeg"                  # WhatsApp images
             pages.append((data, ct))
         except Exception:
             log.exception("twilio download_media failed for %s", u[:80])
-    if not pages:
+    office_text = "\n\n".join(t for t in office_texts if t and t.strip())
+    if not pages and not office_text:
         return {}
 
     try:
         if variant == "hc":
-            parsed = await asyncio.to_thread(ocr_bail_order_pages, pages)
+            parsed = await asyncio.to_thread(
+                lambda: ocr_bail_order_pages(pages, office_text=office_text))
             return _bail_order_ocr_to_bail_slots(parsed)
         else:
-            parsed = await asyncio.to_thread(ocr_fir_pages, pages)
+            parsed = await asyncio.to_thread(
+                lambda: ocr_fir_pages(pages, office_text=office_text))
             return _fir_ocr_to_bail_slots(parsed)
     except Exception:
         log.exception("OCR failed (variant=%s)", variant)

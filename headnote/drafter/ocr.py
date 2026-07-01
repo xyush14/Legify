@@ -471,11 +471,19 @@ def _vision_text_one_call(client, model: str, pages: Sequence[tuple[bytes, str]]
 
 
 def ocr_text_pages(pages: Sequence[tuple[bytes, str]],
-                   *, prompt: str = OCR_TEXT_PROMPT) -> str:
+                   *, prompt: str = OCR_TEXT_PROMPT, office_text: str = "") -> str:
     """OCR document pages → transcribed TEXT (no field parsing). Groq Llama-4-Scout
     vision, batched to the 5-image cap. Powers the prompt drafter's 'upload a document'
     path (default plain-text prompt) and the document vault (Markdown prompt, passed
-    in) — same verbatim transcription, different layout."""
+    in) — same verbatim transcription, different layout.
+
+    `office_text` is text extracted from a Word/Excel upload — already accurate,
+    so it needs no OCR. When the upload is office-only, it's returned as-is; when
+    mixed with images, it's appended to the OCR'd text."""
+    office_text = (office_text or "").strip()
+    if not pages:
+        # Office-only upload — nothing to OCR, the extracted text IS the result.
+        return office_text
     from groq import Groq
     groq_key = os.environ.get("GROQ_API_KEY", "")
     if not groq_key:
@@ -486,12 +494,16 @@ def ocr_text_pages(pages: Sequence[tuple[bytes, str]],
     pages = _rasterize_pdfs(pages)   # PDF → per-page PNG (Groq vision = images only; else "invalid image data")
     total = len(pages)
     if total <= max_imgs:
-        return _vision_text_one_call(client, model, pages, page_offset=0, total=total, prompt=prompt)
-    out: list[str] = []
-    for start in range(0, total, max_imgs):
-        chunk = pages[start:start + max_imgs]
-        out.append(_vision_text_one_call(client, model, chunk, page_offset=start, total=total, prompt=prompt))
-    return "\n\n".join(t for t in out if t)
+        ocr_text = _vision_text_one_call(client, model, pages, page_offset=0, total=total, prompt=prompt)
+    else:
+        out: list[str] = []
+        for start in range(0, total, max_imgs):
+            chunk = pages[start:start + max_imgs]
+            out.append(_vision_text_one_call(client, model, chunk, page_offset=start, total=total, prompt=prompt))
+        ocr_text = "\n\n".join(t for t in out if t)
+    if office_text:
+        return "\n\n".join(t for t in (ocr_text, office_text) if t.strip())
+    return ocr_text
 
 
 def _ocr_via_openrouter(pages: Sequence[tuple[bytes, str]], prompt: str = OCR_FIR_PROMPT) -> dict:
@@ -641,7 +653,40 @@ def _ocr_result_is_empty(parsed: dict) -> bool:
     return True
 
 
-def _run_ocr(pages, prompt, normalise_fn):
+def _extract_fields_from_text(text: str, prompt: str) -> dict:
+    """Run an extraction PROMPT over already-digital text (Word/Excel).
+
+    The vision runner (`_run_ocr`) reads images; an office file is text, so we
+    reuse the SAME extraction prompt but send it as a plain chat message — no
+    vision, no rasterization. Groq Llama (free) is the primary, mirroring the
+    OCR cost policy. Returns the parsed JSON (unnormalised — the caller applies
+    the same normalise_fn as the vision path)."""
+    from groq import Groq
+    groq_key = os.environ.get("GROQ_API_KEY", "").strip()
+    if not groq_key:
+        raise ValueError("Text extraction is not configured. Set GROQ_API_KEY on the server.")
+    client = Groq(api_key=groq_key)
+    # A text model — the vision model also accepts text-only turns, so default to it.
+    model = os.environ.get("GROQ_TEXT_MODEL",
+                           os.environ.get("GROQ_OCR_MODEL",
+                                          "meta-llama/llama-4-scout-17b-16e-instruct"))
+    msg = (
+        prompt
+        + "\n\nThe document text is provided below (it was extracted directly "
+          "from a Word/Excel file, so it is already accurate — do not guess).\n\n"
+          "--- DOCUMENT TEXT ---\n" + (text or "")
+    )
+    resp = client.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": msg}],
+        max_tokens=4000,
+        temperature=0.1,
+    )
+    raw = resp.choices[0].message.content or ""
+    return _parse_json_response(raw)
+
+
+def _run_ocr(pages, prompt, normalise_fn, *, office_text: str = ""):
     """Generic multi-page OCR runner — Groq-only by default (cost policy).
 
     Groq Llama-4-Scout is the sole provider we rely on: it's free/near-free.
@@ -650,9 +695,28 @@ def _run_ocr(pages, prompt, normalise_fn):
     Anthropic vision fallback remains in the code but is DISABLED by default
     (Claude vision is ~30x the per-page cost); set OCR_ENABLE_ANTHROPIC=1 to
     turn it back on. `prompt` selects the schema; `normalise_fn`
-    post-processes. Raises ValueError with a clear message when OCR fails."""
+    post-processes. Raises ValueError with a clear message when OCR fails.
+
+    `office_text`, when present, is text extracted from a Word/Excel upload: we
+    run the same extraction prompt over it as plain text (no vision) and, if the
+    caller also passed image/PDF pages, merge the two results."""
+    office_result: Optional[dict] = None
+    if office_text and office_text.strip():
+        office_result = normalise_fn(_extract_fields_from_text(office_text, prompt))
+        if not pages:
+            return office_result
+
     if not pages:
+        if office_result is not None:
+            return office_result
         raise ValueError("no pages provided")
+
+    def _with_office(vision_result: dict) -> dict:
+        # Rare mixed upload (office file + photo/PDF in one field): merge, with
+        # vision values winning and office text filling any gaps.
+        if office_result is None:
+            return vision_result
+        return _merge_ocr_results([vision_result, office_result])
 
     original_pages = list(pages)  # pre-rasterization uploads, for the hi-DPI retry
 
@@ -678,7 +742,7 @@ def _run_ocr(pages, prompt, normalise_fn):
         try:
             groq_raw = _ocr_via_groq(pages, prompt)
             if not _ocr_result_is_empty(groq_raw):
-                return normalise_fn(groq_raw)
+                return _with_office(normalise_fn(groq_raw))
             groq_empty_result = normalise_fn(groq_raw)
             # Silent-failure mode: valid JSON but every field null (common on
             # hard handwritten Devanagari). Re-rasterize the PDF sharper and
@@ -689,7 +753,7 @@ def _run_ocr(pages, prompt, normalise_fn):
                     pages_hi = _rasterize_pdfs(original_pages, dpi=_retry_dpi, max_total=_max_pages)
                     groq_raw2 = _ocr_via_groq(pages_hi, prompt)
                     if not _ocr_result_is_empty(groq_raw2):
-                        return normalise_fn(groq_raw2)
+                        return _with_office(normalise_fn(groq_raw2))
                 except Exception as e:
                     log.warning("Groq hi-DPI retry failed: %s", e)
             else:
@@ -712,7 +776,7 @@ def _run_ocr(pages, prompt, normalise_fn):
             fb_raw = _ocr_via_openrouter(pages, prompt)
             if not _ocr_result_is_empty(fb_raw):
                 log.info("OCR rescued by opt-in fallback provider")
-                return normalise_fn(fb_raw)
+                return _with_office(normalise_fn(fb_raw))
             log.warning("OCR fallback provider returned an empty extraction")
         except Exception as e:
             log.warning("OCR fallback provider failed: %s", e)
@@ -721,7 +785,7 @@ def _run_ocr(pages, prompt, normalise_fn):
     # Anthropic vision is OFF by default (costly). Enable with OCR_ENABLE_ANTHROPIC=1.
     if anthropic_on and (anthropic_key or bedrock_key):
         try:
-            return normalise_fn(_ocr_via_anthropic(pages, prompt))
+            return _with_office(normalise_fn(_ocr_via_anthropic(pages, prompt)))
         except Exception as e:
             log.warning("Anthropic OCR failed: %s", e)
             anthropic_err = e
@@ -730,7 +794,7 @@ def _run_ocr(pages, prompt, normalise_fn):
     # return the empty form rather than hard-erroring — a blank form the
     # lawyer can fill by hand beats a red error mid-demo.
     if groq_empty_result is not None:
-        return groq_empty_result
+        return _with_office(groq_empty_result)
 
     # All available providers exhausted — surface a clear, friendly message.
     if groq_err and anthropic_err:
@@ -747,14 +811,15 @@ def _run_ocr(pages, prompt, normalise_fn):
     raise ValueError("OCR is not configured. Set GROQ_API_KEY on the server.")
 
 
-def ocr_fir_pages(pages: Sequence[tuple[bytes, str]]) -> dict:
+def ocr_fir_pages(pages: Sequence[tuple[bytes, str]], *, office_text: str = "") -> dict:
     """OCR + parse a multi-page FIR (NCRB I.I.F.-I)."""
-    return _run_ocr(pages, OCR_FIR_PROMPT, _normalise)
+    return _run_ocr(pages, OCR_FIR_PROMPT, _normalise, office_text=office_text)
 
 
 def ocr_generic_pages(pages: Sequence[tuple[bytes, str]],
                       fields: Sequence[dict],
-                      doc_label: str = "") -> dict:
+                      doc_label: str = "",
+                      *, office_text: str = "") -> dict:
     """Generic field extraction from ANY uploaded document (image / PDF).
 
     Powers the universal "auto-fill from a document" uploader that every
@@ -795,7 +860,7 @@ def ocr_generic_pages(pages: Sequence[tuple[bytes, str]],
         wanted = {f["key"].strip() for f in targets}
         return {k: v for k, v in parsed.items() if k in wanted}
 
-    return _run_ocr(pages, prompt, _normalise_generic)
+    return _run_ocr(pages, prompt, _normalise_generic, office_text=office_text)
 
 
 def _normalise_bail_order(parsed: dict) -> dict:
@@ -816,13 +881,13 @@ def _normalise_bail_order(parsed: dict) -> dict:
     return parsed
 
 
-def ocr_bail_order_pages(pages: Sequence[tuple[bytes, str]]) -> dict:
+def ocr_bail_order_pages(pages: Sequence[tuple[bytes, str]], *, office_text: str = "") -> dict:
     """OCR + parse a multi-page Sessions/Magistrate BAIL ORDER.
 
     Used to draft a successive High Court bail application: extracts the
     lower court, bail-case number, order date, applicants, crime details,
     outcome, and the court's reasoning. Same provider chain as FIR OCR."""
-    return _run_ocr(pages, OCR_BAIL_ORDER_PROMPT, _normalise_bail_order)
+    return _run_ocr(pages, OCR_BAIL_ORDER_PROMPT, _normalise_bail_order, office_text=office_text)
 
 
 def _normalise_impugned_order(parsed: dict) -> dict:
@@ -854,7 +919,7 @@ def _normalise_impugned_order(parsed: dict) -> dict:
     return parsed
 
 
-def ocr_impugned_order_pages(pages: Sequence[tuple[bytes, str]]) -> dict:
+def ocr_impugned_order_pages(pages: Sequence[tuple[bytes, str]], *, office_text: str = "") -> dict:
     """OCR + parse a multi-page GOVT / TRIBUNAL / LOWER-COURT order that is
     about to be challenged in a High Court writ petition under Article 226.
 
@@ -863,7 +928,8 @@ def ocr_impugned_order_pages(pages: Sequence[tuple[bytes, str]]) -> dict:
     operative direction, statutes cited, lower-proceeding reference (so the
     writ can challenge both the appellate and the original order in one go).
     Same provider chain as FIR OCR."""
-    return _run_ocr(pages, OCR_IMPUGNED_ORDER_PROMPT, _normalise_impugned_order)
+    return _run_ocr(pages, OCR_IMPUGNED_ORDER_PROMPT, _normalise_impugned_order,
+                    office_text=office_text)
 
 
 def _format_groq_error(err: Exception) -> str:

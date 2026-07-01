@@ -29,10 +29,8 @@ from headnote.entitlements import CurrentUser, check_and_record, get_current_use
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
-# Mirror the drafter's OCR upload constraints exactly.
-_OCR_ALLOWED_MIME = {
-    "image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf",
-}
+# Mirror the drafter's OCR upload constraints exactly. Type validation now lives
+# in headnote.drafter.office.collect_uploads (image/PDF → OCR, Word/Excel → text).
 _OCR_MAX_BYTES = 20 * 1024 * 1024
 _OCR_MAX_PAGES = 8
 
@@ -55,7 +53,8 @@ async def upload_document(
     Accepts a single `file` or a list of `files` (multi-page document). The
     pages are OCR'd together and stored as one document.
 
-    Supported: JPEG, PNG, WebP, GIF, PDF. Max 20 MB/page, 8 pages.
+    Supported: JPEG, PNG, WebP, GIF, PDF (OCR'd), and Word (.docx) / Excel
+    (.xlsx) (text extracted directly). Max 20 MB/page, 8 pages.
     """
     from headnote.drafter.ocr import ocr_text_pages, _rasterize_pdfs, OCR_MARKDOWN_PROMPT
 
@@ -72,34 +71,34 @@ async def upload_document(
             detail=f"too many pages ({len(uploads)}); max {_OCR_MAX_PAGES}",
         )
 
+    from headnote.drafter import office
+
     first_name = uploads[0].filename or "document"
-    # Build the DISPLAY pages: keep photos as-is, rasterise PDFs to one PNG per
-    # page. These are both what we OCR and what we store for the reader's image
-    # pane (Groq vision needs images anyway, so this aligns the two).
+    # Split the batch: image/PDF pages take the vision-OCR path; Word/Excel files
+    # are already-digital text (extracted directly, no OCR).
+    entries = [(await up.read(), up.content_type or "", up.filename or "") for up in uploads]
+    try:
+        media_pages, office_text = office.collect_uploads(entries, max_bytes=_OCR_MAX_BYTES)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # Build the DISPLAY pages for the reader's image pane: keep photos as-is,
+    # rasterise PDFs to one PNG per page (Groq vision needs images anyway, so
+    # this aligns what we OCR with what we store). Word/Excel have no page image
+    # — they are stored as text-only documents.
     pages: list[tuple[bytes, str]] = []
-    for idx, up in enumerate(uploads, start=1):
-        mt = up.content_type or ""
-        if mt not in _OCR_ALLOWED_MIME:
-            raise HTTPException(
-                status_code=400,
-                detail=f"page {idx}: unsupported file type {mt!r}; use JPEG, PNG, WebP, GIF, or PDF",
-            )
-        data = await up.read()
-        if not data:
-            raise HTTPException(status_code=400, detail=f"page {idx}: empty file")
-        if len(data) > _OCR_MAX_BYTES:
-            raise HTTPException(status_code=400, detail=f"page {idx}: too large; max 20 MB")
+    for data, mt in media_pages:
         if mt == "application/pdf":
             pages.extend(_rasterize_pdfs([(data, mt)]))
         else:
             pages.append((data, mt))
     pages = pages[:_OCR_MAX_PAGES]
-    if not pages:
+    if not pages and not (office_text or "").strip():
         raise HTTPException(status_code=400, detail="no readable pages in upload")
 
     with check_and_record(user.id, "draft", endpoint="documents_upload", email=user.email) as _record:
         try:
-            text = ocr_text_pages(pages, prompt=OCR_MARKDOWN_PROMPT)
+            text = ocr_text_pages(pages, prompt=OCR_MARKDOWN_PROMPT, office_text=office_text)
         except ValueError as e:
             raise HTTPException(status_code=502, detail=f"OCR failed: {e}")
         except Exception as e:  # noqa: BLE001
@@ -120,7 +119,7 @@ async def upload_document(
         full_text=text,
         doc_type=clean_type,
         original_filename=first_name,
-        mime=pages[0][1],
+        mime=(pages[0][1] if pages else (entries[0][1] or "text/plain")),
         pages=pages,
     )
     return {"ok": True, "document": row}
