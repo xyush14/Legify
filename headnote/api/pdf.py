@@ -31,7 +31,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
-from headnote.entitlements import CurrentUser, get_current_user
+from headnote.entitlements import CurrentUser, optional_user
 
 
 log = logging.getLogger(__name__)
@@ -216,11 +216,18 @@ def _render_pdf(raw_html: str) -> bytes:
 @router.post("/pdf", summary="Render the drafted document to a real-text PDF")
 def render_document_pdf(
     body: PdfBody,
-    user: CurrentUser = Depends(get_current_user),
+    user: CurrentUser | None = Depends(optional_user),
 ):
     """Render the posted document HTML to a text-selectable A4 PDF.
 
-    Auth-required: a lawyer can only render their own in-progress document.
+    Anonymous-friendly: the standalone public share pages (``/draft/recovery``,
+    ``/draft/maintenance`` …) carry no auth token, yet their Print/PDF and
+    WhatsApp buttons must still produce the file. The endpoint is a stateless
+    render utility — it only ever renders the HTML the caller posts, back to
+    that same caller; nothing is stored or cross-user readable, so requiring a
+    login added no protection. It stays hardened against SSRF/active content
+    (see ``_clean_html`` / ``_no_network_fetcher``).
+
     Returns the raw PDF bytes (``application/pdf``) — the client turns the
     blob into a download, a WhatsApp file share, or a print job.
     """

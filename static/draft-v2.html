@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="hi"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Headnote — ड्राफ्टिंग</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Tiro+Devanagari+Hindi&display=swap" rel="stylesheet">
+<style>
+  /* ===== live-app design language (Geist + Geist Mono, calm monochrome, scoped gold) ===== */
+  :root{--bg:#fdfcf9;--card:#fff;--ink:#0c0c0a;--ink-2:#2a2a26;--ink-3:#5d5b54;--ink-4:#8a857a;
+    --line:#e8e3d6;--soft:#f5f2ea;--gold:#c9a96e;--gold-deep:#8c7549}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:'Geist',system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5;
+    -webkit-font-smoothing:antialiased;display:flex;flex-direction:column;height:100vh;overflow:hidden}
+  a{color:inherit;text-decoration:none}
+  .mono{font-family:'Geist Mono',monospace}
+  /* topbar */
+  .topbar{display:flex;align-items:center;gap:14px;padding:11px 20px;background:rgba(253,252,249,.9);
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line);flex:0 0 auto;z-index:30}
+  .topbar__back{font-size:13px;color:var(--ink-3)}.topbar__back:hover{color:var(--ink)}
+  .crumb{min-width:0}
+  .crumb__t{font-size:14.5px;font-weight:600;letter-spacing:-.01em;font-family:'Noto Sans Devanagari','Geist',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .crumb__s{font-family:'Geist Mono',monospace;font-size:11px;color:var(--ink-4)}
+  .crumb__s .court{color:var(--gold-deep)}
+  .tools{display:flex;align-items:center;gap:7px;margin-left:auto;flex:0 0 auto}
+  .save{font-family:'Geist Mono',monospace;font-size:11px;color:var(--ink-4);min-width:62px;text-align:right}
+  .lang{display:inline-flex;background:var(--soft);border:1px solid var(--line);border-radius:100px;padding:3px;font-family:'Geist Mono',monospace;font-size:11px}
+  .lang button{border:0;background:transparent;padding:5px 11px;border-radius:100px;color:var(--ink-4);cursor:pointer;font-family:inherit;font-size:inherit}
+  .lang button.on{background:var(--ink);color:var(--bg)}
+  .btn{font-family:inherit;font-size:13px;padding:7px 12px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink-2);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+  .btn:hover{border-color:var(--gold);color:var(--ink)}
+  .btn.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+  .btn--primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}.btn--primary:hover{background:#1c1c18;color:var(--bg)}
+  /* split */
+  .split{display:grid;grid-template-columns:440px 1fr;flex:1;overflow:hidden}
+  @media(max-width:1100px){.split{grid-template-columns:380px 1fr}}
+  .form-pane{overflow-y:auto;padding:18px 18px 80px;border-right:1px solid var(--line);background:var(--bg)}
+  .section{margin-bottom:16px;padding:16px 16px 13px;background:var(--card);border:1px solid var(--line);border-radius:14px}
+  .section__eyebrow{font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--ink-4);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px}
+  .section__title{font-size:14px;font-weight:600;letter-spacing:-.01em;margin-bottom:12px;font-family:'Noto Sans Devanagari','Geist',sans-serif}
+  .field{display:flex;flex-direction:column;margin-bottom:11px}
+  .field label{font-family:'Geist Mono',monospace;font-size:10.5px;color:var(--ink-4);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;display:flex;justify-content:space-between;gap:8px}
+  .field label .hi{font-family:'Noto Sans Devanagari',sans-serif;text-transform:none;letter-spacing:0;color:var(--ink-3);font-size:11.5px;font-weight:500}
+  .field label .req{color:var(--gold-deep)}
+  .field input,.field select,.field textarea{font-family:'Noto Sans Devanagari','Geist',sans-serif;font-size:13.5px;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);outline:none;width:100%;transition:border .12s,box-shadow .12s}
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(201,169,110,.14)}
+  .field textarea{resize:vertical;min-height:80px;line-height:1.55}
+  .field__hint{font-size:10.5px;color:var(--ink-4);margin-top:3px}
+  .checkboxes label{display:flex;align-items:center;gap:9px;font-size:13px;cursor:pointer;padding:5px 0;font-family:'Noto Sans Devanagari','Geist',sans-serif}
+  .checkboxes input{width:16px;height:16px;accent-color:var(--ink)}
+  .ocr-zone{display:block;border:1.5px dashed var(--line);border-radius:11px;background:var(--bg);padding:14px;text-align:center;cursor:pointer;transition:all .14s}
+  .ocr-zone:hover{border-color:var(--gold);background:var(--soft)}
+  .ocr-zone__icon{font-size:20px}.ocr-zone__title{font-size:12.5px;font-weight:600;margin-top:3px;font-family:'Noto Sans Devanagari','Geist',sans-serif}
+  .ocr-zone__sub{font-size:11px;color:var(--ink-4);margin-top:2px}.ocr-zone input{display:none}
+  /* document pane */
+  .doc-pane{overflow-y:auto;background:#eceae2;position:relative}
+  .doc-scroll{padding:26px 16px 70px;display:flex;justify-content:center}
+  #doc{display:flex;flex-direction:column;align-items:center;gap:22px;width:100%}
+  .sheet{display:flex;flex-direction:column;align-items:center;width:210mm;max-width:100%}
+  .sheet-label{align-self:flex-start;font-size:10.5px;color:var(--ink-4);text-transform:uppercase;letter-spacing:.1em;margin:0 0 6px 2px}
+  @media(max-width:880px){#doc{gap:16px}.sheet{width:auto;align-items:flex-start}}
+  .fmt{position:sticky;top:0;z-index:20;display:none;align-items:center;gap:8px;flex-wrap:wrap;background:var(--card);border-bottom:1px solid var(--line);padding:8px 14px}
+  .fmt.show{display:flex}
+  .fmt .grp{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--bg)}
+  .fmt .grp button{border:0;border-right:1px solid var(--line);background:transparent;color:var(--ink-2);min-width:31px;height:29px;padding:0 8px;font-size:13px;cursor:pointer;font-family:Georgia,serif}
+  .fmt .grp button:last-child{border-right:0}.fmt .grp button:hover{background:var(--soft)}.fmt .grp button.act{background:var(--ink);color:var(--bg)}
+  .fmt .note{margin-left:auto;font-family:'Geist Mono',monospace;font-size:11px;color:var(--gold-deep)}
+  /* canonical document */
+  .doc-a4{background:#fff;width:210mm;max-width:100%;min-height:297mm;padding:25.4mm;
+    box-shadow:0 1px 3px rgba(0,0,0,.05),0 16px 40px -12px rgba(0,0,0,.14);
+    font-family:'Tiro Devanagari Hindi','Noto Sans Devanagari',serif;font-size:13.4pt;line-height:1.5;color:#000}
+  .doc-a4[contenteditable="true"]{outline:2px dashed var(--gold);outline-offset:7px}
+  .doc-a4 u{text-decoration:underline;text-underline-offset:2px}
+  .hdr-side{text-align:center;text-decoration:underline;text-underline-offset:2px;margin:0 0 7pt}
+  .hdr-court{text-align:center;font-size:18pt;font-weight:700;text-decoration:underline;text-underline-offset:3px;margin:0 0 9pt;line-height:1.3;white-space:nowrap}
+  .hdr-case{text-align:center;margin:0 0 15pt}
+  .hdr-party{display:grid;grid-template-columns:81.1mm 1fr;align-items:start;margin:0}
+  .hdr-party--p{margin-bottom:11pt}.hdr-party--r{margin-bottom:15pt}
+  .hdr-party-label{text-decoration:underline;text-underline-offset:2px;white-space:nowrap}
+  .hdr-party-desc{margin:0;line-height:1.55}
+  .hdr-versus{display:grid;grid-template-columns:81.1mm 1fr;margin:5pt 0 11pt}.hdr-versus .hv{text-align:center}
+  .hdr-title{text-align:center;text-decoration:underline;text-underline-offset:2px;margin:0 0 9pt}
+  .doc-body{margin-top:4pt}
+  .cb-prelude{margin:0 0 7pt;text-align:justify}
+  .cb-paras{margin:0;padding-left:0;counter-reset:cb;list-style:none}
+  .cb-paras>li{counter-increment:cb;position:relative;padding-left:26pt;margin-bottom:9pt;text-align:justify;line-height:1.55}
+  .cb-paras>li::before{content:counter(cb) ".";position:absolute;left:0;top:0;font-weight:600;width:20pt}
+  .cb-paras>li.cb-head{counter-increment:none;padding-left:0;margin:13pt 0 7pt;font-weight:700;text-decoration:underline;text-underline-offset:2px}
+  .cb-paras>li.cb-head::before{content:""}
+  .cb-prayer{margin:11pt 0 0;text-align:justify;line-height:1.55}
+  .cb-block-label{font-weight:700;text-decoration:underline;text-underline-offset:2px;margin:12pt 0 6pt;text-align:center}
+  .cb-relief{margin:0 0 8pt;text-align:justify;line-height:1.55;padding-left:14pt}
+  .cb-sig{display:flex;justify-content:space-between;align-items:flex-start;margin-top:18pt}.cb-sig .r{text-align:center}
+  .cb-note{margin-top:12pt;font-size:11pt;color:#666;border-top:1px dashed #c4c0b6;padding-top:8pt}
+  .cb-table{width:100%;border-collapse:collapse;margin:6pt 0 10pt;font-size:11.5pt}
+  .cb-table th,.cb-table td{border:1px solid #333;padding:3pt 6pt;text-align:left}
+  .ph{color:#9a958a;font-style:normal;border-bottom:1px dotted #c4bdad}
+  /* mobile: pull-up document sheet */
+  .preview-handle{display:none}
+  @media(max-width:880px){
+    .split{display:block;height:auto;overflow:visible}
+    .form-pane{border-right:none;height:auto;overflow:visible;padding:14px 13px 74px}
+    .topbar{padding:9px 11px}.crumb__s{display:none}.tools{gap:5px}
+    .tools .btn{padding:7px;min-width:34px;justify-content:center}.tools .btn .bl{display:none}.save{display:none}
+    .doc-pane{position:fixed;left:0;right:0;bottom:0;height:52px;max-height:100vh;z-index:70;background:var(--card);
+      border-top:1px solid var(--line);box-shadow:0 -3px 16px rgba(0,0,0,.12);transition:height .28s;overflow:hidden;display:flex;flex-direction:column}
+    .doc-pane[data-state="half"]{height:62vh}.doc-pane[data-state="full"]{height:94vh}
+    .preview-handle{display:flex;align-items:center;justify-content:space-between;height:52px;min-height:52px;padding:0 16px;cursor:pointer;
+      font-weight:600;font-size:13px;font-family:'Noto Sans Devanagari','Geist',sans-serif;background:var(--card);border:0;width:100%;position:relative;flex-shrink:0}
+    .preview-handle__grip{position:absolute;top:6px;left:50%;transform:translateX(-50%);width:34px;height:4px;background:var(--line);border-radius:2px}
+    .preview-handle__chev{color:var(--ink-4);font-size:11px;transition:transform .22s}
+    .doc-pane[data-state="half"] .preview-handle__chev,.doc-pane[data-state="full"] .preview-handle__chev{transform:rotate(180deg)}
+    .doc-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 8px 46px;justify-content:flex-start}
+    .doc-a4{width:210mm;max-width:none;padding:16mm 14mm;min-height:auto;transform-origin:top left;flex:0 0 auto}
+    .fmt{padding:7px 9px}
+  }
+  @media print{.topbar,.form-pane,.fmt,.preview-handle{display:none!important}body{background:#fff;display:block;height:auto}
+    .split{display:block}.doc-pane{overflow:visible;background:#fff}.doc-scroll{padding:0}
+    .doc-a4{box-shadow:none;outline:none!important;width:auto;max-width:none;min-height:auto;padding:16mm}}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 15px;border-radius:9px;font-size:13px;z-index:90;font-family:'Noto Sans Devanagari','Geist',sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.22)}
+</style></head>
+<body>
+  <div class="topbar">
+    <a class="topbar__back" href="draft-new.html">←</a>
+    <div class="crumb"><div class="crumb__t" id="crumbT">—</div><div class="crumb__s" id="crumbS"></div></div>
+    <div class="tools">
+      <span class="save mono" id="save"></span>
+      <div class="lang" id="lang"><button data-l="en">EN</button><button data-l="hi" class="on">हिं</button></div>
+      <button class="btn" id="btn-pdf">⬇<span class="bl"> PDF</span></button>
+      <button class="btn" id="btn-print">🖨<span class="bl"> Print</span></button>
+      <button class="btn" id="btn-edit">✏️<span class="bl" data-hi=" संपादन" data-en=" Edit"> संपादन</span></button>
+      <button class="btn btn--primary" id="btn-share">📱<span class="bl"> WhatsApp</span></button>
+    </div>
+  </div>
+  <div class="split">
+    <aside class="form-pane" id="form"></aside>
+    <main class="doc-pane" id="docPane">
+      <button class="preview-handle" id="phandle"><span class="preview-handle__grip"></span>
+        <span>📄 <span data-hi="दस्तावेज़ — टैप कर देखें" data-en="Document — tap to view">दस्तावेज़ — टैप कर देखें</span></span>
+        <span class="preview-handle__chev">▲</span></button>
+      <div class="fmt" id="fmt">
+        <span class="grp">
+          <button data-c="bold" onmousedown="cmd(event,'bold')"><b>B</b></button>
+          <button data-c="italic" onmousedown="cmd(event,'italic')"><i>I</i></button>
+          <button data-c="underline" onmousedown="cmd(event,'underline')"><u>U</u></button></span>
+        <span class="grp">
+          <button onmousedown="cmd(event,'insertUnorderedList')">•</button>
+          <button data-c="justifyLeft" onmousedown="cmd(event,'justifyLeft')">⯇</button>
+          <button data-c="justifyCenter" onmousedown="cmd(event,'justifyCenter')">≡</button>
+          <button data-c="justifyFull" onmousedown="cmd(event,'justifyFull')">☰</button></span>
+        <span class="grp"><button onmousedown="cmd(event,'undo')">↺</button><button onmousedown="cmd(event,'redo')">↻</button></span>
+        <span class="note" data-hi="सीधे दस्तावेज़ में संपादन" data-en="editing the document directly">सीधे दस्तावेज़ में संपादन</span>
+      </div>
+      <div class="doc-scroll"><div id="doc"></div></div>
+    </main>
+  </div>
+<script>
+const SECTIONS={court:{hi:"न्यायालय",en:"Court"},parties:{hi:"पक्षकार",en:"Parties"},crime:{hi:"अपराध",en:"Crime"},
+  order:{hi:"विवादित आदेश",en:"Impugned order"},facts:{hi:"तथ्य",en:"Facts"},grounds:{hi:"आधार / अनुतोष",en:"Grounds & relief"},filing:{hi:"दाखिल",en:"Filing"}};
+const OCR={fir:{hi:"प्रथम सूचना रिपोर्ट (FIR)",en:"FIR",icon:"📷"},order:{hi:"विवादित आदेश / निर्णय",en:"Impugned order",icon:"⚖️"},
+  charge:{hi:"अभियोग पत्र",en:"Charge-sheet",icon:"📄"},cheque:{hi:"चेक एवं बैंक मेमो",en:"Cheque & memo",icon:"🧾"}};
+const ALIAS={cheque:"cheque_138"};
+const COURT_LABEL={magistrate:{hi:"न्यायिक दण्डाधिकारी",en:"JMFC"},sessions:{hi:"सत्र न्यायालय",en:"Sessions"},hc:{hi:"उच्च न्यायालय",en:"High Court"},family:{hi:"कुटुम्ब न्यायालय",en:"Family Court"},any:{hi:"सामान्य",en:"General"}};
+const LABELS={bail:{hi:"जमानत आवेदन",en:"Bail"},cheque:{hi:"चेक §138",en:"Cheque §138"},discharge:{hi:"उन्मोचन",en:"Discharge"},maintenance:{hi:"भरण-पोषण §144",en:"Maintenance"},revision:{hi:"पुनरीक्षण",en:"Revision"},appeal:{hi:"दोषसिद्धि अपील",en:"Appeal"},dv:{hi:"घरेलू हिंसा §12",en:"Domestic Violence"},quashing:{hi:"अभिखण्डन §528",en:"Quashing"},parivad:{hi:"परिवाद §223",en:"Complaint"},vakalatnama:{hi:"वकालतनामा",en:"Vakalatnama"}};
+const LIST_KEYS=["sections","sections_convicted","fir_sections","offence_sections"];
+let T=null,tcache={},state={lang:"hi",court:null,bail_type:"regular",data:{},render:{hi:[],en:[],lhi:[],len:[]},edit:false,rtimer:null};
+
+const esc=s=>(s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const L=o=>state.lang==="hi"?(o.hi||o.en):(o.en||o.hi);
+const isList=f=>f.type==="section_list"||LIST_KEYS.includes(f.key);
+const isTexty=f=>["text","name","longtext","address",undefined,null,""].includes(f.type)&&!isList(f);
+const mismatch=(v,lang)=>lang==="hi"?/[A-Za-z]{2,}/.test(v):/[ऀ-ॿ]/.test(v);
+const q=k=>new URLSearchParams(location.search).get(k);
+
+function boot(){
+  document.querySelectorAll("#lang button").forEach(b=>b.onclick=()=>setLang(b.dataset.l));
+  document.getElementById("btn-edit").onclick=()=>toggleEdit();
+  document.getElementById("btn-print").onclick=doPdf;
+  document.getElementById("btn-pdf").onclick=doPdf;
+  document.getElementById("btn-share").onclick=doWA;
+  document.getElementById("doc").addEventListener("keyup",syncFmt);
+  document.getElementById("doc").addEventListener("mouseup",syncFmt);
+  document.getElementById("phandle").onclick=()=>{const p=document.getElementById("docPane");const s=p.getAttribute("data-state")||"collapsed";p.setAttribute("data-state",s==="collapsed"?"half":s==="half"?"full":"collapsed");setTimeout(fitDoc,30);};
+  window.addEventListener("resize",fitDoc);
+  state.court=q("court")||null; state.bail_type=q("bail_type")||"regular";
+  const m=location.pathname.match(/\/draft\/template\/([a-z_]+)/);
+  load(q("type")||(m&&m[1])||"bail");
+}
+async function load(id){
+  let spec={fields:[],toggles:[]};
+  try{ spec=await (await fetch('/api/draft/fields/'+id+'?court='+(state.court||'sessions')+'&bail_type='+(state.bail_type||'regular'))).json(); }catch(e){}
+  T={id:id, label:LABELS[id]||{hi:id,en:id}, fields:spec.fields||[], toggles:spec.toggles||[]};
+  const c=state.court||"";
+  document.getElementById("crumbT").textContent=L(T.label);
+  document.getElementById("crumbS").innerHTML=(c?'<span class="court">'+L(COURT_LABEL[c]||{hi:c,en:c})+'</span> · ':'')+id+'.py';
+  const grounds={}; (T.toggles||[]).forEach(t=>{if(t.default)grounds[t.key]=true;});
+  state.data={grounds}; if(state.court)state.data.court=state.court; if(state.bail_type)state.data.bail_type=state.bail_type;
+  state.render={hi:[""],en:[""],lhi:[""],len:[""]};
+  if(state.edit)toggleEdit(true);
+  buildForm(); showDoc(); doRender();
+}
+function setLang(l){state.lang=l;
+  document.getElementById("lang").querySelector('[data-l="'+l+'"]').classList.add("on");
+  document.getElementById("lang").querySelector('[data-l="'+(l==="hi"?"en":"hi")+'"]').classList.remove("on");
+  document.querySelectorAll("[data-hi]").forEach(e=>e.textContent=l==="hi"?e.dataset.hi:e.dataset.en);
+  buildForm(); doRender();
+}
+function showDoc(){if(state.edit)return;
+  const sh=state.render[state.lang]||[], lb=state.render[state.lang==="hi"?"lhi":"len"]||[];
+  document.getElementById("doc").innerHTML=sh.map((s,i)=>
+    '<div class="sheet">'+(lb[i]?'<div class="sheet-label mono">'+lb[i]+'</div>':'')+'<div class="doc-a4">'+s+'</div></div>').join("");
+  fitDoc();}
+function save(t){document.getElementById("save").textContent=t;}
+function fitDoc(){const pane=document.querySelector(".doc-scroll");if(!pane)return;
+  const sheets=[...document.querySelectorAll("#doc .doc-a4")];
+  if(window.innerWidth>880||pane.clientWidth<60){sheets.forEach(d=>{d.style.transform="";d.style.marginBottom="";});return;}
+  sheets.forEach(d=>{d.style.transform="none";const dw=d.scrollWidth||794,dh=d.scrollHeight;
+    const s=Math.max(.25,Math.min(1,(pane.clientWidth-4)/dw));
+    d.style.transformOrigin="top left";d.style.transform="scale("+s+")";d.style.marginBottom=(dh*(s-1))+"px";});}
+
+function buildDisp(){const d=JSON.parse(JSON.stringify(state.data));const need=[];
+  (T.fields||[]).filter(isTexty).forEach(f=>{const v=state.data[f.key];
+    if(typeof v==="string"&&v.trim()&&mismatch(v,state.lang)){const ck=state.lang+"|"+f.key+"|"+v;
+      if(ck in tcache)d[f.key]=tcache[ck];else need.push({key:f.key,val:v,ck});}});
+  return {d,need};}
+async function postRender(d){const r=await fetch("/api/draft/render",{method:"POST",headers:{"Content-Type":"application/json"},
+  body:JSON.stringify({doc_type:T.id,data:d,court:d.court||"sessions",bail_type:d.bail_type||"regular"})});return r.json();}
+async function postTranslate(fields,target){const r=await fetch("/api/draft/translate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({fields,target})});return r.json();}
+function scheduleRender(){if(state.edit)return;save("…");clearTimeout(state.rtimer);state.rtimer=setTimeout(doRender,260);}
+async function doRender(){if(state.edit)return;
+  const take=j=>({hi:j.sheets_hi||[j.html_hi||""],en:j.sheets_en||[j.html_en||""],lhi:j.labels_hi||[""],len:j.labels_en||[""]});
+  try{const {d,need}=buildDisp();const j=await postRender(d);
+    if(j.ok){state.render=take(j);showDoc();save("✓ "+(state.lang==="hi"?"सहेजा":"saved"));}
+    if(need.length){save(state.lang==="hi"?"अनुवाद…":"translating…");
+      const fields={};need.forEach(n=>fields[n.key]=n.val);const t=await postTranslate(fields,state.lang);
+      if(t.ok){need.forEach(n=>tcache[n.ck]=(t.translated[n.key]!=null?t.translated[n.key]:n.val));
+        const {d:d2}=buildDisp();const j2=await postRender(d2);if(j2.ok){state.render=take(j2);showDoc();}save("✓ "+(state.lang==="hi"?"अनुवादित":"translated"));}}
+  }catch(e){save("⚠ offline");}}
+
+function buildForm(){const f=document.getElementById("form");f.innerHTML="";
+  const ocrTypes=[...new Set((T.fields||[]).map(x=>x.ocr).filter(Boolean))];
+  if(ocrTypes.length){
+    const os=document.createElement("div");os.className="section";
+    os.innerHTML='<div class="section__eyebrow">'+(state.lang==="hi"?"शॉर्टकट · OCR":"SHORTCUT · OCR")+'</div>'
+      +'<div class="section__title">'+(state.lang==="hi"?"दस्तावेज़ अपलोड कर फ़ील्ड भरें":"Upload to auto-fill")+'</div>';
+    ocrTypes.forEach(code=>{const o=OCR[code]||{hi:"दस्तावेज़ अपलोड",en:"Upload",icon:"📎"};
+      const z=document.createElement("label");z.className="ocr-zone";
+      z.innerHTML='<input type="file" accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx" multiple><div class="ocr-zone__icon">'+o.icon+'</div>'
+        +'<div class="ocr-zone__title">'+esc(L(o))+'</div><div class="ocr-zone__sub">'+(state.lang==="hi"?"फोटो/PDF/Word/Excel — AI फ़ील्ड भरेगा":"photo/PDF/Word/Excel — AI fills fields")+'</div>';
+      z.querySelector("input").onchange=()=>toast(state.lang==="hi"?"OCR फ़ील्ड prod में भरता है (/api/draft/ocr-*)":"OCR autofills in prod");
+      os.appendChild(z);});
+    f.appendChild(os);
+  }
+  const groups={};(T.fields||[]).forEach(x=>{(groups[x.section]=groups[x.section]||[]).push(x);});
+  Object.keys(SECTIONS).forEach((sec,i)=>{if(!groups[sec])return;
+    const s=document.createElement("div");s.className="section";
+    s.innerHTML='<div class="section__eyebrow">'+(state.lang==="hi"?("अनुभाग "+(i+1)):("SECTION "+(i+1)))+'</div>'
+      +'<div class="section__title">'+esc(L(SECTIONS[sec]))+'</div>';
+    groups[sec].forEach(fl=>s.appendChild(fieldEl(fl)));f.appendChild(s);});
+  if((T.toggles||[]).length){const s=document.createElement("div");s.className="section";
+    s.innerHTML='<div class="section__eyebrow">'+(state.lang==="hi"?"विकल्प":"OPTIONS")+'</div>'
+      +'<div class="section__title">'+(state.lang==="hi"?"आधार / अनुतोष":"Grounds & relief")+'</div><div class="checkboxes" id="togs"></div>';
+    f.appendChild(s);const box=s.querySelector("#togs");const g=(state.data.grounds=state.data.grounds||{});
+    T.toggles.forEach(t=>{const lab=document.createElement("label");const c=document.createElement("input");c.type="checkbox";c.checked=!!g[t.key];
+      c.onchange=()=>{g[t.key]=c.checked;scheduleRender();};const sp=document.createElement("span");sp.textContent=L(t.label);
+      lab.appendChild(c);lab.appendChild(sp);box.appendChild(lab);});}
+}
+function fieldEl(fl){const d=document.createElement("div");d.className="field";
+  const lab=document.createElement("label");
+  lab.innerHTML='<span class="hi">'+esc(L(fl.label))+(fl.required?' <span class="req">*</span>':'')+'</span>'
+    +'<span>'+esc(state.lang==="hi"?fl.label.en:fl.label.hi)+'</span>';
+  d.appendChild(lab);
+  let inp;const list=isList(fl);
+  if(fl.type==="longtext"||list){inp=document.createElement("textarea");}
+  else if(fl.type==="select"){inp=document.createElement("select");(fl.options||[]).forEach(o=>{const op=document.createElement("option");op.value=o.value||o;op.textContent=o.label||o;inp.appendChild(op);});}
+  else{inp=document.createElement("input");}
+  const v=state.data[fl.key];
+  inp.value=list?(Array.isArray(v)?v.join(", "):(v||"")):(v!=null&&typeof v!=="object"?v:"");
+  inp.oninput=()=>{state.data[fl.key]=list?inp.value.split(",").map(x=>x.trim()).filter(Boolean):inp.value;scheduleRender();};
+  d.appendChild(inp);
+  if(fl.hint){const h=document.createElement("div");h.className="field__hint";h.textContent=fl.hint;d.appendChild(h);}
+  return d;
+}
+function toggleEdit(force){const doc=document.getElementById("doc"),fmt=document.getElementById("fmt"),btn=document.getElementById("btn-edit");
+  const off=force===true||state.edit;
+  if(!off){state.edit=true;doc.setAttribute("contenteditable","true");fmt.classList.add("show");btn.classList.add("on");doc.focus();
+    toast(state.lang==="hi"?"दस्तावेज़ में सीधे टाइप करें":"Type directly in the document");}
+  else{state.edit=false;doc.removeAttribute("contenteditable");fmt.classList.remove("show");btn.classList.remove("on");if(force!==true)showDoc();}}
+function cmd(e,c,val){e.preventDefault();document.execCommand(c,false,val);syncFmt();}
+function syncFmt(){if(!state.edit)return;document.querySelectorAll('.fmt .grp button[data-c]').forEach(b=>{try{b.classList.toggle("act",document.queryCommandState(b.dataset.c));}catch(_){}});}
+// Real PDF (server WeasyPrint) — powers PDF download AND WhatsApp file share.
+// Reliable on mobile, unlike window.print() of the scaled on-screen preview.
+function _v2ExportHtml(){
+  let styles=""; document.querySelectorAll("style").forEach(s=>styles+=s.textContent);
+  let body=""; document.querySelectorAll("#doc .doc-a4").forEach(a=>{ body+='<section class="doc-a4">'+a.innerHTML+'</section>'; });
+  const lang=state.lang;
+  return '<!doctype html><html lang="'+lang+'"><head><meta charset="utf-8"><style>'+styles+'</style>'
+    +'<style>@page{size:A4;margin:18mm 16mm;}'
+    +'.doc-a4{transform:none!important;box-shadow:none!important;border:none!important;width:auto!important;height:auto!important;min-height:0!important;margin:0!important;page-break-after:always;}'
+    +'.doc-a4:last-child{page-break-after:auto;}</style>'
+    +'</head><body class="'+(lang==="hi"?"hi":"")+'"><div id="doc-page">'+body+'</div></body></html>';
+}
+async function _v2FetchPdf(){
+  const name="headnote-"+(T.id||"draft")+"-"+state.lang;
+  const r=await fetch("/api/draft/pdf",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({html:_v2ExportHtml(),filename:name})});
+  if(!r.ok){let d="";try{d=(await r.json()).detail||"";}catch(e){}throw new Error(d||("server "+r.status));}
+  return {blob:await r.blob(),filename:name+".pdf"};
+}
+function _v2Download(blob,fn){const u=URL.createObjectURL(blob);const a=document.createElement("a");a.href=u;a.download=fn;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1500);}
+async function doPdf(){
+  if(!(state.render&&(state.render[state.lang]||[]).some(Boolean))){toast(state.lang==="hi"?"पहले दस्तावेज़ बनाएं":"Fill the draft first");return;}
+  toast(state.lang==="hi"?"PDF बना रहे हैं…":"Generating PDF…");
+  try{const o=await _v2FetchPdf();_v2Download(o.blob,o.filename);toast(state.lang==="hi"?"सहेजा ✓":"Saved ✓");}
+  catch(e){toast((state.lang==="hi"?"PDF विफल — ":"PDF failed — ")+(e.message||""));}
+}
+async function doWA(){
+  if(!(state.render&&(state.render[state.lang]||[]).some(Boolean))){toast(state.lang==="hi"?"पहले दस्तावेज़ बनाएं":"Fill the draft first");return;}
+  toast(state.lang==="hi"?"WhatsApp के लिए PDF…":"Preparing PDF for WhatsApp…");
+  let o; try{o=await _v2FetchPdf();}catch(e){toast((state.lang==="hi"?"PDF विफल — ":"PDF failed — ")+(e.message||""));return;}
+  const file=new File([o.blob],o.filename,{type:"application/pdf"});
+  const note=L(T.label)+" — Headnote";
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    try{await navigator.share({files:[file],title:o.filename,text:note});}
+    catch(e){if(e.name!=="AbortError"){_v2Download(o.blob,o.filename);window.open("https://wa.me/?text="+encodeURIComponent(note),"_blank");}}
+  }else{_v2Download(o.blob,o.filename);window.open("https://wa.me/?text="+encodeURIComponent(note),"_blank");}
+}
+let _tt;function toast(m){let e=document.querySelector(".toast");if(!e){e=document.createElement("div");e.className="toast";document.body.appendChild(e);}e.textContent=m;clearTimeout(_tt);_tt=setTimeout(()=>e.remove(),2600);}
+boot();
+</script>
+</body></html>

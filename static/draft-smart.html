@@ -4,7 +4,7 @@
   <script src="/static/analytics.js?v=20260630a"></script>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#0a0a0f" />
+<meta name="theme-color" content="#fafaf9" />
 <script>if(location.protocol==='http:'&&location.hostname!=='localhost'&&!location.hostname.startsWith('127.')){location.replace(location.href.replace(/^http:/,'https:'));}</script>
 <!-- Supabase JS — REQUIRED for auth.js to read the user's session. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -21,7 +21,9 @@
 <meta property="og:image:height" content="630" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:image" content="https://headnote.in/static/og-image.png" />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Devanagari:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   /* =============================================================================
      Smart Drafter — premium voice-first experience.
@@ -29,39 +31,50 @@
      voice-or-type conversational flow, document slides in at the end.
      Designed to feel like Gemini / ChatGPT Voice — a flagship moment.
      ============================================================================= */
+  /* Light, on-brand work surface — same design system as the rest of the app
+     (Geist + Geist Mono, calm monochrome, gold scoped to the drafting voice). */
   :root {
-    --bg-0: #0a0a0f;
-    --bg-1: #12121a;
-    --bg-2: #1a1a24;
-    --line: rgba(255, 255, 255, 0.06);
-    --line-strong: rgba(255, 255, 255, 0.14);
-    --ink-0: #fafafa;
-    --ink-1: #e0e0e6;
-    --ink-2: #9a9aa8;
-    --ink-3: #5a5a68;
-    --accent: #c9a96e;       /* warm gold — premium, legal */
-    --accent-glow: rgba(201, 169, 110, 0.5);
-    --user: #f0e8d4;
-    --ai: #e0e0e6;
-    --good: #4caf50;
-    --bad: #e57373;
-    --warn: #ffb74d;
+    --bg:        #fafaf9;
+    --surface:   #ffffff;
+    --ink:       #0c0c0a;
+    --ink-2:     #4b4b48;
+    --ink-3:     #8a8a82;
+    --line:      #e8e6e0;
+    --line-2:    #f1efea;
+    --soft:      #f6f4ee;
+    --gold:      #c9a96e;
+    --gold-deep: #b4894b;
+    --gold-soft: #faf7ed;
+    --gold-line: #ece3c8;
+    --gold-ink:  #8c7549;
+    --gold-grad: linear-gradient(135deg, #d8b878, #c08f4d);
+    --good:      #2d6a2d;
+    --bad:       #9b2c2c;
+    --warn:      #b7791f;
+    --radius:    6px;
+    --radius-lg: 10px;
+    --shadow-card: 0 1px 2px rgba(12, 12, 10, 0.04);
+    --shadow-lift: 0 12px 28px -14px rgba(12, 12, 10, 0.18);
+    --ease:   cubic-bezier(0.16, 1, 0.3, 1);
+    --t-fast: 0.16s;
+    --t-med:  0.26s;
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }
   body {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
     background:
-      radial-gradient(ellipse at top, rgba(201, 169, 110, 0.06) 0%, transparent 50%),
-      radial-gradient(ellipse at bottom, rgba(120, 100, 200, 0.05) 0%, transparent 50%),
-      linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 100%);
-    color: var(--ink-0);
+      radial-gradient(ellipse 80% 52% at 50% -8%, var(--gold-soft) 0%, transparent 60%),
+      var(--bg);
+    color: var(--ink);
     font-size: 15px;
     line-height: 1.55;
+    letter-spacing: -0.005em;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     user-select: none;
   }
-  body.lang-hi { font-family: 'Noto Sans Devanagari', 'Inter', sans-serif; }
+  body.lang-hi { font-family: 'Noto Sans Devanagari', 'Geist', sans-serif; }
   input, textarea { user-select: text; }
 
   /* ── Top bar ── */
@@ -69,52 +82,54 @@
     position: fixed; top: 0; left: 0; right: 0;
     height: 56px;
     display: flex; align-items: center; justify-content: space-between;
-    padding: 0 18px;
+    padding: 0 20px;
     z-index: 50;
-    background: linear-gradient(180deg, rgba(10,10,15,0.8) 0%, transparent 100%);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: rgba(250, 250, 249, 0.82);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
   }
   .topbar__left { display: flex; align-items: center; gap: 12px; }
   .topbar__back {
-    width: 36px; height: 36px;
+    width: 34px; height: 34px;
     display: flex; align-items: center; justify-content: center;
-    color: var(--ink-1); text-decoration: none;
-    border-radius: 50%;
-    transition: background 0.18s;
+    color: var(--ink-2); text-decoration: none;
+    border-radius: 8px;
+    transition: background 0.15s, color 0.15s;
   }
-  .topbar__back:hover { background: var(--bg-2); }
+  .topbar__back:hover { background: var(--soft); color: var(--ink); }
   .topbar__brand {
-    font-size: 13px; font-weight: 600;
-    letter-spacing: 0.05em; text-transform: uppercase;
-    color: var(--ink-2);
+    font-family: 'Geist Mono', ui-monospace, monospace;
+    font-size: 12px; font-weight: 500;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-3);
   }
-  .topbar__brand span.accent { color: var(--accent); }
+  .topbar__brand span.accent { color: var(--gold-ink); }
   .topbar__right { display: flex; align-items: center; gap: 8px; }
   .lang-toggle {
-    display: inline-flex; background: var(--bg-2);
+    display: inline-flex; background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: 100px; padding: 3px;
+    border-radius: 999px; padding: 3px;
     font-size: 11px; font-weight: 600;
   }
   .lang-toggle button {
     border: none; background: transparent;
-    padding: 5px 10px; border-radius: 100px;
-    color: var(--ink-2); cursor: pointer;
+    padding: 5px 11px; border-radius: 999px;
+    color: var(--ink-3); cursor: pointer;
     font-family: inherit; font-size: inherit; font-weight: inherit;
-    transition: all 0.2s;
+    transition: all 0.18s;
   }
   .lang-toggle button.active {
-    background: var(--ink-0); color: var(--bg-0);
+    background: var(--ink); color: var(--surface);
   }
   .restart-btn {
-    background: transparent; border: 1px solid var(--line-strong);
-    color: var(--ink-1);
-    padding: 6px 12px; border-radius: 100px;
-    font-family: inherit; font-size: 12px; cursor: pointer;
-    transition: all 0.2s;
+    background: var(--surface); border: 1px solid var(--line);
+    color: var(--ink-2);
+    padding: 6px 12px; border-radius: 999px;
+    font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; cursor: pointer;
+    transition: all 0.15s;
   }
-  .restart-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .restart-btn:hover { border-color: var(--ink-3); color: var(--ink); }
 
   /* ── Main stage ── */
   .stage {
@@ -122,68 +137,75 @@
     height: 100%;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
-    padding: 88px 24px 200px;
+    padding: 88px 24px 220px;
     text-align: center;
   }
 
-  /* The orb — central voice indicator + visual focal point */
+  /* The orb — central voice indicator, gold on the light surface (the drafting
+     signature). Soft halo + concentric hairline gold rings; states recolour it. */
   .orb-wrap {
     position: relative;
-    width: 220px; height: 220px;
-    margin-bottom: 36px;
+    width: 200px; height: 200px;
+    margin-bottom: 40px;
     display: flex; align-items: center; justify-content: center;
   }
   .orb {
     position: absolute; inset: 0;
     border-radius: 50%;
-    background: radial-gradient(circle at 35% 35%,
-      rgba(255, 240, 200, 0.85) 0%,
-      var(--accent) 35%,
-      #8a6f3e 70%,
-      #4a3a1f 100%);
+    background: radial-gradient(circle at 38% 32%,
+      #f6ebd2 0%,
+      var(--gold) 44%,
+      var(--gold-deep) 78%,
+      #9c7536 100%);
     box-shadow:
-      0 0 40px rgba(201, 169, 110, 0.4),
-      0 0 80px rgba(201, 169, 110, 0.2),
-      inset 0 -20px 40px rgba(0,0,0,0.3);
-    animation: orb-breathe 4s ease-in-out infinite;
+      0 14px 50px -8px rgba(201, 169, 110, 0.55),
+      0 2px 10px rgba(12, 12, 10, 0.06),
+      inset 0 -16px 34px rgba(120, 90, 40, 0.30),
+      inset 0 10px 22px rgba(255, 248, 230, 0.55);
+    animation: orb-breathe 4.5s ease-in-out infinite;
   }
   .orb::before, .orb::after {
     content: '';
     position: absolute;
-    inset: -20px;
+    inset: -18px;
     border-radius: 50%;
-    border: 1px solid var(--accent-glow);
+    border: 1px solid var(--gold-line);
     opacity: 0;
   }
-  .orb::before { animation: orb-ring 3s ease-out infinite; }
-  .orb::after  { animation: orb-ring 3s ease-out 1.5s infinite; }
+  .orb::before { animation: orb-ring 3.2s ease-out infinite; }
+  .orb::after  { animation: orb-ring 3.2s ease-out 1.6s infinite; }
   @keyframes orb-breathe {
     0%, 100% { transform: scale(1); filter: brightness(1); }
-    50%      { transform: scale(1.04); filter: brightness(1.1); }
+    50%      { transform: scale(1.035); filter: brightness(1.04); }
   }
   @keyframes orb-ring {
-    0%   { opacity: 0.6; transform: scale(0.9); }
-    100% { opacity: 0;   transform: scale(1.5); }
+    0%   { opacity: 0.55; transform: scale(0.9); }
+    100% { opacity: 0;    transform: scale(1.5); }
   }
 
-  /* States: listening (faster pulse, louder), thinking (shimmer), speaking (steady glow) */
+  /* States: listening (faster pulse + ripple), thinking (rotating gold), speaking (gentle glow) */
   .orb-wrap.is-listening .orb {
-    animation: orb-listen 1.2s ease-in-out infinite;
-    background: radial-gradient(circle at 35% 35%, #ffe0a0 0%, #e57373 40%, #b03040 80%, #5a1a20 100%);
-    box-shadow: 0 0 60px rgba(229, 115, 115, 0.6), 0 0 120px rgba(229, 115, 115, 0.3);
+    animation: orb-listen 1.25s ease-in-out infinite;
   }
   @keyframes orb-listen {
-    0%, 100% { transform: scale(1); }
-    50%      { transform: scale(1.12); }
+    0%, 100% { transform: scale(1);    box-shadow: 0 14px 56px -6px rgba(201,169,110,0.7), 0 0 0 0 rgba(201,169,110,0.45), inset 0 -16px 34px rgba(120,90,40,0.30); }
+    50%      { transform: scale(1.08); box-shadow: 0 14px 64px -4px rgba(201,169,110,0.8), 0 0 0 22px rgba(201,169,110,0),   inset 0 -16px 34px rgba(120,90,40,0.30); }
   }
   .orb-wrap.is-thinking .orb {
-    animation: orb-think 2s linear infinite;
+    animation: orb-think 1.8s linear infinite;
     background: conic-gradient(from 0deg,
-      var(--accent) 0%, #8a6f3e 25%, var(--accent) 50%, #8a6f3e 75%, var(--accent) 100%);
+      var(--gold) 0%, #ecd9ad 22%, var(--gold-deep) 48%, var(--gold) 72%, #ecd9ad 90%, var(--gold) 100%);
   }
   @keyframes orb-think {
     0%   { transform: rotate(0); }
     100% { transform: rotate(360deg); }
+  }
+  .orb-wrap.is-speaking .orb {
+    animation: orb-speak 1.7s ease-in-out infinite;
+  }
+  @keyframes orb-speak {
+    0%, 100% { transform: scale(1);    filter: brightness(1.02); }
+    50%      { transform: scale(1.045); filter: brightness(1.1); }
   }
 
   /* AI text — large, elegant, centered */
@@ -191,58 +213,61 @@
     max-width: 720px;
     min-height: 64px;
     font-size: 28px;
-    font-weight: 400;
+    font-weight: 500;
     line-height: 1.35;
-    letter-spacing: -0.01em;
-    color: var(--ink-0);
-    margin: 0 0 20px;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    margin: 0 0 22px;
     transition: opacity 0.32s ease;
   }
-  body.lang-hi .ai-text { font-weight: 500; line-height: 1.45; }
+  body.lang-hi .ai-text { font-weight: 600; line-height: 1.45; letter-spacing: -0.01em; }
 
   /* "You said" history bubble */
   .user-text {
     max-width: 600px;
-    font-size: 16px;
+    font-size: 15px;
     color: var(--ink-2);
-    margin: 0 0 12px;
+    margin: 0 0 14px;
     padding: 8px 16px;
-    background: var(--bg-2);
-    border-radius: 100px;
+    background: var(--soft);
+    border: 1px solid var(--line);
+    border-radius: 999px;
     line-height: 1.4;
     transition: opacity 0.32s ease;
   }
   .user-text::before {
-    content: '"';
-    margin-right: 4px;
+    content: '\201C';
+    margin-right: 3px;
     color: var(--ink-3);
   }
-  .user-text::after { content: '"'; margin-left: 4px; color: var(--ink-3); }
+  .user-text::after { content: '\201D'; margin-left: 3px; color: var(--ink-3); }
 
   /* Template chips when AI asks "which template" — appear when user starts session */
   .template-chips {
     display: flex; gap: 8px;
     flex-wrap: wrap; justify-content: center;
-    max-width: 800px; margin: 0 0 20px;
+    max-width: 820px; margin: 0 0 20px;
   }
   .chip {
-    background: var(--bg-2);
-    border: 1px solid var(--line-strong);
-    color: var(--ink-1);
-    padding: 8px 14px;
-    border-radius: 100px;
-    font-family: inherit; font-size: 13px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    color: var(--ink-2);
+    padding: 7px 13px;
+    border-radius: 999px;
+    font-family: 'Geist', sans-serif; font-size: 12.5px; font-weight: 500;
     cursor: pointer;
-    transition: all 0.18s;
+    letter-spacing: -0.005em;
+    transition: all 0.12s ease;
   }
-  .chip:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
-  .chip__tier { font-size: 9px; color: var(--ink-3); margin-left: 6px; }
+  .chip:hover { border-color: var(--ink-3); color: var(--ink); transform: translateY(-1px); }
+  .chip__tier { font-family: 'Geist Mono', monospace; font-size: 9px; color: var(--ink-3); margin-left: 6px; }
+  body.lang-hi .chip { font-family: 'Noto Sans Devanagari', 'Geist', sans-serif; }
 
   /* Bottom composer — voice + text */
   .composer {
     position: fixed; bottom: 0; left: 0; right: 0;
     padding: 18px 24px 30px;
-    background: linear-gradient(180deg, transparent 0%, var(--bg-0) 30%);
+    background: linear-gradient(180deg, rgba(250,250,249,0) 0%, var(--bg) 38%);
     z-index: 40;
     display: flex; align-items: flex-end; justify-content: center;
     gap: 12px;
@@ -253,75 +278,108 @@
   }
   .composer__input {
     width: 100%; min-height: 52px; max-height: 200px;
-    padding: 14px 56px 14px 22px;
-    background: var(--bg-2);
-    border: 1px solid var(--line-strong);
+    padding: 15px 56px 15px 20px;
+    background: var(--surface);
+    border: 1px solid var(--line);
     border-radius: 26px;
-    color: var(--ink-0);
-    font-family: inherit; font-size: 15px;
+    color: var(--ink);
+    font-family: 'Geist', sans-serif; font-size: 15px; line-height: 1.5;
     resize: none; outline: none;
-    transition: border-color 0.18s, background 0.18s;
+    box-shadow: var(--shadow-card);
+    transition: border-color 0.15s, box-shadow 0.15s;
   }
-  .composer__input:focus { border-color: var(--accent); background: var(--bg-1); }
+  .composer__input:focus { border-color: var(--ink); box-shadow: 0 0 0 3px rgba(12, 12, 10, 0.05); }
   .composer__input::placeholder { color: var(--ink-3); }
   body.lang-hi .composer__input { font-family: 'Noto Sans Devanagari', sans-serif; }
 
   .composer__send {
     position: absolute; right: 8px; bottom: 8px;
-    width: 36px; height: 36px;
+    width: 38px; height: 38px;
     border-radius: 50%;
-    background: var(--accent);
-    color: var(--bg-0);
+    background: var(--ink);
+    color: var(--surface);
     border: none; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
-    transition: all 0.18s;
+    transition: transform 0.15s, background 0.15s;
   }
-  .composer__send:hover { transform: scale(1.05); box-shadow: 0 0 16px var(--accent-glow); }
-  .composer__send:disabled { opacity: 0.3; cursor: not-allowed; transform: none; box-shadow: none; }
+  .composer__send:hover { transform: scale(1.05); background: #1f1f1c; }
+  .composer__send:disabled { opacity: 0.32; cursor: not-allowed; transform: none; }
   .composer__send svg { width: 16px; height: 16px; }
 
   .composer__mic {
     width: 56px; height: 56px;
     border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent) 0%, #8a6f3e 100%);
-    color: var(--bg-0);
+    background: var(--gold-grad);
+    color: #3a2e16;
     border: none; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
-    transition: all 0.2s;
-    box-shadow: 0 0 16px rgba(201, 169, 110, 0.3);
+    transition: all 0.18s;
+    box-shadow: 0 6px 18px -6px rgba(201, 169, 110, 0.6);
     flex-shrink: 0;
   }
-  .composer__mic:hover { transform: scale(1.06); box-shadow: 0 0 24px var(--accent-glow); }
+  .composer__mic:hover { transform: scale(1.05); box-shadow: 0 8px 22px -6px rgba(201, 169, 110, 0.75); }
   .composer__mic svg { width: 24px; height: 24px; }
   .composer__mic.is-recording {
-    background: linear-gradient(135deg, #e57373 0%, #b03040 100%);
-    animation: mic-pulse 1.2s ease-in-out infinite;
+    background: var(--ink);
+    color: var(--surface);
+    animation: mic-pulse 1.3s ease-in-out infinite;
   }
   @keyframes mic-pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(229, 115, 115, 0.5); }
-    50%      { box-shadow: 0 0 0 16px rgba(229, 115, 115, 0); }
+    0%, 100% { box-shadow: 0 0 0 0 rgba(12, 12, 10, 0.28); }
+    50%      { box-shadow: 0 0 0 14px rgba(12, 12, 10, 0); }
+  }
+
+  /* Voice controls — hands-free toggle + speaker mute, left of the input */
+  .composer__ctrls { display: flex; flex-direction: column; gap: 8px; align-items: stretch; flex-shrink: 0; }
+  .composer__toggle {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--surface); border: 1px solid var(--line); color: var(--ink-2);
+    padding: 8px 12px; border-radius: 999px;
+    font-family: 'Geist', sans-serif; font-size: 12px; font-weight: 500;
+    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  }
+  .composer__toggle:hover { border-color: var(--ink-3); color: var(--ink); }
+  .composer__toggle.is-on {
+    background: var(--gold); color: #3a2e16; border-color: var(--gold-deep);
+    box-shadow: 0 4px 14px -6px rgba(201, 169, 110, 0.7);
+  }
+  .composer__toggle svg { width: 16px; height: 16px; flex-shrink: 0; }
+  body.lang-hi .composer__toggle { font-family: 'Noto Sans Devanagari', 'Geist', sans-serif; }
+  .composer__iconbtn {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: var(--surface); border: 1px solid var(--line); color: var(--ink-2);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .composer__iconbtn:hover { border-color: var(--ink-3); color: var(--ink); }
+  .composer__iconbtn.is-off { color: var(--ink-3); border-style: dashed; }
+  .composer__iconbtn svg { width: 18px; height: 18px; }
+  @media (max-width: 760px) {
+    .composer__toggle .label { display: none; }
+    .composer__toggle { padding: 10px; }
+    .composer__iconbtn { width: 36px; height: 36px; }
   }
 
   /* Document overlay — slides up from bottom when AI finishes */
   .doc-overlay {
     position: fixed; left: 0; right: 0; bottom: 0;
     height: 90vh; max-height: 90vh;
-    background: #faf8f3;
-    color: #1a1814;
-    border-top-left-radius: 24px;
-    border-top-right-radius: 24px;
+    background: var(--surface);
+    color: var(--ink);
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
     transform: translateY(100%);
     transition: transform 0.5s cubic-bezier(0.32, 0.72, 0, 1);
     z-index: 60;
     overflow: hidden;
     display: flex; flex-direction: column;
-    box-shadow: 0 -10px 40px rgba(0,0,0,0.4);
+    box-shadow: 0 -12px 40px -10px rgba(12, 12, 10, 0.22);
   }
   .doc-overlay.is-open { transform: translateY(0); }
   .doc-overlay__header {
     flex-shrink: 0;
     padding: 14px 20px;
-    border-bottom: 1px solid #e8e6df;
+    border-bottom: 1px solid var(--line);
     display: flex; align-items: center; justify-content: space-between;
     position: relative;
   }
@@ -330,41 +388,43 @@
     position: absolute; top: 6px; left: 50%;
     transform: translateX(-50%);
     width: 36px; height: 4px;
-    background: #d4d0c4; border-radius: 2px;
+    background: var(--line); border-radius: 2px;
   }
   .doc-overlay__title {
     font-size: 14px; font-weight: 600;
-    color: #1a1814;
+    color: var(--ink);
   }
   body.lang-hi .doc-overlay__title { font-family: 'Noto Sans Devanagari', sans-serif; }
   .doc-overlay__actions { display: flex; gap: 8px; }
   .doc-overlay__btn {
-    background: transparent; border: 1px solid #d4d0c4;
-    color: #1a1814;
+    background: var(--surface); border: 1px solid var(--line);
+    color: var(--ink-2);
     padding: 6px 12px; border-radius: 6px;
-    font-family: inherit; font-size: 12px; font-weight: 500;
-    cursor: pointer; transition: background 0.15s;
+    font-family: 'Geist', sans-serif; font-size: 12px; font-weight: 500;
+    cursor: pointer; transition: background 0.15s, color 0.15s;
   }
-  .doc-overlay__btn:hover { background: #f6f4ee; }
+  .doc-overlay__btn:hover { background: var(--soft); color: var(--ink); }
   .doc-overlay__btn--primary {
-    background: #1a1814; color: #faf8f3; border-color: #1a1814;
+    background: var(--ink); color: var(--surface); border-color: var(--ink);
   }
-  .doc-overlay__btn--primary:hover { background: #000; }
+  .doc-overlay__btn--primary:hover { background: #1f1f1c; }
   .doc-overlay__body {
     flex: 1; overflow-y: auto;
     padding: 24px 20px 60px;
-    background: #e8e6df;
+    background: var(--soft);
   }
   .doc-paper {
-    background: #fff;
+    background: var(--surface);
     max-width: 720px; margin: 0 auto;
     padding: 48px 52px 64px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    box-shadow: var(--shadow-lift);
+    border: 1px solid var(--line);
     border-radius: 4px;
     font-family: 'Noto Sans Devanagari', 'Times New Roman', serif;
     font-size: 13.5px;
     line-height: 1.75;
-    color: #1a1814;
+    color: var(--ink);
+    user-select: text;
   }
   body.lang-en .doc-paper { font-family: 'Times New Roman', serif; }
   /* Court document formatting classes (set via formatCourtDoc()) */
@@ -380,17 +440,33 @@
 
   /* Toast */
   .toast {
-    position: fixed; top: 70px; left: 50%; transform: translateX(-50%);
-    background: var(--bg-2); color: var(--ink-0);
-    padding: 10px 18px; border-radius: 100px;
-    font-size: 13px;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.3);
-    border: 1px solid var(--line-strong);
-    opacity: 0; transition: opacity 0.2s;
+    position: fixed; top: 70px; left: 50%; transform: translateX(-50%) translateY(-8px);
+    background: var(--ink); color: var(--surface);
+    padding: 10px 18px; border-radius: 999px;
+    font-size: 12.5px;
+    box-shadow: 0 8px 24px -8px rgba(12, 12, 10, 0.35);
+    opacity: 0; transition: opacity 0.2s, transform 0.2s;
     pointer-events: none; z-index: 100;
   }
-  .toast--show { opacity: 1; }
-  .toast--err { border-color: var(--bad); color: var(--bad); }
+  .toast--show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast--ok { background: var(--good); }
+  .toast--err { background: var(--bad); }
+
+  /* Canonical draft preview inside the overlay (the real from-prompt output) */
+  .doc-result-head { max-width: 760px; margin: 0 auto 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .doc-badge { font-family: 'Geist Mono', monospace; font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; padding: 3px 9px; border-radius: 999px; }
+  .doc-badge--ok { background: #eef3ec; color: var(--good); border: 1px solid #cfe0c6; }
+  .doc-badge--ai { background: var(--gold-soft); color: var(--gold-ink); border: 1px solid var(--gold-line); }
+  .doc-meta { font-size: 12px; color: var(--ink-3); }
+  .doc-frame { width: 100%; max-width: 760px; height: 78vh; margin: 0 auto; display: block; border: 1px solid var(--line); border-radius: 8px; background: #fff; box-shadow: var(--shadow-lift); }
+  .doc-notes { max-width: 760px; margin: 16px auto 0; display: grid; gap: 12px; }
+  .doc-note { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 13px; line-height: 1.55; background: var(--surface); }
+  .doc-note h4 { margin: 0 0 6px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-3); }
+  .doc-note--cite { background: var(--gold-soft); border-color: var(--gold-line); }
+  .doc-note--cite h4 { color: var(--gold-ink); }
+  .doc-note ul { margin: 0; padding-left: 18px; } .doc-note li { margin-bottom: 4px; }
+  .doc-overlay__actions .lang-toggle button { padding: 4px 9px; }
+  .doc-overlay__actions .lang-toggle button.active { background: var(--ink); color: var(--surface); }
 
   /* Reveal animation on AI text changes */
   .ai-text.is-changing { opacity: 0; }
@@ -412,7 +488,7 @@
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/static/favicon.svg">
 </head>
-<body class="lang-hi">
+<body class="lang-en">
 
 <header class="topbar">
   <div class="topbar__left">
@@ -426,8 +502,8 @@
   <div class="topbar__right">
     <button class="restart-btn" id="btn-restart" data-en="↻ Restart" data-hi="↻ पुनः शुरू">↻ पुनः शुरू</button>
     <div class="lang-toggle" role="group" aria-label="language">
-      <button id="lang-en">EN</button>
-      <button id="lang-hi" class="active">हिं</button>
+      <button id="lang-en" class="active">EN</button>
+      <button id="lang-hi">हिं</button>
     </div>
   </div>
 </header>
@@ -448,11 +524,26 @@
 </main>
 
 <div class="composer">
+  <div class="composer__ctrls">
+    <button type="button" id="btn-handsfree" class="composer__toggle" aria-pressed="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="4" y1="10" x2="4" y2="14"/><line x1="9" y1="6" x2="9" y2="18"/>
+        <line x1="14" y1="9" x2="14" y2="15"/><line x1="19" y1="4" x2="19" y2="20"/>
+      </svg>
+      <span class="label" data-en="Hands-free" data-hi="हैंड्स-फ्री">हैंड्स-फ्री</span>
+    </button>
+    <button type="button" id="btn-speaker" class="composer__iconbtn" aria-label="Toggle assistant voice">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+        <path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a9 9 0 0 1 0 14"/>
+      </svg>
+    </button>
+  </div>
   <div class="composer__input-wrap">
     <textarea id="composer-input" class="composer__input" rows="1"
       placeholder=""
-      data-en-ph="Type your answer… or tap the mic"
-      data-hi-ph="अपना जवाब लिखें… या माइक दबाएं"></textarea>
+      data-en-ph="Describe your matter… or tap the mic"
+      data-hi-ph="अपना मामला बताइए… या माइक दबाएं"></textarea>
     <button type="button" id="btn-send" class="composer__send" aria-label="Send" disabled>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
         <line x1="22" y1="2" x2="11" y2="13"/>
@@ -475,50 +566,60 @@
   <div class="doc-overlay__header">
     <div class="doc-overlay__title" id="doc-title">Document Ready</div>
     <div class="doc-overlay__actions">
+      <span class="lang-toggle" id="doc-langtoggle" style="display:none;">
+        <button data-lang="hi">हिं</button><button data-lang="en">EN</button>
+      </span>
       <button class="doc-overlay__btn" id="doc-close" data-en="Close" data-hi="बंद">बंद</button>
-      <button class="doc-overlay__btn" id="doc-edit" data-en="✏️ Edit" data-hi="✏️ संपादन">✏️ संपादन</button>
-      <button class="doc-overlay__btn doc-overlay__btn--primary" id="doc-pdf" data-en="⬇ PDF" data-hi="⬇ PDF">⬇ PDF</button>
+      <button class="doc-overlay__btn" id="doc-pdf" data-en="⬇ PDF" data-hi="⬇ PDF">⬇ PDF</button>
+      <button class="doc-overlay__btn doc-overlay__btn--primary" id="doc-share" data-en="📱 WhatsApp" data-hi="📱 WhatsApp">📱 WhatsApp</button>
     </div>
   </div>
   <div class="doc-overlay__body">
-    <div class="doc-paper" id="doc-paper"></div>
+    <div class="doc-result-head" id="doc-result-head"></div>
+    <iframe class="doc-frame" id="doc-frame" title="draft preview"></iframe>
+    <div class="doc-notes" id="doc-notes"></div>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script src="/static/auth.js?v=20260527a"></script>
+<script src="/static/voice.js?v=20260626a"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
 // =========================================================================
-// Smart Drafter — voice-first AI conductor.
+// Smart Drafter — ChatGPT-style hands-free voice drafting.
 //
 // Lifecycle:
-//   1. Page loads. AI greets: "What would you like to draft today?"
-//   2. Template chips appear under the question (Vakalatnama, Bail, Writ, ...)
-//   3. User either taps a chip OR speaks/types ("anticipatory bail for Anil")
-//   4. AI infers/chosen template → asks contextual follow-ups one by one
-//   5. After each user reply, the orb thinks → next question appears
-//   6. When all required fields are collected (or user says "draft now"),
-//      AI generates the full document → doc-overlay slides up.
+//   1. Page loads, greets, hands-free mode ON. Example chips for a quick start.
+//   2. Lawyer taps the mic and just DESCRIBES the matter in natural speech
+//      (continuous dictation; we end the turn on a natural pause).
+//   3. The whole description → POST /api/draft/from-prompt → it classifies,
+//      extracts every field at once, and renders the VERBATIM canonical
+//      template (zero-hallucination) — or a house-style authored draft for the
+//      long tail. No field-by-field interview.
+//   4. The draft slides up (real canonical output, in an iframe). The assistant
+//      reads it back and listens for refinements ("make it High Court", "add
+//      that he's the sole breadwinner") → re-drafts.
 //
-// Visual states of the orb:
-//   - idle:    breathing slow glow
-//   - listening: red, fast pulse
-//   - thinking: spinning conic gradient
+// Orb states: idle (breathe) · listening (gold ripple) · thinking · speaking.
 // =========================================================================
 
 const state = {
   lang:      document.body.classList.contains('lang-hi') ? 'hi' : 'en',
-  docType:   null,         // chosen template id; null until detected
-  templates: [],           // list of available templates
-  conversation: [],        // [{role, content, field_key?}]
-  collected: {},           // structured field values gathered so far
-  document:  null,
-  // UI state
-  micActive: false,
-  recognition: null,
-  awaitingFirstReply: true, // before this is false we still need to pick a template
+  autoLang:  true,          // detect HI/EN from the lawyer's words until they pick a language by hand
+  matter:    '',            // the running free-form description (grows with each turn)
+  turnBuffer:'',            // phrases captured during the current listening turn
+  lastResult: null,         // last /from-prompt result (canonical | authored)
+  templates: [],            // kept for parity (chips are static examples now)
+  collected: {},            // kept for persona prefill (not used by from-prompt)
+  // UI / voice state
+  micActive:    false,
+  listenHandle: null,       // active HeadnoteVoice.dictate() handle, if listening
+  silenceTimer: null,       // end-of-turn detector while listening
+  handsFree:    true,       // ChatGPT-style speak ↔ listen loop, ON by default
+  ttsMuted:     false,      // assistant voice read-back on/off
+  started:      false,      // has the lawyer begun the first turn?
 };
 
 // Helpers
@@ -604,9 +705,10 @@ function showSmartSignInModal() {
 }
 function setOrb(stateName) {
   const w = $('#orb-wrap');
-  w.classList.remove('is-listening', 'is-thinking');
+  w.classList.remove('is-listening', 'is-thinking', 'is-speaking');
   if (stateName === 'listening') w.classList.add('is-listening');
   else if (stateName === 'thinking') w.classList.add('is-thinking');
+  else if (stateName === 'speaking') w.classList.add('is-speaking');
 }
 
 // ---- AI text reveal with fade ----
@@ -625,115 +727,65 @@ function showUserEcho(text) {
   setTimeout(() => el.classList.remove('is-changing'), 50);
 }
 
-// ---- Template inference ----
-// First user message: try to map their words to a template. If clear → set
-// state.docType + start the conductor. If unclear → ask them to pick a chip.
-function inferTemplate(text) {
-  const lower = text.toLowerCase();
-  const TKEYS = [
-    ['anticipatory', 'anticipatory_bail'], ['agrim', 'anticipatory_bail'], ['अग्रिम', 'anticipatory_bail'],
-    ['quash', 'quashing_petition'], ['quashing', 'quashing_petition'], ['निरस्तीकरण', 'quashing_petition'], ['निरस्ती', 'quashing_petition'], ['528', 'quashing_petition'], ['482', 'quashing_petition'],
-    ['writ', 'writ_petition'], ['mandamus', 'writ_petition'], ['habeas', 'writ_petition'], ['certiorari', 'writ_petition'], ['226', 'writ_petition'], ['रिट', 'writ_petition'],
-    ['default bail', 'default_bail'], ['statutory bail', 'default_bail'], ['स्थिर जमानत', 'default_bail'], ['187', 'default_bail'], ['167', 'default_bail'],
-    ['discharge', 'discharge_application'], ['उन्मोचन', 'discharge_application'], ['250', 'discharge_application'], ['258', 'discharge_application'],
-    ['maintenance', 'maintenance'], ['भरण', 'maintenance'], ['पोषण', 'maintenance'], ['144', 'maintenance'], ['125', 'maintenance'],
-    ['revision', 'revision_petition'], ['पुनरीक्षण', 'revision_petition'], ['397', 'revision_petition'], ['438', 'revision_petition'],
-    ['reply to bail', 'reply_to_bail'], ['counter affidavit', 'reply_to_bail'], ['प्रत्यावेदन', 'reply_to_bail'], ['प्रत्युत्तर', 'reply_to_bail'],
-    ['appeal', 'appeal_conviction'], ['conviction', 'appeal_conviction'], ['अपील', 'appeal_conviction'], ['दोषसिद्धि', 'appeal_conviction'], ['374', 'appeal_conviction'], ['415', 'appeal_conviction'], ['419', 'appeal_conviction'],
-    ['mention', 'mention_memo'], ['memo', 'mention_memo'], ['urgent listing', 'mention_memo'], ['मेंशन', 'mention_memo'],
-    ['vakalat', 'vakalatnama'], ['वकालत', 'vakalatnama'],
-    ['bail', 'anticipatory_bail'], ['जमानत', 'anticipatory_bail'],  // last-resort default
-  ];
-  for (const [needle, id] of TKEYS) {
-    if (lower.includes(needle)) return id;
-  }
-  return null;
-}
-
-// ---- Load templates list (for the chip picker) ----
-async function loadTemplates() {
-  try {
-    const headers = await authHeaders();
-    const r = await fetch('/api/draft/templates', { headers });
-    if (await handleAuthError(r.status)) return;
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const data = await r.json();
-    state.templates = data.templates || [];
-  } catch (e) {
-    console.warn('Templates load failed:', e);
-    state.templates = [];
-  }
-}
+// ---- Example starter chips (tap to fill the composer with a sample) ----
+const EXAMPLES = [
+  { en: 'Anticipatory bail — Sessions Court, apprehension of arrest, FIR under §420/406, ready to cooperate with investigation',
+    hi: 'अग्रिम जमानत — सत्र न्यायालय, गिरफ्तारी की आशंका, धारा 420/406, जांच में सहयोग को तैयार' },
+  { en: 'Regular bail — FIR 123/2026, PS Kotwali Bhopal, §420, accused in custody 2 months, sole breadwinner, no antecedents',
+    hi: 'नियमित जमानत — अपराध क्रमांक 123/2026, थाना कोतवाली भोपाल, धारा 420, 2 माह से अभिरक्षा में, एकमात्र कमाने वाला' },
+  { en: 'Maintenance under §144 BNSS — wife, husband earns ₹40,000/month, deserted without cause',
+    hi: 'भरण-पोषण धारा 144 — पत्नी, पति ₹40,000 मासिक कमाता है, बिना कारण छोड़ दिया' },
+  { en: 'Quash FIR under §482 — matter compromised between the parties, High Court',
+    hi: 'धारा 482 के अंतर्गत FIR निरस्त — पक्षकारों में राजीनामा, उच्च न्यायालय' },
+];
+async function loadTemplates() { /* kept for parity; chips are static examples now */ }
 
 function renderTemplateChips() {
   const wrap = $('#template-chips');
   wrap.innerHTML = '';
   wrap.style.display = 'flex';
-  state.templates.slice(0, 11).forEach(t => {
+  EXAMPLES.forEach(ex => {
     const chip = document.createElement('button');
     chip.className = 'chip';
-    chip.innerHTML = (state.lang === 'hi' ? t.name_hi : t.name_en) + (t.tier ? `<span class="chip__tier">T${t.tier}</span>` : '');
-    chip.onclick = () => pickTemplate(t.id);
+    chip.textContent = state.lang === 'hi' ? ex.hi : ex.en;
+    chip.onclick = () => {
+      const inp = $('#composer-input');
+      inp.value = state.lang === 'hi' ? ex.hi : ex.en;
+      $('#btn-send').disabled = false;
+      inp.style.height = 'auto';
+      inp.style.height = Math.min(200, inp.scrollHeight) + 'px';
+      inp.focus();
+    };
     wrap.appendChild(chip);
   });
 }
 
-function pickTemplate(id) {
-  state.docType = id;
-  state.awaitingFirstReply = false;
+// ---- Draft from the running description via /api/draft/from-prompt ----
+// One free-form description → classify → extract every field at once → render
+// the VERBATIM canonical template (or a house-style authored draft for the long
+// tail). The lawyer just talks; there is no field-by-field interview.
+async function submitMatter() {
+  const matter = (state.matter || '').trim();
+  if (!matter) return;
+  state.started = true;
   $('#template-chips').style.display = 'none';
-  $('#user-text').style.display = 'none';
-  // Find template name for confirmation
-  const tpl = state.templates.find(t => t.id === id);
-  if (tpl) {
-    showAiText(state.lang === 'hi' ? `✓ ${tpl.name_hi}` : `✓ ${tpl.name_en}`);
-  }
-  // Kick off the conductor — fetch the first question
-  setTimeout(() => stepConductor(null), 700);
-}
-
-// ---- Conductor — talks to /api/draft/compose ----
-async function stepConductor(userMessage, force = false) {
   setOrb('thinking');
-  if (userMessage) {
-    showUserEcho(userMessage);
-    state.conversation.push({ role: 'user', content: userMessage });
-    showAiText(''); // clear question while thinking
-  }
+  showAiText(state.lang === 'hi' ? 'ड्राफ्ट तैयार कर रहा हूँ…' : 'Drafting your document…');
   try {
     const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
-    const r = await fetch('/api/draft/compose', {
+    const r = await fetch('/api/draft/from-prompt', {
       method: 'POST', headers,
-      body: JSON.stringify({
-        doc_type: state.docType,
-        conversation: state.conversation,
-        collected: state.collected,
-        user_message: userMessage,
-        lang: state.lang,
-        force_draft: force,
-      }),
+      body: JSON.stringify({ prompt: matter, lang: state.lang }),
     });
     if (await handleAuthError(r.status)) return;
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`);
-    state.collected = data.collected || state.collected;
-
-    if (data.status === 'asking' && data.next_question) {
-      setOrb('idle');
-      showAiText(data.next_question);
-      state.conversation.push({
-        role: 'assistant',
-        content: data.next_question,
-        field_key: data.next_field,
-      });
-    } else if (data.status === 'ready' && data.document) {
-      setOrb('idle');
-      state.document = data.document;
-      showAiText(state.lang === 'hi'
-        ? '✓ आपका दस्तावेज़ तैयार है। दाईं ओर देखें।'
-        : '✓ Your document is ready. See below.');
-      revealDocument();
-    }
+    const res = await r.json();
+    if (!r.ok || res.ok === false) throw new Error(res.error || res.detail || `HTTP ${r.status}`);
+    renderResult(res);
+    const ready = state.lang === 'hi'
+      ? 'आपका मसौदा तैयार है। कुछ बदलना हो तो बताइए।'
+      : 'Your draft is ready. Tell me anything you want to change.';
+    showAiText(ready);
+    speakAndMaybeListen(ready);          // read it back, then listen for refinements
   } catch (e) {
     setOrb('idle');
     toast('Error: ' + e.message, 'err', 4000);
@@ -741,96 +793,131 @@ async function stepConductor(userMessage, force = false) {
   }
 }
 
-function formatCourtDoc(raw) {
-  /** Convert plain-text court document to HTML with proper visual hierarchy. */
-  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  return raw.split('\n').map(line => {
-    const t = line.trim();
-    if (!t) return '<br>';
-    // Court name / bench header — centered and bold
-    if (/^(IN THE|BEFORE THE)\b/i.test(t))
-      return `<div class="court-center court-bold">${esc(t)}</div>`;
-    // Parties separator
-    if (/^(v\.|versus|vs\.)\s/i.test(t) || t.toLowerCase() === 'v.' || t.toLowerCase() === 'vs.')
-      return `<div class="court-center court-italic">${esc(t)}</div>`;
-    // Section headings — GROUNDS, PRAYER, etc.
-    if (/^(GROUNDS|PRAYER|FACTS OF THE CASE|HUMBLE PETITION|VERIFICATION|SYNOPSIS|SUBMISSIONS?|RELIEF SOUGHT)\b/i.test(t))
-      return `<div class="section-heading">${esc(t)}</div>`;
-    // Numbered grounds / paragraphs
-    if (/^\d+\.\s/.test(t))
-      return `<div class="ground-item">${esc(t)}</div>`;
-    // ALL-CAPS lines (cause title, applicant block headers)
-    if (/^[A-Z][A-Z\s,./():;-]{8,}:?\s*$/.test(t))
-      return `<div class="court-bold">${esc(t)}</div>`;
-    // Default paragraph line
-    return `<div class="para-line">${esc(t)}</div>`;
-  }).join('');
+function pickPage(res) {
+  return state.lang === 'en' ? (res.page_en || res.page_hi || '')
+                             : (res.page_hi || res.page_en || '');
 }
+function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
-function revealDocument() {
-  const paper = $('#doc-paper');
-  if (state.lang === 'en') {
-    paper.innerHTML = formatCourtDoc(state.document);
-  } else {
-    // Hindi: plain pre-wrap (Devanagari structure differs; avoid mis-classifying Hindi headings)
-    paper.textContent = state.document;
-    paper.style.whiteSpace = 'pre-wrap';
+// ---- Render the canonical/authored draft into the overlay (the real output) ----
+function renderResult(res) {
+  state.lastResult = res;
+  $('#doc-frame').srcdoc = pickPage(res);
+  const authored = res.mode === 'authored';
+  $('#doc-title').textContent = res.title || res.doc_type || (state.lang === 'hi' ? 'मसौदा' : 'Draft');
+  const conf = res.confidence != null ? Math.round(res.confidence * 100) + '%' : '';
+  $('#doc-result-head').innerHTML =
+    `<span class="doc-badge ${authored ? 'doc-badge--ai' : 'doc-badge--ok'}">`
+    + (authored ? (state.lang === 'hi' ? 'AI-रचित · जाँचें' : 'AI-authored · review')
+                : (state.lang === 'hi' ? 'मूल टेम्पलेट' : 'Verbatim template')) + '</span>'
+    + (conf ? `<span class="doc-meta">${state.lang === 'hi' ? 'मिलान' : 'match'} ${conf}</span>` : '');
+  $('#doc-langtoggle').style.display = (res.page_hi && res.page_en) ? '' : 'none';
+  [...$('#doc-langtoggle').querySelectorAll('button')].forEach(b => b.classList.toggle('active', b.dataset.lang === state.lang));
+  const notes = $('#doc-notes'); notes.innerHTML = '';
+  const cites = res.cite_at_hearing || [];
+  if (cites.length) {
+    const items = cites.map(c => { const t = c.case || c; return `<li><b>${esc(t)}</b>${c.point ? ' — ' + esc(c.point) : ''}</li>`; }).join('');
+    notes.insertAdjacentHTML('beforeend', `<div class="doc-note doc-note--cite"><h4>${state.lang === 'hi' ? 'सुनवाई पर उद्धृत करें (पहले सत्यापित करें)' : 'Authorities — cite at hearing (verify first)'}</h4><ul>${items}</ul></div>`);
   }
-  const tpl = state.templates.find(t => t.id === state.docType);
-  if (tpl) $('#doc-title').textContent = state.lang === 'hi' ? tpl.name_hi : tpl.name_en;
+  if (res.companions && res.companions.length) {
+    notes.insertAdjacentHTML('beforeend', `<div class="doc-note"><h4>${state.lang === 'hi' ? 'साथ में दाखिल करें' : 'File alongside'}</h4><ul>${res.companions.map(w => `<li>${esc(w)}</li>`).join('')}</ul></div>`);
+  }
   $('#doc-overlay').classList.add('is-open');
 }
+
+// (Plain-text formatting + revealDocument removed — the overlay now shows the
+// canonical from-prompt render directly via an <iframe>; see renderResult.)
 $('#doc-close').addEventListener('click', () => $('#doc-overlay').classList.remove('is-open'));
 
-// Direct in-document editing. ON → #doc-paper becomes contentEditable; the PDF
-// export reads the live #doc-paper, so edits flow into the download. OFF →
-// edits are saved into state.document so they survive a reopen.
-$('#doc-edit').addEventListener('click', () => {
-  const paper = $('#doc-paper');
-  const btn = $('#doc-edit');
-  const isHi = state.lang === 'hi';
-  if (!state.document) return;
-  const on = paper.getAttribute('contenteditable') === 'true';
-  if (!on) {
-    paper.setAttribute('contenteditable', 'true');
-    paper.style.outline = '2px dashed var(--gold, #c9a96e)';
-    paper.style.outlineOffset = '6px';
-    paper.focus();
-    btn.classList.add('doc-overlay__btn--primary');
-    btn.textContent = isHi ? '✓ पूर्ण' : '✓ Done';
-    toast(isHi ? 'दस्तावेज़ में सीधे टाइप करें — बदलाव PDF में आएंगे'
-               : 'Type directly in the document — edits flow into the PDF', 'ok', 3000);
-  } else {
-    paper.removeAttribute('contenteditable');
-    paper.style.outline = '';
-    paper.style.outlineOffset = '';
-    btn.classList.remove('doc-overlay__btn--primary');
-    btn.textContent = isHi ? '✏️ संपादन' : '✏️ Edit';
-    state.document = paper.innerText || state.document;   // persist edits
-    toast(isHi ? 'बदलाव सहेजे गए' : 'Edits saved', 'ok');
-  }
+// Real PDF (server WeasyPrint) — the iframe already holds a print-ready
+// canonical page, so we POST that same HTML to /api/draft/pdf for a
+// text-selectable PDF. One blob powers Download AND WhatsApp — reliable on
+// mobile, unlike iframe.contentWindow.print() which silently no-ops there.
+function _smartDocName() {
+  const t = ($('#doc-title').textContent || 'headnote-draft').trim().toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'headnote-draft';
+  const d = new Date();
+  return t + '-' + d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+}
+async function _smartFetchPdf() {
+  const html = pickPage(state.lastResult);
+  if (!html) throw new Error('no document');
+  const name = _smartDocName();
+  const r = await fetch('/api/draft/pdf', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+    body: JSON.stringify({ html, filename: name }),
+  });
+  if (!r.ok) { let d = ''; try { d = (await r.json()).detail || ''; } catch (e) {} throw new Error(d || ('server ' + r.status)); }
+  return { blob: await r.blob(), filename: name + '.pdf' };
+}
+function _smartDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+// ⬇ PDF — download the real, text-selectable PDF.
+$('#doc-pdf').addEventListener('click', async () => {
+  if (!state.lastResult) return;
+  const btn = $('#doc-pdf'), orig = btn.textContent;
+  btn.disabled = true; btn.textContent = state.lang === 'hi' ? '⏳ बना रहे हैं…' : '⏳ Generating…';
+  try { const { blob, filename } = await _smartFetchPdf(); _smartDownload(blob, filename); toast(state.lang === 'hi' ? 'PDF सहेजा गया ✓' : 'PDF saved ✓'); }
+  catch (e) { toast((state.lang === 'hi' ? 'PDF नहीं बना — ' : 'PDF failed — ') + (e.message || ''), 'err', 3500); }
+  finally { btn.disabled = false; btn.textContent = orig; }
 });
-$('#doc-pdf').addEventListener('click', () => {
-  if (!state.document) return;
-  const el = $('#doc-paper').cloneNode(true);
-  const wrap = document.createElement('div');
-  wrap.style.padding = '40px';
-  wrap.appendChild(el);
-  const tpl = state.templates.find(t => t.id === state.docType);
-  const fn = `${(tpl ? tpl.name_en : 'document').replace(/[^a-z0-9]+/gi, '-')}-${new Date().toISOString().slice(0,10)}.pdf`;
-  html2pdf().set({
-    margin: [10, 12, 14, 12], filename: fn,
-    image: { type: 'jpeg', quality: 0.95 },
-    html2canvas: { scale: 2 },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-  }).from(wrap).save();
+
+// 📱 WhatsApp — attach the real PDF (native share sheet on mobile; on desktop
+// download it + open WhatsApp Web with a prefilled note to drag it in).
+$('#doc-share').addEventListener('click', async () => {
+  if (!state.lastResult) return;
+  const btn = $('#doc-share'), orig = btn.textContent;
+  btn.disabled = true; btn.textContent = state.lang === 'hi' ? '⏳ तैयार…' : '⏳ Preparing…';
+  let out;
+  try { out = await _smartFetchPdf(); }
+  catch (e) { btn.disabled = false; btn.textContent = orig; toast((state.lang === 'hi' ? 'PDF नहीं बना — ' : 'PDF failed — ') + (e.message || ''), 'err', 3500); return; }
+  const file = new File([out.blob], out.filename, { type: 'application/pdf' });
+  const note = ($('#doc-title').textContent || 'Document').trim() + ' — Headnote';
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: out.filename, text: note }); }
+    catch (e) { if (e.name !== 'AbortError') { _smartDownload(out.blob, out.filename); window.open('https://wa.me/?text=' + encodeURIComponent(note), '_blank'); } }
+  } else { _smartDownload(out.blob, out.filename); window.open('https://wa.me/?text=' + encodeURIComponent(note), '_blank'); }
+  btn.disabled = false; btn.textContent = orig;
+});
+
+// In-overlay language toggle — re-render the cached pages in the other language.
+$('#doc-langtoggle').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b || !state.lastResult) return;
+  state.lang = b.dataset.lang; state.autoLang = false;
+  applyLang(); updateVoiceUI();
+  $('#doc-frame').srcdoc = pickPage(state.lastResult);
+  [...e.currentTarget.querySelectorAll('button')].forEach(x => x.classList.toggle('active', x === b));
 });
 
 // ---- Send user message ----
+// Auto-detect the working language from what the lawyer actually says/types:
+// any Devanagari → Hindi, else English. Runs until they pick a language by hand
+// (the EN/हिं toggle sets state.autoLang = false), so the assistant replies in
+// whatever language they spoke in.
+function detectLang(text) {
+  return /[ऀ-ॿ]/.test(text || '') ? 'hi' : 'en';
+}
+function maybeAutoSwitchLang(text) {
+  if (!state.autoLang) return;
+  const d = detectLang(text);
+  if (d !== state.lang) {
+    state.lang = d;
+    applyLang();
+    updateVoiceUI();          // re-localise control titles + mute icon
+  }
+}
+
 async function sendMessage() {
   const input = $('#composer-input');
   const text = (input.value || '').trim();
   if (!text) return;
+  maybeAutoSwitchLang(text);            // the first words decide HI vs EN (until set manually)
   input.value = '';
   input.style.height = 'auto';
   $('#btn-send').disabled = true;
@@ -853,11 +940,13 @@ async function sendMessage() {
       }, 400);
     } else {
       // Couldn't infer — show chips again
-      showAiText(state.lang === 'hi'
+      const reprompt = state.lang === 'hi'
         ? 'किस तरह का दस्तावेज़? नीचे चुनें या स्पष्ट बताएं।'
-        : 'Which kind of document? Pick one below or say it more clearly.');
+        : 'Which kind of document? Pick one below or say it more clearly.';
+      showAiText(reprompt);
       renderTemplateChips();
       state.awaitingFirstReply = true;
+      speakAndMaybeListen(reprompt);     // hands-free: ask again aloud + re-listen
     }
   } else {
     await stepConductor(text);
@@ -876,57 +965,165 @@ $('#composer-input').addEventListener('input', (e) => {
   e.target.style.height = Math.min(200, e.target.scrollHeight) + 'px';
 });
 
-// ---- Voice input ----
-const HAS_SR = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
-$('#btn-mic').addEventListener('click', () => {
-  if (state.micActive) stopMic(); else startMic();
-});
-function startMic() {
-  if (!HAS_SR) { toast(state.lang === 'hi' ? 'इस ब्राउज़र में आवाज़ समर्थित नहीं' : 'Voice not supported here', 'err'); return; }
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const r = new SR();
-  r.lang = state.lang === 'en' ? 'en-IN' : 'hi-IN';
-  r.continuous = false; r.interimResults = true;
-  let finalT = '';
-  r.onresult = (e) => {
-    let interim = '';
-    for (let i = e.resultIndex; i < e.results.length; i++) {
-      const t = e.results[i][0].transcript;
-      if (e.results[i].isFinal) finalT += t + ' '; else interim += t;
-    }
-    $('#composer-input').value = (finalT + interim).trim();
-    $('#btn-send').disabled = !$('#composer-input').value.trim();
-  };
-  r.onerror = (e) => {
-    if (e.error === 'not-allowed') toast(state.lang === 'hi' ? 'माइक की अनुमति दें' : 'Allow mic access', 'err');
-    stopMic();
-  };
-  r.onend = () => {
-    stopMic();
-    // Auto-send if user spoke something
-    if ($('#composer-input').value.trim()) {
-      setTimeout(sendMessage, 400);
-    }
-  };
-  state.recognition = r;
-  state.micActive = true;
-  $('#btn-mic').classList.add('is-recording');
-  setOrb('listening');
-  r.start();
+// ---- Voice: hands-free conversation (HeadnoteVoice) ----
+// The assistant speaks each question (TTS); when hands-free is on it then
+// auto-opens the mic, transcribes the reply (Web Speech, or the Whisper
+// fallback on browsers without it) and sends it. #btn-mic is push-to-talk +
+// barge-in. Reliable across Chrome / Safari / Firefox / in-app webviews.
+const Voice = window.HeadnoteVoice;
+
+function micUI(on) {
+  state.micActive = on;
+  $('#btn-mic').classList.toggle('is-recording', on);
 }
-function stopMic() {
-  state.micActive = false;
-  $('#btn-mic').classList.remove('is-recording');
-  setOrb('idle');
-  if (state.recognition) {
-    try { state.recognition.stop(); } catch {}
-    state.recognition = null;
+
+// Read-back is scoped to hands-free mode so a quietly-typing lawyer never gets
+// surprise audio. Speak `text` (unless muted) then auto-listen for the reply.
+function speakAndMaybeListen(text) {
+  const wantListen = state.handsFree;
+  const wantSpeak  = state.handsFree && !state.ttsMuted && Voice && Voice.hasTTS && !!text;
+  if (!wantSpeak) { setOrb('idle'); if (wantListen) startListening(); return; }
+  setOrb('speaking');
+  Voice.speak(text, { lang: state.lang, onEnd: () => { if (wantListen) startListening(); else setOrb('idle'); } });
+}
+
+// Speak with no follow-on listen (the final "document ready" line).
+function sayOnly(text) {
+  if (!state.handsFree || state.ttsMuted || !Voice || !Voice.hasTTS) return;
+  setOrb('speaking');
+  Voice.speak(text, { lang: state.lang, onEnd: () => setOrb('idle') });
+}
+
+// Open the mic for one spoken turn → drop the transcript into the composer and
+// send it (same path as typing, so first-turn template inference and the
+// conductor both work unchanged).
+function startListening() {
+  if (!Voice || !Voice.supported) {
+    toast(state.lang === 'hi' ? 'इस ब्राउज़र में आवाज़ समर्थित नहीं' : 'Voice not supported here', 'err');
+    return;
   }
+  if (state.listenHandle) return;            // already listening
+  micUI(true);
+  setOrb('listening');
+  state.listenHandle = Voice.dictate({
+    mode: 'turn',
+    lang: state.lang,
+    getAuthHeaders: authHeaders,
+    onInterim: (t) => {
+      const inp = $('#composer-input');
+      inp.value = t;
+      $('#btn-send').disabled = !t.trim();
+      inp.style.height = 'auto';
+      inp.style.height = Math.min(200, inp.scrollHeight) + 'px';
+    },
+    onState: (s) => {
+      if (s === 'listening') setOrb('listening');
+      else if (s === 'processing') setOrb('thinking');   // Whisper round-trip
+    },
+    onFinal: (t) => {
+      state.listenHandle = null;
+      micUI(false);
+      const text = (t || '').trim();
+      if (text) {
+        $('#composer-input').value = text;
+        sendMessage();                       // → inference or conductor
+      } else if (state.handsFree) {
+        // Heard nothing — keep the conversation alive, listen again shortly.
+        setOrb('idle');
+        setTimeout(() => {
+          if (state.handsFree && !state.listenHandle && !Voice.isSpeaking()) startListening();
+        }, 500);
+      } else {
+        setOrb('idle');
+      }
+    },
+    onError: (kind, msg) => handleVoiceError(kind, msg),
+  });
+}
+
+function stopListening() {
+  if (state.listenHandle) { try { state.listenHandle.stop(); } catch (e) {} state.listenHandle = null; }
+  micUI(false);
+}
+
+function handleVoiceError(kind, msg) {
+  stopListening();
+  setOrb('idle');
+  const hi = state.lang === 'hi';
+  if (kind === 'denied') toast(hi ? 'माइक की अनुमति दें' : 'Allow microphone access', 'err');
+  else if (kind === 'auth') { handleAuthError(401); return; }
+  else if (kind === 'network') toast(hi ? 'नेटवर्क समस्या — टाइप करके भेजें' : 'Network issue — type your answer instead', 'err');
+  else if (kind === 'unsupported') toast(hi ? 'इस ब्राउज़र में आवाज़ नहीं' : 'Voice not supported here', 'err');
+  else if (kind === 'transcribe') toast((hi ? 'लिप्यंतरण विफल' : 'Transcription failed') + (msg ? ': ' + msg : ''), 'err');
+  // 'no-speech' is silent by design.
+}
+
+// #btn-mic: barge-in if the assistant is talking, else toggle a listen turn.
+$('#btn-mic').addEventListener('click', () => {
+  if (Voice && Voice.isSpeaking()) { Voice.shutUp(); setOrb('idle'); startListening(); return; }
+  if (state.listenHandle) stopListening();
+  else startListening();
+});
+
+// Hands-free toggle: pre-warm the mic, then drive the loop from wherever we are.
+$('#btn-handsfree').addEventListener('click', async () => {
+  if (!Voice || !Voice.supported) {
+    toast(state.lang === 'hi' ? 'इस ब्राउज़र में आवाज़ समर्थित नहीं' : 'Voice not supported here', 'err');
+    return;
+  }
+  state.handsFree = !state.handsFree;
+  updateVoiceUI();
+  if (state.handsFree) {
+    const ok = await Voice.ensureMicPermission();
+    if (!ok) { state.handsFree = false; updateVoiceUI(); toast(state.lang === 'hi' ? 'माइक की अनुमति दें' : 'Allow microphone access', 'err'); return; }
+    toast(state.lang === 'hi' ? 'हैंड्स-फ्री चालू — बस बोलिए' : 'Hands-free on — just speak', 'ok');
+    // Engage the loop: if still on the first turn, (re)speak the current prompt
+    // then listen; mid-conversation, just listen.
+    if (!Voice.isSpeaking() && !state.listenHandle) {
+      if (state.awaitingFirstReply) speakAndMaybeListen($('#ai-text').textContent || '');
+      else startListening();
+    }
+  } else {
+    Voice.shutUp();
+    stopListening();
+    setOrb('idle');
+  }
+});
+
+// Speaker (assistant voice) mute toggle.
+$('#btn-speaker').addEventListener('click', () => {
+  state.ttsMuted = !state.ttsMuted;
+  if (state.ttsMuted && Voice) Voice.shutUp();
+  updateVoiceUI();
+});
+
+// Reflect hands-free / mute state on the two control buttons.
+function updateVoiceUI() {
+  const hi = state.lang === 'hi';
+  const hf = $('#btn-handsfree');
+  hf.classList.toggle('is-on', state.handsFree);
+  hf.setAttribute('aria-pressed', state.handsFree ? 'true' : 'false');
+  hf.title = state.handsFree
+    ? (hi ? 'हैंड्स-फ्री बंद करें' : 'Turn off hands-free')
+    : (hi ? 'हैंड्स-फ्री बातचीत — बोलकर ड्राफ्ट करें' : 'Hands-free — draft by talking');
+  const sp = $('#btn-speaker');
+  sp.classList.toggle('is-off', state.ttsMuted);
+  sp.title = state.ttsMuted
+    ? (hi ? 'सहायक की आवाज़ चालू करें' : 'Unmute assistant voice')
+    : (hi ? 'सहायक की आवाज़ बंद करें' : 'Mute assistant voice');
+  sp.innerHTML = state.ttsMuted
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a9 9 0 0 1 0 14"/></svg>';
+  sp.style.display = (Voice && Voice.hasTTS) ? '' : 'none';     // no TTS → hide mute
+  // If voice is wholly unsupported, the hands-free pill can't help — dim it.
+  if (!Voice || !Voice.supported) { hf.style.opacity = '0.45'; hf.title = hi ? 'इस ब्राउज़र में आवाज़ नहीं' : 'Voice not supported here'; }
 }
 
 // ---- Restart ----
 $('#btn-restart').addEventListener('click', () => {
   if (!confirm(state.lang === 'hi' ? 'पुनः शुरू करें? सब कुछ खो जाएगा।' : 'Restart? Everything will be lost.')) return;
+  if (Voice) Voice.shutUp();
+  stopListening();
   state.docType = null;
   state.conversation = [];
   state.collected = {};
@@ -940,8 +1137,18 @@ $('#btn-restart').addEventListener('click', () => {
 });
 
 // ---- Language toggle ----
-$('#lang-en').addEventListener('click', () => { state.lang = 'en'; applyLang(); if (state.awaitingFirstReply) greetAndShowChips(); });
-$('#lang-hi').addEventListener('click', () => { state.lang = 'hi'; applyLang(); if (state.awaitingFirstReply) greetAndShowChips(); });
+function switchLang(l) {
+  state.autoLang = false;          // explicit choice → stop auto-detecting
+  if (state.lang === l) return;
+  state.lang = l;
+  if (Voice) Voice.shutUp();
+  stopListening();
+  applyLang();
+  updateVoiceUI();                 // re-localise control titles
+  if (state.awaitingFirstReply) greetAndShowChips();
+}
+$('#lang-en').addEventListener('click', () => switchLang('en'));
+$('#lang-hi').addEventListener('click', () => switchLang('hi'));
 
 // ---- Initial greeting ----
 function greetAndShowChips() {
@@ -950,6 +1157,9 @@ function greetAndShowChips() {
     : 'What would you like to draft today?';
   showAiText(greeting);
   renderTemplateChips();
+  // If hands-free is already on (e.g. after Restart), speak the greeting and
+  // start listening for what to draft.
+  if (state.handsFree) speakAndMaybeListen(greeting);
 }
 
 // ---- Persona prefill ----
@@ -978,6 +1188,7 @@ async function loadPersona() {
 // ---- Boot ----
 (async function init() {
   applyLang();
+  updateVoiceUI();              // set speaker icon + control titles, hide if no TTS
   await Promise.all([loadTemplates(), loadPersona()]);
   greetAndShowChips();
 })();

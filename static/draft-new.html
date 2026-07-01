@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="hi"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Headnote — ड्राफ्टिंग</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#fdfcf9;--card:#fff;--ink:#0c0c0a;--ink-2:#2a2a26;--ink-3:#5d5b54;--ink-4:#8a857a;
+    --line:#e8e3d6;--gold:#c9a96e;--gold-deep:#8c7549;--gold-tint:#f9f3e3}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Geist',system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  .topbar{position:sticky;top:0;z-index:50;background:rgba(253,252,249,.85);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border-bottom:1px solid var(--line);padding:14px 24px;display:flex;align-items:center;gap:18px}
+  .topbar__back{font-size:13px;color:var(--ink-3);display:flex;align-items:center;gap:6px}.topbar__back:hover{color:var(--ink)}
+  .topbar__crumb{font-family:'Geist Mono',monospace;font-size:12px;color:var(--ink-3);margin-left:auto}
+  main{max-width:1180px;margin:0 auto;padding:38px 24px 80px}
+  .head{margin-bottom:30px}
+  .head__eyebrow{font-family:'Geist Mono',monospace;font-size:11px;color:var(--gold-deep);text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px}
+  .head__title{font-size:clamp(26px,4vw,38px);font-weight:600;letter-spacing:-.025em;line-height:1.06}
+  .head__title-hi{font-family:'Noto Sans Devanagari','Geist',sans-serif;font-size:17px;color:var(--ink-3);font-weight:500;margin-top:4px}
+  .section-label{font-family:'Geist Mono',monospace;font-size:11px;color:var(--ink-4);text-transform:uppercase;letter-spacing:.1em;margin:30px 0 14px;font-weight:500;display:flex;align-items:center;gap:10px}
+  .section-label .hi{font-family:'Noto Sans Devanagari',sans-serif;text-transform:none;letter-spacing:0;color:var(--ink-2);font-size:14px;font-weight:600}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:15px}
+  .tile{display:flex;flex-direction:column;gap:5px;padding:20px 20px 16px;background:var(--card);border:1px solid var(--line);border-radius:14px;
+    cursor:pointer;transition:transform .18s,border-color .18s,box-shadow .18s;min-height:108px;position:relative;overflow:hidden}
+  .tile::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--gold);opacity:0;transition:opacity .18s}
+  .tile:hover{transform:translateY(-3px);border-color:var(--gold);box-shadow:0 14px 32px -16px rgba(140,117,73,.28)}
+  .tile:hover::before{opacity:.75}
+  .tile__name{font-family:'Noto Sans Devanagari','Geist',sans-serif;font-size:17px;font-weight:600;color:var(--ink);letter-spacing:-.01em;line-height:1.25}
+  .tile__en{font-size:12.5px;color:var(--ink-3);font-weight:500}
+  .tile__meta{font-family:'Geist Mono',monospace;font-size:11px;color:var(--ink-4);margin-top:auto;padding-top:10px}
+  .foot{margin-top:40px;font-family:'Geist Mono',monospace;font-size:11px;color:var(--ink-4)}
+</style></head>
+<body>
+  <div class="topbar">
+    <a class="topbar__back" href="/">← हब</a>
+    <span class="topbar__crumb">draft · new · <span style="color:var(--gold-deep)">court-wise</span></span>
+  </div>
+  <main>
+    <div class="head">
+      <div class="head__eyebrow">NEW DRAFT</div>
+      <h1 class="head__title">What are you drafting?</h1>
+      <div class="head__title-hi">न्यायालय अनुसार प्रारूप चुनें</div>
+    </div>
+    <div id="courts"></div>
+    <div class="foot">10 प्रारूप · विष्णु जी की वास्तविक filings से अक्षरशः · reviewed: false</div>
+  </main>
+<script>
+const COURTS=[
+  {hi:"न्यायिक दण्डाधिकारी (JMFC)",en:"Judicial Magistrate First Class",items:[
+    {hi:"जमानत आवेदन",en:"Regular Bail",meta:"§480 BNSS · 437",type:"bail",court:"magistrate"},
+    {hi:"चेक बाउंस परिवाद",en:"Cheque Dishonour Complaint",meta:"§138 NI Act",type:"cheque"},
+    {hi:"उन्मोचन आवेदन",en:"Discharge",meta:"§262 / 239",type:"discharge",court:"magistrate"},
+    {hi:"घरेलू हिंसा आवेदन",en:"Domestic Violence",meta:"§12 PWDVA",type:"dv"},
+    {hi:"परिवाद पत्र",en:"Private Complaint",meta:"§223 / 200",type:"parivad"},
+  ]},
+  {hi:"सत्र न्यायालय",en:"Sessions Court",items:[
+    {hi:"जमानत आवेदन",en:"Regular Bail",meta:"§483 BNSS · 439",type:"bail",court:"sessions"},
+    {hi:"उन्मोचन आवेदन",en:"Discharge",meta:"§250 / 227",type:"discharge",court:"sessions"},
+    {hi:"पुनरीक्षण याचिका",en:"Criminal Revision",meta:"§438-442 · 397",type:"revision",court:"sessions"},
+    {hi:"दोषसिद्धि अपील",en:"Appeal against Conviction",meta:"§415 · 374",type:"appeal",court:"sessions"},
+  ]},
+  {hi:"उच्च न्यायालय",en:"High Court",items:[
+    {hi:"जमानत आवेदन",en:"Regular Bail (HC)",meta:"§483 BNSS · 439",type:"bail",court:"hc"},
+    {hi:"अग्रिम जमानत",en:"Anticipatory Bail",meta:"§482 · 438",type:"bail",court:"sessions",bail_type:"anticipatory"},
+    {hi:"अभिखण्डन याचिका",en:"Quashing",meta:"§528 · 482",type:"quashing"},
+    {hi:"पुनरीक्षण याचिका",en:"Criminal Revision",meta:"§438-442 · 397",type:"revision",court:"hc"},
+    {hi:"दोषसिद्धि अपील",en:"Appeal against Conviction",meta:"§415 · 374",type:"appeal",court:"hc"},
+  ]},
+  {hi:"कुटुम्ब न्यायालय",en:"Family Court",items:[
+    {hi:"भरण-पोषण आवेदन",en:"Maintenance",meta:"§144 · 125",type:"maintenance"},
+  ]},
+  {hi:"सामान्य प्रारूप",en:"General",items:[
+    {hi:"वकालतनामा",en:"Vakalatnama",meta:"प्राधिकार-पत्र",type:"vakalatnama"},
+  ]},
+];
+const root=document.getElementById("courts");
+COURTS.forEach(c=>{
+  const sl=document.createElement("div"); sl.className="section-label";
+  sl.innerHTML='<span class="hi">'+c.hi+'</span> · '+c.en;
+  root.appendChild(sl);
+  const g=document.createElement("div"); g.className="grid";
+  c.items.forEach(it=>{
+    const a=document.createElement("a"); a.className="tile";
+    const qp=[]; if(it.court)qp.push('court='+it.court); if(it.bail_type)qp.push('bail_type='+it.bail_type);
+    a.href='/draft/template/'+it.type+(qp.length?'?'+qp.join('&'):'');
+    a.innerHTML='<div class="tile__name">'+it.hi+'</div><div class="tile__en">'+it.en+'</div>'
+      +'<div class="tile__meta">'+it.meta+'</div>';
+    g.appendChild(a);
+  });
+  root.appendChild(g);
+});
+</script>
+</body></html>
