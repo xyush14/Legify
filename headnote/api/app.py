@@ -1433,6 +1433,16 @@ def draft_recovery_page():
     return FileResponse(config.STATIC_DIR / "draft-recovery.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
+@app.get("/draft/maintenance", include_in_schema=False)
+@app.get("/draft/maintenance/", include_in_schema=False)
+def draft_maintenance_page():
+    """Maintenance draft pack — §144 BNSS (§125 CrPC) petition + interim-maintenance
+    application + the mandatory Rajnesh v. Neha Affidavit of Assets & Liabilities.
+    Bilingual (EN/हिं), author-tier from the maintenance framework for advocate
+    review. Static page; placeholders fill client-side. Marked noindex until reviewed."""
+    return FileResponse(config.STATIC_DIR / "draft-maintenance.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
 @app.get("/draft/discharge", include_in_schema=False)
 @app.get("/draft/discharge/", include_in_schema=False)
 def draft_discharge_page():

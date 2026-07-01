@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" /><!-- unlisted share page until advocate-reviewed -->
+<title>Maintenance Petition (§125 CrPC / §144 BNSS) — Draft Pack · Headnote</title>
+<meta name="description" content="A fill-in draft pack for a maintenance petition under §125 CrPC / §144 BNSS (English + Hindi): petition, interim-maintenance application, and the mandatory Rajnesh v. Neha Affidavit of Assets & Liabilities. Author-tier — for advocate review." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Serif+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/static/style.css?v=20260523b" />
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+<style>
+  body { background: var(--bg); }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 0 20px 96px; }
+  body:not(.hi) .lang-hi { display: none; }
+  body.hi .lang-en { display: none; }
+
+  .rtop { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 12px;
+    padding: 12px 20px; margin: 0 -20px 0; background: rgba(250,250,249,0.86);
+    backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+  .rtop__brand img { height: 19px; width: auto; display: block; }
+  .rtop__tag { font-family: 'Geist Mono', monospace; font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--gold-ink); border: 1px solid var(--gold-line);
+    background: var(--gold-soft); padding: 3px 8px; border-radius: 100px; }
+  .rtop__spacer { flex: 1; }
+  .langtog { display: inline-flex; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .langtog__btn { font-size: 12px; font-weight: 600; padding: 6px 12px; background: var(--surface);
+    color: var(--ink-3); border: none; cursor: pointer; font-family: inherit; }
+  .langtog__btn + .langtog__btn { border-left: 1px solid var(--line); }
+  .langtog__btn.is-active { background: var(--ink); color: var(--surface); }
+  .rtop__btn { font-size: 13px; font-weight: 500; color: var(--ink-2); border: 1px solid var(--line);
+    background: var(--surface); padding: 7px 13px; border-radius: var(--radius); cursor: pointer;
+    transition: border-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease); }
+  .rtop__btn:hover { border-color: var(--gold); color: var(--ink); }
+  .rtop__btn--solid { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+
+  .rhead { padding: 40px 0 18px; }
+  .rhead__eyebrow { font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--gold-ink); margin-bottom: 10px; }
+  .rhead h1 { font-size: var(--t-2xl); font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+  .rhead p { color: var(--ink-2); font-size: var(--t-md); margin-top: 10px; max-width: 64ch; }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card); margin: 18px 0; }
+  .card__pad { padding: 22px 24px; }
+  .guide__title { font-weight: 600; font-size: var(--t-md); display: flex; align-items: center; gap: 9px; }
+  .guide__title .dot { width: 7px; height: 7px; border-radius: 2px; background: var(--gold); }
+
+  .callout { margin-top: 16px; border: 1px solid var(--gold-line); background: var(--gold-soft);
+    border-radius: var(--radius); padding: 13px 15px; font-size: var(--t-sm); color: var(--ink-2); line-height: 1.55; }
+  .callout b { color: var(--gold-ink); }
+
+  .keys { margin-top: 18px; border-top: 1px dashed var(--line); padding-top: 16px; }
+  .keys h5 { font-size: var(--t-xs); font-family: 'Geist Mono', monospace; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--ink-3); margin-bottom: 10px; }
+  body.hi .keys h5 { font-family: 'Noto Sans Devanagari', sans-serif; letter-spacing: 0; }
+  .keys ul { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 7px 22px; }
+  @media (max-width: 680px) { .keys ul { grid-template-columns: 1fr; } }
+  .keys li { font-size: var(--t-sm); color: var(--ink-2); padding-left: 16px; position: relative; line-height: 1.45; }
+  .keys li::before { content: '›'; position: absolute; left: 0; color: var(--gold); font-weight: 700; }
+  .keys b { color: var(--ink); font-weight: 600; }
+
+  .fill__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .fill__grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px 16px; margin-top: 16px; }
+  @media (max-width: 880px) { .fill__grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 560px) { .fill__grid { grid-template-columns: 1fr; } }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field.col-2 { grid-column: span 2; }
+  @media (max-width: 560px) { .field.col-2 { grid-column: span 1; } }
+  .field label { font-size: var(--t-xs); font-weight: 500; color: var(--ink-3);
+    font-family: 'Geist Mono', monospace; letter-spacing: .03em; }
+  body.hi .field label { font-family: 'Noto Sans Devanagari', sans-serif; }
+  .field input { font-family: inherit; font-size: var(--t-sm); color: var(--ink);
+    border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 10px;
+    background: var(--surface); width: 100%; transition: border-color var(--t-fast) var(--ease); }
+  .field input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-soft); }
+  .fill__actions { display: flex; gap: 9px; }
+  .linkbtn { background: none; border: none; cursor: pointer; font-size: 12.5px; color: var(--gold-ink);
+    font-weight: 600; padding: 4px 2px; }
+  .linkbtn:hover { color: var(--gold-deep); text-decoration: underline; }
+
+  .doc { margin: 26px 0; }
+  .doc__bar { display: flex; align-items: center; gap: 12px; padding: 11px 16px;
+    border: 1px solid var(--line); border-bottom: none; border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    background: var(--soft); }
+  .doc__no { font-family: 'Geist Mono', monospace; font-size: 11px; color: var(--gold-deep); font-weight: 500; }
+  .doc__name { font-weight: 600; font-size: var(--t-sm); flex: 1; letter-spacing: -.01em; }
+  .doc__copy { font-size: 12px; color: var(--ink-2); border: 1px solid var(--line); background: var(--surface);
+    padding: 5px 11px; border-radius: var(--radius); cursor: pointer; white-space: nowrap; }
+  .doc__copy:hover { border-color: var(--gold); color: var(--ink); }
+  .doc__copy.ok { color: var(--good); border-color: var(--good); }
+  .paper { border: 1px solid var(--line); border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    background: var(--surface); padding: 40px 46px; font-family: Georgia, 'Times New Roman', serif;
+    font-size: 14.5px; line-height: 1.85; color: #1a1a17; }
+  .paper.lang-hi { font-family: 'Noto Serif Devanagari', Georgia, serif; line-height: 1.95; }
+  @media (max-width: 600px) { .paper { padding: 26px 22px; } }
+  .paper .ctr { text-align: center; }
+  .paper .court { font-weight: 700; text-transform: uppercase; letter-spacing: .02em; font-size: 15px; }
+  .paper.lang-hi .court { text-transform: none; }
+  .paper .rule { border: none; border-top: 1px solid #d8d4c8; margin: 14px 0; }
+  .paper .vs { text-align: center; font-style: italic; margin: 4px 0; }
+  .paper .pno { display: inline-block; min-width: 1.7em; }
+  .paper p { margin: 0 0 12px; }
+  .paper .tight { margin-bottom: 4px; }
+  .paper .sig { margin-top: 26px; text-align: right; }
+  .paper h3 { font-size: 14.5px; font-weight: 700; text-align: center; margin: 18px 0 12px;
+    text-transform: uppercase; letter-spacing: .03em; }
+  .paper.lang-hi h3 { text-transform: none; }
+  .paper ol.prayer { margin: 0 0 12px 0; padding-left: 30px; }
+  .paper ol.prayer li { margin-bottom: 8px; }
+  .paper .afl { margin: 0 0 6px; }
+  .paper .afl b { display: inline-block; min-width: 1.7em; }
+
+  .ph { background: var(--gold-soft); border-bottom: 1.5px solid var(--gold); padding: 0 3px;
+    border-radius: 3px 3px 0 0; color: var(--gold-ink); font-style: normal; }
+  .ph--filled { background: transparent; border-bottom: none; color: inherit; font-weight: 600; }
+
+  .notes { margin-top: 2px; }
+  .notes summary { cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--ink-2);
+    padding: 10px 16px; border: 1px solid var(--line); border-top: none;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg); background: var(--bg); list-style: none; }
+  .notes summary::-webkit-details-marker { display: none; }
+  .notes summary::before { content: '+ '; color: var(--gold-deep); font-weight: 700; }
+  .notes[open] summary::before { content: '– '; }
+  .notes[open] summary { border-radius: 0; }
+  .notes__body { border: 1px solid var(--line); border-top: none; padding: 16px 18px;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg); font-size: 13px; color: var(--ink-2); line-height: 1.6; }
+  .notes__body li { margin-bottom: 8px; margin-left: 18px; }
+  .notes__body b { color: var(--ink); }
+
+  .rfoot { margin-top: 36px; padding: 18px 0 0; border-top: 1px solid var(--line);
+    font-size: 12px; color: var(--ink-3); line-height: 1.6; }
+  .rfoot b { color: var(--ink-2); }
+
+  @media print {
+    .rtop, .fillcard, .guidecard, .notes, .doc__copy, .rhead__eyebrow { display: none !important; }
+    .paper { border: none; padding: 0; }
+    .doc__bar { background: none; border: none; padding: 0 0 6px; }
+    .card, .doc { box-shadow: none; }
+  }
+</style>
+</head>
+<body class="draft-maintenance">
+
+<header class="rtop">
+  <a class="rtop__brand" href="/" aria-label="Headnote home"><img src="/static/headnote-logo.svg" alt="headnote" /></a>
+  <span class="rtop__tag">Personal Assist · Draft</span>
+  <span class="rtop__spacer"></span>
+  <div class="langtog" role="group" aria-label="Language">
+    <button class="langtog__btn is-active" data-lang="en">EN</button>
+    <button class="langtog__btn" data-lang="hi">हिं</button>
+  </div>
+  <button class="rtop__btn" id="btn-print"><span class="lang-en">Print / PDF</span><span class="lang-hi">प्रिंट / PDF</span></button>
+  <button class="rtop__btn rtop__btn--solid" id="btn-copyall"><span class="lang-en">Copy all</span><span class="lang-hi">सब कॉपी</span></button>
+</header>
+
+<div class="wrap">
+
+  <div class="rhead">
+    <div class="rhead__eyebrow"><span class="lang-en">Family · Maintenance · §144 BNSS (§125 CrPC)</span><span class="lang-hi">कुटुम्ब · भरण-पोषण · धारा 144 बी.एन.एस.एस. (125 दं.प्र.सं.)</span></div>
+    <h1><span class="lang-en">Maintenance Petition — Draft Pack</span><span class="lang-hi">भरण-पोषण आवेदन — ड्राफ्ट पैक</span></h1>
+    <p>
+      <span class="lang-en">A ready-to-file pack for a wife/children maintenance claim under <b>§144 BNSS (§125 CrPC)</b>:
+        the <b>petition</b>, an <b>interim-maintenance application</b>, and the <b>Rajnesh v. Neha Affidavit of
+        Assets &amp; Liabilities</b> (mandatory). Fill the details once — every blank updates across all three.</span>
+      <span class="lang-hi"><b>धारा 144 बी.एन.एस.एस. (125 दं.प्र.सं.)</b> के अंतर्गत पत्नी/संतान के भरण-पोषण हेतु दाखिल करने योग्य पैक:
+        <b>आवेदन-पत्र</b>, <b>अंतरिम भरण-पोषण आवेदन</b>, तथा <b>राजनेश बनाम नेहा की सम्पत्ति एवं देयता का शपथ-पत्र</b>
+        (अनिवार्य)। विवरण एक बार भरें — तीनों दस्तावेज़ों में सभी रिक्त स्थान स्वतः भर जाएँगे।</span>
+    </p>
+  </div>
+
+  <!-- GUIDANCE -->
+  <section class="card guidecard">
+    <div class="card__pad">
+      <div class="guide__title"><span class="dot"></span>
+        <span class="lang-en">Before you fill — the must-haves</span>
+        <span class="lang-hi">भरने से पहले — अनिवार्य बातें</span>
+      </div>
+
+      <div class="callout">
+        <span class="lang-en"><b>Rajnesh v. Neha, (2021) 2 SCC 324 is mandatory nationwide.</b> Every maintenance
+          petition must be accompanied by the <b>Affidavit of Assets &amp; Liabilities</b> (Doc 3); maintenance is
+          awarded <b>from the date of application</b> (Bhuwan Mohan Singh v. Meena); and any earlier maintenance
+          proceeding/amount must be <b>disclosed and set off</b>.</span>
+        <span class="lang-hi"><b>राजनेश बनाम नेहा, (2021) 2 SCC 324 पूरे देश में अनिवार्य है।</b> प्रत्येक भरण-पोषण आवेदन के साथ
+          <b>सम्पत्ति एवं देयता का शपथ-पत्र</b> (दस्तावेज़ 3) संलग्न होना चाहिए; भरण-पोषण <b>आवेदन दिनांक से</b> दिया जाता है
+          (भुवन मोहन सिंह बनाम मीना); तथा किसी पूर्व भरण-पोषण कार्यवाही/राशि का <b>प्रकटन एवं समायोजन</b> आवश्यक है।</span>
+      </div>
+
+      <div class="keys">
+        <h5><span class="lang-en">Forum &amp; facts to collect</span><span class="lang-hi">फोरम व एकत्र करने योग्य तथ्य</span></h5>
+        <ul class="lang-en">
+          <li><b>Forum</b> — Family Court where constituted; else Judicial Magistrate First Class.</li>
+          <li><b>Marriage</b> — date, place, rites (and proof).</li>
+          <li><b>Children</b> — names, ages, who has custody.</li>
+          <li><b>Neglect/desertion</b> — the cruelty/desertion narrative with dates.</li>
+          <li><b>Husband's means</b> — occupation, income, properties.</li>
+          <li><b>Wife's position</b> — no/insufficient means to maintain herself.</li>
+        </ul>
+        <ul class="lang-hi">
+          <li><b>फोरम</b> — जहाँ कुटुम्ब न्यायालय गठित है वहाँ; अन्यथा न्यायिक दण्डाधिकारी प्रथम श्रेणी।</li>
+          <li><b>विवाह</b> — तिथि, स्थान, रीति (एवं प्रमाण)।</li>
+          <li><b>संतान</b> — नाम, आयु, किसके पास संरक्षण।</li>
+          <li><b>उपेक्षा/परित्याग</b> — क्रूरता/परित्याग का विवरण तिथियों सहित।</li>
+          <li><b>पति के साधन</b> — व्यवसाय, आय, सम्पत्ति।</li>
+          <li><b>पत्नी की स्थिति</b> — स्वयं के भरण-पोषण हेतु साधन नहीं/अपर्याप्त।</li>
+        </ul>
+      </div>
+
+      <div class="keys">
+        <h5><span class="lang-en">Companions in this pack &amp; authorities</span><span class="lang-hi">इस पैक के सह-दस्तावेज़ व न्याय-दृष्टांत</span></h5>
+        <ul class="lang-en">
+          <li><b>Doc 2</b> — interim-maintenance application (pending disposal).</li>
+          <li><b>Doc 3</b> — Rajnesh Affidavit of Assets &amp; Liabilities (annex the full prescribed format).</li>
+          <li><b>Rajnesh v. Neha</b>, (2021) 2 SCC 324 — affidavit + from-date-of-application (mandatory).</li>
+          <li><b>Chaturbhuj v. Sita Bai</b>, (2008) 2 SCC 316 — "unable to maintain herself" ≠ destitute.</li>
+          <li><b>Bhuwan Mohan Singh v. Meena</b>, (2015) 6 SCC 353 — maintenance from date of application.</li>
+          <li>Also file: §13 Family Courts Act representation app (Family Court).</li>
+        </ul>
+        <ul class="lang-hi">
+          <li><b>दस्तावेज़ 2</b> — अंतरिम भरण-पोषण आवेदन (निस्तारण तक)।</li>
+          <li><b>दस्तावेज़ 3</b> — राजनेश सम्पत्ति/देयता शपथ-पत्र (पूर्ण निर्धारित प्रारूप संलग्न करें)।</li>
+          <li><b>राजनेश बनाम नेहा</b>, (2021) 2 SCC 324 — शपथ-पत्र + आवेदन दिनांक से (अनिवार्य)।</li>
+          <li><b>चतुर्भुज बनाम सीता बाई</b>, (2008) 2 SCC 316 — "स्वयं का भरण-पोषण करने में असमर्थ" = निराश्रित होना आवश्यक नहीं।</li>
+          <li><b>भुवन मोहन सिंह बनाम मीना</b>, (2015) 6 SCC 353 — भरण-पोषण आवेदन दिनांक से।</li>
+          <li>साथ में: धारा 13 कुटुम्ब न्यायालय अधिनियम प्रतिनिधित्व आवेदन।</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- FILL PANEL -->
+  <section class="card fillcard">
+    <div class="card__pad">
+      <div class="fill__head">
+        <div class="guide__title"><span class="dot"></span>
+          <span class="lang-en">Fill the details</span><span class="lang-hi">विवरण भरें</span>
+        </div>
+        <div class="fill__actions">
+          <button class="linkbtn" id="btn-sample"><span class="lang-en">Load sample</span><span class="lang-hi">नमूना भरें</span></button>
+          <button class="linkbtn" id="btn-reset"><span class="lang-en">Clear</span><span class="lang-hi">साफ़ करें</span></button>
+        </div>
+      </div>
+      <div class="fill__grid">
+        <div class="field col-2"><label><span class="lang-en">Court</span><span class="lang-hi">न्यायालय</span></label><input data-f="court" placeholder="Family Court / JMFC, ____" /></div>
+        <div class="field"><label><span class="lang-en">Case no. / year</span><span class="lang-hi">प्रकरण क्रमांक / वर्ष</span></label><input data-f="case" placeholder="____ of 20__" /></div>
+        <div class="field col-2"><label><span class="lang-en">Petitioner (wife) — name &amp; description</span><span class="lang-hi">आवेदिका (पत्नी) — नाम व विवरण</span></label><input data-f="wife" placeholder="Name, W/o ____, age, occupation, r/o ____" /></div>
+        <div class="field col-2"><label><span class="lang-en">Respondent (husband) — name &amp; description</span><span class="lang-hi">अनावेदक (पति) — नाम व विवरण</span></label><input data-f="husband" placeholder="Name, S/o ____, age, occupation, r/o ____" /></div>
+        <div class="field"><label><span class="lang-en">Date of marriage</span><span class="lang-hi">विवाह की तिथि</span></label><input data-f="marrydate" placeholder="15.05.2018" /></div>
+        <div class="field"><label><span class="lang-en">Place of marriage</span><span class="lang-hi">विवाह का स्थान</span></label><input data-f="marryplace" placeholder="____" /></div>
+        <div class="field"><label><span class="lang-en">Children (names, ages) — optional</span><span class="lang-hi">संतान (नाम, आयु) — वैकल्पिक</span></label><input data-f="children" placeholder="____" /></div>
+        <div class="field col-2"><label><span class="lang-en">Neglect / desertion — brief facts</span><span class="lang-hi">उपेक्षा / परित्याग — संक्षिप्त तथ्य</span></label><input data-f="neglect" placeholder="dowry demand, cruelty, driven out on ____ ..." /></div>
+        <div class="field"><label><span class="lang-en">Husband's occupation</span><span class="lang-hi">पति का व्यवसाय</span></label><input data-f="occupation" placeholder="business / service ____" /></div>
+        <div class="field"><label><span class="lang-en">Husband's monthly income (₹)</span><span class="lang-hi">पति की मासिक आय (₹)</span></label><input data-f="income" placeholder="60,000" /></div>
+        <div class="field"><label><span class="lang-en">Maintenance claimed (₹/month)</span><span class="lang-hi">माँगा गया भरण-पोषण (₹/माह)</span></label><input data-f="amount" placeholder="25,000" /></div>
+        <div class="field"><label><span class="lang-en">Interim claimed (₹/month)</span><span class="lang-hi">अंतरिम माँग (₹/माह)</span></label><input data-f="interim" placeholder="15,000" /></div>
+        <div class="field"><label><span class="lang-en">Place (residence / jurisdiction)</span><span class="lang-hi">स्थान (निवास / क्षेत्राधिकार)</span></label><input data-f="place" placeholder="____" /></div>
+        <div class="field col-2"><label><span class="lang-en">Advocate — name &amp; enrolment</span><span class="lang-hi">अधिवक्ता — नाम व नामांकन</span></label><input data-f="advocate" placeholder="____, Advocate (Enrl. No. ____)" /></div>
+        <div class="field"><label><span class="lang-en">Date of draft</span><span class="lang-hi">ड्राफ्ट की तिथि</span></label><input data-f="draftdate" placeholder="DD.MM.YYYY" /></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DOC 1 — MAINTENANCE PETITION -->
+  <section class="doc" id="doc-pet">
+    <div class="doc__bar">
+      <span class="doc__no">DOC 1</span>
+      <span class="doc__name"><span class="lang-en">Maintenance Petition — §144 BNSS (§125 CrPC)</span><span class="lang-hi">भरण-पोषण आवेदन — धारा 144 बी.एन.एस.एस. (125 दं.प्र.सं.)</span></span>
+      <button class="doc__copy" data-copy="pet"><span class="lang-en">Copy</span><span class="lang-hi">कॉपी</span></button>
+    </div>
+
+    <!-- EN -->
+    <div class="paper lang-en" id="pet-body-en">
+      <p class="ctr court">BEFORE THE <span class="ph" data-f="court" data-ph="[COURT]">[COURT]</span></p>
+      <p class="ctr">Criminal Misc. Case No. <span class="ph" data-f="case" data-ph="[___ of 20__]">[___ of 20__]</span></p>
+      <p class="ctr">Application under Section 144 BNSS, 2023 (Section 125 CrPC, 1973)</p>
+      <hr class="rule" />
+      <p class="tight"><span class="ph" data-f="wife" data-ph="[Petitioner — wife, W/o, age, occupation, address]">[Petitioner — wife, W/o, age, occupation, address]</span> &nbsp;… <b>Petitioner</b></p>
+      <p class="vs">VERSUS</p>
+      <p class="tight"><span class="ph" data-f="husband" data-ph="[Respondent — husband, S/o, age, occupation, address]">[Respondent — husband, S/o, age, occupation, address]</span> &nbsp;… <b>Respondent</b></p>
+      <hr class="rule" />
+      <p class="ctr"><b>APPLICATION FOR MAINTENANCE UNDER SECTION 144 BNSS (SECTION 125 CrPC)</b></p>
+      <p><b>The Petitioner most respectfully submits as under:—</b></p>
+      <p><span class="pno">1.</span> That the Petitioner is the legally wedded wife of the Respondent, the marriage having been solemnised on <span class="ph" data-f="marrydate" data-ph="[date]">[date]</span> at <span class="ph" data-f="marryplace" data-ph="[place]">[place]</span> according to Hindu rites and customs.</p>
+      <p><span class="pno">2.</span> That out of the said wedlock <span class="ph" data-f="children" data-ph="[children — names, ages]">[children — names, ages]</span> were born and are in the care of the Petitioner. <i>(Delete if none.)</i></p>
+      <p><span class="pno">3.</span> That <span class="ph" data-f="neglect" data-ph="[neglect / cruelty / desertion — brief facts with dates]">[neglect / cruelty / desertion — brief facts with dates]</span>, as a result of which the Petitioner was compelled to live separately from the Respondent.</p>
+      <p><span class="pno">4.</span> That the Respondent has <b>neglected and refused to maintain</b> the Petitioner and has left her without any means of subsistence.</p>
+      <p><span class="pno">5.</span> That the Petitioner <b>has no sufficient means to maintain herself</b>, whereas the Respondent is <span class="ph" data-f="occupation" data-ph="[occupation]">[occupation]</span> earning approximately ₹<span class="ph" data-f="income" data-ph="[income]">[income]</span> per month and is fully capable of maintaining the Petitioner.</p>
+      <p><span class="pno">6.</span> That the Petitioner requires ₹<span class="ph" data-f="amount" data-ph="[amount]">[amount]</span> per month for her maintenance, which is just and reasonable having regard to the Respondent's income and the status and standard of living of the parties.</p>
+      <p><span class="pno">7.</span> That [no other maintenance proceeding is pending or has been decided between the parties / the following earlier proceeding is disclosed: ____]. <i>(Rajnesh v. Neha disclosure — set off any amount already awarded.)</i></p>
+      <p><span class="pno">8.</span> That the Petitioner resides at <span class="ph" data-f="place" data-ph="[place]">[place]</span>, within the territorial jurisdiction of this Hon'ble Court, which is competent to try this application.</p>
+      <p><span class="pno">9.</span> That the Affidavit of Assets and Liabilities in the format prescribed in Rajnesh v. Neha is filed herewith.</p>
+
+      <h3>Prayer</h3>
+      <p>It is therefore most respectfully prayed that this Hon'ble Court may be pleased to:—</p>
+      <ol class="prayer">
+        <li>direct the Respondent to pay maintenance to the Petitioner @ ₹<span class="ph" data-f="amount" data-ph="[amount]">[amount]</span> per month <b>from the date of this application</b>;</li>
+        <li>award the costs of the proceeding to the Petitioner; and</li>
+        <li>grant any other relief this Hon'ble Court deems fit in the interest of justice.</li>
+      </ol>
+      <p class="sig">Place: <span class="ph" data-f="place" data-ph="[place]">[place]</span> &nbsp;&nbsp; Date: <span class="ph" data-f="draftdate" data-ph="[date]">[date]</span><br /><br />
+        &nbsp;<br /><b>PETITIONER</b><br />Through — <span class="ph" data-f="advocate" data-ph="[Advocate]">[Advocate]</span></p>
+
+      <h3>Verification</h3>
+      <p>Verified at <span class="ph" data-f="place" data-ph="[place]">[place]</span> on <span class="ph" data-f="draftdate" data-ph="[date]">[date]</span> that the contents of paras 1 to 9 are true to my personal knowledge and belief, and nothing material has been concealed.</p>
+      <p class="sig">_______________________<br /><b>PETITIONER</b></p>
+    </div>
+
+    <!-- HI -->
+    <div class="paper lang-hi" id="pet-body-hi">
+      <p class="ctr court">न्यायालय श्रीमान् <span class="ph" data-f="court" data-ph="[न्यायालय]">[न्यायालय]</span> के समक्ष</p>
+      <p class="ctr">आपराधिक विविध प्रकरण क्रमांक <span class="ph" data-f="case" data-ph="[___ वर्ष 20__]">[___ वर्ष 20__]</span></p>
+      <p class="ctr">आवेदन अंतर्गत धारा 144 बी.एन.एस.एस., 2023 (धारा 125 दं.प्र.सं., 1973)</p>
+      <hr class="rule" />
+      <p class="tight"><span class="ph" data-f="wife" data-ph="[आवेदिका — पत्नी, पत्नी श्री ____, आयु, व्यवसाय, पता]">[आवेदिका — पत्नी, पत्नी श्री ____, आयु, व्यवसाय, पता]</span> &nbsp;… <b>आवेदिका</b></p>
+      <p class="vs">बनाम</p>
+      <p class="tight"><span class="ph" data-f="husband" data-ph="[अनावेदक — पति, पुत्र श्री ____, आयु, व्यवसाय, पता]">[अनावेदक — पति, पुत्र श्री ____, आयु, व्यवसाय, पता]</span> &nbsp;… <b>अनावेदक</b></p>
+      <hr class="rule" />
+      <p class="ctr"><b>धारा 144 बी.एन.एस.एस. (धारा 125 दं.प्र.सं.) के अंतर्गत भरण-पोषण हेतु आवेदन</b></p>
+      <p><b>आवेदिका सविनय निवेदन करती है:—</b></p>
+      <p><span class="pno">1.</span> यह कि आवेदिका अनावेदक की विधिवत विवाहिता पत्नी है, विवाह दिनांक <span class="ph" data-f="marrydate" data-ph="[तिथि]">[तिथि]</span> को <span class="ph" data-f="marryplace" data-ph="[स्थान]">[स्थान]</span> में हिन्दू रीति-रिवाज से सम्पन्न हुआ।</p>
+      <p><span class="pno">2.</span> यह कि उक्त विवाह से <span class="ph" data-f="children" data-ph="[संतान — नाम, आयु]">[संतान — नाम, आयु]</span> हुई/हुए, जो आवेदिका के संरक्षण में हैं। <i>(संतान न होने पर विलोपित करें।)</i></p>
+      <p><span class="pno">3.</span> यह कि <span class="ph" data-f="neglect" data-ph="[उपेक्षा / क्रूरता / परित्याग — संक्षिप्त तथ्य तिथियों सहित]">[उपेक्षा / क्रूरता / परित्याग — संक्षिप्त तथ्य तिथियों सहित]</span>, जिसके परिणामस्वरूप आवेदिका अनावेदक से पृथक रहने को विवश हुई।</p>
+      <p><span class="pno">4.</span> यह कि अनावेदक ने आवेदिका की <b>उपेक्षा की है तथा उसका भरण-पोषण करने से इनकार</b> कर दिया है, और उसे बिना किसी जीविका-साधन के छोड़ दिया है।</p>
+      <p><span class="pno">5.</span> यह कि आवेदिका के पास <b>स्वयं का भरण-पोषण करने हेतु पर्याप्त साधन नहीं</b> है, जबकि अनावेदक <span class="ph" data-f="occupation" data-ph="[व्यवसाय]">[व्यवसाय]</span> है तथा लगभग ₹<span class="ph" data-f="income" data-ph="[आय]">[आय]</span> प्रतिमाह अर्जित करता है और आवेदिका का भरण-पोषण करने में पूर्णतः सक्षम है।</p>
+      <p><span class="pno">6.</span> यह कि आवेदिका को अपने भरण-पोषण हेतु प्रतिमाह ₹<span class="ph" data-f="amount" data-ph="[राशि]">[राशि]</span> की आवश्यकता है, जो अनावेदक की आय तथा दोनों पक्षों के जीवन-स्तर को देखते हुए न्यायोचित है।</p>
+      <p><span class="pno">7.</span> यह कि [पक्षकारों के मध्य कोई अन्य भरण-पोषण कार्यवाही लंबित/निर्णीत नहीं है / निम्न पूर्व कार्यवाही प्रकट की जाती है: ____]। <i>(राजनेश बनाम नेहा प्रकटन — पूर्व-प्रदत्त राशि समायोजित करें।)</i></p>
+      <p><span class="pno">8.</span> यह कि आवेदिका <span class="ph" data-f="place" data-ph="[स्थान]">[स्थान]</span> में निवास करती है, जो इस माननीय न्यायालय के क्षेत्राधिकार में है, अतः यह न्यायालय आवेदन की सुनवाई हेतु सक्षम है।</p>
+      <p><span class="pno">9.</span> यह कि राजनेश बनाम नेहा में निर्धारित प्रारूप में सम्पत्ति एवं देयता का शपथ-पत्र साथ में प्रस्तुत है।</p>
+
+      <h3>प्रार्थना</h3>
+      <p>अतः सविनय प्रार्थना है कि यह माननीय न्यायालय कृपया:—</p>
+      <ol class="prayer">
+        <li>अनावेदक को आदेशित करे कि वह आवेदिका को <b>इस आवेदन की दिनांक से</b> प्रतिमाह ₹<span class="ph" data-f="amount" data-ph="[राशि]">[राशि]</span> भरण-पोषण अदा करे;</li>
+        <li>कार्यवाही का व्यय आवेदिका को दिलाए; तथा</li>
+        <li>न्यायहित में अन्य जो भी उचित अनुतोष हो, प्रदान करे।</li>
+      </ol>
+      <p class="sig">स्थान: <span class="ph" data-f="place" data-ph="[स्थान]">[स्थान]</span> &nbsp;&nbsp; दिनांक: <span class="ph" data-f="draftdate" data-ph="[तिथि]">[तिथि]</span><br /><br />
+        &nbsp;<br /><b>आवेदिका</b><br />द्वारा — <span class="ph" data-f="advocate" data-ph="[अधिवक्ता]">[अधिवक्ता]</span></p>
+
+      <h3>सत्यापन</h3>
+      <p>स्थान <span class="ph" data-f="place" data-ph="[स्थान]">[स्थान]</span>, दिनांक <span class="ph" data-f="draftdate" data-ph="[तिथि]">[तिथि]</span> को सत्यापित किया जाता है कि पैरा 1 से 9 की विषय-वस्तु मेरी व्यक्तिगत जानकारी एवं विश्वास के अनुसार सत्य है, तथा कोई तथ्य छिपाया नहीं गया है।</p>
+      <p class="sig">_______________________<br /><b>आवेदिका</b></p>
+    </div>
+
+    <details class="notes">
+      <summary><span class="lang-en">Notes for the advocate</span><span class="lang-hi">अधिवक्ता हेतु टिप्पणियाँ</span></summary>
+      <div class="notes__body lang-en">
+        <ul>
+          <li><b>From date of application:</b> the prayer says so — Bhuwan Mohan Singh v. Meena, (2015) 6 SCC 353 requires compelling reasons to award only from the date of order.</li>
+          <li><b>"Unable to maintain herself"</b> does not mean destitute — a wife earning some (insufficient) income can still claim: Chaturbhuj v. Sita Bai, (2008) 2 SCC 316.</li>
+          <li><b>Attach:</b> the Rajnesh Assets/Liabilities affidavit (Doc 3), marriage proof, and evidence of the Respondent's income; also file the interim application (Doc 2) and the §13 Family Courts Act representation application.</li>
+          <li><b>Section currency:</b> lead with §144 BNSS, keep §125 CrPC in brackets (matters filed/arising before 01.07.2024 remain under CrPC — check the date).</li>
+        </ul>
+      </div>
+      <div class="notes__body lang-hi">
+        <ul>
+          <li><b>आवेदन दिनांक से:</b> प्रार्थना में यही है — भुवन मोहन सिंह बनाम मीना, (2015) 6 SCC 353 के अनुसार केवल आदेश-दिनांक से देने हेतु ठोस कारण आवश्यक हैं।</li>
+          <li><b>"स्वयं का भरण-पोषण करने में असमर्थ"</b> का अर्थ निराश्रित होना नहीं — कुछ (अपर्याप्त) आय वाली पत्नी भी माँग सकती है: चतुर्भुज बनाम सीता बाई, (2008) 2 SCC 316।</li>
+          <li><b>संलग्न करें:</b> राजनेश सम्पत्ति/देयता शपथ-पत्र (दस्तावेज़ 3), विवाह प्रमाण, तथा अनावेदक की आय का साक्ष्य; अंतरिम आवेदन (दस्तावेज़ 2) एवं धारा 13 कुटुम्ब न्यायालय अधिनियम प्रतिनिधित्व आवेदन भी दाखिल करें।</li>
+          <li><b>धारा की वर्तमानता:</b> §144 बी.एन.एस.एस. को प्रमुख रखें, §125 दं.प्र.सं. कोष्ठक में (01.07.2024 से पूर्व के मामले दं.प्र.सं. में — तिथि जाँचें)।</li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  <!-- DOC 2 — INTERIM MAINTENANCE -->
+  <section class="doc" id="doc-int">
+    <div class="doc__bar">
+      <span class="doc__no">DOC 2</span>
+      <span class="doc__name"><span class="lang-en">Interim Maintenance Application (pending disposal)</span><span class="lang-hi">अंतरिम भरण-पोषण आवेदन (निस्तारण तक)</span></span>
+      <button class="doc__copy" data-copy="int"><span class="lang-en">Copy</span><span class="lang-hi">कॉपी</span></button>
+    </div>
+    <div class="paper lang-en" id="int-body-en">
+      <p class="ctr court">BEFORE THE <span class="ph" data-f="court" data-ph="[COURT]">[COURT]</span></p>
+      <p class="ctr">In Crl. Misc. Case No. <span class="ph" data-f="case" data-ph="[___ of 20__]">[___ of 20__]</span> — <span class="ph" data-f="wife" data-ph="[Petitioner]">[Petitioner]</span> v. <span class="ph" data-f="husband" data-ph="[Respondent]">[Respondent]</span></p>
+      <p class="ctr"><b>APPLICATION FOR INTERIM MAINTENANCE</b></p>
+      <p>The Petitioner respectfully submits:—</p>
+      <p><span class="pno">1.</span> That the main petition for maintenance under Section 144 BNSS (Section 125 CrPC) is pending before this Hon'ble Court; the contents thereof are not repeated for brevity.</p>
+      <p><span class="pno">2.</span> That the Petitioner has no source of income and is unable to meet her day-to-day needs and the costs of this litigation during its pendency, whereas the Respondent earns approximately ₹<span class="ph" data-f="income" data-ph="[income]">[income]</span> per month.</p>
+      <p><span class="pno">3.</span> That interim maintenance may be granted on the strength of the Affidavit of Assets and Liabilities filed herewith, in terms of Rajnesh v. Neha, (2021) 2 SCC 324.</p>
+      <p><b>PRAYER:</b> It is prayed that the Respondent be directed to pay interim maintenance @ ₹<span class="ph" data-f="interim" data-ph="[interim]">[interim]</span> per month to the Petitioner during the pendency of the main petition, along with litigation expenses.</p>
+      <p class="sig">Date: <span class="ph" data-f="draftdate" data-ph="[date]">[date]</span> &nbsp;&nbsp; <b>PETITIONER</b> &nbsp; Through — <span class="ph" data-f="advocate" data-ph="[Advocate]">[Advocate]</span></p>
+    </div>
+    <div class="paper lang-hi" id="int-body-hi">
+      <p class="ctr court">न्यायालय श्रीमान् <span class="ph" data-f="court" data-ph="[न्यायालय]">[न्यायालय]</span> के समक्ष</p>
+      <p class="ctr">आपराधिक विविध प्रकरण क्रमांक <span class="ph" data-f="case" data-ph="[___ वर्ष 20__]">[___ वर्ष 20__]</span> में — <span class="ph" data-f="wife" data-ph="[आवेदिका]">[आवेदिका]</span> बनाम <span class="ph" data-f="husband" data-ph="[अनावेदक]">[अनावेदक]</span></p>
+      <p class="ctr"><b>अंतरिम भरण-पोषण हेतु आवेदन</b></p>
+      <p>आवेदिका सविनय निवेदन करती है:—</p>
+      <p><span class="pno">1.</span> यह कि धारा 144 बी.एन.एस.एस. (धारा 125 दं.प्र.सं.) के अंतर्गत मुख्य भरण-पोषण आवेदन इस माननीय न्यायालय के समक्ष विचाराधीन है; संक्षेप हेतु उसकी विषय-वस्तु पुनः नहीं दोहराई जा रही।</p>
+      <p><span class="pno">2.</span> यह कि आवेदिका के पास आय का कोई साधन नहीं है तथा वह प्रकरण के लंबित रहने के दौरान अपनी दैनिक आवश्यकताओं एवं वाद-व्यय की पूर्ति करने में असमर्थ है, जबकि अनावेदक लगभग ₹<span class="ph" data-f="income" data-ph="[आय]">[आय]</span> प्रतिमाह अर्जित करता है।</p>
+      <p><span class="pno">3.</span> यह कि राजनेश बनाम नेहा, (2021) 2 SCC 324 के अनुसार साथ प्रस्तुत सम्पत्ति एवं देयता के शपथ-पत्र के आधार पर अंतरिम भरण-पोषण स्वीकृत किया जा सकता है।</p>
+      <p><b>प्रार्थना:</b> प्रार्थना है कि अनावेदक को आदेशित किया जाए कि वह मुख्य आवेदन के लंबित रहने की अवधि में आवेदिका को प्रतिमाह ₹<span class="ph" data-f="interim" data-ph="[अंतरिम]">[अंतरिम]</span> अंतरिम भरण-पोषण एवं वाद-व्यय अदा करे।</p>
+      <p class="sig">दिनांक: <span class="ph" data-f="draftdate" data-ph="[तिथि]">[तिथि]</span> &nbsp;&nbsp; <b>आवेदिका</b> &nbsp; द्वारा — <span class="ph" data-f="advocate" data-ph="[अधिवक्ता]">[अधिवक्ता]</span></p>
+    </div>
+  </section>
+
+  <!-- DOC 3 — RAJNESH AFFIDAVIT -->
+  <section class="doc" id="doc-aff">
+    <div class="doc__bar">
+      <span class="doc__no">DOC 3</span>
+      <span class="doc__name"><span class="lang-en">Affidavit of Assets &amp; Liabilities (Rajnesh v. Neha) — mandatory</span><span class="lang-hi">सम्पत्ति एवं देयता का शपथ-पत्र (राजनेश बनाम नेहा) — अनिवार्य</span></span>
+      <button class="doc__copy" data-copy="aff"><span class="lang-en">Copy</span><span class="lang-hi">कॉपी</span></button>
+    </div>
+    <div class="paper lang-en" id="aff-body-en">
+      <p class="ctr court">BEFORE THE <span class="ph" data-f="court" data-ph="[COURT]">[COURT]</span></p>
+      <p class="ctr"><b>AFFIDAVIT OF ASSETS AND LIABILITIES</b><br />(as mandated by Rajnesh v. Neha, (2021) 2 SCC 324)</p>
+      <p>I, <span class="ph" data-f="wife" data-ph="[deponent — Petitioner]">[deponent — Petitioner]</span>, do solemnly affirm and state on oath:</p>
+      <p class="afl"><b>A.</b> Personal — name, age, qualifications, and present employment/occupation: ____</p>
+      <p class="afl"><b>B.</b> Dependants and persons for whose maintenance I am responsible: ____</p>
+      <p class="afl"><b>C.</b> Monthly income from all sources (salary / business / other): ₹____</p>
+      <p class="afl"><b>D.</b> Immovable and movable assets (with approx. value): ____</p>
+      <p class="afl"><b>E.</b> Liabilities / loans / EMIs: ____</p>
+      <p class="afl"><b>F.</b> Monthly expenses and standard of living during cohabitation: ₹____</p>
+      <p style="font-size:13px;color:#555;">The full prescribed format (Enclosures I–II to Rajnesh v. Neha, as applicable to salaried / self-employed / non-earning parties) must be completed and annexed. The above is the head-wise skeleton only.</p>
+      <p class="sig">_______________________<br /><b>DEPONENT</b></p>
+      <p style="font-size:13px;color:#555;">Solemnly affirmed before me / Notary at <span class="ph" data-f="place" data-ph="[place]">[place]</span> on <span class="ph" data-f="draftdate" data-ph="[date]">[date]</span>.</p>
+    </div>
+    <div class="paper lang-hi" id="aff-body-hi">
+      <p class="ctr court">न्यायालय श्रीमान् <span class="ph" data-f="court" data-ph="[न्यायालय]">[न्यायालय]</span> के समक्ष</p>
+      <p class="ctr"><b>सम्पत्ति एवं देयता का शपथ-पत्र</b><br />(राजनेश बनाम नेहा, (2021) 2 SCC 324 द्वारा अनिवार्य)</p>
+      <p>मैं, <span class="ph" data-f="wife" data-ph="[शपथकर्ता — आवेदिका]">[शपथकर्ता — आवेदिका]</span>, सत्यनिष्ठा से शपथपूर्वक कथन करती हूँ:</p>
+      <p class="afl"><b>क.</b> व्यक्तिगत — नाम, आयु, योग्यता, तथा वर्तमान नौकरी/व्यवसाय: ____</p>
+      <p class="afl"><b>ख.</b> आश्रित तथा वे व्यक्ति जिनके भरण-पोषण का दायित्व मुझ पर है: ____</p>
+      <p class="afl"><b>ग.</b> समस्त स्रोतों से मासिक आय (वेतन / व्यवसाय / अन्य): ₹____</p>
+      <p class="afl"><b>घ.</b> अचल एवं चल सम्पत्ति (अनुमानित मूल्य सहित): ____</p>
+      <p class="afl"><b>ङ.</b> देयताएँ / ऋण / किश्तें: ____</p>
+      <p class="afl"><b>च.</b> मासिक व्यय तथा सहवास के दौरान जीवन-स्तर: ₹____</p>
+      <p style="font-size:13px;color:#555;">राजनेश बनाम नेहा के पूर्ण निर्धारित प्रारूप (संलग्नक I–II, वेतनभोगी / स्व-नियोजित / अनार्जक पक्ष अनुसार) को पूर्ण कर संलग्न करना आवश्यक है। उपर्युक्त केवल शीर्ष-वार ढाँचा है।</p>
+      <p class="sig">_______________________<br /><b>शपथकर्ता</b></p>
+      <p style="font-size:13px;color:#555;">मेरे समक्ष / नोटरी के समक्ष स्थान <span class="ph" data-f="place" data-ph="[स्थान]">[स्थान]</span> दिनांक <span class="ph" data-f="draftdate" data-ph="[तिथि]">[तिथि]</span> को शपथपूर्वक सत्यापित।</p>
+    </div>
+  </section>
+
+  <p class="rfoot">
+    <span class="lang-en"><b>Author-tier draft, generated by Headnote for advocate review — not legal advice.</b>
+      Grounds and structure are from Headnote's maintenance framework (Rajnesh v. Neha compliant); settle to the
+      client's facts, complete the full Rajnesh affidavit format, and confirm the forum and section currency
+      (§144 BNSS vs §125 CrPC by date) before filing. The Hindi text is a working translation — read it against
+      the English.</span>
+    <span class="lang-hi"><b>लेखक-स्तरीय ड्राफ्ट, Headnote द्वारा अधिवक्ता-समीक्षा हेतु तैयार — विधिक सलाह नहीं।</b>
+      आधार एवं ढाँचा Headnote के भरण-पोषण फ्रेमवर्क से हैं (राजनेश बनाम नेहा के अनुरूप); मुवक्किल के तथ्यों अनुसार अंतिम रूप दें,
+      राजनेश शपथ-पत्र का पूर्ण प्रारूप भरें, तथा दाखिल करने से पूर्व फोरम एवं धारा-वर्तमानता (§144 बी.एन.एस.एस. बनाम §125 दं.प्र.सं., तिथि अनुसार)
+      की पुष्टि करें। हिंदी पाठ एक कार्यकारी अनुवाद है — अंग्रेज़ी से मिलान करें।</span>
+  </p>
+
+</div>
+
+<script>
+(function () {
+  var langBtns = document.querySelectorAll('.langtog__btn');
+  function curLang() { return document.body.classList.contains('hi') ? 'hi' : 'en'; }
+  function setLang(l) {
+    document.body.classList.toggle('hi', l === 'hi');
+    document.documentElement.lang = l;
+    langBtns.forEach(function (b) { b.classList.toggle('is-active', b.dataset.lang === l); });
+  }
+  langBtns.forEach(function (b) { b.addEventListener('click', function () { setLang(b.dataset.lang); }); });
+
+  function apply(key, val) {
+    document.querySelectorAll('.ph[data-f="' + key + '"]').forEach(function (el) {
+      var d = el.getAttribute('data-ph') || '';
+      if (val && val.trim()) { el.textContent = val; el.classList.add('ph--filled'); }
+      else { el.textContent = d; el.classList.remove('ph--filled'); }
+    });
+  }
+  var inputs = document.querySelectorAll('.field input[data-f]');
+  inputs.forEach(function (inp) { inp.addEventListener('input', function () { apply(inp.getAttribute('data-f'), inp.value); }); });
+
+  function setAll(map) {
+    inputs.forEach(function (inp) {
+      var k = inp.getAttribute('data-f');
+      inp.value = map && map[k] != null ? map[k] : '';
+      apply(k, inp.value);
+    });
+  }
+  document.getElementById('btn-reset').addEventListener('click', function () { setAll(null); inputs[0] && inputs[0].focus(); });
+  document.getElementById('btn-sample').addEventListener('click', function () {
+    setAll({
+      court: 'Family Court, Bhopal',
+      case: '____ of 2026',
+      wife: 'Smt. Sunita Verma, W/o Shri Rakesh Verma, aged 31 years, occupation household, r/o 22 Kolar Road, Bhopal',
+      husband: 'Shri Rakesh Verma, S/o Shri Mohan Verma, aged 36 years, occupation business, r/o 8 Arera Colony, Bhopal',
+      marrydate: '15.05.2018',
+      marryplace: 'Bhopal',
+      children: 'one daughter, aged 4 years',
+      neglect: 'the Respondent and his family harassed the Petitioner for dowry and drove her out of the matrimonial home on 10.01.2025',
+      occupation: 'a businessman',
+      income: '60,000',
+      amount: '25,000',
+      interim: '15,000',
+      place: 'Bhopal',
+      advocate: '____, Advocate (Enrl. No. ____)',
+      draftdate: '28.06.2026'
+    });
+  });
+
+  function copyText(el, btn) {
+    if (!el) return;
+    var t = el.innerText.replace(/\n{3,}/g, '\n\n').trim();
+    navigator.clipboard.writeText(t).then(function () {
+      btn.textContent = '✓'; btn.classList.add('ok');
+      setTimeout(function () { btn.innerHTML = '<span class="lang-en">Copy</span><span class="lang-hi">कॉपी</span>'; btn.classList.remove('ok'); }, 1500);
+    });
+  }
+  document.querySelectorAll('.doc__copy').forEach(function (btn) {
+    btn.addEventListener('click', function () { copyText(document.getElementById(btn.getAttribute('data-copy') + '-body-' + curLang()), btn); });
+  });
+  document.getElementById('btn-copyall').addEventListener('click', function () {
+    var l = curLang();
+    var parts = ['pet', 'int', 'aff'].map(function (id) { var e = document.getElementById(id + '-body-' + l); return e ? e.innerText : ''; });
+    navigator.clipboard.writeText(parts.join('\n\n\n— — — — —\n\n\n').trim());
+    var b = document.getElementById('btn-copyall'); var o = b.innerHTML; b.textContent = '✓';
+    setTimeout(function () { b.innerHTML = o; }, 1500);
+  });
+  document.getElementById('btn-print').addEventListener('click', function () { window.print(); });
+})();
+</script>
+</body>
+</html>
