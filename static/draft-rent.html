@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" /><!-- unlisted share page until advocate-reviewed -->
+<title>Rent Agreement (Lease Deed) — Fill-in Draft · Headnote</title>
+<meta name="description" content="A fill-in rent agreement / lease deed (English + Hindi): parties, premises, rent, term, security and the standard tenancy covenants. Fill the details once and every blank updates. Author-tier — for review before signing." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Serif+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/static/style.css?v=20260523b" />
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+<style>
+  body { background: var(--bg); }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 0 20px 96px; }
+  body:not(.hi) .lang-hi { display: none; }
+  body.hi .lang-en { display: none; }
+
+  .rtop { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 12px;
+    padding: 12px 20px; margin: 0 -20px 0; background: rgba(250,250,249,0.86);
+    backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+  .rtop__brand img { height: 19px; width: auto; display: block; }
+  .rtop__tag { font-family: 'Geist Mono', monospace; font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--gold-ink); border: 1px solid var(--gold-line);
+    background: var(--gold-soft); padding: 3px 8px; border-radius: 100px; }
+  .rtop__spacer { flex: 1; }
+  .langlabel { font-family: 'Geist Mono', monospace; font-size: 10px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--ink-3); }
+  @media (max-width: 720px) { .langlabel { display: none; } }
+  .langtog { display: inline-flex; border: 1.5px solid var(--gold); border-radius: var(--radius); overflow: hidden; }
+  .langtog__btn { font-size: 13px; font-weight: 600; padding: 7px 15px; background: var(--surface);
+    color: var(--ink-2); border: none; cursor: pointer;
+    font-family: 'Geist', 'Noto Sans Devanagari', sans-serif; }
+  .langtog__btn + .langtog__btn { border-left: 1px solid var(--gold-line); }
+  .langtog__btn.is-active { background: var(--gold); color: #1a1204; }
+  .rtop__btn { font-size: 13px; font-weight: 500; color: var(--ink-2); border: 1px solid var(--line);
+    background: var(--surface); padding: 7px 13px; border-radius: var(--radius); cursor: pointer;
+    transition: border-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease); }
+  .rtop__btn:hover { border-color: var(--gold); color: var(--ink); }
+  .rtop__btn--solid { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+
+  .rhead { padding: 40px 0 18px; }
+  .rhead__eyebrow { font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--gold-ink); margin-bottom: 10px; }
+  .rhead h1 { font-size: var(--t-2xl); font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+  .rhead p { color: var(--ink-2); font-size: var(--t-md); margin-top: 10px; max-width: 64ch; }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card); margin: 18px 0; }
+  .card__pad { padding: 22px 24px; }
+  .guide__title { font-weight: 600; font-size: var(--t-md); display: flex; align-items: center; gap: 9px; }
+  .guide__title .dot { width: 7px; height: 7px; border-radius: 2px; background: var(--gold); }
+
+  .callout { margin-top: 16px; border: 1px solid var(--gold-line); background: var(--gold-soft);
+    border-radius: var(--radius); padding: 13px 15px; font-size: var(--t-sm); color: var(--ink-2); line-height: 1.55; }
+  .callout b { color: var(--gold-ink); }
+
+  .keys { margin-top: 18px; border-top: 1px dashed var(--line); padding-top: 16px; }
+  .keys h5 { font-size: var(--t-xs); font-family: 'Geist Mono', monospace; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--ink-3); margin-bottom: 10px; }
+  body.hi .keys h5 { font-family: 'Noto Sans Devanagari', sans-serif; letter-spacing: 0; }
+  .keys ul { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 7px 22px; }
+  @media (max-width: 680px) { .keys ul { grid-template-columns: 1fr; } }
+  .keys li { font-size: var(--t-sm); color: var(--ink-2); padding-left: 16px; position: relative; line-height: 1.45; }
+  .keys li::before { content: '›'; position: absolute; left: 0; color: var(--gold); font-weight: 700; }
+  .keys b { color: var(--ink); font-weight: 600; }
+
+  .fill__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .fill__grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px 16px; margin-top: 16px; }
+  @media (max-width: 880px) { .fill__grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 560px) { .fill__grid { grid-template-columns: 1fr; } }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field.col-2 { grid-column: span 2; }
+  .field.col-3 { grid-column: span 3; }
+  @media (max-width: 880px) { .field.col-3 { grid-column: span 2; } }
+  @media (max-width: 560px) { .field.col-2, .field.col-3 { grid-column: span 1; } }
+  .field label { font-size: var(--t-xs); font-weight: 500; color: var(--ink-3);
+    font-family: 'Geist Mono', monospace; letter-spacing: .03em; }
+  body.hi .field label { font-family: 'Noto Sans Devanagari', sans-serif; }
+  .field input { font-family: inherit; font-size: var(--t-sm); color: var(--ink);
+    border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 10px;
+    background: var(--surface); width: 100%; transition: border-color var(--t-fast) var(--ease); }
+  .field input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-soft); }
+  .fill__actions { display: flex; gap: 9px; }
+  .linkbtn { background: none; border: none; cursor: pointer; font-size: 12.5px; color: var(--gold-ink);
+    font-weight: 600; padding: 4px 2px; }
+  .linkbtn:hover { color: var(--gold-deep); text-decoration: underline; }
+
+  .doc { margin: 26px 0; }
+  .doc__bar { display: flex; align-items: center; gap: 12px; padding: 11px 16px;
+    border: 1px solid var(--line); border-bottom: none; border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    background: var(--soft); }
+  .doc__no { font-family: 'Geist Mono', monospace; font-size: 11px; color: var(--gold-deep); font-weight: 500; }
+  .doc__name { font-weight: 600; font-size: var(--t-sm); flex: 1; letter-spacing: -.01em; }
+  .doc__copy { font-size: 12px; color: var(--ink-2); border: 1px solid var(--line); background: var(--surface);
+    padding: 5px 11px; border-radius: var(--radius); cursor: pointer; white-space: nowrap; }
+  .doc__copy:hover { border-color: var(--gold); color: var(--ink); }
+  .doc__copy.ok { color: var(--good); border-color: var(--good); }
+  .paper { border: 1px solid var(--line); border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    background: var(--surface); padding: 40px 46px; font-family: Georgia, 'Times New Roman', serif;
+    font-size: 14.5px; line-height: 1.85; color: #1a1a17; }
+  .paper.lang-hi { font-family: 'Noto Serif Devanagari', Georgia, serif; line-height: 1.95; }
+  @media (max-width: 600px) { .paper { padding: 26px 22px; } }
+  .paper .ctr { text-align: center; }
+  .paper .title { font-weight: 700; text-transform: uppercase; letter-spacing: .04em; font-size: 17px; }
+  .paper.lang-hi .title { text-transform: none; }
+  .paper .rule { border: none; border-top: 1px solid #d8d4c8; margin: 14px 0; }
+  .paper .pno { display: inline-block; min-width: 1.9em; }
+  .paper p { margin: 0 0 12px; }
+  .paper .tight { margin-bottom: 4px; }
+  .paper .and { text-align: center; font-weight: 700; margin: 8px 0; }
+  .paper ol.clauses { margin: 6px 0 12px 0; padding-left: 26px; }
+  .paper ol.clauses li { margin-bottom: 11px; padding-left: 4px; }
+
+  /* Signature block for a deed — two parties side by side, witnesses below */
+  .paper .sigs { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 40px; }
+  .paper .sigs .col { text-align: center; }
+  .paper .sigs .ln { border-top: 1px solid #666; margin-bottom: 6px; height: 34px; }
+  .paper .sigs .role { font-weight: 700; font-size: 13px; }
+  .paper .wit { margin-top: 34px; }
+  .paper .wit .wlabel { font-weight: 700; }
+  .paper .wit .wline { margin: 14px 0 0; }
+
+  .ph { background: var(--gold-soft); border-bottom: 1.5px solid var(--gold); padding: 0 3px;
+    border-radius: 3px 3px 0 0; color: var(--gold-ink); font-style: normal; }
+  .ph--filled { background: transparent; border-bottom: none; color: inherit; font-weight: 600; }
+
+  .notes { margin-top: 2px; }
+  .notes summary { cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--ink-2);
+    padding: 10px 16px; border: 1px solid var(--line); border-top: none;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg); background: var(--bg); list-style: none; }
+  .notes summary::-webkit-details-marker { display: none; }
+  .notes summary::before { content: '+ '; color: var(--gold-deep); font-weight: 700; }
+  .notes[open] summary::before { content: '– '; }
+  .notes[open] summary { border-radius: 0; }
+  .notes__body { border: 1px solid var(--line); border-top: none; padding: 16px 18px;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg); font-size: 13px; color: var(--ink-2); line-height: 1.6; }
+  .notes__body li { margin-bottom: 8px; margin-left: 18px; }
+  .notes__body b { color: var(--ink); }
+
+  .rfoot { margin-top: 36px; padding: 18px 0 0; border-top: 1px solid var(--line);
+    font-size: 12px; color: var(--ink-3); line-height: 1.6; }
+  .rfoot b { color: var(--ink-2); }
+
+  /* Per-document Save-PDF button */
+  .doc__pdf { font-size: 12px; color: var(--ink-2); border: 1px solid var(--line); background: var(--surface);
+    padding: 5px 11px; border-radius: var(--radius); cursor: pointer; white-space: nowrap; }
+  .doc__pdf:hover { border-color: var(--gold); color: var(--ink); }
+
+  @media print {
+    /* Print/save the DOCUMENT only — never the page chrome */
+    .rtop, .rhead, .fillcard, .guidecard, .notes, .doc__bar { display: none !important; }
+    .paper { border: none; padding: 0; }
+    .card, .doc { box-shadow: none; margin: 0; }
+  }
+</style>
+</head>
+<body class="draft-rent">
+
+<header class="rtop">
+  <a class="rtop__brand" href="/" aria-label="Headnote home"><img src="/static/headnote-logo.svg" alt="headnote" /></a>
+  <span class="rtop__tag">Personal Assist · Draft</span>
+  <span class="rtop__spacer"></span>
+  <span class="langlabel">Language / भाषा →</span>
+  <div class="langtog" role="group" aria-label="Language / भाषा" title="Switch language / भाषा बदलें">
+    <button class="langtog__btn is-active" data-lang="en">English</button>
+    <button class="langtog__btn" data-lang="hi">हिंदी</button>
+  </div>
+  <button class="rtop__btn" id="btn-print"><span class="lang-en">Print / PDF</span><span class="lang-hi">प्रिंट / PDF</span></button>
+  <button class="rtop__btn rtop__btn--solid" id="btn-share"><span class="lang-en">📱 WhatsApp</span><span class="lang-hi">📱 WhatsApp</span></button>
+  <button class="rtop__btn" id="btn-copyall"><span class="lang-en">Copy</span><span class="lang-hi">कॉपी</span></button>
+</header>
+
+<div class="wrap">
+
+  <div class="rhead">
+    <div class="rhead__eyebrow"><span class="lang-en">Property · Tenancy · Rent Agreement / Lease Deed</span><span class="lang-hi">सम्पत्ति · किरायेदारी · किरायानामा / पट्टा विलेख</span></div>
+    <h1><span class="lang-en">Rent Agreement — Fill-in Draft</span><span class="lang-hi">किरायानामा — भरने योग्य ड्राफ्ट</span></h1>
+    <p>
+      <span class="lang-en">A ready-to-sign residential <b>rent agreement / lease deed</b> — parties, premises, rent, term,
+        security and the standard tenancy covenants. Fill the details once and every blank updates. Switch to
+        हिंदी for a bilingual copy of the agreement.</span>
+      <span class="lang-hi">हस्ताक्षर हेतु तैयार आवासीय <b>किरायानामा / पट्टा विलेख</b> — पक्षकार, परिसर, किराया, अवधि,
+        प्रतिभूति तथा किरायेदारी की मानक शर्तें। विवरण एक बार भरें — सभी रिक्त स्थान स्वतः भर जाएँगे। द्विभाषी प्रति हेतु
+        हिंदी चुनें।</span>
+    </p>
+  </div>
+
+  <!-- GUIDANCE -->
+  <section class="card guidecard">
+    <div class="card__pad">
+      <div class="guide__title"><span class="dot"></span>
+        <span class="lang-en">Before you sign — the must-haves</span>
+        <span class="lang-hi">हस्ताक्षर से पहले — अनिवार्य बातें</span>
+      </div>
+
+      <div class="callout">
+        <span class="lang-en"><b>Register it if the term is 12 months or more.</b> A lease of one year or longer must be
+          in writing and <b>registered</b> (Registration Act, 1908 / Transfer of Property Act §107); an 11-month
+          leave-and-licence is the common way to avoid registration. Print on the correct <b>state stamp paper</b>,
+          have both parties sign every page, and take <b>two witnesses</b>. Keep the ID/PAN copies annexed.</span>
+        <span class="lang-hi"><b>यदि अवधि 12 माह या अधिक है तो पंजीकरण आवश्यक है।</b> एक वर्ष या उससे अधिक का पट्टा लिखित एवं
+          <b>पंजीकृत</b> होना चाहिए (पंजीकरण अधिनियम, 1908 / सम्पत्ति अंतरण अधिनियम धारा 107); पंजीकरण से बचने हेतु सामान्यतः
+          11 माह का लीव-एंड-लाइसेंस प्रयोग होता है। सही <b>राज्य स्टाम्प पेपर</b> पर प्रिंट करें, दोनों पक्ष प्रत्येक पृष्ठ पर
+          हस्ताक्षर करें, तथा <b>दो गवाह</b> रखें। पहचान/PAN की प्रतियाँ संलग्न रखें।</span>
+      </div>
+
+      <div class="keys">
+        <h5><span class="lang-en">Facts to collect</span><span class="lang-hi">एकत्र करने योग्य तथ्य</span></h5>
+        <ul class="lang-en">
+          <li><b>Lessor (owner)</b> — full name, parentage, address, Aadhaar/PAN, mobile.</li>
+          <li><b>Lessee (tenant)</b> — full name, parentage, address, Aadhaar/PAN, mobile.</li>
+          <li><b>Premises</b> — full address of the property let out.</li>
+          <li><b>Rent</b> — monthly amount (figures + words), what it includes.</li>
+          <li><b>Term</b> — period and start date (w.e.f.).</li>
+          <li><b>Security deposit</b> — amount and refund terms.</li>
+        </ul>
+        <ul class="lang-hi">
+          <li><b>पट्टादाता (मालिक)</b> — पूरा नाम, पितृ/पति नाम, पता, आधार/PAN, मोबाइल।</li>
+          <li><b>पट्टेदार (किरायेदार)</b> — पूरा नाम, पितृ/पति नाम, पता, आधार/PAN, मोबाइल।</li>
+          <li><b>परिसर</b> — किराए पर दी जा रही सम्पत्ति का पूरा पता।</li>
+          <li><b>किराया</b> — मासिक राशि (अंकों व शब्दों में), उसमें क्या शामिल है।</li>
+          <li><b>अवधि</b> — अवधि तथा प्रारम्भ तिथि (दिनांक से)।</li>
+          <li><b>प्रतिभूति जमा</b> — राशि तथा वापसी की शर्तें।</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- FILL PANEL -->
+  <section class="card fillcard">
+    <div class="card__pad">
+      <div class="fill__head">
+        <div class="guide__title"><span class="dot"></span>
+          <span class="lang-en">Fill the details</span><span class="lang-hi">विवरण भरें</span>
+        </div>
+        <div class="fill__actions">
+          <button class="linkbtn" id="btn-sample"><span class="lang-en">Load sample</span><span class="lang-hi">नमूना भरें</span></button>
+          <button class="linkbtn" id="btn-reset"><span class="lang-en">Clear</span><span class="lang-hi">साफ़ करें</span></button>
+        </div>
+      </div>
+      <div class="fill__grid">
+        <div class="field"><label><span class="lang-en">Place of execution</span><span class="lang-hi">निष्पादन स्थान</span></label><input data-f="place_exec" placeholder="Noida West" /></div>
+        <div class="field"><label><span class="lang-en">Date of execution</span><span class="lang-hi">निष्पादन तिथि</span></label><input data-f="exec_date" placeholder="1st July, 2026" /></div>
+        <div class="field"><label><span class="lang-en">Purpose</span><span class="lang-hi">प्रयोजन</span></label><input data-f="purpose" placeholder="Residential" /></div>
+        <div class="field col-3"><label><span class="lang-en">Lessor / Landlord — full description</span><span class="lang-hi">पट्टादाता / मकान मालिक — पूरा विवरण</span></label><input data-f="lessor" placeholder="Mr. ____ s/o ____ (Aadhaar ____, PAN ____) r/o ____, Mobile ____" /></div>
+        <div class="field col-3"><label><span class="lang-en">Lessee / Tenant — full description</span><span class="lang-hi">पट्टेदार / किरायेदार — पूरा विवरण</span></label><input data-f="lessee" placeholder="Mrs. ____ w/o ____ (Aadhaar ____, PAN ____) r/o ____, Mobile ____" /></div>
+        <div class="field col-3"><label><span class="lang-en">Premises — full address of property</span><span class="lang-hi">परिसर — सम्पत्ति का पूरा पता</span></label><input data-f="property" placeholder="Property bearing No. ____, ____ (full address)" /></div>
+        <div class="field"><label><span class="lang-en">Monthly rent (₹, figures)</span><span class="lang-hi">मासिक किराया (₹, अंकों में)</span></label><input data-f="rent" placeholder="18,000" /></div>
+        <div class="field col-2"><label><span class="lang-en">Rent in words</span><span class="lang-hi">किराया शब्दों में</span></label><input data-f="rent_words" placeholder="Eighteen Thousand" /></div>
+        <div class="field"><label><span class="lang-en">Lease period</span><span class="lang-hi">पट्टा अवधि</span></label><input data-f="period" placeholder="11 months" /></div>
+        <div class="field"><label><span class="lang-en">Commencing (w.e.f.)</span><span class="lang-hi">प्रारम्भ (दिनांक से)</span></label><input data-f="wef" placeholder="01.07.2026" /></div>
+        <div class="field"><label><span class="lang-en">Rent due by (day of month)</span><span class="lang-hi">किराया देय (माह का दिन)</span></label><input data-f="rent_day" placeholder="11th" /></div>
+        <div class="field"><label><span class="lang-en">Security deposit (₹)</span><span class="lang-hi">प्रतिभूति जमा (₹)</span></label><input data-f="security" placeholder="36,000" /></div>
+        <div class="field col-2"><label><span class="lang-en">Permitted occupant(s)</span><span class="lang-hi">अनुमत निवासी</span></label><input data-f="occupant" placeholder="the Tenant and her family only" /></div>
+      </div>
+      <p style="margin-top:14px;font-size:12px;color:var(--gold-ink);line-height:1.5;"><span class="lang-en">The हिंदी view translates the agreement itself; party &amp; property particulars (names, address, Aadhaar/PAN) stay exactly as you type them — as they should, to match the ID proofs.</span><span class="lang-hi">हिंदी दृश्य में अनुबंध का पाठ अनूदित होता है; पक्षकार व सम्पत्ति के विवरण (नाम, पता, आधार/PAN) आप जैसा लिखें वैसे ही रहते हैं — जो पहचान-प्रमाण से मिलान हेतु उचित है।</span></p>
+    </div>
+  </section>
+
+  <!-- THE DEED -->
+  <section class="doc" id="doc-rent">
+    <div class="doc__bar">
+      <span class="doc__no">DEED</span>
+      <span class="doc__name"><span class="lang-en">Rent Agreement / Lease Deed</span><span class="lang-hi">किरायानामा / पट्टा विलेख</span></span>
+      <button class="doc__copy" data-copy="rent"><span class="lang-en">Copy</span><span class="lang-hi">कॉपी</span></button>
+    </div>
+
+    <!-- EN -->
+    <div class="paper lang-en" id="rent-body-en">
+      <p class="ctr title">Rent Agreement</p>
+      <hr class="rule" />
+      <p>This Rent Agreement is made and executed at <span class="ph" data-f="place_exec" data-ph="[place]">[place]</span> on <span class="ph" data-f="exec_date" data-ph="[date]">[date]</span> between:</p>
+      <p><span class="ph" data-f="lessor" data-ph="[Lessor — name, parentage, Aadhaar/PAN, address, mobile]">[Lessor — name, parentage, Aadhaar/PAN, address, mobile]</span>, on the <b>FIRST PART</b>, hereinafter called the <b>LESSOR / LANDLORD</b>;</p>
+      <p class="and">AND</p>
+      <p><span class="ph" data-f="lessee" data-ph="[Lessee — name, parentage, Aadhaar/PAN, address, mobile]">[Lessee — name, parentage, Aadhaar/PAN, address, mobile]</span>, on the <b>SECOND PART</b>, hereinafter called the <b>LESSEE / TENANT</b>.</p>
+      <p>(The expressions "first party" and "second party" shall, wherever the context so admits, mean and include their respective heirs, nominees, executors, successors, assignees, administrators and legal representatives.)</p>
+      <p><b>WHEREAS</b> the Lessor is the owner and in possession of the property bearing <span class="ph" data-f="property" data-ph="[premises — full address]">[premises — full address]</span> (hereinafter called the "Premises"), which the Lessor has agreed to give on rent and the Lessee has agreed to take on lease for a period of <span class="ph" data-f="period" data-ph="[period]">[period]</span>;</p>
+      <p><b>AND WHEREAS</b> on the request of the Lessee, the Lessor has agreed to let out the Premises for <span class="ph" data-f="purpose" data-ph="[Residential]">[Residential]</span> purpose only, and the Lessee shall not use it for any other purpose; and whereas the Lessee has agreed to execute and sign this Rent Agreement on the terms and conditions mentioned below:</p>
+      <p><b>NOW THIS RENT AGREEMENT WITNESSETH AS UNDER:—</b></p>
+      <ol class="clauses">
+        <li>That the monthly rent of the above Premises has been settled between both parties at a sum of ₹<span class="ph" data-f="rent" data-ph="[amount]">[amount]</span>/- (Rupees <span class="ph" data-f="rent_words" data-ph="[amount in words]">[amount in words]</span> only), all-inclusive, viz. maintenance, electricity charges etc., payable every month.</li>
+        <li>That the lease is for a period of <span class="ph" data-f="period" data-ph="[period]">[period]</span> with effect from <span class="ph" data-f="wef" data-ph="[date]">[date]</span>.</li>
+        <li>That the rent will be paid on or before the <span class="ph" data-f="rent_day" data-ph="[11th]">[11th]</span> day of every English calendar month by crossed cheque / RTGS / NEFT.</li>
+        <li>That in case the rent is not paid for any month, and further if the rent is not paid for the running month by the Lessee, then the Lessee shall be liable to vacate the Premises within seven working days, and the Lessor shall not be liable to refund the Security Deposit of ₹<span class="ph" data-f="security" data-ph="[amount]">[amount]</span>.</li>
+        <li>That after the expiry of the said period, the tenancy can be extended only through the mutual consent of both parties by a separate fresh Lease Deed instrument, and if the tenancy is continued the rent shall be increased by 10% of the rent amount consecutively thereafter. If the Lease Deed is not extended, the Tenant has to vacate the Premises immediately without any delay, and on expiry of the lease period the Tenant shall be liable for damages and other charges as demanded by the Landlord, if any.</li>
+        <li>That all fixtures and fittings provided as per Annexure shall be taken due care of, and regular maintenance thereof shall be done by the Lessee.</li>
+        <li>That the Lessee shall hand over vacant physical possession of the Premises peacefully to the Lessor at the time of termination of the lease, together with the fittings and fixtures duly repaired and in working condition, if any damage has occurred.</li>
+        <li>That all day-to-day care and maintenance of the Premises shall be looked after by the Lessee at its own expense.</li>
+        <li>That no additional alteration / modification to the leased Premises will be made by the Lessee without the prior written consent of the Lessor.</li>
+        <li>That this Rent Agreement can be terminated even before the expiry of the lease period by either side, i.e. the Lessee or the Lessor, by giving one month's prior written notice in advance, and the penalty for the same will be one month's rent.</li>
+        <li>That the lease has been granted for the exclusive residential use of the Lessee's family, and the Lessee shall not sublet or part with the leased Premises in whole or in part under any circumstances whatsoever, and the Premises shall not be used for any unlawful or prohibited activity.</li>
+        <li>That in no way shall the Lessee or his/her legal heirs claim ownership of the said Premises.</li>
+        <li>That <span class="ph" data-f="occupant" data-ph="[the Tenant and family only]">[the Tenant and family only]</span> will stay in the flat. If any other person is to stay apart from the discussed persons, the Tenant has to take prior permission from the Owner.</li>
+        <li>That if any complaint is received from the society / maintenance, the Owner shall have the right to take action to get the flat vacated.</li>
+        <li>That after taking possession of the flat, it is the responsibility of the Tenant to take care of all major and minor repairs of the flat.</li>
+        <li>That the Owner has the right to visit the flat from time to time for inspection, with prior intimation to the Tenant.</li>
+        <li>That the terms and conditions of this lease agreement stated above shall be binding on both the parties, i.e. the terms and conditions are final.</li>
+      </ol>
+      <p><b>IN WITNESS WHEREOF</b> both the parties have set their respective hands on this Rent Agreement at <span class="ph" data-f="place_exec" data-ph="[place]">[place]</span> on the day, month and year first above written, in the presence of the following witnesses:</p>
+      <div class="sigs">
+        <div class="col"><div class="ln"></div><div class="role">OWNER / FIRST PARTY</div></div>
+        <div class="col"><div class="ln"></div><div class="role">TENANT / SECOND PARTY</div></div>
+      </div>
+      <div class="wit">
+        <p class="wlabel">WITNESSES:</p>
+        <p class="wline">1. ________________________________</p>
+        <p class="wline">2. ________________________________</p>
+      </div>
+    </div>
+
+    <!-- HI -->
+    <div class="paper lang-hi" id="rent-body-hi">
+      <p class="ctr title">किरायानामा</p>
+      <hr class="rule" />
+      <p>यह किरायानामा <span class="ph" data-f="place_exec" data-ph="[स्थान]">[स्थान]</span> में दिनांक <span class="ph" data-f="exec_date" data-ph="[तिथि]">[तिथि]</span> को निम्नलिखित के मध्य निष्पादित किया गया:</p>
+      <p><span class="ph" data-f="lessor" data-ph="[पट्टादाता — नाम, पितृ/पति नाम, आधार/PAN, पता, मोबाइल]">[पट्टादाता — नाम, पितृ/पति नाम, आधार/PAN, पता, मोबाइल]</span>, <b>प्रथम पक्ष</b>, जिन्हें आगे <b>पट्टादाता / मकान मालिक</b> कहा जाएगा;</p>
+      <p class="and">तथा</p>
+      <p><span class="ph" data-f="lessee" data-ph="[पट्टेदार — नाम, पितृ/पति नाम, आधार/PAN, पता, मोबाइल]">[पट्टेदार — नाम, पितृ/पति नाम, आधार/PAN, पता, मोबाइल]</span>, <b>द्वितीय पक्ष</b>, जिन्हें आगे <b>पट्टेदार / किरायेदार</b> कहा जाएगा।</p>
+      <p>("प्रथम पक्ष" तथा "द्वितीय पक्ष" शब्दों में, जहाँ संदर्भ अनुमति दे, उनके उत्तराधिकारी, नामिती, निष्पादक, उत्तरवर्ती, समनुदेशिती, प्रशासक तथा विधिक प्रतिनिधि क्रमशः सम्मिलित माने जाएँगे।)</p>
+      <p><b>चूँकि</b> पट्टादाता <span class="ph" data-f="property" data-ph="[परिसर — पूरा पता]">[परिसर — पूरा पता]</span> स्थित सम्पत्ति (जिसे आगे "परिसर" कहा जाएगा) के स्वामी एवं कब्ज़ेदार हैं, जिसे पट्टादाता ने किराए पर देना तथा पट्टेदार ने <span class="ph" data-f="period" data-ph="[अवधि]">[अवधि]</span> की अवधि हेतु पट्टे पर लेना स्वीकार किया है;</p>
+      <p><b>तथा चूँकि</b> पट्टेदार के अनुरोध पर पट्टादाता ने परिसर को केवल <span class="ph" data-f="purpose" data-ph="[आवासीय]">[आवासीय]</span> प्रयोजन हेतु किराए पर देना स्वीकार किया है, तथा पट्टेदार इसे किसी अन्य प्रयोजन हेतु उपयोग नहीं करेगा; और चूँकि पट्टेदार ने नीचे उल्लिखित नियमों एवं शर्तों पर यह किरायानामा निष्पादित एवं हस्ताक्षरित करना स्वीकार किया है:</p>
+      <p><b>अब यह किरायानामा निम्नानुसार साक्ष्य देता है:—</b></p>
+      <ol class="clauses">
+        <li>यह कि उपरोक्त परिसर का मासिक किराया दोनों पक्षों के मध्य ₹<span class="ph" data-f="rent" data-ph="[राशि]">[राशि]</span>/- (रुपये <span class="ph" data-f="rent_words" data-ph="[राशि शब्दों में]">[राशि शब्दों में]</span> मात्र) निश्चित हुआ है, जो रख-रखाव, बिजली शुल्क आदि सहित सर्व-समावेशी है तथा प्रत्येक माह देय होगा।</li>
+        <li>यह कि पट्टा <span class="ph" data-f="period" data-ph="[अवधि]">[अवधि]</span> की अवधि हेतु दिनांक <span class="ph" data-f="wef" data-ph="[तिथि]">[तिथि]</span> से प्रभावी है।</li>
+        <li>यह कि किराया प्रत्येक अंग्रेज़ी कैलेंडर माह की <span class="ph" data-f="rent_day" data-ph="[11]">[11]</span> तारीख को या उससे पूर्व क्रॉस्ड चेक / RTGS / NEFT द्वारा अदा किया जाएगा।</li>
+        <li>यह कि किसी माह का किराया न देने की स्थिति में, तथा यदि पट्टेदार द्वारा चालू माह का किराया भी न दिया जाए, तो पट्टेदार सात कार्य-दिवसों में परिसर खाली करने हेतु उत्तरदायी होगा, तथा पट्टादाता ₹<span class="ph" data-f="security" data-ph="[राशि]">[राशि]</span> की प्रतिभूति जमा वापस करने हेतु उत्तरदायी नहीं होगा।</li>
+        <li>यह कि उक्त अवधि की समाप्ति के पश्चात् किरायेदारी केवल दोनों पक्षों की परस्पर सहमति से पृथक नए पट्टा विलेख द्वारा ही बढ़ाई जा सकेगी, तथा यदि किरायेदारी जारी रहती है तो किराया उसके पश्चात् क्रमशः 10% बढ़ाया जाएगा। यदि पट्टा विलेख नवीनीकृत नहीं होता, तो किरायेदार को बिना किसी विलम्ब के तुरंत परिसर खाली करना होगा, तथा पट्टा-अवधि की समाप्ति पर किरायेदार मकान मालिक द्वारा माँगी गई क्षति एवं अन्य शुल्कों (यदि कोई हों) हेतु उत्तरदायी होगा।</li>
+        <li>यह कि अनुबंध (Annexure) अनुसार प्रदत्त समस्त फिक्स्चर एवं फिटिंग्स का समुचित ध्यान रखा जाएगा तथा उनका नियमित रख-रखाव पट्टेदार द्वारा किया जाएगा।</li>
+        <li>यह कि पट्टेदार पट्टे की समाप्ति के समय परिसर का रिक्त भौतिक कब्ज़ा पट्टादाता को शांतिपूर्वक सौंपेगा, साथ ही फिटिंग्स एवं फिक्स्चर विधिवत मरम्मत की हुई एवं कार्यशील स्थिति में, यदि कोई क्षति हुई हो।</li>
+        <li>यह कि परिसर की दैनिक देखभाल एवं रख-रखाव पट्टेदार द्वारा स्वयं के व्यय पर किया जाएगा।</li>
+        <li>यह कि पट्टेदार द्वारा पट्टे पर लिए गए परिसर में पट्टादाता की पूर्व लिखित सहमति के बिना कोई अतिरिक्त परिवर्तन / संशोधन नहीं किया जाएगा।</li>
+        <li>यह कि यह किरायानामा पट्टा-अवधि की समाप्ति से पूर्व भी किसी भी पक्ष, अर्थात् पट्टेदार या पट्टादाता, द्वारा एक माह की पूर्व लिखित सूचना देकर समाप्त किया जा सकता है, तथा इसके लिए दण्ड एक माह का किराया होगा।</li>
+        <li>यह कि पट्टा पट्टेदार के परिवार के अनन्य आवासीय उपयोग हेतु प्रदान किया गया है, तथा पट्टेदार किसी भी परिस्थिति में पट्टे के परिसर को पूर्णतः या अंशतः उप-किराए पर नहीं देगा या हस्तांतरित नहीं करेगा, तथा परिसर का उपयोग किसी अवैध या निषिद्ध गतिविधि हेतु नहीं किया जाएगा।</li>
+        <li>यह कि पट्टेदार या उसके विधिक उत्तराधिकारी किसी भी प्रकार से उक्त परिसर के स्वामित्व का दावा नहीं करेंगे।</li>
+        <li>यह कि फ्लैट में केवल <span class="ph" data-f="occupant" data-ph="[किरायेदार तथा उसका परिवार]">[किरायेदार तथा उसका परिवार]</span> रहेंगे। यदि चर्चित व्यक्तियों के अतिरिक्त कोई अन्य व्यक्ति रहना हो, तो किरायेदार को मालिक से पूर्व अनुमति लेनी होगी।</li>
+        <li>यह कि यदि सोसायटी / रख-रखाव से कोई शिकायत प्राप्त होती है, तो मालिक को फ्लैट खाली कराने हेतु कार्रवाई करने का अधिकार होगा।</li>
+        <li>यह कि फ्लैट का कब्ज़ा लेने के पश्चात् फ्लैट की समस्त बड़ी एवं छोटी मरम्मत का ध्यान रखना किरायेदार का दायित्व है।</li>
+        <li>यह कि मालिक को किरायेदार को पूर्व सूचना देकर समय-समय पर निरीक्षण हेतु फ्लैट में आने का अधिकार होगा।</li>
+        <li>यह कि इस पट्टा अनुबंध की उपरोक्त वर्णित शर्तें दोनों पक्षों पर बाध्यकारी होंगी, अर्थात् नियम एवं शर्तें अंतिम हैं।</li>
+      </ol>
+      <p><b>इसके साक्ष्य स्वरूप</b> दोनों पक्षों ने इस किरायानामा पर <span class="ph" data-f="place_exec" data-ph="[स्थान]">[स्थान]</span> में, ऊपर सर्वप्रथम लिखित दिन, माह एवं वर्ष को, निम्नलिखित गवाहों की उपस्थिति में हस्ताक्षर किए हैं:</p>
+      <div class="sigs">
+        <div class="col"><div class="ln"></div><div class="role">मालिक / प्रथम पक्ष</div></div>
+        <div class="col"><div class="ln"></div><div class="role">किरायेदार / द्वितीय पक्ष</div></div>
+      </div>
+      <div class="wit">
+        <p class="wlabel">गवाह:</p>
+        <p class="wline">1. ________________________________</p>
+        <p class="wline">2. ________________________________</p>
+      </div>
+    </div>
+
+    <details class="notes">
+      <summary><span class="lang-en">Notes before signing</span><span class="lang-hi">हस्ताक्षर से पहले टिप्पणियाँ</span></summary>
+      <div class="notes__body lang-en">
+        <ul>
+          <li><b>Registration:</b> a lease of 12 months or more must be registered (Registration Act §17 / TP Act §107). An 11-month term is the usual way to keep it as an unregistered leave-and-licence; renew by a fresh deed.</li>
+          <li><b>Stamp duty:</b> print on the state-prescribed stamp paper / e-stamp — the value varies by state and by rent + deposit. Confirm the local rate.</li>
+          <li><b>Security deposit:</b> state the exact amount and when/how it is refundable (some states, e.g. under model tenancy law, cap it at 2 months' rent for residential).</li>
+          <li><b>Annexure:</b> attach the inventory of fixtures/fittings and copies of both parties' Aadhaar/PAN; get both parties to sign every page and each witness to sign with address.</li>
+          <li><b>10% escalation / one-month notice:</b> these mirror the parties' agreed terms — adjust the percentage and notice period to what was actually agreed.</li>
+        </ul>
+      </div>
+      <div class="notes__body lang-hi">
+        <ul>
+          <li><b>पंजीकरण:</b> 12 माह या अधिक का पट्टा पंजीकृत होना आवश्यक है (पंजीकरण अधिनियम धारा 17 / सम्पत्ति अंतरण अधिनियम धारा 107)। इसे अपंजीकृत लीव-एंड-लाइसेंस रखने हेतु सामान्यतः 11 माह की अवधि रखी जाती है; नवीनीकरण नए विलेख से करें।</li>
+          <li><b>स्टाम्प शुल्क:</b> राज्य द्वारा निर्धारित स्टाम्प पेपर / ई-स्टाम्प पर प्रिंट करें — मूल्य राज्य तथा किराया + जमा अनुसार भिन्न होता है। स्थानीय दर की पुष्टि करें।</li>
+          <li><b>प्रतिभूति जमा:</b> सटीक राशि तथा वापसी की शर्तें स्पष्ट लिखें (कुछ राज्यों में आदर्श किरायेदारी कानून के तहत आवासीय हेतु यह 2 माह के किराए तक सीमित है)।</li>
+          <li><b>अनुबंध (Annexure):</b> फिक्स्चर/फिटिंग्स की सूची तथा दोनों पक्षों के आधार/PAN की प्रतियाँ संलग्न करें; दोनों पक्ष प्रत्येक पृष्ठ पर तथा प्रत्येक गवाह पते सहित हस्ताक्षर करें।</li>
+          <li><b>10% वृद्धि / एक माह की सूचना:</b> ये पक्षों की सहमत शर्तों के अनुरूप हैं — प्रतिशत तथा सूचना-अवधि को वास्तविक सहमति अनुसार समायोजित करें।</li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  <p class="rfoot">
+    <span class="lang-en"><b>Author-tier draft, generated by Headnote for review before signing — not legal advice.</b>
+      Verify the stamp duty and registration requirement for your state, complete the Annexure of fixtures,
+      and have both parties and two witnesses sign every page. The Hindi text is a working translation — read it
+      against the English.</span>
+    <span class="lang-hi"><b>लेखक-स्तरीय ड्राफ्ट, Headnote द्वारा हस्ताक्षर से पूर्व समीक्षा हेतु तैयार — विधिक सलाह नहीं।</b>
+      अपने राज्य हेतु स्टाम्प शुल्क एवं पंजीकरण की आवश्यकता की पुष्टि करें, फिक्स्चर का अनुबंध पूर्ण करें, तथा दोनों पक्ष एवं दो गवाह
+      प्रत्येक पृष्ठ पर हस्ताक्षर करें। हिंदी पाठ एक कार्यकारी अनुवाद है — अंग्रेज़ी से मिलान करें।</span>
+  </p>
+
+</div>
+
+<script>
+(function () {
+  var langBtns = document.querySelectorAll('.langtog__btn');
+  function curLang() { return document.body.classList.contains('hi') ? 'hi' : 'en'; }
+
+  // Field placeholders switch with the language too (labels are already bilingual).
+  var PH = {
+    place_exec: { en: 'Noida West',                                              hi: 'नोएडा वेस्ट' },
+    exec_date:  { en: '1st July, 2026',                                          hi: '1 जुलाई, 2026' },
+    purpose:    { en: 'Residential',                                             hi: 'आवासीय' },
+    lessor:     { en: 'Mr. ____ s/o ____ (Aadhaar ____, PAN ____) r/o ____, Mobile ____', hi: 'श्री ____ पुत्र ____ (आधार ____, PAN ____) निवासी ____, मोबाइल ____' },
+    lessee:     { en: 'Mrs. ____ w/o ____ (Aadhaar ____, PAN ____) r/o ____, Mobile ____', hi: 'श्रीमती ____ पत्नी ____ (आधार ____, PAN ____) निवासी ____, मोबाइल ____' },
+    property:   { en: 'Property bearing No. ____, ____ (full address)',          hi: 'सम्पत्ति क्रमांक ____, ____ (पूरा पता)' },
+    rent:       { en: '18,000',                                                  hi: '18,000' },
+    rent_words: { en: 'Eighteen Thousand',                                       hi: 'अठारह हज़ार' },
+    period:     { en: '11 months',                                              hi: '11 माह' },
+    wef:        { en: '01.07.2026',                                              hi: '01.07.2026' },
+    rent_day:   { en: '11th',                                                    hi: '11' },
+    security:   { en: '36,000',                                                  hi: '36,000' },
+    occupant:   { en: 'the Tenant and her family only',                         hi: 'केवल किरायेदार तथा उसका परिवार' }
+  };
+  function applyPlaceholders(l) {
+    document.querySelectorAll('.field input[data-f]').forEach(function (inp) {
+      var m = PH[inp.getAttribute('data-f')]; if (m) inp.placeholder = m[l] || m.en;
+    });
+  }
+  function setLang(l) {
+    document.body.classList.toggle('hi', l === 'hi');
+    document.documentElement.lang = l;
+    langBtns.forEach(function (b) { b.classList.toggle('is-active', b.dataset.lang === l); });
+    applyPlaceholders(l);
+  }
+  langBtns.forEach(function (b) { b.addEventListener('click', function () { setLang(b.dataset.lang); }); });
+
+  // ── English → Devanagari transliteration (on-device; for the Hindi view).
+  //    Party/property particulars (names + address + Aadhaar/PAN) stay verbatim
+  //    in the Hindi view — real bilingual deeds keep them in English to match ID
+  //    proofs, and transliterating full addresses only yields phonetic noise.
+  //    Only the short descriptors are transliterated.
+  var TRANSLIT = ['place_exec', 'occupant'];
+  var OVR = { kumar:'कुमार', kumari:'कुमारी', verma:'वर्मा', sharma:'शर्मा', singh:'सिंह', devi:'देवी', ram:'राम',
+    shri:'श्री', smt:'श्रीमती', mr:'श्री', mrs:'श्रीमती', ms:'सुश्री', prasad:'प्रसाद', lal:'लाल', yadav:'यादव',
+    gupta:'गुप्ता', jain:'जैन', patel:'पटेल', mishra:'मिश्रा', tiwari:'तिवारी', chouhan:'चौहान', rao:'राव',
+    reddy:'रेड्डी', ahmad:'अहमद', ahmed:'अहमद', khaleel:'ख़लील', rahish:'रहीश', preeti:'प्रीति', gunjan:'गुंजन',
+    dutta:'दत्ता', bhopal:'भोपाल', indore:'इंदौर', gwalior:'ग्वालियर', jabalpur:'जबलपुर', ujjain:'उज्जैन',
+    sagar:'सागर', noida:'नोएडा', nainital:'नैनीताल', uttarakhand:'उत्तराखंड', west:'वेस्ट',
+    wo:'पत्नी', so:'पुत्र', 'do':'पुत्री', aged:'आयु', age:'आयु', years:'वर्ष',
+    resident:'निवासी', road:'रोड', colony:'कॉलोनी', nagar:'नगर', mobile:'मोबाइल', aadhaar:'आधार', aadhar:'आधार',
+    only:'मात्र', family:'परिवार', tenant:'किरायेदार', her:'उसका', his:'उसका', 'and':'तथा', 'the':'' };
+  var HMAP = { chh:'छ', ch:'च', sh:'श', th:'थ', dh:'ध', bh:'भ', ph:'फ', gh:'घ', kh:'ख', jh:'झ',
+    k:'क', g:'ग', j:'ज', t:'त', d:'द', n:'न', p:'प', b:'ब', m:'म', y:'य', r:'र', l:'ल', v:'व', w:'व', s:'स', h:'ह', f:'फ़', z:'ज़', c:'क', q:'क', x:'क्स' };
+  var VIND = { aa:'आ', a:'अ', ii:'ई', ee:'ई', i:'इ', uu:'ऊ', oo:'ऊ', u:'उ', ai:'ऐ', au:'औ', e:'ए', o:'ओ' };
+  var VMAT = { aa:'ा', a:'', ii:'ी', ee:'ी', i:'ि', uu:'ू', oo:'ू', u:'ु', ai:'ै', au:'ौ', e:'े', o:'ो' };
+  var CK = ['chh','ch','sh','th','dh','bh','ph','gh','kh','jh','k','g','j','t','d','n','p','b','m','y','r','l','v','w','s','h','f','z','c','q','x'];
+  var VK = ['aa','ii','ee','uu','oo','ai','au','a','i','u','e','o'];
+  function trWord(w) {
+    var lw = w.toLowerCase();
+    if (OVR[lw] != null) return OVR[lw];
+    var s = lw, out = '', i = 0, prevC = false;
+    function m(list) { for (var a = 0; a < list.length; a++) { if (s.substr(i, list[a].length) === list[a]) return list[a]; } return null; }
+    while (i < s.length) {
+      var c = m(CK);
+      if (c) { out += HMAP[c]; i += c.length; var v = m(VK); if (v) { out += VMAT[v]; i += v.length; } else if (i < s.length && (s[i] === 'r' || s[i] === 'y')) { out += '्'; } prevC = false; }
+      else { var v = m(VK); if (v) { out += (out === '' || !prevC) ? VIND[v] : VMAT[v]; i += v.length; prevC = false; } else { out += s[i]; i++; prevC = false; } }
+    }
+    return out;
+  }
+  function toDev(t) {
+    if (!t) return t;
+    t = t.replace(/\bw\/o\b/gi, 'पत्नी').replace(/\bs\/o\b/gi, 'पुत्र').replace(/\bd\/o\b/gi, 'पुत्री')
+         .replace(/\br\/o\b/gi, 'निवासी').replace(/\bc\/o\b/gi, 'द्वारा');
+    return t.replace(/[A-Za-z]+/g, function (w) { return trWord(w); });
+  }
+
+  function apply(key, val) {
+    var has = val && val.trim();
+    document.querySelectorAll('.ph[data-f="' + key + '"]').forEach(function (el) {
+      var d = el.getAttribute('data-ph') || '';
+      if (has) {
+        var hi = el.closest('.lang-hi') != null;
+        el.textContent = (hi && TRANSLIT.indexOf(key) >= 0) ? toDev(val) : val;
+        el.classList.add('ph--filled');
+      } else { el.textContent = d; el.classList.remove('ph--filled'); }
+    });
+  }
+  var inputs = document.querySelectorAll('.field input[data-f]');
+  inputs.forEach(function (inp) { inp.addEventListener('input', function () { apply(inp.getAttribute('data-f'), inp.value); }); });
+
+  function setAll(map) {
+    inputs.forEach(function (inp) {
+      var k = inp.getAttribute('data-f');
+      inp.value = map && map[k] != null ? map[k] : '';
+      apply(k, inp.value);
+    });
+  }
+  document.getElementById('btn-reset').addEventListener('click', function () { setAll(null); inputs[0] && inputs[0].focus(); });
+  document.getElementById('btn-sample').addEventListener('click', function () {
+    setAll({
+      place_exec: 'Noida West',
+      exec_date: '1st July, 2026',
+      purpose: 'Residential',
+      lessor: 'Mr. Rahish Ahmad s/o Khaleel Ahmad (Aadhaar No. 3849 3974 6151, PAN DLNPA3054D), r/o Ayarpata Ward, Sherwood College, Tallital, Nainital, Uttarakhand 263002, Mobile 9639376660',
+      lessee: 'Mrs. Preeti Kumari w/o Gunjan Dutta (Aadhaar No. 7698 3213 5544, PAN BIUPK6492D), r/o G-1248, 12th Avenue, Gaur City 2, Greater Noida West, U.P., Mobile 9953888465',
+      property: 'Property at Kirlami Compound, backside of Hotel Mount N Mist, Governor House Road, Near Sherwood College, Ayarpatta Slope, Nainital, Uttarakhand 263001',
+      rent: '18,000',
+      rent_words: 'Eighteen Thousand',
+      period: '11 months',
+      wef: '01.07.2026',
+      rent_day: '11th',
+      security: '36,000',
+      occupant: 'Mrs. Preeti Kumari (Tenant) and her family only'
+    });
+  });
+
+  function copyText(el, btn) {
+    if (!el) return;
+    var t = el.innerText.replace(/\n{3,}/g, '\n\n').trim();
+    navigator.clipboard.writeText(t).then(function () {
+      btn.textContent = '✓'; btn.classList.add('ok');
+      setTimeout(function () { btn.innerHTML = '<span class="lang-en">Copy</span><span class="lang-hi">कॉपी</span>'; btn.classList.remove('ok'); }, 1500);
+    });
+  }
+  document.querySelectorAll('.doc__copy').forEach(function (btn) {
+    btn.addEventListener('click', function () { copyText(document.getElementById(btn.getAttribute('data-copy') + '-body-' + curLang()), btn); });
+  });
+  document.getElementById('btn-copyall').addEventListener('click', function () {
+    var e = document.getElementById('rent-body-' + curLang());
+    if (e) navigator.clipboard.writeText(e.innerText.trim());
+    var b = document.getElementById('btn-copyall'); var o = b.innerHTML; b.textContent = '✓';
+    setTimeout(function () { b.innerHTML = o; }, 1500);
+  });
+
+  // ── Real PDF pipeline (server-rendered WeasyPrint) — powers Print/PDF
+  //    download AND WhatsApp share. Works on mobile where window.print() is
+  //    unreliable, and needs no login: /api/draft/pdf is a stateless render utility.
+  var DOC_SLUG = 'rent-agreement';
+
+  function _pdfName(scope) {
+    var d = new Date();
+    var stamp = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+    return 'headnote-' + DOC_SLUG + (scope ? '-' + scope : '') + '-' + stamp;
+  }
+
+  function _exportHtml(docEls) {
+    var lang = curLang();
+    var styles = '';
+    document.querySelectorAll('style').forEach(function (s) { styles += s.textContent; });
+    var body = '';
+    docEls.forEach(function (doc) {
+      var paper = doc.querySelector('.paper.lang-' + lang);
+      if (paper) body += '<section class="doc">' + paper.outerHTML + '</section>';
+    });
+    return '<!doctype html><html lang="' + lang + '"><head><meta charset="utf-8"><style>' + styles + '</style>'
+      + '<style>@page{size:A4;margin:18mm 16mm;}'
+      + '.paper .sigs{display:table;width:100%;table-layout:fixed;margin-top:48px;}'
+      + '.paper .sigs .col{display:table-cell;width:50%;text-align:center;padding:0 18px;}</style>'
+      + '</head><body class="' + (lang === 'hi' ? 'hi' : '') + '"><div id="doc-page">' + body + '</div></body></html>';
+  }
+
+  async function _fetchPdf(docEls, scope) {
+    var name = _pdfName(scope);
+    var r = await fetch('/api/draft/pdf', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ html: _exportHtml(docEls), filename: name })
+    });
+    if (!r.ok) {
+      var detail = ''; try { detail = (await r.json()).detail || ''; } catch (e) {}
+      throw new Error(detail || ('server ' + r.status));
+    }
+    return { blob: await r.blob(), filename: name + '.pdf' };
+  }
+
+  function _download(blob, filename) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+  }
+
+  function _busy(btn, on, label) {
+    if (on) { btn.dataset._o = btn.innerHTML; btn.disabled = true; btn.innerHTML = label; }
+    else { btn.disabled = false; if (btn.dataset._o != null) btn.innerHTML = btn.dataset._o; }
+  }
+
+  function _allDocs() { return Array.prototype.slice.call(document.querySelectorAll('.doc')); }
+
+  document.getElementById('btn-print').addEventListener('click', async function () {
+    var btn = this;
+    _busy(btn, true, curLang() === 'hi' ? '⏳ बना रहे हैं…' : '⏳ Generating…');
+    try { var out = await _fetchPdf(_allDocs(), null); _download(out.blob, out.filename); }
+    catch (e) { alert((curLang() === 'hi' ? 'PDF नहीं बना — ' : 'PDF failed — ') + (e.message || 'try again')); }
+    finally { _busy(btn, false); }
+  });
+
+  var shareBtn = document.getElementById('btn-share');
+  if (shareBtn) shareBtn.addEventListener('click', async function () {
+    var btn = this;
+    _busy(btn, true, curLang() === 'hi' ? '⏳ तैयार…' : '⏳ Preparing…');
+    var out;
+    try { out = await _fetchPdf(_allDocs(), null); }
+    catch (e) { _busy(btn, false); alert((curLang() === 'hi' ? 'PDF नहीं बना — ' : 'PDF failed — ') + (e.message || 'try again')); return; }
+    var file = new File([out.blob], out.filename, { type: 'application/pdf' });
+    var note = document.title.split('·')[0].trim() + ' — Headnote';
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: out.filename, text: note }); }
+      catch (e) { if (e.name !== 'AbortError') { _download(out.blob, out.filename); window.open('https://wa.me/?text=' + encodeURIComponent(note), '_blank'); } }
+    } else {
+      _download(out.blob, out.filename);
+      window.open('https://wa.me/?text=' + encodeURIComponent(note), '_blank');
+    }
+    _busy(btn, false);
+  });
+
+  // Per-document "Save PDF" — server-render this document only.
+  document.querySelectorAll('.doc').forEach(function (sec) {
+    var bar = sec.querySelector('.doc__bar'); if (!bar) return;
+    var b = document.createElement('button');
+    b.className = 'doc__pdf';
+    b.innerHTML = '<span class="lang-en">Save PDF</span><span class="lang-hi">PDF सेव करें</span>';
+    b.addEventListener('click', async function () {
+      _busy(b, true, '⏳');
+      try { var out = await _fetchPdf([sec], null); _download(out.blob, out.filename); }
+      catch (e) { alert((curLang() === 'hi' ? 'PDF नहीं बना — ' : 'PDF failed — ') + (e.message || 'try again')); }
+      finally { _busy(b, false); }
+    });
+    bar.appendChild(b);
+  });
+})();
+</script>
+</body>
+</html>

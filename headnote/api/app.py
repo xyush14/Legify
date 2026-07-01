@@ -1443,6 +1443,18 @@ def draft_maintenance_page():
     return FileResponse(config.STATIC_DIR / "draft-maintenance.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
+@app.get("/draft/rent", include_in_schema=False)
+@app.get("/draft/rent/", include_in_schema=False)
+def draft_rent_page():
+    """Rent agreement / lease deed — a fill-in, shareable residential tenancy
+    template (parties, premises, rent, term, security + standard covenants).
+    Bilingual (EN/हिं) with English→Devanagari transliteration; deterministic
+    client-side fill, server-PDF Print/WhatsApp/per-doc Save-PDF. Author-tier
+    (personal-assist queue, outside the reviewed litigation set). Static page;
+    marked noindex until reviewed."""
+    return FileResponse(config.STATIC_DIR / "draft-rent.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
 @app.get("/draft/discharge", include_in_schema=False)
 @app.get("/draft/discharge/", include_in_schema=False)
 def draft_discharge_page():
