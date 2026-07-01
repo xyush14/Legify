@@ -38,11 +38,15 @@
     padding: 3px 8px; border-radius: 100px;
   }
   .rtop__spacer { flex: 1; }
-  .langtog { display: inline-flex; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
-  .langtog__btn { font-size: 12px; font-weight: 600; padding: 6px 12px; background: var(--surface);
-    color: var(--ink-3); border: none; cursor: pointer; font-family: inherit; }
-  .langtog__btn + .langtog__btn { border-left: 1px solid var(--line); }
-  .langtog__btn.is-active { background: var(--ink); color: var(--surface); }
+  .langlabel { font-family: 'Geist Mono', monospace; font-size: 10px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--ink-3); }
+  @media (max-width: 720px) { .langlabel { display: none; } }
+  .langtog { display: inline-flex; border: 1.5px solid var(--gold); border-radius: var(--radius); overflow: hidden; }
+  .langtog__btn { font-size: 13px; font-weight: 600; padding: 7px 15px; background: var(--surface);
+    color: var(--ink-2); border: none; cursor: pointer;
+    font-family: 'Geist', 'Noto Sans Devanagari', sans-serif; }
+  .langtog__btn + .langtog__btn { border-left: 1px solid var(--gold-line); }
+  .langtog__btn.is-active { background: var(--gold); color: #1a1204; }
   .rtop__btn {
     font-size: 13px; font-weight: 500; color: var(--ink-2);
     border: 1px solid var(--line); background: var(--surface);
@@ -210,9 +214,10 @@
   <a class="rtop__brand" href="/" aria-label="Headnote home"><img src="/static/headnote-logo.svg" alt="headnote" /></a>
   <span class="rtop__tag">Personal Assist · Draft</span>
   <span class="rtop__spacer"></span>
-  <div class="langtog" role="group" aria-label="Language">
-    <button class="langtog__btn is-active" data-lang="en">EN</button>
-    <button class="langtog__btn" data-lang="hi">हिं</button>
+  <span class="langlabel">Language / भाषा →</span>
+  <div class="langtog" role="group" aria-label="Language / भाषा" title="Switch language / भाषा बदलें">
+    <button class="langtog__btn is-active" data-lang="en">English</button>
+    <button class="langtog__btn" data-lang="hi">हिंदी</button>
   </div>
   <button class="rtop__btn" id="btn-print"><span class="lang-en">Print / PDF</span><span class="lang-hi">प्रिंट / PDF</span></button>
   <button class="rtop__btn rtop__btn--solid" id="btn-copyall"><span class="lang-en">Copy all</span><span class="lang-hi">सब कॉपी</span></button>
