@@ -14,6 +14,27 @@
 <style>
   body { background: var(--bg); }
   .wrap { max-width: 920px; margin: 0 auto; padding: 0 20px 96px; }
+
+  /* Split-pane editor (matches /draft/bail): essentials + fields LEFT, live document RIGHT */
+  .split { display: grid; grid-template-columns: 470px 1fr; height: calc(100vh - 56px); }
+  .form-pane { overflow-y: auto; padding: 8px 24px 70px; border-right: 1px solid var(--line); background: var(--surface); }
+  .doc-pane { overflow-y: auto; background: #e8e6df; padding: 28px 30px 80px; }
+  .doc-pane .doc { max-width: 860px; margin: 0 auto 26px; }
+  .doc-pane .paper { box-shadow: 0 1px 5px rgba(12,12,10,0.12); }
+  .form-pane .rhead { padding: 16px 0 8px; }
+  .form-pane .rhead h1 { font-size: var(--t-xl); }
+  .form-pane .card { margin: 14px 0; box-shadow: none; }
+  .form-pane .fill__grid { grid-template-columns: 1fr 1fr; }
+  .form-pane .field.col-3 { grid-column: span 2; }
+  .form-pane .keys ul { grid-template-columns: 1fr; }
+  @media (max-width: 960px) {
+    .split { display: block; height: auto; }
+    .form-pane { border-right: none; padding: 12px 16px 18px; }
+    .doc-pane { background: var(--bg); padding: 6px 14px 70px; }
+    .doc-pane .doc { max-width: none; }
+    .doc-pane .paper { box-shadow: none; }
+    .form-pane .fill__grid { grid-template-columns: 1fr; }
+  }
   body:not(.hi) .lang-hi { display: none; }
   body.hi .lang-en { display: none; }
 
@@ -177,7 +198,8 @@
   <button class="rtop__btn" id="btn-copyall"><span class="lang-en">Copy all</span><span class="lang-hi">सब कॉपी</span></button>
 </header>
 
-<div class="wrap">
+<div class="split">
+  <div class="form-pane">
 
   <div class="rhead">
     <div class="rhead__eyebrow"><span class="lang-en">Family · Maintenance · §144 BNSS (§125 CrPC)</span><span class="lang-hi">कुटुम्ब · भरण-पोषण · धारा 144 बी.एन.एस.एस. (125 दं.प्र.सं.)</span></div>
@@ -284,7 +306,9 @@
       <p style="margin-top:14px;font-size:12px;color:var(--gold-ink);line-height:1.5;"><span class="lang-en">Names &amp; places typed in English auto-convert to Devanagari in the हिंदी view — please verify the spelling of proper names.</span><span class="lang-hi">अंग्रेज़ी में लिखे नाम व स्थान हिंदी दृश्य में स्वतः देवनागरी में बदल जाते हैं — कृपया नामों की वर्तनी जाँच लें।</span></p>
     </div>
   </section>
+  </div><!-- /form-pane -->
 
+  <div class="doc-pane">
   <!-- DOC 1 — MAINTENANCE PETITION -->
   <section class="doc" id="doc-pet">
     <div class="doc__bar">
@@ -468,7 +492,8 @@
       की पुष्टि करें। हिंदी पाठ एक कार्यकारी अनुवाद है — अंग्रेज़ी से मिलान करें।</span>
   </p>
 
-</div>
+  </div><!-- /doc-pane -->
+</div><!-- /split -->
 
 <script>
 (function () {
