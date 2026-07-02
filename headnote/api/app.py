@@ -1453,6 +1453,18 @@ def draft_defamation_page():
     return FileResponse(config.STATIC_DIR / "draft-defamation.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
+@app.get("/draft/rfa", include_in_schema=False)
+@app.get("/draft/rfa/", include_in_schema=False)
+def draft_rfa_page():
+    """Regular First Appeal (RFA) draft pack — civil first appeal from an original
+    decree under §96 read with Order XLI CPC: Memorandum of Appeal (grounds of
+    objection) + Order XLI Rule 5 stay-of-execution application + §5 Limitation Act
+    condonation-of-delay application. Bilingual (EN/हिं) with a District/High-Court
+    tier toggle; author-tier (civil, off the reviewed bail set) for advocate review.
+    Static page; placeholders fill client-side. Marked noindex until reviewed."""
+    return FileResponse(config.STATIC_DIR / "draft-rfa.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
 @app.get("/draft/rent", include_in_schema=False)
 @app.get("/draft/rent/", include_in_schema=False)
 def draft_rent_page():

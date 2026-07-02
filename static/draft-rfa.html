@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="/static/analytics.js?v=20260630a"></script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>Regular First Appeal (RFA) — Draft Pack · Headnote</title>
+<meta name="description" content="A fill-in draft pack for a Regular First Appeal (RFA) from a civil decree under Section 96 read with Order XLI CPC (English + Hindi): memorandum of appeal, an Order XLI Rule 5 stay-of-execution application, and a Section 5 condonation-of-delay application. Author-tier — for advocate review." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Serif+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/static/style.css?v=20260523b" />
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+<style>
+  body { background: var(--bg); }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 0 20px 96px; }
+
+  /* Split-pane editor (matches /draft/bail): essentials + fields LEFT, live document RIGHT */
+  .split { display: grid; grid-template-columns: 470px 1fr; height: calc(100vh - 56px); }
+  .form-pane { overflow-y: auto; padding: 8px 24px 70px; border-right: 1px solid var(--line); background: var(--surface); }
+  .doc-pane { overflow-y: auto; background: #e8e6df; padding: 28px 30px 80px; }
+  .doc-pane .doc { max-width: 860px; margin: 0 auto 26px; }
+  .doc-pane .paper { box-shadow: 0 1px 5px rgba(12,12,10,0.12); }
+  .form-pane .rhead { padding: 16px 0 8px; }
+  .form-pane .rhead h1 { font-size: var(--t-xl); }
+  .form-pane .card { margin: 14px 0; box-shadow: none; }
+  .form-pane .fill__grid { grid-template-columns: 1fr 1fr; }
+  .form-pane .field.col-3 { grid-column: span 2; }
+  .form-pane .keys ul { grid-template-columns: 1fr; }
+  @media (max-width: 960px) {
+    .split { display: block; height: auto; }
+    .form-pane { border-right: none; padding: 12px 16px 18px; }
+    .doc-pane { background: var(--bg); padding: 6px 14px 70px; }
+    .doc-pane .doc { max-width: none; }
+    .doc-pane .paper { box-shadow: none; }
+    .form-pane .fill__grid { grid-template-columns: 1fr; }
+  }
+  body:not(.hi) .lang-hi { display: none; }
+  body.hi .lang-en { display: none; }
+
+  .rtop { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 12px;
+    padding: 12px 20px; margin: 0 -20px 0; background: rgba(250,250,249,0.86);
+    backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+  .rtop__brand img { height: 19px; width: auto; display: block; }
+  .rtop__tag { font-family: 'Geist Mono', monospace; font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--gold-ink); border: 1px solid var(--gold-line);
+    background: var(--gold-soft); padding: 3px 8px; border-radius: 100px; }
+  .rtop__spacer { flex: 1; }
+  .langlabel { font-family: 'Geist Mono', monospace; font-size: 10px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--ink-3); }
+  @media (max-width: 720px) { .langlabel { display: none; } }
+  .langtog { display: inline-flex; border: 1.5px solid var(--gold); border-radius: var(--radius); overflow: hidden; }
+  .langtog__btn { font-size: 13px; font-weight: 600; padding: 7px 15px; background: var(--surface);
+    color: var(--ink-2); border: none; cursor: pointer; font-family: 'Geist', 'Noto Sans Devanagari', sans-serif; }
+  .langtog__btn + .langtog__btn { border-left: 1px solid var(--gold-line); }
+  .langtog__btn.is-active { background: var(--gold); color: #1a1204; }
+  .rtop__btn { font-size: 13px; font-weight: 500; color: var(--ink-2); border: 1px solid var(--line);
+    background: var(--surface); padding: 7px 13px; border-radius: var(--radius); cursor: pointer;
+    transition: border-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease); }
+  .rtop__btn:hover { border-color: var(--gold); color: var(--ink); }
+  .rtop__btn--solid { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+
+  .rhead { padding: 40px 0 18px; }
+  .rhead__eyebrow { font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--gold-ink); margin-bottom: 10px; }
+  .rhead h1 { font-size: var(--t-2xl); font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+  .rhead p { color: var(--ink-2); font-size: var(--t-md); margin-top: 10px; max-width: 64ch; }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card); margin: 18px 0; }
+  .card__pad { padding: 22px 24px; }
+  .guide__title { font-weight: 600; font-size: var(--t-md); display: flex; align-items: center; gap: 9px; }
+  .guide__title .dot { width: 7px; height: 7px; border-radius: 2px; background: var(--gold); }
+  .callout { margin-top: 16px; border: 1px solid var(--gold-line); background: var(--gold-soft);
+    border-radius: var(--radius); padding: 13px 15px; font-size: var(--t-sm); color: var(--ink-2); line-height: 1.55; }
+  .callout b { color: var(--gold-ink); }
+
+  .keys { margin-top: 18px; border-top: 1px dashed var(--line); padding-top: 16px; }
+  .keys h5 { font-size: var(--t-xs); font-family: 'Geist Mono', monospace; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--ink-3); margin-bottom: 10px; }
+  body.hi .keys h5 { font-family: 'Noto Sans Devanagari', sans-serif; letter-spacing: 0; }
+  .keys ul { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 7px 22px; }
+  @media (max-width: 680px) { .keys ul { grid-template-columns: 1fr; } }
+  .keys li { font-size: var(--t-sm); color: var(--ink-2); padding-left: 16px; position: relative; line-height: 1.45; }
+  .keys li::before { content: '›'; position: absolute; left: 0; color: var(--gold); font-weight: 700; }
+  .keys b { color: var(--ink); font-weight: 600; }
+
+  .fill__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .fill__grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px 16px; margin-top: 16px; }
+  @media (max-width: 880px) { .fill__grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 560px) { .fill__grid { grid-template-columns: 1fr; } }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field.col-2 { grid-column: span 2; }
+  .field.col-3 { grid-column: span 3; }
+  @media (max-width: 880px) { .field.col-3 { grid-column: span 2; } }
+  @media (max-width: 560px) { .field.col-2, .field.col-3 { grid-column: span 1; } }
+  .field label { font-size: var(--t-xs); font-weight: 500; color: var(--ink-3);
+    font-family: 'Geist Mono', monospace; letter-spacing: .03em; }
+  body.hi .field label { font-family: 'Noto Sans Devanagari', sans-serif; }
+  .field input, .field textarea { font-family: inherit; font-size: var(--t-sm); color: var(--ink);
+    border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 10px;
+    background: var(--surface); width: 100%; transition: border-color var(--t-fast) var(--ease); }
+  .field textarea { min-height: 54px; resize: vertical; }
+  .field input:focus, .field textarea:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-soft); }
+  .fill__actions { display: flex; gap: 9px; }
+  .linkbtn { background: none; border: none; cursor: pointer; font-size: 12.5px; color: var(--gold-ink);
+    font-weight: 600; padding: 4px 2px; }
+  .linkbtn:hover { color: var(--gold-deep); text-decoration: underline; }
+
+  /* Court-tier toggle — District vs High Court (neutral, not gold) */
+  .tiertog { display: inline-flex; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; width: 100%; }
+  .tiertog__btn { flex: 1; font-size: 12.5px; font-weight: 600; padding: 8px 10px; background: var(--surface);
+    color: var(--ink-2); border: none; cursor: pointer; font-family: 'Geist', 'Noto Sans Devanagari', sans-serif; }
+  .tiertog__btn + .tiertog__btn { border-left: 1px solid var(--line); }
+  .tiertog__btn.is-active { background: var(--ink); color: var(--surface); }
+
+  .doc { margin: 26px 0; }
+  .doc__bar { display: flex; align-items: center; gap: 12px; padding: 11px 16px;
+    border: 1px solid var(--line); border-bottom: none; border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    background: var(--soft); }
+  .doc__no { font-family: 'Geist Mono', monospace; font-size: 11px; color: var(--gold-deep); font-weight: 500; }
+  .doc__name { font-weight: 600; font-size: var(--t-sm); flex: 1; letter-spacing: -.01em; }
+  .doc__copy { font-size: 12px; color: var(--ink-2); border: 1px solid var(--line); background: var(--surface);
+    padding: 5px 11px; border-radius: var(--radius); cursor: pointer; white-space: nowrap; }
+  .doc__copy:hover { border-color: var(--gold); color: var(--ink); }
+  .doc__copy.ok { color: var(--good); border-color: var(--good); }
+  .doc__pdf { font-size: 12px; color: var(--ink-2); border: 1px solid var(--line); background: var(--surface);
+    padding: 5px 11px; border-radius: var(--radius); cursor: pointer; white-space: nowrap; }
+  .doc__pdf:hover { border-color: var(--gold); color: var(--ink); }
+  .paper { border: 1px solid var(--line); border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    background: var(--surface); padding: 40px 46px; font-family: Georgia, 'Times New Roman', serif;
+    font-size: 14.5px; line-height: 1.85; color: #1a1a17; }
+  .paper.lang-hi { font-family: 'Noto Serif Devanagari', Georgia, serif; line-height: 1.95; }
+  @media (max-width: 600px) { .paper { padding: 26px 22px; } }
+  .paper .ctr { text-align: center; }
+  .paper .court { font-weight: 700; text-transform: uppercase; letter-spacing: .02em; font-size: 15px; }
+  .paper.lang-hi .court { text-transform: none; }
+  .paper .rule { border: none; border-top: 1px solid #d8d4c8; margin: 14px 0; }
+  .paper .vs { text-align: center; font-style: italic; margin: 3px 0; padding-left: 40%; }
+  .paper .pno { display: inline-block; min-width: 1.7em; }
+  .paper p { margin: 0 0 12px; }
+  .paper .tight { margin-bottom: 4px; }
+  .paper .sig { margin-top: 26px; text-align: right; }
+  .paper h3 { font-size: 14.5px; font-weight: 700; text-align: center; margin: 18px 0 12px;
+    text-transform: uppercase; letter-spacing: .03em; }
+  .paper.lang-hi h3 { text-transform: none; }
+  .paper ol.prayer { margin: 0 0 12px 0; padding-left: 30px; }
+  .paper ol.prayer li { margin-bottom: 8px; }
+  .paper ol.grounds { margin: 0 0 12px 0; padding-left: 30px; }
+  .paper ol.grounds li { margin-bottom: 9px; }
+  .paper .quote { padding: 6px 14px; border-left: 3px solid var(--gold); background: var(--gold-soft);
+    font-style: italic; margin: 0 0 12px; }
+  /* Party block — canonical cause-title: designation label + rule LEFT, descriptor indented RIGHT */
+  .paper .party { display: grid; grid-template-columns: 40% 60%; column-gap: 10px; align-items: start; margin: 2px 0 6px; }
+  .paper .party__label { display: flex; align-items: flex-end; gap: 7px; white-space: nowrap; font-weight: 700; }
+  .paper .party__label .ln { flex: 1; border-bottom: 1px solid #b7b09c; margin-bottom: 4px; }
+  .paper .party__desc { align-self: start; }
+
+  .ph { background: var(--gold-soft); border-bottom: 1.5px solid var(--gold); padding: 0 3px;
+    border-radius: 3px 3px 0 0; color: var(--gold-ink); font-style: normal; }
+  .ph--filled { background: transparent; border-bottom: none; color: inherit; font-weight: 600; }
+
+  .notes { margin-top: 2px; }
+  .notes summary { cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--ink-2);
+    padding: 10px 16px; border: 1px solid var(--line); border-top: none;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg); background: var(--bg); list-style: none; }
+  .notes summary::-webkit-details-marker { display: none; }
+  .notes summary::before { content: '+ '; color: var(--gold-deep); font-weight: 700; }
+  .notes[open] summary::before { content: '– '; }
+  .notes[open] summary { border-radius: 0; }
+  .notes__body { border: 1px solid var(--line); border-top: none; padding: 16px 18px;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg); font-size: 13px; color: var(--ink-2); line-height: 1.6; }
+  .notes__body li { margin-bottom: 8px; margin-left: 18px; }
+  .notes__body b { color: var(--ink); }
+
+  .rfoot { margin-top: 36px; padding: 18px 0 0; border-top: 1px solid var(--line);
+    font-size: 12px; color: var(--ink-3); line-height: 1.6; }
+  .rfoot b { color: var(--ink-2); }
+
+  @media print {
+    .rtop, .rhead, .fillcard, .guidecard, .notes, .doc__bar { display: none !important; }
+    .paper { border: none; padding: 0; }
+    .card, .doc { box-shadow: none; margin: 0; }
+    .doc { page-break-after: always; }
+    .doc:last-of-type { page-break-after: auto; }
+    body.print-one .doc { display: none !important; }
+    body.print-one .doc.print-target { display: block !important; page-break-after: auto; }
+  }
+</style>
+</head>
+<body class="draft-rfa">
+
+<header class="rtop">
+  <a class="rtop__brand" href="/" aria-label="Headnote home"><img src="/static/headnote-logo.svg" alt="headnote" /></a>
+  <span class="rtop__tag">Personal Assist · Draft</span>
+  <span class="rtop__spacer"></span>
+  <span class="langlabel">Language / भाषा →</span>
+  <div class="langtog" role="group" aria-label="Language / भाषा" title="Switch language / भाषा बदलें">
+    <button class="langtog__btn is-active" data-lang="en">English</button>
+    <button class="langtog__btn" data-lang="hi">हिंदी</button>
+  </div>
+  <button class="rtop__btn" id="btn-print"><span class="lang-en">⬇ Download PDF</span><span class="lang-hi">⬇ PDF डाउनलोड</span></button>
+  <button class="rtop__btn rtop__btn--solid" id="btn-share"><span class="lang-en">📱 WhatsApp</span><span class="lang-hi">📱 WhatsApp</span></button>
+  <button class="rtop__btn" id="btn-copyall"><span class="lang-en">Copy all</span><span class="lang-hi">सब कॉपी</span></button>
+</header>
+
+<div class="split">
+  <div class="form-pane">
+
+  <div class="rhead">
+    <div class="rhead__eyebrow"><span class="lang-en">Civil · First Appeal · §96 r/w Order XLI CPC</span><span class="lang-hi">सिविल · प्रथम अपील · धारा 96 सहपठित आदेश 41 सी.पी.सी.</span></div>
+    <h1><span class="lang-en">Regular First Appeal — Draft Pack</span><span class="lang-hi">नियमित प्रथम अपील — ड्राफ्ट पैक</span></h1>
+    <p>
+      <span class="lang-en">A ready-to-file pack for a <b>Regular First Appeal (RFA)</b> from an original civil decree under
+        <b>Section 96 read with Order XLI CPC</b>: the <b>Memorandum of Appeal</b> (grounds of objection),
+        an <b>Order XLI Rule 5 application to stay execution</b> of the decree, and a <b>Section 5 Limitation Act
+        application to condone delay</b> (if filed late). Fill the details once — every blank updates across all three.</span>
+      <span class="lang-hi">मूल सिविल डिक्री के विरुद्ध <b>नियमित प्रथम अपील (RFA)</b> हेतु दाखिल करने योग्य पैक, <b>धारा 96 सहपठित
+        आदेश 41 सी.पी.सी.</b> के अंतर्गत: <b>अपील ज्ञापन</b> (आपत्ति के आधार), डिक्री के <b>निष्पादन पर रोक हेतु आदेश 41
+        नियम 5 आवेदन</b>, तथा (विलंब होने पर) <b>विलंब क्षमा हेतु धारा 5 परिसीमा अधिनियम आवेदन</b>। विवरण एक बार भरें —
+        तीनों दस्तावेज़ों में सभी रिक्त स्थान स्वतः भर जाएँगे।</span>
+    </p>
+  </div>
+
+  <!-- GUIDANCE -->
+  <section class="card guidecard">
+    <div class="card__pad">
+      <div class="guide__title"><span class="dot"></span>
+        <span class="lang-en">Before you fill — the essentials</span>
+        <span class="lang-hi">भरने से पहले — अनिवार्य बातें</span>
+      </div>
+
+      <div class="callout">
+        <span class="lang-en"><b>A memorandum of appeal states grounds — it does not argue them.</b> Order XLI Rule 1(2) CPC
+          requires the grounds of objection to be set out <b>concisely and without any argument or narrative</b>,
+          numbered consecutively. And a <b>certified copy of the impugned judgment and decree must accompany the memo</b>
+          (Order XLI Rule 1). A first appeal is a full re-hearing on <b>both law and fact</b>.</span>
+        <span class="lang-hi"><b>अपील ज्ञापन आधार बताता है — उन पर बहस नहीं करता।</b> आदेश 41 नियम 1(2) सी.पी.सी. के अनुसार आपत्ति के
+          आधार <b>संक्षेप में, बिना किसी तर्क या विवरण के</b>, क्रमवार अंकित किए जाने चाहिए। तथा <b>आक्षेपित निर्णय एवं डिक्री की
+          प्रमाणित प्रति ज्ञापन के साथ संलग्न करना अनिवार्य है</b> (आदेश 41 नियम 1)। प्रथम अपील विधि एवं तथ्य <b>दोनों</b> पर
+          पूर्ण पुनर्सुनवाई है।</span>
+      </div>
+
+      <div class="keys">
+        <h5><span class="lang-en">Facts &amp; documents to collect</span><span class="lang-hi">एकत्र करने योग्य तथ्य व दस्तावेज़</span></h5>
+        <ul class="lang-en">
+          <li><b>The impugned decree</b> — the trial court, original suit no., date of judgment/decree, and what it decreed (granted/dismissed).</li>
+          <li><b>Certified copy</b> of the judgment AND decree (mandatory annexure, O.XLI r.1).</li>
+          <li><b>Grounds of objection</b> — where the trial court erred, on law and on fact (concise, un-argued).</li>
+          <li><b>Valuation</b> of the suit/appeal — for ad-valorem court fee and forum.</li>
+          <li><b>Limitation</b> — from the date of the decree; note the date the certified copy was applied for/received.</li>
+          <li><b>Parties</b> — appellant (the party aggrieved by the decree) and respondent, with their trial-court roles.</li>
+        </ul>
+        <ul class="lang-hi">
+          <li><b>आक्षेपित डिक्री</b> — विचारण न्यायालय, मूल वाद संख्या, निर्णय/डिक्री की तिथि, तथा क्या डिक्री हुई (मंजूर/खारिज)।</li>
+          <li>निर्णय एवं डिक्री की <b>प्रमाणित प्रति</b> (अनिवार्य संलग्नक, आदेश 41 नियम 1)।</li>
+          <li><b>आपत्ति के आधार</b> — विचारण न्यायालय ने विधि एवं तथ्य पर कहाँ त्रुटि की (संक्षिप्त, बिना बहस)।</li>
+          <li>वाद/अपील का <b>मूल्यांकन</b> — यथामूल्य न्याय शुल्क एवं फोरम हेतु।</li>
+          <li><b>परिसीमा</b> — डिक्री की तिथि से; प्रमाणित प्रति हेतु आवेदन/प्राप्ति की तिथि नोट करें।</li>
+          <li><b>पक्षकार</b> — अपीलार्थी (डिक्री से व्यथित पक्ष) एवं प्रत्यर्थी, विचारण न्यायालय की उनकी भूमिका सहित।</li>
+        </ul>
+      </div>
+
+      <div class="keys">
+        <h5><span class="lang-en">Forum, limitation, reliefs &amp; authorities</span><span class="lang-hi">फोरम, परिसीमा, अनुतोष व न्याय-दृष्टांत</span></h5>
+        <ul class="lang-en">
+          <li><b>Forum</b> — appeal from a decree of a court subordinate to the District Court lies to the <b>District Judge</b>; where the valuation exceeds the District Court's pecuniary limit, to the <b>High Court</b>. Use the <b>court toggle</b> below to switch.</li>
+          <li><b>Limitation</b> — <b>30 days</b> to the District Court, <b>90 days</b> to the High Court, from the date of the decree (Limitation Act 1963, Arts. 116/117); time for obtaining the certified copy is excluded (§12).</li>
+          <li><b>Companions</b> — <b>O.XLI r.5</b> stay of execution; <b>§5</b> condonation if late; <b>O.XLI r.27</b> if additional evidence is sought; vakalatnama.</li>
+          <li><b>Court fee</b> — ad-valorem on the memorandum, per the State schedule.</li>
+          <li><b>Authorities</b> (duty of the first appellate court to reappreciate the whole evidence and record reasons on every issue) — <i>Santosh Hazari v. Purushottam Tiwari</i>, (2001) 3 SCC 179; <i>B.V. Nagesh v. H.V. Sreenivasa Murthy</i>, (2010) 13 SCC 530; <i>Vinod Kumar v. Gangadhar</i>, (2015) 1 SCC 391 — <b>verify each before citing</b>; keep for argument, not the memo body.</li>
+        </ul>
+        <ul class="lang-hi">
+          <li><b>फोरम</b> — जिला न्यायालय के अधीनस्थ न्यायालय की डिक्री के विरुद्ध अपील <b>जिला न्यायाधीश</b> के समक्ष; जहाँ मूल्यांकन जिला न्यायालय की आर्थिक सीमा से अधिक हो, <b>उच्च न्यायालय</b> के समक्ष। नीचे <b>न्यायालय टॉगल</b> से बदलें।</li>
+          <li><b>परिसीमा</b> — जिला न्यायालय हेतु <b>30 दिन</b>, उच्च न्यायालय हेतु <b>90 दिन</b>, डिक्री की तिथि से (परिसीमा अधि. 1963, अनु. 116/117); प्रमाणित प्रति प्राप्ति का समय अपवर्जित (धारा 12)।</li>
+          <li><b>सहायक आवेदन</b> — <b>आदेश 41 नियम 5</b> निष्पादन पर रोक; विलंब होने पर <b>धारा 5</b> क्षमा; अतिरिक्त साक्ष्य हेतु <b>आदेश 41 नियम 27</b>; वकालतनामा।</li>
+          <li><b>न्याय शुल्क</b> — ज्ञापन पर यथामूल्य, राज्य अनुसूची अनुसार।</li>
+          <li><b>न्याय-दृष्टांत</b> (प्रथम अपीलीय न्यायालय का समस्त साक्ष्य का पुनर्मूल्यांकन एवं प्रत्येक विवाद्यक पर कारण अभिलिखित करने का कर्तव्य) — <i>Santosh Hazari v. Purushottam Tiwari</i>, (2001) 3 SCC 179; <i>B.V. Nagesh v. H.V. Sreenivasa Murthy</i>, (2010) 13 SCC 530; <i>Vinod Kumar v. Gangadhar</i>, (2015) 1 SCC 391 — <b>प्रत्येक को उद्धृत करने से पूर्व सत्यापित करें</b>; तर्क हेतु रखें, ज्ञापन के मुख्य भाग में नहीं।</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- FILL PANEL -->
+  <section class="card fillcard">
+    <div class="card__pad">
+      <div class="fill__head">
+        <div class="guide__title"><span class="dot"></span>
+          <span class="lang-en">Fill the details</span><span class="lang-hi">विवरण भरें</span>
+        </div>
+        <div class="fill__actions">
+          <button class="linkbtn" id="btn-sample"><span class="lang-en">Load sample</span><span class="lang-hi">नमूना भरें</span></button>
+          <button class="linkbtn" id="btn-reset"><span class="lang-en">Clear</span><span class="lang-hi">साफ़ करें</span></button>
+        </div>
+      </div>
+      <div class="fill__grid">
+        <div class="field col-3">
+          <label><span class="lang-en">Appellate court</span><span class="lang-hi">अपीलीय न्यायालय</span></label>
+          <div class="tiertog" role="group" aria-label="Court tier">
+            <button type="button" class="tiertog__btn is-active" data-tier="district"><span class="lang-en">District Court</span><span class="lang-hi">जिला न्यायालय</span></button>
+            <button type="button" class="tiertog__btn" data-tier="hc"><span class="lang-en">High Court</span><span class="lang-hi">उच्च न्यायालय</span></button>
+          </div>
+        </div>
+        <div class="field col-2"><label><span class="lang-en">Court (name &amp; place)</span><span class="lang-hi">न्यायालय (नाम व स्थान)</span></label><input data-f="court" placeholder="Court of the District Judge, ____" /></div>
+        <div class="field"><label><span class="lang-en">Appeal no. / year</span><span class="lang-hi">अपील संख्या / वर्ष</span></label><input data-f="appeal_no" placeholder="____ of 20__" /></div>
+        <div class="field col-3"><label><span class="lang-en">Appellant — name &amp; description (trial-court role)</span><span class="lang-hi">अपीलार्थी — नाम व विवरण (विचारण-भूमिका)</span></label><input data-f="appellant" placeholder="Name, S/o ____, age, occupation, r/o ____ (Original Plaintiff / Defendant)" /></div>
+        <div class="field col-3"><label><span class="lang-en">Respondent — name &amp; description (trial-court role)</span><span class="lang-hi">प्रत्यर्थी — नाम व विवरण (विचारण-भूमिका)</span></label><input data-f="respondent" placeholder="Name, S/o ____, age, occupation, r/o ____ (Original Defendant / Plaintiff)" /></div>
+        <div class="field col-2"><label><span class="lang-en">Trial court (that passed the decree)</span><span class="lang-hi">विचारण न्यायालय (जिसने डिक्री पारित की)</span></label><input data-f="lower_court" placeholder="Civil Judge Class ____, ____" /></div>
+        <div class="field"><label><span class="lang-en">Original suit no. / year</span><span class="lang-hi">मूल वाद संख्या / वर्ष</span></label><input data-f="suit_no" placeholder="Civil Suit No. ____ of 20__" /></div>
+        <div class="field"><label><span class="lang-en">Date of judgment &amp; decree</span><span class="lang-hi">निर्णय व डिक्री की तिथि</span></label><input data-f="decree_date" placeholder="12.02.2026" /></div>
+        <div class="field col-2"><label><span class="lang-en">What the decree held (granted / dismissed)</span><span class="lang-hi">डिक्री ने क्या तय किया (मंजूर / खारिज)</span></label><input data-f="decree_gist" placeholder="dismissing the plaintiff's suit for ____ / decreeing the suit for ____" /></div>
+        <div class="field col-3"><label><span class="lang-en">Grounds of objection (where the trial court erred)</span><span class="lang-hi">आपत्ति के आधार (विचारण न्यायालय ने कहाँ त्रुटि की)</span></label><textarea data-f="grounds" placeholder="e.g. ignored the registered sale deed (Ex. P/1); relied on contradictory oral evidence; misread Issue No. 2 …"></textarea></div>
+        <div class="field"><label><span class="lang-en">Suit / appeal valuation (₹)</span><span class="lang-hi">वाद / अपील मूल्यांकन (₹)</span></label><input data-f="valuation" placeholder="8,50,000" /></div>
+        <div class="field"><label><span class="lang-en">Days of delay (if late; else blank)</span><span class="lang-hi">विलंब के दिन (देर होने पर; अन्यथा रिक्त)</span></label><input data-f="delay_days" placeholder="e.g. 24" /></div>
+        <div class="field"><label><span class="lang-en">Place (jurisdiction)</span><span class="lang-hi">स्थान (क्षेत्राधिकार)</span></label><input data-f="place" placeholder="____" /></div>
+        <div class="field col-2"><label><span class="lang-en">Reason for delay (for the §5 application)</span><span class="lang-hi">विलंब का कारण (धारा 5 आवेदन हेतु)</span></label><input data-f="delay_reason" placeholder="e.g. delay in obtaining the certified copy / bona fide illness / wrong legal advice" /></div>
+        <div class="field"><label><span class="lang-en">Date of draft</span><span class="lang-hi">ड्राफ्ट की तिथि</span></label><input data-f="draftdate" placeholder="DD.MM.YYYY" /></div>
+        <div class="field col-2"><label><span class="lang-en">Advocate — name &amp; enrolment</span><span class="lang-hi">अधिवक्ता — नाम व नामांकन</span></label><input data-f="advocate" placeholder="____, Advocate (Enrl. No. ____)" /></div>
+      </div>
+      <p style="margin-top:14px;font-size:12px;color:var(--gold-ink);line-height:1.5;"><span class="lang-en">Names &amp; places typed in English auto-convert to Devanagari in the हिंदी view — please verify the spelling of proper names. Court names, dates and figures are kept as typed; type the court name in Hindi for a Hindi filing.</span><span class="lang-hi">अंग्रेज़ी में लिखे नाम व स्थान हिंदी दृश्य में स्वतः देवनागरी में बदल जाते हैं — कृपया नामों की वर्तनी जाँच लें। न्यायालय के नाम, तिथियाँ व अंक यथावत् रखे जाते हैं; हिंदी में दाखिल हेतु न्यायालय का नाम हिंदी में लिखें।</span></p>
+    </div>
+  </section>
+  </div><!-- /form-pane -->
+
+  <div class="doc-pane">
+  <!-- DOC 1 — MEMORANDUM OF APPEAL -->
+  <section class="doc" id="doc-memo">
+    <div class="doc__bar">
+      <span class="doc__no">DOC 1</span>
+      <span class="doc__name"><span class="lang-en">Memorandum of Appeal (§96 r/w Order XLI CPC)</span><span class="lang-hi">अपील ज्ञापन (धारा 96 सहपठित आदेश 41 सी.पी.सी.)</span></span>
+      <button class="doc__copy" data-copy="memo"><span class="lang-en">Copy</span><span class="lang-hi">कॉपी</span></button>
+    </div>
+    <div class="paper lang-en" id="memo-body-en">
+      <p class="ctr court">IN THE <span class="ph" data-f="court" data-ph="[COURT]">[COURT]</span></p>
+      <p class="ctr"><span class="ph" data-f="appealtype" data-ph="Regular Civil Appeal">Regular Civil Appeal</span> No. <span class="ph" data-f="appeal_no" data-ph="[___ of 20__]">[___ of 20__]</span></p>
+      <p class="ctr" style="font-size:13px;">(Appeal under Section 96 read with Order XLI CPC against the judgment and decree dated <span class="ph" data-f="decree_date" data-ph="[date]">[date]</span> passed by <span class="ph" data-f="lower_court" data-ph="[trial court]">[trial court]</span> in <span class="ph" data-f="suit_no" data-ph="[Civil Suit No. ___ of 20__]">[Civil Suit No. ___ of 20__]</span>)</p>
+      <hr class="rule" />
+      <div class="party"><span class="party__label">Appellant<span class="ln"></span></span><span class="party__desc"><span class="ph" data-f="appellant" data-ph="[appellant — name, parentage, age, occupation, address, trial-court role]">[appellant — name, parentage, age, occupation, address, trial-court role]</span></span></div>
+      <p class="vs">VERSUS</p>
+      <div class="party"><span class="party__label">Respondent<span class="ln"></span></span><span class="party__desc"><span class="ph" data-f="respondent" data-ph="[respondent — name, parentage, age, occupation, address, trial-court role]">[respondent — name, parentage, age, occupation, address, trial-court role]</span></span></div>
+      <hr class="rule" />
+      <p class="ctr"><b>MEMORANDUM OF APPEAL UNDER SECTION 96 READ WITH ORDER XLI CPC</b></p>
+      <p>The Appellant above-named respectfully submits this appeal against the judgment and decree dated <span class="ph" data-f="decree_date" data-ph="[date]">[date]</span> passed by <span class="ph" data-f="lower_court" data-ph="[trial court]">[trial court]</span> in <span class="ph" data-f="suit_no" data-ph="[Civil Suit No. ___ of 20__]">[Civil Suit No. ___ of 20__]</span>, whereby the learned trial court, <span class="ph" data-f="decree_gist" data-ph="[what the decree held — e.g. dismissed / decreed the suit for ____]">[what the decree held — e.g. dismissed / decreed the suit for ____]</span>.</p>
+      <p>Being aggrieved and dissatisfied by the said judgment and decree, the Appellant prefers this appeal on the following amongst other</p>
+      <h3>Grounds</h3>
+      <ol class="grounds">
+        <li>BECAUSE the impugned judgment and decree are contrary to law, the pleadings and the evidence on record, and are otherwise perverse and unsustainable.</li>
+        <li>BECAUSE the learned trial court erred in that <span class="ph" data-f="grounds" data-ph="[the specific errors — where the court went wrong on facts and law]">[the specific errors — where the court went wrong on facts and law]</span>.</li>
+        <li>BECAUSE the learned trial court misread and misappreciated the oral and documentary evidence on record, and drew conclusions unsupported by the material before it.</li>
+        <li>BECAUSE the learned trial court failed to appreciate the true nature and burden of the issues, and failed to record clear findings and reasons upon all the issues arising for determination.</li>
+        <li>BECAUSE the relief granted/refused by the impugned decree is contrary to the settled principles of law applicable to the case.</li>
+        <li>BECAUSE the Appellant craves leave to add to, alter or amend the foregoing grounds with the permission of this Hon'ble Court.</li>
+      </ol>
+      <p><b>Valuation &amp; court fee:</b> For the purposes of court fee and jurisdiction, the appeal is valued at ₹<span class="ph" data-f="valuation" data-ph="[amount]">[amount]</span>, being the value of the subject-matter, and the requisite ad-valorem court fee is paid on this memorandum.</p>
+      <p><b>Limitation:</b> The appeal is being preferred within the prescribed period of <span class="ph" data-f="limdays" data-ph="30">30</span> days from the date of the decree (excluding the time taken in obtaining the certified copy under Section 12 of the Limitation Act, 1963). <i>[Where the appeal is beyond limitation, it is accompanied by a separate application under Section 5 of the Limitation Act to condone the delay.]</i></p>
+      <p>It is certified that a <b>certified copy of the impugned judgment and decree</b> is filed herewith along with this memorandum of appeal.</p>
+      <h3>Prayer</h3>
+      <p>It is therefore most respectfully prayed that this Hon'ble Court may be pleased to:—</p>
+      <ol class="prayer">
+        <li>allow this appeal and set aside the impugned judgment and decree dated <span class="ph" data-f="decree_date" data-ph="[date]">[date]</span> passed by <span class="ph" data-f="lower_court" data-ph="[trial court]">[trial court]</span> in <span class="ph" data-f="suit_no" data-ph="[suit]">[suit]</span>;</li>
+        <li>consequently, decree the Appellant's suit / dismiss the suit against the Appellant, as the case may be, in terms of the relief the Appellant is entitled to;</li>
+        <li>award the costs of this appeal and of the court below to the Appellant; and</li>
+        <li>grant any other or further relief this Hon'ble Court deems fit in the interest of justice.</li>
+      </ol>
+      <p class="sig">Place: <span class="ph" data-f="place" data-ph="[place]">[place]</span> &nbsp;&nbsp; Date: <span class="ph" data-f="draftdate" data-ph="[date]">[date]</span><br /><br />
+        &nbsp;<br /><b>APPELLANT</b><br />Through — <span class="ph" data-f="advocate" data-ph="[Advocate]">[Advocate]</span></p>
+    </div>
+    <div class="paper lang-hi" id="memo-body-hi">
+      <p class="ctr court">न्यायालय श्रीमान् <span class="ph" data-f="court" data-ph="[न्यायालय]">[न्यायालय]</span> में</p>
+      <p class="ctr"><span class="ph" data-f="appealtype_hi" data-ph="नियमित सिविल अपील">नियमित सिविल अपील</span> संख्या <span class="ph" data-f="appeal_no" data-ph="[___ वर्ष 20__]">[___ वर्ष 20__]</span></p>
+      <p class="ctr" style="font-size:13px;">(<span class="ph" data-f="lower_court" data-ph="[विचारण न्यायालय]">[विचारण न्यायालय]</span> द्वारा <span class="ph" data-f="suit_no" data-ph="[सिविल वाद संख्या ___ वर्ष 20__]">[सिविल वाद संख्या ___ वर्ष 20__]</span> में पारित दिनांक <span class="ph" data-f="decree_date" data-ph="[दिनांक]">[दिनांक]</span> के निर्णय एवं डिक्री के विरुद्ध धारा 96 सहपठित आदेश 41 सी.पी.सी. के अंतर्गत अपील)</p>
+      <hr class="rule" />
+      <div class="party"><span class="party__label">अपीलार्थी<span class="ln"></span></span><span class="party__desc"><span class="ph" data-f="appellant" data-ph="[अपीलार्थी — नाम, पिता/पति श्री ____, आयु, व्यवसाय, निवासी ____, विचारण-भूमिका]">[अपीलार्थी — नाम, पिता/पति श्री ____, आयु, व्यवसाय, निवासी ____, विचारण-भूमिका]</span></span></div>
+      <p class="vs">बनाम</p>
+      <div class="party"><span class="party__label">प्रत्यर्थी<span class="ln"></span></span><span class="party__desc"><span class="ph" data-f="respondent" data-ph="[प्रत्यर्थी — नाम, पिता श्री ____, आयु, व्यवसाय, निवासी ____, विचारण-भूमिका]">[प्रत्यर्थी — नाम, पिता श्री ____, आयु, व्यवसाय, निवासी ____, विचारण-भूमिका]</span></span></div>
+      <hr class="rule" />
+      <p class="ctr"><b>धारा 96 सहपठित आदेश 41 सी.पी.सी. के अंतर्गत अपील ज्ञापन</b></p>
+      <p>उपरोक्त नामित अपीलार्थी <span class="ph" data-f="lower_court" data-ph="[विचारण न्यायालय]">[विचारण न्यायालय]</span> द्वारा <span class="ph" data-f="suit_no" data-ph="[सिविल वाद संख्या ___ वर्ष 20__]">[सिविल वाद संख्या ___ वर्ष 20__]</span> में पारित दिनांक <span class="ph" data-f="decree_date" data-ph="[दिनांक]">[दिनांक]</span> के निर्णय एवं डिक्री के विरुद्ध सविनय यह अपील प्रस्तुत करता/करती है, जिसके द्वारा विद्वान विचारण न्यायालय ने <span class="ph" data-f="decree_gist" data-ph="[डिक्री ने क्या तय किया — जैसे वाद खारिज / ____ हेतु वाद डिक्री किया]">[डिक्री ने क्या तय किया — जैसे वाद खारिज / ____ हेतु वाद डिक्री किया]</span>।</p>
+      <p>उक्त निर्णय एवं डिक्री से व्यथित एवं असंतुष्ट होकर अपीलार्थी निम्नलिखित आधारों पर (अन्य आधारों सहित) यह अपील प्रस्तुत करता/करती है</p>
+      <h3>आधार</h3>
+      <ol class="grounds">
+        <li>क्योंकि आक्षेपित निर्णय एवं डिक्री विधि, अभिवचनों एवं अभिलेख पर उपलब्ध साक्ष्य के विपरीत हैं तथा अन्यथा भी विकृत (perverse) एवं अपोषणीय हैं।</li>
+        <li>क्योंकि विद्वान विचारण न्यायालय ने इस बात में त्रुटि की कि <span class="ph" data-f="grounds" data-ph="[विशिष्ट त्रुटियाँ — न्यायालय तथ्य एवं विधि पर कहाँ चूका]">[विशिष्ट त्रुटियाँ — न्यायालय तथ्य एवं विधि पर कहाँ चूका]</span>।</li>
+        <li>क्योंकि विद्वान विचारण न्यायालय ने अभिलेख पर मौखिक एवं दस्तावेज़ी साक्ष्य का गलत पठन एवं गलत मूल्यांकन किया, तथा उपलब्ध सामग्री से असमर्थित निष्कर्ष निकाले।</li>
+        <li>क्योंकि विद्वान विचारण न्यायालय विवाद्यकों की वास्तविक प्रकृति एवं भार को समझने में विफल रहा, तथा निर्धारण हेतु उठने वाले समस्त विवाद्यकों पर स्पष्ट निष्कर्ष एवं कारण अभिलिखित करने में विफल रहा।</li>
+        <li>क्योंकि आक्षेपित डिक्री द्वारा प्रदान/अस्वीकृत अनुतोष मामले पर लागू स्थापित विधि-सिद्धांतों के विपरीत है।</li>
+        <li>क्योंकि अपीलार्थी इस माननीय न्यायालय की अनुमति से उपरोक्त आधारों में वृद्धि, परिवर्तन या संशोधन करने की अनुमति चाहता/चाहती है।</li>
+      </ol>
+      <p><b>मूल्यांकन एवं न्याय शुल्क:</b> न्याय शुल्क एवं क्षेत्राधिकार हेतु अपील का मूल्यांकन ₹<span class="ph" data-f="valuation" data-ph="[राशि]">[राशि]</span> (विषय-वस्तु का मूल्य) किया गया है, तथा इस ज्ञापन पर यथामूल्य न्याय शुल्क अदा किया गया है।</p>
+      <p><b>परिसीमा:</b> यह अपील डिक्री की तिथि से निर्धारित <span class="ph" data-f="limdays" data-ph="30">30</span> दिन की अवधि के भीतर प्रस्तुत की जा रही है (परिसीमा अधिनियम, 1963 की धारा 12 के अंतर्गत प्रमाणित प्रति प्राप्त करने में लगे समय को छोड़कर)। <i>[यदि अपील परिसीमा के बाद हो, तो इसके साथ विलंब क्षमा हेतु धारा 5 परिसीमा अधिनियम का पृथक आवेदन संलग्न है।]</i></p>
+      <p>प्रमाणित किया जाता है कि <b>आक्षेपित निर्णय एवं डिक्री की प्रमाणित प्रति</b> इस अपील ज्ञापन के साथ संलग्न है।</p>
+      <h3>प्रार्थना</h3>
+      <p>अतः सविनय प्रार्थना है कि यह माननीय न्यायालय कृपया:—</p>
+      <ol class="prayer">
+        <li>इस अपील को स्वीकार कर <span class="ph" data-f="lower_court" data-ph="[विचारण न्यायालय]">[विचारण न्यायालय]</span> द्वारा <span class="ph" data-f="suit_no" data-ph="[वाद]">[वाद]</span> में पारित दिनांक <span class="ph" data-f="decree_date" data-ph="[दिनांक]">[दिनांक]</span> का आक्षेपित निर्णय एवं डिक्री अपास्त करे;</li>
+        <li>तदनुसार अपीलार्थी के वाद को डिक्री करे / अपीलार्थी के विरुद्ध वाद को खारिज करे, जैसी भी स्थिति हो, अपीलार्थी के हकदार अनुतोष के अनुरूप;</li>
+        <li>इस अपील एवं अधीनस्थ न्यायालय का व्यय अपीलार्थी को दिलाए; तथा</li>
+        <li>न्यायहित में अन्य जो भी उचित अनुतोष हो, प्रदान करे।</li>
+      </ol>
+      <p class="sig">स्थान: <span class="ph" data-f="place" data-ph="[स्थान]">[स्थान]</span> &nbsp;&nbsp; दिनांक: <span class="ph" data-f="draftdate" data-ph="[दिनांक]">[दिनांक]</span><br /><br />
+        &nbsp;<br /><b>अपीलार्थी</b><br />द्वारा — <span class="ph" data-f="advocate" data-ph="[अधिवक्ता]">[अधिवक्ता]</span></p>
+    </div>
+    <details class="notes">
+      <summary><span class="lang-en">Notes for the advocate</span><span class="lang-hi">अधिवक्ता हेतु टिप्पणियाँ</span></summary>
+      <div class="notes__body lang-en">
+        <ul>
+          <li><b>Grounds must be concise and un-argued</b> (O.XLI r.1(2)) — the framework grounds above are a scaffold; replace ground 2 with the case-specific errors and delete any that do not apply. Do not narrate facts or cite authority in the grounds.</li>
+          <li><b>Certified copy is mandatory</b> — the memo cannot be entertained without a certified copy of the judgment AND the decree (O.XLI r.1). Note the copy-application and ready dates to compute the §12 exclusion.</li>
+          <li><b>Who may appeal:</b> a party aggrieved by the decree; also, in limited cases, one adversely affected. State the appellant's trial-court role (plaintiff/defendant) in the cause-title.</li>
+          <li><b>No appeal from a consent decree</b> (§96(3)); and no appeal on facts from a small-cause decree below the pecuniary limit (§96(4)).</li>
+          <li><b>First appellate court's duty</b> — to reappreciate the entire evidence and record reasons on every issue: <i>Santosh Hazari v. Purushottam Tiwari</i>, (2001) 3 SCC 179; <i>B.V. Nagesh v. H.V. Sreenivasa Murthy</i>, (2010) 13 SCC 530; <i>Vinod Kumar v. Gangadhar</i>, (2015) 1 SCC 391 — <b>verify before citing</b>; use in argument, not the memo.</li>
+          <li><b>Additional evidence</b> — if needed, move a separate application under O.XLI r.27 CPC; it is not allowed as a matter of course.</li>
+        </ul>
+      </div>
+      <div class="notes__body lang-hi">
+        <ul>
+          <li><b>आधार संक्षिप्त एवं बिना बहस हों</b> (आदेश 41 नियम 1(2)) — उपरोक्त ढाँचा-आधार एक कंकाल हैं; आधार 2 को मामले-विशिष्ट त्रुटियों से बदलें तथा अप्रासंगिक आधार हटा दें। आधारों में तथ्य-विवरण या न्याय-दृष्टांत न लिखें।</li>
+          <li><b>प्रमाणित प्रति अनिवार्य है</b> — निर्णय एवं डिक्री दोनों की प्रमाणित प्रति के बिना ज्ञापन स्वीकार नहीं होता (आदेश 41 नियम 1)। धारा 12 अपवर्जन गणना हेतु प्रति-आवेदन एवं तैयार तिथि नोट करें।</li>
+          <li><b>कौन अपील कर सकता है:</b> डिक्री से व्यथित पक्ष; सीमित मामलों में प्रतिकूल रूप से प्रभावित व्यक्ति भी। कारण-शीर्षक में अपीलार्थी की विचारण-भूमिका (वादी/प्रतिवादी) लिखें।</li>
+          <li><b>सहमति-डिक्री से अपील नहीं</b> (धारा 96(3)); तथा आर्थिक सीमा से नीचे लघुवाद-डिक्री से तथ्य पर अपील नहीं (धारा 96(4))।</li>
+          <li><b>प्रथम अपीलीय न्यायालय का कर्तव्य</b> — समस्त साक्ष्य का पुनर्मूल्यांकन एवं प्रत्येक विवाद्यक पर कारण अभिलेखन: <i>Santosh Hazari v. Purushottam Tiwari</i>, (2001) 3 SCC 179; <i>B.V. Nagesh v. H.V. Sreenivasa Murthy</i>, (2010) 13 SCC 530; <i>Vinod Kumar v. Gangadhar</i>, (2015) 1 SCC 391 — <b>उद्धृत करने से पूर्व सत्यापित करें</b>; तर्क में प्रयोग करें, ज्ञापन में नहीं।</li>
+          <li><b>अतिरिक्त साक्ष्य</b> — आवश्यक होने पर आदेश 41 नियम 27 सी.पी.सी. के अंतर्गत पृथक आवेदन दें; यह स्वतः अनुमन्य नहीं।</li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  <!-- DOC 2 — STAY OF EXECUTION -->
+  <section class="doc" id="doc-stay">
+    <div class="doc__bar">
+      <span class="doc__no">DOC 2</span>
+      <span class="doc__name"><span class="lang-en">Application to Stay Execution (Order XLI Rule 5 CPC)</span><span class="lang-hi">निष्पादन पर रोक हेतु आवेदन (आदेश 41 नियम 5 सी.पी.सी.)</span></span>
+      <button class="doc__copy" data-copy="stay"><span class="lang-en">Copy</span><span class="lang-hi">कॉपी</span></button>
+    </div>
+    <div class="paper lang-en" id="stay-body-en">
+      <p class="ctr court">IN THE <span class="ph" data-f="court" data-ph="[COURT]">[COURT]</span></p>
+      <p class="ctr">In <span class="ph" data-f="appealtype" data-ph="Regular Civil Appeal">Regular Civil Appeal</span> No. <span class="ph" data-f="appeal_no" data-ph="[___ of 20__]">[___ of 20__]</span> — <span class="ph" data-f="appellant" data-ph="[Appellant]">[Appellant]</span> v. <span class="ph" data-f="respondent" data-ph="[Respondent]">[Respondent]</span></p>
+      <p class="ctr"><b>APPLICATION UNDER ORDER XLI RULE 5 READ WITH SECTION 151 CPC FOR STAY OF EXECUTION OF THE DECREE PENDING APPEAL</b></p>
+      <p>The Appellant/Applicant respectfully submits:—</p>
+      <p><span class="pno">1.</span> That the accompanying appeal against the judgment and decree dated <span class="ph" data-f="decree_date" data-ph="[date]">[date]</span> passed by <span class="ph" data-f="lower_court" data-ph="[trial court]">[trial court]</span> in <span class="ph" data-f="suit_no" data-ph="[suit]">[suit]</span> has been filed; its contents are not repeated for brevity and may be read as part hereof.</p>
+      <p><span class="pno">2.</span> <b>Arguable case:</b> the appeal raises substantial questions of law and fact and has a fair prospect of success, as set out in the grounds of appeal.</p>
+      <p><span class="pno">3.</span> <b>Substantial loss:</b> if execution of the impugned decree is not stayed, the Appellant will suffer substantial and irreparable loss, and the appeal, if it succeeds, will be rendered infructuous.</p>
+      <p><span class="pno">4.</span> That this application has been made without unreasonable delay.</p>
+      <p><span class="pno">5.</span> That the Appellant is ready and willing to furnish such security for the due performance of the decree as this Hon'ble Court may direct (Order XLI Rule 5(3) CPC).</p>
+      <p><b>PRAYER:</b> It is therefore prayed that this Hon'ble Court may be pleased to:
+        (a) <b>stay the execution</b> of the impugned judgment and decree dated <span class="ph" data-f="decree_date" data-ph="[date]">[date]</span> during the pendency of the appeal;
+        (b) grant an <b>ad-interim ex-parte stay</b> in the meanwhile; and
+        (c) pass such further orders as this Hon'ble Court deems fit.</p>
+      <p class="sig">Place: <span class="ph" data-f="place" data-ph="[place]">[place]</span> &nbsp;&nbsp; Date: <span class="ph" data-f="draftdate" data-ph="[date]">[date]</span> &nbsp;&nbsp; <b>APPELLANT/APPLICANT</b> &nbsp; Through — <span class="ph" data-f="advocate" data-ph="[Advocate]">[Advocate]</span></p>
+      <p>(Supported by affidavit.)</p>
+    </div>
+    <div class="paper lang-hi" id="stay-body-hi">
+      <p class="ctr court">न्यायालय श्रीमान् <span class="ph" data-f="court" data-ph="[न्यायालय]">[न्यायालय]</span> में</p>
+      <p class="ctr"><span class="ph" data-f="appealtype_hi" data-ph="नियमित सिविल अपील">नियमित सिविल अपील</span> संख्या <span class="ph" data-f="appeal_no" data-ph="[___ वर्ष 20__]">[___ वर्ष 20__]</span> में — <span class="ph" data-f="appellant" data-ph="[अपीलार्थी]">[अपीलार्थी]</span> बनाम <span class="ph" data-f="respondent" data-ph="[प्रत्यर्थी]">[प्रत्यर्थी]</span></p>
+      <p class="ctr"><b>अपील लंबित रहते डिक्री के निष्पादन पर रोक हेतु आदेश 41 नियम 5 सहपठित धारा 151 सी.पी.सी. के अंतर्गत आवेदन</b></p>
+      <p>अपीलार्थी/आवेदक सविनय निवेदन करता/करती है:—</p>
+      <p><span class="pno">1.</span> यह कि <span class="ph" data-f="lower_court" data-ph="[विचारण न्यायालय]">[विचारण न्यायालय]</span> द्वारा <span class="ph" data-f="suit_no" data-ph="[वाद]">[वाद]</span> में पारित दिनांक <span class="ph" data-f="decree_date" data-ph="[दिनांक]">[दिनांक]</span> के निर्णय एवं डिक्री के विरुद्ध संलग्न अपील दाखिल है; संक्षेप हेतु उसकी विषय-वस्तु पुनः नहीं दोहराई जा रही तथा उसे इसका भाग पढ़ा जाए।</p>
+      <p><span class="pno">2.</span> <b>विचारणीय मामला:</b> अपील में विधि एवं तथ्य के सारवान प्रश्न उठते हैं तथा अपील-आधारों अनुसार इसके सफल होने की उचित संभावना है।</p>
+      <p><span class="pno">3.</span> <b>सारवान हानि:</b> यदि आक्षेपित डिक्री के निष्पादन पर रोक न लगे, तो अपीलार्थी को सारवान एवं अपूरणीय हानि होगी, तथा अपील सफल होने पर निष्फल हो जाएगी।</p>
+      <p><span class="pno">4.</span> यह कि यह आवेदन बिना अनुचित विलंब के प्रस्तुत किया गया है।</p>
+      <p><span class="pno">5.</span> यह कि अपीलार्थी डिक्री के सम्यक् पालन हेतु ऐसी प्रतिभूति देने को तैयार है जैसी यह माननीय न्यायालय निर्देशित करे (आदेश 41 नियम 5(3) सी.पी.सी.)।</p>
+      <p><b>प्रार्थना:</b> अतः प्रार्थना है कि यह माननीय न्यायालय कृपया:
+        (क) अपील के लंबित रहने तक दिनांक <span class="ph" data-f="decree_date" data-ph="[दिनांक]">[दिनांक]</span> के आक्षेपित निर्णय एवं डिक्री के <b>निष्पादन पर रोक</b> लगाए;
+        (ख) इस बीच <b>अंतरिम एकपक्षीय रोक</b> प्रदान करे; तथा
+        (ग) जो भी अन्य उचित आदेश हो, पारित करे।</p>
+      <p class="sig">स्थान: <span class="ph" data-f="place" data-ph="[स्थान]">[स्थान]</span> &nbsp;&nbsp; दिनांक: <span class="ph" data-f="draftdate" data-ph="[दिनांक]">[दिनांक]</span> &nbsp;&nbsp; <b>अपीलार्थी/आवेदक</b> &nbsp; द्वारा — <span class="ph" data-f="advocate" data-ph="[अधिवक्ता]">[अधिवक्ता]</span></p>
+      <p>(शपथ-पत्र सहित।)</p>
+    </div>
+    <details class="notes">
+      <summary><span class="lang-en">Notes for the advocate</span><span class="lang-hi">अधिवक्ता हेतु टिप्पणियाँ</span></summary>
+      <div class="notes__body lang-en">
+        <ul>
+          <li><b>Filing the appeal does not stay execution</b> (O.XLI r.5(1)) — a separate stay order is required. The three conditions for stay (r.5(3)): substantial loss may result; the application is made without unreasonable delay; and security is given for due performance of the decree.</li>
+          <li><b>Money decree:</b> the court will usually require deposit of the decretal amount or adequate security as a condition of stay.</li>
+          <li><b>Draft and swear the supporting affidavit</b> — the application is moved on affidavit; it is referenced here and must be sworn separately.</li>
+        </ul>
+      </div>
+      <div class="notes__body lang-hi">
+        <ul>
+          <li><b>अपील दाखिल करने से निष्पादन स्वतः नहीं रुकता</b> (आदेश 41 नियम 5(1)) — पृथक रोक-आदेश आवश्यक है। रोक की तीन शर्तें (नियम 5(3)): सारवान हानि की संभावना हो; आवेदन बिना अनुचित विलंब हो; तथा डिक्री के सम्यक् पालन हेतु प्रतिभूति दी जाए।</li>
+          <li><b>धन-डिक्री:</b> न्यायालय प्रायः रोक की शर्त के रूप में डिक्री राशि जमा करने या पर्याप्त प्रतिभूति की माँग करता है।</li>
+          <li><b>समर्थन शपथ-पत्र तैयार कर शपथबद्ध करें</b> — आवेदन शपथ-पत्र पर प्रस्तुत होता है; यहाँ उसका उल्लेख मात्र है, उसे पृथक रूप से शपथबद्ध करना होगा।</li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  <!-- DOC 3 — CONDONATION OF DELAY -->
+  <section class="doc" id="doc-delay">
+    <div class="doc__bar">
+      <span class="doc__no">DOC 3</span>
+      <span class="doc__name"><span class="lang-en">Condonation of Delay (§5 Limitation Act) — file only if late</span><span class="lang-hi">विलंब क्षमा (धारा 5 परिसीमा अधि.) — केवल देर होने पर</span></span>
+      <button class="doc__copy" data-copy="delay"><span class="lang-en">Copy</span><span class="lang-hi">कॉपी</span></button>
+    </div>
+    <div class="paper lang-en" id="delay-body-en">
+      <p class="ctr court">IN THE <span class="ph" data-f="court" data-ph="[COURT]">[COURT]</span></p>
+      <p class="ctr">In <span class="ph" data-f="appealtype" data-ph="Regular Civil Appeal">Regular Civil Appeal</span> No. <span class="ph" data-f="appeal_no" data-ph="[___ of 20__]">[___ of 20__]</span> — <span class="ph" data-f="appellant" data-ph="[Appellant]">[Appellant]</span> v. <span class="ph" data-f="respondent" data-ph="[Respondent]">[Respondent]</span></p>
+      <p class="ctr"><b>APPLICATION UNDER SECTION 5 OF THE LIMITATION ACT, 1963 FOR CONDONATION OF DELAY IN FILING THE APPEAL</b></p>
+      <p>The Appellant/Applicant respectfully submits:—</p>
+      <p><span class="pno">1.</span> That the accompanying appeal is directed against the judgment and decree dated <span class="ph" data-f="decree_date" data-ph="[date]">[date]</span> passed by <span class="ph" data-f="lower_court" data-ph="[trial court]">[trial court]</span> in <span class="ph" data-f="suit_no" data-ph="[suit]">[suit]</span>.</p>
+      <p><span class="pno">2.</span> That there has been a delay of <span class="ph" data-f="delay_days" data-ph="[__]">[__]</span> days in the filing of the appeal beyond the prescribed period of limitation.</p>
+      <p><span class="pno">3.</span> That the said delay is neither intentional nor wilful, but occasioned by the following sufficient cause: <span class="ph" data-f="delay_reason" data-ph="[reason for the delay]">[reason for the delay]</span>.</p>
+      <p><span class="pno">4.</span> That the Appellant has been vigilant and has a good case on merits; the delay is bona fide and no prejudice will be caused to the Respondent that cannot be compensated by costs.</p>
+      <p><span class="pno">5.</span> That it is in the interest of justice that the delay be condoned and the appeal be heard on its merits, substantial justice being preferred over a technical approach.</p>
+      <p><b>PRAYER:</b> It is therefore prayed that this Hon'ble Court may be pleased to <b>condone the delay of <span class="ph" data-f="delay_days" data-ph="[__]">[__]</span> days</b> in filing the appeal, and to admit and hear the appeal on merits, in the interest of justice.</p>
+      <p class="sig">Place: <span class="ph" data-f="place" data-ph="[place]">[place]</span> &nbsp;&nbsp; Date: <span class="ph" data-f="draftdate" data-ph="[date]">[date]</span> &nbsp;&nbsp; <b>APPELLANT/APPLICANT</b> &nbsp; Through — <span class="ph" data-f="advocate" data-ph="[Advocate]">[Advocate]</span></p>
+      <p>(Supported by affidavit.)</p>
+    </div>
+    <div class="paper lang-hi" id="delay-body-hi">
+      <p class="ctr court">न्यायालय श्रीमान् <span class="ph" data-f="court" data-ph="[न्यायालय]">[न्यायालय]</span> में</p>
+      <p class="ctr"><span class="ph" data-f="appealtype_hi" data-ph="नियमित सिविल अपील">नियमित सिविल अपील</span> संख्या <span class="ph" data-f="appeal_no" data-ph="[___ वर्ष 20__]">[___ वर्ष 20__]</span> में — <span class="ph" data-f="appellant" data-ph="[अपीलार्थी]">[अपीलार्थी]</span> बनाम <span class="ph" data-f="respondent" data-ph="[प्रत्यर्थी]">[प्रत्यर्थी]</span></p>
+      <p class="ctr"><b>अपील दाखिल करने में हुए विलंब की क्षमा हेतु परिसीमा अधिनियम, 1963 की धारा 5 के अंतर्गत आवेदन</b></p>
+      <p>अपीलार्थी/आवेदक सविनय निवेदन करता/करती है:—</p>
+      <p><span class="pno">1.</span> यह कि संलग्न अपील <span class="ph" data-f="lower_court" data-ph="[विचारण न्यायालय]">[विचारण न्यायालय]</span> द्वारा <span class="ph" data-f="suit_no" data-ph="[वाद]">[वाद]</span> में पारित दिनांक <span class="ph" data-f="decree_date" data-ph="[दिनांक]">[दिनांक]</span> के निर्णय एवं डिक्री के विरुद्ध है।</p>
+      <p><span class="pno">2.</span> यह कि अपील दाखिल करने में निर्धारित परिसीमा अवधि से <span class="ph" data-f="delay_days" data-ph="[__]">[__]</span> दिन का विलंब हुआ है।</p>
+      <p><span class="pno">3.</span> यह कि उक्त विलंब न तो जानबूझकर है न ही सोद्देश्य, अपितु निम्नलिखित पर्याप्त कारण से हुआ: <span class="ph" data-f="delay_reason" data-ph="[विलंब का कारण]">[विलंब का कारण]</span>।</p>
+      <p><span class="pno">4.</span> यह कि अपीलार्थी सतर्क रहा है तथा गुणदोष पर उसका सुदृढ़ मामला है; विलंब सद्भावी है तथा प्रत्यर्थी को ऐसी कोई क्षति नहीं होगी जिसकी व्यय द्वारा पूर्ति न हो सके।</p>
+      <p><span class="pno">5.</span> यह कि न्यायहित में यह उचित है कि विलंब क्षमा किया जाए तथा अपील गुणदोष पर सुनी जाए, क्योंकि तकनीकी दृष्टिकोण की अपेक्षा सारवान न्याय को वरीयता दी जानी चाहिए।</p>
+      <p><b>प्रार्थना:</b> अतः प्रार्थना है कि यह माननीय न्यायालय कृपया अपील दाखिल करने में हुए <b><span class="ph" data-f="delay_days" data-ph="[__]">[__]</span> दिन के विलंब को क्षमा करे</b>, तथा न्यायहित में अपील को स्वीकार कर गुणदोष पर सुने।</p>
+      <p class="sig">स्थान: <span class="ph" data-f="place" data-ph="[स्थान]">[स्थान]</span> &nbsp;&nbsp; दिनांक: <span class="ph" data-f="draftdate" data-ph="[दिनांक]">[दिनांक]</span> &nbsp;&nbsp; <b>अपीलार्थी/आवेदक</b> &nbsp; द्वारा — <span class="ph" data-f="advocate" data-ph="[अधिवक्ता]">[अधिवक्ता]</span></p>
+      <p>(शपथ-पत्र सहित।)</p>
+    </div>
+    <details class="notes">
+      <summary><span class="lang-en">Notes for the advocate</span><span class="lang-hi">अधिवक्ता हेतु टिप्पणियाँ</span></summary>
+      <div class="notes__body lang-en">
+        <ul>
+          <li><b>File this only if the appeal is beyond limitation.</b> If within time, omit DOC 3 and delete the bracketed limitation sentence in the memo.</li>
+          <li><b>Explain the whole period of delay</b> — each day need not be counted mechanically, but the cause must cover the entire delay and be bona fide. Liberal-but-not-automatic: <i>Collector, Land Acquisition v. Mst. Katiji</i>, (1987) 2 SCC 107; <i>N. Balakrishnan v. M. Krishnamurthy</i>, (1998) 7 SCC 123 — <b>verify before citing</b>.</li>
+          <li><b>Exclude the certified-copy time under §12</b> first — the "delay" is only what remains after that exclusion.</li>
+          <li>Support with an affidavit deposing to the facts of the delay (illness certificate, copy-application receipt, etc., as annexures).</li>
+        </ul>
+      </div>
+      <div class="notes__body lang-hi">
+        <ul>
+          <li><b>यह केवल तब दाखिल करें जब अपील परिसीमा के बाद हो।</b> समय के भीतर होने पर DOC 3 हटाएँ तथा ज्ञापन में परिसीमा का कोष्ठक-वाक्य विलोपित करें।</li>
+          <li><b>विलंब की समस्त अवधि स्पष्ट करें</b> — प्रत्येक दिन यांत्रिक रूप से गिनना आवश्यक नहीं, किंतु कारण पूरे विलंब को कवर करे एवं सद्भावी हो। उदार-किंतु-स्वतः नहीं: <i>Collector, Land Acquisition v. Mst. Katiji</i>, (1987) 2 SCC 107; <i>N. Balakrishnan v. M. Krishnamurthy</i>, (1998) 7 SCC 123 — <b>उद्धृत करने से पूर्व सत्यापित करें</b>।</li>
+          <li><b>पहले धारा 12 के अंतर्गत प्रमाणित-प्रति का समय अपवर्जित करें</b> — "विलंब" केवल उस अपवर्जन के बाद शेष है।</li>
+          <li>विलंब के तथ्यों का शपथ-पत्र संलग्न करें (बीमारी प्रमाणपत्र, प्रति-आवेदन रसीद आदि संलग्नक सहित)।</li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  <p class="rfoot">
+    <span class="lang-en"><b>Author-tier draft, generated by Headnote for advocate review — not legal advice.</b>
+      A civil first appeal (§96/Order XLI CPC) is outside the reviewed bail-family template set; this pack is drafted from
+      the framework and is a <b>proposal for the advocate to verify, adapt and settle</b>. Keep the grounds concise and
+      un-argued, annex the certified copy of the judgment and decree, confirm the forum, court-fee and limitation, and
+      verify every citation before filing. The Hindi text is a working translation — read it against the English.</span>
+    <span class="lang-hi"><b>लेखक-स्तरीय ड्राफ्ट, Headnote द्वारा अधिवक्ता-समीक्षा हेतु तैयार — विधिक सलाह नहीं।</b>
+      सिविल प्रथम अपील (धारा 96/आदेश 41 सी.पी.सी.) समीक्षित जमानत-वर्ग टेम्पलेट-समुच्चय से बाहर है; यह पैक ढाँचे से तैयार है
+      तथा <b>अधिवक्ता द्वारा सत्यापन, अनुकूलन व अंतिम रूप देने हेतु प्रस्ताव</b> है। आधार संक्षिप्त एवं बिना बहस रखें, निर्णय व डिक्री
+      की प्रमाणित प्रति संलग्न करें, फोरम, न्याय-शुल्क एवं परिसीमा की पुष्टि करें, तथा दाखिल करने से पूर्व प्रत्येक उद्धरण सत्यापित करें।
+      हिंदी पाठ कार्यकारी अनुवाद है — अंग्रेज़ी से मिलान करें।</span>
+  </p>
+
+  </div><!-- /doc-pane -->
+</div><!-- /split -->
+
+<script>
+(function () {
+  var langBtns = document.querySelectorAll('.langtog__btn');
+  function curLang() { return document.body.classList.contains('hi') ? 'hi' : 'en'; }
+
+  // Field placeholders switch with the language too (labels are already bilingual).
+  var PH = {
+    court:       { en: 'Court of the District Judge, ____',                        hi: 'जिला न्यायाधीश महोदय का न्यायालय, ____' },
+    appeal_no:   { en: '____ of 20__',                                             hi: '____ वर्ष 20__' },
+    appellant:   { en: 'Name, S/o ____, age, occupation, r/o ____ (Original Plaintiff / Defendant)', hi: 'नाम, पुत्र श्री ____, आयु, व्यवसाय, निवासी ____ (मूल वादी / प्रतिवादी)' },
+    respondent:  { en: 'Name, S/o ____, age, occupation, r/o ____ (Original Defendant / Plaintiff)', hi: 'नाम, पुत्र श्री ____, आयु, व्यवसाय, निवासी ____ (मूल प्रतिवादी / वादी)' },
+    lower_court: { en: 'Civil Judge Class ____, ____',                             hi: 'सिविल न्यायाधीश वर्ग ____, ____' },
+    suit_no:     { en: 'Civil Suit No. ____ of 20__',                             hi: 'सिविल वाद संख्या ____ वर्ष 20__' },
+    decree_date: { en: '12.02.2026',                                              hi: '12.02.2026' },
+    decree_gist: { en: "dismissing the plaintiff's suit for ____ / decreeing the suit for ____", hi: 'वादी का ____ हेतु वाद खारिज / ____ हेतु वाद डिक्री' },
+    grounds:     { en: 'e.g. ignored the registered sale deed (Ex. P/1); relied on contradictory oral evidence; misread Issue No. 2 …', hi: 'जैसे पंजीकृत विक्रय-पत्र (प्रद. P/1) की अनदेखी; विरोधाभासी मौखिक साक्ष्य पर निर्भरता; विवाद्यक 2 का गलत पठन …' },
+    valuation:   { en: '8,50,000',                                                hi: '8,50,000' },
+    delay_days:  { en: 'e.g. 24',                                                 hi: 'जैसे 24' },
+    place:       { en: '____',                                                    hi: '____' },
+    delay_reason:{ en: 'e.g. delay in obtaining the certified copy / bona fide illness / wrong legal advice', hi: 'जैसे प्रमाणित प्रति प्राप्ति में विलंब / सद्भावी बीमारी / गलत विधिक सलाह' },
+    draftdate:   { en: 'DD.MM.YYYY',                                              hi: 'दि.मा.वर्ष' },
+    advocate:    { en: '____, Advocate (Enrl. No. ____)',                         hi: '____, अधिवक्ता (नामांकन सं. ____)' }
+  };
+  function applyPlaceholders(l) {
+    document.querySelectorAll('.field input[data-f], .field textarea[data-f]').forEach(function (inp) {
+      var m = PH[inp.getAttribute('data-f')]; if (m) inp.placeholder = m[l] || m.en;
+    });
+  }
+  function setLang(l) {
+    document.body.classList.toggle('hi', l === 'hi');
+    document.documentElement.lang = l;
+    langBtns.forEach(function (b) { b.classList.toggle('is-active', b.dataset.lang === l); });
+    applyPlaceholders(l);
+  }
+  langBtns.forEach(function (b) { b.addEventListener('click', function () { setLang(b.dataset.lang); }); });
+
+  // ── English → Devanagari transliteration (on-device; for the Hindi view). Names/places only.
+  var TRANSLIT = ['appellant', 'respondent', 'place', 'advocate'];
+  var OVR = { kumar:'कुमार', verma:'वर्मा', sharma:'शर्मा', singh:'सिंह', devi:'देवी', bai:'बाई', ram:'राम',
+    shri:'श्री', smt:'श्रीमती', kumari:'कुमारी', prasad:'प्रसाद', lal:'लाल', yadav:'यादव', gupta:'गुप्ता',
+    jain:'जैन', patel:'पटेल', mishra:'मिश्रा', tiwari:'तिवारी', chouhan:'चौहान', rao:'राव', reddy:'रेड्डी', sayyad:'सय्यद',
+    bhopal:'भोपाल', indore:'इंदौर', gwalior:'ग्वालियर', jabalpur:'जबलपुर', ujjain:'उज्जैन', sagar:'सागर', mumbai:'मुंबई', pune:'पुणे',
+    wo:'पत्नी', so:'पुत्र', 'do':'पुत्री', aged:'आयु', age:'आयु', years:'वर्ष', occupation:'व्यवसाय',
+    business:'व्यापार', service:'नौकरी', resident:'निवासी', road:'रोड', colony:'कॉलोनी', nagar:'नगर',
+    plaintiff:'वादी', defendant:'प्रतिवादी', original:'मूल' };
+  var HMAP = { chh:'छ', ch:'च', sh:'श', th:'थ', dh:'ध', bh:'भ', ph:'फ', gh:'घ', kh:'ख', jh:'झ',
+    k:'क', g:'ग', j:'ज', t:'त', d:'द', n:'न', p:'प', b:'ब', m:'म', y:'य', r:'र', l:'ल', v:'व', w:'व', s:'स', h:'ह', f:'फ़', z:'ज़', c:'क', q:'क', x:'क्स' };
+  var VIND = { aa:'आ', a:'अ', ii:'ई', ee:'ई', i:'इ', uu:'ऊ', oo:'ऊ', u:'उ', ai:'ऐ', au:'औ', e:'ए', o:'ओ' };
+  var VMAT = { aa:'ा', a:'', ii:'ी', ee:'ी', i:'ि', uu:'ू', oo:'ू', u:'ु', ai:'ै', au:'ौ', e:'े', o:'ो' };
+  var CK = ['chh','ch','sh','th','dh','bh','ph','gh','kh','jh','k','g','j','t','d','n','p','b','m','y','r','l','v','w','s','h','f','z','c','q','x'];
+  var VK = ['aa','ii','ee','uu','oo','ai','au','a','i','u','e','o'];
+  function trWord(w) {
+    var lw = w.toLowerCase();
+    if (OVR[lw] != null) return OVR[lw];
+    var s = lw, out = '', i = 0, prevC = false;
+    function m(list) { for (var a = 0; a < list.length; a++) { if (s.substr(i, list[a].length) === list[a]) return list[a]; } return null; }
+    while (i < s.length) {
+      var c = m(CK);
+      if (c) { out += HMAP[c]; i += c.length; var v = m(VK); if (v) { out += VMAT[v]; i += v.length; } else if (i < s.length && (s[i] === 'r' || s[i] === 'y')) { out += '्'; } prevC = false; }
+      else { var v = m(VK); if (v) { out += (out === '' || !prevC) ? VIND[v] : VMAT[v]; i += v.length; prevC = false; } else { out += s[i]; i++; prevC = false; } }
+    }
+    return out;
+  }
+  function toDev(t) {
+    if (!t) return t;
+    t = t.replace(/\bw\/o\b/gi, 'पत्नी').replace(/\bs\/o\b/gi, 'पुत्र').replace(/\bd\/o\b/gi, 'पुत्री')
+         .replace(/\br\/o\b/gi, 'निवासी').replace(/\bc\/o\b/gi, 'द्वारा');
+    return t.replace(/[A-Za-z]+/g, function (w) { return trWord(w); });
+  }
+
+  function apply(key, val) {
+    var has = val && val.trim();
+    document.querySelectorAll('.ph[data-f="' + key + '"]').forEach(function (el) {
+      var d = el.getAttribute('data-ph') || '';
+      if (has) {
+        var hi = el.closest('.lang-hi') != null;
+        el.textContent = (hi && TRANSLIT.indexOf(key) >= 0) ? toDev(val) : val;
+        el.classList.add('ph--filled');
+      } else { el.textContent = d; el.classList.remove('ph--filled'); }
+    });
+  }
+  var inputs = document.querySelectorAll('.field input[data-f], .field textarea[data-f]');
+  inputs.forEach(function (inp) { inp.addEventListener('input', function () { apply(inp.getAttribute('data-f'), inp.value); }); });
+
+  // ── Court-tier toggle — District vs High Court. Drives the appeal-type label,
+  //    the limitation days, and (if the court field is empty/default) a sensible court default.
+  var tierBtns = document.querySelectorAll('.tiertog__btn');
+  var courtInput = document.querySelector('.field input[data-f="court"]');
+  var COURT_DEFAULTS = { district: 'Court of the District Judge, ____', hc: 'High Court of ____ (____ Bench)' };
+  var curTier = 'district';
+  function isDefaultCourt(v) { return !v || !v.trim() || v.trim() === COURT_DEFAULTS.district || v.trim() === COURT_DEFAULTS.hc; }
+  function setTier(t) {
+    curTier = t;
+    tierBtns.forEach(function (b) { b.classList.toggle('is-active', b.dataset.tier === t); });
+    // Appeal-type label (EN + HI) + limitation days flow through the .ph mirror.
+    apply('appealtype', t === 'hc' ? 'First Appeal' : 'Regular Civil Appeal');
+    apply('appealtype_hi', t === 'hc' ? 'प्रथम अपील' : 'नियमित सिविल अपील');
+    apply('limdays', t === 'hc' ? '90' : '30');
+    // Prefill the court field only when the user hasn't typed their own court.
+    if (courtInput && isDefaultCourt(courtInput.value)) { courtInput.value = COURT_DEFAULTS[t]; apply('court', courtInput.value); }
+  }
+  tierBtns.forEach(function (b) { b.addEventListener('click', function () { setTier(b.dataset.tier); }); });
+
+  function setAll(map) {
+    inputs.forEach(function (inp) { var k = inp.getAttribute('data-f'); inp.value = map && map[k] != null ? map[k] : ''; apply(k, inp.value); });
+    setTier(curTier); // re-assert derived labels (appealtype / limdays) after a bulk set
+  }
+  document.getElementById('btn-reset').addEventListener('click', function () { setAll(null); inputs[0] && inputs[0].focus(); });
+  document.getElementById('btn-sample').addEventListener('click', function () {
+    setTier('district');
+    setAll({
+      court: 'Court of the District Judge, Bhopal',
+      appeal_no: '____ of 2026',
+      appellant: 'Ramesh Kumar, S/o Mohan Lal, aged 52 years, occupation agriculture, r/o Kolar Road, Bhopal (Original Plaintiff)',
+      respondent: 'Suresh Patel, S/o Kishan Patel, aged 48 years, occupation business, r/o Arera Colony, Bhopal (Original Defendant)',
+      lower_court: 'Civil Judge Class-I, Bhopal',
+      suit_no: 'Civil Suit No. 145 of 2021',
+      decree_date: '12.02.2026',
+      decree_gist: "dismissing the plaintiff's suit for declaration of title and permanent injunction over the land bearing Khasra No. 210",
+      grounds: 'the learned trial court ignored the registered sale deed dated 03.06.2015 (Ex. P/1) proving the plaintiff’s title, and relied on the contradictory and unproved oral testimony of the defendant’s witnesses (DW-1 and DW-2)',
+      valuation: '8,50,000',
+      delay_days: '',
+      place: 'Bhopal',
+      delay_reason: '',
+      draftdate: '02.07.2026',
+      advocate: '____, Advocate (Enrl. No. ____)'
+    });
+  });
+
+  function copyText(el, btn) {
+    if (!el) return;
+    var t = el.innerText.replace(/\n{3,}/g, '\n\n').trim();
+    navigator.clipboard.writeText(t).then(function () {
+      btn.textContent = '✓'; btn.classList.add('ok');
+      setTimeout(function () { btn.innerHTML = '<span class="lang-en">Copy</span><span class="lang-hi">कॉपी</span>'; btn.classList.remove('ok'); }, 1500);
+    });
+  }
+  document.querySelectorAll('.doc__copy').forEach(function (btn) {
+    btn.addEventListener('click', function () { copyText(document.getElementById(btn.getAttribute('data-copy') + '-body-' + curLang()), btn); });
+  });
+  document.getElementById('btn-copyall').addEventListener('click', function () {
+    var l = curLang();
+    var parts = ['memo', 'stay', 'delay'].map(function (id) { var e = document.getElementById(id + '-body-' + l); return e ? e.innerText : ''; });
+    navigator.clipboard.writeText(parts.join('\n\n\n— — — — —\n\n\n').trim());
+    var b = document.getElementById('btn-copyall'); var o = b.innerHTML; b.textContent = '✓';
+    setTimeout(function () { b.innerHTML = o; }, 1500);
+  });
+  // ── Real PDF pipeline (server-rendered WeasyPrint via /api/draft/pdf) —
+  //    text-selectable, correct Devanagari, proper page breaks. Powers Download
+  //    + WhatsApp + per-doc Save PDF. No window.print() (that was the bad PDF).
+  var DOC_SLUG = 'regular-first-appeal';
+  function _pdfName(scope) {
+    var d = new Date();
+    var stamp = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+    return 'headnote-' + DOC_SLUG + (scope ? '-' + scope : '') + '-' + stamp;
+  }
+  function _exportHtml(docEls) {
+    var lang = curLang(); var styles = '';
+    document.querySelectorAll('style').forEach(function (s) { styles += s.textContent; });
+    var body = '';
+    docEls.forEach(function (doc) {
+      var paper = doc.querySelector('.paper.lang-' + lang);
+      if (paper) body += '<section class="doc">' + paper.outerHTML + '</section>';
+    });
+    return '<!doctype html><html lang="' + lang + '"><head><meta charset="utf-8"><style>' + styles + '</style>'
+      + '<style>@page{size:A4;margin:20mm 18mm;}'
+      + '.paper .party{display:table;width:100%;table-layout:fixed;column-gap:0;}'
+      + '.paper .party__label{display:table-cell;width:40%;vertical-align:top;}'
+      + '.paper .party__desc{display:table-cell;width:60%;vertical-align:top;}'
+      + '.paper .party__label .ln{display:none;}</style>'
+      + '</head><body class="' + (lang === 'hi' ? 'hi' : '') + '"><div id="doc-page">' + body + '</div></body></html>';
+  }
+  async function _fetchPdf(docEls, scope) {
+    var name = _pdfName(scope);
+    var r = await fetch('/api/draft/pdf', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ html: _exportHtml(docEls), filename: name })
+    });
+    if (!r.ok) { var detail = ''; try { detail = (await r.json()).detail || ''; } catch (e) {} throw new Error(detail || ('server ' + r.status)); }
+    return { blob: await r.blob(), filename: name + '.pdf' };
+  }
+  function _download(blob, filename) {
+    var url = URL.createObjectURL(blob); var a = document.createElement('a');
+    a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+  }
+  function _busy(btn, on, label) {
+    if (on) { btn.dataset._o = btn.innerHTML; btn.disabled = true; btn.innerHTML = label; }
+    else { btn.disabled = false; if (btn.dataset._o != null) btn.innerHTML = btn.dataset._o; }
+  }
+  function _allDocs() { return Array.prototype.slice.call(document.querySelectorAll('.doc')); }
+  document.getElementById('btn-print').addEventListener('click', async function () {
+    var btn = this; _busy(btn, true, curLang() === 'hi' ? '⏳ बना रहे हैं…' : '⏳ Generating…');
+    try { var out = await _fetchPdf(_allDocs(), 'pack'); _download(out.blob, out.filename); }
+    catch (e) { alert((curLang() === 'hi' ? 'PDF नहीं बना — ' : 'PDF failed — ') + (e.message || 'try again')); }
+    finally { _busy(btn, false); }
+  });
+  var shareBtn = document.getElementById('btn-share');
+  if (shareBtn) shareBtn.addEventListener('click', async function () {
+    var btn = this; _busy(btn, true, curLang() === 'hi' ? '⏳ तैयार…' : '⏳ Preparing…'); var out;
+    try { out = await _fetchPdf(_allDocs(), 'pack'); }
+    catch (e) { _busy(btn, false); alert((curLang() === 'hi' ? 'PDF नहीं बना — ' : 'PDF failed — ') + (e.message || 'try again')); return; }
+    var file = new File([out.blob], out.filename, { type: 'application/pdf' });
+    var note = document.title.split('·')[0].trim() + ' — Headnote';
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: out.filename, text: note }); }
+      catch (e) { if (e.name !== 'AbortError') { _download(out.blob, out.filename); window.open('https://wa.me/?text=' + encodeURIComponent(note), '_blank'); } }
+    } else { _download(out.blob, out.filename); window.open('https://wa.me/?text=' + encodeURIComponent(note), '_blank'); }
+    _busy(btn, false);
+  });
+  // Per-document "Save PDF" — server-render this document only.
+  document.querySelectorAll('.doc').forEach(function (sec) {
+    var bar = sec.querySelector('.doc__bar'); if (!bar) return;
+    var b = document.createElement('button'); b.className = 'doc__pdf';
+    b.innerHTML = '<span class="lang-en">Save PDF</span><span class="lang-hi">PDF सेव करें</span>';
+    b.addEventListener('click', async function () {
+      _busy(b, true, '⏳');
+      try { var out = await _fetchPdf([sec], (sec.id || '').replace('doc-', '')); _download(out.blob, out.filename); }
+      catch (e) { alert((curLang() === 'hi' ? 'PDF नहीं बना — ' : 'PDF failed — ') + (e.message || 'try again')); }
+      finally { _busy(b, false); }
+    });
+    bar.appendChild(b);
+  });
+
+  // Initialise derived labels on load.
+  setTier('district');
+})();
+</script>
+</body>
+</html>
