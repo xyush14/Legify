@@ -1134,8 +1134,14 @@ function renderAutoFillZone() {
         if (el) { el.value = String(v); state.fields[k] = String(v); filled++; }
       });
       saveToLocalStorage();
-      scheduleAutoRegen();
       updateProgress(); refreshDepends();
+      // Paint the filled values into the live preview IMMEDIATELY — don't wait
+      // on the 1.5s auto-regen debounce. Right after an OCR upload (which itself
+      // takes a few seconds) a preview still showing empty placeholders reads as
+      // "the upload didn't work". Bump _editVersion first so the other language's
+      // cached doc is invalidated, then force one render (initial:true bypasses
+      // the empty-form guard; non-silent so any render error surfaces).
+      if (filled) { state._editVersion++; generateDocument({ initial: true }); }
       status.textContent = '';
       toast(filled
         ? (isHi ? `✓ ${filled} फ़ील्ड भरे गए — कृपया जाँच लें` : `✓ Filled ${filled} fields — please review`)
