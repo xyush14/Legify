@@ -415,8 +415,12 @@ def bundle(a: dict, lang: str = "hi"):
     if court == "hc":
         idx_hdr = {
             "side_label": "",
+            # SAME derivation as the application sheet (compose_court_name) so the
+            # Index and the Application can never disagree on the bench. Honours the
+            # typed District/City; blank when none is given (never a location guess).
             "court_name": (a.get("court_name") if hi else (a.get("court_name_en") or a.get("court_name")))
-            or ("माननीय उच्च न्यायालय मध्यप्रदेश खण्डपीठ ग्वालियर" if hi else "High Court of M.P., Bench at Gwalior"),
+            or compose_court_name("hc", a.get("court_city"),
+                                  a.get("state_name") or ("म.प्र." if hi else "M.P."), lang=lang),
             "case_code": "एम.सी.आर.सी." if hi else "M.Cr.C.",
             "case_number": a.get("case_number") or "", "case_year": a.get("case_year") or str(date.today().year),
             "applicant_label": "आवेदक" if hi else "Applicant",

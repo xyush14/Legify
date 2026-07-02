@@ -122,6 +122,33 @@ _MP_HC_BENCH = {  # MP district → High Court bench (else Jabalpur principal se
     "बुरहानपुर": "इन्दौर", "रतलाम": "इन्दौर", "मन्दसौर": "इन्दौर", "नीमच": "इन्दौर",
     "आगर-मालवा": "इन्दौर", "शाजापुर": "इन्दौर",
 }
+# Bench-seat name in BOTH scripts, keyed by every spelling we might receive
+# (Hindi, Latin, nukta/no-nukta) — so "Indore", "इन्दौर" and "इंदौर" all resolve
+# to the same seat, rendered in the document's own language.
+_HC_SEAT_ALIASES = {
+    "gwalior": ("ग्वालियर", "Gwalior"), "ग्वालियर": ("ग्वालियर", "Gwalior"),
+    "indore": ("इन्दौर", "Indore"), "इन्दौर": ("इन्दौर", "Indore"), "इंदौर": ("इन्दौर", "Indore"),
+    "jabalpur": ("जबलपुर", "Jabalpur"), "जबलपुर": ("जबलपुर", "Jabalpur"),
+}
+
+
+def _hc_bench(city="", bench=None, lang="hi"):
+    """(district or seat) → the MP-HC bench cause-title token, in `lang`.
+    Returns "" when NO city is given — the caller then shows a blank placeholder
+    instead of guessing a bench from a default/location (a wrong bench on a
+    filing is far worse than a blank one the lawyer fills in)."""
+    if bench:
+        return bench
+    raw = (city or "").strip()
+    if not raw:
+        return ""                                   # no location → leave blank
+    seat = _MP_HC_BENCH.get(raw)                    # known district → its Hindi seat
+    alias = _HC_SEAT_ALIASES.get(seat) if seat else (
+        _HC_SEAT_ALIASES.get(raw) or _HC_SEAT_ALIASES.get(raw.lower()))
+    if alias:
+        return alias[0] if lang == "hi" else alias[1]
+    # any other MP district falls under the principal seat at Jabalpur
+    return "जबलपुर" if lang == "hi" else "Jabalpur"
 _COURT_TPL = {
     "magistrate":         "न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी महोदय, {city} ({state})",
     "cjm":                "न्यायालय माननीय मुख्य न्यायिक दण्डाधिकारी महोदय, {city} ({state})",
@@ -145,7 +172,9 @@ def compose_court_name(level, city="", state="", bench=None, lang="hi"):
     → the forum's cause-title. For HC, the district picks the bench. Editable after."""
     tpls = _COURT_TPL if lang == "hi" else _COURT_TPL_EN
     if level == "hc":
-        b = bench or _MP_HC_BENCH.get((city or "").strip(), "जबलपुर" if lang == "hi" else "Jabalpur")
+        b = _hc_bench(city, bench, lang)
+        if not b:
+            b = "__________"          # location left blank → keep the bench blank
         return tpls["hc"].format(bench=b)
     state = state or ("म.प्र." if lang == "hi" else "M.P.")
     city = (city or "").strip() or ("............" if lang == "hi" else "............")
