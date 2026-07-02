@@ -530,7 +530,7 @@
     <a href="/app#drafting" class="topbar__back" aria-label="Back to drafting">←</a>
     <div>
       <div class="topbar__title" id="template-title">Loading…</div>
-      <div class="topbar__sub" id="template-sub" data-en="draft auto-saves · live preview" data-hi="ड्राफ्ट स्वतः सहेजेगा · लाइव प्रीव्यू">ड्राफ्ट स्वतः सहेजेगा · लाइव प्रीव्यू</div>
+      <div class="topbar__sub" id="template-sub" data-en="fresh draft · live preview" data-hi="नया ड्राफ्ट · लाइव प्रीव्यू">नया ड्राफ्ट · लाइव प्रीव्यू</div>
     </div>
   </div>
   <div class="topbar__right">
@@ -993,11 +993,14 @@ async function loadTemplate() {
     renderForm();
     applyLang();
     hideBootLoader();   // form is interactive — drop the boot screen
-    const hadDraft = restoreFromLocalStorage();
+    // Fresh form on EVERY visit. A legal drafter must never surface a previous
+    // client's details when a new matter is opened (privacy + wrong-party risk),
+    // so we purge any saved drafts across all templates and start blank. Only the
+    // advocate's OWN profile (chamber/enrolment) is re-applied below — never
+    // client-entered data.
+    clearAllSavedDrafts();
     await prefillFromPersona();
-    if (!hadDraft) {
-      maybeRenderInitial();
-    }
+    maybeRenderInitial();
   } catch (e) {
     showError('Failed to load: ' + e.message);
   }
@@ -1130,10 +1133,17 @@ function renderAutoFillZone() {
       let filled = 0;
       Object.entries(ex).forEach(([k, v]) => {
         if (v == null || String(v).trim() === '') return;
+        state.fields[k] = String(v);           // set state for EVERY field type
         const el = $(`#f_${k}`);
-        if (el) { el.value = String(v); state.fields[k] = String(v); filled++; }
+        if (el) el.value = String(v);          // plain text/textarea reflect at once
+        filled++;
       });
       saveToLocalStorage();
+      // Rebuild the form so NON-text widgets also reflect the OCR values — the
+      // धाराएं chip list, dropdowns and toggles read from state.fields on build
+      // but have no #f_<key> input to poke directly. Only text fields updated
+      // above; a re-render is what surfaces sections/selects too.
+      if (filled) renderForm();
       updateProgress(); refreshDepends();
       // Paint the filled values into the live preview IMMEDIATELY — don't wait
       // on the 1.5s auto-regen debounce. Right after an OCR upload (which itself
@@ -1823,23 +1833,15 @@ function saveToLocalStorage() {
   clearTimeout(window._ssTimer);
   window._ssTimer = setTimeout(() => $('#savestate').textContent = '', 1500);
 }
-function restoreFromLocalStorage() {
+// Purge every saved template draft (this template AND any other) so a new
+// matter never inherits a previous client's details. Called on each load; the
+// in-session auto-save still runs for undo-safety while the page stays open.
+function clearAllSavedDrafts() {
   try {
-    const j = JSON.parse(localStorage.getItem(lsKey()) || '{}');
-    if (j.fields) {
-      state.fields = j.fields;
-      Object.entries(state.fields).forEach(([k, v]) => {
-        const el = $(`#f_${k}`); if (el) el.value = v || '';
-      });
-    }
-    if (j.document) {
-      state.document = j.document;
-      renderDocument();
-      state._lastGenFields = JSON.stringify(state.fields);
-      return true;  // had a saved doc — caller skips initial render
-    }
+    Object.keys(localStorage)
+      .filter(k => k.startsWith('headnote.tpl.'))
+      .forEach(k => localStorage.removeItem(k));
   } catch {}
-  return false;
 }
 
 // First-render-on-page-load — gives the lawyer the document skeleton
