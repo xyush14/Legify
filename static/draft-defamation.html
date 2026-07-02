@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>Civil Defamation — Draft Pack · Headnote</title>
+<meta name="description" content="A fill-in draft pack for a civil defamation suit (English + Hindi): cease-and-desist legal notice, plaint for damages + permanent injunction, and an Order XXXIX interim-injunction application. Author-tier — for advocate review." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Serif+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/static/style.css?v=20260523b" />
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+<style>
+  body { background: var(--bg); }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 0 20px 96px; }
+  body:not(.hi) .lang-hi { display: none; }
+  body.hi .lang-en { display: none; }
+
+  .rtop { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 12px;
+    padding: 12px 20px; margin: 0 -20px 0; background: rgba(250,250,249,0.86);
+    backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+  .rtop__brand img { height: 19px; width: auto; display: block; }
+  .rtop__tag { font-family: 'Geist Mono', monospace; font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--gold-ink); border: 1px solid var(--gold-line);
+    background: var(--gold-soft); padding: 3px 8px; border-radius: 100px; }
+  .rtop__spacer { flex: 1; }
+  .langlabel { font-family: 'Geist Mono', monospace; font-size: 10px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--ink-3); }
+  @media (max-width: 720px) { .langlabel { display: none; } }
+  .langtog { display: inline-flex; border: 1.5px solid var(--gold); border-radius: var(--radius); overflow: hidden; }
+  .langtog__btn { font-size: 13px; font-weight: 600; padding: 7px 15px; background: var(--surface);
+    color: var(--ink-2); border: none; cursor: pointer; font-family: 'Geist', 'Noto Sans Devanagari', sans-serif; }
+  .langtog__btn + .langtog__btn { border-left: 1px solid var(--gold-line); }
+  .langtog__btn.is-active { background: var(--gold); color: #1a1204; }
+  .rtop__btn { font-size: 13px; font-weight: 500; color: var(--ink-2); border: 1px solid var(--line);
+    background: var(--surface); padding: 7px 13px; border-radius: var(--radius); cursor: pointer;
+    transition: border-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease); }
+  .rtop__btn:hover { border-color: var(--gold); color: var(--ink); }
+  .rtop__btn--solid { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+
+  .rhead { padding: 40px 0 18px; }
+  .rhead__eyebrow { font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--gold-ink); margin-bottom: 10px; }
+  .rhead h1 { font-size: var(--t-2xl); font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+  .rhead p { color: var(--ink-2); font-size: var(--t-md); margin-top: 10px; max-width: 64ch; }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card); margin: 18px 0; }
+  .card__pad { padding: 22px 24px; }
+  .guide__title { font-weight: 600; font-size: var(--t-md); display: flex; align-items: center; gap: 9px; }
+  .guide__title .dot { width: 7px; height: 7px; border-radius: 2px; background: var(--gold); }
+  .callout { margin-top: 16px; border: 1px solid var(--gold-line); background: var(--gold-soft);
+    border-radius: var(--radius); padding: 13px 15px; font-size: var(--t-sm); color: var(--ink-2); line-height: 1.55; }
+  .callout b { color: var(--gold-ink); }
+
+  .keys { margin-top: 18px; border-top: 1px dashed var(--line); padding-top: 16px; }
+  .keys h5 { font-size: var(--t-xs); font-family: 'Geist Mono', monospace; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--ink-3); margin-bottom: 10px; }
+  body.hi .keys h5 { font-family: 'Noto Sans Devanagari', sans-serif; letter-spacing: 0; }
+  .keys ul { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 7px 22px; }
+  @media (max-width: 680px) { .keys ul { grid-template-columns: 1fr; } }
+  .keys li { font-size: var(--t-sm); color: var(--ink-2); padding-left: 16px; position: relative; line-height: 1.45; }
+  .keys li::before { content: '›'; position: absolute; left: 0; color: var(--gold); font-weight: 700; }
+  .keys b { color: var(--ink); font-weight: 600; }
+
+  .fill__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .fill__grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px 16px; margin-top: 16px; }
+  @media (max-width: 880px) { .fill__grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 560px) { .fill__grid { grid-template-columns: 1fr; } }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field.col-2 { grid-column: span 2; }
+  .field.col-3 { grid-column: span 3; }
+  @media (max-width: 880px) { .field.col-3 { grid-column: span 2; } }
+  @media (max-width: 560px) { .field.col-2, .field.col-3 { grid-column: span 1; } }
+  .field label { font-size: var(--t-xs); font-weight: 500; color: var(--ink-3);
+    font-family: 'Geist Mono', monospace; letter-spacing: .03em; }
+  body.hi .field label { font-family: 'Noto Sans Devanagari', sans-serif; }
+  .field input, .field textarea { font-family: inherit; font-size: var(--t-sm); color: var(--ink);
+    border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 10px;
+    background: var(--surface); width: 100%; transition: border-color var(--t-fast) var(--ease); }
+  .field textarea { min-height: 54px; resize: vertical; }
+  .field input:focus, .field textarea:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-soft); }
+  .fill__actions { display: flex; gap: 9px; }
+  .linkbtn { background: none; border: none; cursor: pointer; font-size: 12.5px; color: var(--gold-ink);
+    font-weight: 600; padding: 4px 2px; }
+  .linkbtn:hover { color: var(--gold-deep); text-decoration: underline; }
+
+  .doc { margin: 26px 0; }
+  .doc__bar { display: flex; align-items: center; gap: 12px; padding: 11px 16px;
+    border: 1px solid var(--line); border-bottom: none; border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    background: var(--soft); }
+  .doc__no { font-family: 'Geist Mono', monospace; font-size: 11px; color: var(--gold-deep); font-weight: 500; }
+  .doc__name { font-weight: 600; font-size: var(--t-sm); flex: 1; letter-spacing: -.01em; }
+  .doc__copy { font-size: 12px; color: var(--ink-2); border: 1px solid var(--line); background: var(--surface);
+    padding: 5px 11px; border-radius: var(--radius); cursor: pointer; white-space: nowrap; }
+  .doc__copy:hover { border-color: var(--gold); color: var(--ink); }
+  .doc__copy.ok { color: var(--good); border-color: var(--good); }
+  .doc__pdf { font-size: 12px; color: var(--ink-2); border: 1px solid var(--line); background: var(--surface);
+    padding: 5px 11px; border-radius: var(--radius); cursor: pointer; white-space: nowrap; }
+  .doc__pdf:hover { border-color: var(--gold); color: var(--ink); }
+  .paper { border: 1px solid var(--line); border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    background: var(--surface); padding: 40px 46px; font-family: Georgia, 'Times New Roman', serif;
+    font-size: 14.5px; line-height: 1.85; color: #1a1a17; }
+  .paper.lang-hi { font-family: 'Noto Serif Devanagari', Georgia, serif; line-height: 1.95; }
+  @media (max-width: 600px) { .paper { padding: 26px 22px; } }
+  .paper .ctr { text-align: center; }
+  .paper .court { font-weight: 700; text-transform: uppercase; letter-spacing: .02em; font-size: 15px; }
+  .paper.lang-hi .court { text-transform: none; }
+  .paper .rule { border: none; border-top: 1px solid #d8d4c8; margin: 14px 0; }
+  .paper .vs { text-align: center; font-style: italic; margin: 3px 0; padding-left: 40%; }
+  .paper .pno { display: inline-block; min-width: 1.7em; }
+  .paper p { margin: 0 0 12px; }
+  .paper .tight { margin-bottom: 4px; }
+  .paper .sig { margin-top: 26px; text-align: right; }
+  .paper h3 { font-size: 14.5px; font-weight: 700; text-align: center; margin: 18px 0 12px;
+    text-transform: uppercase; letter-spacing: .03em; }
+  .paper.lang-hi h3 { text-transform: none; }
+  .paper ol.prayer { margin: 0 0 12px 0; padding-left: 30px; }
+  .paper ol.prayer li { margin-bottom: 8px; }
+  .paper .quote { padding: 6px 14px; border-left: 3px solid var(--gold); background: var(--gold-soft);
+    font-style: italic; margin: 0 0 12px; }
+  /* Party block — canonical cause-title: designation label + rule LEFT, descriptor indented RIGHT */
+  .paper .party { display: grid; grid-template-columns: 40% 60%; column-gap: 10px; align-items: start; margin: 2px 0 6px; }
+  .paper .party__label { display: flex; align-items: flex-end; gap: 7px; white-space: nowrap; font-weight: 700; }
+  .paper .party__label .ln { flex: 1; border-bottom: 1px solid #b7b09c; margin-bottom: 4px; }
+  .paper .party__desc { align-self: start; }
+
+  .ph { background: var(--gold-soft); border-bottom: 1.5px solid var(--gold); padding: 0 3px;
+    border-radius: 3px 3px 0 0; color: var(--gold-ink); font-style: normal; }
+  .ph--filled { background: transparent; border-bottom: none; color: inherit; font-weight: 600; }
+
+  .notes { margin-top: 2px; }
+  .notes summary { cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--ink-2);
+    padding: 10px 16px; border: 1px solid var(--line); border-top: none;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg); background: var(--bg); list-style: none; }
+  .notes summary::-webkit-details-marker { display: none; }
+  .notes summary::before { content: '+ '; color: var(--gold-deep); font-weight: 700; }
+  .notes[open] summary::before { content: '– '; }
+  .notes[open] summary { border-radius: 0; }
+  .notes__body { border: 1px solid var(--line); border-top: none; padding: 16px 18px;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg); font-size: 13px; color: var(--ink-2); line-height: 1.6; }
+  .notes__body li { margin-bottom: 8px; margin-left: 18px; }
+  .notes__body b { color: var(--ink); }
+
+  .rfoot { margin-top: 36px; padding: 18px 0 0; border-top: 1px solid var(--line);
+    font-size: 12px; color: var(--ink-3); line-height: 1.6; }
+  .rfoot b { color: var(--ink-2); }
+
+  @media print {
+    .rtop, .rhead, .fillcard, .guidecard, .notes, .doc__bar { display: none !important; }
+    .paper { border: none; padding: 0; }
+    .card, .doc { box-shadow: none; margin: 0; }
+    .doc { page-break-after: always; }
+    .doc:last-of-type { page-break-after: auto; }
+    body.print-one .doc { display: none !important; }
+    body.print-one .doc.print-target { display: block !important; page-break-after: auto; }
+  }
+</style>
+</head>
+<body class="draft-defamation">
+
+<header class="rtop">
+  <a class="rtop__brand" href="/" aria-label="Headnote home"><img src="/static/headnote-logo.svg" alt="headnote" /></a>
+  <span class="rtop__tag">Personal Assist · Draft</span>
+  <span class="rtop__spacer"></span>
+  <span class="langlabel">Language / भाषा →</span>
+  <div class="langtog" role="group" aria-label="Language / भाषा" title="Switch language / भाषा बदलें">
+    <button class="langtog__btn is-active" data-lang="en">English</button>
+    <button class="langtog__btn" data-lang="hi">हिंदी</button>
+  </div>
+  <button class="rtop__btn" id="btn-print"><span class="lang-en">Print / PDF</span><span class="lang-hi">प्रिंट / PDF</span></button>
+  <button class="rtop__btn rtop__btn--solid" id="btn-copyall"><span class="lang-en">Copy all</span><span class="lang-hi">सब कॉपी</span></button>
+</header>
+
+<div class="wrap">
+
+  <div class="rhead">
+    <div class="rhead__eyebrow"><span class="lang-en">Civil · Defamation (tort) · Damages &amp; Injunction</span><span class="lang-hi">सिविल · मानहानि (अपकृत्य) · क्षतिपूर्ति एवं निषेधाज्ञा</span></div>
+    <h1><span class="lang-en">Civil Defamation — Draft Pack</span><span class="lang-hi">मानहानि (सिविल) — ड्राफ्ट पैक</span></h1>
+    <p>
+      <span class="lang-en">A ready-to-file pack for a civil defamation claim: a <b>cease-and-desist legal notice</b>,
+        a <b>plaint for damages &amp; a permanent injunction</b> (with verification and affidavit), and an
+        <b>Order XXXIX interim-injunction application</b>. Fill the details once — every blank updates across all three.</span>
+      <span class="lang-hi">सिविल मानहानि हेतु दाखिल करने योग्य पैक: <b>रोक-थाम (cease &amp; desist) विधिक सूचना</b>,
+        <b>क्षतिपूर्ति एवं स्थायी निषेधाज्ञा हेतु वाद-पत्र</b> (सत्यापन एवं शपथ-पत्र सहित), तथा
+        <b>आदेश 39 अंतरिम निषेधाज्ञा आवेदन</b>। विवरण एक बार भरें — तीनों दस्तावेज़ों में सभी रिक्त स्थान स्वतः भर जाएँगे।</span>
+    </p>
+  </div>
+
+  <!-- GUIDANCE -->
+  <section class="card guidecard">
+    <div class="card__pad">
+      <div class="guide__title"><span class="dot"></span>
+        <span class="lang-en">Before you fill — the essentials</span>
+        <span class="lang-hi">भरने से पहले — अनिवार्य बातें</span>
+      </div>
+
+      <div class="callout">
+        <span class="lang-en"><b>An interim injunction is hard to get.</b> Post <b>Bloomberg TV v. Zee Entertainment,
+          (2024) INSC 255</b>, courts apply the three-fold test <i>with reasons</i> and the <b>Bonnard v. Perryman</b>
+          standard — an injunction restraining publication is granted only in <b>exceptional</b> cases where the
+          content is shown to be <b>malicious or palpably false</b>. So plead falsity + malice, not merely that the
+          words are defamatory.</span>
+        <span class="lang-hi"><b>अंतरिम निषेधाज्ञा मिलना कठिन है।</b> <b>Bloomberg TV बनाम Zee Entertainment, (2024) INSC 255</b>
+          के बाद न्यायालय त्रि-आयामी परीक्षण <i>कारण सहित</i> तथा <b>Bonnard v. Perryman</b> मानक लागू करते हैं — प्रकाशन
+          रोकने की निषेधाज्ञा केवल <b>असाधारण</b> मामलों में दी जाती है जहाँ सामग्री <b>दुर्भावनापूर्ण या स्पष्टतः असत्य</b>
+          सिद्ध हो। अतः केवल मानहानिकारक नहीं, बल्कि असत्यता व दुर्भावना का अभिवचन करें।</span>
+      </div>
+
+      <div class="keys">
+        <h5><span class="lang-en">Elements &amp; facts to collect</span><span class="lang-hi">तत्व व एकत्र करने योग्य तथ्य</span></h5>
+        <ul class="lang-en">
+          <li><b>The statement</b> — the exact defamatory words (verbatim), and their meaning/innuendo.</li>
+          <li><b>Publication</b> — medium, date, and that a third party saw/heard it (screenshot / clipping / URL).</li>
+          <li><b>Reference</b> — that it identifies the Plaintiff.</li>
+          <li><b>Falsity &amp; malice</b> — it is untrue and made without justification.</li>
+          <li><b>Harm</b> — injury to reputation; any special (pecuniary) loss.</li>
+          <li><b>Libel vs slander</b> — written/online = libel (per se); spoken = slander (usually needs special damage).</li>
+        </ul>
+        <ul class="lang-hi">
+          <li><b>कथन</b> — अपमानजनक शब्द यथावत्, तथा उनका अर्थ/लांछन।</li>
+          <li><b>प्रकाशन</b> — माध्यम, तिथि, तथा किसी तृतीय पक्ष ने देखा/सुना (स्क्रीनशॉट / कतरन / URL)।</li>
+          <li><b>संदर्भ</b> — कथन वादी की ओर इंगित करता है।</li>
+          <li><b>असत्यता व दुर्भावना</b> — कथन असत्य एवं बिना औचित्य के है।</li>
+          <li><b>क्षति</b> — प्रतिष्ठा को हानि; कोई विशेष (धन-संबंधी) हानि।</li>
+          <li><b>लिबेल बनाम स्लैंडर</b> — लिखित/ऑनलाइन = लिबेल (स्वतः वादयोग्य); मौखिक = स्लैंडर (प्रायः विशेष क्षति आवश्यक)।</li>
+        </ul>
+      </div>
+
+      <div class="keys">
+        <h5><span class="lang-en">Checks, reliefs &amp; authorities</span><span class="lang-hi">जाँच, अनुतोष व न्याय-दृष्टांत</span></h5>
+        <ul class="lang-en">
+          <li><b>Limitation — 1 year</b> from publication (Limitation Act 1963, Art. 75 libel / Art. 76 slander). File promptly.</li>
+          <li><b>Reliefs</b> — damages + permanent injunction + removal/retraction &amp; apology.</li>
+          <li><b>Court fee</b> — ad valorem on the damages claimed (State schedule).</li>
+          <li><b>Forum</b> — civil court by pecuniary value; where published/circulated or the Defendant resides.</li>
+          <li><b>Online</b> — file a §63 BSA (old §65B Evidence Act) certificate for the screenshots.</li>
+          <li><b>Authorities</b> — R. Rajagopal, (1994) 6 SCC 632; Bloomberg v. Zee, (2024) INSC 255; Bonnard v. Perryman, [1891] 2 Ch 269; Tata Sons v. Greenpeace, 2011 SCC OnLine Del 466.</li>
+        </ul>
+        <ul class="lang-hi">
+          <li><b>परिसीमा — 1 वर्ष</b> प्रकाशन से (परिसीमा अधिनियम 1963, अनु. 75 लिबेल / अनु. 76 स्लैंडर)। शीघ्र दाखिल करें।</li>
+          <li><b>अनुतोष</b> — क्षतिपूर्ति + स्थायी निषेधाज्ञा + हटाना/खंडन एवं क्षमायाचना।</li>
+          <li><b>न्याय शुल्क</b> — दावाकृत क्षतिपूर्ति पर यथामूल्य (राज्य अनुसूची)।</li>
+          <li><b>फोरम</b> — आर्थिक मूल्य अनुसार सिविल न्यायालय; जहाँ प्रकाशित/प्रसारित या प्रतिवादी निवासी।</li>
+          <li><b>ऑनलाइन</b> — स्क्रीनशॉट हेतु धारा 63 BSA (पूर्व धारा 65B साक्ष्य अधि.) प्रमाणपत्र लगाएँ।</li>
+          <li><b>न्याय-दृष्टांत</b> — R. Rajagopal, (1994) 6 SCC 632; Bloomberg v. Zee, (2024) INSC 255; Bonnard v. Perryman, [1891] 2 Ch 269; Tata Sons v. Greenpeace, 2011 SCC OnLine Del 466.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- FILL PANEL -->
+  <section class="card fillcard">
+    <div class="card__pad">
+      <div class="fill__head">
+        <div class="guide__title"><span class="dot"></span>
+          <span class="lang-en">Fill the details</span><span class="lang-hi">विवरण भरें</span>
+        </div>
+        <div class="fill__actions">
+          <button class="linkbtn" id="btn-sample"><span class="lang-en">Load sample</span><span class="lang-hi">नमूना भरें</span></button>
+          <button class="linkbtn" id="btn-reset"><span class="lang-en">Clear</span><span class="lang-hi">साफ़ करें</span></button>
+        </div>
+      </div>
+      <div class="fill__grid">
+        <div class="field col-2"><label><span class="lang-en">Court</span><span class="lang-hi">न्यायालय</span></label><input data-f="court" placeholder="District Court / City Civil Court, ____" /></div>
+        <div class="field"><label><span class="lang-en">Suit no. / year</span><span class="lang-hi">वाद संख्या / वर्ष</span></label><input data-f="suit" placeholder="____ of 20__" /></div>
+        <div class="field col-2"><label><span class="lang-en">Plaintiff — name &amp; description</span><span class="lang-hi">वादी — नाम व विवरण</span></label><input data-f="plaintiff" placeholder="Name, S/o ____, age, occupation, r/o ____" /></div>
+        <div class="field col-2"><label><span class="lang-en">Defendant — name &amp; description</span><span class="lang-hi">प्रतिवादी — नाम व विवरण</span></label><input data-f="defendant" placeholder="Name, S/o ____, age, occupation, r/o ____" /></div>
+        <div class="field col-3"><label><span class="lang-en">The defamatory statement (verbatim)</span><span class="lang-hi">अपमानजनक कथन (यथावत्)</span></label><textarea data-f="statement" placeholder="Paste the exact defamatory words / imputation"></textarea></div>
+        <div class="field col-2"><label><span class="lang-en">Where published (medium)</span><span class="lang-hi">कहाँ प्रकाशित (माध्यम)</span></label><input data-f="medium" placeholder="newspaper / Facebook / WhatsApp group / YouTube ____" /></div>
+        <div class="field"><label><span class="lang-en">Date of publication</span><span class="lang-hi">प्रकाशन की तिथि</span></label><input data-f="pubdate" placeholder="05.03.2026" /></div>
+        <div class="field"><label><span class="lang-en">Damages claimed (₹)</span><span class="lang-hi">दावाकृत क्षतिपूर्ति (₹)</span></label><input data-f="damages" placeholder="20,00,000" /></div>
+        <div class="field"><label><span class="lang-en">Legal-notice date</span><span class="lang-hi">विधिक सूचना की तिथि</span></label><input data-f="noticedate" placeholder="20.03.2026" /></div>
+        <div class="field"><label><span class="lang-en">Notice period (days)</span><span class="lang-hi">सूचना अवधि (दिन)</span></label><input data-f="noticedays" placeholder="15" /></div>
+        <div class="field"><label><span class="lang-en">Place (jurisdiction)</span><span class="lang-hi">स्थान (क्षेत्राधिकार)</span></label><input data-f="place" placeholder="____" /></div>
+        <div class="field col-2"><label><span class="lang-en">Advocate — name &amp; enrolment</span><span class="lang-hi">अधिवक्ता — नाम व नामांकन</span></label><input data-f="advocate" placeholder="____, Advocate (Enrl. No. ____)" /></div>
+        <div class="field"><label><span class="lang-en">Date of draft</span><span class="lang-hi">ड्राफ्ट की तिथि</span></label><input data-f="draftdate" placeholder="DD.MM.YYYY" /></div>
+      </div>
+      <p style="margin-top:14px;font-size:12px;color:var(--gold-ink);line-height:1.5;"><span class="lang-en">Names &amp; places typed in English auto-convert to Devanagari in the हिंदी view — please verify the spelling of proper names. The defamatory words are kept exactly as typed (do not paraphrase them).</span><span class="lang-hi">अंग्रेज़ी में लिखे नाम व स्थान हिंदी दृश्य में स्वतः देवनागरी में बदल जाते हैं — कृपया नामों की वर्तनी जाँच लें। अपमानजनक शब्द यथावत् रखे जाते हैं (उन्हें न बदलें)।</span></p>
+    </div>
+  </section>
+
+  <!-- DOC 1 — CEASE & DESIST NOTICE -->
+  <section class="doc" id="doc-notice">
+    <div class="doc__bar">
+      <span class="doc__no">DOC 1</span>
+      <span class="doc__name"><span class="lang-en">Legal Notice — Cease &amp; Desist / Defamation</span><span class="lang-hi">विधिक सूचना — रोक-थाम / मानहानि</span></span>
+      <button class="doc__copy" data-copy="notice"><span class="lang-en">Copy</span><span class="lang-hi">कॉपी</span></button>
+    </div>
+    <div class="paper lang-en" id="notice-body-en">
+      <p class="ctr"><b>By Regd. Post A.D. / E-mail</b></p>
+      <p class="tight"><b>REF:</b> <span class="ph" data-f="advocate" data-ph="[Advocate name & ref]">[Advocate name &amp; ref]</span></p>
+      <p class="tight"><b>DATE:</b> <span class="ph" data-f="noticedate" data-ph="[date]">[date]</span></p>
+      <hr class="rule" />
+      <p class="tight"><b>To,</b></p>
+      <p><span class="ph" data-f="defendant" data-ph="[Defendant — name & full address]">[Defendant — name &amp; full address]</span></p>
+      <p><b>Subject:</b> Legal notice to cease and desist from defamation, to retract and apologise, and to pay damages of ₹<span class="ph" data-f="damages" data-ph="[amount]">[amount]</span>.</p>
+      <p>Sir/Madam, under instructions from my client, <span class="ph" data-f="plaintiff" data-ph="[Plaintiff — name & address]">[Plaintiff — name &amp; address]</span>, I serve upon you the following notice:</p>
+      <p><span class="pno">1.</span> That my client enjoys a good reputation and standing.</p>
+      <p><span class="pno">2.</span> That on <span class="ph" data-f="pubdate" data-ph="[date]">[date]</span>, you published and circulated, via <span class="ph" data-f="medium" data-ph="[medium]">[medium]</span>, the following statement concerning my client:</p>
+      <p class="quote">"<span class="ph" data-f="statement" data-ph="[the exact defamatory words]">[the exact defamatory words]</span>"</p>
+      <p><span class="pno">3.</span> That the said statement is false, baseless and per se defamatory of my client, and was made maliciously and without any lawful justification, and has been read/heard by third parties — thereby gravely lowering my client in the estimation of right-thinking members of society and causing serious injury to reputation.</p>
+      <p><span class="pno">4.</span> I therefore call upon you, <b>within <span class="ph" data-f="noticedays" data-ph="[15]">[15]</span> days</b> of receipt of this notice, to: (a) <b>cease and desist</b> from publishing or repeating the said or any similar statement; (b) <b>remove and retract</b> the said statement from all platforms; (c) tender an <b>unconditional written apology</b> in the same medium; and (d) pay my client <b>₹<span class="ph" data-f="damages" data-ph="[amount]">[amount]</span></b> as damages.</p>
+      <p><span class="pno">5.</span> That failing compliance, my client shall be constrained to institute civil proceedings for damages and a permanent injunction — and such other proceedings as advised — entirely at your risk as to cost and consequences.</p>
+      <p>A copy of this notice is retained in my office.</p>
+      <p class="sig">_______________________<br /><span class="ph" data-f="advocate" data-ph="[Advocate name & enrolment]">[Advocate name &amp; enrolment]</span><br />Advocate for the Notice-Sender</p>
+    </div>
+    <div class="paper lang-hi" id="notice-body-hi">
+      <p class="ctr"><b>रजिस्टर्ड डाक ए.डी. / ई-मेल द्वारा</b></p>
+      <p class="tight"><b>संदर्भ:</b> <span class="ph" data-f="advocate" data-ph="[अधिवक्ता का नाम व संदर्भ]">[अधिवक्ता का नाम व संदर्भ]</span></p>
+      <p class="tight"><b>दिनांक:</b> <span class="ph" data-f="noticedate" data-ph="[दिनांक]">[दिनांक]</span></p>
+      <hr class="rule" />
+      <p class="tight"><b>सेवा में,</b></p>
+      <p><span class="ph" data-f="defendant" data-ph="[प्रतिवादी — नाम व पूर्ण पता]">[प्रतिवादी — नाम व पूर्ण पता]</span></p>
+      <p><b>विषय:</b> मानहानि से विरत रहने, खंडन एवं क्षमायाचना करने, तथा ₹<span class="ph" data-f="damages" data-ph="[राशि]">[राशि]</span> क्षतिपूर्ति अदा करने हेतु विधिक सूचना।</p>
+      <p>महोदय/महोदया, मेरे मुवक्किल <span class="ph" data-f="plaintiff" data-ph="[वादी — नाम व पता]">[वादी — नाम व पता]</span> के निर्देश पर मैं आपको निम्नलिखित सूचना देता/देती हूँ:</p>
+      <p><span class="pno">1.</span> यह कि मेरे मुवक्किल की समाज में अच्छी प्रतिष्ठा एवं साख है।</p>
+      <p><span class="pno">2.</span> यह कि दिनांक <span class="ph" data-f="pubdate" data-ph="[दिनांक]">[दिनांक]</span> को आपने <span class="ph" data-f="medium" data-ph="[माध्यम]">[माध्यम]</span> के माध्यम से मेरे मुवक्किल के संबंध में निम्नलिखित कथन प्रकाशित एवं प्रसारित किया:</p>
+      <p class="quote">"<span class="ph" data-f="statement" data-ph="[अपमानजनक शब्द यथावत्]">[अपमानजनक शब्द यथावत्]</span>"</p>
+      <p><span class="pno">3.</span> यह कि उक्त कथन असत्य, निराधार एवं मेरे मुवक्किल के लिए स्वतः मानहानिकारक है, दुर्भावनापूर्वक एवं बिना किसी वैध औचित्य के किया गया, तथा तृतीय पक्षों द्वारा देखा/सुना गया — जिससे मेरे मुवक्किल की समाज में प्रतिष्ठा को गंभीर आघात पहुँचा है।</p>
+      <p><span class="pno">4.</span> अतः मैं आपको सूचित करता/करती हूँ कि इस सूचना की प्राप्ति के <b><span class="ph" data-f="noticedays" data-ph="[15]">[15]</span> दिनों के भीतर</b>: (क) उक्त या ऐसे किसी कथन के प्रकाशन/पुनरावृत्ति से <b>विरत रहें</b>; (ख) उक्त कथन सभी मंचों से <b>हटाएँ एवं खंडन करें</b>; (ग) उसी माध्यम में <b>बिना शर्त लिखित क्षमायाचना</b> करें; तथा (घ) मेरे मुवक्किल को <b>₹<span class="ph" data-f="damages" data-ph="[राशि]">[राशि]</span></b> क्षतिपूर्ति अदा करें।</p>
+      <p><span class="pno">5.</span> यह कि अनुपालन न करने पर मेरे मुवक्किल क्षतिपूर्ति एवं स्थायी निषेधाज्ञा हेतु सिविल कार्यवाही करने को बाध्य होंगे, जिसका समस्त व्यय एवं परिणाम आपके जोखिम पर होगा।</p>
+      <p>इस सूचना की एक प्रति मेरे कार्यालय में सुरक्षित रखी गई है।</p>
+      <p class="sig">_______________________<br /><span class="ph" data-f="advocate" data-ph="[अधिवक्ता का नाम व नामांकन]">[अधिवक्ता का नाम व नामांकन]</span><br />सूचना-प्रेषक के अधिवक्ता</p>
+    </div>
+  </section>
+
+  <!-- DOC 2 — PLAINT -->
+  <section class="doc" id="doc-plaint">
+    <div class="doc__bar">
+      <span class="doc__no">DOC 2</span>
+      <span class="doc__name"><span class="lang-en">Plaint — Damages for Defamation &amp; Permanent Injunction</span><span class="lang-hi">वाद-पत्र — मानहानि क्षतिपूर्ति एवं स्थायी निषेधाज्ञा</span></span>
+      <button class="doc__copy" data-copy="plaint"><span class="lang-en">Copy</span><span class="lang-hi">कॉपी</span></button>
+    </div>
+    <div class="paper lang-en" id="plaint-body-en">
+      <p class="ctr court">IN THE <span class="ph" data-f="court" data-ph="[COURT]">[COURT]</span></p>
+      <p class="ctr">Civil Suit No. <span class="ph" data-f="suit" data-ph="[___ of 20__]">[___ of 20__]</span></p>
+      <hr class="rule" />
+      <div class="party"><span class="party__label">Plaintiff<span class="ln"></span></span><span class="party__desc"><span class="ph" data-f="plaintiff" data-ph="[plaintiff — name, parentage, age, occupation, address]">[plaintiff — name, parentage, age, occupation, address]</span></span></div>
+      <p class="vs">VERSUS</p>
+      <div class="party"><span class="party__label">Defendant<span class="ln"></span></span><span class="party__desc"><span class="ph" data-f="defendant" data-ph="[defendant — name, parentage, age, occupation, address]">[defendant — name, parentage, age, occupation, address]</span></span></div>
+      <hr class="rule" />
+      <p class="ctr"><b>SUIT FOR RECOVERY OF ₹<span class="ph" data-f="damages" data-ph="[amount]">[amount]</span> AS DAMAGES FOR DEFAMATION AND FOR PERMANENT INJUNCTION</b></p>
+      <p><b>The Plaintiff most respectfully submits as under:—</b></p>
+      <p><span class="pno">1.</span> That the Plaintiff is <span class="ph" data-f="plaintiff" data-ph="[description of the Plaintiff]">[description of the Plaintiff]</span> and enjoys a good reputation and standing in society and in his/her profession/business.</p>
+      <p><span class="pno">2.</span> That the Defendant is <span class="ph" data-f="defendant" data-ph="[description of the Defendant]">[description of the Defendant]</span>.</p>
+      <p><span class="pno">3.</span> That on <span class="ph" data-f="pubdate" data-ph="[date]">[date]</span>, the Defendant published and circulated, through <span class="ph" data-f="medium" data-ph="[medium]">[medium]</span>, the following statement concerning the Plaintiff (a true copy/screenshot whereof is filed herewith):</p>
+      <p class="quote">"<span class="ph" data-f="statement" data-ph="[the exact defamatory words]">[the exact defamatory words]</span>"</p>
+      <p><span class="pno">4.</span> That the said statement is <b>per se defamatory</b> of the Plaintiff / is defamatory by innuendo, in that it was meant and was understood to mean that [____], and it refers to and identifies the Plaintiff.</p>
+      <p><span class="pno">5.</span> That the said statement was <b>published to third parties</b> who read/heard the same.</p>
+      <p><span class="pno">6.</span> That the said statement is <b>false and untrue</b>, and was made <b>maliciously and without any lawful justification</b>, with intent to harm the Plaintiff's reputation.</p>
+      <p><span class="pno">7.</span> That by reason of the said publication the Plaintiff has been gravely injured in reputation, exposed to public hatred, ridicule and contempt, and has suffered mental agony and [special/pecuniary loss — loss of business/employment ____], and claims general and special damages of ₹<span class="ph" data-f="damages" data-ph="[amount]">[amount]</span>.</p>
+      <p><span class="pno">8.</span> That the Plaintiff got served upon the Defendant a legal notice dated <span class="ph" data-f="noticedate" data-ph="[date]">[date]</span> to retract, apologise and pay damages, which the Defendant has failed to comply with.</p>
+      <p><span class="pno">9.</span> That unless restrained by a permanent injunction, the Defendant is likely to continue and repeat the said defamatory publication, causing the Plaintiff continuing and irreparable injury for which damages alone are not an adequate remedy.</p>
+      <p><span class="pno">10.</span> That the cause of action arose on <span class="ph" data-f="pubdate" data-ph="[date]">[date]</span> when the statement was published, and on <span class="ph" data-f="noticedate" data-ph="[date]">[date]</span> when the notice went uncomplied — at <span class="ph" data-f="place" data-ph="[place]">[place]</span>, within the jurisdiction of this Hon'ble Court.</p>
+      <p><span class="pno">11.</span> That this Hon'ble Court has territorial jurisdiction (the matter having been published/circulated, and/or the Defendant residing/working for gain, within its limits) and pecuniary jurisdiction to try the suit.</p>
+      <p><span class="pno">12.</span> That the suit is within limitation, being filed within one year of the said publication.</p>
+      <p><span class="pno">13.</span> That for court fee and jurisdiction the suit is valued at ₹<span class="ph" data-f="damages" data-ph="[amount]">[amount]</span>, and the requisite ad valorem court fee is paid.</p>
+
+      <h3>Prayer</h3>
+      <p>It is therefore most respectfully prayed that this Hon'ble Court may be pleased to:—</p>
+      <ol class="prayer">
+        <li>pass a decree for ₹<span class="ph" data-f="damages" data-ph="[amount]">[amount]</span> as damages in favour of the Plaintiff and against the Defendant, with interest under Section 34 CPC;</li>
+        <li>grant a <b>permanent injunction</b> restraining the Defendant, his agents and representatives, from publishing, repeating or circulating the said or any similar defamatory statement against the Plaintiff, by any medium whatsoever;</li>
+        <li>grant a <b>mandatory injunction</b> directing the Defendant to remove/retract the said statement and to tender an apology;</li>
+        <li>award costs of the suit; and</li>
+        <li>grant any other relief this Hon'ble Court deems fit in the interest of justice.</li>
+      </ol>
+      <p class="sig">Place: <span class="ph" data-f="place" data-ph="[place]">[place]</span> &nbsp;&nbsp; Date: <span class="ph" data-f="draftdate" data-ph="[date]">[date]</span><br /><br />
+        &nbsp;<br /><b>PLAINTIFF</b><br />Through — <span class="ph" data-f="advocate" data-ph="[Advocate]">[Advocate]</span></p>
+      <h3>Verification</h3>
+      <p>Verified at <span class="ph" data-f="place" data-ph="[place]">[place]</span> on <span class="ph" data-f="draftdate" data-ph="[date]">[date]</span> that the contents of paras 1 to 13 are true to my personal knowledge and belief, and nothing material has been concealed.</p>
+      <p class="sig">_______________________<br /><b>PLAINTIFF</b></p>
+      <h3>Affidavit in support (Order VI Rule 15A CPC)</h3>
+      <p>I, <span class="ph" data-f="plaintiff" data-ph="[Plaintiff / authorised deponent]">[Plaintiff / authorised deponent]</span>, do solemnly affirm that I am the Plaintiff, competent to swear this affidavit, and that the facts in paras 1 to 13 of the plaint are true to my personal knowledge; the documents filed are true copies of their originals.</p>
+      <p class="sig">_______________________<br /><b>DEPONENT</b></p>
+    </div>
+    <div class="paper lang-hi" id="plaint-body-hi">
+      <p class="ctr court">न्यायालय श्रीमान् <span class="ph" data-f="court" data-ph="[न्यायालय]">[न्यायालय]</span> में</p>
+      <p class="ctr">सिविल वाद संख्या <span class="ph" data-f="suit" data-ph="[___ वर्ष 20__]">[___ वर्ष 20__]</span></p>
+      <hr class="rule" />
+      <div class="party"><span class="party__label">वादी<span class="ln"></span></span><span class="party__desc"><span class="ph" data-f="plaintiff" data-ph="[नाम, पिता/पति श्री ____, आयु, व्यवसाय, निवासी ____]">[नाम, पिता/पति श्री ____, आयु, व्यवसाय, निवासी ____]</span></span></div>
+      <p class="vs">बनाम</p>
+      <div class="party"><span class="party__label">प्रतिवादी<span class="ln"></span></span><span class="party__desc"><span class="ph" data-f="defendant" data-ph="[नाम, पिता श्री ____, आयु, व्यवसाय, निवासी ____]">[नाम, पिता श्री ____, आयु, व्यवसाय, निवासी ____]</span></span></div>
+      <hr class="rule" />
+      <p class="ctr"><b>₹<span class="ph" data-f="damages" data-ph="[राशि]">[राशि]</span> मानहानि क्षतिपूर्ति एवं स्थायी निषेधाज्ञा हेतु वाद</b></p>
+      <p><b>वादी सविनय निवेदन करता/करती है:—</b></p>
+      <p><span class="pno">1.</span> यह कि वादी <span class="ph" data-f="plaintiff" data-ph="[वादी का विवरण]">[वादी का विवरण]</span> है तथा समाज एवं अपने व्यवसाय/पेशे में अच्छी प्रतिष्ठा एवं साख रखता/रखती है।</p>
+      <p><span class="pno">2.</span> यह कि प्रतिवादी <span class="ph" data-f="defendant" data-ph="[प्रतिवादी का विवरण]">[प्रतिवादी का विवरण]</span> है।</p>
+      <p><span class="pno">3.</span> यह कि दिनांक <span class="ph" data-f="pubdate" data-ph="[दिनांक]">[दिनांक]</span> को प्रतिवादी ने <span class="ph" data-f="medium" data-ph="[माध्यम]">[माध्यम]</span> के माध्यम से वादी के संबंध में निम्नलिखित कथन प्रकाशित एवं प्रसारित किया (जिसकी सत्य प्रति/स्क्रीनशॉट साथ संलग्न है):</p>
+      <p class="quote">"<span class="ph" data-f="statement" data-ph="[अपमानजनक शब्द यथावत्]">[अपमानजनक शब्द यथावत्]</span>"</p>
+      <p><span class="pno">4.</span> यह कि उक्त कथन वादी के लिए <b>स्वतः मानहानिकारक</b> है / लांछन द्वारा मानहानिकारक है, जिसका अर्थ यह था एवं यही समझा गया कि [____], तथा यह वादी की ओर इंगित एवं उसे पहचानता है।</p>
+      <p><span class="pno">5.</span> यह कि उक्त कथन <b>तृतीय पक्षों के समक्ष प्रकाशित</b> हुआ, जिन्होंने उसे देखा/सुना।</p>
+      <p><span class="pno">6.</span> यह कि उक्त कथन <b>असत्य</b> है तथा <b>दुर्भावनापूर्वक एवं बिना किसी वैध औचित्य</b> के, वादी की प्रतिष्ठा को हानि पहुँचाने के आशय से किया गया।</p>
+      <p><span class="pno">7.</span> यह कि उक्त प्रकाशन के कारण वादी की प्रतिष्ठा को गंभीर आघात पहुँचा है, वादी को सार्वजनिक घृणा एवं उपहास का पात्र बनाया गया, तथा मानसिक कष्ट एवं [विशेष/धन-संबंधी हानि — व्यवसाय/रोज़गार की हानि ____] हुई, जिसके लिए वादी ₹<span class="ph" data-f="damages" data-ph="[राशि]">[राशि]</span> सामान्य एवं विशेष क्षतिपूर्ति का दावा करता/करती है।</p>
+      <p><span class="pno">8.</span> यह कि वादी ने प्रतिवादी को दिनांक <span class="ph" data-f="noticedate" data-ph="[दिनांक]">[दिनांक]</span> की विधिक सूचना खंडन, क्षमायाचना एवं क्षतिपूर्ति हेतु भिजवाई, जिसका प्रतिवादी ने अनुपालन नहीं किया।</p>
+      <p><span class="pno">9.</span> यह कि स्थायी निषेधाज्ञा द्वारा रोके जाने तक प्रतिवादी उक्त मानहानिकारक प्रकाशन जारी/पुनरावृत्त रखेगा, जिससे वादी को निरंतर एवं अपूरणीय क्षति होगी, जिसकी केवल क्षतिपूर्ति पर्याप्त उपचार नहीं है।</p>
+      <p><span class="pno">10.</span> यह कि वाद कारण दिनांक <span class="ph" data-f="pubdate" data-ph="[दिनांक]">[दिनांक]</span> को (प्रकाशन पर), तथा दिनांक <span class="ph" data-f="noticedate" data-ph="[दिनांक]">[दिनांक]</span> को (सूचना का अनुपालन न होने पर) — <span class="ph" data-f="place" data-ph="[स्थान]">[स्थान]</span> पर, इस माननीय न्यायालय के क्षेत्राधिकार में उत्पन्न हुआ।</p>
+      <p><span class="pno">11.</span> यह कि इस माननीय न्यायालय को स्थानीय क्षेत्राधिकार (कथन इसकी सीमा में प्रकाशित/प्रसारित हुआ, और/या प्रतिवादी इसकी सीमा में निवास/कार्य करता है) एवं आर्थिक क्षेत्राधिकार प्राप्त है।</p>
+      <p><span class="pno">12.</span> यह कि वाद परिसीमा अवधि के भीतर है, उक्त प्रकाशन के एक वर्ष के भीतर प्रस्तुत किया जा रहा है।</p>
+      <p><span class="pno">13.</span> यह कि न्याय शुल्क एवं क्षेत्राधिकार हेतु वाद का मूल्यांकन ₹<span class="ph" data-f="damages" data-ph="[राशि]">[राशि]</span> किया गया है, तथा उस पर यथामूल्य न्याय शुल्क अदा किया गया है।</p>
+
+      <h3>प्रार्थना</h3>
+      <p>अतः सविनय प्रार्थना है कि यह माननीय न्यायालय कृपया:—</p>
+      <ol class="prayer">
+        <li>वादी के पक्ष में एवं प्रतिवादी के विरुद्ध ₹<span class="ph" data-f="damages" data-ph="[राशि]">[राशि]</span> क्षतिपूर्ति की डिक्री, धारा 34 सी.पी.सी. के अंतर्गत ब्याज सहित, पारित करे;</li>
+        <li><b>स्थायी निषेधाज्ञा</b> प्रदान करे जिससे प्रतिवादी, उसके अभिकर्ता एवं प्रतिनिधि, वादी के विरुद्ध उक्त या ऐसे किसी मानहानिकारक कथन को किसी भी माध्यम से प्रकाशित/पुनरावृत्त/प्रसारित करने से रुकें;</li>
+        <li><b>आदेशात्मक निषेधाज्ञा</b> द्वारा प्रतिवादी को उक्त कथन हटाने/खंडन करने एवं क्षमायाचना करने का निर्देश दे;</li>
+        <li>वाद-व्यय दिलाए; तथा</li>
+        <li>न्यायहित में अन्य जो भी उचित अनुतोष हो, प्रदान करे।</li>
+      </ol>
+      <p class="sig">स्थान: <span class="ph" data-f="place" data-ph="[स्थान]">[स्थान]</span> &nbsp;&nbsp; दिनांक: <span class="ph" data-f="draftdate" data-ph="[दिनांक]">[दिनांक]</span><br /><br />
+        &nbsp;<br /><b>वादी</b><br />द्वारा — <span class="ph" data-f="advocate" data-ph="[अधिवक्ता]">[अधिवक्ता]</span></p>
+      <h3>सत्यापन</h3>
+      <p>स्थान <span class="ph" data-f="place" data-ph="[स्थान]">[स्थान]</span>, दिनांक <span class="ph" data-f="draftdate" data-ph="[दिनांक]">[दिनांक]</span> को सत्यापित किया जाता है कि पैरा 1 से 13 की विषय-वस्तु मेरी व्यक्तिगत जानकारी एवं विश्वास के अनुसार सत्य है, तथा कोई तथ्य छिपाया नहीं गया है।</p>
+      <p class="sig">_______________________<br /><b>वादी</b></p>
+      <h3>शपथ-पत्र (आदेश 6 नियम 15क सी.पी.सी.)</h3>
+      <p>मैं, <span class="ph" data-f="plaintiff" data-ph="[वादी / प्राधिकृत शपथकर्ता]">[वादी / प्राधिकृत शपथकर्ता]</span>, शपथपूर्वक कथन करता/करती हूँ कि मैं वादी हूँ, यह शपथ-पत्र देने हेतु सक्षम हूँ, तथा वाद-पत्र के पैरा 1 से 13 के तथ्य मेरी व्यक्तिगत जानकारी अनुसार सत्य हैं; संलग्न दस्तावेज़ अपने मूल की सत्य प्रतियाँ हैं।</p>
+      <p class="sig">_______________________<br /><b>शपथकर्ता</b></p>
+    </div>
+    <details class="notes">
+      <summary><span class="lang-en">Notes for the advocate</span><span class="lang-hi">अधिवक्ता हेतु टिप्पणियाँ</span></summary>
+      <div class="notes__body lang-en">
+        <ul>
+          <li><b>Set out the words verbatim</b> (para 3) — a defamation plaint must reproduce the exact words; do not paraphrase. Plead the <b>innuendo</b> (para 4) if the words are defamatory only by implication.</li>
+          <li><b>Libel vs slander:</b> written/online = libel, actionable <b>per se</b>; spoken = slander, usually needs <b>special damage</b> (plead the pecuniary loss).</li>
+          <li><b>Public figure / official:</b> <i>R. Rajagopal v. State of T.N.</i>, (1994) 6 SCC 632 — a public official cannot recover for libel touching official conduct unless the statement is false and made with reckless disregard for truth.</li>
+          <li><b>Attach:</b> the defamatory material (clipping/screenshot with URL &amp; date) + a <b>§63 BSA (§65B Evidence Act) certificate</b> for electronic records; proof of reputation and loss; legal notice + postal proof.</li>
+          <li><b>Preempt defences:</b> truth/justification, fair comment on a matter of public interest, and privilege — anticipate and answer them.</li>
+          <li><b>Parallel criminal track:</b> defamation is also an offence under <b>§356 BNS (§499–500 IPC)</b> — a separate complaint may be filed; this pack is the civil remedy.</li>
+        </ul>
+      </div>
+      <div class="notes__body lang-hi">
+        <ul>
+          <li><b>शब्द यथावत् लिखें</b> (पैरा 3) — मानहानि वाद में अपमानजनक शब्द हूबहू उद्धृत करें; उन्हें न बदलें। यदि शब्द केवल निहितार्थ से मानहानिकारक हों तो <b>लांछन (innuendo)</b> का अभिवचन करें (पैरा 4)।</li>
+          <li><b>लिबेल बनाम स्लैंडर:</b> लिखित/ऑनलाइन = लिबेल, <b>स्वतः</b> वादयोग्य; मौखिक = स्लैंडर, प्रायः <b>विशेष क्षति</b> आवश्यक (धन-हानि का अभिवचन करें)।</li>
+          <li><b>लोक व्यक्ति/अधिकारी:</b> <i>R. Rajagopal बनाम तमिलनाडु राज्य</i>, (1994) 6 SCC 632 — लोक अधिकारी अपने पदीय आचरण संबंधी मानहानि हेतु तब तक क्षतिपूर्ति नहीं पा सकता जब तक कथन असत्य एवं सत्य की घोर उपेक्षा से न किया गया हो।</li>
+          <li><b>संलग्न करें:</b> अपमानजनक सामग्री (कतरन/स्क्रीनशॉट, URL व तिथि सहित) + इलेक्ट्रॉनिक अभिलेख हेतु <b>धारा 63 BSA (धारा 65B साक्ष्य अधि.) प्रमाणपत्र</b>; प्रतिष्ठा व हानि का प्रमाण; विधिक सूचना + डाक प्रमाण।</li>
+          <li><b>बचावों का पूर्वानुमान:</b> सत्यता/औचित्य, लोकहित पर उचित टिप्पणी, तथा विशेषाधिकार — इनका पूर्वानुमान कर उत्तर दें।</li>
+          <li><b>समानांतर आपराधिक मार्ग:</b> मानहानि <b>धारा 356 बी.एन.एस. (धारा 499–500 आई.पी.सी.)</b> के अंतर्गत अपराध भी है — पृथक परिवाद दाखिल किया जा सकता है; यह पैक सिविल उपचार है।</li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  <!-- DOC 3 — INTERIM INJUNCTION -->
+  <section class="doc" id="doc-inj">
+    <div class="doc__bar">
+      <span class="doc__no">DOC 3</span>
+      <span class="doc__name"><span class="lang-en">Interim Injunction Application (Order XXXIX Rr. 1 &amp; 2 CPC)</span><span class="lang-hi">अंतरिम निषेधाज्ञा आवेदन (आदेश 39 नियम 1 व 2 सी.पी.सी.)</span></span>
+      <button class="doc__copy" data-copy="inj"><span class="lang-en">Copy</span><span class="lang-hi">कॉपी</span></button>
+    </div>
+    <div class="paper lang-en" id="inj-body-en">
+      <p class="ctr court">IN THE <span class="ph" data-f="court" data-ph="[COURT]">[COURT]</span></p>
+      <p class="ctr">In Civil Suit No. <span class="ph" data-f="suit" data-ph="[___ of 20__]">[___ of 20__]</span> — <span class="ph" data-f="plaintiff" data-ph="[Plaintiff]">[Plaintiff]</span> v. <span class="ph" data-f="defendant" data-ph="[Defendant]">[Defendant]</span></p>
+      <p class="ctr"><b>APPLICATION UNDER ORDER XXXIX RULES 1 &amp; 2 READ WITH SECTION 151 CPC FOR TEMPORARY INJUNCTION</b></p>
+      <p>The Plaintiff/Applicant respectfully submits:—</p>
+      <p><span class="pno">1.</span> That the accompanying suit for damages and permanent injunction is filed; its contents are not repeated for brevity.</p>
+      <p><span class="pno">2.</span> <b>Prima facie case:</b> the Defendant's statement dated <span class="ph" data-f="pubdate" data-ph="[date]">[date]</span> (published via <span class="ph" data-f="medium" data-ph="[medium]">[medium]</span>) is <b>ex-facie false and palpably defamatory / malicious</b>, and the Plaintiff has a strong prima facie case.</p>
+      <p><span class="pno">3.</span> <b>Balance of convenience</b> lies in favour of the Plaintiff, who will suffer far greater harm from the continued publication of a false statement than the Defendant from being restrained from repeating it.</p>
+      <p><span class="pno">4.</span> <b>Irreparable injury:</b> continued publication causes ongoing and irreparable harm to the Plaintiff's reputation, not adequately compensable in money alone.</p>
+      <p><b>PRAYER:</b> It is prayed that pending the suit, this Hon'ble Court may:
+        (a) restrain the Defendant, his agents and representatives, from publishing, repeating or circulating the said or any similar defamatory statement against the Plaintiff by any medium; and
+        (b) direct the Defendant to take down/remove the said statement; and
+        (c) grant an ad-interim ex-parte injunction in terms of (a) &amp; (b) in the meanwhile.</p>
+      <p class="sig">Date: <span class="ph" data-f="draftdate" data-ph="[date]">[date]</span> &nbsp;&nbsp; <b>PLAINTIFF/APPLICANT</b> &nbsp; Through — <span class="ph" data-f="advocate" data-ph="[Advocate]">[Advocate]</span></p>
+      <p style="font-size:13px;color:#555;">(Supported by affidavit. Note: post <i>Bloomberg v. Zee</i>, (2024) INSC 255, an ad-interim/ex-parte injunction against publication is granted only in exceptional cases — establish malice/palpable falsity.)</p>
+    </div>
+    <div class="paper lang-hi" id="inj-body-hi">
+      <p class="ctr court">न्यायालय श्रीमान् <span class="ph" data-f="court" data-ph="[न्यायालय]">[न्यायालय]</span> में</p>
+      <p class="ctr">सिविल वाद संख्या <span class="ph" data-f="suit" data-ph="[___ वर्ष 20__]">[___ वर्ष 20__]</span> में — <span class="ph" data-f="plaintiff" data-ph="[वादी]">[वादी]</span> बनाम <span class="ph" data-f="defendant" data-ph="[प्रतिवादी]">[प्रतिवादी]</span></p>
+      <p class="ctr"><b>अस्थायी निषेधाज्ञा हेतु आदेश 39 नियम 1 व 2 सहपठित धारा 151 सी.पी.सी. के अंतर्गत आवेदन</b></p>
+      <p>वादी/आवेदक सविनय निवेदन करता/करती है:—</p>
+      <p><span class="pno">1.</span> यह कि क्षतिपूर्ति एवं स्थायी निषेधाज्ञा हेतु संलग्न वाद दाखिल है; संक्षेप हेतु उसकी विषय-वस्तु पुनः नहीं दोहराई जा रही।</p>
+      <p><span class="pno">2.</span> <b>प्रथम-दृष्टया मामला:</b> प्रतिवादी का दिनांक <span class="ph" data-f="pubdate" data-ph="[दिनांक]">[दिनांक]</span> का कथन (<span class="ph" data-f="medium" data-ph="[माध्यम]">[माध्यम]</span> के माध्यम से प्रकाशित) <b>प्रत्यक्षतः असत्य एवं स्पष्टतः मानहानिकारक / दुर्भावनापूर्ण</b> है, तथा वादी का सुदृढ़ प्रथम-दृष्टया मामला है।</p>
+      <p><span class="pno">3.</span> <b>सुविधा का संतुलन</b> वादी के पक्ष में है, जिसे असत्य कथन के निरंतर प्रकाशन से प्रतिवादी की अपेक्षा कहीं अधिक हानि होगी।</p>
+      <p><span class="pno">4.</span> <b>अपूरणीय क्षति:</b> निरंतर प्रकाशन से वादी की प्रतिष्ठा को अपूरणीय हानि होती है, जिसकी केवल धन से पर्याप्त क्षतिपूर्ति संभव नहीं।</p>
+      <p><b>प्रार्थना:</b> प्रार्थना है कि वाद के लंबित रहने तक यह माननीय न्यायालय:
+        (क) प्रतिवादी, उसके अभिकर्ता एवं प्रतिनिधियों को उक्त या ऐसे किसी मानहानिकारक कथन को किसी भी माध्यम से प्रकाशित/पुनरावृत्त/प्रसारित करने से रोके; तथा
+        (ख) प्रतिवादी को उक्त कथन हटाने का निर्देश दे; तथा
+        (ग) इस बीच (क) व (ख) के अनुरूप अंतरिम एकपक्षीय निषेधाज्ञा प्रदान करे।</p>
+      <p class="sig">दिनांक: <span class="ph" data-f="draftdate" data-ph="[दिनांक]">[दिनांक]</span> &nbsp;&nbsp; <b>वादी/आवेदक</b> &nbsp; द्वारा — <span class="ph" data-f="advocate" data-ph="[अधिवक्ता]">[अधिवक्ता]</span></p>
+      <p style="font-size:13px;color:#555;">(शपथ-पत्र सहित। नोट: <i>Bloomberg v. Zee</i>, (2024) INSC 255 के बाद प्रकाशन के विरुद्ध अंतरिम/एकपक्षीय निषेधाज्ञा केवल असाधारण मामलों में — दुर्भावना/स्पष्ट असत्यता सिद्ध करें।)</p>
+    </div>
+  </section>
+
+  <p class="rfoot">
+    <span class="lang-en"><b>Author-tier draft, generated by Headnote for advocate review — not legal advice.</b>
+      Civil defamation is a tort outside the reviewed bail-family template set; this pack is drafted from the
+      framework and is a <b>proposal for the advocate to verify, adapt and settle</b>. Reproduce the defamatory
+      words verbatim, confirm the forum, court-fee and the 1-year limitation, and verify every citation before
+      filing. The Hindi text is a working translation — read it against the English.</span>
+    <span class="lang-hi"><b>लेखक-स्तरीय ड्राफ्ट, Headnote द्वारा अधिवक्ता-समीक्षा हेतु तैयार — विधिक सलाह नहीं।</b>
+      सिविल मानहानि एक अपकृत्य है जो समीक्षित जमानत-वर्ग टेम्पलेट-समुच्चय से बाहर है; यह पैक ढाँचे से तैयार है तथा
+      <b>अधिवक्ता द्वारा सत्यापन, अनुकूलन व अंतिम रूप देने हेतु प्रस्ताव</b> है। अपमानजनक शब्द यथावत् लिखें, फोरम, न्याय-शुल्क
+      एवं 1-वर्ष परिसीमा की पुष्टि करें, तथा दाखिल करने से पूर्व प्रत्येक उद्धरण सत्यापित करें। हिंदी पाठ कार्यकारी अनुवाद है — अंग्रेज़ी से मिलान करें।</span>
+  </p>
+
+</div>
+
+<script>
+(function () {
+  var langBtns = document.querySelectorAll('.langtog__btn');
+  function curLang() { return document.body.classList.contains('hi') ? 'hi' : 'en'; }
+
+  // Field placeholders switch with the language too (labels are already bilingual).
+  var PH = {
+    court:      { en: 'District Court / City Civil Court, ____',   hi: 'जिला न्यायालय / सिटी सिविल कोर्ट, ____' },
+    suit:       { en: '____ of 20__',                              hi: '____ वर्ष 20__' },
+    plaintiff:  { en: 'Name, S/o ____, age, occupation, r/o ____', hi: 'नाम, पुत्र श्री ____, आयु, व्यवसाय, निवासी ____' },
+    defendant:  { en: 'Name, S/o ____, age, occupation, r/o ____', hi: 'नाम, पुत्र श्री ____, आयु, व्यवसाय, निवासी ____' },
+    statement:  { en: 'Paste the exact defamatory words / imputation', hi: 'अपमानजनक शब्द / लांछन यथावत् लिखें' },
+    medium:     { en: 'newspaper / Facebook / WhatsApp group / YouTube ____', hi: 'समाचार पत्र / फेसबुक / व्हाट्सऐप / यूट्यूब ____' },
+    pubdate:    { en: '05.03.2026',                                hi: '05.03.2026' },
+    damages:    { en: '20,00,000',                                hi: '20,00,000' },
+    noticedate: { en: '20.03.2026',                               hi: '20.03.2026' },
+    noticedays: { en: '15',                                       hi: '15' },
+    place:      { en: '____',                                     hi: '____' },
+    advocate:   { en: '____, Advocate (Enrl. No. ____)',          hi: '____, अधिवक्ता (नामांकन सं. ____)' },
+    draftdate:  { en: 'DD.MM.YYYY',                               hi: 'दि.मा.वर्ष' }
+  };
+  function applyPlaceholders(l) {
+    document.querySelectorAll('.field input[data-f], .field textarea[data-f]').forEach(function (inp) {
+      var m = PH[inp.getAttribute('data-f')]; if (m) inp.placeholder = m[l] || m.en;
+    });
+  }
+  function setLang(l) {
+    document.body.classList.toggle('hi', l === 'hi');
+    document.documentElement.lang = l;
+    langBtns.forEach(function (b) { b.classList.toggle('is-active', b.dataset.lang === l); });
+    applyPlaceholders(l);
+  }
+  langBtns.forEach(function (b) { b.addEventListener('click', function () { setLang(b.dataset.lang); }); });
+
+  // ── English → Devanagari transliteration (on-device; for the Hindi view). Names/places only.
+  var TRANSLIT = ['plaintiff', 'defendant', 'place', 'advocate'];
+  var OVR = { kumar:'कुमार', verma:'वर्मा', sharma:'शर्मा', singh:'सिंह', devi:'देवी', bai:'बाई', ram:'राम',
+    shri:'श्री', smt:'श्रीमती', kumari:'कुमारी', prasad:'प्रसाद', lal:'लाल', yadav:'यादव', gupta:'गुप्ता',
+    jain:'जैन', patel:'पटेल', mishra:'मिश्रा', tiwari:'तिवारी', chouhan:'चौहान', rao:'राव', reddy:'रेड्डी', sayyad:'सय्यद',
+    bhopal:'भोपाल', indore:'इंदौर', gwalior:'ग्वालियर', jabalpur:'जबलपुर', ujjain:'उज्जैन', sagar:'सागर', mumbai:'मुंबई', pune:'पुणे',
+    wo:'पत्नी', so:'पुत्र', 'do':'पुत्री', aged:'आयु', age:'आयु', years:'वर्ष', occupation:'व्यवसाय',
+    business:'व्यापार', service:'नौकरी', resident:'निवासी', road:'रोड', colony:'कॉलोनी', nagar:'नगर' };
+  var HMAP = { chh:'छ', ch:'च', sh:'श', th:'थ', dh:'ध', bh:'भ', ph:'फ', gh:'घ', kh:'ख', jh:'झ',
+    k:'क', g:'ग', j:'ज', t:'त', d:'द', n:'न', p:'प', b:'ब', m:'म', y:'य', r:'र', l:'ल', v:'व', w:'व', s:'स', h:'ह', f:'फ़', z:'ज़', c:'क', q:'क', x:'क्स' };
+  var VIND = { aa:'आ', a:'अ', ii:'ई', ee:'ई', i:'इ', uu:'ऊ', oo:'ऊ', u:'उ', ai:'ऐ', au:'औ', e:'ए', o:'ओ' };
+  var VMAT = { aa:'ा', a:'', ii:'ी', ee:'ी', i:'ि', uu:'ू', oo:'ू', u:'ु', ai:'ै', au:'ौ', e:'े', o:'ो' };
+  var CK = ['chh','ch','sh','th','dh','bh','ph','gh','kh','jh','k','g','j','t','d','n','p','b','m','y','r','l','v','w','s','h','f','z','c','q','x'];
+  var VK = ['aa','ii','ee','uu','oo','ai','au','a','i','u','e','o'];
+  function trWord(w) {
+    var lw = w.toLowerCase();
+    if (OVR[lw] != null) return OVR[lw];
+    var s = lw, out = '', i = 0, prevC = false;
+    function m(list) { for (var a = 0; a < list.length; a++) { if (s.substr(i, list[a].length) === list[a]) return list[a]; } return null; }
+    while (i < s.length) {
+      var c = m(CK);
+      if (c) { out += HMAP[c]; i += c.length; var v = m(VK); if (v) { out += VMAT[v]; i += v.length; } else if (i < s.length && (s[i] === 'r' || s[i] === 'y')) { out += '्'; } prevC = false; }
+      else { var v = m(VK); if (v) { out += (out === '' || !prevC) ? VIND[v] : VMAT[v]; i += v.length; prevC = false; } else { out += s[i]; i++; prevC = false; } }
+    }
+    return out;
+  }
+  function toDev(t) {
+    if (!t) return t;
+    t = t.replace(/\bw\/o\b/gi, 'पत्नी').replace(/\bs\/o\b/gi, 'पुत्र').replace(/\bd\/o\b/gi, 'पुत्री')
+         .replace(/\br\/o\b/gi, 'निवासी').replace(/\bc\/o\b/gi, 'द्वारा');
+    return t.replace(/[A-Za-z]+/g, function (w) { return trWord(w); });
+  }
+
+  function apply(key, val) {
+    var has = val && val.trim();
+    document.querySelectorAll('.ph[data-f="' + key + '"]').forEach(function (el) {
+      var d = el.getAttribute('data-ph') || '';
+      if (has) {
+        var hi = el.closest('.lang-hi') != null;
+        el.textContent = (hi && TRANSLIT.indexOf(key) >= 0) ? toDev(val) : val;
+        el.classList.add('ph--filled');
+      } else { el.textContent = d; el.classList.remove('ph--filled'); }
+    });
+  }
+  var inputs = document.querySelectorAll('.field input[data-f], .field textarea[data-f]');
+  inputs.forEach(function (inp) { inp.addEventListener('input', function () { apply(inp.getAttribute('data-f'), inp.value); }); });
+
+  function setAll(map) {
+    inputs.forEach(function (inp) { var k = inp.getAttribute('data-f'); inp.value = map && map[k] != null ? map[k] : ''; apply(k, inp.value); });
+  }
+  document.getElementById('btn-reset').addEventListener('click', function () { setAll(null); inputs[0] && inputs[0].focus(); });
+  document.getElementById('btn-sample').addEventListener('click', function () {
+    setAll({
+      court: 'District Court, Pune',
+      suit: '____ of 2026',
+      plaintiff: 'Ramesh Kumar, S/o Mohan Lal, aged 40 years, occupation restaurateur, r/o Baner, Pune',
+      defendant: 'Suresh Patel, S/o Kishan Patel, aged 35 years, occupation blogger, r/o Kothrud, Pune',
+      statement: 'The food served by Ramesh Kumar is adulterated and he cheats every customer.',
+      medium: 'a public Instagram post and a WhatsApp group of 300 members',
+      pubdate: '05.03.2026',
+      damages: '20,00,000',
+      noticedate: '20.03.2026',
+      noticedays: '15',
+      place: 'Pune',
+      advocate: '____, Advocate (Enrl. No. ____)',
+      draftdate: '28.06.2026'
+    });
+  });
+
+  function copyText(el, btn) {
+    if (!el) return;
+    var t = el.innerText.replace(/\n{3,}/g, '\n\n').trim();
+    navigator.clipboard.writeText(t).then(function () {
+      btn.textContent = '✓'; btn.classList.add('ok');
+      setTimeout(function () { btn.innerHTML = '<span class="lang-en">Copy</span><span class="lang-hi">कॉपी</span>'; btn.classList.remove('ok'); }, 1500);
+    });
+  }
+  document.querySelectorAll('.doc__copy').forEach(function (btn) {
+    btn.addEventListener('click', function () { copyText(document.getElementById(btn.getAttribute('data-copy') + '-body-' + curLang()), btn); });
+  });
+  document.getElementById('btn-copyall').addEventListener('click', function () {
+    var l = curLang();
+    var parts = ['notice', 'plaint', 'inj'].map(function (id) { var e = document.getElementById(id + '-body-' + l); return e ? e.innerText : ''; });
+    navigator.clipboard.writeText(parts.join('\n\n\n— — — — —\n\n\n').trim());
+    var b = document.getElementById('btn-copyall'); var o = b.innerHTML; b.textContent = '✓';
+    setTimeout(function () { b.innerHTML = o; }, 1500);
+  });
+  document.getElementById('btn-print').addEventListener('click', function () { window.print(); });
+
+  // Per-document "Save PDF" — prints ONLY that document, not the whole page.
+  document.querySelectorAll('.doc').forEach(function (sec) {
+    var bar = sec.querySelector('.doc__bar'); if (!bar) return;
+    var b = document.createElement('button');
+    b.className = 'doc__pdf';
+    b.innerHTML = '<span class="lang-en">Save PDF</span><span class="lang-hi">PDF सेव करें</span>';
+    b.addEventListener('click', function () {
+      document.querySelectorAll('.doc').forEach(function (d) { d.classList.remove('print-target'); });
+      sec.classList.add('print-target'); document.body.classList.add('print-one');
+      window.print();
+    });
+    bar.appendChild(b);
+  });
+  window.addEventListener('afterprint', function () {
+    document.body.classList.remove('print-one');
+    document.querySelectorAll('.doc').forEach(function (d) { d.classList.remove('print-target'); });
+  });
+})();
+</script>
+</body>
+</html>

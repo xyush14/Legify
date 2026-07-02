@@ -1443,6 +1443,16 @@ def draft_maintenance_page():
     return FileResponse(config.STATIC_DIR / "draft-maintenance.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
+@app.get("/draft/defamation", include_in_schema=False)
+@app.get("/draft/defamation/", include_in_schema=False)
+def draft_defamation_page():
+    """Civil-defamation draft pack — cease-and-desist legal notice + plaint for damages
+    & permanent injunction + Order XXXIX interim-injunction application. Bilingual
+    (EN/हिं), author-tier (tort, off the reviewed bail set) for advocate review. Static
+    page; placeholders fill client-side. Marked noindex until reviewed."""
+    return FileResponse(config.STATIC_DIR / "draft-defamation.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
 @app.get("/draft/rent", include_in_schema=False)
 @app.get("/draft/rent/", include_in_schema=False)
 def draft_rent_page():
