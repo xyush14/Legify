@@ -345,6 +345,80 @@ TYPE_BRIEFS: dict[str, dict] = {
         "companions": ["Rajnesh Affidavit (for §20 monetary relief)", "supporting affidavit (§23)", "DIR (optional)", "vakalatnama"],
         "needs_verification": True, "needs_affidavit": True,
     },
+    "default_bail": {
+        "label_hi": "अनिवार्य जमानत आवेदन पत्र (धारा 187(3) बी.एन.एस.एस.)", "label_en": "Default / Statutory Bail Application",
+        "court": "magistrate", "case_code_hi": "प्रकरण क्रमांक", "case_code_en": "Criminal Case",
+        "side_hi": "बन्दी की ओर से", "side_en": "On behalf of the Applicant",
+        "section_hi": "धारा 187(3) बी.एन.एस.एस. (167(2) दं.प्र.सं.)",
+        "brief": (
+            "Default/statutory bail under BNSS §187(3) (§167(2) CrPC) — MERITS-INDEPENDENT and "
+            "time-critical. It accrues on the prosecution's FAILURE to file the charge-sheet within "
+            "60 days (offence punishable up to 10 yrs) or 90 days (death/life/≥10 yrs) of the FIRST "
+            "remand. The right is indefeasible (Bikramjit Singh) but must be EXERCISED BEFORE the "
+            "challan is filed (Uday Mohanlal Acharya); computation is pro-liberty (Rakesh Kumar Paul). "
+            "Plead the arithmetic exactly: arrest/remand date, days elapsed, no charge-sheet as on the "
+            "filing date, and readiness to furnish bail. Gravity of the offence is IRRELEVANT — do not "
+            "argue merits at all."
+        ),
+        "skeleton": [
+            "F1: FIR/crime particulars + arrest date + FIRST remand date",
+            "F: custody-days arithmetic — 60/90-day period expired on ____; charge-sheet NOT filed as on today",
+            "G: indefeasible right to default bail accrued (whitelisted authorities)",
+            "G: applicant is ready to furnish bail and abide by conditions",
+            "closer: oral-arguments line",
+        ],
+        "companions": ["custody certificate / remand-date proof", "vakalatnama"],
+        "needs_verification": True, "needs_affidavit": True,
+    },
+    "suspension_389": {
+        "label_hi": "दण्डादेश निलंबन एवं जमानत आवेदन (धारा 430 बी.एन.एस.एस.)", "label_en": "Suspension of Sentence + Bail Pending Appeal",
+        "court": "hc", "case_code_hi": "आपराधिक अपील", "case_code_en": "Criminal Appeal",
+        "side_hi": "अपीलार्थी की ओर से", "side_en": "On behalf of the Appellant",
+        "section_hi": "धारा 430 बी.एन.एस.एस. (389 दं.प्र.सं.)",
+        "brief": (
+            "Suspension of sentence + bail pending appeal under BNSS §430 (§389 CrPC). The bar is "
+            "HIGHER than ordinary bail — the presumption of innocence is gone on conviction; the court "
+            "looks for a FAIR CHANCE OF ACQUITTAL or something gross on the face of the record, and for "
+            "heinous offences records detailed reasons. Plead: the conviction particulars (court, case, "
+            "sections, sentence, date), the appeal already filed/admitted, the strongest appellate "
+            "grounds in summary (why acquittal is fairly likely), custody suffered, and conduct. This is "
+            "a SEPARATE application from the appeal memo itself."
+        ),
+        "skeleton": [
+            "F: conviction + sentence particulars (trial court, case no., sections, sentence, date)",
+            "F: appeal filed/admitted — particulars",
+            "G: fair chance of acquittal — the strongest appellate grounds in summary",
+            "G: custody already undergone; appeal will take time; conduct during trial",
+            "G: applicant will abide by all conditions; permanent resident",
+            "closer",
+        ],
+        "companions": ["certified copy of the impugned judgment", "vakalatnama"],
+        "needs_verification": True, "needs_affidavit": True,
+    },
+    "divorce_13": {
+        "label_hi": "विवाह विच्छेद याचिका (धारा 13 हि.वि.अ.)", "label_en": "Divorce Petition (S.13 HMA)",
+        "court": "family", "case_code_hi": "वैवाहिक प्रकरण", "case_code_en": "Matrimonial Case",
+        "side_hi": "याचिकाकर्ता की ओर से", "side_en": "On behalf of the Petitioner",
+        "section_hi": "धारा 13 हिन्दू विवाह अधिनियम, 1955",
+        "brief": (
+            "Divorce under §13 HMA before the Family Court. Plead the marriage (date/place/rites), "
+            "cohabitation and children, then the GROUND head-by-head with dated instances — cruelty "
+            "(mental cruelty illustratives are in Samar Ghosh), desertion (2 yrs + animus deserendi), "
+            "adultery, conversion, etc. IRRETRIEVABLE BREAKDOWN IS NOT A TRIAL-COURT GROUND — route the "
+            "substance through cruelty/desertion. Jurisdiction per §19 HMA (marriage place / respondent "
+            "residence / last resided together / petitioner-wife's residence)."
+        ),
+        "skeleton": [
+            "F: marriage (date, place, rites); status & domicile of parties",
+            "F: cohabitation, children (names/ages), where parties last resided together",
+            "G: the §13 ground(s) head-by-head with dated instances",
+            "F: no collusion / no condonation; no prior proceeding (or disclose it)",
+            "G: jurisdiction (§19 HMA)",
+            "closer",
+        ],
+        "companions": ["marriage proof (photographs/invitation/certificate)", "vakalatnama"],
+        "needs_verification": True, "needs_affidavit": True,
+    },
     "other_criminal": {
         "label_hi": "आवेदन पत्र", "label_en": "Criminal Application",
         "court": "sessions", "case_code_hi": "प्रकरण क्रमांक", "case_code_en": "Criminal Case",
@@ -395,8 +469,12 @@ def brief_for(doc_type: str) -> dict:
     return TYPE_BRIEFS.get(doc_type) or TYPE_BRIEFS["other_criminal"]
 
 
+_FAMILY_ALIAS = {"divorce_13": "divorce", "suspension_389": "appeal"}
+
+
 def family_for(doc_type: str) -> str:
     """Map a classifier doc_type to its citation-whitelist family."""
+    doc_type = _FAMILY_ALIAS.get(doc_type, doc_type)
     return doc_type if doc_type in VERIFIED_CITATIONS else (
         "other_civil" if doc_type == "other_civil" else "other_criminal"
     )
@@ -522,6 +600,54 @@ _CITE_TOKEN = re.compile(
 )
 
 
+# --- section-pair guard — the BNSS↔CrPC mirror of the citation guard. -------
+# Function-map pairs from the skill (legal-frameworks.md §0). If an authored
+# draft writes "धारा X BNSS (Y CrPC)" and (X → Y) contradicts this map, or uses
+# a section number that cannot exist in the code it names (CrPC ends at §484,
+# BNSS at §531), we flag it in warnings. Advocate is the gate — flag, not edit.
+_BNSS_TO_CRPC = {
+    "483": "439", "480": "437", "482": "438", "187": "167", "479": "436",
+    "35": "41", "173": "154", "193": "173", "210": "190", "528": "482",
+    "415": "374", "419": "378", "430": "389", "442": "401", "438": "397",
+    "144": "125", "250": "227", "262": "239", "223": "200", "94": "91",
+    "348": "311", "228": "205", "359": "320", "175": "156", "447": "407",
+    "302": "267",
+}
+_BNSS_TOKEN = r"(?:बी\.?\s?एन\.?\s?एस\.?\s?एस\.?|भा\.?\s?ना\.?\s?सु\.?\s?सं\.?|B\.?N\.?S\.?S\.?)"
+_CRPC_TOKEN = r"(?:दं\.?\s?प्र\.?\s?सं\.?|द\.?\s?प्र\.?\s?सं\.?|Cr\.?\s?P\.?\s?C\.?)"
+_PAIR_RE = re.compile(
+    r"(?:धारा|section|s\.)\s*(\d{1,3})(?:\(\d+\))?\s*" + _BNSS_TOKEN
+    + r"[^()]{0,20}\(\s*(?:धारा|section|s\.)?\s*(\d{1,3})(?:\(\d+\))?\s*" + _CRPC_TOKEN,
+    re.IGNORECASE,
+)
+_CRPC_NUM_RE = re.compile(r"(\d{3})(?:\(\d+\))?\s*" + _CRPC_TOKEN, re.IGNORECASE)
+_BNSS_NUM_RE = re.compile(r"(\d{3})(?:\(\d+\))?\s*" + _BNSS_TOKEN, re.IGNORECASE)
+
+
+def guard_sections(texts: list[str]) -> list[str]:
+    """Scan authored text for BNSS↔CrPC pairing errors. Returns warning strings."""
+    warnings: list[str] = []
+    joined = "\n".join(t for t in texts if t)
+    for m in _PAIR_RE.finditer(joined):
+        bnss, crpc = m.group(1), m.group(2)
+        want = _BNSS_TO_CRPC.get(bnss)
+        if want and crpc != want:
+            warnings.append(
+                f"धारा-युग्म जाँचें: 'धारा {bnss} बी.एन.एस.एस. ({crpc} दं.प्र.सं.)' लिखा है — "
+                f"मानचित्र अनुसार §{bnss} BNSS ↔ §{want} CrPC. (Section pair mismatch — verify.)")
+    for m in _CRPC_NUM_RE.finditer(joined):
+        if int(m.group(1)) > 484:
+            warnings.append(
+                f"'धारा {m.group(1)} दं.प्र.सं.' — CrPC में धारा 484 के बाद कोई धारा नहीं है; "
+                f"संभवतः यह BNSS की धारा है। (CrPC ends at §484 — this is likely a BNSS number.)")
+    for m in _BNSS_NUM_RE.finditer(joined):
+        if int(m.group(1)) > 531:
+            warnings.append(
+                f"'धारा {m.group(1)} बी.एन.एस.एस.' — BNSS में धारा 531 के बाद कोई धारा नहीं है; जाँचें। "
+                f"(BNSS ends at §531 — verify this section.)")
+    return warnings
+
+
 def _guard_citations(text: str, fingerprints: set[tuple[str, str]]) -> tuple[str, bool]:
     """Return (text, flagged). If a body paragraph contains a citation-shaped token
     (… SCC / INSC / AIR / एस.सी.सी. …) whose year+page does NOT match any whitelisted
@@ -617,6 +743,11 @@ def render_authored(p: dict, lang: str = "hi") -> dict:
     prayer = (p.get("prayer") or "").strip()
     if prayer:
         out.append(f'<div class="cb-prayer"><p>{_esc(prayer)}</p></div>')
+
+    # section-pair guard — flag BNSS↔CrPC mismatches anywhere in the authored text
+    _texts = [p.get("title_line") or "", prayer]
+    _texts += [str(i.get("text") or "") if isinstance(i, dict) else str(i) for i in paras]
+    warnings.extend(guard_sections(_texts))
 
     # signature block
     role = p.get("signatory_role") or ("प्रार्थी" if hi else "Applicant")
