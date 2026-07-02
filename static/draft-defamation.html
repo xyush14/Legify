@@ -190,8 +190,9 @@
     <button class="langtog__btn is-active" data-lang="en">English</button>
     <button class="langtog__btn" data-lang="hi">हिंदी</button>
   </div>
-  <button class="rtop__btn" id="btn-print"><span class="lang-en">Print / PDF</span><span class="lang-hi">प्रिंट / PDF</span></button>
-  <button class="rtop__btn rtop__btn--solid" id="btn-copyall"><span class="lang-en">Copy all</span><span class="lang-hi">सब कॉपी</span></button>
+  <button class="rtop__btn" id="btn-print"><span class="lang-en">⬇ Download PDF</span><span class="lang-hi">⬇ PDF डाउनलोड</span></button>
+  <button class="rtop__btn rtop__btn--solid" id="btn-share"><span class="lang-en">📱 WhatsApp</span><span class="lang-hi">📱 WhatsApp</span></button>
+  <button class="rtop__btn" id="btn-copyall"><span class="lang-en">Copy all</span><span class="lang-hi">सब कॉपी</span></button>
 </header>
 
 <div class="split">
@@ -645,24 +646,76 @@
     var b = document.getElementById('btn-copyall'); var o = b.innerHTML; b.textContent = '✓';
     setTimeout(function () { b.innerHTML = o; }, 1500);
   });
-  document.getElementById('btn-print').addEventListener('click', function () { window.print(); });
-
-  // Per-document "Save PDF" — prints ONLY that document, not the whole page.
+  // ── Real PDF pipeline (server-rendered WeasyPrint via /api/draft/pdf) —
+  //    text-selectable, correct Devanagari, proper page breaks. Powers Download
+  //    + WhatsApp + per-doc Save PDF. No window.print() (that was the bad PDF).
+  var DOC_SLUG = 'civil-defamation';
+  function _pdfName(scope) {
+    var d = new Date();
+    var stamp = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+    return 'headnote-' + DOC_SLUG + (scope ? '-' + scope : '') + '-' + stamp;
+  }
+  function _exportHtml(docEls) {
+    var lang = curLang(); var styles = '';
+    document.querySelectorAll('style').forEach(function (s) { styles += s.textContent; });
+    var body = '';
+    docEls.forEach(function (doc) {
+      var paper = doc.querySelector('.paper.lang-' + lang);
+      if (paper) body += '<section class="doc">' + paper.outerHTML + '</section>';
+    });
+    return '<!doctype html><html lang="' + lang + '"><head><meta charset="utf-8"><style>' + styles
+      + '</style></head><body class="' + (lang === 'hi' ? 'hi' : '') + '"><div id="doc-page">' + body + '</div></body></html>';
+  }
+  async function _fetchPdf(docEls, scope) {
+    var name = _pdfName(scope);
+    var r = await fetch('/api/draft/pdf', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ html: _exportHtml(docEls), filename: name })
+    });
+    if (!r.ok) { var detail = ''; try { detail = (await r.json()).detail || ''; } catch (e) {} throw new Error(detail || ('server ' + r.status)); }
+    return { blob: await r.blob(), filename: name + '.pdf' };
+  }
+  function _download(blob, filename) {
+    var url = URL.createObjectURL(blob); var a = document.createElement('a');
+    a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+  }
+  function _busy(btn, on, label) {
+    if (on) { btn.dataset._o = btn.innerHTML; btn.disabled = true; btn.innerHTML = label; }
+    else { btn.disabled = false; if (btn.dataset._o != null) btn.innerHTML = btn.dataset._o; }
+  }
+  function _allDocs() { return Array.prototype.slice.call(document.querySelectorAll('.doc')); }
+  document.getElementById('btn-print').addEventListener('click', async function () {
+    var btn = this; _busy(btn, true, curLang() === 'hi' ? '⏳ बना रहे हैं…' : '⏳ Generating…');
+    try { var out = await _fetchPdf(_allDocs(), null); _download(out.blob, out.filename); }
+    catch (e) { alert((curLang() === 'hi' ? 'PDF नहीं बना — ' : 'PDF failed — ') + (e.message || 'try again')); }
+    finally { _busy(btn, false); }
+  });
+  var shareBtn = document.getElementById('btn-share');
+  if (shareBtn) shareBtn.addEventListener('click', async function () {
+    var btn = this; _busy(btn, true, curLang() === 'hi' ? '⏳ तैयार…' : '⏳ Preparing…'); var out;
+    try { out = await _fetchPdf(_allDocs(), null); }
+    catch (e) { _busy(btn, false); alert((curLang() === 'hi' ? 'PDF नहीं बना — ' : 'PDF failed — ') + (e.message || 'try again')); return; }
+    var file = new File([out.blob], out.filename, { type: 'application/pdf' });
+    var note = document.title.split('·')[0].trim() + ' — Headnote';
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: out.filename, text: note }); }
+      catch (e) { if (e.name !== 'AbortError') { _download(out.blob, out.filename); window.open('https://wa.me/?text=' + encodeURIComponent(note), '_blank'); } }
+    } else { _download(out.blob, out.filename); window.open('https://wa.me/?text=' + encodeURIComponent(note), '_blank'); }
+    _busy(btn, false);
+  });
+  // Per-document "Save PDF" — server-render this document only.
   document.querySelectorAll('.doc').forEach(function (sec) {
     var bar = sec.querySelector('.doc__bar'); if (!bar) return;
-    var b = document.createElement('button');
-    b.className = 'doc__pdf';
+    var b = document.createElement('button'); b.className = 'doc__pdf';
     b.innerHTML = '<span class="lang-en">Save PDF</span><span class="lang-hi">PDF सेव करें</span>';
-    b.addEventListener('click', function () {
-      document.querySelectorAll('.doc').forEach(function (d) { d.classList.remove('print-target'); });
-      sec.classList.add('print-target'); document.body.classList.add('print-one');
-      window.print();
+    b.addEventListener('click', async function () {
+      _busy(b, true, '⏳');
+      try { var out = await _fetchPdf([sec], null); _download(out.blob, out.filename); }
+      catch (e) { alert((curLang() === 'hi' ? 'PDF नहीं बना — ' : 'PDF failed — ') + (e.message || 'try again')); }
+      finally { _busy(b, false); }
     });
     bar.appendChild(b);
-  });
-  window.addEventListener('afterprint', function () {
-    document.body.classList.remove('print-one');
-    document.querySelectorAll('.doc').forEach(function (d) { d.classList.remove('print-target'); });
   });
 })();
 </script>
