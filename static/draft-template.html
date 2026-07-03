@@ -212,7 +212,7 @@
     padding: 60px 70px 80px;
     box-shadow: 0 1px 4px rgba(0,0,0,0.08);
     border-radius: 4px;
-    font-family: 'Times New Roman', 'Tiro Devanagari Hindi', 'Noto Serif Devanagari', Times, serif;
+    font-family: 'Times New Roman', 'Tiro Devanagari Hindi', 'Noto Serif Devanagari', 'Noto Serif Bengali', Times, serif;
     font-size: 14.5px;
     line-height: 1.7;
     color: #000;
@@ -546,6 +546,7 @@
         <option value="hi" selected>हिंदी</option>
         <option value="en">English</option>
         <option value="mr">मराठी</option>
+        <option value="bn">বাংলা</option>
       </select>
     </div>
     <button class="btn" id="btn-pdf" title="Download PDF">⬇ <span class="btn-long">PDF</span></button>
@@ -1909,7 +1910,8 @@ async function generateDocument(opts) {
     // The in-browser deterministic renderers only know hi/en. For a regional
     // language (mr) skip them and fall through to the backend, which
     // regionalizes (verified cache + runtime fact translation).
-    const _detRender = langAtCall === 'mr' ? null : DETERMINISTIC_RENDERERS[state.docType];
+    const _detRender = (langAtCall === 'mr' || langAtCall === 'bn' || langAtCall === 'gu')
+      ? null : DETERMINISTIC_RENDERERS[state.docType];
     if (_detRender) {
       const doc = _detRender(state.fields, langAtCall);
       state.docByLang[langAtCall] = { doc, ver: verAtCall };

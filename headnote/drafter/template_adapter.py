@@ -194,8 +194,8 @@ _MACHINE_DRAFT_BANNER = (
     '<div style="max-width:760px;margin:0 auto 18px;padding:9px 14px;'
     'background:#fdf0c9;border:1px solid #e9c46a;border-radius:6px;'
     'font-family:system-ui,sans-serif;font-size:12.5px;line-height:1.5;color:#5a4a12">'
-    '<b>मसुदा — पडताळणीपूर्वी दाखल करू नका · Machine draft — verify before filing.</b> '
-    'Regional translation is auto-generated; have an advocate confirm the wording.'
+    '<b>Machine draft — verify before filing.</b> '
+    'This regional-language draft is auto-generated; have an advocate confirm the wording before use.'
     '</div>'
 )
 

@@ -96,6 +96,20 @@ def _system_prompt(target_lang: str, *, mode: str) -> str:
             "प्रतिबंध अधिनियम, घरेलू हिंसा→घरगुती हिंसाचार. The result must read as "
             "natural Marathi a Maharashtra advocate would file — ZERO Hindi words left."
         )
+    if target_lang == "bn":
+        # Bengali is a different script, so the risk is not leftover Hindi but
+        # wrong legal register / anglicised terms. Anchor formal court Bengali.
+        base += (
+            "\nWrite in the FORMAL court Bengali (সাধু/formal register) used in "
+            "West Bengal court filings — not spoken/colloquial Bengali. Use proper "
+            "Bengali legal terms: section→ধারা, applicant→আবেদনকারী, accused→অভিযুক্ত, "
+            "complainant→অভিযোগকারী, offence→অপরাধ, investigation→তদন্ত, "
+            "charge-sheet→অভিযোগপত্র, prayer→প্রার্থনা, discharge→অব্যাহতি. Translate "
+            "Act names into Bengali (e.g. Dowry Prohibition Act→যৌতুক নিষেধ আইন). "
+            "Do NOT leave Hindi or English words in the body (statute short-forms and "
+            "citations excepted). The applicant is the ACCUSED — never render them as "
+            "the complainant."
+        )
     if mode == "facts":
         base += (
             "\nThe input is a lawyer's FACTUAL NARRATIVE. TRANSLITERATE every "
