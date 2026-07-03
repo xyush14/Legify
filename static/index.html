@@ -337,7 +337,7 @@
               <span class="pd-result__type" id="pd-rtype"></span>
               <span class="pd-result__meta mono" id="pd-rmeta"></span>
               <span class="pd__grow"></span>
-              <div class="pd__seg pd__seg--sm" id="pd-out-lang" hidden><button type="button" data-lang="hi" class="on">हिं</button><button type="button" data-lang="en">EN</button></div>
+              <div class="pd__seg pd__seg--sm" id="pd-out-lang" hidden><button type="button" data-lang="hi" class="on">हिं</button><button type="button" data-lang="en">EN</button><button type="button" data-lang="mr">मराठी</button><button type="button" data-lang="bn">বাংলা</button></div>
               <!-- Edit is the PRIMARY next step, not a ghost. Coach-mark points here on first draft. -->
               <span class="pd-edit-wrap">
                 <button type="button" class="pd__btn pd__btn--primary" id="pd-edit">✎ Edit this draft</button>
@@ -649,7 +649,22 @@
     }
     input.addEventListener("input",updateAutoHint);
 
-    function showPage(which){var h=(which==="en"?last.page_en:last.page_hi)||last.page_hi||last.page_en||"";$("pd-frame").srcdoc=h;}
+    async function showPage(which){
+      var frame=$("pd-frame");
+      if(which==="mr"||which==="bn"){
+        if(!last.page_hi){return;}
+        var ck="page_"+which;
+        if(last[ck]){frame.srcdoc=last[ck];return;}   // cached regional page
+        frame.srcdoc=last.page_hi;                     // show Hindi while translating
+        try{
+          var r=await fetch("/api/draft/regionalize",{method:"POST",headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({html:last.page_hi,lang:which})});
+          if(r.ok){var d=await r.json(); if(d&&d.document){last[ck]=d.document; if(outLang===which) frame.srcdoc=d.document;}}
+        }catch(e){/* leave Hindi on screen */}
+        return;
+      }
+      frame.srcdoc=(which==="en"?last.page_en:last.page_hi)||last.page_hi||last.page_en||"";
+    }
     $("pd-out-lang").addEventListener("click",function(e){var b=e.target.closest("button");if(!b||!last)return;outLang=b.dataset.lang;
       [].forEach.call(this.querySelectorAll("button"),function(x){x.classList.toggle("on",x===b);});showPage(outLang);});
     $("pd-print").addEventListener("click",function(){var f=$("pd-frame");if(f.contentWindow){f.contentWindow.focus();f.contentWindow.print();}});
@@ -699,8 +714,16 @@
       $("pd-rmeta").textContent=metaTxt+conf;
       // Draft language was auto-detected server-side — reflect the resolved language everywhere.
       outLang = (res.lang==="en"||res.lang==="hi") ? res.lang : (res.page_hi ? "hi" : "en");
-      $("pd-out-lang").hidden=!(res.page_hi&&res.page_en);
-      [].forEach.call($("pd-out-lang").querySelectorAll("button"),function(x){x.classList.toggle("on",x.dataset.lang===outLang);});
+      // Regional (mr/bn) is offered whenever a Hindi page exists (we regionalize
+      // from it). hi/en buttons show only when that page was produced.
+      var _seg=$("pd-out-lang"), _hasHi=!!res.page_hi, _hasEn=!!res.page_en;
+      var _avail={hi:_hasHi, en:_hasEn, mr:_hasHi, bn:_hasHi};
+      [].forEach.call(_seg.querySelectorAll("button"),function(x){
+        x.style.display=_avail[x.dataset.lang]?"":"none";
+        x.classList.toggle("on",x.dataset.lang===outLang);
+      });
+      // Show the switcher if there's more than one language to pick.
+      _seg.hidden = (_hasHi ? 3 : 0) + (_hasEn ? 1 : 0) < 2;
       // Edit CTA + editbar are ALWAYS available now — canonical → field editor, authored → refine panel.
       $("pd-edit").textContent = (!authored && res.editor_id) ? "✎ Edit in field editor" : "✎ Refine this draft";
       $("pd-refine").hidden=true; // collapsed until the user opts to refine
@@ -725,7 +748,63 @@
       setBrowseHidden(true);
       $("pd-result").hidden=false;
       $("pd-result").scrollIntoView({behavior:"smooth",block:"start"});
+      fetchSuggestions(res);
       maybeCoach();
+    }
+
+    // ---- सुझाव rail → /api/draft/suggest -----------------------------------
+    // Sections check + missing mandatory points beside the draft. Suggestion-only:
+    // nothing auto-inserts; + जोड़ें routes the para through the guarded /refine path.
+    function fetchSuggestions(res){
+      var host=$("pd-notes"); if(!host) return;
+      var docType=res.classified_as||res.doc_type; if(!docType) return;
+      var pageHtml=(outLang==="en"?(res.page_en||res.page_hi):(res.page_hi||res.page_en))||"";
+      if(!pageHtml) return;
+      var tmp=document.createElement("div"); tmp.innerHTML=pageHtml;
+      var text=(tmp.textContent||"").replace(/\s+/g," ").trim();
+      if(!text) return;
+      var authored=res.mode==="authored";
+      var box=document.createElement("div"); box.className="pd-note pd-note--sug"; box.id="pd-sug";
+      box.innerHTML='<h4>सुझाव · suggestions <span class="pd-sug-badge">checking this draft…</span></h4>';
+      host.insertBefore(box,host.firstChild);
+      fetch("/api/draft/suggest",{method:"POST",headers:{"Content-Type":"application/json"},
+        // canonical templates carry their mandatory paras by construction — skip the LLM missing-check
+        body:JSON.stringify({doc_type:docType,text:text,lang:(outLang==="en"?"en":"hi"),llm:authored})})
+        .then(function(r){return r.json();})
+        .then(function(s){ if(!s||s.ok===false){box.remove();return;} renderSuggestions(box,s); })
+        .catch(function(){box.remove();});
+    }
+    function sugRow(pip,main,sub){
+      return '<div class="pd-sug-row"><span class="pd-sug-pip'+(pip?" pd-sug-pip--"+pip:"")+'"></span>'+
+             '<span>'+main+(sub?'<small>'+sub+'</small>':"")+'</span></div>';
+    }
+    function renderSuggestions(box,s){
+      var en=(outLang==="en");
+      var h='<h4>सुझाव · suggestions <span class="pd-sug-badge">'+esc(s.label_hi||s.label_en||"")+'</span></h4>';
+      (s.sections||[]).forEach(function(x){
+        h+=sugRow(x.state==="ok"?"ok":(x.state==="flag"?"flag":""),esc(x.text),esc(x.detail||""));
+      });
+      (s.missing||[]).forEach(function(m,i){
+        h+='<div class="pd-sug-row"><span class="pd-sug-pip"></span><span>'+esc(m.point)+
+           (m.why?'<small>'+esc(m.why)+'</small>':"")+'</span>'+
+           (m.para?'<button type="button" class="pd-sug-add" data-i="'+i+'">+ '+(en?"insert":"जोड़ें")+'</button>':"")+'</div>';
+      });
+      if(s.missing_note) h+=sugRow("",esc(s.missing_note),"");
+      if(!(s.sections||[]).length&&!(s.missing||[]).length&&!s.missing_note)
+        h+=sugRow("ok",en?"Nothing flagged — sections and structure look right.":"कुछ भी flag नहीं हुआ — धाराएँ व ढाँचा सही दिख रहे हैं।","");
+      if(s.limitation) h+='<div class="pd-sug-lim">⏱ '+esc(s.limitation)+'</div>';
+      box.innerHTML=h;
+      [].forEach.call(box.querySelectorAll(".pd-sug-add"),function(btn){
+        btn.addEventListener("click",function(){
+          var m=(s.missing||[])[+btn.dataset.i]; if(!m||!m.para) return;
+          btn.disabled=true; btn.textContent=en?"inserting…":"जोड़ रहे…";
+          var rp=$("pd-refine"); if(rp) rp.hidden=false;
+          $("pd-refine-input").value=(en
+            ?"Insert this paragraph at the appropriate place in the draft: "
+            :"यह पैरा draft में उपयुक्त स्थान पर जोड़ें: ")+m.para;
+          refine();
+        });
+      });
     }
 
     function draft(){

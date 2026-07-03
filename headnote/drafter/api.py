@@ -965,26 +965,23 @@ class RegionalizeBody(BaseModel):
 
 
 @router.post("/regionalize", summary="Translate an already-rendered Hindi draft into a regional language")
-def regionalize_html(
-    body: RegionalizeBody,
-    user: CurrentUser = Depends(get_current_user),
-):
-    """Universal regional-language path for ANY drafting surface. A page that
-    renders its document in Hindi client-side sends that HTML here and gets it
+def regionalize_html(body: RegionalizeBody):
+    """Universal regional-language path for ANY drafting surface. A page sends
+    already-rendered Hindi (a fragment or a full standalone page) and gets it
     back in Marathi/Bengali/Gujarati — verified-cache boilerplate + LLM-glossary
     for the rest — with a 'machine draft' banner unless every string is
-    advocate-verified. Lets the per-type pages reuse the same engine as the
-    universal editor without re-implementing rendering.
+    advocate-verified.
+
+    Open (no auth) to match /render-live and /from-prompt: the SPA prompt drafter
+    is unauthenticated, and this only translates already-produced draft HTML.
+    Style/script/head text is skipped, so full pages are safe to post.
     """
     from headnote.drafter.i18n.render import regionalize
     from headnote.drafter.template_adapter import _MACHINE_DRAFT_BANNER
-    with check_and_record(user.id, "draft", endpoint="regionalize", email=user.email) as _record:
-        try:
-            out, rep = regionalize(body.html or "", body.lang)
-        except Exception as e:
-            raise HTTPException(status_code=502, detail=f"regionalize failed: {e}")
-        if not rep.get("verified"):
-            out = _MACHINE_DRAFT_BANNER + out
-        # Charge only for strings that actually hit the LLM (cache hits are free).
-        _record(cost_paise=min(200, 8 * int(rep.get("translated", 0))), model="deepseek-chat")
-        return {"ok": True, "document": out, "report": rep}
+    try:
+        out, rep = regionalize(body.html or "", body.lang)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"regionalize failed: {e}")
+    if not rep.get("verified"):
+        out = _MACHINE_DRAFT_BANNER + out
+    return {"ok": True, "document": out, "report": rep}

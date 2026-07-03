@@ -25,6 +25,11 @@ _REGIONAL = {"mr", "bn", "gu"}
 # skip nodes that are pure punctuation / dotted placeholders.
 _NODE_RX = re.compile(r">([^<>]+)<")
 _SKIP_RX = re.compile(r"^[.…\s:—/()]+$")
+# Strip non-visible blocks before collecting nodes so a full HTML page (with
+# <style>/<script>/<head>) can be regionalized safely — CSS/JS text is never
+# collected, so it's never sent for translation. Substitution still runs on the
+# original html (matched by exact node text, which is Hindi prose, not CSS).
+_STRIP_RX = re.compile(r"<(script|style|head)\b[^>]*>.*?</\1>", re.S | re.I)
 
 
 def _worth_translating(src: str) -> bool:
@@ -47,6 +52,7 @@ def is_regional(lang: str) -> bool:
 def _visible_nodes(html: str) -> list[str]:
     seen: set[str] = set()
     out: list[str] = []
+    html = _STRIP_RX.sub(" ", html)          # drop style/script/head text
     for m in _NODE_RX.finditer(html):
         s = m.group(1).strip()
         if not s or s in seen or _SKIP_RX.match(s):
