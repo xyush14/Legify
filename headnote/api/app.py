@@ -1453,6 +1453,16 @@ def draft_defamation_page():
     return FileResponse(config.STATIC_DIR / "draft-defamation.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
+@app.get("/assist", include_in_schema=False)
+@app.get("/assist/", include_in_schema=False)
+def assist_intake_page():
+    """Personal-Assist self-serve intake — a lawyer describes what they need and
+    the page calls /api/draft/assist-route: known types return the clean
+    /draft/<type> link instantly, everything else is authored on the spot by the
+    guarded engine (no fabricated case law). Static page; marked noindex."""
+    return FileResponse(config.STATIC_DIR / "assist.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
 @app.get("/draft/rfa", include_in_schema=False)
 @app.get("/draft/rfa/", include_in_schema=False)
 def draft_rfa_page():

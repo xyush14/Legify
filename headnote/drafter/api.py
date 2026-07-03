@@ -190,6 +190,41 @@ def draft_from_prompt_route(body: FromPromptBody):
         return JSONResponse({"ok": False, "error": f"{type(e).__name__}: {e}"}, status_code=500)
 
 
+class AssistRouteBody(BaseModel):
+    prompt:  str = Field(..., description="freeform request, e.g. 'I need an RFA' / 'जमानत का आवेदन'")
+    lang:    Literal["hi", "en", "auto"] = "auto"
+    name:    Optional[str] = Field(None, description="requester name (optional, for the queue log)")
+    contact: Optional[str] = Field(None, description="phone / email (optional, for follow-up)")
+
+
+@router.post("/assist-route", summary="Personal-Assist auto-router: request → live /draft link or an authored draft")
+def assist_route(body: AssistRouteBody):
+    """The self-serve intake behind the assist queue. A freeform request →
+    either the clean shareable link of a live /draft/<type> page (instant, no
+    LLM), or, for anything we don't have a page for, a court-ready draft
+    authored on the spot by the guarded engine (no fabricated case law). See
+    headnote/drafter/assist.py."""
+    from fastapi.responses import JSONResponse
+    from headnote.drafter import assist as _assist
+    prompt = (body.prompt or "").strip()
+    if not prompt:
+        return JSONResponse({"ok": False, "error": "empty request"}, status_code=400)
+    try:
+        result = _assist.route_request(prompt, body.lang)
+        # Lightweight queue log (stdout for now; Notion sync is a fast-follow).
+        try:
+            import logging
+            logging.getLogger("headnote.assist").info(
+                "assist request: kind=%s who=%s contact=%s prompt=%r",
+                result.get("kind"), (body.name or "-"), (body.contact or "-"), prompt[:160])
+        except Exception:
+            pass
+        result["ok"] = result.get("kind") != "error"
+        return result
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": f"{type(e).__name__}: {e}"}, status_code=500)
+
+
 @router.post("/from-document", summary="Draft from an attached document — as source facts, or as a style reference to mirror")
 async def draft_from_document(
     prompt: str = Form(""),

@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="/static/analytics.js?v=20260630a"></script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>Personal Assist — Request a Draft · Headnote</title>
+<meta name="description" content="Tell Headnote what you need and get a ready-to-fill court draft in seconds — a shareable link for a known type, or a court-ready draft authored on the spot. For advocate review." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Serif+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/static/style.css?v=20260523b" />
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+<style>
+  body { background: var(--bg); }
+  body:not(.hi) .lang-hi { display: none; }
+  body.hi .lang-en { display: none; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 0 20px 96px; }
+
+  .rtop { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 12px;
+    padding: 12px 20px; background: rgba(250,250,249,0.86); backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line); }
+  .rtop__brand img { height: 19px; width: auto; display: block; }
+  .rtop__tag { font-family: 'Geist Mono', monospace; font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--gold-ink); border: 1px solid var(--gold-line);
+    background: var(--gold-soft); padding: 3px 8px; border-radius: 100px; }
+  .rtop__spacer { flex: 1; }
+  .langtog { display: inline-flex; border: 1.5px solid var(--gold); border-radius: var(--radius); overflow: hidden; }
+  .langtog__btn { font-size: 13px; font-weight: 600; padding: 7px 15px; background: var(--surface);
+    color: var(--ink-2); border: none; cursor: pointer; font-family: 'Geist', 'Noto Sans Devanagari', sans-serif; }
+  .langtog__btn + .langtog__btn { border-left: 1px solid var(--gold-line); }
+  .langtog__btn.is-active { background: var(--gold); color: #1a1204; }
+
+  .rhead { padding: 44px 0 8px; }
+  .rhead__eyebrow { font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--gold-ink); margin-bottom: 10px; }
+  .rhead h1 { font-size: var(--t-2xl); font-weight: 700; letter-spacing: -0.02em; line-height: 1.14; }
+  .rhead p { color: var(--ink-2); font-size: var(--t-md); margin-top: 12px; max-width: 60ch; }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card); margin: 22px 0; }
+  .card__pad { padding: 22px 24px; }
+
+  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .field label { font-size: var(--t-xs); font-weight: 500; color: var(--ink-3);
+    font-family: 'Geist Mono', monospace; letter-spacing: .03em; }
+  body.hi .field label { font-family: 'Noto Sans Devanagari', sans-serif; }
+  .field input, .field textarea { font-family: inherit; font-size: var(--t-md); color: var(--ink);
+    border: 1px solid var(--line); border-radius: var(--radius); padding: 11px 13px;
+    background: var(--surface); width: 100%; transition: border-color var(--t-fast) var(--ease); }
+  .field textarea { min-height: 96px; resize: vertical; line-height: 1.5; }
+  .field input:focus, .field textarea:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-soft); }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 560px) { .row2 { grid-template-columns: 1fr; } }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 6px; }
+  .chip { font-size: 12.5px; color: var(--ink-2); border: 1px solid var(--line); background: var(--soft);
+    padding: 6px 12px; border-radius: 100px; cursor: pointer; font-family: inherit; }
+  .chip:hover { border-color: var(--gold); color: var(--ink); }
+  .chiplbl { font-family: 'Geist Mono', monospace; font-size: 10px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--ink-3); margin: 0 0 8px; }
+  body.hi .chiplbl { font-family: 'Noto Sans Devanagari', sans-serif; }
+
+  .cta { width: 100%; font-size: 15px; font-weight: 600; padding: 13px 18px; border-radius: var(--radius);
+    background: var(--ink); color: var(--surface); border: 1px solid var(--ink); cursor: pointer;
+    font-family: 'Geist', 'Noto Sans Devanagari', sans-serif; margin-top: 4px; }
+  .cta:hover { background: #000; }
+  .cta:disabled { opacity: .6; cursor: default; }
+  .subnote { font-size: 12px; color: var(--ink-3); line-height: 1.55; margin-top: 12px; }
+
+  /* Result */
+  .result { display: none; }
+  .result.show { display: block; }
+  .res-card { border: 1px solid var(--gold-line); background: var(--gold-soft); border-radius: var(--radius-lg); padding: 22px 24px; }
+  .res-badge { font-family: 'Geist Mono', monospace; font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--gold-ink); }
+  .res-title { font-size: var(--t-xl); font-weight: 700; margin: 8px 0 4px; letter-spacing: -.01em; }
+  .res-sub { color: var(--ink-2); font-size: var(--t-sm); line-height: 1.55; }
+  .res-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+  .btn { font-size: 14px; font-weight: 600; padding: 10px 16px; border-radius: var(--radius); cursor: pointer;
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); text-decoration: none;
+    display: inline-flex; align-items: center; gap: 7px; font-family: 'Geist', 'Noto Sans Devanagari', sans-serif; }
+  .btn:hover { border-color: var(--gold); color: var(--ink); }
+  .btn--solid { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+  .btn--solid:hover { background: #000; color: var(--surface); }
+  .btn.ok { color: var(--good); border-color: var(--good); }
+
+  .authored { margin-top: 18px; }
+  .authored__frame { width: 100%; height: 560px; border: 1px solid var(--line); border-radius: var(--radius);
+    background: #fff; }
+  .warnbox { margin-top: 14px; border: 1px solid var(--line); border-left: 3px solid var(--gold);
+    background: var(--soft); border-radius: var(--radius); padding: 12px 14px; font-size: 13px; color: var(--ink-2); line-height: 1.55; }
+  .warnbox b { color: var(--ink); }
+  .warnbox ul { margin: 6px 0 0 18px; }
+  .warnbox li { margin-bottom: 4px; }
+
+  .newreq { background: none; border: none; color: var(--gold-ink); font-weight: 600; font-size: 13px; cursor: pointer; margin-top: 16px; }
+  .newreq:hover { text-decoration: underline; }
+
+  .spinner { display: inline-block; width: 15px; height: 15px; border: 2px solid rgba(255,255,255,.4);
+    border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -2px; margin-right: 7px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .rfoot { margin-top: 40px; padding: 18px 0 0; border-top: 1px solid var(--line);
+    font-size: 12px; color: var(--ink-3); line-height: 1.6; }
+  .rfoot b { color: var(--ink-2); }
+</style>
+</head>
+<body class="assist">
+
+<header class="rtop">
+  <a class="rtop__brand" href="/" aria-label="Headnote home"><img src="/static/headnote-logo.svg" alt="headnote" /></a>
+  <span class="rtop__tag">Personal Assist</span>
+  <span class="rtop__spacer"></span>
+  <div class="langtog" role="group" aria-label="Language / भाषा">
+    <button class="langtog__btn is-active" data-lang="en">English</button>
+    <button class="langtog__btn" data-lang="hi">हिंदी</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="rhead">
+    <div class="rhead__eyebrow"><span class="lang-en">Request a draft</span><span class="lang-hi">ड्राफ्ट का अनुरोध करें</span></div>
+    <h1><span class="lang-en">Tell us what you need — get a draft in seconds.</span><span class="lang-hi">बताइए आपको क्या चाहिए — कुछ ही सेकंड में ड्राफ्ट पाइए।</span></h1>
+    <p>
+      <span class="lang-en">Describe the application, notice or agreement you need. If we already have a
+        ready-to-fill template, you get the link instantly. If not, we author a court-ready draft on the spot —
+        <b>for your review, not legal advice</b>.</span>
+      <span class="lang-hi">जो आवेदन, सूचना या अनुबंध चाहिए उसका विवरण दें। यदि हमारे पास पहले से भरने-योग्य टेम्पलेट है,
+        तो लिंक तुरंत मिल जाएगा। अन्यथा हम यहीं कोर्ट-योग्य ड्राफ्ट तैयार कर देते हैं —
+        <b>आपकी समीक्षा हेतु, विधिक सलाह नहीं</b>।</span>
+    </p>
+  </div>
+
+  <!-- INTAKE -->
+  <section class="card" id="intake">
+    <div class="card__pad">
+      <p class="chiplbl"><span class="lang-en">Common requests — tap to fill</span><span class="lang-hi">सामान्य अनुरोध — भरने हेतु टैप करें</span></p>
+      <div class="chips" id="chips"></div>
+
+      <div class="field" style="margin-top:14px;">
+        <label><span class="lang-en">What do you need?</span><span class="lang-hi">आपको क्या चाहिए?</span></label>
+        <textarea id="prompt" placeholder="e.g. Regular First Appeal against a decree dismissing a title suit — District Court"></textarea>
+      </div>
+      <div class="row2">
+        <div class="field"><label><span class="lang-en">Your name (optional)</span><span class="lang-hi">आपका नाम (वैकल्पिक)</span></label><input id="name" placeholder="Adv. ____" /></div>
+        <div class="field"><label><span class="lang-en">Phone / email (optional)</span><span class="lang-hi">फ़ोन / ईमेल (वैकल्पिक)</span></label><input id="contact" placeholder="for follow-up" /></div>
+      </div>
+      <button class="cta" id="btn-go"><span class="lang-en">Get my draft →</span><span class="lang-hi">मेरा ड्राफ्ट पाएँ →</span></button>
+      <p class="subnote">
+        <span class="lang-en">Priority support turns requests around in ~15 min (research) / ~2 hrs (bespoke drafts). Free tier is slower.</span>
+        <span class="lang-hi">प्राथमिकता सहायता में ~15 मिनट (शोध) / ~2 घंटे (विशेष ड्राफ्ट) में उत्तर। नि:शुल्क श्रेणी धीमी है।</span>
+      </p>
+    </div>
+  </section>
+
+  <!-- RESULT -->
+  <section class="result" id="result"></section>
+
+  <p class="rfoot">
+    <span class="lang-en"><b>For advocate review — not legal advice.</b> Auto-authored drafts are a starting point produced from
+      Headnote's drafting framework; verify the facts, sections, court-fee and limitation, and confirm any authority before filing.
+      Headnote never puts unverified case law into a draft.</span>
+    <span class="lang-hi"><b>अधिवक्ता समीक्षा हेतु — विधिक सलाह नहीं।</b> स्वतः तैयार ड्राफ्ट Headnote के ढाँचे से बनाया प्रारंभिक बिंदु है;
+      दाखिल करने से पूर्व तथ्य, धाराएँ, न्याय-शुल्क व परिसीमा जाँचें तथा किसी भी न्याय-दृष्टांत की पुष्टि करें।
+      Headnote कभी असत्यापित न्याय-दृष्टांत ड्राफ्ट में नहीं डालता।</span>
+  </p>
+</div>
+
+<script>
+(function () {
+  var CHIPS = [
+    { en: 'Regular First Appeal (RFA)', hi: 'नियमित प्रथम अपील (RFA)' },
+    { en: 'Regular bail application',   hi: 'नियमित जमानत आवेदन' },
+    { en: 'Maintenance §125',          hi: 'भरण-पोषण धारा 125' },
+    { en: 'Recovery of money',         hi: 'धन-वसूली' },
+    { en: 'Civil defamation',          hi: 'सिविल मानहानि' },
+    { en: 'Rent agreement',            hi: 'किरायानामा' }
+  ];
+  function curLang() { return document.body.classList.contains('hi') ? 'hi' : 'en'; }
+  var langBtns = document.querySelectorAll('.langtog__btn');
+  var lastResult = null;   // re-render the result card when the language is toggled
+  function setLang(l) {
+    document.body.classList.toggle('hi', l === 'hi');
+    document.documentElement.lang = l;
+    langBtns.forEach(function (b) { b.classList.toggle('is-active', b.dataset.lang === l); });
+    renderChips();
+    if (lastResult) {
+      if (lastResult.kind === 'page') renderPage(lastResult);
+      else if (lastResult.kind === 'authored') renderAuthored(lastResult);
+    }
+  }
+  langBtns.forEach(function (b) { b.addEventListener('click', function () { setLang(b.dataset.lang); }); });
+
+  var chipsEl = document.getElementById('chips');
+  function renderChips() {
+    var l = curLang();
+    chipsEl.innerHTML = '';
+    CHIPS.forEach(function (c) {
+      var b = document.createElement('button');
+      b.className = 'chip'; b.type = 'button'; b.textContent = c[l] || c.en;
+      b.addEventListener('click', function () { document.getElementById('prompt').value = c[l] || c.en; document.getElementById('prompt').focus(); });
+      chipsEl.appendChild(b);
+    });
+  }
+  renderChips();
+
+  var resultEl = document.getElementById('result');
+  function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+  var lastAuthoredHtml = '';
+
+  function absUrl(path) { return location.origin + path; }
+
+  function renderPage(r) {
+    var l = curLang();
+    var title = l === 'hi' ? r.title_hi : r.title_en;
+    var url = absUrl(r.url);
+    var isReady = l === 'hi' ? 'तैयार है — भरने-योग्य टेम्पलेट' : 'Ready — a fill-in template';
+    var openTxt = l === 'hi' ? 'टेम्पलेट खोलें →' : 'Open the template →';
+    var copyTxt = l === 'hi' ? 'लिंक कॉपी करें' : 'Copy link';
+    var waTxt   = 'WhatsApp';
+    var sub = l === 'hi'
+      ? 'यह एक भरने-योग्य, साझा-योग्य ड्राफ्ट है — एक बार विवरण भरें, हिंदी/अंग्रेज़ी टॉगल करें, और PDF/WhatsApp से भेजें।'
+      : 'A fill-once, shareable draft — enter the details, toggle Hindi/English, and send as PDF or on WhatsApp.';
+    resultEl.innerHTML =
+      '<div class="res-card">' +
+        '<div class="res-badge">✓ ' + esc(isReady) + '</div>' +
+        '<div class="res-title">' + esc(title) + '</div>' +
+        '<div class="res-sub">' + esc(sub) + '</div>' +
+        '<div class="res-actions">' +
+          '<a class="btn btn--solid" href="' + esc(r.url) + '" target="_blank" rel="noopener">' + esc(openTxt) + '</a>' +
+          '<button class="btn" id="r-copy">' + esc(copyTxt) + '</button>' +
+          '<button class="btn" id="r-wa">' + esc(waTxt) + '</button>' +
+        '</div>' +
+      '</div>' +
+      '<button class="newreq" id="r-new">' + (l === 'hi' ? '↺ नया अनुरोध' : '↺ New request') + '</button>';
+    document.getElementById('r-copy').addEventListener('click', function () {
+      var btn = this; navigator.clipboard.writeText(url).then(function () { btn.textContent = '✓'; btn.classList.add('ok'); setTimeout(function () { btn.textContent = copyTxt; btn.classList.remove('ok'); }, 1500); });
+    });
+    document.getElementById('r-wa').addEventListener('click', function () {
+      window.open('https://wa.me/?text=' + encodeURIComponent(title + ' — ' + url), '_blank');
+    });
+    wireNew();
+  }
+
+  function renderAuthored(r) {
+    var l = curLang();
+    lastAuthoredHtml = (l === 'hi' ? r.page_hi : r.page_en) || r.page_hi || r.page_en || '';
+    var badge = l === 'hi' ? 'ड्राफ्ट तैयार — आपकी समीक्षा हेतु' : 'Draft ready — for your review';
+    var title = r.title || (l === 'hi' ? 'आपका ड्राफ्ट' : 'Your draft');
+    var sub = l === 'hi'
+      ? 'यह Headnote के ढाँचे से तैयार कोर्ट-योग्य ड्राफ्ट है (जिस प्रकार की भरने-योग्य पेज उपलब्ध नहीं)। दाखिल करने से पूर्व समीक्षा करें।'
+      : 'A court-ready draft authored from Headnote’s framework (we don’t yet have a fill-in page for this type). Review before filing.';
+    var dl = l === 'hi' ? '⬇ PDF डाउनलोड' : '⬇ Download PDF';
+    var cp = l === 'hi' ? 'टेक्स्ट कॉपी' : 'Copy text';
+
+    var warnHtml = '';
+    var warns = (r.warnings || []).slice();
+    var cites = r.cite_at_hearing || [];
+    if (cites.length) {
+      warns.push((l === 'hi' ? 'सुनवाई पर उद्धृत करें (सत्यापित करें): ' : 'Cite at hearing (verify first): ') +
+        cites.map(function (c) { return typeof c === 'string' ? c : (c.case || c.title || ''); }).filter(Boolean).join('; '));
+    }
+    if (warns.length) {
+      warnHtml = '<div class="warnbox"><b>' + (l === 'hi' ? 'ध्यान दें' : 'Note') + '</b><ul>' +
+        warns.map(function (w) { return '<li>' + esc(w) + '</li>'; }).join('') + '</ul></div>';
+    }
+
+    resultEl.innerHTML =
+      '<div class="res-card">' +
+        '<div class="res-badge">✓ ' + esc(badge) + '</div>' +
+        '<div class="res-title">' + esc(title) + '</div>' +
+        '<div class="res-sub">' + esc(sub) + '</div>' +
+        '<div class="res-actions">' +
+          '<button class="btn btn--solid" id="a-pdf">' + esc(dl) + '</button>' +
+          '<button class="btn" id="a-copy">' + esc(cp) + '</button>' +
+        '</div>' +
+        warnHtml +
+      '</div>' +
+      '<div class="authored"><iframe class="authored__frame" id="a-frame" title="draft preview"></iframe></div>' +
+      '<button class="newreq" id="r-new">' + (l === 'hi' ? '↺ नया अनुरोध' : '↺ New request') + '</button>';
+
+    var frame = document.getElementById('a-frame');
+    frame.srcdoc = lastAuthoredHtml;
+    document.getElementById('a-copy').addEventListener('click', function () {
+      var btn = this; var tmp = document.createElement('div'); tmp.innerHTML = lastAuthoredHtml;
+      navigator.clipboard.writeText((tmp.innerText || '').trim()).then(function () { btn.textContent = '✓'; btn.classList.add('ok'); setTimeout(function () { btn.textContent = cp; btn.classList.remove('ok'); }, 1500); });
+    });
+    document.getElementById('a-pdf').addEventListener('click', downloadPdf);
+    wireNew();
+  }
+
+  async function downloadPdf() {
+    var btn = document.getElementById('a-pdf'); var o = btn.innerHTML;
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>' + (curLang() === 'hi' ? 'बना रहे हैं…' : 'Generating…');
+    try {
+      var r = await fetch('/api/draft/pdf', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ html: lastAuthoredHtml, filename: 'headnote-assist-draft' }) });
+      if (!r.ok) throw new Error('server ' + r.status);
+      var blob = await r.blob();
+      var url = URL.createObjectURL(blob); var a = document.createElement('a');
+      a.href = url; a.download = 'headnote-assist-draft.pdf'; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+    } catch (e) { alert((curLang() === 'hi' ? 'PDF नहीं बना — ' : 'PDF failed — ') + (e.message || 'try again')); }
+    finally { btn.disabled = false; btn.innerHTML = o; }
+  }
+
+  function renderError(msg) {
+    var l = curLang();
+    resultEl.innerHTML = '<div class="res-card" style="border-color:var(--line);background:var(--soft);">' +
+      '<div class="res-title" style="font-size:var(--t-md);">' + (l === 'hi' ? 'क्षमा करें — कुछ गड़बड़ हुई' : 'Sorry — something went wrong') + '</div>' +
+      '<div class="res-sub">' + esc(msg || (l === 'hi' ? 'कृपया पुनः प्रयास करें।' : 'Please try again.')) + '</div>' +
+      '</div><button class="newreq" id="r-new">' + (l === 'hi' ? '↺ पुनः प्रयास' : '↺ Try again') + '</button>';
+    wireNew();
+  }
+
+  function wireNew() {
+    var b = document.getElementById('r-new');
+    if (b) b.addEventListener('click', function () {
+      lastResult = null;
+      resultEl.classList.remove('show'); resultEl.innerHTML = '';
+      document.getElementById('intake').style.display = '';
+      document.getElementById('prompt').focus();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }
+
+  var goBtn = document.getElementById('btn-go');
+  async function submit() {
+    var prompt = document.getElementById('prompt').value.trim();
+    if (!prompt) { document.getElementById('prompt').focus(); return; }
+    var o = goBtn.innerHTML; goBtn.disabled = true;
+    goBtn.innerHTML = '<span class="spinner"></span>' + (curLang() === 'hi' ? 'तैयार कर रहे हैं…' : 'Working on it…');
+    try {
+      var r = await fetch('/api/draft/assist-route', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: prompt, lang: curLang(),
+          name: document.getElementById('name').value.trim() || null,
+          contact: document.getElementById('contact').value.trim() || null }) });
+      var data = await r.json();
+      lastResult = (data.kind === 'page' || data.kind === 'authored') ? data : null;
+      resultEl.classList.add('show');
+      document.getElementById('intake').style.display = 'none';
+      if (data.kind === 'page') renderPage(data);
+      else if (data.kind === 'authored') renderAuthored(data);
+      else renderError(data.error);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (e) {
+      resultEl.classList.add('show'); document.getElementById('intake').style.display = 'none';
+      renderError(e.message);
+    } finally { goBtn.disabled = false; goBtn.innerHTML = o; }
+  }
+  goBtn.addEventListener('click', submit);
+  document.getElementById('prompt').addEventListener('keydown', function (e) {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') submit();
+  });
+})();
+</script>
+</body>
+</html>
