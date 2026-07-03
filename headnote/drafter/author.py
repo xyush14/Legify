@@ -885,6 +885,8 @@ def _candidates_block(b: dict) -> str:
 # reads like a plaint/WS, not a criminal application wearing civil labels.
 _CIVIL_NOTE = """CIVIL DRAFTING ADDENDUM (this is a CIVIL matter — CPC discipline applies):
 • Party labels: वादी/प्रतिवादी (suit), आवेदक/अनावेदक (misc. civil application), परिवादी/अनावेदकगण (consumer).
+• CAUSE-TITLE in MP idiom — a suit: "न्यायालय माननीय व्यवहार न्यायाधीश महोदय वर्ग-____, <नगर> (म.प्र.)"
+  (NOT "नागरिक न्यायाधीश"/"सिविल जज"); consumer: "जिला उपभोक्ता विवाद प्रतितोष आयोग, <नगर> (म.प्र.)".
 • A PLAINT carries, as separate numbered paras: parties & descriptions · the dated transaction/title facts ·
   वादग्रस्त संपत्ति description for property suits (boundaries चौहद्दी, khasra/survey/house no.) · cause of
   action — "वाद कारण दिनांक ____ को ____ में उत्पन्न हुआ" naming date AND place · jurisdiction (territorial
