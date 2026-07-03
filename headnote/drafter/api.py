@@ -935,7 +935,14 @@ def render_template(
     """
     from headnote.drafter import template_adapter as TA
     if TA.is_canonical(body.doc_type):                  # V2 canonical engine — deterministic, free
-        return {"ok": True, "document": TA.document(body.doc_type, body.fields or {}, body.lang)}
+        try:
+            return {"ok": True, "document": TA.document(body.doc_type, body.fields or {}, body.lang)}
+        except Exception as e:
+            # A malformed field value must never take down the live preview with a
+            # raw 500. Surface a readable error the editor can toast instead.
+            import logging
+            logging.getLogger("headnote.drafter").exception("canonical render failed: %s", body.doc_type)
+            raise HTTPException(status_code=502, detail=f"render failed: {type(e).__name__}: {e}")
 
     from headnote.drafter.compose import get_template, _generate_document
 

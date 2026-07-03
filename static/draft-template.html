@@ -1959,15 +1959,63 @@ function scheduleAutoRegen() {
   // Deterministic (in-browser) templates are free + instant, so they update
   // live on every change with a snappy debounce and never hit the LLM cap.
   const _det = !!DETERMINISTIC_RENDERERS[state.docType];
-  state._regenTimer = setTimeout(() => {
+  state._regenTimer = setTimeout(async () => {
     if (!_det && state._regenCount >= REGEN_MAX_PER_SESSION) return;
     const snap = JSON.stringify(state.fields);
     if (snap === state._lastGenFields) return;
     if (!_det) state._regenCount++;
+    // If prose was typed in the OTHER script (e.g. English while the draft
+    // language is Hindi), convert it to the document's language BEFORE rendering
+    // so the generated draft reads correctly. Best-effort — never blocks/breaks
+    // the render; on failure the values just stay as typed.
+    await translateTypedValuesToDocLang();
     // Once we have a document, every change should regen (not just required-
     // field changes). `initial: true` bypasses the empty-form guard.
     generateDocument({ silent: true, initial: !!state.document });
   }, _det ? 250 : REGEN_DEBOUNCE_MS);
+}
+
+// When the lawyer types prose in the wrong script for the current draft language
+// (English under a Hindi draft, or vice-versa), convert those values to the doc
+// language and reflect the result back into the input boxes — the same in-place
+// behaviour as clicking the EN/हिं toggle, but triggered by the live-preview
+// debounce so no toggle is needed. Reuses /translate-fields (DeepSeek). Only
+// prose fields; only values CLEARLY in the wrong script (so mixed/already-correct
+// text is left alone); best-effort so the render never waits on flaky MT.
+async function translateTypedValuesToDocLang() {
+  if (state.editMode || state._typedXlate || !state.template) return;
+  const target = state.lang;
+  const hasDeva  = s => /[ऀ-ॿ]/.test(s);
+  const hasLatin = s => /[A-Za-z]/.test(s);
+  const toTranslate = {};
+  (state.template.fields || []).forEach(f => {
+    if (!['longtext', 'address', 'name', 'text'].includes(f.type)) return;
+    const v = state.fields[f.key];
+    if (!v || !String(v).trim()) return;
+    const s = String(v);
+    if (target === 'hi' && hasLatin(s) && !hasDeva(s)) toTranslate[f.key] = v;
+    else if (target === 'en' && hasDeva(s)) toTranslate[f.key] = v;
+  });
+  if (!Object.keys(toTranslate).length) return;
+  state._typedXlate = true;
+  try {
+    const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
+    const r = await fetch('/api/draft/translate-fields', {
+      method: 'POST', headers,
+      body: JSON.stringify({ fields: toTranslate, target }),
+    });
+    if (!r.ok) return;
+    const data = await r.json();
+    if (state.lang !== target) return;          // user toggled away while MT ran
+    if (data.translated && !data.skipped) {
+      Object.entries(data.translated).forEach(([k, v]) => {
+        if (v) { state.fields[k] = v; const el = $(`#f_${k}`); if (el) el.value = v; }
+      });
+      saveToLocalStorage();
+      updateProgress();
+    }
+  } catch { /* best-effort — values stay as typed; the doc still renders */ }
+  finally { state._typedXlate = false; }
 }
 
 // ---- Document rendering — parse plain text into court-paper HTML ----

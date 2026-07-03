@@ -158,6 +158,11 @@ def to_data(tid: str, fields: dict) -> dict:
     spec = _spec(tid)
     toggle_keys = {tg["key"] for tg in spec.get("toggles", [])}
     list_keys = {f["key"] for f in spec.get("fields", []) if f.get("type") == "section_list"}
+    # TABLE fields (prior_bail / co_accused) render as list-of-dicts. The editor's
+    # OCR auto-fill coerces EVERY value to a string (String(v)); a string here made
+    # render_* do row.get(...) on a str → AttributeError → HTTP 500. Coerce anything
+    # that isn't already a proper list-of-rows back to an empty table.
+    table_keys = {f["key"] for f in spec.get("fields", []) if f.get("type") == "table"}
     data, grounds = {}, {}
     for k, v in (fields or {}).items():
         if k in toggle_keys:
@@ -167,6 +172,8 @@ def to_data(tid: str, fields: dict) -> dict:
             data[k] = [ln.strip() for ln in str(v or "").splitlines() if ln.strip()]
         elif k in list_keys:
             data[k] = [x.strip() for x in str(v or "").split(",") if x.strip()]
+        elif k in table_keys:
+            data[k] = v if isinstance(v, list) and all(isinstance(r, dict) for r in v) else []
         else:
             data[k] = v
     # default-on toggles when the form hasn't sent them yet
