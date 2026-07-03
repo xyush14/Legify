@@ -30,7 +30,7 @@
      and Times New Roman (system font) for Latin. The font stack on the
      document preview puts Times first so digits + statute refs (S.302 etc)
      stay in Times even mid-Hindi sentence — browser picks per character. -->
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Tiro+Devanagari+Hindi:ital@0;1&family=Noto+Serif+Devanagari:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Tiro+Devanagari+Hindi:ital@0;1&family=Noto+Serif+Devanagari:wght@400;500;600;700&family=Noto+Serif+Bengali:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <!-- PDFs now render server-side via POST /api/draft/pdf (replaced html2pdf.js) -->
 <style>
   /* Kruti Dev 010 — self-hosted (static/fonts/KrutiDev010.ttf).
@@ -201,7 +201,7 @@
     min-height: 85vh;
     box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06);
     border-radius: 4px;
-    font-family: 'Times New Roman', 'Tiro Devanagari Hindi', 'Noto Serif Devanagari', Times, serif;
+    font-family: 'Times New Roman', 'Tiro Devanagari Hindi', 'Noto Serif Devanagari', 'Noto Serif Bengali', Times, serif;
     line-height: 1.7;
     color: #000;
     font-size: 14.5px;
@@ -597,6 +597,12 @@
   .lang-toggle { display: inline-flex; background: var(--bg); border: 1px solid var(--line-strong); border-radius: 100px; padding: 3px; font-size: 11px; font-weight: 600; }
   .lang-toggle button { border: none; background: transparent; padding: 5px 10px; border-radius: 100px; color: var(--muted); cursor: pointer; transition: all 0.18s ease; font-family: inherit; font-size: inherit; font-weight: inherit; }
   .lang-toggle button.active { background: var(--ink); color: var(--bg); }
+  .lang-select { border: 1px solid var(--line-strong); background: var(--bg); color: var(--ink);
+    border-radius: 100px; padding: 5px 26px 5px 12px; font-size: 12px; font-weight: 600;
+    font-family: inherit; cursor: pointer; -webkit-appearance: none; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center; }
+  .lang-select:focus { outline: none; border-color: var(--ink); }
   /* Devanagari font mode */
   body.lang-hi { font-family: 'Noto Sans Devanagari', 'Inter', sans-serif; }
   body.lang-hi .field label, body.lang-hi .section__eyebrow, body.lang-hi .section__title { font-family: 'Noto Sans Devanagari', sans-serif; }
@@ -619,8 +625,12 @@
   <div class="topbar__right">
     <span class="savestate" id="savestate"></span>
     <div class="lang-toggle" role="group" aria-label="language">
-      <button id="lang-en">EN</button>
-      <button id="lang-hi" class="active">हिं</button>
+      <select id="lang-select" class="lang-select" aria-label="document language" title="Document language">
+        <option value="hi" selected>हिंदी</option>
+        <option value="en">English</option>
+        <option value="mr">मराठी</option>
+        <option value="bn">বাংলা</option>
+      </select>
     </div>
     <button class="btn" id="btn-pdf">⬇ PDF</button>
     <button class="btn" id="btn-print" data-en="🖨 Print" data-hi="🖨 प्रिंट">🖨 प्रिंट</button>
@@ -1025,7 +1035,8 @@ const WA_MODE = !!__waToken;
 // State
 // =========================================================================
 const state = {
-  lang: 'hi',
+  lang: 'hi',        // CHROME language (hi|en)
+  docLang: 'hi',     // DOCUMENT language (hi|en|mr) — mr = Hindi chrome + Marathi doc
   answers: {
     state_name: '',
     application_number: '1',
@@ -1312,9 +1323,9 @@ function renderHi(a) {
   const isMagistrate  = bailSection === '437' || bailSection === '480';
   const isBnss = bailSection === '480' || bailSection === '482' || bailSection === '483';
   const sectionTitle = {
-    '437': 'धारा 437 दण्ड प्रकिया संहिता',
-    '438': 'धारा 438 दण्ड प्रकिया संहिता',
-    '439': 'धारा 439 दण्ड प्रकिया संहिता',
+    '437': 'धारा 437 दण्ड प्रक्रिया संहिता',
+    '438': 'धारा 438 दण्ड प्रक्रिया संहिता',
+    '439': 'धारा 439 दण्ड प्रक्रिया संहिता',
     '480': 'धारा 480 भारतीय नागरिक सुरक्षा संहिता, 2023',
     '482': 'धारा 482 भारतीय नागरिक सुरक्षा संहिता, 2023',
     '483': 'धारा 483 भारतीय नागरिक सुरक्षा संहिता, 2023',
@@ -1365,7 +1376,7 @@ function renderHi(a) {
         जिला ${xph(district, 'जिला', 'hi')} ${xlit(stateName, 'hi')}
       </div>
     </div>
-    <div class="bd-versus">विरूद्ध</div>
+    <div class="bd-versus">विरुद्ध</div>
     <div class="bd-party">
       <span class="bd-party-label">अनावेदक</span>
       <span class="bd-party-dots">............................................................</span>
@@ -1377,7 +1388,7 @@ function renderHi(a) {
   </div>`;
 
   // App title
-  html += `<h2 class="bd-app-title">${esc(appNumHi)} आवेदन पत्र अन्तर्गत ${esc(sectionTitle)}</h2>`;
+  html += `<h2 class="bd-app-title">${esc(appNumHi)} जमानत आवेदन पत्र अन्तर्गत ${esc(sectionTitle)}</h2>`;
 
   // Prior bail summary table (always show)
   html += renderPriorBailSummary(priorBail);
@@ -1466,13 +1477,13 @@ function renderHi(a) {
     html += '<li><p>यहकि, आवेदक ने कोई अपराध नहीं किया है, आवेदक को इस प्रकरण में फरियादी पक्ष द्वारा झूठा फंसाया गया है, उसका उक्त अपराध से प्रत्यक्ष अथवा अप्रत्यक्ष रूप से कोई संबंध नहीं है।</p></li>';
   }
   if (!isAnticipatory && grounds.long_custody && cust) {
-    html += `<li><p>यहकि, आवेदक दिनांक ${esc(arrestDate)} से न्यायिक निरोध में है तथा आवेदक को निरोध में रहते हुये ${custodyHi(cust)} का समय हो चुका है।</p></li>`;
+    html += `<li><p>यहकि, आवेदक दिनांक ${esc(arrestDate)} से न्यायिक निरोध में है तथा आवेदक को निरोध में रहते हुये ${custodyHi(cust)} का समय हो चुका है; दीर्घ निरोध संविधान के अनुच्छेद 21 के विरुद्ध है।</p></li>`;
   }
   if (!isAnticipatory && grounds.trial_delay && a.witnesses_total && a.witnesses_examined !== undefined && a.witnesses_examined !== '') {
     const nh = { 1: 'एक', 2: 'दो', 3: 'तीन', 4: 'चार', 5: 'पाँच', 6: 'छह', 7: 'सात', 8: 'आठ', 9: 'नौ', 10: 'दस' };
     const tot = nh[a.witnesses_total] || a.witnesses_total;
     const ex = nh[a.witnesses_examined] || a.witnesses_examined;
-    html += `<li><p>यहकि, अभियोजन की ओर से ${tot} साक्षियों की सूची विचारण न्यायालय के समक्ष प्रस्तुत की गई है जिसमें से सिर्फ ${ex} साक्षियों के कथन हुये हैं, षेष साक्षियों के कथन होने में काफी विलंब की संभावना है।</p></li>`;
+    html += `<li><p>यहकि, अभियोजन की ओर से ${tot} साक्षियों की सूची विचारण न्यायालय के समक्ष प्रस्तुत की गई है जिसमें से सिर्फ ${ex} साक्षियों के कथन हुये हैं, शेष साक्षियों के कथन होने में काफी विलंब की संभावना है।</p></li>`;
   }
   const hasCoAccusedBail = coAccused.some(c => {
     const o = (c.outcome || '').toLowerCase();
@@ -1511,6 +1522,10 @@ function renderHi(a) {
   }
   // Para 9
   html += '<li><p>यहकि, आवेदक माननीय न्यायालय के आदेश के पालन में अपनी जमानत एवं मुचलका प्रस्तुत करने हेतु तैयार है तथा माननीय न्यायालय द्वारा निर्देशित समस्त शर्तों का पालन करने हेतु तैयार है।</p></li>';
+
+  // Closer — always the last para before the prayer (reviewed library ground:
+  // remaining submissions to be advanced orally at the hearing).
+  html += '<li><p>यहकि, शेष तर्क बहस के समय मौखिक रूप से निवेदित किए जाएँगे।</p></li>';
 
   html += '</ol>';
 
@@ -1955,8 +1970,7 @@ function applyLang() {
     if (val !== null) el.placeholder = val;
   });
   // Pill active state
-  document.getElementById('lang-en').classList.toggle('active', !isHi);
-  document.getElementById('lang-hi').classList.toggle('active', isHi);
+  const _sel = document.getElementById('lang-select'); if (_sel) _sel.value = state.docLang;
   // Rebuild dynamic rows (they render lang-aware labels)
   renderPriorBailRows();
   renderCoAccusedRows();
@@ -2000,7 +2014,7 @@ function renderEn(a) {
 
   let html = '<div class="bail-doc">';
   html += `<div class="bd-header">
-    <div class="bd-side">${isAnticipatory ? 'On behalf of Applicant' : 'On behalf of Detenu'}</div>
+    <div class="bd-side">On behalf of the Applicant</div>
     <h1 class="bd-court">${xlit(courtName, 'en')}</h1>
     <div class="bd-caseno">Misc. Criminal Case No. ${ph_en(a.case_number, '_____')} / ${esc(a.case_year || new Date().getFullYear())}</div>
   </div>`;
@@ -2133,6 +2147,8 @@ function renderEn(a) {
 
   if (!isAnticipatory) html += `<li><p>That the final disposal of the case pending against the applicant is likely to take considerable time.</p></li>`;
   html += `<li><p>That the applicant is ready and willing to furnish surety and bail bond as directed by this Hon'ble Court and undertakes to comply with all conditions imposed.</p></li>`;
+  // Closer — mirrors the Hindi reviewed library ground.
+  html += `<li><p>That the remaining submissions shall be advanced orally at the time of arguments.</p></li>`;
   html += '</ol>';
 
   html += '<div class="bd-prayer"><h3>PRAYER</h3>';
@@ -2328,6 +2344,10 @@ function onChange() {
         ? 'इस ड्राफ्ट का कुछ डेटा पुराने प्रारूप में है — आप फिर भी संपादन कर सकते हैं'
         : 'Some of this draft’s data is in an old format — you can still edit it', 'err', 4500);
     }
+    // Regional document (mr): the render above produced Hindi — upgrade it to
+    // the chosen regional language via the backend, debounced so typing stays
+    // snappy and we don't fire an API call on every keystroke.
+    if (isRegional(state.docLang)) scheduleRegionalize();
   }
   // Update the page-count badge on the mobile preview handle
   if (typeof updatePreviewPageCount === 'function') updatePreviewPageCount();
@@ -3328,14 +3348,31 @@ document.getElementById('btn-pdf').addEventListener('click', async () => {
   }
 });
 
-// Print → browser print dialog. The @media print stylesheet hides the
-// chrome (form pane, topbar, toasts, buttons) so only #doc-page renders.
-// No more "the whole UI got printed" complaints.
-document.getElementById('btn-print').addEventListener('click', () => {
-  toast('Opening print dialog…', 'ok');
-  // Defer one frame so the toast paints before the (modal) print dialog
-  // captures the thread — feels more responsive.
-  requestAnimationFrame(() => window.print());
+// Print = the same server-rendered PDF (document only), opened in a new tab
+// for the browser/OS print flow. No window.print() — it printed page chrome
+// on some browsers and fails silently on mobile (the 2026-07-01 bug class).
+document.getElementById('btn-print').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-print');
+  const orig = btn.textContent;
+  btn.disabled = true;
+  toast('Preparing print-ready PDF…', 'ok');
+  try {
+    const { blob, filename } = await _fetchPdfBlob();
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, '_blank');
+    if (!w) { // popup blocked → download instead
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (e) {
+    console.error(e);
+    toast('PDF failed — ' + (e.message || 'try again'), 'err', 4000);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = orig;
+  }
 });
 
 // Direct in-document editing. ON → #doc-page becomes contentEditable and the
@@ -3565,8 +3602,65 @@ async function switchLang(newLang) {
   document.dispatchEvent(new CustomEvent('headnote-lang-change', { detail: { lang: newLang } }));
 }
 
-document.getElementById('lang-en').addEventListener('click', () => switchLang('en'));
-document.getElementById('lang-hi').addEventListener('click', () => switchLang('hi'));
+// ---- Regional document languages (mr; bn/gu ready) ----------------------
+// Single-render page: onChange rebuilds the Hindi doc into #doc-page; for a
+// regional language we send that Hindi HTML to /api/draft/regionalize and paint
+// the returned Marathi. hi/en keep their existing native path (switchLang).
+function isRegional(l) { return l === 'mr' || l === 'bn' || l === 'gu'; }
+let _mrReq = 0, _mrTimer = null;
+
+function scheduleRegionalize() {
+  clearTimeout(_mrTimer);
+  _mrTimer = setTimeout(() => regionalizeDoc(), 600);
+}
+
+async function regionalizeDoc() {
+  if (!isRegional(state.docLang) || state.editMode) return;
+  const docEl = document.getElementById('doc-page');
+  if (!docEl) return;
+  const hindiHtml = docEl.innerHTML;         // onChange already rendered Hindi here
+  const myReq = ++_mrReq;
+  try {
+    const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
+    const r = await fetch('/api/draft/regionalize', {
+      method: 'POST', headers,
+      body: JSON.stringify({ html: hindiHtml, lang: state.docLang }),
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    if (myReq !== _mrReq || !isRegional(state.docLang)) return;   // superseded / switched away
+    docEl.innerHTML = data.document || hindiHtml;
+  } catch (e) {
+    if (myReq !== _mrReq) return;
+    if (typeof toast === 'function')
+      toast('मराठी अनुवाद आत्ता उपलब्ध नाही — हिंदी दाखवत आहे', 'warn', 3000);
+  }
+}
+
+async function switchToRegional(lang) {
+  if (state.docLang === lang) return;
+  state.docLang = lang;
+  state.lang = 'hi';                 // chrome stays Hindi (Devanagari) for regional
+  applyLang();                       // updates chrome + syncs the dropdown value
+  onChange();                        // renders the Hindi base into #doc-page
+  regionalizeDoc();                  // immediate upgrade to Marathi (no debounce)
+}
+
+document.getElementById('lang-select').addEventListener('change', (e) => {
+  const lang = e.target.value;
+  if (isRegional(lang)) { switchToRegional(lang); return; }
+  // hi / en — cancel any in-flight regional paint, then use the native path.
+  _mrReq++;
+  const wasRegional = isRegional(state.docLang);
+  state.docLang = lang;
+  if (state.lang === lang) {
+    // chrome already matched (e.g. mr→hi): switchLang would early-return, so
+    // force a clean re-render to strip the Marathi document.
+    if (wasRegional) onChange();
+  } else {
+    switchLang(lang);
+  }
+});
 
 // =========================================================================
 // Mobile Form/Preview tabs. On desktop (>880px) both panes are always shown

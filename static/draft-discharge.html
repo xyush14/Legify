@@ -8,13 +8,13 @@
 <script>if(location.protocol==='http:'&&location.hostname!=='localhost'&&!location.hostname.startsWith('127.')){location.replace(location.href.replace(/^http:/,'https:'));}</script>
 <!-- Supabase JS — REQUIRED for auth.js to read the user's session. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<title>Discharge Application Format (§239 CrPC / §250 BNSS, 498A) | Headnote</title>
-<meta name="description" content="Draft a discharge application under §239 CrPC / §250 BNSS — including §498A matters — as a court-ready format with grounds and citations, in Hindi or English. For India's criminal bar." />
+<title>Discharge Application Format (§239 CrPC / §262 BNSS, 498A) | Headnote</title>
+<meta name="description" content="Draft a discharge application under §239 CrPC / §262 BNSS — including §498A matters — as a court-ready format with grounds and citations, in Hindi or English. For India's criminal bar." />
 <link rel="canonical" href="https://headnote.in/draft/discharge" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Headnote" />
-<meta property="og:title" content="Discharge Application Format (§239 CrPC / §250 BNSS) | Headnote" />
-<meta property="og:description" content="Court-ready discharge applications under §239 CrPC / §250 BNSS — including §498A — with grounds and citations, Hindi or English." />
+<meta property="og:title" content="Discharge Application Format (§239 CrPC / §262 BNSS) | Headnote" />
+<meta property="og:description" content="Court-ready discharge applications under §239 CrPC / §262 BNSS — including §498A — with grounds and citations, Hindi or English." />
 <meta property="og:url" content="https://headnote.in/draft/discharge" />
 <meta property="og:image" content="https://headnote.in/static/og-image.png" />
 <meta property="og:image:width" content="1200" />
@@ -30,7 +30,7 @@
      and Times New Roman (system font) for Latin. The font stack on the
      document preview puts Times first so digits + statute refs (S.302 etc)
      stay in Times even mid-Hindi sentence — browser picks per character. -->
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Tiro+Devanagari+Hindi:ital@0;1&family=Noto+Serif+Devanagari:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Tiro+Devanagari+Hindi:ital@0;1&family=Noto+Serif+Devanagari:wght@400;500;600;700&family=Noto+Serif+Bengali:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <!-- PDFs render server-side via POST /api/draft/pdf (WeasyPrint) -->
 <style>
   /* Kruti Dev 010 — self-hosted (static/fonts/KrutiDev010.ttf). Loaded but
@@ -199,7 +199,7 @@
     min-height: 85vh;
     box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06);
     border-radius: 4px;
-    font-family: 'Times New Roman', 'Tiro Devanagari Hindi', 'Noto Serif Devanagari', Times, serif;
+    font-family: 'Times New Roman', 'Tiro Devanagari Hindi', 'Noto Serif Devanagari', 'Noto Serif Bengali', Times, serif;
     line-height: 1.7;
     color: #000;
     font-size: 14.5px;
@@ -529,6 +529,12 @@
   .lang-toggle { display: inline-flex; background: var(--bg); border: 1px solid var(--line-strong); border-radius: 100px; padding: 3px; font-size: 11px; font-weight: 600; }
   .lang-toggle button { border: none; background: transparent; padding: 5px 10px; border-radius: 100px; color: var(--muted); cursor: pointer; transition: all 0.18s ease; font-family: inherit; font-size: inherit; font-weight: inherit; }
   .lang-toggle button.active { background: var(--ink); color: var(--bg); }
+  .lang-select { border: 1px solid var(--line-strong); background: var(--bg); color: var(--ink);
+    border-radius: 100px; padding: 5px 26px 5px 12px; font-size: 12px; font-weight: 600;
+    font-family: inherit; cursor: pointer; -webkit-appearance: none; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center; }
+  .lang-select:focus { outline: none; border-color: var(--ink); }
   /* Devanagari font mode */
   body.lang-hi { font-family: 'Noto Sans Devanagari', 'Inter', sans-serif; }
   body.lang-hi .field label, body.lang-hi .section__eyebrow, body.lang-hi .section__title { font-family: 'Noto Sans Devanagari', sans-serif; }
@@ -551,8 +557,12 @@
   <div class="topbar__right">
     <span class="savestate" id="savestate"></span>
     <div class="lang-toggle" role="group" aria-label="language">
-      <button id="lang-en">EN</button>
-      <button id="lang-hi" class="active">हिं</button>
+      <select id="lang-select" class="lang-select" aria-label="document language" title="Document language">
+        <option value="hi" selected>हिंदी</option>
+        <option value="en">English</option>
+        <option value="mr">मराठी</option>
+        <option value="bn">বাংলা</option>
+      </select>
     </div>
     <button class="btn" id="btn-pdf">⬇ PDF</button>
     <button class="btn" id="btn-print" data-en="🖨 Print" data-hi="🖨 प्रिंट">🖨 प्रिंट</button>
@@ -598,8 +608,8 @@
         <label data-en="Court" data-hi="न्यायालय">न्यायालय</label>
         <input type="text" data-field="court_name"
           data-ph-en="e.g. Court of the JMFC, Gwalior"
-          data-ph-hi="जैसे: न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी, ग्वालियर"
-          placeholder="जैसे: न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी, ग्वालियर">
+          data-ph-hi="जैसे: न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी, ग्वालियर (म.प्र.)"
+          placeholder="जैसे: न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी, ग्वालियर (म.प्र.)">
       </div>
       <div class="field field--row">
         <div class="field">
@@ -765,7 +775,8 @@
 const STORY_ID = 'discharge_239';
 
 const state = {
-  lang: 'hi',
+  lang: 'hi',        // CHROME language (hi|en)
+  docLang: 'hi',     // DOCUMENT language (hi|en|mr) — mr = Hindi chrome + Marathi doc
   // Empty by default so the preview shows the template's dotted placeholders
   // (we deliberately do NOT prefill the Arvind Sharma sample).
   answers: {
@@ -800,7 +811,7 @@ const state = {
 // the user can edit — NOT the Arvind sample. They flow into `answers` via the
 // normal input binding, so the preview reflects them too.
 const FORM_DEFAULTS = {
-  court_name: 'न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी, ग्वालियर',
+  court_name: 'न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी, ग्वालियर (म.प्र.)',
   case_type: 'आर.सी.टी.',
   discharge_section: '239',
   state_name: 'म.प्र.',
@@ -894,8 +905,7 @@ function applyLang() {
     const val = el.getAttribute('data-ph-' + state.lang) || el.getAttribute('data-ph-en');
     if (val !== null) el.placeholder = val;
   });
-  document.getElementById('lang-en').classList.toggle('active', !isHi);
-  document.getElementById('lang-hi').classList.toggle('active', isHi);
+  const _sel = document.getElementById('lang-select'); if (_sel) _sel.value = state.docLang;
 }
 
 // =========================================================================
@@ -1000,22 +1010,38 @@ function scheduleRender() {
   state.renderTimer = setTimeout(renderLive, 400);
 }
 
+function isRegional(l) { return l === 'mr' || l === 'bn' || l === 'gu'; }
+
 async function renderLive() {
   if (state.editMode) return;
   const seq = ++state.renderSeq;
+  // Regional docs render the Hindi base first, then get regionalized below.
+  const baseLang = state.docLang === 'en' ? 'en' : 'hi';
   try {
     const r = await fetch('/api/draft/render-live', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ story_id: STORY_ID, answers: buildAnswers(), lang: state.lang }),
+      body: JSON.stringify({ story_id: STORY_ID, answers: buildAnswers(), lang: baseLang }),
     });
     if (!r.ok) return;
     const data = await r.json();
     if (seq !== state.renderSeq) return;          // a newer render already ran
-    if (data && data.ok && typeof data.html === 'string') {
-      document.getElementById('doc-page').innerHTML = data.html;
-      updatePreviewPageCount();
+    if (!(data && data.ok && typeof data.html === 'string')) return;
+    let html = data.html;
+    if (isRegional(state.docLang)) {
+      try {
+        const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
+        const rr = await fetch('/api/draft/regionalize', {
+          method: 'POST', headers,
+          body: JSON.stringify({ html, lang: state.docLang }),
+        });
+        if (seq !== state.renderSeq) return;      // superseded while translating
+        if (rr.ok) { const dd = await rr.json(); if (dd && dd.document) html = dd.document; }
+      } catch (e) { /* fall back to the Hindi render already in `html` */ }
     }
+    if (seq !== state.renderSeq) return;
+    document.getElementById('doc-page').innerHTML = html;
+    updatePreviewPageCount();
   } catch (e) {
     // Network hiccup — leave the last good render in place.
   }
@@ -1509,9 +1535,31 @@ document.getElementById('btn-pdf').addEventListener('click', async () => {
   }
 });
 
-document.getElementById('btn-print').addEventListener('click', () => {
-  toast('Opening print dialog…', 'ok');
-  requestAnimationFrame(() => window.print());
+// Print = the same server-rendered PDF (document only), opened in a new tab
+// for the browser/OS print flow. No window.print() — it printed page chrome
+// on some browsers and fails silently on mobile.
+document.getElementById('btn-print').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-print');
+  const orig = btn.textContent;
+  btn.disabled = true;
+  toast('Preparing print-ready PDF…', 'ok');
+  try {
+    const { blob, filename } = await _fetchPdfBlob();
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, '_blank');
+    if (!w) { // popup blocked → download instead
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (e) {
+    console.error(e);
+    toast('PDF failed — ' + (e.message || 'try again'), 'err');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = orig;
+  }
 });
 
 // Direct in-document editing. ON → #doc-page is contentEditable and the
@@ -1601,16 +1649,16 @@ function _downloadAndOpenWhatsApp(blob, filename) {
 // fields stay as typed (the discharge facts are case-specific Hindi prose —
 // no field translation round-trip, matching the template's Hindi-first focus).
 // =========================================================================
-function switchLang(newLang) {
-  if (state.lang === newLang) return;
-  state.lang = newLang;
+function selectLanguage(docLang) {
+  if (state.docLang === docLang) return;
+  state.docLang = docLang;
+  state.lang = docLang === 'en' ? 'en' : 'hi';   // mr → Hindi chrome (Devanagari)
   applyLang();
-  renderLive();
+  renderLive();                                    // renderLive regionalizes for mr
   scheduleSave();
-  document.dispatchEvent(new CustomEvent('headnote-lang-change', { detail: { lang: newLang } }));
+  document.dispatchEvent(new CustomEvent('headnote-lang-change', { detail: { lang: state.lang } }));
 }
-document.getElementById('lang-en').addEventListener('click', () => switchLang('en'));
-document.getElementById('lang-hi').addEventListener('click', () => switchLang('hi'));
+document.getElementById('lang-select').addEventListener('change', (e) => selectLanguage(e.target.value));
 
 // =========================================================================
 // Prose auto-translate on blur — English typed into a Hindi draft (or vice
