@@ -155,6 +155,9 @@ _COURT_TPL = {
     "sessions":           "न्यायालय माननीय सत्र न्यायाधीश महोदय, {city} ({state})",
     "principal_sessions": "न्यायालय माननीय प्रधान सत्र न्यायाधीश महोदय, {city} ({state})",
     "family":             "न्यायालय माननीय प्रधान न्यायाधीश महोदय, कुटुम्ब न्यायालय, {city} ({state})",
+    "civil":              "न्यायालय माननीय व्यवहार न्यायाधीश महोदय वर्ग-____, {city} ({state})",
+    "district_judge":     "न्यायालय माननीय जिला न्यायाधीश महोदय, {city} ({state})",
+    "consumer":           "जिला उपभोक्ता विवाद प्रतितोष आयोग, {city} ({state})",
     "hc":                 "माननीय उच्च न्यायालय मध्यप्रदेश खण्डपीठ {bench}",
 }
 _COURT_TPL_EN = {
@@ -163,13 +166,16 @@ _COURT_TPL_EN = {
     "sessions":           "Court of the Sessions Judge, {city} ({state})",
     "principal_sessions": "Court of the Principal Sessions Judge, {city} ({state})",
     "family":             "Court of the Principal Judge, Family Court, {city} ({state})",
+    "civil":              "Court of the Civil Judge, Class ____, {city} ({state})",
+    "district_judge":     "Court of the District Judge, {city} ({state})",
+    "consumer":           "District Consumer Disputes Redressal Commission, {city} ({state})",
     "hc":                 "High Court of Madhya Pradesh, Bench at {bench}",
 }
 
 
 def compose_court_name(level, city="", state="", bench=None, lang="hi"):
-    """level (magistrate/cjm/sessions/principal_sessions/family/hc) + city/district
-    → the forum's cause-title. For HC, the district picks the bench. Editable after."""
+    """level (magistrate/cjm/sessions/principal_sessions/family/civil/district_judge/consumer/hc)
+    + city/district → the forum's cause-title. For HC, the district picks the bench. Editable after."""
     tpls = _COURT_TPL if lang == "hi" else _COURT_TPL_EN
     if level == "hc":
         b = _hc_bench(city, bench, lang)

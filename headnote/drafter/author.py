@@ -104,8 +104,13 @@ VERIFIED_CITATIONS: dict[str, list[dict]] = {
 
 # generic families carry NO body-eligible citations — long-tail / civil drafts
 # argue on statute + facts; any authority the lawyer wants goes to cite-at-hearing.
+# Civil types stay body-empty until Vishnu ji verifies a civil ledger (skill rule #2);
+# their leading judgments live in the per-brief `cite_candidates` → cite_at_hearing only.
 VERIFIED_CITATIONS["other_criminal"] = []
 VERIFIED_CITATIONS["other_civil"] = []
+for _t in ("recovery_suit", "injunction_suit", "specific_performance", "declaration_suit",
+           "partition_suit", "eviction_suit", "written_statement", "consumer_complaint"):
+    VERIFIED_CITATIONS[_t] = []
 
 
 _NUM = re.compile(r"\d{1,4}")
@@ -439,23 +444,307 @@ TYPE_BRIEFS: dict[str, dict] = {
         "companions": ["vakalatnama"],
         "needs_verification": True, "needs_affidavit": False,
     },
+    # ------------------------------------------------------------------
+    # CIVIL FAMILY — per-suit briefs. Same discipline as the criminal set:
+    # controlling test in the brief, mandatory plaint paras in the skeleton,
+    # law-mandated companions surfaced. Leading judgments are OFFERED via
+    # `cite_candidates` (cite_at_hearing only — the civil body whitelist is
+    # empty until the advocate verifies a civil ledger).
+    # ------------------------------------------------------------------
+    "recovery_suit": {
+        "label_hi": "धन वसूली वाद", "label_en": "Suit for Recovery of Money",
+        "court": "civil", "case_code_hi": "व्यवहार वाद क्रमांक", "case_code_en": "Civil Suit",
+        "side_hi": "वादी की ओर से", "side_en": "On behalf of the Plaintiff",
+        "section_hi": "आदेश 7 नियम 1 सिविल प्रक्रिया संहिता, 1908",
+        "brief": (
+            "Money-recovery plaint. The transaction paras carry the case: WHAT was advanced (loan / goods "
+            "supplied / services / advance), on WHICH dates, against WHICH documents (pronote, invoice, "
+            "ledger, bank entries), and the demand + refusal. Give the arithmetic openly in one para: "
+            "principal, agreed/claimed interest rate and period, total as on filing. Plead limitation "
+            "(generally 3 years from the cause) and how the suit is within it; territorial jurisdiction "
+            "under §20 CPC (defendant resides / cause of action arose); valuation = principal + accrued "
+            "interest with ad-valorem court fee. Pray pendente-lite and future interest under §34 CPC. If "
+            "the claim rests on a written contract or negotiable instrument, note that the summary "
+            "procedure of Order XXXVII is available and say so in a warning."
+        ),
+        "skeleton": [
+            "F: parties and their descriptions",
+            "F: the dated transaction — what was advanced, against which documents",
+            "F: demand and refusal/neglect to pay (dates; any demand notice)",
+            "F: computation — principal + interest (rate, period) = total claimed",
+            "F: cause of action — 'वाद कारण दिनांक ____ को … उत्पन्न हुआ' (date + place)",
+            "F: jurisdiction (§20 CPC) — territorial + pecuniary",
+            "F: मूल्यांकन एवं न्यायशुल्क — valuation and court fee paid",
+            "F: limitation — period and why the suit is within it",
+            "prayer: decree for the total, pendente-lite + future interest (§34 CPC), costs",
+        ],
+        "companions": ["list of documents (Order VII Rule 14) — pronote/invoices/bank statement/notice",
+                       "court fee per valuation", "vakalatnama"],
+        "cite_candidates": [
+            {"case": "IDBI Trusteeship Services Ltd. v. Hubtown Ltd. (2017) 1 SCC 568",
+             "point": "Order XXXVII leave-to-defend spectrum (only if drafted as a summary suit)"},
+            {"case": "Mechelec Engineers & Manufacturers v. Basic Equipment Corpn. (1976) 4 SCC 687",
+             "point": "classic leave-to-defend principles under Order XXXVII"},
+        ],
+        "needs_verification": True, "needs_affidavit": False,
+    },
+    "injunction_suit": {
+        "label_hi": "स्थायी निषेधाज्ञा वाद", "label_en": "Suit for Permanent Injunction",
+        "court": "civil", "case_code_hi": "व्यवहार वाद क्रमांक", "case_code_en": "Civil Suit",
+        "side_hi": "वादी की ओर से", "side_en": "On behalf of the Plaintiff",
+        "section_hi": "धारा 38 विनिर्दिष्ट अनुतोष अधिनियम, 1963",
+        "brief": (
+            "Permanent injunction under §38 Specific Relief Act. The spine: (1) the plaintiff's lawful "
+            "possession/right over the suit property — a full वादग्रस्त संपत्ति description para with "
+            "boundaries (चौहद्दी), khasra/survey/house number; (2) the defendant's SPECIFIC acts of "
+            "interference with dates (threats, attempted dispossession, construction, obstruction); "
+            "(3) why the injury is continuing and not compensable in money. Jurisdiction: §16 CPC — where "
+            "the property is situate. Valuation commonly notional under §7(iv)(d) Court Fees Act with "
+            "fixed fee. ALWAYS produce the companion temporary-injunction application under Order XXXIX "
+            "Rules 1–2 read with §151 CPC pleading the triple test — prima facie case, balance of "
+            "convenience, irreparable injury — on supporting affidavit."
+        ),
+        "skeleton": [
+            "F: parties and their descriptions",
+            "F: वादग्रस्त संपत्ति — full description with boundaries/khasra + plaintiff's possession/title basis",
+            "F: defendant's acts of interference — specific, dated instances",
+            "F: injury continuing; not compensable in money; no adequate alternative remedy",
+            "F: cause of action (date of the latest interference) + jurisdiction (§16 CPC — situs)",
+            "F: मूल्यांकन एवं न्यायशुल्क (§7(iv)(d) Court Fees Act) + limitation (continuing cause)",
+            "prayer: permanent injunction restraining the specific acts + costs",
+        ],
+        "companions": ["Order XXXIX R.1–2 temporary-injunction application + supporting affidavit (triple test)",
+                       "list of documents (Order VII Rule 14) — title/possession papers, site map/khasra",
+                       "vakalatnama"],
+        "cite_candidates": [
+            {"case": "Dalpat Kumar v. Prahlad Singh (1992) 1 SCC 719",
+             "point": "the temporary-injunction triple test — prima facie case, balance of convenience, irreparable injury"},
+            {"case": "Wander Ltd. v. Antox India (P) Ltd. 1990 Supp SCC 727",
+             "point": "discretionary injunction orders — scope of appellate interference"},
+        ],
+        "needs_verification": True, "needs_affidavit": False,
+    },
+    "specific_performance": {
+        "label_hi": "विनिर्दिष्ट अनुपालन वाद", "label_en": "Suit for Specific Performance",
+        "court": "civil", "case_code_hi": "व्यवहार वाद क्रमांक", "case_code_en": "Civil Suit",
+        "side_hi": "वादी की ओर से", "side_en": "On behalf of the Plaintiff",
+        "section_hi": "धारा 10 विनिर्दिष्ट अनुतोष अधिनियम, 1963",
+        "brief": (
+            "Specific performance of an agreement to sell (§10 SRA — after the 2018 amendment it is a "
+            "statutory rule, no longer pure discretion). THE FATAL TRAP: §16(c) — the plaint MUST aver the "
+            "plaintiff's CONTINUOUS readiness and willingness to perform, from the agreement date to the "
+            "filing; omitting this averment is fatal. Plead: the agreement (date, property description, "
+            "total consideration, earnest/part payment with receipts), the agreed time/manner of "
+            "performance, the plaintiff's performance steps (payments, notices, presence before the "
+            "sub-registrar if any), and the defendant's breach/refusal with dates. Limitation Art. 54: "
+            "3 years from the date fixed for performance, or from refusal where no date is fixed. "
+            "Ad-valorem court fee on the consideration. Pray in the alternative: refund of earnest with "
+            "interest + damages/charge on the property. A companion Order XXXIX application to restrain "
+            "alienation of the suit property is standard."
+        ),
+        "skeleton": [
+            "F: parties and their descriptions",
+            "F: the agreement — date, property (full description), consideration, earnest paid (receipts)",
+            "F: agreed time/manner of performance; plaintiff's performance steps, dated",
+            "F: §16(c) — plaintiff was and REMAINS ready & willing to perform (continuous averment)",
+            "F: defendant's breach / refusal — dated instances; any legal notice",
+            "F: cause of action + jurisdiction (§16 CPC — situs) + limitation (Art. 54)",
+            "F: मूल्यांकन एवं न्यायशुल्क — ad valorem on the consideration",
+            "prayer: (अ) specific performance + registration; (ब) alternative — refund of earnest + interest/damages; (स) costs",
+        ],
+        "companions": ["Order XXXIX application to restrain alienation + affidavit",
+                       "list of documents (Order VII Rule 14) — agreement, receipts, notices",
+                       "vakalatnama"],
+        "cite_candidates": [
+            {"case": "Kamal Kumar v. Premlata Joshi (2019) 3 SCC 704",
+             "point": "the material questions a specific-performance plaintiff must plead and prove"},
+            {"case": "Saradamani Kandappan v. S. Rajalakshmi (2011) 12 SCC 18",
+             "point": "time/price-escalation and payment default in agreements to sell immovable property"},
+        ],
+        "needs_verification": True, "needs_affidavit": False,
+    },
+    "declaration_suit": {
+        "label_hi": "घोषणा वाद", "label_en": "Suit for Declaration",
+        "court": "civil", "case_code_hi": "व्यवहार वाद क्रमांक", "case_code_en": "Civil Suit",
+        "side_hi": "वादी की ओर से", "side_en": "On behalf of the Plaintiff",
+        "section_hi": "धारा 34 विनिर्दिष्ट अनुतोष अधिनियम, 1963",
+        "brief": (
+            "Declaration under §34 SRA of the plaintiff's legal character or right to property. Plead the "
+            "plaintiff's title/right chain, then the defendant's DENIAL or the cloud cast on it (the "
+            "instrument/mutation/claim) with dates — that denial is the cause of action. THE PROVISO "
+            "TRAP: where further relief (possession, injunction, cancellation) is available, a bare "
+            "declaration is barred — ALWAYS join the consequential relief the facts support. Limitation "
+            "Art. 58: 3 years from when the right to sue first accrues. Valuation under §7(iv)(c) Court "
+            "Fees Act (declaration with consequential relief). Jurisdiction §16 CPC for property."
+        ),
+        "skeleton": [
+            "F: parties and their descriptions",
+            "F: the plaintiff's title/right — the chain, with documents and dates",
+            "F: वादग्रस्त संपत्ति description (if property) — boundaries/khasra",
+            "F: the defendant's denial / the cloud (instrument, mutation, claim) — dated",
+            "F: consequential relief needed (possession / injunction / cancellation) — §34 proviso satisfied",
+            "F: cause of action + jurisdiction + limitation (Art. 58) + मूल्यांकन एवं न्यायशुल्क",
+            "prayer: (अ) declaration; (ब) the consequential relief; (स) costs",
+        ],
+        "companions": ["list of documents (Order VII Rule 14) — title papers, revenue record",
+                       "court fee per §7(iv)(c) valuation", "vakalatnama"],
+        "cite_candidates": [
+            {"case": "Anathula Sudhakar v. P. Buchi Reddy (2008) 4 SCC 594",
+             "point": "when a suit needs declaration of title vs injunction simpliciter — the classic exposition"},
+        ],
+        "needs_verification": True, "needs_affidavit": False,
+    },
+    "partition_suit": {
+        "label_hi": "बंटवारा वाद", "label_en": "Suit for Partition & Separate Possession",
+        "court": "civil", "case_code_hi": "व्यवहार वाद क्रमांक", "case_code_en": "Civil Suit",
+        "side_hi": "वादी की ओर से", "side_en": "On behalf of the Plaintiff",
+        "section_hi": "आदेश 7 नियम 1 सिविल प्रक्रिया संहिता, 1908",
+        "brief": (
+            "Partition and separate possession of joint / ancestral property. Open with the वंशावली "
+            "(genealogy) para establishing how the parties are co-sharers; then the SCHEDULE of joint "
+            "properties (सूची अ/ब — each item fully described); then the plaintiff's share as a fraction "
+            "WITH the basis (succession/coparcenary — daughters are equal coparceners); then the demand "
+            "for partition and refusal (the cause of action). Court fee: FIXED if the plaintiff is in "
+            "joint possession; AD VALOREM on the share if excluded from possession — plead possession "
+            "status explicitly. Prayer follows the two-decree structure: preliminary decree declaring the "
+            "share, then final decree by commissioner (Order XXVI) with mesne-profits enquiry if excluded."
+        ),
+        "skeleton": [
+            "F: parties and their descriptions",
+            "F: वंशावली — the family tree establishing co-ownership",
+            "F: schedule of joint properties (सूची) — each fully described",
+            "F: the plaintiff's share (fraction) + its legal basis; possession status (joint / excluded)",
+            "F: demand for partition and refusal — dated (cause of action)",
+            "F: jurisdiction (§16 CPC) + मूल्यांकन एवं न्यायशुल्क (fixed vs ad valorem per possession)",
+            "prayer: (अ) preliminary decree declaring the share; (ब) final partition via commissioner + separate possession; (स) mesne profits; (द) costs",
+        ],
+        "companions": ["list of documents (Order VII Rule 14) — revenue record, mutation, family documents",
+                       "vakalatnama"],
+        "cite_candidates": [
+            {"case": "Vineeta Sharma v. Rakesh Sharma (2020) 9 SCC 1",
+             "point": "daughters are coparceners by birth — equal share (Hindu Succession, §6 as amended)"},
+        ],
+        "needs_verification": True, "needs_affidavit": False,
+    },
+    "eviction_suit": {
+        "label_hi": "बेदखली एवं बकाया किराया वाद", "label_en": "Suit for Eviction & Arrears of Rent",
+        "court": "civil", "case_code_hi": "व्यवहार वाद क्रमांक", "case_code_en": "Civil Suit",
+        "side_hi": "वादी की ओर से", "side_en": "On behalf of the Plaintiff",
+        "section_hi": "धारा 12 म.प्र. स्थान नियंत्रण अधिनियम, 1961",
+        "brief": (
+            "Landlord's eviction suit in MP — governed by §12(1) M.P. Accommodation Control Act 1961: "
+            "eviction lies ONLY on the enumerated grounds, and the plaint must plead the EXACT clause(s). "
+            "The two district workhorses: §12(1)(a) arrears — tenant in arrears who failed to pay within "
+            "two months of a written demand notice (plead the notice, its service, and the exact arrears "
+            "computation; remember the tenant's §13 deposit protection); and §12(1)(e)/(f) bona fide "
+            "requirement (residential/non-residential) — plead the landlord's genuine need AND that he has "
+            "no other reasonably suitable accommodation of his own in the city. Plead the tenancy (start, "
+            "monthly rent, premises description), the ground facts with dates, and any quit notice. Pray "
+            "eviction + arrears + mesne profits/occupation charges till possession."
+        ),
+        "skeleton": [
+            "F: parties; the premises — full description",
+            "F: the tenancy — commencement, monthly rent, terms; rent last paid up to ____",
+            "F: the §12(1) ground(s) — clause named, facts pleaded specifically with dates",
+            "F: demand/quit notice — date, service, tenant's default (arrears computation)",
+            "F: cause of action + jurisdiction + मूल्यांकन एवं न्यायशुल्क (annual rent basis)",
+            "prayer: (अ) eviction & vacant possession; (ब) arrears of rent; (स) mesne profits till possession; (द) costs",
+        ],
+        "companions": ["demand/quit notice + service proof (registered post AD)",
+                       "list of documents (Order VII Rule 14) — rent note/receipts, notice",
+                       "vakalatnama"],
+        "cite_candidates": [],
+        "needs_verification": True, "needs_affidavit": False,
+    },
+    "written_statement": {
+        "label_hi": "जवाबदावा (लिखित कथन)", "label_en": "Written Statement",
+        "court": "civil", "case_code_hi": "व्यवहार वाद क्रमांक", "case_code_en": "Civil Suit",
+        "side_hi": "प्रतिवादी की ओर से", "side_en": "On behalf of the Defendant",
+        "section_hi": "आदेश 8 नियम 1 सिविल प्रक्रिया संहिता, 1908",
+        "brief": (
+            "Defendant's written statement under Order VIII. Structure is rigid: (1) प्रारंभिक आपत्तियां — "
+            "preliminary objections (maintainability, limitation, jurisdiction, under-valuation/court fee, "
+            "non-joinder/mis-joinder, no cause of action, §34 SRA bar — whichever the facts support); "
+            "(2) परिच्छेदवार जवाब — a PARA-WISE reply to every plaint para, each specifically admitted or "
+            "denied. THE TRAP: Order VIII Rules 3–5 — an evasive or general denial is DEEMED ADMISSION; "
+            "deny each allegation specifically. (3) विशेष कथन — the defendant's own affirmative case; "
+            "(4) set-off / counter-claim under Order VIII Rules 6/6A if the facts support one (it needs "
+            "its own court fee). Verification per Order VI Rule 15. Timing: 30 days from summons, outer "
+            "limit 90 days (Order VIII Rule 1) — warn if late."
+        ),
+        "skeleton": [
+            "head: प्रारंभिक आपत्तियां (preliminary objections)",
+            "G: each preliminary objection — one para each (limitation / jurisdiction / valuation / non-joinder / no cause of action)",
+            "head: परिच्छेदवार जवाब (para-wise reply)",
+            "F: reply to EACH plaint para in order — specific admission or specific denial (no evasive denials)",
+            "head: विशेष कथन (special pleas)",
+            "F: the defendant's affirmative facts, dated",
+            "[G]: set-off / counter-claim (Order VIII R.6/6A) with its own valuation",
+            "prayer: dismissal of the suit with costs (+ counter-claim decree if pleaded)",
+        ],
+        "companions": ["list of documents relied on by the defendant",
+                       "court fee on counter-claim (if any)", "vakalatnama"],
+        "cite_candidates": [
+            {"case": "Balraj Taneja v. Sunil Madan (1999) 8 SCC 396",
+             "point": "non-traverse / evasive denial in the written statement — consequences (O8 R3–5)"},
+        ],
+        "needs_verification": True, "needs_affidavit": False,
+    },
+    "consumer_complaint": {
+        "label_hi": "उपभोक्ता परिवाद", "label_en": "Consumer Complaint",
+        "court": "consumer", "case_code_hi": "उपभोक्ता परिवाद क्रमांक", "case_code_en": "Consumer Complaint",
+        "side_hi": "परिवादी की ओर से", "side_en": "On behalf of the Complainant",
+        "section_hi": "धारा 35 उपभोक्ता संरक्षण अधिनियम, 2019",
+        "brief": (
+            "Consumer complaint before the District Commission under §35 CPA 2019 (NOT a CPC plaint — a "
+            "complaint, but pleaded in numbered paras). First para must establish the complainant IS a "
+            "consumer (§2(7)): goods/services bought for consideration, not for a commercial purpose "
+            "(livelihood/self-employment excepted). Then the transaction (what, when, from whom, amount "
+            "paid — annex bill/receipt), then the defect in goods / deficiency in service (§2(11)) or "
+            "unfair trade practice — specific, dated instances; then the complaints made to the opposite "
+            "party and its failure. Jurisdiction: District Commission where the opposite party works/ "
+            "resides OR where the COMPLAINANT resides/works (§34(2)(d)); pecuniary limit is reckoned on "
+            "the CONSIDERATION PAID, not the compensation claimed. Limitation: 2 years from the cause "
+            "(§69; condonation possible on sufficient cause). Reliefs per §39: refund/replacement, "
+            "compensation for loss and harassment, litigation costs. Affidavit in support is mandatory."
+        ),
+        "skeleton": [
+            "F: the complainant is a consumer (§2(7)) — consideration paid, personal (non-commercial) purpose",
+            "F: the transaction — goods/service, date, amount paid, receipts/invoices",
+            "F: defect / deficiency (§2(11)) / unfair trade practice — specific, dated",
+            "F: complaints/notice to the opposite party and its failure or inaction",
+            "F: jurisdiction — §34(2)(d) (complainant's residence allowed) + consideration within the pecuniary limit",
+            "F: limitation — within 2 years (§69)",
+            "prayer: (अ) refund/replacement/rectification; (ब) compensation for loss and mental agony; (स) litigation costs",
+        ],
+        "companions": ["supporting affidavit (mandatory)", "bills/receipts + correspondence annexures",
+                       "prescribed complaint fee", "vakalatnama"],
+        "cite_candidates": [
+            {"case": "Lucknow Development Authority v. M.K. Gupta (1994) 1 SCC 243",
+             "point": "'service' construed widely; statutory bodies answerable; compensation for harassment"},
+        ],
+        "needs_verification": True, "needs_affidavit": True,
+    },
     "other_civil": {
         "label_hi": "वाद / आवेदन पत्र", "label_en": "Plaint / Application",
         "court": "civil", "case_code_hi": "व्यवहार वाद क्रमांक", "case_code_en": "Civil Suit",
         "side_hi": "वादी की ओर से", "side_en": "On behalf of the Plaintiff",
         "section_hi": "",
         "brief": (
-            "A civil matter (suit, petition, application) for which we have no dedicated template — e.g. a "
-            "suit for recovery / declaration / injunction / specific performance / partition, a written "
-            "statement, or an interlocutory application (Order 39 temporary injunction, etc.). Lay it out "
-            "as a plaint where appropriate: parties, jurisdiction & valuation, cause of action with "
-            "material facts numbered, the relief/prayer, and the verification under Order VI Rule 15 CPC. "
-            "Cite the correct CPC Order/Rule and substantive statute. Do not invent facts or case law."
+            "A civil matter for which no specific brief exists (the specific civil types — recovery, "
+            "injunction, specific performance, declaration, partition, eviction, written statement, "
+            "consumer — have their own briefs; this is the true residual: probate/succession, misc. civil "
+            "applications, execution, appointment of guardian, etc.). Lay it out as a plaint or "
+            "application as the relief demands: parties, dated material facts, cause of action, "
+            "jurisdiction & valuation with court fee, limitation, relief, and verification under Order VI "
+            "Rule 15 CPC. Cite the correct CPC Order/Rule and substantive statute. Do not invent facts or "
+            "case law."
         ),
         "skeleton": [
             "F: parties and their description",
-            "F: jurisdiction and valuation (पक्षकार / क्षेत्राधिकार / मूल्यांकन)",
-            "F: cause of action — material facts, numbered chronologically",
+            "F: material facts, numbered chronologically with dates",
+            "F: cause of action + jurisdiction + मूल्यांकन एवं न्यायशुल्क",
+            "F: limitation — period and why within it",
             "G: the plaintiff's entitlement in law",
             "prayer: the substantive relief + costs",
         ],
@@ -471,12 +760,17 @@ def brief_for(doc_type: str) -> dict:
 
 _FAMILY_ALIAS = {"divorce_13": "divorce", "suspension_389": "appeal"}
 
+# the civil doc_types — used to key the CPC drafting addendum and the civil fallback
+CIVIL_TYPES = {"recovery_suit", "injunction_suit", "specific_performance", "declaration_suit",
+               "partition_suit", "eviction_suit", "written_statement", "consumer_complaint",
+               "other_civil"}
+
 
 def family_for(doc_type: str) -> str:
     """Map a classifier doc_type to its citation-whitelist family."""
     doc_type = _FAMILY_ALIAS.get(doc_type, doc_type)
     return doc_type if doc_type in VERIFIED_CITATIONS else (
-        "other_civil" if doc_type == "other_civil" else "other_criminal"
+        "other_civil" if doc_type in CIVIL_TYPES else "other_criminal"
     )
 
 
@@ -533,6 +827,10 @@ ZERO FABRICATION — THE ABSOLUTE RULE:
 VERIFIED CITATIONS YOU MAY USE IN THE BODY (only these; reproduce exactly; omit if not apposite):
 {verified}
 
+REAL AUTHORITIES YOU MAY OFFER IN cite_at_hearing ONLY (never the body — not yet body-verified;
+offer only those genuinely apposite, reproduced exactly):
+{candidates}
+
 THE MATTER TYPE: {label}
 CONTROLLING LAW & APPROACH: {brief}
 BODY SKELETON (lay the paragraphs out in this order; [..] paras only if the facts support them):
@@ -541,7 +839,7 @@ BODY SKELETON (lay the paragraphs out in this order; [..] paras only if the fact
 Return ONLY valid JSON (no markdown fence), in this exact shape:
 {
   "lang": "hi" | "en",
-  "court_level": "magistrate" | "cjm" | "sessions" | "principal_sessions" | "family" | "hc" | "civil",
+  "court_level": "magistrate" | "cjm" | "sessions" | "principal_sessions" | "family" | "hc" | "civil" | "district_judge" | "consumer",
   "court_name": "<full cause-title in the chosen language; compose if user didn't give the city>",
   "case_code": "<एम.सी.आर.सी. / प्रकरण क्रमांक / आपराधिक अपील etc.>",
   "case_number": "", "case_year": "<YYYY or blank>",
@@ -576,17 +874,50 @@ def _verified_block(doc_family: str) -> str:
     return "\n".join(f"  • {c['case']} — {c['point']}" for c in cites)
 
 
+def _candidates_block(b: dict) -> str:
+    cands = b.get("cite_candidates") or []
+    if not cands:
+        return "  (none curated — list an authority only if you are certain it really exists.)"
+    return "\n".join(f"  • {c['case']} — {c['point']}" for c in cands)
+
+
+# CPC discipline for the civil family — appended to the system prompt so a civil draft
+# reads like a plaint/WS, not a criminal application wearing civil labels.
+_CIVIL_NOTE = """CIVIL DRAFTING ADDENDUM (this is a CIVIL matter — CPC discipline applies):
+• Party labels: वादी/प्रतिवादी (suit), आवेदक/अनावेदक (misc. civil application), परिवादी/अनावेदकगण (consumer).
+• A PLAINT carries, as separate numbered paras: parties & descriptions · the dated transaction/title facts ·
+  वादग्रस्त संपत्ति description for property suits (boundaries चौहद्दी, khasra/survey/house no.) · cause of
+  action — "वाद कारण दिनांक ____ को ____ में उत्पन्न हुआ" naming date AND place · jurisdiction (territorial
+  §16/§20 CPC + pecuniary) · मूल्यांकन एवं न्यायशुल्क (suit valuation and the court fee paid) · limitation —
+  the period and why the suit is within it. Missing any of these gets the plaint returned under Order VII.
+• PRAYER (सहायता) in lettered clauses: (अ) the main relief, (ब) consequential/alternative relief, (स) costs,
+  (द) अन्य अनुतोष जो न्यायालय उचित समझे.
+• Money claims: give the computation openly (principal, interest rate & period, total) and pray
+  pendente-lite + future interest under §34 CPC.
+• VERIFICATION per Order VI Rule 15 CPC — state which paras are from personal knowledge and which on
+  record/legal advice and belief, with place and date.
+• Sections: cite the CPC Order/Rule and the substantive Act precisely (Specific Relief Act 1963, T.P. Act
+  1882, M.P. Accommodation Control Act 1961, Consumer Protection Act 2019, Limitation Act 1963).
+  BNSS/CrPC/BNS/IPC have NO place in a civil pleading — do not cite them.
+
+"""
+
+
 def _author_system(doc_type: str, lang: str) -> str:
     b = brief_for(doc_type)
     fam = family_for(doc_type)
     skeleton = "\n".join(f"  {i+1}. {s}" for i, s in enumerate(b.get("skeleton", [])))
-    return (HOUSE_STYLE
-            .replace("{section_map}", _SECTION_MAP_NOTE)
-            .replace("{verified}", _verified_block(fam))
-            .replace("{label}", f'{b["label_hi"]} ({b["label_en"]})')
-            .replace("{brief}", b.get("brief", ""))
-            .replace("{skeleton}", skeleton or "  (compose a sensible order: facts → grounds → prayer)")
-            .replace("{lang}", "Hindi" if lang == "hi" else "English"))
+    system = (HOUSE_STYLE
+              .replace("{section_map}", _SECTION_MAP_NOTE)
+              .replace("{verified}", _verified_block(fam))
+              .replace("{candidates}", _candidates_block(b))
+              .replace("{label}", f'{b["label_hi"]} ({b["label_en"]})')
+              .replace("{brief}", b.get("brief", ""))
+              .replace("{skeleton}", skeleton or "  (compose a sensible order: facts → grounds → prayer)")
+              .replace("{lang}", "Hindi" if lang == "hi" else "English"))
+    if doc_type in CIVIL_TYPES:
+        system = system.replace("THE MATTER TYPE:", _CIVIL_NOTE + "THE MATTER TYPE:")
+    return system
 
 
 # ===========================================================================
@@ -687,10 +1018,20 @@ def render_authored(p: dict, lang: str = "hi") -> dict:
     p = p or {}
     warnings = list(p.get("warnings") or [])
 
-    court_level = (p.get("court_level") or "sessions").strip()
+    court_level = (p.get("court_level") or "").strip()
+    _known_levels = ("magistrate", "cjm", "sessions", "principal_sessions", "family",
+                     "civil", "district_judge", "consumer", "hc")
+    if court_level not in _known_levels:
+        # missing/unknown level → the brief's forum for a civil draft, sessions
+        # otherwise (never a Sessions cause-title on the face of a plaint)
+        if p.get("_doc_type") in CIVIL_TYPES:
+            court_level = brief_for(p.get("_doc_type")).get("court") or "civil"
+            if court_level not in _known_levels:
+                court_level = "civil"
+        else:
+            court_level = "sessions"
     court_name = (p.get("court_name") or "").strip() or compose_court_name(
-        court_level if court_level in ("magistrate", "cjm", "sessions", "principal_sessions", "family", "hc") else "sessions",
-        "", "म.प्र." if hi else "M.P.", lang="hi" if hi else "en")
+        court_level, "", "म.प्र." if hi else "M.P.", lang="hi" if hi else "en")
 
     hdr = render_header({
         "side_label": p.get("side_label") or "",
@@ -748,6 +1089,13 @@ def render_authored(p: dict, lang: str = "hi") -> dict:
     _texts = [p.get("title_line") or "", prayer]
     _texts += [str(i.get("text") or "") if isinstance(i, dict) else str(i) for i in paras]
     warnings.extend(guard_sections(_texts))
+    # a CIVIL pleading citing the criminal codes is itself a defect — flag it
+    if p.get("_doc_type") in CIVIL_TYPES:
+        _joined = "\n".join(t for t in _texts if t)
+        if re.search(_BNSS_TOKEN, _joined) or re.search(_CRPC_TOKEN, _joined, re.IGNORECASE):
+            warnings.append("व्यवहार (civil) प्रारूप में बी.एन.एस.एस./दं.प्र.सं. का उल्लेख मिला — "
+                            "civil pleading में आपराधिक संहिता का स्थान नहीं है; जाँचें। "
+                            "(A civil pleading cites BNSS/CrPC — verify and remove.)")
 
     # signature block
     role = p.get("signatory_role") or ("प्रार्थी" if hi else "Applicant")

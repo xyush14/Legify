@@ -1672,6 +1672,25 @@ button { font-family: inherit; }
 .pd-note--mirror h4 { color: var(--gold-ink, #8c7549); }
 .pd-note--mirror p { margin: 0; }
 
+/* सुझाव rail — sections check + missing points beside an authored draft.
+   Suggestion-only surface: pips carry state, + जोड़ें routes through /refine. */
+.pd-note--sug { background: #fcfcfa; border-color: var(--gold-line, #ece3c8); }
+.pd-note--sug h4 { color: var(--gold-ink, #8c7549); display: flex; justify-content: space-between; gap: 8px; }
+.pd-note--sug h4 .pd-sug-badge { font-weight: 500; color: var(--muted, #6b6960); letter-spacing: 0.05em; }
+.pd-sug-row { display: flex; gap: 9px; align-items: flex-start; padding: 6px 0; }
+.pd-sug-row + .pd-sug-row { border-top: 1px solid #f0eee8; }
+.pd-sug-pip { flex: none; width: 7px; height: 7px; border-radius: 50%; margin-top: 6px; background: #c9a227; }
+.pd-sug-pip--ok { background: #3d6b4f; }
+.pd-sug-pip--flag { background: #b3402a; }
+.pd-sug-row small { display: block; color: var(--muted, #6b6960); font-size: 11.5px; margin-top: 1px; }
+.pd-sug-add { margin-left: auto; flex: none; font-family: 'Geist Mono', monospace; font-size: 10px;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold-ink, #8c7549);
+  border: 1px solid var(--gold-line, #ece3c8); border-radius: 6px; padding: 2px 8px; background: #fff; cursor: pointer; }
+.pd-sug-add:hover { background: var(--gold-ink, #8c7549); color: #fff; border-color: var(--gold-ink, #8c7549); }
+.pd-sug-add:disabled { opacity: 0.5; cursor: default; }
+.pd-sug-lim { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--gold-line, #ece3c8);
+  font-size: 12.5px; color: var(--muted, #6b6960); }
+
 /* Reference-draft chip after selecting a file — gold-outlined so it reads as the
    "match this document's style" affordance (the button itself is quiet in the bar). */
 .pd__chip--ref { background: #fff; border-color: var(--gold-deep, #b4894b); color: var(--gold-ink, #8c7549); }

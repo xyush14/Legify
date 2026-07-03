@@ -516,7 +516,28 @@ machine with any account, in minutes.
 
 > Append a dated line whenever something structural changes. Newest on top.
 
-- **2026-07-01** — **Word (.docx) / Excel (.xlsx) attachments accepted everywhere PDFs/images are.**
+- **2026-07-03** — **सुझाव rail shipped — live drafting suggestions beside every prompt-drafted document.**
+  New `headnote/drafter/suggest.py` + `POST /api/draft/suggest`: sections check (expected provision +
+  BNSS↔CrPC pair guard + criminal-code-in-civil flag), missing mandatory paras (one guarded DeepSeek
+  call diffing the draft against the type's skeleton — degrades to a "limited" note offline), a
+  per-type limitation clock, companions and labelled authorities. Frontend: `fetchSuggestions()` in
+  `static/index.html` renders a `pd-note--sug` card atop the result notes (CSS in `style.css`,
+  `?v=20260703a` cache-bust); **+ जोड़ें** routes the suggested para through the existing guarded
+  `/refine` path — nothing ever auto-inserts, the advocate is the gate. Canonical drafts skip the LLM
+  missing-check (`llm:false` — their paras are complete by construction).
+- **2026-07-03** — **Civil drafting upgraded from one generic bucket to eight first-class suit types.**
+  The prompt-drafter's `other_civil` catch-all is now the true residual: the classifier
+  (`from_prompt.py`) gained specific keys — `recovery_suit`, `injunction_suit`, `specific_performance`,
+  `declaration_suit`, `partition_suit`, `eviction_suit`, `written_statement`, `consumer_complaint` — each
+  with its own `TYPE_BRIEFS` entry in `author.py` (controlling test + mandatory CPC plaint paras +
+  companions + curated `cite_candidates` offered to **cite-at-hearing only**; civil body whitelist stays
+  empty until Vishnu ji verifies a civil ledger). A `CIVIL DRAFTING ADDENDUM` is injected into the
+  authoring prompt for civil types (O7 plaint paras, मूल्यांकन/न्यायशुल्क, §34 CPC interest, O6 R15
+  verification, lettered सहायता prayer, "no BNSS/CrPC in a civil pleading" + a render-time guard that
+  flags it). `_doc_header.py` gained **civil / district_judge / consumer** cause-titles, and
+  `_authored_court()` stops the classifier's criminal-forum guess from leaking a Sessions/Magistrate
+  cause-title onto a plaint. Also fixed: the `writ` heuristic matching the substring in "written
+  statement". Verified: offline suite green + live Groq classify 5/5.
   Office files aren't images, so they take a **separate path**: extract text directly (python-docx for
   Word, openpyxl for Excel → Markdown tables) and **skip vision OCR**; the extracted text then feeds the
   same downstream flow (draft prefill / field extraction / searchable vault). New module

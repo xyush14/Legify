@@ -70,7 +70,7 @@ def _editor_handoff(module_key: str, court: str, bail_type: str, data: dict) -> 
 CLASSIFY_SYSTEM = """You are the intake router for an Indian litigation drafting tool (Madhya Pradesh trial
 courts + High Court). Read the advocate's description of what they want to draft — it may be in Hindi, English
 or Hinglish — and classify it. Output ONLY valid JSON, no prose:
-{"doc_type": "<one key below>", "court": "magistrate"|"sessions"|"hc"|"family"|"", "bail_type": "regular"|"anticipatory"|"", "language": "hi"|"en", "confidence": 0.0-1.0, "reason": "<short>"}
+{"doc_type": "<one key below>", "court": "magistrate"|"sessions"|"hc"|"family"|"civil"|"consumer"|"", "bail_type": "regular"|"anticipatory"|"", "language": "hi"|"en", "confidence": 0.0-1.0, "reason": "<short>"}
 
 "language" = the language the DRAFT should be written in, inferred from how the advocate wrote:
   • Devanagari (Hindi) text → "hi".
@@ -113,8 +113,16 @@ doc_type keys (pick the SINGLE best fit):
   restitution_9      restitution of conjugal rights (§9 HMA; दाम्पत्य पुनर्स्थापना)
   general_affidavit  a standalone affidavit (शपथ पत्र) is itself the ask
   legal_notice       a legal / demand notice to be SENT (not filed in court)
+  recovery_suit      civil suit to RECOVER money owed — loan / goods supplied / services / advance (धन वसूली वाद)
+  injunction_suit    civil suit for (permanent) injunction to restrain interference / dispossession / construction (§38 SRA; निषेधाज्ञा / व्यादेश)
+  specific_performance  suit to enforce an agreement to sell / contract (§10 SRA; विनिर्दिष्ट अनुपालन; इकरारनामा)
+  declaration_suit   suit for declaration of right / title / status (§34 SRA; घोषणा वाद)
+  partition_suit     partition of joint / ancestral property + separate possession (बंटवारा वाद)
+  eviction_suit      landlord's suit to evict a tenant / arrears of rent (MP Accommodation Control Act §12; बेदखली)
+  written_statement  the DEFENDANT's written statement / जवाबदावा in reply to a plaint (Order VIII CPC)
+  consumer_complaint consumer complaint — defective goods / deficient service (CPA 2019; उपभोक्ता परिवाद)
   other_criminal     any OTHER criminal application/petition with no specific key
-  other_civil        any CIVIL matter — suit, written statement, injunction, recovery, declaration, partition, eviction, consumer, etc.
+  other_civil        any OTHER civil matter with no specific key above — probate, succession, execution, misc. civil application
 
 Rules:
 - PICK A SPECIFIC KEY ONLY ON A CLEAR SIGNAL. Many lawyer queries are research/analysis ("what are the
@@ -144,9 +152,16 @@ Rules:
   (director, signatory, drawer — any defence posture) → ni_138_dismiss, never cheque_138.
 - Police refusing/not registering the FIR → complaint_156, NOT parivad.
 - Release of a seized vehicle / phone / goods → supurdgi.
-- Clearly civil (money recovery, property, contract, injunction, partition, eviction, consumer, written
-  statement, declaration, specific performance) → other_civil.
+- Civil: pick the SPECIFIC civil key when the relief is clear (recovery_suit / injunction_suit /
+  specific_performance / declaration_suit / partition_suit / eviction_suit / written_statement /
+  consumer_complaint); other_civil ONLY when none fits. A suit combining declaration AND injunction →
+  key on the PRIMARY relief (title disputed → declaration_suit; pure possession protection → injunction_suit).
+- written_statement ONLY when the client is the DEFENDANT answering a civil plaint; answering an
+  application the other side filed in an ongoing case stays `reply`.
+- eviction_suit is the LANDLORD's suit; a tenant defending eviction → written_statement.
 - Criminal but no specific key fits → other_criminal.
+- Civil suit keys → court "civil"; consumer_complaint → court "consumer". NEVER a criminal court
+  (magistrate/sessions) for a civil suit.
 - Set court only when clear from the text; otherwise "".
 """
 
@@ -205,6 +220,8 @@ _VOCAB = {
     "production_warrant", "reply", "mention_memo", "writ_petition", "habeas_corpus",
     "stay_petition", "transfer_petition", "mact_166", "divorce_13", "restitution_9",
     "general_affidavit", "legal_notice",
+    "recovery_suit", "injunction_suit", "specific_performance", "declaration_suit",
+    "partition_suit", "eviction_suit", "written_statement", "consumer_complaint",
     "other_criminal", "other_civil",
 }
 
@@ -228,7 +245,10 @@ def _heuristic_type(matter: str) -> str:
         return "quashing"
     if has("habeas", "बन्दी प्रत्यक्षीकरण", "बंदी प्रत्यक्षीकरण", "illegal detention", "अवैध निरोध"):
         return "habeas_corpus"
-    if has("writ", "रिट", "226", "227 "):
+    # BEFORE the writ check — "written statement" contains the substring "writ"
+    if has("written statement", "जवाबदावा", "जवाब दावा", "order 8", "order viii"):
+        return "written_statement"
+    if has("writ", "रिट", "226", "227 ") and not has("written"):
         return "writ_petition"
     if has("transfer", "स्थानान्तरण", "स्थानांतरण", "407", "447"):
         return "transfer_petition"
@@ -284,8 +304,22 @@ def _heuristic_type(matter: str) -> str:
         return "reply"
     if has("bail", "जमानत", "483", "480", "439", "437"):
         return "bail"
-    if has("suit", "recovery", "injunction", "वाद", "वसूली", "व्यादेश", "declaration", "partition",
-           "eviction", "बेदखली", "specific performance", "written statement", "जवाबदावा", "consumer"):
+    if has("specific performance", "विनिर्दिष्ट अनुपालन", "agreement to sell", "इकरारनामा", "बयनामा"):
+        return "specific_performance"
+    if has("partition", "बंटवारा", "बटवारा", "विभाजन वाद"):
+        return "partition_suit"
+    if has("eviction", "बेदखली", "बे-दखली", "किरायेदार", "tenant", "किराया बकाया", "arrears of rent"):
+        return "eviction_suit"
+    if has("consumer", "उपभोक्ता", "deficiency in service", "सेवा में कमी"):
+        return "consumer_complaint"
+    if has("declaration", "घोषणा", "declaratory"):
+        return "declaration_suit"
+    if has("injunction", "निषेधाज्ञा", "व्यादेश", "39 rule 1", "order 39", "order xxxix"):
+        return "injunction_suit"
+    if has("recovery of money", "money recovery", "वसूली", "loan recovery", "money suit",
+           "recovery suit", "उधार वापस"):
+        return "recovery_suit"
+    if has("suit", "recovery", "वाद", "probate", "succession", "उत्तराधिकार"):
         return "other_civil"
     return "other_criminal"
 
@@ -379,6 +413,18 @@ _CODE_SENSITIVE = {
 }
 _DATEISH = None  # compiled lazily
 
+_CIVIL_FORUMS = ("civil", "district_judge", "consumer")
+
+
+def _authored_court(author_type: str, cls: dict) -> str:
+    """The court handed to the authoring engine. A civil matter never takes the
+    classifier's criminal-forum guess (its enum is criminal-leaning) — the brief's
+    civil forum wins; a genuine civil-forum guess passes through."""
+    guess = (cls.get("court") or "").strip()
+    if author_type in author.CIVIL_TYPES and guess not in _CIVIL_FORUMS:
+        return author.brief_for(author_type).get("court") or "civil"
+    return guess or (author.brief_for(author_type).get("court") or "")
+
 
 def _code_gate_warning(matter: str, doc_type: str, lang: str) -> str:
     """Return a warning string when the BNSS/CrPC choice could not be anchored."""
@@ -466,11 +512,12 @@ def draft_from_prompt(matter: str, lang: str = "auto", reference_text: str = "")
         skeleton = author.extract_reference_skeleton(reference_text, lang)
         author_type = dt if dt in author.TYPE_BRIEFS else (
             "other_civil" if dt == "other_civil" else "other_criminal")
+        a_court = _authored_court(author_type, cls)
         result = author.author_document(
-            matter, author_type, lang, court=cls.get("court") or "",
+            matter, author_type, lang, court=a_court,
             reference_skeleton=skeleton)
         result.update({
-            "court": cls.get("court") or author.brief_for(author_type).get("court"),
+            "court": a_court,
             "confidence": cls["confidence"],
             "html_hi": result["html"] if lang != "en" else "",
             "html_en": result["html"] if lang == "en" else "",
@@ -533,9 +580,10 @@ def draft_from_prompt(matter: str, lang: str = "auto", reference_text: str = "")
     # --- authored (house-style LLM) path — long tail + civil + anything else ---
     author_type = dt if dt in author.TYPE_BRIEFS else (
         "other_civil" if dt == "other_civil" else "other_criminal")
-    result = author.author_document(matter, author_type, lang, court=cls.get("court") or "")
+    a_court = _authored_court(author_type, cls)
+    result = author.author_document(matter, author_type, lang, court=a_court)
     result.update({
-        "court": cls.get("court") or author.brief_for(author_type).get("court"),
+        "court": a_court,
         "confidence": cls["confidence"],
         "html_hi": result["html"] if lang != "en" else "",
         "html_en": result["html"] if lang == "en" else "",

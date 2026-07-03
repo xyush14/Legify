@@ -190,6 +190,29 @@ def draft_from_prompt_route(body: FromPromptBody):
         return JSONResponse({"ok": False, "error": f"{type(e).__name__}: {e}"}, status_code=500)
 
 
+class SuggestBody(BaseModel):
+    doc_type: str = Field(..., description="classifier doc_type / brief key, e.g. 'recovery_suit', 'bail'")
+    text:     str = Field(..., description="the current draft (HTML or plain text)")
+    lang:     Literal["hi", "en"] = "hi"
+    llm:      bool = Field(True, description="False = deterministic-only (skip the missing-points LLM call)")
+
+
+@router.post("/suggest", summary="सुझाव rail — sections check, missing points, limitation, companions, authorities")
+def suggest_route(body: SuggestBody):
+    """Live drafting suggestions beside the editor: everything except `missing`
+    is a pure lookup over the type briefs + section guards (zero LLM); `missing`
+    is one guarded DeepSeek call that degrades gracefully when offline. Nothing
+    is ever auto-inserted — see headnote/drafter/suggest.py."""
+    from fastapi.responses import JSONResponse
+    from headnote.drafter.suggest import suggest_for
+    if not (body.text or "").strip():
+        return JSONResponse({"ok": False, "error": "empty draft text"}, status_code=400)
+    try:
+        return suggest_for(body.doc_type, body.text, body.lang, use_llm=body.llm)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": f"{type(e).__name__}: {e}"}, status_code=500)
+
+
 class AssistRouteBody(BaseModel):
     prompt:  str = Field(..., description="freeform request, e.g. 'I need an RFA' / 'जमानत का आवेदन'")
     lang:    Literal["hi", "en", "auto"] = "auto"
