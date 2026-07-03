@@ -33,6 +33,9 @@ feedback.db-journal
 kanoon_cache/
 .cache/
 
+# Notion sync — local marker for scripts/notion_sync.py (last commit mirrored to Notion)
+.notion_sync_state.json
+
 # IDE / tooling
 .vscode/
 .idea/
@@ -57,3 +60,9 @@ research/courtbook/
 templates_reference/*
 !templates_reference/README.md
 _build/
+
+# Exported user PII (Supabase snapshot) — never commit
+headnote_contacts.csv
+
+# Regional-language runtime write-back cache (machine translations, not verified)
+headnote/drafter/i18n/machine/

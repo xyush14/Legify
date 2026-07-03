@@ -70,7 +70,7 @@ def regionalize(html: str, lang: str, *, translate_missing: bool = True) -> tupl
     report = {lang, nodes, hit, translated, missed, verified} — `verified` is
     True only if every substituted node came from an advocate-verified entry.
     """
-    report = {"lang": lang, "nodes": 0, "hit": 0, "translated": 0,
+    report = {"lang": lang, "nodes": 0, "hit": 0, "cached": 0, "translated": 0,
               "missed": 0, "verified": True}
     if lang not in _REGIONAL or not html:
         return html, report
@@ -78,7 +78,8 @@ def regionalize(html: str, lang: str, *, translate_missing: bool = True) -> tupl
     nodes = _visible_nodes(html)
     report["nodes"] = len(nodes)
 
-    # Pass 1 — substitute everything in the verified cache (deterministic, free).
+    # Pass 1 — verified cache (filing-grade, free) → machine cache (prior LLM
+    # output, free) → collect true misses for the LLM.
     misses: list[str] = []
     for src in nodes:
         hit = _cache.lookup(src, lang)
@@ -88,25 +89,35 @@ def regionalize(html: str, lang: str, *, translate_missing: bool = True) -> tupl
                 html = _replace_node(html, src, tgt)
             report["hit"] += 1
             report["verified"] = report["verified"] and verified
-        elif translate_missing and _worth_translating(src):
+            continue
+        cached = _cache.machine_lookup(src, lang)
+        if cached is not None:
+            html = _replace_node(html, src, cached)
+            report["cached"] = report.get("cached", 0) + 1
+            report["verified"] = False           # machine output is unverified
+            continue
+        if translate_missing and _worth_translating(src):
             misses.append(src)
         else:
             report["missed"] += 1
 
-    # Pass 2 — translate all remaining prose in ONE batched LLM call (a whole
-    # uncached document is ~dozens of nodes; sequential calls would be unusably
-    # slow). Any node here is machine output, so the doc is not "verified".
+    # Pass 2 — translate the remaining prose in ONE batched LLM call, then WRITE
+    # BACK so the next render of these paragraphs is an instant cache hit.
     if misses:
         report["verified"] = False
         try:
             from headnote.drafter.i18n.engine import translate_batch
             outs = translate_batch(misses, lang, source_lang="hi", mode="boilerplate")
+            fresh: dict[str, str] = {}
             for src, tgt in zip(misses, outs):
                 if tgt and tgt != src:
                     html = _replace_node(html, src, tgt)
                     report["translated"] += 1
+                    fresh[src] = tgt
                 else:
                     report["missed"] += 1
+            if fresh:
+                _cache.machine_store_many(fresh, lang)   # write-back
         except Exception as e:  # LLM unreachable / no key — degrade gracefully
             log.warning("[i18n] batch translate failed (%s): %s", lang, str(e)[:120])
             report["missed"] += len(misses)
