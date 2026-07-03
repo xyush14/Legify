@@ -630,17 +630,21 @@ TYPE_BRIEFS: dict[str, dict] = {
         "label_hi": "बेदखली एवं बकाया किराया वाद", "label_en": "Suit for Eviction & Arrears of Rent",
         "court": "civil", "case_code_hi": "व्यवहार वाद क्रमांक", "case_code_en": "Civil Suit",
         "side_hi": "वादी की ओर से", "side_en": "On behalf of the Plaintiff",
-        "section_hi": "धारा 12 म.प्र. स्थान नियंत्रण अधिनियम, 1961",
+        "section_hi": "राज्य के लागू किरायेदारी/स्थान नियंत्रण अधिनियम की सुसंगत धारा",
         "brief": (
-            "Landlord's eviction suit in MP — governed by §12(1) M.P. Accommodation Control Act 1961: "
-            "eviction lies ONLY on the enumerated grounds, and the plaint must plead the EXACT clause(s). "
-            "The two district workhorses: §12(1)(a) arrears — tenant in arrears who failed to pay within "
-            "two months of a written demand notice (plead the notice, its service, and the exact arrears "
-            "computation; remember the tenant's §13 deposit protection); and §12(1)(e)/(f) bona fide "
-            "requirement (residential/non-residential) — plead the landlord's genuine need AND that he has "
+            "Landlord's eviction suit — governed by the RENT-CONTROL statute OF THE SUIT'S OWN STATE (this "
+            "is a State subject, so use the correct State Act, not MP's by default): e.g. MP Accommodation "
+            "Control Act 1961 §12(1), Maharashtra Rent Control Act 1999, Delhi Rent Act, West Bengal "
+            "Premises Tenancy Act 1997, Tamil Nadu Tenancy Act 2017, Rajasthan Rent Control Act 2001, etc. "
+            "Eviction lies ONLY on that Act's enumerated grounds, and the plaint must plead the EXACT "
+            "clause(s). The common workhorses across these Acts: (1) ARREARS — tenant in arrears who failed "
+            "to pay within the statutory period of a written demand notice (plead the notice, its service, "
+            "the exact arrears computation, and any statutory deposit protection); and (2) BONA FIDE "
+            "REQUIREMENT (residential/non-residential) — plead the landlord's genuine need AND that he has "
             "no other reasonably suitable accommodation of his own in the city. Plead the tenancy (start, "
-            "monthly rent, premises description), the ground facts with dates, and any quit notice. Pray "
-            "eviction + arrears + mesne profits/occupation charges till possession."
+            "monthly rent, premises description), the ground facts with dates, and any quit notice. If the "
+            "State's Act / section is unknown, write ____ and flag it. Pray eviction + arrears + mesne "
+            "profits/occupation charges till possession."
         ),
         "skeleton": [
             "F: parties; the premises — full description",
@@ -787,24 +791,41 @@ _SECTION_MAP_NOTE = (
     "Substantive offence follows the FIR's code (IPC→BNS: 302→103, 420→318, 376→64)."
 )
 
-HOUSE_STYLE = """You are the drafting engine of Headnote, drafting for a senior Indian trial-court advocate
-in Madhya Pradesh. You produce a COURT-READY litigation draft in that advocate's house style — it must be
-indistinguishable from a document a senior advocate's office actually files. NOT a generic, plain-English,
-"school application" letter. You write the SUBSTANCE (facts recital, the numbered grounds, the prayer); the
-page layout is applied by Headnote, so you return STRUCTURED JSON only.
+HOUSE_STYLE = """You are the drafting engine of Headnote, drafting for a senior Indian litigation advocate.
+Headnote is used by advocates ACROSS INDIA — every State and Union Territory, every trial court, tribunal and
+High Court. You produce a COURT-READY litigation draft in that advocate's house style — it must be
+indistinguishable from a document a senior advocate's office actually files IN THAT STATE'S courts. NOT a
+generic, plain-English, "school application" letter. You write the SUBSTANCE (facts recital, the numbered
+grounds, the prayer); the page layout is applied by Headnote, so you return STRUCTURED JSON only.
+
+DRAFT FOR THE MATTER'S OWN STATE — never assume Madhya Pradesh (or any single State). Read the forum/State
+from the matter and draft for THAT jurisdiction: its High Court and bench, its trial-court cause-title idiom,
+and its State-specific statutes. If the State/court is not stated, leave the location blanks as ____ — do NOT
+default to a State.
 
 HOUSE STYLE — follow exactly:
-• Default language is Hindi in formal court register (Devanagari), unless asked for English. This is the
-  language of an MP district/High-Court filing — NOT Hinglish, NOT casual Hindi.
+• LANGUAGE: write in the language requested ({lang}). If Hindi, use formal Devanagari court register (NOT
+  Hinglish, NOT casual Hindi) — natural for Hindi-belt forums (UP, MP, Bihar, Rajasthan, Chhattisgarh,
+  Jharkhand, Uttarakhand, Haryana, HP, Delhi). If English, use formal Indian court English — the norm for
+  most other High Courts and many State trial courts. Match the register a senior office in that State files.
 • PARTIES: a full descriptor block, not a bare name. Applicant = naam + पुत्र/पुत्री/पत्नी श्री <father/husband>
   + आयु + व्यवसाय + निवासी <address>, जिला <district> (<state>). Respondent for a State criminal matter =
   "<state> शासन द्वारा, पुलिस थाना <PS>, जिला <district>". Use the right party LABELS per matter:
   आवेदक/आवेदिका (applicant), प्रार्थी/प्रार्थिनी (petitioner in body), अनावेदक (non-applicant/State),
   व्यथित (DV aggrieved), प्रत्यर्थीगण (DV respondents), वादी/प्रतिवादी (civil plaintiff/defendant),
   अपीलार्थी (appellant), पुनरीक्षणकर्ता (revisionist).
-• COURT NAME: compose the correct cause-title — e.g. "न्यायालय माननीय सत्र न्यायाधीश महोदय, <नगर> (म.प्र.)",
-  "न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी महोदय, <नगर> (म.प्र.)", "माननीय उच्च न्यायालय मध्यप्रदेश
-  खण्डपीठ <bench>", "न्यायालय माननीय प्रधान न्यायाधीश महोदय, कुटुम्ब न्यायालय, <नगर> (म.प्र.)".
+• COURT NAME: compose the correct cause-title for the matter's OWN State and forum. Trial courts (any State):
+  "न्यायालय माननीय सत्र न्यायाधीश महोदय, <नगर> (<राज्य>)", "…न्यायिक दण्डाधिकारी प्रथम श्रेणी…, <नगर> (<राज्य>)",
+  "…प्रधान न्यायाधीश, कुटुम्ब न्यायालय, <नगर> (<राज्य>)"; in English "Court of the Sessions Judge, <city>
+  (<State>)". HIGH COURT — use the RIGHT High Court for the State (there are 25). Map the State→HC, and the
+  district→bench: Maharashtra/Goa→Bombay HC (benches Nagpur/Aurangabad/Panaji); UP→Allahabad HC (Lucknow
+  bench); WB→Calcutta HC; TN/Puducherry→Madras HC (Madurai bench); Rajasthan→Rajasthan HC (Jaipur/Jodhpur);
+  Punjab/Haryana/Chandigarh→Punjab & Haryana HC; Assam/Nagaland/Mizoram/Arunachal→Gauhati HC (Kohima/Aizawl/
+  Itanagar); Karnataka→Karnataka HC (Dharwad/Kalaburagi); MP→MP HC (Indore/Gwalior/Jabalpur); Tripura→Tripura
+  HC at Agartala; Kerala→Kerala HC; Gujarat→Gujarat HC; Delhi→Delhi HC; Telangana/AP, Bihar→Patna, Odisha→
+  Orissa, J&K & Ladakh, HP, Uttarakhand, Jharkhand, Chhattisgarh, Sikkim, Manipur, Meghalaya — each its own HC.
+  English HC form "In the High Court of <Name> at <Seat>". If you cannot tell the State, write ____ — NEVER
+  write "Madhya Pradesh"/"मध्यप्रदेश" for a matter that is not from MP.
 • BODY: every numbered paragraph BEGINS with "यह कि" (you may write "यहकि"). Facts first, then grounds —
   one discrete point per paragraph, in formal register, justified prose. After the last ground, ALWAYS add
   the closer: "यह कि, अन्य तर्क वक्त बहस मौखिक रुप से निवेदित किये जावेंगे।"
@@ -821,8 +842,18 @@ ZERO FABRICATION — THE ABSOLUTE RULE:
 • If you want to rely on any OTHER authority, do NOT put it in the body. Put a short, accurate, real reference
   in "cite_at_hearing" — and if you are not certain a judgment exists with that exact citation, DO NOT list it
   at all. An empty cite_at_hearing is correct and safe.
-• Do NOT invent FACTS either. Use only what the user gave. For any unknown but needed fact (a name, date, FIR
-  number, amount), write a blank "____" in the text — never guess. It is better to leave ____ than to fabricate.
+• FACTS — THE GROUNDING CONTRACT (as absolute as the citation rule):
+  – Every concrete fact in the draft — a name, a relationship (wife/husband/son/father/heir/guarantor),
+    a date, a money amount, an FIR/case/account number, an address, an event — MUST come from what the
+    advocate actually gave you. If the advocate did not state it, it does not exist.
+  – NEVER manufacture a fact pattern or a narrative to make the draft "look complete". Do not infer a
+    relationship, invent a party, assume a reason for a loan, or supply a plausible date/amount. A draft
+    that is mostly "____" blanks is CORRECT and safe; an invented story is a career-ending fabrication for
+    the advocate and the exact failure that loses their trust.
+  – For every fact the structure needs but the advocate did not give, write "____" — never a guess, never a
+    placeholder name like "Ram Kumar" or a specimen date. List each such gap in "warnings" so the advocate
+    knows what to fill.
+  – When the input is thin, WRITE A THIN DRAFT (the skeleton with ____ blanks). Do not pad it with content.
 
 VERIFIED CITATIONS YOU MAY USE IN THE BODY (only these; reproduce exactly; omit if not apposite):
 {verified}
@@ -885,8 +916,10 @@ def _candidates_block(b: dict) -> str:
 # reads like a plaint/WS, not a criminal application wearing civil labels.
 _CIVIL_NOTE = """CIVIL DRAFTING ADDENDUM (this is a CIVIL matter — CPC discipline applies):
 • Party labels: वादी/प्रतिवादी (suit), आवेदक/अनावेदक (misc. civil application), परिवादी/अनावेदकगण (consumer).
-• CAUSE-TITLE in MP idiom — a suit: "न्यायालय माननीय व्यवहार न्यायाधीश महोदय वर्ग-____, <नगर> (म.प्र.)"
-  (NOT "नागरिक न्यायाधीश"/"सिविल जज"); consumer: "जिला उपभोक्ता विवाद प्रतितोष आयोग, <नगर> (म.प्र.)".
+• CAUSE-TITLE for the suit's OWN State — a suit (Hindi-belt idiom): "न्यायालय माननीय व्यवहार न्यायाधीश महोदय
+  वर्ग-____, <नगर> (<राज्य>)" (NOT "नागरिक न्यायाधीश"/"सिविल जज"); in English "Court of the Civil Judge,
+  <Senior/Junior> Division, <city> (<State>)"; consumer: "जिला उपभोक्ता विवाद प्रतितोष आयोग, <नगर> (<राज्य>)" /
+  "District Consumer Disputes Redressal Commission, <city> (<State>)". Use the matter's State, never MP by default.
 • A PLAINT carries, as separate numbered paras: parties & descriptions · the dated transaction/title facts ·
   वादग्रस्त संपत्ति description for property suits (boundaries चौहद्दी, khasra/survey/house no.) · cause of
   action — "वाद कारण दिनांक ____ को ____ में उत्पन्न हुआ" naming date AND place · jurisdiction (territorial
@@ -899,8 +932,12 @@ _CIVIL_NOTE = """CIVIL DRAFTING ADDENDUM (this is a CIVIL matter — CPC discipl
 • VERIFICATION per Order VI Rule 15 CPC — state which paras are from personal knowledge and which on
   record/legal advice and belief, with place and date.
 • Sections: cite the CPC Order/Rule and the substantive Act precisely (Specific Relief Act 1963, T.P. Act
-  1882, M.P. Accommodation Control Act 1961, Consumer Protection Act 2019, Limitation Act 1963).
-  BNSS/CrPC/BNS/IPC have NO place in a civil pleading — do not cite them.
+  1882, Consumer Protection Act 2019, Limitation Act 1963). For STATE-SPECIFIC subjects use the RIGHT State's
+  Act, not MP's: rent control/eviction is a State statute — e.g. MP Accommodation Control Act 1961,
+  Maharashtra Rent Control Act 1999, Delhi Rent Act 1995, West Bengal Premises Tenancy Act 1997, Tamil Nadu
+  Regulation of Rights & Responsibilities of Landlords & Tenants Act 2017, Rajasthan Rent Control Act 2001,
+  etc.; COURT FEES follow the applicable State Court-Fees Act. If unsure which State Act applies, write ____
+  and flag it — do NOT default to the MP Act. BNSS/CrPC/BNS/IPC have NO place in a civil pleading.
 
 """
 
@@ -997,6 +1034,121 @@ def _guard_citations(text: str, fingerprints: set[tuple[str, str]]) -> tuple[str
 
 
 # ===========================================================================
+# 4b) FACT-GROUNDING GUARD  — the fact analog of the citation guard, and the
+#     single most important trust control in the drafter. An LLM asked to fill a
+#     rich draft structure from a THIN brief will invent a plausible fact pattern
+#     (a demo once produced a "deceased wife" and "parents as defendants" that
+#     existed nowhere in the lawyer's matter). The prompt says "never invent" —
+#     but instruction alone is not enough, so EVERY generated draft is scanned
+#     here: any concrete fact atom (a specific date, a money amount, or a
+#     person-name/relationship) that cannot be traced back to what the advocate
+#     actually gave is HIGHLIGHTED inline and surfaced loudly. We never silently
+#     delete — the advocate is the gate — and we are biased to flag: a false flag
+#     costs one glance, a missed fabrication costs the lawyer's licence. Empty
+#     source ⇒ nothing is verifiable ⇒ every fact atom flags (correct: a draft
+#     built from no facts is, by definition, unverifiable).
+# ===========================================================================
+_G_DATE = re.compile(r"\b\d{1,2}[.\-/]\d{1,2}[.\-/]\d{2,4}\b")
+_G_MONEY = re.compile(r"(?:₹|रु\.?|रुपये|Rs\.?)\s*[\d,]+(?:\.\d+)?|\b\d[\d,]{2,}/\-")
+# a name/relationship immediately after a descriptor marker — exactly where an
+# invented party or relationship lives (S/o …, पुत्र …, पत्नी …, निवासी …, "namely X").
+_G_NAME = re.compile(
+    r"(?:S/o|D/o|W/o|पुत्र|पुत्री|पत्नी|पति|आत्मज|निवासी|नामक|नामतः|resident of|son of|"
+    r"daughter of|wife of|widow of|husband of|namely|named)\s*[:\-–]?\s*"
+    r"((?:श्री|श्रीमती|कुमारी|कु\.|स्व\.|स्वर्गीय|Late|Smt\.?|Sri|Shri|Mr\.?|Ms\.?)?\s*"
+    r"[A-Za-zऀ-ॿ][^\s,।;.()]*(?:\s+[A-Za-zऀ-ॿ][^\s,।;.()]*){0,3})",
+    re.IGNORECASE)
+_G_HONORIFIC = re.compile(
+    r"^(श्री|श्रीमती|कुमारी|कु\.|स्व\.|स्वर्गीय|late|smt\.?|sri|shri|mr\.?|ms\.?)\s*", re.IGNORECASE)
+# generic role/relationship words that are NOT names — a capture that reduces to one
+# of these (e.g. "wife of the plaintiff") is boilerplate, not a fabricated fact.
+_G_ROLE_WORDS = {
+    "the plaintiff", "plaintiff", "the defendant", "defendant", "the defendants", "defendants",
+    "the applicant", "applicant", "the respondent", "respondent", "the petitioner", "petitioner",
+    "the complainant", "complainant", "the accused", "the deponent", "deponent",
+    "the corporation", "the bank", "the company", "the opposite party", "the said",
+    "his", "her", "their", "his wife", "her husband", "his parents", "her parents",
+    "their parents", "the family", "his family", "her family", "the deceased",
+    "वादी", "प्रतिवादी", "प्रतिवादीगण", "आवेदक", "अनावेदक", "अनावेदकगण", "प्रार्थी",
+    "याचिकाकर्ता", "परिवादी", "अभियुक्त", "बंदी", "उपरोक्त", "मृतक",
+}
+
+
+def _is_generic_role(name: str) -> bool:
+    a = _G_HONORIFIC.sub("", re.sub(r"\s+", " ", name).casefold().strip(" .,-–")).strip()
+    return (not a) or (a in _G_ROLE_WORDS) or a.startswith(("the ", "his ", "her ", "their "))
+
+
+def _ground_index(source: str) -> dict:
+    """Pre-index the advocate's source text (their typed brief / OCR'd case papers)
+    for O(1) grounding membership tests."""
+    src = source or ""
+    return {"digits": re.sub(r"\D", "", src),
+            "text": re.sub(r"\s+", " ", src).casefold()}
+
+
+def _grounded(atom: str, kind: str, gi: dict) -> bool:
+    """True if this fact atom traces to the source (or is a placeholder). A ____
+    blank is never a fabrication."""
+    if not atom or "_" in atom:
+        return True
+    if kind in ("date", "money"):
+        d = re.sub(r"\D", "", atom)
+        return (not d) or (d in gi["digits"])
+    a = re.sub(r"\s+", " ", atom).casefold().strip(" .,-–")
+    if not a:
+        return True
+    a2 = _G_HONORIFIC.sub("", a).strip()      # match with or without the honorific
+    return (a in gi["text"]) or (bool(a2) and a2 in gi["text"])
+
+
+def _mark_grounding(text: str, gi: dict, ung: list) -> str:
+    """Escape `text` for HTML, wrapping every UNGROUNDED fact atom in
+    <mark class="fab">. Appends the raw atoms to `ung` (caller aggregates them
+    into a warning). Returns normal escaped text when nothing is ungrounded."""
+    text = text or ""
+    spans = []
+    for m in _G_DATE.finditer(text):
+        spans.append((m.start(), m.end(), "date", m.group(0)))
+    for m in _G_MONEY.finditer(text):
+        spans.append((m.start(), m.end(), "money", m.group(0)))
+    for m in _G_NAME.finditer(text):
+        if not _is_generic_role(m.group(1)):
+            spans.append((m.start(1), m.end(1), "name", m.group(1)))
+    bad = sorted((s, e, k, v) for (s, e, k, v) in spans if not _grounded(v, k, gi))
+    picked, last = [], -1
+    for s, e, k, v in bad:                     # drop overlaps, keep the earliest
+        if s < last:
+            continue
+        picked.append((s, e, k, v))
+        last = e
+    if not picked:
+        return _esc(text)
+    tip = "इस विवरण को सत्यापित करें — आपके दिए इनपुट में यह नहीं मिला"
+    buf, i = [], 0
+    for s, e, k, v in picked:
+        buf.append(_esc(text[i:s]))
+        buf.append(f'<mark class="fab" title="{tip}">{_esc(text[s:e])}</mark>')
+        ung.append(v.strip())
+        i = e
+    buf.append(_esc(text[i:]))
+    return "".join(buf)
+
+
+def _grounding_warnings(ung: list, lang: str) -> list[str]:
+    """One aggregated, unmissable warning listing the ungrounded atoms."""
+    uniq = list(dict.fromkeys(a for a in ung if a))
+    if not uniq:
+        return []
+    shown = "; ".join(uniq[:12]) + (" …" if len(uniq) > 12 else "")
+    if lang == "en":
+        return [f"⚠ {len(uniq)} detail(s) in this draft are NOT in what you provided and may be "
+                f"invented — verify or delete each before filing (highlighted in the draft): {shown}"]
+    return [f"⚠ इस ड्राफ्ट के {len(uniq)} विवरण आपके दिए इनपुट में नहीं मिले और हो सकता है स्वतः जोड़े गए हों — "
+            f"दाखिल करने से पूर्व प्रत्येक की पुष्टि करें या हटाएँ (ड्राफ्ट में हाइलाइट किए गए): {shown}"]
+
+
+# ===========================================================================
 # 5) RENDER  — structured content → canonical header + cb-* body (house format).
 # ===========================================================================
 def _esc(s: Optional[str]) -> str:
@@ -1013,12 +1165,16 @@ _DEFAULT_VERIFICATION_EN = (
 )
 
 
-def render_authored(p: dict, lang: str = "hi") -> dict:
+def render_authored(p: dict, lang: str = "hi", source: str = "") -> dict:
     """Render an authored payload into house-format HTML. Returns
-    {html, warnings, cite_at_hearing, companions}. Pure/deterministic — no LLM."""
+    {html, warnings, cite_at_hearing, companions, ungrounded}. Pure/deterministic —
+    no LLM. `source` = the advocate's own input (typed brief / OCR'd case papers);
+    every concrete fact in the draft is grounded against it (see the guard above)."""
     hi = lang != "en"
     p = p or {}
     warnings = list(p.get("warnings") or [])
+    gi = _ground_index(source)
+    ung: list[str] = []
 
     court_level = (p.get("court_level") or "").strip()
     _known_levels = ("magistrate", "cjm", "sessions", "principal_sessions", "family",
@@ -1032,8 +1188,11 @@ def render_authored(p: dict, lang: str = "hi") -> dict:
                 court_level = "civil"
         else:
             court_level = "sessions"
+    # The LLM composes court_name from the matter's own State. This fallback fires only
+    # when it gave nothing — then leave the State/city BLANK (pan-India: never guess MP).
     court_name = (p.get("court_name") or "").strip() or compose_court_name(
-        court_level, "", "म.प्र." if hi else "M.P.", lang="hi" if hi else "en")
+        court_level, p.get("court_city") or "", p.get("state_name") or "",
+        lang="hi" if hi else "en")
 
     hdr = render_header({
         "side_label": p.get("side_label") or "",
@@ -1042,9 +1201,9 @@ def render_authored(p: dict, lang: str = "hi") -> dict:
         "case_number": p.get("case_number") or "",
         "case_year": p.get("case_year") or "",
         "applicant_label": p.get("applicant_label") or ("आवेदक" if hi else "Applicant"),
-        "applicant_desc": [_esc(x) for x in (p.get("applicant_desc") or [])] or [_esc(p.get("applicant_label") or "")],
+        "applicant_desc": [_mark_grounding(x, gi, ung) for x in (p.get("applicant_desc") or [])] or [_esc(p.get("applicant_label") or "")],
         "respondent_label": p.get("respondent_label") or ("अनावेदक" if hi else "Respondent"),
-        "respondent_desc": [_esc(x) for x in (p.get("respondent_desc") or [])],
+        "respondent_desc": [_mark_grounding(x, gi, ung) for x in (p.get("respondent_desc") or [])],
         "versus": p.get("versus") or ("बनाम" if hi else "Versus"),
         "title_line": p.get("title_line") or "",
     })
@@ -1052,7 +1211,7 @@ def render_authored(p: dict, lang: str = "hi") -> dict:
     out = [hdr, '<div class="doc-body">']
     for pre in (p.get("prelude") or []):
         if str(pre).strip():
-            out.append(f'<p class="cb-prelude">{_esc(pre)}</p>')
+            out.append(f'<p class="cb-prelude">{_mark_grounding(str(pre), gi, ung)}</p>')
     sal = (p.get("salutation") or "").strip()
     if sal:
         out.append(f'<p class="cb-prelude">{_esc(sal)}</p>')
@@ -1072,12 +1231,13 @@ def render_authored(p: dict, lang: str = "hi") -> dict:
         if kind == "head":
             out.append(f'<li class="cb-head">{_esc(text)}</li>')
             continue
-        text, flagged = _guard_citations(text, fam_fps)
-        if flagged:
+        _t, cflag = _guard_citations(text, fam_fps)
+        marked = _mark_grounding(text, gi, ung)
+        if cflag:
             flagged_any = True
-            out.append(f'<li>{_esc(text)} <span class="ph">[उद्धृत निर्णय — सत्यापन आवश्यक]</span></li>')
+            out.append(f'<li>{marked} <span class="ph">[उद्धृत निर्णय — सत्यापन आवश्यक]</span></li>')
         else:
-            out.append(f'<li>{_esc(text)}</li>')
+            out.append(f'<li>{marked}</li>')
     out.append('</ol>')
     if flagged_any:
         warnings.append("एक या अधिक आधारों में उद्धृत निर्णय श्वेतसूची में नहीं है — पीठासीन से सत्यापन के बिना "
@@ -1085,7 +1245,7 @@ def render_authored(p: dict, lang: str = "hi") -> dict:
 
     prayer = (p.get("prayer") or "").strip()
     if prayer:
-        out.append(f'<div class="cb-prayer"><p>{_esc(prayer)}</p></div>')
+        out.append(f'<div class="cb-prayer"><p>{_mark_grounding(prayer, gi, ung)}</p></div>')
 
     # section-pair guard — flag BNSS↔CrPC mismatches anywhere in the authored text
     _texts = [p.get("title_line") or "", prayer]
@@ -1120,12 +1280,14 @@ def render_authored(p: dict, lang: str = "hi") -> dict:
                    f'<div class="r"><div style="margin-top:14pt">{_esc(role)}</div></div></div>')
 
     out.append('</div>')
+    warnings.extend(_grounding_warnings(ung, lang))
     return {
         "html": "\n".join(out),
         "warnings": warnings,
         "cite_at_hearing": p.get("cite_at_hearing") or [],
         "companions": p.get("companions") or [],
         "needs_affidavit": bool(p.get("needs_affidavit")),
+        "ungrounded": list(dict.fromkeys(ung)),
     }
 
 
@@ -1213,10 +1375,271 @@ def _mirror_instruction(reference_skeleton: str) -> str:
         "\n\nMIRROR THIS STRUCTURE — the advocate uploaded a reference draft they want the output to match. "
         "Follow its section order, headings, paragraph conventions, cause-title, title-line, prayer and sign-off "
         "style, and match its tone and register as closely as you can. Fill it with THIS matter's facts (write "
-        "____ for anything unknown). Do NOT copy the reference's own facts, and do NOT reproduce any citation from "
-        "it — re-derive all content for this matter under the zero-fabrication rule.\n"
+        "____ for anything unknown — NEVER invent a fact, a party, a relationship or a narrative the matter does "
+        "not state; a draft full of ____ is correct, an invented story is a defect). Do NOT copy the reference's "
+        "own facts, and do NOT reproduce any citation from it — re-derive all content for this matter under the "
+        "zero-fabrication rule.\n"
         "REFERENCE STRUCTURE TO MATCH:\n" + reference_skeleton
     )
+
+
+# ===========================================================================
+# 6b) MIRROR — full-fidelity reference matching (the primary reference path).
+#     The skeleton pass above compresses the reference to ~10 description lines
+#     and then squeezes the output through the fixed MP house header — which is
+#     why a Tripura-format plaint came back looking nothing like the upload.
+#     Here the model sees the reference VERBATIM and returns the ENTIRE document
+#     as typed layout blocks (recital-first cause-titles, party blocks with the
+#     designation pinned right, lettered prayer sub-clauses, schedule/affidavit/
+#     list-of-documents companion pages) that we render deterministically.
+#     extract_reference_skeleton()+_mirror_instruction() stay as the fallback.
+# ===========================================================================
+_MIRROR_REF_CAP = 24000     # chars of OCR'd reference the model sees (≈ 15+ pages)
+
+MIRROR_SYSTEM = """You are the drafting engine of Headnote. An Indian advocate has uploaded a FILED court
+document (the REFERENCE) and typed a brief for a NEW matter. Produce the NEW draft so the advocate's clerk
+could not tell it apart from that office's own filing: SAME cause-title layout, SAME section order, SAME
+headings, SAME boilerplate framing sentences, SAME paragraph voice and register, SAME language as the
+reference, and EVERY companion section the reference carries (schedule of property, verification, affidavit,
+list of documents — whatever is there), adapted to the new matter.
+
+THE TWO-SOURCE RULE — what comes from where:
+• STRUCTURE, FORMAT, BOILERPLATE, IDIOM → from the REFERENCE. Reuse its recurring/standard sentences (the
+  para openings, the cause-of-action para shape, the prayer framing, the verification wording) with the new
+  matter's specifics slotted in. Mirror its ORDER exactly — if the statute recital comes before the parties,
+  keep it before the parties.
+• FACTS (names, relationships, dates, amounts, account/FIR/case numbers, addresses, the story) → ONLY from
+  the advocate's brief. The reference's facts are ANOTHER CLIENT'S CASE — never let a reference name, date,
+  amount or storyline leak into the new draft. Where the structure needs a value the brief does not give,
+  write ____ in its place.
+• NEVER INVENT a fact, a party, a relationship or a narrative the brief does not state. A draft full of ____
+  is CORRECT; an invented story is a career-ending defect for the advocate.
+• STATUTES/SECTIONS: cite what the NEW matter actually needs (the reference shows the FORMAT of the recital,
+  not the sections to copy). If unsure of a section number, write ____.
+• CITATIONS: put NO case citation in the body. If authority helps, list only real judgments you are certain
+  exist in "cite_at_hearing" — an empty list is correct and safe.
+
+OUTPUT — ONLY valid JSON (no prose, no markdown fence):
+{
+ "title": "<short label for this draft>",
+ "font": "serif" | "devanagari",
+ "blocks": [ …the ENTIRE document, top to bottom, one block per visual element… ],
+ "cite_at_hearing": [{"case": "…", "point": "…"}],
+ "companions": ["<documents to file alongside that you did NOT draft as blocks>"],
+ "warnings": ["<anything the advocate must verify>"]
+}
+"font": "serif" for an English/Times-style reference; "devanagari" for a Hindi one.
+
+Block kinds (use EXACTLY these):
+ {"kind":"center","text":"…","bold":true,"underline":true}  → centred line (court name, case-number line)
+ {"kind":"label","text":"IN THE MATTER OF:"}                → bold underlined left-margin label
+ {"kind":"recital","text":"A PETITION UNDER …"}             → the indented bold justified block under a label
+ {"kind":"party","lines":["Sri ____","S/o ____","Resident of: ____"],"designation":"… Plaintiff"}
+                                                            → one party block; designation renders pinned to the right edge
+ {"kind":"versus","text":"– Versus –"}                      → centred separator between party sides
+ {"kind":"num","text":"That …"}                             → auto-numbered body para (1., 2., …) — do NOT write the number
+ {"kind":"item","text":"Pass a decree …"}                   → auto-lettered sub-clause ((a), (b), …) — do NOT write the letter
+ {"kind":"head","text":"PRAYER"}                            → centred bold underlined section heading
+ {"kind":"text","text":"…"}                                 → plain justified paragraph
+ {"kind":"right","text":"Deponent"}                         → right-aligned line
+ {"kind":"sig","left":"Place: ____\\nDate: __/__/____","right":"Plaintiff\\nThrough Counsel\\n(____), Advocate"}
+ {"kind":"table","headers":["Sl.","Document","Pages"],"rows":[["1","____",""]]}
+ {"kind":"pagebreak"}                                       → next companion document (affidavit, list of documents)
+                                                              starts on a fresh page; para numbering restarts"""
+
+
+def render_mirrored(p: dict, doc_type: str, source: str = "") -> dict:
+    """Deterministic renderer for a mirror payload's typed blocks → mr-* HTML.
+    Runs the same guards as the house render: citation whitelist, BNSS↔CrPC
+    pairing, civil-code check, AND fact grounding against `source` (the advocate's
+    typed brief — NOT the reference, whose facts are another client's case). Pure —
+    no LLM."""
+    p = p or {}
+    warnings = [str(w) for w in (p.get("warnings") or []) if str(w).strip()]
+    fam_fps = _cite_fingerprints(family_for(doc_type or "other_criminal"))
+    gi = _ground_index(source)
+    ung: list[str] = []
+    root_cls = "mr-doc" + (" mr-serif" if (p.get("font") or "").strip().lower() == "serif" else "")
+    out = [f'<div class="{root_cls}">']
+    texts: list[str] = []       # everything the section/civil guards should scan
+    num = 0                     # auto para number — resets on pagebreak
+    item_i = 0                  # auto sub-clause letter — resets on any other kind
+    flagged_any = False
+
+    def fmt(t: str) -> str:
+        """citation guard + escape — for boilerplate blocks (court name, headings)."""
+        nonlocal flagged_any
+        t2, flagged = _guard_citations(t, fam_fps)
+        texts.append(t2)
+        h = _esc(t2)
+        if flagged:
+            flagged_any = True
+            h += ' <span class="ph">[उद्धृत निर्णय — सत्यापन आवश्यक]</span>'
+        return h
+
+    def fmtg(t: str) -> str:
+        """citation guard + FACT GROUNDING + escape — for fact-bearing blocks
+        (party descriptors, numbered paras, prayer items, recitals, body text)."""
+        nonlocal flagged_any
+        t2, flagged = _guard_citations(t, fam_fps)
+        texts.append(t2)
+        h = _mark_grounding(t2, gi, ung)
+        if flagged:
+            flagged_any = True
+            h += ' <span class="ph">[उद्धृत निर्णय — सत्यापन आवश्यक]</span>'
+        return h
+
+    for b in (p.get("blocks") or []):
+        if not isinstance(b, dict):
+            b = {"kind": "text", "text": str(b)}
+        kind = (b.get("kind") or "text").strip().lower()
+        text = str(b.get("text") or "").strip()
+        if kind != "item":
+            item_i = 0
+        if kind == "pagebreak":
+            num = 0
+            out.append('<div class="mr-break"></div>')
+            continue
+        if kind == "party":
+            lines = [str(x).strip() for x in (b.get("lines") or []) if str(x).strip()]
+            desig = str(b.get("designation") or "").strip()
+            if not lines and not desig:
+                continue
+            body = "<br>".join(fmtg(x) for x in lines)
+            if desig:
+                body += f'<div class="mr-desig">{_esc(desig)}</div>'
+            out.append(f'<div class="mr-party">{body}</div>')
+            continue
+        if kind == "sig":
+            left = str(b.get("left") or "").strip()
+            right = str(b.get("right") or "").strip()
+            if not left and not right:
+                continue
+            out.append(f'<div class="mr-sig"><div class="l">{_esc(left)}</div>'
+                       f'<div class="r">{_esc(right)}</div></div>')
+            continue
+        if kind == "table":
+            headers = [str(h).strip() for h in (b.get("headers") or [])]
+            rows = [r if isinstance(r, list) else [r] for r in (b.get("rows") or [])]
+            if not headers and not rows:
+                continue
+            texts.extend(str(c) for r in rows for c in r)
+            thead = ("<tr>" + "".join(f"<th>{_esc(h)}</th>" for h in headers) + "</tr>") if headers else ""
+            tbody = "".join("<tr>" + "".join(f"<td>{_esc(str(c))}</td>" for c in r) + "</tr>" for r in rows)
+            out.append(f'<table class="mr-table">{thead}{tbody}</table>')
+            continue
+        if not text:
+            continue
+        if kind == "num":
+            num += 1
+            out.append(f'<div class="mr-num"><span class="n">{num}.</span>{fmtg(text)}</div>')
+        elif kind == "item":
+            item_i += 1
+            letter = chr(96 + item_i) if item_i <= 26 else str(item_i)
+            out.append(f'<div class="mr-item"><span class="n">({letter})</span>{fmtg(text)}</div>')
+        elif kind == "center":
+            cls = "mr-center" + (" mr-b" if b.get("bold") else "") + (" mr-u" if b.get("underline") else "")
+            out.append(f'<div class="{cls}">{fmt(text)}</div>')
+        elif kind == "label":
+            out.append(f'<div class="mr-label">{fmt(text)}</div>')
+        elif kind == "recital":
+            out.append(f'<div class="mr-recital">{fmtg(text)}</div>')
+        elif kind == "versus":
+            out.append(f'<div class="mr-versus">{fmt(text)}</div>')
+        elif kind == "head":
+            out.append(f'<div class="mr-head">{fmt(text)}</div>')
+        elif kind == "right":
+            out.append(f'<div class="mr-right">{fmt(text)}</div>')
+        else:
+            out.append(f'<div class="mr-text">{fmtg(text)}</div>')
+    out.append('</div>')
+
+    if flagged_any:
+        warnings.append("एक या अधिक पैरा में उद्धृत निर्णय श्वेतसूची में नहीं है — सत्यापन के बिना प्रयोग न करें। "
+                        "(An in-body citation is outside the verified list — verify before use.)")
+    warnings.extend(guard_sections(texts))
+    if doc_type in CIVIL_TYPES:
+        joined = "\n".join(texts)
+        if re.search(_BNSS_TOKEN, joined) or re.search(_CRPC_TOKEN, joined, re.IGNORECASE):
+            warnings.append("व्यवहार (civil) प्रारूप में बी.एन.एस.एस./दं.प्र.सं. का उल्लेख मिला — "
+                            "civil pleading में आपराधिक संहिता का स्थान नहीं है; जाँचें। "
+                            "(A civil pleading cites BNSS/CrPC — verify and remove.)")
+    warnings.extend(_grounding_warnings(ung, "en" if not source or _looks_en(source) else "hi"))
+    return {"html": "\n".join(out), "warnings": warnings, "ungrounded": list(dict.fromkeys(ung))}
+
+
+def _looks_en(s: str) -> bool:
+    """Heuristic: a source with no Devanagari is treated as English for warning copy."""
+    return not any("ऀ" <= ch <= "ॿ" for ch in (s or ""))
+
+
+def _mirror_result(payload: dict, rendered: dict, doc_type: str, lang: str, meta) -> dict:
+    return {
+        "ok": True,
+        "mode": "authored",
+        "doc_type": doc_type,
+        "lang": lang,
+        "html": rendered["html"],
+        "cite_at_hearing": payload.get("cite_at_hearing") or [],
+        "companions": [str(c) for c in (payload.get("companions") or []) if str(c).strip()],
+        "needs_affidavit": False,   # a mirrored reference carries its own affidavit page when it has one
+        "warnings": rendered["warnings"],
+        "ungrounded": rendered.get("ungrounded") or [],
+        "title": (payload.get("title") or "").strip() or brief_for(doc_type)["label_hi"],
+        "meta": meta,
+    }
+
+
+def mirror_document(matter: str, reference_text: str, doc_type: str, lang: str = "hi") -> dict:
+    """Primary reference path: the advocate's brief + the VERBATIM reference →
+    typed layout blocks → deterministic render. Raises on LLM/parse failure or a
+    too-thin payload — the caller falls back to the skeleton+authored path."""
+    from headnote.llm.client import _call_deepseek_or_groq, parse_json_response
+    user = (
+        "REFERENCE (the filed document to mirror — structure/format/boilerplate ONLY, its facts are "
+        f"another client's case):\n{(reference_text or '').strip()[:_MIRROR_REF_CAP]}\n\n"
+        "THE NEW MATTER (the advocate's brief — the ONLY source of facts; ____ where it is silent):\n"
+        f"{(matter or '').strip() or '(no brief typed — every matter-specific value becomes ____)'}\n\n"
+        f"Draft now, as JSON per the schema, in {'Hindi' if lang == 'hi' else 'English'} "
+        "(match the reference's language/register)."
+    )
+    raw, meta = _call_deepseek_or_groq(MIRROR_SYSTEM, user, max_tokens=7000, claude_model="claude-haiku-4-5")
+    payload = parse_json_response(raw)
+    blocks = payload.get("blocks")
+    if not isinstance(blocks, list) or len(blocks) < 4:
+        raise ValueError("mirror payload too thin — falling back to the skeleton path")
+    # ground facts against the advocate's brief ONLY — the reference is another
+    # client's case, so its facts must NEVER count as verification for this draft.
+    rendered = render_mirrored(payload, doc_type, source=matter)
+    return _mirror_result(payload, rendered, doc_type, lang, meta)
+
+
+def revise_mirrored(prior_html: str, instruction: str, doc_type: str = "other_criminal",
+                    lang: str = "hi") -> dict:
+    """Instruction-based refine of a MIRRORED draft. Re-emitting through the house
+    renderer would throw away the matched reference format, so the revision goes back
+    through the block engine: current draft (its markup encodes the layout) + the
+    change request → the full revised block document."""
+    from headnote.llm.client import _call_deepseek_or_groq, parse_json_response
+    user = (
+        "REVISION TASK — the advocate already has the draft below (it was matched to their uploaded "
+        "reference; its HTML classes encode the block layout) and wants changes made to it.\n\n"
+        f"CURRENT DRAFT:\n{(prior_html or '').strip()[:_MIRROR_REF_CAP]}\n\n"
+        f"REQUESTED CHANGES:\n{(instruction or '').strip()}\n\n"
+        "Reproduce the ENTIRE draft as JSON blocks per the schema, preserving its structure, formatting "
+        "and every part the advocate did not ask to change; apply only the requested changes. The current "
+        "draft plus the instruction are the ONLY sources of facts — ____ stays ____ unless the instruction "
+        f"fills it. Write in {'Hindi' if lang == 'hi' else 'English'}."
+    )
+    raw, meta = _call_deepseek_or_groq(MIRROR_SYSTEM, user, max_tokens=7000, claude_model="claude-haiku-4-5")
+    payload = parse_json_response(raw)
+    if not isinstance(payload.get("blocks"), list) or len(payload["blocks"]) < 4:
+        raise ValueError("mirror revision payload too thin")
+    # the accepted prior draft + the new instruction are the facts of record here
+    rendered = render_mirrored(payload, doc_type, source=(prior_html or "") + "\n" + (instruction or ""))
+    result = _mirror_result(payload, rendered, doc_type, lang, meta)
+    result["mirrored"] = True
+    return result
 
 
 def author_payload(matter: str, doc_type: str, lang: str = "hi", *, court: str = "",
@@ -1245,7 +1668,8 @@ def author_document(matter: str, doc_type: str, lang: str = "hi", *, court: str 
     """End-to-end authoring: prompt → house-style court-ready HTML + flagged extras.
     Returns {ok, mode, doc_type, html, cite_at_hearing, companions, warnings, meta}."""
     payload = author_payload(matter, doc_type, lang, court=court, reference_skeleton=reference_skeleton)
-    rendered = render_authored(payload, lang)
+    # ground every fact in the output against the advocate's own brief (the matter)
+    rendered = render_authored(payload, lang, source=matter)
     return {
         "ok": True,
         "mode": "authored",
@@ -1256,6 +1680,7 @@ def author_document(matter: str, doc_type: str, lang: str = "hi", *, court: str 
         "companions": rendered["companions"],
         "needs_affidavit": rendered["needs_affidavit"],
         "warnings": rendered["warnings"],
+        "ungrounded": rendered.get("ungrounded") or [],
         "title": payload.get("title_line") or brief_for(doc_type)["label_hi"],
         "meta": payload.get("_meta"),
     }
@@ -1279,7 +1704,8 @@ def revise_document(prior_text: str, instruction: str, doc_type: str = "other_cr
     )
     raw, meta = _call_deepseek_or_groq(system, user, max_tokens=4000, claude_model="claude-haiku-4-5")
     payload = _shape_payload(parse_json_response(raw), doc_type, b, meta)
-    rendered = render_authored(payload, lang)
+    # a refine's facts of record = the accepted prior draft + the new instruction
+    rendered = render_authored(payload, lang, source=(prior_text or "") + "\n" + (instruction or ""))
     return {
         "ok": True,
         "mode": "authored",
@@ -1290,6 +1716,7 @@ def revise_document(prior_text: str, instruction: str, doc_type: str = "other_cr
         "companions": rendered["companions"],
         "needs_affidavit": rendered["needs_affidavit"],
         "warnings": rendered["warnings"],
+        "ungrounded": rendered.get("ungrounded") or [],
         "title": payload.get("title_line") or brief_for(doc_type)["label_hi"],
         "meta": payload.get("_meta"),
     }

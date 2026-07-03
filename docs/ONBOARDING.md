@@ -516,6 +516,69 @@ machine with any account, in minutes.
 
 > Append a dated line whenever something structural changes. Newest on top.
 
+- **2026-07-04** — **Drafter went PAN-INDIA — no more Madhya Pradesh hardcoding.** Headnote now serves
+  advocates in every State/UT, so the drafting engine had to stop assuming MP. The MP assumption funnelled
+  through one chokepoint — `compose_court_name()` in `headnote/drafter/templates/_doc_header.py`, whose HC
+  branch *ignored the state entirely* and always emitted "मध्यप्रदेश खण्डपीठ …" (a Rajasthan or Tripura writ
+  came out as MP High Court). Fix: a new `_HIGH_COURTS` directory (all 25 HCs — Hindi+English name, principal
+  seat, benches) + `_STATE_TO_HC` (every State/UT/abbrev → its HC) + `_hc_record`/`_hc_seat`/`_compose_hc`.
+  `compose_court_name(level, city, state, …)` is now state-aware: the State selects the correct High Court,
+  the district selects its bench ("In the High Court of Bombay at Bombay, Nagpur Bench"; Allahabad→Lucknow;
+  Madras→Madurai; Rajasthan→Jaipur/Jodhpur; Gauhati→Kohima/Aizawl/Itanagar; P&H; J&K wings; Calcutta circuit
+  benches). Nothing defaults to MP — unknown State/city ⇒ blank `____` placeholder (never a wrong-forum guess,
+  per [[feedback_court_location]]). MP back-compat preserved exactly (MP Hindi bench cause-title still renders
+  "माननीय उच्च न्यायालय मध्यप्रदेश खण्डपीठ ग्वालियर" — Vishnu's format). Prompts de-MP'd: `HOUSE_STYLE`
+  (author.py) now says "across ALL States/UTs", carries a State→HC map + "never write Madhya Pradesh for a
+  non-MP matter", and language follows the forum's region (Hindi-belt → Devanagari, else formal court English)
+  instead of "default Hindi"; the CIVIL addendum + eviction brief use the matter's State rent-control/court-fee
+  Act (MP Accommodation Control Act is now just one example among Maharashtra/Delhi/WB/TN/Rajasthan); the
+  classifier (`from_prompt.py`) and the सुझाव reviewer (`suggest.py`) are pan-India. NOTE (follow-up): the ~34
+  criminal/family canonical template modules are still MP-idiom (Vishnu's filed formats) — they now compose the
+  RIGHT HC via the chokepoint when a State is passed, but their call sites still default `state="म.प्र."`;
+  threading the matter's State into all 34 field-specs is Phase 2. Legacy `compose.py`/`compose_templates*.py`
+  prompt-builders still name MP but are off the live authored/canonical path.
+- **2026-07-03** — **App-wide fact-grounding guard — the drafter can no longer silently invent facts.**
+  During a demo a civil draft invented an entire fact pattern (a "deceased wife", "parents as defendants",
+  names/dates/amounts) that was nowhere in the lawyer's matter — the exact failure the zero-fabrication rule
+  exists to prevent. Root cause: the drafter had a hard guard for invented **citations** and **BNSS↔CrPC
+  section pairs**, but **nothing checked invented facts** — and when an LLM is handed a rich draft skeleton
+  and a thin brief, the pressure to look complete overrides any "don't invent" instruction. Fix is the fact
+  analog of the citation guard, in `headnote/drafter/author.py`: `_ground_index()` indexes the advocate's
+  own input (typed brief / OCR'd case papers); `_mark_grounding()` scans the generated draft for concrete
+  **fact atoms** — specific dates (`dd.mm.yyyy`), money amounts (`Rs …`, `…/-`), and person-names after a
+  relationship/`namely` marker — and wraps any atom NOT traceable to the input in `<mark class="fab">`,
+  accumulating them; `_grounding_warnings()` emits one aggregated ⚠ line. Placeholders (`____`) never flag;
+  a generic-role stoplist keeps "the plaintiff" etc. from flagging; **empty source ⇒ every fact flags**
+  (a draft built from no facts is unverifiable by definition). Wired into **all four generation paths** —
+  `render_authored` (authored + refine) and `render_mirrored` (reference + refine), each threading the
+  right `source` (brief for authoring/mirror — the reference's own facts are another client's case and
+  NEVER count as verification; prior-draft+instruction for refine). Canonical templates are unaffected
+  (they render only user-entered fields — no LLM invention). Result dicts now carry `ungrounded: [...]`.
+  UI (`static/index.html`, style `?v=20260703b`): a loud red `.pd-note--fab` "Verify these details" card
+  pinned above suggestions, listing each atom, mirrored by the inline amber highlights in the draft (kept
+  as an underline in print). Prompt hardened too: the ZERO-FABRICATION block gained a "GROUNDING CONTRACT"
+  ("when the input is thin, write a thin draft — a draft full of ____ is correct; an invented story is a
+  career-ending fabrication"). Known tradeoff (deliberate): an amount/date written in WORDS in the brief
+  but DIGITS in the draft may false-flag — biased to flag, because a false flag costs one glance and a
+  missed fabrication costs the lawyer's licence.
+- **2026-07-03** — **Reference-mirror rebuilt to full fidelity + print CSS fixed (a lawyer's complaint).**
+  A lawyer uploaded his filed Agartala plaint as a style reference and got back a mismatched draft
+  (house MP header instead of his recital-first cause-title, invented facts, missing schedule/affidavit/
+  list-of-documents, and a printout with no margins from page 2). Root causes: the reference was
+  compressed to a ~10-line "skeleton" and then force-rendered through the fixed `render_header()` house
+  format, and `doc_page()` had no `@media print`/`@page` at all. Fix: new **mirror engine** in
+  `author.py` — `MIRROR_SYSTEM` + `mirror_document()` (model sees the reference **verbatim**, returns
+  the whole document as typed layout blocks) + `render_mirrored()` (deterministic mr-* renderer:
+  recital-first labels, party blocks with the designation pinned right, auto-numbered paras, lettered
+  prayer items, tables, page-broken companion pages; same citation/section guards). Two-source rule in
+  the prompt: structure/boilerplate from the reference, **facts only from the typed brief**, `____` for
+  unknowns, never invent. `from_prompt.py` reference path tries mirror first (draft language follows
+  the reference), falls back to the old skeleton path; `/refine` detects `mr-doc` markup and revises
+  through the block engine so a refine never strips the matched format (`revise_mirrored()`).
+  `_doc_header.py` gained `PRINT_CSS` (A4 `@page` 1-inch margins on **every** printed page, card
+  chrome stripped in print, break-inside/break-after hygiene) and `doc_page(title=…)` so the browser
+  print header shows the draft's name. Gotcha found on the way: a CSS comment containing `hdr-*/cb-*`
+  terminates at the inner `*/` and silently eats the next rule.
 - **2026-07-03** — **सुझाव rail shipped — live drafting suggestions beside every prompt-drafted document.**
   New `headnote/drafter/suggest.py` + `POST /api/draft/suggest`: sections check (expected provision +
   BNSS↔CrPC pair guard + criminal-code-in-civil flag), missing mandatory paras (one guarded DeepSeek

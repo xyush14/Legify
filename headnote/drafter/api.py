@@ -325,7 +325,7 @@ def refine_route(body: RefineBody):
     them by INSTRUCTION: 'make it more concise', 'add a ground on parity', 'change court to CJM'. We
     revise the current draft and return the same unified shape as /from-prompt (with page_hi/page_en)."""
     from fastapi.responses import JSONResponse
-    from headnote.drafter.author import revise_document
+    from headnote.drafter.author import revise_document, revise_mirrored
     from headnote.drafter.from_prompt import _finalize, resolve_lang
     if not (body.instruction or "").strip():
         return JSONResponse({"ok": False, "error": "tell us what to change"}, status_code=400)
@@ -333,7 +333,13 @@ def refine_route(body: RefineBody):
         return JSONResponse({"ok": False, "error": "nothing to refine"}, status_code=400)
     lang = resolve_lang(body.lang, body.prev_html + " " + body.instruction)
     try:
-        result = revise_document(body.prev_html, body.instruction, body.doc_type, lang)
+        # a MIRRORED draft (matched to an uploaded reference — root carries mr-doc) must
+        # be revised through the block engine, or the refine would silently strip the
+        # advocate's reference formatting back to the house style
+        if 'class="mr-doc' in body.prev_html:
+            result = revise_mirrored(body.prev_html, body.instruction, body.doc_type, lang)
+        else:
+            result = revise_document(body.prev_html, body.instruction, body.doc_type, lang)
         result.update({
             "html_hi": result["html"] if lang != "en" else "",
             "html_en": result["html"] if lang == "en" else "",

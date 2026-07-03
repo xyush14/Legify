@@ -1671,6 +1671,12 @@ button { font-family: inherit; }
 .pd-note--mirror { background: #fffdf8; border-color: var(--gold-line, #ece3c8); }
 .pd-note--mirror h4 { color: var(--gold-ink, #8c7549); }
 .pd-note--mirror p { margin: 0; }
+/* ⚠ fact-grounding card — invented/unverified details. Loud on purpose: this is the
+   one warning that must never be missed. Red border + tint, matching the inline mark. */
+.pd-note--fab { background: #fdf1ef; border-color: #e7b7ad; border-left: 3px solid #c0392b; }
+.pd-note--fab h4 { color: #b3341f; }
+.pd-note--fab p { margin: 0 0 8px; }
+.pd-note--fab mark.fab, mark.fab { background: #fff2c2; border-bottom: 1.5px solid #d99a00; border-radius: 2px; padding: 0 1px; }
 
 /* सुझाव rail — sections check + missing points beside an authored draft.
    Suggestion-only surface: pips carry state, + जोड़ें routes through /refine. */

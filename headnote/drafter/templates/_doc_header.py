@@ -90,6 +90,59 @@ HEADER_CSS = """
   .cb-table th,.cb-table td{border:1px solid #333;padding:3pt 6pt;text-align:left}
   /* empty-field placeholder = field-name, subtly marked as a fill-in (dotted underline, no fill) */
   .ph{color:#9a958a;font-style:normal;border-bottom:1px dotted #c4bdad}
+  /* fact-grounding flag: a concrete detail in the draft that is NOT in what the
+     advocate provided (may be auto-invented). Amber highlight on screen so the
+     lawyer catches it at a glance; stays as an underline in print so a filed copy
+     never silently carries an unverified fact. */
+  mark.fab{background:#fff2c2;color:inherit;border-bottom:1.5px solid #d99a00;
+    padding:0 1px;border-radius:2px;cursor:help}
+  @media print{mark.fab{background:transparent;border-bottom:1px solid #999}}
+  /* ---- mirrored draft (reference-matched) — generic court-format blocks ----
+     The mr-* renderer reproduces an UPLOADED filed document's layout: recital-first
+     cause-titles, indented party blocks with the designation pinned to the right
+     edge, lettered prayer sub-clauses, companion pages. Kept separate from the
+     canonical hdr- and cb- house format on purpose. */
+  .mr-serif{font-family:'Times New Roman','Liberation Serif',Georgia,serif}
+  .mr-center{text-align:center;margin:0 0 8pt;line-height:1.5}
+  .mr-b{font-weight:700}
+  .mr-u{text-decoration:underline;text-underline-offset:2px}
+  .mr-label{font-weight:700;text-decoration:underline;text-underline-offset:2px;margin:14pt 0 8pt}
+  .mr-recital{margin:0 0 10pt 38mm;font-weight:700;text-align:justify;line-height:1.65}
+  .mr-party{margin:0 0 9pt 38mm;line-height:1.6}
+  .mr-party .mr-desig{text-align:right;margin-top:2pt;font-weight:700}
+  .mr-versus{text-align:center;font-weight:700;margin:10pt 0}
+  .mr-num{position:relative;padding-left:26pt;margin:0 0 9pt;text-align:justify;line-height:1.65}
+  .mr-num>.n{position:absolute;left:0;top:0;font-weight:600}
+  .mr-item{position:relative;padding-left:36pt;margin:0 0 8pt;text-align:justify;line-height:1.65}
+  .mr-item>.n{position:absolute;left:10pt;top:0}
+  .mr-head{text-align:center;font-weight:700;text-decoration:underline;text-underline-offset:2px;
+    margin:16pt 0 10pt;letter-spacing:.05em}
+  .mr-text{margin:0 0 9pt;text-align:justify;line-height:1.65}
+  .mr-right{text-align:right;margin:14pt 0 9pt}
+  .mr-sig{display:flex;justify-content:space-between;align-items:flex-end;margin:22pt 0 8pt;white-space:pre-line}
+  .mr-sig .r{text-align:center}
+  .mr-break{border-top:1px dashed #c4c0b6;margin:28pt -6pt 26pt}
+  .mr-table{width:100%;border-collapse:collapse;margin:8pt 0 12pt;font-size:12pt}
+  .mr-table th,.mr-table td{border:1px solid #333;padding:4pt 6pt;text-align:left;vertical-align:top}
+"""
+
+# Print fidelity: the on-screen 1.00" margins live as PADDING on the .doc-a4 card,
+# which a printer applies once — page 2+ would start at the paper edge. In print we
+# strip the card and let @page put the 1.00" margins on EVERY sheet, add page-break
+# hygiene (no para split mid-page, headings keep their content), and drop the app
+# chrome so the printout is the document alone.
+PRINT_CSS = """
+  @page{size:A4;margin:25.4mm}
+  @media print{
+    body{background:#fff !important;padding:0 !important}
+    .rb{display:none !important}
+    .doc-a4{width:auto;min-height:0;margin:0;padding:0;box-shadow:none}
+    .doc-a4+.doc-a4{page-break-before:always}
+    .cb-paras>li,.mr-num,.mr-item,.mr-party,.mr-recital,.cb-relief{break-inside:avoid}
+    .cb-sig,.mr-sig{break-inside:avoid}
+    .cb-head,.mr-head,.cb-block-label,.mr-label{break-after:avoid}
+    .mr-break{border:0;margin:0;height:0;page-break-after:always}
+  }
 """
 
 # Court-name auto-fit: keep the dominant line on ONE line by shrinking it precisely
@@ -107,48 +160,158 @@ _FIT_SCRIPT = (
 
 
 # ---------------------------------------------------------------------------
-# Court-name composition — level + city/district → the cause-title per forum.
-# Device geolocation only needs to supply the CITY/DISTRICT; the cause-title is
-# then composed deterministically (and stays editable — lawyers file across
-# districts). HC maps the district to its bench (Gwalior / Indore / Jabalpur).
+# PAN-INDIA court-name composition — Headnote is nationwide, not MP-only.
+# level + city/district + STATE → the cause-title for the matter's OWN forum.
+# The state picks the correct High Court (all 25); the district/city picks the
+# HC bench where one exists. Nothing defaults to MP: an unknown state/city leaves
+# a blank placeholder (a wrong forum on a filing is far worse than a blank one).
 # ---------------------------------------------------------------------------
-_MP_HC_BENCH = {  # MP district → High Court bench (else Jabalpur principal seat)
-    # Gwalior bench
-    "ग्वालियर": "ग्वालियर", "भिण्ड": "ग्वालियर", "मुरैना": "ग्वालियर", "श्योपुर": "ग्वालियर",
-    "दतिया": "ग्वालियर", "शिवपुरी": "ग्वालियर", "गुना": "ग्वालियर", "अशोकनगर": "ग्वालियर",
-    # Indore bench
-    "इन्दौर": "इन्दौर", "उज्जैन": "इन्दौर", "देवास": "इन्दौर", "धार": "इन्दौर", "झाबुआ": "इन्दौर",
-    "अलीराजपुर": "इन्दौर", "खरगोन": "इन्दौर", "बड़वानी": "इन्दौर", "खण्डवा": "इन्दौर",
-    "बुरहानपुर": "इन्दौर", "रतलाम": "इन्दौर", "मन्दसौर": "इन्दौर", "नीमच": "इन्दौर",
-    "आगर-मालवा": "इन्दौर", "शाजापुर": "इन्दौर",
+# The 25 High Courts. Each: Hindi + English NAME (no seat baked in), principal
+# seat (hi/en bare city), a `bw` (bench word: Bench / Wing / Circuit Bench), and
+# benches keyed by lowercased city/district/state tokens → bare seat city (hi,en).
+# The cause-title is assembled in _compose_hc so phrasing is uniform and correct
+# ("In the High Court of <Name> at <Seat>" / "…, <Bench> Bench").
+_HIGH_COURTS = {
+    "allahabad": {"hi": "इलाहाबाद", "en": "Allahabad", "seat": ("इलाहाबाद", "Allahabad"),
+        "benches": {"lucknow": ("लखनऊ", "Lucknow"), "लखनऊ": ("लखनऊ", "Lucknow")}},
+    "andhra": {"hi": "आन्ध्र प्रदेश", "en": "Andhra Pradesh", "seat": ("अमरावती", "Amaravati"), "benches": {}},
+    "bombay": {"hi": "बम्बई", "en": "Bombay", "seat": ("मुम्बई", "Bombay"),
+        "benches": {"nagpur": ("नागपुर", "Nagpur"), "नागपुर": ("नागपुर", "Nagpur"),
+                    "aurangabad": ("औरंगाबाद", "Aurangabad"),
+                    "chhatrapati sambhajinagar": ("औरंगाबाद", "Aurangabad"),
+                    "goa": ("पणजी", "Panaji"), "panaji": ("पणजी", "Panaji"), "गोवा": ("पणजी", "Panaji")}},
+    "calcutta": {"hi": "कलकत्ता", "en": "Calcutta", "seat": ("कलकत्ता", "Calcutta"),
+        "bw": ("परिपथ पीठ", "Circuit Bench"),
+        "benches": {"port blair": ("पोर्ट ब्लेयर", "Port Blair"), "jalpaiguri": ("जलपाईगुड़ी", "Jalpaiguri")}},
+    "chhattisgarh": {"hi": "छत्तीसगढ़", "en": "Chhattisgarh", "seat": ("बिलासपुर", "Bilaspur"), "benches": {}},
+    "delhi": {"hi": "दिल्ली", "en": "Delhi", "seat": ("नई दिल्ली", "New Delhi"), "benches": {}},
+    "gauhati": {"hi": "गुवाहाटी", "en": "Gauhati", "seat": ("गुवाहाटी", "Guwahati"),
+        "benches": {"nagaland": ("कोहिमा", "Kohima"), "kohima": ("कोहिमा", "Kohima"),
+                    "mizoram": ("आइजोल", "Aizawl"), "aizawl": ("आइजोल", "Aizawl"),
+                    "arunachal": ("ईटानगर", "Itanagar"), "itanagar": ("ईटानगर", "Itanagar"),
+                    "arunachal pradesh": ("ईटानगर", "Itanagar")}},
+    "gujarat": {"hi": "गुजरात", "en": "Gujarat", "seat": ("अहमदाबाद", "Ahmedabad"), "benches": {}},
+    "himachal": {"hi": "हिमाचल प्रदेश", "en": "Himachal Pradesh", "seat": ("शिमला", "Shimla"), "benches": {}},
+    "jk": {"hi": "जम्मू-कश्मीर एवं लद्दाख", "en": "Jammu & Kashmir and Ladakh", "seat": ("श्रीनगर", "Srinagar"),
+        "bw": ("विंग", "Wing"),
+        "benches": {"jammu": ("जम्मू", "Jammu"), "जम्मू": ("जम्मू", "Jammu"),
+                    "ladakh": ("लेह", "Leh"), "leh": ("लेह", "Leh"), "लद्दाख": ("लेह", "Leh")}},
+    "jharkhand": {"hi": "झारखण्ड", "en": "Jharkhand", "seat": ("राँची", "Ranchi"), "benches": {}},
+    "karnataka": {"hi": "कर्नाटक", "en": "Karnataka", "seat": ("बेंगलुरु", "Bengaluru"),
+        "benches": {"dharwad": ("धारवाड़", "Dharwad"), "hubli": ("धारवाड़", "Dharwad"),
+                    "kalaburagi": ("कलबुर्गी", "Kalaburagi"), "gulbarga": ("कलबुर्गी", "Kalaburagi")}},
+    "kerala": {"hi": "केरल", "en": "Kerala", "seat": ("एर्नाकुलम", "Ernakulam"), "benches": {}},
+    "mp": {"hi": "मध्यप्रदेश", "en": "Madhya Pradesh", "seat": ("जबलपुर", "Jabalpur"),
+        "benches": {"indore": ("इन्दौर", "Indore"), "इन्दौर": ("इन्दौर", "Indore"), "इंदौर": ("इन्दौर", "Indore"),
+                    "ujjain": ("इन्दौर", "Indore"), "उज्जैन": ("इन्दौर", "Indore"), "dewas": ("इन्दौर", "Indore"),
+                    "dhar": ("इन्दौर", "Indore"), "धार": ("इन्दौर", "Indore"), "ratlam": ("इन्दौर", "Indore"),
+                    "रतलाम": ("इन्दौर", "Indore"), "khargone": ("इन्दौर", "Indore"), "khandwa": ("इन्दौर", "Indore"),
+                    "gwalior": ("ग्वालियर", "Gwalior"), "ग्वालियर": ("ग्वालियर", "Gwalior"),
+                    "bhind": ("ग्वालियर", "Gwalior"), "भिण्ड": ("ग्वालियर", "Gwalior"),
+                    "morena": ("ग्वालियर", "Gwalior"), "मुरैना": ("ग्वालियर", "Gwalior"),
+                    "datia": ("ग्वालियर", "Gwalior"), "दतिया": ("ग्वालियर", "Gwalior"),
+                    "shivpuri": ("ग्वालियर", "Gwalior"), "शिवपुरी": ("ग्वालियर", "Gwalior"),
+                    "guna": ("ग्वालियर", "Gwalior"), "गुना": ("ग्वालियर", "Gwalior")}},
+    "madras": {"hi": "मद्रास", "en": "Madras", "seat": ("मद्रास", "Madras"),
+        "benches": {"madurai": ("मदुरै", "Madurai"), "मदुरै": ("मदुरै", "Madurai")}},
+    "manipur": {"hi": "मणिपुर", "en": "Manipur", "seat": ("इम्फाल", "Imphal"), "benches": {}},
+    "meghalaya": {"hi": "मेघालय", "en": "Meghalaya", "seat": ("शिलांग", "Shillong"), "benches": {}},
+    "orissa": {"hi": "उड़ीसा", "en": "Orissa", "seat": ("कटक", "Cuttack"), "benches": {}},
+    "patna": {"hi": "पटना", "en": "Patna", "seat": ("पटना", "Patna"), "benches": {}},
+    "ph": {"hi": "पंजाब एवं हरियाणा", "en": "Punjab and Haryana", "seat": ("चण्डीगढ़", "Chandigarh"), "benches": {}},
+    "rajasthan": {"hi": "राजस्थान", "en": "Rajasthan", "seat": ("जोधपुर", "Jodhpur"),
+        "benches": {"jaipur": ("जयपुर", "Jaipur"), "जयपुर": ("जयपुर", "Jaipur")}},
+    "sikkim": {"hi": "सिक्किम", "en": "Sikkim", "seat": ("गंगटोक", "Gangtok"), "benches": {}},
+    "telangana": {"hi": "तेलंगाना", "en": "Telangana", "seat": ("हैदराबाद", "Hyderabad"), "benches": {}},
+    "tripura": {"hi": "त्रिपुरा", "en": "Tripura", "seat": ("अगरतला", "Agartala"), "benches": {}},
+    "uttarakhand": {"hi": "उत्तराखण्ड", "en": "Uttarakhand", "seat": ("नैनीताल", "Nainital"), "benches": {}},
 }
-# Bench-seat name in BOTH scripts, keyed by every spelling we might receive
-# (Hindi, Latin, nukta/no-nukta) — so "Indore", "इन्दौर" and "इंदौर" all resolve
-# to the same seat, rendered in the document's own language.
-_HC_SEAT_ALIASES = {
-    "gwalior": ("ग्वालियर", "Gwalior"), "ग्वालियर": ("ग्वालियर", "Gwalior"),
-    "indore": ("इन्दौर", "Indore"), "इन्दौर": ("इन्दौर", "Indore"), "इंदौर": ("इन्दौर", "Indore"),
-    "jabalpur": ("जबलपुर", "Jabalpur"), "जबलपुर": ("जबलपुर", "Jabalpur"),
+# every state / UT / common abbreviation → its High Court key (lowercased lookup)
+_STATE_TO_HC = {
+    "uttar pradesh": "allahabad", "up": "allahabad", "उत्तर प्रदेश": "allahabad", "उ.प्र.": "allahabad",
+    "andhra pradesh": "andhra", "ap": "andhra", "आन्ध्र प्रदेश": "andhra", "आंध्र प्रदेश": "andhra",
+    "maharashtra": "bombay", "महाराष्ट्र": "bombay", "goa": "bombay", "गोवा": "bombay",
+    "dadra and nagar haveli": "bombay", "daman and diu": "bombay",
+    "west bengal": "calcutta", "wb": "calcutta", "पश्चिम बंगाल": "calcutta",
+    "andaman and nicobar": "calcutta", "andaman & nicobar": "calcutta",
+    "chhattisgarh": "chhattisgarh", "cg": "chhattisgarh", "छत्तीसगढ़": "chhattisgarh", "छ.ग.": "chhattisgarh",
+    "delhi": "delhi", "nct of delhi": "delhi", "new delhi": "delhi", "दिल्ली": "delhi",
+    "assam": "gauhati", "असम": "gauhati", "nagaland": "gauhati", "नागालैंड": "gauhati",
+    "mizoram": "gauhati", "मिज़ोरम": "gauhati", "arunachal pradesh": "gauhati", "अरुणाचल प्रदेश": "gauhati",
+    "gujarat": "gujarat", "गुजरात": "gujarat",
+    "himachal pradesh": "himachal", "hp": "himachal", "हिमाचल प्रदेश": "himachal", "हि.प्र.": "himachal",
+    "jammu and kashmir": "jk", "jammu & kashmir": "jk", "j&k": "jk", "jk": "jk", "ladakh": "jk",
+    "जम्मू और कश्मीर": "jk", "जम्मू-कश्मीर": "jk", "लद्दाख": "jk",
+    "jharkhand": "jharkhand", "झारखण्ड": "jharkhand", "झारखंड": "jharkhand",
+    "karnataka": "karnataka", "कर्नाटक": "karnataka",
+    "kerala": "kerala", "lakshadweep": "kerala", "केरल": "kerala",
+    "madhya pradesh": "mp", "mp": "mp", "m.p.": "mp", "मध्य प्रदेश": "mp", "मध्यप्रदेश": "mp", "म.प्र.": "mp",
+    "tamil nadu": "madras", "tn": "madras", "तमिलनाडु": "madras", "puducherry": "madras",
+    "pondicherry": "madras", "पुदुच्चेरी": "madras",
+    "manipur": "manipur", "मणिपुर": "manipur",
+    "meghalaya": "meghalaya", "मेघालय": "meghalaya",
+    "odisha": "orissa", "orissa": "orissa", "ओडिशा": "orissa", "उड़ीसा": "orissa",
+    "bihar": "patna", "बिहार": "patna",
+    "punjab": "ph", "haryana": "ph", "chandigarh": "ph", "पंजाब": "ph", "हरियाणा": "ph", "चण्डीगढ़": "ph",
+    "rajasthan": "rajasthan", "राजस्थान": "rajasthan", "raj": "rajasthan",
+    "sikkim": "sikkim", "सिक्किम": "sikkim",
+    "telangana": "telangana", "तेलंगाना": "telangana", "तेलंगाणा": "telangana",
+    "tripura": "tripura", "त्रिपुरा": "tripura",
+    "uttarakhand": "uttarakhand", "uk": "uttarakhand", "उत्तराखण्ड": "uttarakhand", "उत्तराखंड": "uttarakhand",
 }
 
 
-def _hc_bench(city="", bench=None, lang="hi"):
-    """(district or seat) → the MP-HC bench cause-title token, in `lang`.
-    Returns "" when NO city is given — the caller then shows a blank placeholder
-    instead of guessing a bench from a default/location (a wrong bench on a
-    filing is far worse than a blank one the lawyer fills in)."""
-    if bench:
-        return bench
-    raw = (city or "").strip()
-    if not raw:
-        return ""                                   # no location → leave blank
-    seat = _MP_HC_BENCH.get(raw)                    # known district → its Hindi seat
-    alias = _HC_SEAT_ALIASES.get(seat) if seat else (
-        _HC_SEAT_ALIASES.get(raw) or _HC_SEAT_ALIASES.get(raw.lower()))
-    if alias:
-        return alias[0] if lang == "hi" else alias[1]
-    # any other MP district falls under the principal seat at Jabalpur
-    return "जबलपुर" if lang == "hi" else "Jabalpur"
+def _hc_record(state="", city=""):
+    """Resolve (state, city) → an HC record, or None if the state is unknown.
+    State wins; a bench-city (e.g. 'Lucknow') can also pin the HC when state is blank."""
+    for tok in ((state or "").strip().lower(), (city or "").strip().lower()):
+        if tok and tok in _STATE_TO_HC:
+            return _HIGH_COURTS[_STATE_TO_HC[tok]]
+    # a bench/city name alone (Lucknow, Nagpur, Madurai…) can identify the HC
+    probe = (city or "").strip().lower()
+    if probe:
+        for rec in _HIGH_COURTS.values():
+            if probe in rec["benches"]:
+                return rec
+    return None
+
+
+def _hc_seat(rec, city="", state="", lang="hi"):
+    """Pick the localized seat city for this HC from the city/district/state, and
+    whether it is a BENCH (vs the principal seat). Returns (place, is_bench)."""
+    for tok in ((city or "").strip().lower(), (state or "").strip().lower()):
+        if tok and tok in rec["benches"]:
+            return rec["benches"][tok][0 if lang == "hi" else 1], True
+    return (rec["seat"][0] if lang == "hi" else rec["seat"][1]), False
+
+
+def _compose_hc(city="", state="", bench=None, lang="hi"):
+    """Full High-Court cause-title for the matter's OWN state, phrased uniformly:
+    'In the High Court of <Name> at <PrincipalSeat>' / '…, <Bench> Bench'. Blank
+    placeholders (never an MP guess) when the state/court cannot be resolved."""
+    rec = _hc_record(state, city)
+    if rec is None:                                   # unknown state → blank, don't guess
+        st = (state or "").strip() or "__________"
+        seat = bench or "__________"
+        return (f"माननीय उच्च न्यायालय {st}, {seat}" if lang == "hi"
+                else f"In the High Court of {st} at {seat}")
+    if bench:                                         # explicit override wins
+        return (f"माननीय उच्च न्यायालय {rec['hi']}, {bench}" if lang == "hi"
+                else f"In the High Court of {rec['en']} at {bench}")
+    place, is_bench = _hc_seat(rec, city, state, lang)
+    bw_hi, bw_en = rec.get("bw", ("खण्डपीठ", "Bench"))
+    if lang == "hi":
+        return (f"माननीय उच्च न्यायालय {rec['hi']} {bw_hi} {place}" if is_bench
+                else f"माननीय उच्च न्यायालय {rec['hi']}, {place}")
+    if is_bench:
+        # "Circuit Bench"/"Wing" read as "… , Circuit Bench at Port Blair"; a plain
+        # "Bench" reads "… at Bombay, Nagpur Bench" (principal named, then the bench).
+        if bw_en == "Bench":
+            return f"In the High Court of {rec['en']} at {rec['seat'][1]}, {place} Bench"
+        return f"In the High Court of {rec['en']} at {rec['seat'][1]}, {bw_en} at {place}"
+    return f"In the High Court of {rec['en']} at {place}"
+
+
 _COURT_TPL = {
     "magistrate":         "न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी महोदय, {city} ({state})",
     "cjm":                "न्यायालय माननीय मुख्य न्यायिक दण्डाधिकारी महोदय, {city} ({state})",
@@ -158,7 +321,6 @@ _COURT_TPL = {
     "civil":              "न्यायालय माननीय व्यवहार न्यायाधीश महोदय वर्ग-____, {city} ({state})",
     "district_judge":     "न्यायालय माननीय जिला न्यायाधीश महोदय, {city} ({state})",
     "consumer":           "जिला उपभोक्ता विवाद प्रतितोष आयोग, {city} ({state})",
-    "hc":                 "माननीय उच्च न्यायालय मध्यप्रदेश खण्डपीठ {bench}",
 }
 _COURT_TPL_EN = {
     "magistrate":         "Court of the Judicial Magistrate First Class, {city} ({state})",
@@ -169,20 +331,18 @@ _COURT_TPL_EN = {
     "civil":              "Court of the Civil Judge, Class ____, {city} ({state})",
     "district_judge":     "Court of the District Judge, {city} ({state})",
     "consumer":           "District Consumer Disputes Redressal Commission, {city} ({state})",
-    "hc":                 "High Court of Madhya Pradesh, Bench at {bench}",
 }
 
 
 def compose_court_name(level, city="", state="", bench=None, lang="hi"):
     """level (magistrate/cjm/sessions/principal_sessions/family/civil/district_judge/consumer/hc)
-    + city/district → the forum's cause-title. For HC, the district picks the bench. Editable after."""
-    tpls = _COURT_TPL if lang == "hi" else _COURT_TPL_EN
+    + city/district + STATE → the forum's cause-title, PAN-INDIA. The state selects the
+    correct High Court (all 25) and the district selects its bench. Nothing defaults to
+    MP — an unknown state/city leaves a blank placeholder the lawyer fills. Editable after."""
     if level == "hc":
-        b = _hc_bench(city, bench, lang)
-        if not b:
-            b = "__________"          # location left blank → keep the bench blank
-        return tpls["hc"].format(bench=b)
-    state = state or ("म.प्र." if lang == "hi" else "M.P.")
+        return _compose_hc(city, state, bench, lang)
+    tpls = _COURT_TPL if lang == "hi" else _COURT_TPL_EN
+    state = (state or "").strip() or ("________" if lang == "hi" else "________")
     city = (city or "").strip() or ("............" if lang == "hi" else "............")
     return tpls.get(level, tpls["sessions"]).format(city=city, state=state)
 
@@ -303,20 +463,22 @@ def render_index(hdr: dict, items, lang: str = "hi") -> str:
     return head + '<div class="doc-body">' + table + '</div>'
 
 
-def doc_page(docs, banner: str = "") -> str:
+def doc_page(docs, banner: str = "", title: str = "") -> str:
     """Standalone page rendering one or more FULL documents (header + body) on
-    A4 sheets. Pass [hi_html, en_html] for a bilingual review."""
+    A4 sheets. Pass [hi_html, en_html] for a bilingual review. `title` becomes the
+    document title — it is what the browser's print header shows, so pass the
+    draft's own name rather than app chrome."""
     if isinstance(docs, str):
         docs = [docs]
     sheets = "".join(f'<div class="doc-a4">{d}</div>' for d in docs)
     return (
         '<!doctype html><html lang="hi"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
-        '<title>Headnote draft — review</title>'
+        f'<title>{_esc(title) or "Headnote draft — review"}</title>'
         '<link rel="preconnect" href="https://fonts.googleapis.com">'
         '<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;700&display=swap" rel="stylesheet">'
         '<style>*{box-sizing:border-box}body{margin:0;background:#cdccc6;padding:24px 0}'
-        + HEADER_CSS +
+        + HEADER_CSS + PRINT_CSS +
         '.rb{max-width:210mm;margin:0 auto 16px;font-family:system-ui,sans-serif;font-size:12.5px;'
         'line-height:1.5;color:#3a3730;background:#fdf6e3;border:1px solid #e3d9bd;padding:8px 12px;border-radius:6px}'
         '.doc-a4{margin-bottom:24px}</style></head><body>'

@@ -109,7 +109,7 @@ def _sections_check(doc_type: str, plain: str, lang: str) -> list[dict]:
 # ---------------------------------------------------------------------------
 # missing skeleton points — the one LLM call; degrades to [] offline
 # ---------------------------------------------------------------------------
-_MISSING_SYSTEM = """You are the reviewing senior in an Indian trial-court advocate's office (Madhya Pradesh).
+_MISSING_SYSTEM = """You are the reviewing senior in an Indian litigation advocate's office (any State/UT).
 You are given (a) the MANDATORY checklist of paragraphs this document type must carry, and (b) the advocate's
 CURRENT draft. Find checklist points that are genuinely ABSENT from the draft. Output ONLY valid JSON:
 {"missing": [{"point": "<the absent point, short, in %LANG%>",

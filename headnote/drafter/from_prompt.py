@@ -28,12 +28,15 @@ from headnote.drafter import author
 
 def _finalize(result: dict) -> dict:
     """Add `page_hi` / `page_en` — the draft wrapped in a standalone A4 page (canonical
-    header CSS + Devanagari font) so the frontend can drop it straight into an iframe."""
+    header CSS + print CSS + Devanagari font) so the frontend can drop it straight into
+    an iframe. The draft's own title becomes the page title (it is what the browser's
+    print header shows)."""
     from headnote.drafter.templates._doc_header import doc_page
     hi = (result.get("html_hi") or "").strip()
     en = (result.get("html_en") or "").strip()
-    result["page_hi"] = doc_page([hi]) if hi else ""
-    result["page_en"] = doc_page([en]) if en else ""
+    title = (result.get("title") or "").strip()
+    result["page_hi"] = doc_page([hi], title=title) if hi else ""
+    result["page_en"] = doc_page([en], title=title) if en else ""
     return result
 
 
@@ -67,9 +70,10 @@ def _editor_handoff(module_key: str, court: str, bail_type: str, data: dict) -> 
 # ---------------------------------------------------------------------------
 # 1) Classifier — prompt → {doc_type, court, bail_type, confidence}.
 # ---------------------------------------------------------------------------
-CLASSIFY_SYSTEM = """You are the intake router for an Indian litigation drafting tool (Madhya Pradesh trial
-courts + High Court). Read the advocate's description of what they want to draft — it may be in Hindi, English
-or Hinglish — and classify it. Output ONLY valid JSON, no prose:
+CLASSIFY_SYSTEM = """You are the intake router for a pan-India litigation drafting tool (trial courts,
+tribunals and High Courts across ALL Indian States and Union Territories). Read the advocate's description of
+what they want to draft — it may be in Hindi, English or Hinglish — and classify it. Output ONLY valid JSON,
+no prose:
 {"doc_type": "<one key below>", "court": "magistrate"|"sessions"|"hc"|"family"|"civil"|"consumer"|"", "bail_type": "regular"|"anticipatory"|"", "language": "hi"|"en", "confidence": 0.0-1.0, "reason": "<short>"}
 
 "language" = the language the DRAFT should be written in, inferred from how the advocate wrote:
@@ -498,6 +502,7 @@ def draft_from_prompt(matter: str, lang: str = "auto", reference_text: str = "")
     """
     matter = (matter or "").strip()
     reference_text = (reference_text or "").strip()
+    requested_lang = lang
     if not matter and not reference_text:
         return {"ok": False, "error": "empty prompt"}
 
@@ -509,13 +514,32 @@ def draft_from_prompt(matter: str, lang: str = "auto", reference_text: str = "")
 
     # --- style-reference path — mirror the uploaded draft's shape/voice (authored) ---
     if reference_text:
-        skeleton = author.extract_reference_skeleton(reference_text, lang)
         author_type = dt if dt in author.TYPE_BRIEFS else (
             "other_civil" if dt == "other_civil" else "other_criminal")
         a_court = _authored_court(author_type, cls)
-        result = author.author_document(
-            matter, author_type, lang, court=a_court,
-            reference_skeleton=skeleton)
+        # The reference IS the format — so its language governs the draft (an English
+        # filed plaint must come back English even off a Hinglish brief). An explicit
+        # hi/en from the caller still wins inside resolve_lang.
+        m_lang = resolve_lang(requested_lang, reference_text)
+        result = None
+        try:
+            # primary: full-fidelity mirror — model sees the reference verbatim,
+            # returns the whole document as layout blocks (author.mirror_document)
+            result = author.mirror_document(matter, reference_text, author_type, m_lang)
+            lang = m_lang
+            result["mirror_ok"] = True
+        except Exception:
+            result = None
+        if result is None:
+            # fallback: the older skeleton pass + house-style authoring
+            skeleton = author.extract_reference_skeleton(reference_text, lang)
+            result = author.author_document(
+                matter, author_type, lang, court=a_court,
+                reference_skeleton=skeleton)
+            result["mirror_ok"] = bool(skeleton)
+            if not skeleton:
+                result.setdefault("warnings", []).insert(
+                    0, "Could not read the reference clearly — drafted in the standard house style instead.")
         result.update({
             "court": a_court,
             "confidence": cls["confidence"],
@@ -524,11 +548,7 @@ def draft_from_prompt(matter: str, lang: str = "auto", reference_text: str = "")
             "reason": "mirrored your reference draft",
             "classified_as": dt,
             "mirrored": True,
-            "mirror_ok": bool(skeleton),
         })
-        if not skeleton:
-            result.setdefault("warnings", []).insert(
-                0, "Could not read the reference clearly — drafted in the standard house style instead.")
         return _finalize(result)
 
     # warnings every path shares: the FIR-date/code gate + low classifier confidence
