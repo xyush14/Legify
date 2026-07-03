@@ -9,7 +9,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <title>Drafter — Headnote</title>
 <!-- UI fonts (sans-serif) + court-paper preview fonts (Times + Tiro Devanagari serif) -->
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Tiro+Devanagari+Hindi:ital@0;1&family=Noto+Serif+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Tiro+Devanagari+Hindi:ital@0;1&family=Noto+Serif+Devanagari:wght@400;500;600;700&family=Noto+Serif+Bengali:wght@400;500;600;700&family=Noto+Serif+Gujarati:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   /* Kruti Dev 010 — self-hosted. Loaded but not applied until the
      Unicode → Kruti Dev byte-sequence converter ships. See draft-bail.html
@@ -61,6 +61,12 @@
   .lang-toggle { display: inline-flex; background: var(--bg); border: 1px solid var(--line-strong); border-radius: 100px; padding: 3px; font-size: 11px; font-weight: 600; }
   .lang-toggle button { border: none; background: transparent; padding: 5px 10px; border-radius: 100px; color: var(--muted); cursor: pointer; transition: all 0.18s ease; font-family: inherit; font-size: inherit; font-weight: inherit; }
   .lang-toggle button.active { background: var(--ink); color: var(--bg); }
+  .lang-select { border: 1px solid var(--line-strong); background: var(--bg); color: var(--ink);
+    border-radius: 100px; padding: 5px 26px 5px 12px; font-size: 12px; font-weight: 600;
+    font-family: inherit; cursor: pointer; -webkit-appearance: none; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center; }
+  .lang-select:focus { outline: none; border-color: var(--ink); }
 
   /* Layout — matches bail */
   .split { display: grid; grid-template-columns: 460px 1fr; height: calc(100vh - 56px); }
@@ -536,8 +542,11 @@
   <div class="topbar__right">
     <span class="savestate" id="savestate"></span>
     <div class="lang-toggle" role="group" aria-label="language">
-      <button id="lang-en">EN</button>
-      <button id="lang-hi" class="active">हिं</button>
+      <select id="lang-select" class="lang-select" aria-label="document language" title="Document language">
+        <option value="hi" selected>हिंदी</option>
+        <option value="en">English</option>
+        <option value="mr">मराठी</option>
+      </select>
     </div>
     <button class="btn" id="btn-pdf" title="Download PDF">⬇ <span class="btn-long">PDF</span></button>
     <button class="btn" id="btn-print" title="Print" data-en="🖨 Print" data-hi="🖨 प्रिंट">🖨 <span class="btn-long">प्रिंट</span></button>
@@ -622,7 +631,8 @@
 // integrated where the template declares them.
 // =========================================================================
 const state = {
-  lang:     document.body.classList.contains('lang-hi') ? 'hi' : 'en',
+  lang:     document.body.classList.contains('lang-hi') ? 'hi' : 'en',  // CHROME language (hi|en)
+  docLang:  document.body.classList.contains('lang-hi') ? 'hi' : 'en',  // DOCUMENT language (hi|en|mr)
   docType:  null,
   template: null,
   fields:   {},
@@ -949,8 +959,7 @@ function applyLang() {
     const v = state.lang === 'hi' ? el.dataset.hi : el.dataset.en;
     if (v != null) el.textContent = v;
   });
-  $('#lang-en').classList.toggle('active', state.lang === 'en');
-  $('#lang-hi').classList.toggle('active', state.lang === 'hi');
+  const sel = $('#lang-select'); if (sel) sel.value = state.docLang;
   if (state.template) updateTitle();
   if (typeof updateProgress === 'function') updateProgress();   // meter label follows language
   // Re-render document with new lang's parsing
@@ -1891,17 +1900,20 @@ async function generateDocument(opts) {
   // result is cached against the right language even if the user toggles again
   // mid-flight, and the cache entry is auto-invalidated the moment content
   // changes (scheduleAutoRegen bumps _editVersion).
-  const langAtCall = state.lang;
+  const langAtCall = state.docLang;
   const verAtCall  = state._editVersion;
   try {
     // INSTANT deterministic path — build the doc in-browser (no LLM, no
     // network, ₹0), exactly like /draft/bail. Only fires for doc_types listed
     // in DETERMINISTIC_RENDERERS; everything else falls through to the LLM.
-    const _detRender = DETERMINISTIC_RENDERERS[state.docType];
+    // The in-browser deterministic renderers only know hi/en. For a regional
+    // language (mr) skip them and fall through to the backend, which
+    // regionalizes (verified cache + runtime fact translation).
+    const _detRender = langAtCall === 'mr' ? null : DETERMINISTIC_RENDERERS[state.docType];
     if (_detRender) {
       const doc = _detRender(state.fields, langAtCall);
       state.docByLang[langAtCall] = { doc, ver: verAtCall };
-      if (langAtCall === state.lang) {
+      if (langAtCall === state.docLang) {
         state.document = doc;
         renderDocument();
         if ($('#doc-page')) $('#doc-page').scrollTop = prevScroll;
@@ -1924,7 +1936,7 @@ async function generateDocument(opts) {
     // Only paint if this is still the language on screen. If the user toggled
     // away mid-flight, _rerunPending holds the newer request and will repaint —
     // so we skip the stale paint instead of flashing the wrong language.
-    if (langAtCall === state.lang) {
+    if (langAtCall === state.docLang) {
       state.document = data.document;
       renderDocument();
       if ($('#doc-page')) $('#doc-page').scrollTop = prevScroll;
@@ -2320,15 +2332,24 @@ setTimeout(hideBootLoader, 10000);
   });
 })();
 
-// ---- Language toggle ----
-async function setLang(newLang) {
-  if (state.lang === newLang) return;
-  state.lang = newLang;
+// ---- Language selector (hi | en | mr) ----
+// state.lang = CHROME language (hi|en, ~80 UI strings). state.docLang = the
+// DOCUMENT language (hi|en|mr). Marathi renders the document in mr while the
+// editor chrome stays Hindi (Devanagari), since mr readers use that script and
+// we keep the exact same flows/behaviour as the existing two languages.
+async function selectLanguage(docLang) {
+  if (state.docLang === docLang) return;
+  const chrome = docLang === 'en' ? 'en' : 'hi';   // mr → Hindi chrome
+  const chromeChanged = state.lang !== chrome;
+  state.lang = chrome;
+  state.docLang = docLang;
   applyLang();
-  renderForm();
-  Object.entries(state.fields).forEach(([k, v]) => {
-    const el = $(`#f_${k}`); if (el) el.value = v || '';
-  });
+  if (chromeChanged) {
+    renderForm();
+    Object.entries(state.fields).forEach(([k, v]) => {
+      const el = $(`#f_${k}`); if (el) el.value = v || '';
+    });
+  }
 
   // Translate the FORM-INPUT values for display only — best-effort, in the
   // BACKGROUND. The document flip must NEVER wait on this: render-template
@@ -2336,20 +2357,20 @@ async function setLang(newLang) {
   // form's language, while translate-fields uses flaky free MT that used to
   // BLOCK (and sometimes fail) the whole toggle — that was the main reason
   // "translation wasn't working". Fire-and-forget so the doc flips fast.
-  translateFieldsForDisplay(newLang);
+  if (chromeChanged) translateFieldsForDisplay(chrome);
 
   // Editing the doc by hand — regenerating would wipe those edits. Keep the
   // document as-is and tell the lawyer how to switch its language.
   if (state.editMode) {
-    toast(newLang === 'hi' ? 'दस्तावेज़ की भाषा बदलने के लिए पहले संपादन बंद करें (✓ पूर्ण)'
-                           : 'Turn off Edit (✓ Done) to switch the document language', 'warn', 3200);
+    toast(state.lang === 'hi' ? 'दस्तावेज़ की भाषा बदलने के लिए पहले संपादन बंद करें (✓ पूर्ण)'
+                              : 'Turn off Edit (✓ Done) to switch the document language', 'warn', 3200);
     return;
   }
 
   // INSTANT path: if this language was already generated for the CURRENT form
   // content, re-show that cached document — no LLM call, no format drift,
   // identical layout every time you toggle back.
-  const cached = state.docByLang[newLang];
+  const cached = state.docByLang[docLang];
   if (cached && cached.doc && cached.ver === state._editVersion) {
     state.document = cached.doc;
     renderDocument();
@@ -2397,8 +2418,7 @@ async function translateFieldsForDisplay(targetLang) {
     }
   } catch { /* best-effort — inputs stay in source language; doc already flipped */ }
 }
-$('#lang-en').addEventListener('click', () => setLang('en'));
-$('#lang-hi').addEventListener('click', () => setLang('hi'));
+$('#lang-select').addEventListener('change', (e) => selectLanguage(e.target.value));
 
 // ---- Generate + PDF + Print + WhatsApp ----
 // Download + WhatsApp share fetch one real PDF from POST /api/draft/pdf

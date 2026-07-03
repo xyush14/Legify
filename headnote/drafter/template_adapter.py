@@ -187,12 +187,35 @@ def to_data(tid: str, fields: dict) -> dict:
     return data
 
 
+# Shown atop a regional draft that hasn't been advocate-verified yet. The
+# feedback loop flips cache entries to v=true; once all are verified the banner
+# is suppressed (see regionalize().report["verified"]).
+_MACHINE_DRAFT_BANNER = (
+    '<div style="max-width:760px;margin:0 auto 18px;padding:9px 14px;'
+    'background:#fdf0c9;border:1px solid #e9c46a;border-radius:6px;'
+    'font-family:system-ui,sans-serif;font-size:12.5px;line-height:1.5;color:#5a4a12">'
+    '<b>मसुदा — पडताळणीपूर्वी दाखल करू नका · Machine draft — verify before filing.</b> '
+    'Regional translation is auto-generated; have an advocate confirm the wording.'
+    '</div>'
+)
+
+
 def document(tid: str, fields: dict, lang: str = "hi") -> str:
     """The full filing bundle as ONE self-contained HTML string (canonical CSS
     inlined so it renders correctly inside the existing editor's preview pane)."""
     t, _court, _bt = CANONICAL_MAP[tid]
     b = assemble(module_for(t), to_data(tid, fields))
     body = b["html_hi"] if lang == "hi" else b["html_en"]
+    # Regional languages (mr/bn/gu) are built off the Hindi render: substitute
+    # the verified cache + runtime-translate client facts. Non-verified output
+    # carries a "machine draft — verify before filing" banner.
+    from headnote.drafter.i18n.render import is_regional
+    if is_regional(lang):
+        from headnote.drafter.i18n.render import regionalize
+        body_hi = b["html_hi"]
+        body, rep = regionalize(body_hi, lang)
+        if not rep.get("verified"):
+            body = _MACHINE_DRAFT_BANNER + body
     # Inline the canonical CSS + lay the bundle out as separate A4 sheets with a
     # gap, and neutralise the host editor's own white "sheet" so they don't nest
     # or touch (the overlap). `:has` scopes the host override to bundle previews.
