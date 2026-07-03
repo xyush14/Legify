@@ -82,7 +82,7 @@ def render_hi(a: dict) -> str:
     a = a or {}
     court = a.get("court") or "sessions"
     c = _cfg(court)
-    state = _esc(a.get("state_name") or "म.प्र.")
+    state = _esc(a.get("state_name") or "________")
     section_title = a.get("section_title") or "धारा 415 भा.ना.सु.सं. (374 दं.प्र.सं.)"
     name = a.get("appellant_name") or ""
     conviction_date = _ph(a.get("conviction_date"), "..........")
@@ -193,7 +193,7 @@ def render_en(a: dict) -> str:
     a = a or {}
     court = a.get("court") or "sessions"
     c = _cfg(court)
-    state = _esc(a.get("state_name_en") or "M.P.")
+    state = _esc(a.get("state_name_en") or a.get("state_name") or "________")
     name = _ph(a.get("appellant_name_en") or a.get("appellant_name"), "appellant")
     conviction_date = _ph(a.get("conviction_date"), "..........")
     convicting_court = _ph(a.get("convicting_court_en") or a.get("convicting_court"), "trial court")

@@ -54,7 +54,7 @@ def render_hi(a: dict) -> str:
     case_year = a.get("case_year") or ""
 
     # ---- parties ----
-    state_name = a.get("state_name") or "म.प्र."
+    state_name = a.get("state_name") or "________"
     accused_names = a.get("accused_names") or ""           # e.g. 'रामेश्वर दयाल आदि'
     is_plural = bool(a.get("is_plural", True))             # प्रार्थीगण vs प्रार्थी
     applicant_word = "प्रार्थीगण" if is_plural else "प्रार्थी"
@@ -112,9 +112,12 @@ def render_hi(a: dict) -> str:
     out.append('</div>')
 
     # --- APPLICATION TITLE ---
+    # Code label keyed to the section number: §239 CrPC (Magistrate) ↔ §262 BNSS;
+    # §227 CrPC (Sessions) ↔ §250 BNSS. A BNSS number must not print as दं.प्र.सं.
+    code_label_hi = "बी.एन.एस.एस." if str(section).strip() in ("262", "250") else "दं.प्र.सं."
     out.append(
         f'<h2 class="bd-app-title">आवेदन पत्र अन्तर्गत धारा {_esc(section)} '
-        f'दं.प्र.सं.</h2>'
+        f'{code_label_hi}</h2>'
     )
 
     out.append('<p class="bd-prelude">माननीय न्यायालय,</p>')
@@ -224,7 +227,7 @@ def render_en(a: dict) -> str:
     court_name = a.get("court_name") or "(name of the Court)"
     case_number = a.get("case_number") or ""
     case_type = a.get("case_type") or "R.C.T."
-    state_name = a.get("state_name") or "M.P."
+    state_name = a.get("state_name") or "________"
     accused_names = a.get("accused_names") or ""
     section = a.get("discharge_section") or "239"
     police_station = a.get("police_station") or ""
@@ -258,8 +261,11 @@ def render_en(a: dict) -> str:
                f'<span class="bd-party-label">Accused</span></div>')
     out.append('</div>')
 
+    code_label_en = ("OF THE BHARATIYA NAGARIK SURAKSHA SANHITA, 2023"
+                     if str(section).strip() in ("262", "250")
+                     else "OF THE CODE OF CRIMINAL PROCEDURE, 1973")
     out.append(f'<h2 class="bd-app-title">APPLICATION FOR DISCHARGE UNDER SECTION {_esc(section)} '
-               f'OF THE CODE OF CRIMINAL PROCEDURE, 1973</h2>')
+               f'{code_label_en}</h2>')
     out.append('<p class="bd-prelude">May it please the Court,</p>')
     out.append('<p class="bd-prelude">The applicants/accused most respectfully submit as under:—</p>')
     out.append('<ol class="bd-paras">')

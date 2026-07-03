@@ -55,8 +55,8 @@ def _overlay_en(a: dict) -> dict:
 
 def _cfg(court):
     if court == "sessions":
-        return dict(level="sessions", court_default="न्यायालय माननीय सत्र न्यायाधीश महोदय, ............ (म.प्र.)")
-    return dict(level="magistrate", court_default="न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी महोदय, ............ (म.प्र.)")
+        return dict(level="sessions", court_default="न्यायालय माननीय सत्र न्यायाधीश महोदय, ............ (________)")
+    return dict(level="magistrate", court_default="न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी महोदय, ............ (________)")
 
 
 def _period(a) -> str:
@@ -68,7 +68,7 @@ def render_hi(a: dict) -> str:
     a = a or {}
     c = _cfg(a.get("court") or "magistrate")
     g = a.get("grounds") or {}
-    state = _esc(a.get("state_name") or "म.प्र.")
+    state = _esc(a.get("state_name") or "________")
     ps = _ph(a.get("police_station"), "थाना"); crime = _ph(a.get("crime_number"), "..../....")
     secs = _secs(a.get("sections"))
     days = _period(a)
@@ -138,7 +138,7 @@ def render_en(a: dict) -> str:
     a = _overlay_en(a)
     c = _cfg(a.get("court") or "magistrate")
     g = a.get("grounds") or {}
-    state = _esc(a.get("state_name") or "M.P.")
+    state = _esc(a.get("state_name") or "________")
     ps = _ph(a.get("police_station"), "police station"); crime = _ph(a.get("crime_number"), "..../....")
     secs = _secs(a.get("sections"), sep=" and ")
     days = _period(a)

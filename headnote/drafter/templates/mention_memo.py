@@ -27,16 +27,16 @@ def _overlay_en(a):
 
 def _cfg(court):
     return {
-        "sessions": dict(level="sessions", court_default="न्यायालय माननीय सत्र न्यायाधीश महोदय, ............ (म.प्र.)"),
-        "magistrate": dict(level="magistrate", court_default="न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी महोदय, ............ (म.प्र.)"),
-        "family": dict(level="family", court_default="न्यायालय माननीय कुटुम्ब न्यायालय, ............ (म.प्र.)"),
+        "sessions": dict(level="sessions", court_default="न्यायालय माननीय सत्र न्यायाधीश महोदय, ............ (________)"),
+        "magistrate": dict(level="magistrate", court_default="न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी महोदय, ............ (________)"),
+        "family": dict(level="family", court_default="न्यायालय माननीय कुटुम्ब न्यायालय, ............ (________)"),
     }.get(court, dict(level="hc", court_default="माननीय उच्च न्यायालय मध्यप्रदेश, खण्डपीठ ग्वालियर"))
 
 
 def render_hi(a: dict) -> str:
     a = a or {}; c = _cfg(a.get("court") or "hc"); g = a.get("grounds") or {}
     nd = _ph(a.get("next_date"), "नियत दिनांक")
-    court_name = a.get("court_name") or compose_court_name(c["level"], a.get("court_city"), "म.प्र.") \
+    court_name = a.get("court_name") or compose_court_name(c["level"], a.get("court_city"), a.get("state_name") or "") \
         if a.get("court_city") else (a.get("court_name") or c["court_default"])
     hdr = render_header({
         "side_label": "", "court_name": court_name, "case_code": a.get("case_code") or "प्रकरण क्रमांक",
@@ -77,7 +77,7 @@ def render_hi(a: dict) -> str:
 def render_en(a: dict) -> str:
     a = _overlay_en(a); c = _cfg(a.get("court") or "hc"); g = a.get("grounds") or {}
     nd = _ph(a.get("next_date"), "the next date")
-    court_name = a.get("court_name") or compose_court_name(c["level"], a.get("court_city"), "M.P.", lang="en")
+    court_name = a.get("court_name") or compose_court_name(c["level"], a.get("court_city"), a.get("state_name") or "", lang="en")
     hdr = render_header({
         "side_label": "", "court_name": court_name, "case_code": a.get("case_code") or "Case No.",
         "case_number": a.get("case_number") or "", "case_year": a.get("case_year") or str(date.today().year),
@@ -115,6 +115,7 @@ _TOGGLES = [
 def field_spec(court: str = "hc") -> dict:
     flds = [
         F.f("court_city", "जिला / शहर / बैंच", "District / Bench", section="court", hint="लोकेशन से स्वतः → न्यायालय नाम"),
+        F.f("state_name", "राज्य", "State", section="court", hint="मामले का राज्य (रिक्त → स्थान रिक्त)"),
         F.f("court_name", "न्यायालय का नाम (स्वतः/ओवरराइड)", "Court name", required=True, section="court", auto=True),
         F.f("case_number", "प्रकरण क्रमांक", "Case no.", required=True, section="court"),
         F.f("case_year", "वर्ष", "Year", F.NUMBER, section="court"),

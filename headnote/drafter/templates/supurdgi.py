@@ -29,16 +29,16 @@ def _overlay_en(a):
     return a
 
 
-_CD = "न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी महोदय, ............ (म.प्र.)"
+_CD = "न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी महोदय, ............ (________)"
 
 
 def render_hi(a: dict) -> str:
     a = a or {}; g = a.get("grounds") or {}
-    state = _esc(a.get("state_name") or "म.प्र. राज्य")
+    state = _esc(a.get("state_name") or "________")
     ps = _ph(a.get("police_station"), "आरक्षी केन्द्र"); crime = _ph(a.get("crime_number"), "..../....")
     secs = _secs(a.get("sections")); prop = _ph(a.get("property_desc"), "जप्तशुदा वाहन/सम्पत्ति का विवरण")
     seiz = _ph(a.get("seizure_date"), "जप्ती दिनांक")
-    court_name = a.get("court_name") or compose_court_name("magistrate", a.get("court_city"), "म.प्र.") \
+    court_name = a.get("court_name") or compose_court_name("magistrate", a.get("court_city"), a.get("state_name") or "") \
         if a.get("court_city") else (a.get("court_name") or _CD)
     hdr = render_header({
         "side_label": "", "court_name": court_name, "case_code": "प्रकरण क्रमांक",
@@ -84,11 +84,11 @@ def render_hi(a: dict) -> str:
 
 def render_en(a: dict) -> str:
     a = _overlay_en(a); g = a.get("grounds") or {}
-    state = _esc(a.get("state_name") or "State of M.P.")
+    state = _esc(a.get("state_name") or "________")
     ps = _ph(a.get("police_station"), "police station"); crime = _ph(a.get("crime_number"), "..../....")
     secs = _secs(a.get("sections"), sep=" and "); prop = _ph(a.get("property_desc"), "the seized property")
     seiz = _ph(a.get("seizure_date"), "date of seizure")
-    court_name = a.get("court_name") or compose_court_name("magistrate", a.get("court_city"), "M.P.", lang="en")
+    court_name = a.get("court_name") or compose_court_name("magistrate", a.get("court_city"), a.get("state_name") or "", lang="en")
     hdr = render_header({
         "side_label": "", "court_name": court_name, "case_code": "Case No.",
         "case_number": a.get("case_number") or "", "case_year": a.get("case_year") or str(date.today().year),
@@ -137,7 +137,7 @@ def field_spec(court: str = "magistrate") -> dict:
         F.f("case_number", "प्रकरण क्रमांक", "Case no.", section="court"),
         F.f("case_year", "वर्ष", "Year", F.NUMBER, section="court"),
         F.f("applicant_name", "आवेदक (स्वामी) का नाम", "Applicant (owner) name", F.NAME, True, "parties"),
-        F.f("state_name", "अनावेदक राज्य", "Respondent State", section="parties", default="म.प्र. राज्य"),
+        F.f("state_name", "अनावेदक राज्य", "Respondent State", section="parties", default=""),
         F.f("police_station", "आरक्षी केन्द्र / पुलिस थाना", "Police station", required=True, section="crime"),
         F.f("crime_number", "अपराध क्रमांक", "Crime no.", required=True, section="crime", ocr="order"),
         F.f("sections", "धाराएं", "Offence sections", F.SECTION_LIST, True, "crime", ocr="order"),

@@ -79,7 +79,7 @@ def render_hi(a: dict) -> str:
     a = a or {}
 
     # ---- court header ----
-    court_name = a.get("court_name") or "न्यायालय माननीय प्रधान सत्र न्यायाधीश महोदय, ............ (म.प्र.)"
+    court_name = a.get("court_name") or "न्यायालय माननीय प्रधान सत्र न्यायाधीश महोदय, ............ (________)"
     case_number = a.get("case_number") or ""
     case_year = a.get("case_year") or str(date.today().year)
 
@@ -96,7 +96,7 @@ def render_hi(a: dict) -> str:
     address = a.get("applicant_address") or ""
 
     # ---- non-applicant / FIR ----
-    state_name = a.get("state_name") or "म.प्र."
+    state_name = a.get("state_name") or "________"
     ps_name = a.get("police_station") or ""
     district = a.get("district") or ""
     fir_number = a.get("fir_number") or ""
@@ -316,7 +316,7 @@ def render_en(a: dict) -> str:
     occupation = a.get("applicant_occupation") or ""
     address = a.get("applicant_address") or ""
     district = a.get("district") or ""
-    state_name = a.get("state_name") or "M.P."
+    state_name = a.get("state_name") or "________"
     ps_name = a.get("police_station") or ""
     fir_number = a.get("fir_number") or ""
     sections = a.get("sections") or []

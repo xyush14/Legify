@@ -99,7 +99,7 @@ def _cfg(court, bail_type):
 def _crime_order_table_hi(a, antic):
     """अपराध का विवरण | विवादित आदेश का विवरण — his bail summary table (verbatim)."""
     ps = _ph(a.get("police_station"), "थाना"); dist = _ph(a.get("district"), "जिला")
-    st = _esc(a.get("state_name") or "म.प्र.")
+    st = _esc(a.get("state_name") or "________")
     crime = (f'अपराध क्रमांक— {_ph(a.get("fir_number"), "..../....")}<br>'
              f'पुलिस— थाना {ps} जिला {dist} ({st})<br>'
              f'अपराध धारा ः— {_secs(a.get("sections"))}<br>'
@@ -171,7 +171,7 @@ def render_hi(a: dict) -> str:
     title_sec = f"धारा {c['sec']} भारतीय नागरिक सुरक्षा संहिता"
     title = (f"आवेदन पत्र अन्तर्गत {title_sec}" if court == "magistrate"
              else f"{_ord_hi(appno)} {'अग्रिम जमानत' if antic else 'जमानत'} आवेदन पत्र अन्तर्गत {title_sec}")
-    court_name = a.get("court_name") or compose_court_name(_level(court, antic), a.get("court_city"), a.get("state_name") or "म.प्र.")
+    court_name = a.get("court_name") or compose_court_name(_level(court, antic), a.get("court_city"), a.get("state_name") or "________")
 
     hdr = render_header({
         "side_label": "आवेदक की ओर से" if antic else "बन्दी की ओर से",
@@ -181,10 +181,10 @@ def render_hi(a: dict) -> str:
         "applicant_desc": [
             f'{_ph(name, "नाम")} पुत्र श्री {_ph(a.get("applicant_father"), "पिता")},',
             f'आयु— {_ph(a.get("applicant_age"), "..")} वर्ष, व्यवसाय— {_ph(a.get("applicant_occupation"), "व्यवसाय")},',
-            f'निवासी— <u>{_ph(a.get("applicant_address"), "पता")}</u>, जिला {_ph(a.get("district"), "जिला")} ({_esc(a.get("state_name") or "म.प्र.")})',
+            f'निवासी— <u>{_ph(a.get("applicant_address"), "पता")}</u>, जिला {_ph(a.get("district"), "जिला")} ({_esc(a.get("state_name") or "________")})',
         ],
         "respondent_label": "अनावेदक",
-        "respondent_desc": [f'{_esc(a.get("state_name") or "म.प्र.")} शासन द्वारा',
+        "respondent_desc": [f'{_esc(a.get("state_name") or "________")} शासन द्वारा',
                             f'पुलिस थाना {_ph(a.get("police_station"), "थाना")} जिला {_ph(a.get("district"), "जिला")}'],
         "versus": "बनाम", "title_line": title,
     })
@@ -314,7 +314,7 @@ def render_affidavit_hi(a: dict) -> str:
     btype = a.get("bail_type") or "regular"
     c = _cfg(court, btype)
     antic = c["antic"]
-    court_name = a.get("court_name") or compose_court_name(_level(court, antic), a.get("court_city"), a.get("state_name") or "म.प्र.")
+    court_name = a.get("court_name") or compose_court_name(_level(court, antic), a.get("court_city"), a.get("state_name") or "________")
     appno = int(a.get("application_number") or 1)
     applicant = a.get("applicant_name") or "________"
     dep_name = a.get("deponent_name") or applicant
@@ -325,7 +325,7 @@ def render_affidavit_hi(a: dict) -> str:
         "case_number": a.get("case_number") or "", "case_year": a.get("case_year") or str(date.today().year),
         "case_suffix": c["case_suffix"], "applicant_label": "आवेदक",
         "applicant_desc": [_ph(applicant, "आवेदक")], "respondent_label": "अनावेदक",
-        "respondent_desc": [f'{_esc(a.get("state_name") or "म.प्र.")} शासन'],
+        "respondent_desc": [f'{_esc(a.get("state_name") or "________")} शासन'],
         "versus": "बनाम", "title_line": "शपथ पत्र",
     })
     fd = _ph(a.get("filing_date"), date.today().strftime("%d/%m/%Y"))
@@ -370,7 +370,7 @@ def render_affidavit_en(a: dict) -> str:
             a[_k[:-3]] = a[_k]
     court = a.get("court") or "sessions"
     c = _cfg(court, a.get("bail_type") or "regular")
-    court_name = a.get("court_name") or compose_court_name(_level(court, c["antic"]), a.get("court_city"), a.get("state_name") or "M.P.", lang="en")
+    court_name = a.get("court_name") or compose_court_name(_level(court, c["antic"]), a.get("court_city"), a.get("state_name") or "________", lang="en")
     applicant = _ph(a.get("applicant_name"), "applicant")
     dep = _ph(a.get("deponent_name") or a.get("applicant_name"), "deponent")
     fd = _ph(a.get("filing_date"), date.today().strftime("%d/%m/%Y"))
@@ -378,7 +378,7 @@ def render_affidavit_en(a: dict) -> str:
         "side_label": "", "court_name": court_name, "case_code": c["case_code_en"],
         "case_number": a.get("case_number") or "", "case_year": a.get("case_year") or str(date.today().year),
         "applicant_label": "Applicant", "applicant_desc": [applicant], "respondent_label": "Respondent",
-        "respondent_desc": [f'State of {_esc(a.get("state_name") or "M.P.")}'], "versus": "Versus", "title_line": "AFFIDAVIT",
+        "respondent_desc": [f'State of {_esc(a.get("state_name") or "________")}'], "versus": "Versus", "title_line": "AFFIDAVIT",
     })
     out = [hdr, '<div class="doc-body">']
     out.append('<table class="cb-table" style="max-width:62%">'
@@ -420,13 +420,13 @@ def bundle(a: dict, lang: str = "hi"):
             # typed District/City; blank when none is given (never a location guess).
             "court_name": (a.get("court_name") if hi else (a.get("court_name_en") or a.get("court_name")))
             or compose_court_name("hc", a.get("court_city"),
-                                  a.get("state_name") or ("म.प्र." if hi else "M.P."), lang=lang),
+                                  a.get("state_name") or (a.get("state_name") or ""), lang=lang),
             "case_code": "एम.सी.आर.सी." if hi else "M.Cr.C.",
             "case_number": a.get("case_number") or "", "case_year": a.get("case_year") or str(date.today().year),
             "applicant_label": "आवेदक" if hi else "Applicant",
             "applicant_desc": [_ph(a.get("applicant_name"), "आवेदक" if hi else "applicant")],
             "respondent_label": "अनावेदक" if hi else "Respondent",
-            "respondent_desc": [(_esc(a.get("state_name") or "म.प्र.") + " शासन") if hi else ("State of " + _esc(a.get("state_name") or "M.P."))],
+            "respondent_desc": [(_esc(a.get("state_name") or "________") + " शासन") if hi else ("State of " + _esc(a.get("state_name") or "________"))],
             "versus": "बनाम" if hi else "Versus",
         }
         items = [
@@ -455,7 +455,7 @@ def render_en(a: dict) -> str:
     title = f'APPLICATION FOR {"ANTICIPATORY " if antic else ""}BAIL UNDER SECTION {c["sec"]} OF THE BNSS, 2023'
     if court != "magistrate":
         title = f'{EN_ORDINAL[appno] if appno < len(EN_ORDINAL) else str(appno)} {title}'
-    court_name = a.get("court_name_en") or compose_court_name(_level(court, antic), a.get("court_city"), a.get("state_name") or "M.P.", lang="en")
+    court_name = a.get("court_name_en") or compose_court_name(_level(court, antic), a.get("court_city"), a.get("state_name") or "________", lang="en")
     hdr = render_header({
         "side_label": "On behalf of the Applicant", "court_name": court_name,
         "case_code": c["case_code_en"], "case_number": a.get("case_number") or "",
@@ -466,7 +466,7 @@ def render_en(a: dict) -> str:
             f'R/o <u>{_ph(a.get("applicant_address"), "address")}</u>, Distt. {_ph(a.get("district"), "district")}',
         ],
         "respondent_label": "Respondent",
-        "respondent_desc": [f'State of {_esc(a.get("state_name") or "M.P.")} through',
+        "respondent_desc": [f'State of {_esc(a.get("state_name") or "________")} through',
                             f'P.S. {_ph(a.get("police_station"), "P.S.")}, Distt. {_ph(a.get("district"), "district")}'],
         "versus": "Versus", "title_line": title,
     })
@@ -615,7 +615,7 @@ def field_spec(court: str = "sessions", bail_type: str = "regular") -> dict:
     if court == "hc":
         companions += ["शपथ पत्र (separate sheet)", "index/annexures (lower-court order + FIR)"]
     flds.append(F.custom_grounds())
-    flds.append(F.f("state_name", "राज्य", "State", section="parties", hint="रिक्त रखने पर म.प्र."))
+    flds.append(F.f("state_name", "राज्य", "State", section="parties", hint="मामले का राज्य (रिक्त रखने पर स्थान रिक्त)"))
     return F.build_spec(f"bail:{court}:{bail_type}", flds, _TOGGLES,
                         variants={"court": ["magistrate", "sessions", "hc"], "bail_type": ["regular", "anticipatory"]},
                         companions=companions)

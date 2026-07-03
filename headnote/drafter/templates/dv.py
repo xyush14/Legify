@@ -53,7 +53,7 @@ def _relief(label, text):
 # ----------------------------------------------------------- HINDI
 def render_hi(a: dict) -> str:
     a = a or {}
-    state = _esc(a.get("state_name") or "म.प्र.")
+    state = _esc(a.get("state_name") or "________")
     name = a.get("aggrieved_name") or ""
     court_name = a.get("court_name") or (
         compose_court_name("magistrate", a.get("court_city"), state) if a.get("court_city")
@@ -166,7 +166,7 @@ def render_hi(a: dict) -> str:
 # ----------------------------------------------------------- ENGLISH
 def render_en(a: dict) -> str:
     a = a or {}
-    state = _esc(a.get("state_name_en") or "M.P.")
+    state = _esc(a.get("state_name_en") or a.get("state_name") or "________")
     name = _ph(a.get("aggrieved_name_en") or a.get("aggrieved_name"), "aggrieved")
     g = a.get("grounds") or {}
     amt = _esc(a.get("monetary_amount") or "________")
@@ -297,7 +297,7 @@ def field_spec(court: str = "magistrate") -> dict:
         F.f("advocate_name", "अधिवक्ता का नाम", "Advocate name", F.NAME, section="filing"),
         F.f("filing_date", "दिनांक", "Date", F.DATE, section="filing", auto=True),
     ]
-    flds.append(F.f("state_name", "राज्य", "State", section="parties", hint="रिक्त रखने पर म.प्र."))
+    flds.append(F.f("state_name", "राज्य", "State", section="parties", hint="मामले का राज्य (रिक्त रखने पर स्थान रिक्त)"))
     return F.build_spec("dv:magistrate", flds, _TOGGLES,
                         companions=["§23 interim relief application + affidavit", "Domestic Incident Report (DIR)",
                                     "witness list (साक्ष्य सूची)", "vakalatnama"])

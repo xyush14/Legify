@@ -28,7 +28,7 @@ def _ov(a):
 
 def _doc(a, hi):
     a = a if hi else _ov(a); g = a.get("grounds") or {}
-    cn = a.get("court_name") or ("माननीय मोटर दुर्घटना दावा अधिकरण, ............ (म.प्र.)" if hi else "Motor Accidents Claims Tribunal, ............ (M.P.)")
+    cn = a.get("court_name") or ("माननीय मोटर दुर्घटना दावा अधिकरण, ............ (________)" if hi else "Motor Accidents Claims Tribunal, ............ (________)")
     amt = _ph(a.get("claim_amount"), "____")
     hdr = render_header({
         "side_label": "", "court_name": cn, "case_code": (a.get("case_code") or ("दावा प्रकरण क्रमांक" if hi else "Claim Case No.")),

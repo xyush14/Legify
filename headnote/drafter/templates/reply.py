@@ -56,10 +56,10 @@ def _strip_lead(s: str) -> str:
 
 def _cfg(court):
     return {
-        "sessions": dict(level="sessions", court_default="न्यायालय माननीय सत्र न्यायाधीश महोदय, ............ (म.प्र.)"),
+        "sessions": dict(level="sessions", court_default="न्यायालय माननीय सत्र न्यायाधीश महोदय, ............ (________)"),
         "hc":       dict(level="hc",       court_default="माननीय उच्च न्यायालय मध्यप्रदेश, खण्डपीठ ग्वालियर"),
-        "family":   dict(level="family",   court_default="न्यायालय माननीय कुटुम्ब न्यायालय, ............ (म.प्र.)"),
-    }.get(court, dict(level="magistrate", court_default="न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी महोदय, ............ (म.प्र.)"))
+        "family":   dict(level="family",   court_default="न्यायालय माननीय कुटुम्ब न्यायालय, ............ (________)"),
+    }.get(court, dict(level="magistrate", court_default="न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी महोदय, ............ (________)"))
 
 
 # ----------------------------------------------------------- HINDI
@@ -70,7 +70,7 @@ def render_hi(a: dict) -> str:
     app_label = _esc(a.get("applicant_label") or "आवेदिका")
     res_label = _esc(a.get("respondent_label") or "अनावेदक")
     replying_to = _esc(a.get("replying_to") or "आवेदन पत्र")
-    court_name = a.get("court_name") or compose_court_name(c["level"], a.get("court_city"), "म.प्र.") \
+    court_name = a.get("court_name") or compose_court_name(c["level"], a.get("court_city"), a.get("state_name") or "") \
         if a.get("court_city") else (a.get("court_name") or c["court_default"])
 
     hdr = render_header({
@@ -126,7 +126,7 @@ def render_en(a: dict) -> str:
     app_label = _esc(a.get("applicant_label_en") or "Applicant")
     res_label = _esc(a.get("respondent_label_en") or "Non-applicant")
     replying_to = _esc(a.get("replying_to_en") or a.get("replying_to") or "the application")
-    court_name = a.get("court_name_en") or compose_court_name(c["level"], a.get("court_city_en") or a.get("court_city"), "M.P.", lang="en")
+    court_name = a.get("court_name_en") or compose_court_name(c["level"], a.get("court_city_en") or a.get("court_city"), a.get("state_name") or "", lang="en")
 
     hdr = render_header({
         "side_label": "", "court_name": court_name, "case_code": "Case No.",
@@ -173,6 +173,7 @@ _TOGGLES = [
 def field_spec(court: str = "magistrate") -> dict:
     flds = [
         F.f("court_city", "जिला / शहर", "District / City", section="court", hint="लोकेशन से स्वतः → न्यायालय नाम"),
+        F.f("state_name", "राज्य", "State", section="court", hint="मामले का राज्य (रिक्त → स्थान रिक्त)"),
         F.f("court_name", "न्यायालय का नाम (स्वतः/ओवरराइड)", "Court name", required=True, section="court", auto=True),
         F.f("case_number", "प्रकरण क्रमांक", "Case no.", required=True, section="court", ocr="order"),
         F.f("case_year", "वर्ष", "Year", F.NUMBER, section="court"),

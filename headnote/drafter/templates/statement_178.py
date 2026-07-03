@@ -31,14 +31,14 @@ def _overlay_en(a):
     return a
 
 
-_CD = "न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी महोदय, ............ (म.प्र.)"
+_CD = "न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी महोदय, ............ (________)"
 
 
 def render_hi(a: dict) -> str:
     a = a or {}; g = a.get("grounds") or {}
-    state = _esc(a.get("state_name") or "म.प्र. राज्य")
+    state = _esc(a.get("state_name") or "________")
     ps = _ph(a.get("police_station"), "पुलिस थाना")
-    court_name = a.get("court_name") or compose_court_name("magistrate", a.get("court_city"), "म.प्र.") \
+    court_name = a.get("court_name") or compose_court_name("magistrate", a.get("court_city"), a.get("state_name") or "") \
         if a.get("court_city") else (a.get("court_name") or _CD)
     hdr = render_header({
         "side_label": "", "court_name": court_name, "case_code": "प्रकरण क्रमांक",
@@ -86,7 +86,7 @@ def render_hi(a: dict) -> str:
 
 def render_affidavit_hi(a: dict) -> str:
     a = a or {}
-    court_name = a.get("court_name") or compose_court_name("magistrate", a.get("court_city"), "म.प्र.") \
+    court_name = a.get("court_name") or compose_court_name("magistrate", a.get("court_city"), a.get("state_name") or "") \
         if a.get("court_city") else (a.get("court_name") or _CD)
     dep = _ph(a.get("applicant_name"), "शपथकर्ता")
     fd = _ph(a.get("filing_date"), date.today().strftime("%d/%m/%Y"))
@@ -94,7 +94,7 @@ def render_affidavit_hi(a: dict) -> str:
         "side_label": "", "court_name": court_name, "case_code": "प्रकरण क्रमांक",
         "case_number": a.get("case_number") or "", "case_year": a.get("case_year") or str(date.today().year),
         "applicant_label": "आवेदिका", "applicant_desc": [dep],
-        "respondent_label": "अनावेदक", "respondent_desc": [_esc(a.get("state_name") or "म.प्र. राज्य")],
+        "respondent_label": "अनावेदक", "respondent_desc": [_esc(a.get("state_name") or "________")],
         "versus": "बनाम", "title_line": "शपथ पत्र",
     })
     out = [hdr, '<div class="doc-body">']
@@ -128,9 +128,9 @@ def render_affidavit_hi(a: dict) -> str:
 
 def render_en(a: dict) -> str:
     a = _overlay_en(a); g = a.get("grounds") or {}
-    state = _esc(a.get("state_name") or "State of M.P.")
+    state = _esc(a.get("state_name") or "________")
     ps = _ph(a.get("police_station"), "police station")
-    court_name = a.get("court_name") or compose_court_name("magistrate", a.get("court_city"), "M.P.", lang="en")
+    court_name = a.get("court_name") or compose_court_name("magistrate", a.get("court_city"), a.get("state_name") or "", lang="en")
     hdr = render_header({
         "side_label": "", "court_name": court_name, "case_code": "Case No.",
         "case_number": a.get("case_number") or "", "case_year": a.get("case_year") or str(date.today().year),
@@ -171,14 +171,14 @@ def render_en(a: dict) -> str:
 
 def render_affidavit_en(a: dict) -> str:
     a = _overlay_en(a)
-    court_name = a.get("court_name") or compose_court_name("magistrate", a.get("court_city"), "M.P.", lang="en")
+    court_name = a.get("court_name") or compose_court_name("magistrate", a.get("court_city"), a.get("state_name") or "", lang="en")
     dep = _ph(a.get("applicant_name"), "deponent")
     fd = _ph(a.get("filing_date"), date.today().strftime("%d/%m/%Y"))
     hdr = render_header({
         "side_label": "", "court_name": court_name, "case_code": "Case No.",
         "case_number": a.get("case_number") or "", "case_year": a.get("case_year") or str(date.today().year),
         "applicant_label": "Applicant", "applicant_desc": [dep],
-        "respondent_label": "Respondent", "respondent_desc": [_esc(a.get("state_name") or "State of M.P.")],
+        "respondent_label": "Respondent", "respondent_desc": [_esc(a.get("state_name") or "________")],
         "versus": "Versus", "title_line": "AFFIDAVIT"})
     out = [hdr, '<div class="doc-body">']
     out.append('<p class="cb-prelude">I, the deponent above-named, do solemnly affirm and state as under:—</p>')
@@ -230,7 +230,7 @@ def field_spec(court: str = "magistrate") -> dict:
         F.f("applicant_age", "आयु", "Age", F.NUMBER, section="parties"),
         F.f("applicant_occupation", "व्यवसाय", "Occupation", section="parties"),
         F.f("applicant_address", "पता", "Address", F.ADDRESS, section="parties"),
-        F.f("state_name", "राज्य", "State", section="parties", default="म.प्र. राज्य"),
+        F.f("state_name", "राज्य", "State", section="parties", default=""),
         F.f("police_station", "पुलिस थाना", "Police station", required=True, section="crime"),
         F.f("facts_narrative", "आवेदिका की परिस्थिति", "Applicant's situation", F.LONGTEXT, True, "facts",
             hint="स्वेच्छा से घर छोड़ना/विवाह, परिजनों की झूठी रिपोर्ट — खाली पंक्ति से अलग पैरा"),

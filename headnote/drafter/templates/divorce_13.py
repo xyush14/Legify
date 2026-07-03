@@ -30,14 +30,14 @@ def _overlay_en(a):
     return a
 
 
-_CD = "न्यायालय माननीय प्रधान न्यायाधीश महोदय, कुटुम्ब न्यायालय ............ (म.प्र.)"
+_CD = "न्यायालय माननीय प्रधान न्यायाधीश महोदय, कुटुम्ब न्यायालय ............ (________)"
 
 
 def render_hi(a: dict) -> str:
     a = a or {}; g = a.get("grounds") or {}
     pl = _esc(a.get("applicant_label") or "आवेदक"); rl = _esc(a.get("respondent_label") or "अनावेदिका")
     my = _ph(a.get("marriage_year"), "वर्ष ____"); mp = _ph(a.get("marriage_place"), "विवाह स्थान")
-    court_name = a.get("court_name") or compose_court_name("family", a.get("court_city"), "म.प्र.") \
+    court_name = a.get("court_name") or compose_court_name("family", a.get("court_city"), a.get("state_name") or "") \
         if a.get("court_city") else (a.get("court_name") or _CD)
     hdr = render_header({
         "side_label": "", "court_name": court_name, "case_code": "प्रकरण क्रमांक",
@@ -96,7 +96,7 @@ def render_en(a: dict) -> str:
     a = _overlay_en(a); g = a.get("grounds") or {}
     pl = _esc(a.get("applicant_label_en") or "Petitioner"); rl = _esc(a.get("respondent_label_en") or "Respondent")
     my = _ph(a.get("marriage_year"), "year ____"); mp = _ph(a.get("marriage_place"), "place of marriage")
-    court_name = a.get("court_name") or compose_court_name("family", a.get("court_city"), "M.P.", lang="en")
+    court_name = a.get("court_name") or compose_court_name("family", a.get("court_city"), a.get("state_name") or "", lang="en")
     hdr = render_header({
         "side_label": "", "court_name": court_name, "case_code": "Case No.",
         "case_number": a.get("case_number") or "", "case_year": a.get("case_year") or str(date.today().year),
@@ -152,6 +152,7 @@ _TOGGLES = [
 def field_spec(court: str = "family") -> dict:
     flds = [
         F.f("court_city", "जिला / शहर", "District / City", section="court", hint="लोकेशन से स्वतः → कुटुम्ब न्यायालय"),
+        F.f("state_name", "राज्य", "State", section="court", hint="मामले का राज्य (रिक्त → स्थान रिक्त)"),
         F.f("court_name", "न्यायालय का नाम (स्वतः/ओवरराइड)", "Court name", required=True, section="court", auto=True),
         F.f("case_number", "प्रकरण क्रमांक", "Case no.", section="court"),
         F.f("case_year", "वर्ष", "Year", F.NUMBER, section="court"),

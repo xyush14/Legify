@@ -48,9 +48,9 @@ def _secs(sections, sep=" एवं ") -> str:
 def _cfg(court):
     if court == "sessions":
         return dict(level="sessions", sec="250", crpc="227",
-                    court_default="न्यायालय माननीय सत्र न्यायाधीश महोदय, ............ (म.प्र.)")
+                    court_default="न्यायालय माननीय सत्र न्यायाधीश महोदय, ............ (________)")
     return dict(level="magistrate", sec="262", crpc="239",
-                court_default="न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी महोदय, ............ (म.प्र.)")
+                court_default="न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी महोदय, ............ (________)")
 
 
 # ----------------------------------------------------------- HINDI
@@ -61,7 +61,7 @@ def render_hi(a: dict) -> str:
     plural = bool(a.get("is_plural", True))
     aw = "प्रार्थीगण" if plural else "प्रार्थी"        # applicant word in body
     acc = "अभियुक्तगण" if plural else "अभियुक्त"        # accused label
-    state = _esc(a.get("state_name") or "म.प्र.")
+    state = _esc(a.get("state_name") or "________")
     section_title = a.get("section_title") or f"धारा {c['sec']} भा.ना.सु.सं. ({c['crpc']} दं.प्र.सं.)"
     ps = _ph(a.get("police_station"), "थाना"); crime = _ph(a.get("crime_number"), "..../....")
     secs = _secs(a.get("sections"))
@@ -139,7 +139,7 @@ def render_en(a: dict) -> str:
     court = a.get("court") or "magistrate"
     c = _cfg(court)
     plural = bool(a.get("is_plural", True))
-    state = _esc(a.get("state_name_en") or "M.P.")
+    state = _esc(a.get("state_name_en") or a.get("state_name") or "________")
     acc = "Accused" if not plural else "Accused (applicants)"
     # English render prefers *_en values (filled by the EN-toggle translate-fields in
     # the live product); falls back to the entered value so nothing breaks.

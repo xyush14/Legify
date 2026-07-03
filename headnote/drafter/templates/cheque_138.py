@@ -64,7 +64,7 @@ def render_hi(a: dict) -> str:
     # ---- header fields ----
     hdr = render_header({
         "side_label": "",   # a complaint carries no "X की ओर से" side-line
-        "court_name": a.get("court_name") or "न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी, ............ (म.प्र.)",
+        "court_name": a.get("court_name") or "न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी, ............ (________)",
         "case_code": "प्रकरण क्रमांक",
         "case_number": a.get("case_number") or "",
         "case_year": a.get("case_year") or str(today.year),
@@ -233,7 +233,7 @@ def render_en(a: dict) -> str:
     today = date.today()
     hdr = render_header({
         "side_label": "",
-        "court_name": a.get("court_name_en") or a.get("court_name") or "Court of the Judicial Magistrate First Class, ............ (M.P.)",
+        "court_name": a.get("court_name_en") or a.get("court_name") or "Court of the Judicial Magistrate First Class, ............ (________)",
         "case_code": "Criminal Complaint Case",
         "case_number": a.get("case_number") or "",
         "case_year": a.get("case_year") or str(today.year),

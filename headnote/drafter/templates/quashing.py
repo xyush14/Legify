@@ -27,7 +27,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Optional
 
-from headnote.drafter.templates._doc_header import render_header, doc_page
+from headnote.drafter.templates._doc_header import render_header, doc_page, compose_court_name
 from headnote.drafter.templates import _fields as F
 
 CITE_AT_HEARING = [
@@ -71,7 +71,7 @@ def _para_list(facts, grounds, lbl_f, lbl_g):
 # ----------------------------------------------------------- HINDI
 def render_hi(a: dict) -> str:
     a = a or {}
-    state = _esc(a.get("state_name") or "म.प्र.")
+    state = _esc(a.get("state_name") or "________")
     section_title = a.get("section_title") or "धारा 528 भा.ना.सु.सं. (482 दं.प्र.सं.)"
     fir = _ph(a.get("fir_number"), "..../....")
     ps = _ph(a.get("police_station"), "थाना")
@@ -81,7 +81,7 @@ def render_hi(a: dict) -> str:
     name = a.get("applicant_name") or ""
     g = a.get("grounds") or {}
     abuse = g.get("abuse_of_process")
-    court_name = a.get("court_name") or "माननीय उच्च न्यायालय मध्यप्रदेश खण्डपीठ ग्वालियर"
+    court_name = a.get("court_name") or compose_court_name("hc", a.get("court_city") or "", a.get("state_name") or "")
 
     app_desc = (f'{_ph(name, "नाम")} पुत्र श्री {_ph(a.get("applicant_father"), "पिता")}, '
                 f'आयु— {_ph(a.get("applicant_age"), "..")} वर्ष, व्यवसाय— {_ph(a.get("applicant_occupation"), "व्यवसाय")},')
@@ -163,7 +163,7 @@ def render_hi(a: dict) -> str:
 # ----------------------------------------------------------- ENGLISH
 def render_en(a: dict) -> str:
     a = a or {}
-    state = _esc(a.get("state_name_en") or "M.P.")
+    state = _esc(a.get("state_name_en") or a.get("state_name") or "________")
     fir = _ph(a.get("fir_number"), "..../....")
     ps = _ph(a.get("police_station_en") or a.get("police_station"), "P.S.")
     dist = _ph(a.get("district_en") or a.get("district"), "District")
@@ -180,7 +180,7 @@ def render_en(a: dict) -> str:
             f'2. The Prosecutrix/Complainant through Police Station {ps}, District {dist}']
 
     hdr = render_header({
-        "side_label": "", "court_name": a.get("court_name_en") or "High Court of Madhya Pradesh, Bench at Gwalior",
+        "side_label": "", "court_name": a.get("court_name_en") or compose_court_name("hc", a.get("court_city") or "", a.get("state_name_en") or a.get("state_name") or "", lang="en"),
         "case_code": "M.Cr.C.", "case_suffix": "",
         "case_number": a.get("case_number") or "", "case_year": a.get("case_year") or str(date.today().year),
         "applicant_label": "Applicant", "applicant_desc": [app],
@@ -283,7 +283,8 @@ def field_spec(court: str = "hc") -> dict:
         F.f("filing_date", "दिनांक", "Date", F.DATE, section="filing", auto=True),
     ]
     flds.append(F.custom_grounds())
-    flds.append(F.f("state_name", "राज्य", "State", section="parties", hint="रिक्त रखने पर म.प्र."))
+    flds.append(F.f("court_city", "बैंच / जिला", "Bench / District", section="court", hint="राज्य + जिला → सही उच्च न्यायालय खण्डपीठ"))
+    flds.append(F.f("state_name", "राज्य", "State", section="parties", hint="मामले का राज्य (रिक्त रखने पर स्थान रिक्त)"))
     return F.build_spec("quashing:hc", flds, _TOGGLES,
                         companions=["stay application + affidavit", "compromise deed (राजीनामा)",
                                     "index (इन्डेक्स)", "certified copy of FIR + impugned judgment (annexures)",

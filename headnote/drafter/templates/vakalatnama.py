@@ -46,13 +46,13 @@ _POWERS_EN = [
 
 def _render(a, *, hi):
     a = a or {}
-    state = _esc(a.get("state_name") or ("म.प्र." if hi else "M.P."))
+    state = _esc(a.get("state_name") or (a.get("state_name") or ""))
     role = a.get("party_role") or ("आवेदक" if hi else "Applicant")
     client = _ph(a.get("client_name"), "मुवक्किल का नाम" if hi else "client name")
     adv = _ph(a.get("advocate_name"), "अधिवक्ता का नाम" if hi else "advocate name")
     enrol = a.get("advocate_enrollment") or ""
     court_name = a.get("court_name") or (
-        ("न्यायालय माननीय ________ (म.प्र.)" if hi else "(name of the Court)"))
+        (f"न्यायालय माननीय ________ ({a.get('state_name') or '________'})" if hi else "(name of the Court)"))
 
     cdesc = (f'{client} पुत्र/पुत्री/पत्नी श्री {_ph(a.get("client_father"), "पिता/पति")}, '
              f'निवासी— <u>{_ph(a.get("client_address"), "पता")}</u> ({state})') if hi else (
@@ -133,7 +133,7 @@ def field_spec(court: str = "") -> dict:
         F.f("place", "स्थान", "Place", section="filing"),
         F.f("filing_date", "दिनांक", "Date", F.DATE, section="filing", auto=True),
     ]
-    flds.append(F.f("state_name", "राज्य", "State", section="parties", hint="रिक्त रखने पर म.प्र."))
+    flds.append(F.f("state_name", "राज्य", "State", section="parties", hint="मामले का राज्य (रिक्त रखने पर स्थान रिक्त)"))
     return F.build_spec("vakalatnama:any", flds, [], companions=["court-fee / welfare-stamp where applicable"])
 
 

@@ -28,16 +28,16 @@ def _overlay_en(a):
 
 def _cfg(court):
     if court == "sessions":
-        return dict(level="sessions", court_default="न्यायालय माननीय सत्र न्यायाधीश महोदय, ............ (म.प्र.)")
-    return dict(level="magistrate", court_default="न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी महोदय, ............ (म.प्र.)")
+        return dict(level="sessions", court_default="न्यायालय माननीय सत्र न्यायाधीश महोदय, ............ (________)")
+    return dict(level="magistrate", court_default="न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी महोदय, ............ (________)")
 
 
 def render_hi(a: dict) -> str:
     a = a or {}; c = _cfg(a.get("court") or "magistrate")
-    state = _esc(a.get("state_name") or "म.प्र. राज्य")
+    state = _esc(a.get("state_name") or "________")
     acc = _ph(a.get("accused_name"), "अभियुक्त का नाम"); jail = _ph(a.get("jail_name"), "जेल का नाम")
     nd = _ph(a.get("next_date"), "नियत दिनांक")
-    court_name = a.get("court_name") or compose_court_name(c["level"], a.get("court_city"), "म.प्र.") \
+    court_name = a.get("court_name") or compose_court_name(c["level"], a.get("court_city"), a.get("state_name") or "") \
         if a.get("court_city") else (a.get("court_name") or c["court_default"])
     hdr = render_header({
         "side_label": "", "court_name": court_name, "case_code": "प्रकरण क्रमांक",
@@ -71,10 +71,10 @@ def render_hi(a: dict) -> str:
 
 def render_en(a: dict) -> str:
     a = _overlay_en(a); c = _cfg(a.get("court") or "magistrate")
-    state = _esc(a.get("state_name") or "State of M.P.")
+    state = _esc(a.get("state_name") or "________")
     acc = _ph(a.get("accused_name"), "the accused"); jail = _ph(a.get("jail_name"), "the jail")
     nd = _ph(a.get("next_date"), "the next date")
-    court_name = a.get("court_name") or compose_court_name(c["level"], a.get("court_city"), "M.P.", lang="en")
+    court_name = a.get("court_name") or compose_court_name(c["level"], a.get("court_city"), a.get("state_name") or "", lang="en")
     hdr = render_header({
         "side_label": "", "court_name": court_name, "case_code": "Case No.",
         "case_number": a.get("case_number") or "", "case_year": a.get("case_year") or str(date.today().year),
@@ -110,7 +110,7 @@ def field_spec(court: str = "magistrate") -> dict:
         F.f("case_number", "प्रकरण क्रमांक", "Case no.", required=True, section="court", ocr="order"),
         F.f("case_year", "वर्ष", "Year", F.NUMBER, section="court"),
         F.f("accused_name", "अभियुक्त का नाम", "Accused name", F.NAME, True, "parties"),
-        F.f("state_name", "अभियोगी पक्ष", "Prosecution side", section="parties", default="म.प्र. राज्य"),
+        F.f("state_name", "अभियोगी पक्ष", "Prosecution side", section="parties", default=""),
         F.f("jail_name", "जेल / उपकारागृह", "Jail name", required=True, section="facts"),
         F.f("custody_reason", "निरुद्धि का कारण (अन्य प्रकरण)", "Reason in custody (other case)", section="facts"),
         F.f("stage", "प्रकरण की स्थिति", "Stage", section="facts", hint="जैसे: साक्ष्य / आरोप"),

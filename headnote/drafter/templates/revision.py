@@ -74,7 +74,7 @@ def render_hi(a: dict) -> str:
     court = a.get("court") or "hc"
     c = _cfg(court)
     appno = int(a.get("application_number") or 1)
-    state = _esc(a.get("state_name") or "म.प्र.")
+    state = _esc(a.get("state_name") or "________")
     section_title = a.get("section_title") or "धारा 438, 442 भा.ना.सु.सं. (397, 401 दं.प्र.सं.)"
     allied = a.get("allied_section") or ""        # e.g. "धारा 19(4) कुटुम्ब न्यायालय अधिनियम"
     court_below = _ph(a.get("court_below"), "विचारण न्यायालय")
@@ -155,7 +155,7 @@ def render_en(a: dict) -> str:
     court = a.get("court") or "hc"
     c = _cfg(court)
     appno = int(a.get("application_number") or 1)
-    state = _esc(a.get("state_name_en") or "M.P.")
+    state = _esc(a.get("state_name_en") or a.get("state_name") or "________")
     allied = a.get("allied_section_en") or a.get("allied_section") or ""
     court_below = _ph(a.get("court_below_en") or a.get("court_below"), "trial court")
     order_date = _ph(a.get("order_date"), "..........")
@@ -257,7 +257,7 @@ def field_spec(court: str = "hc") -> dict:
         F.f("filing_date", "दिनांक", "Date", F.DATE, section="filing", auto=True),
     ]
     flds.append(F.custom_grounds())
-    flds.append(F.f("state_name", "राज्य", "State", section="parties", hint="रिक्त रखने पर म.प्र."))
+    flds.append(F.f("state_name", "राज्य", "State", section="parties", hint="मामले का राज्य (रिक्त रखने पर स्थान रिक्त)"))
     return F.build_spec(f"revision:{court}", flds, _TOGGLES,
                         variants={"court": ["hc", "sessions"]},
                         companions=["index (इन्डेक्स)", "certified copy of impugned order (annexure)",

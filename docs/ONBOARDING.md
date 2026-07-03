@@ -516,6 +516,19 @@ machine with any account, in minutes.
 
 > Append a dated line whenever something structural changes. Newest on top.
 
+- **2026-07-04** — **Pan-India Phase 2: the 34 canonical templates are now State-driven too.** Follow-up to
+  the pan-India engine below — the criminal/family/civil canonical template modules no longer default to MP.
+  Every `compose_court_name(..., "म.प्र."/"M.P.")` and every `a.get("state_name") or "म.प्र."` fallback across
+  31 template files was changed to read the matter's `state_name` (blank placeholder when absent, never MP);
+  hardcoded fallback court-strings with a placeholder city dropped "(म.प्र.)". A `state_name` field (and, where
+  the composer needs it, `court_city`) was added to the 9 live templates that read state but hadn't declared it
+  (writ, complaint_156, habeas, ni_138_dismiss, restitution, divorce_13, stay, reply, mention_memo) so the
+  field-extractor fills it from the prompt. `quashing` (which hardcoded an MP HC string) now composes from the
+  State + bench; `vakalatnama`'s MP default was neutralised. Verified: all 32 registered modules render with
+  NO MP leak on non-MP data (e.g. UP bail → "…इलाहाबाद खण्डपीठ लखनऊ", Rajasthan writ → "…राजस्थान खण्डपीठ जयपुर",
+  Tamil Nadu maintenance → "…Chennai (Tamil Nadu)"), MP back-compat exact, 21 drafter tests still pass. Sample
+  DEFAULTS keep MP cities (illustrative demo data only). `cheque`/`mact` take `court_name` as a direct field by
+  design (no composition). The 4 legacy bail/discharge variant modules are off the live registry.
 - **2026-07-04** — **Drafter went PAN-INDIA — no more Madhya Pradesh hardcoding.** Headnote now serves
   advocates in every State/UT, so the drafting engine had to stop assuming MP. The MP assumption funnelled
   through one chokepoint — `compose_court_name()` in `headnote/drafter/templates/_doc_header.py`, whose HC

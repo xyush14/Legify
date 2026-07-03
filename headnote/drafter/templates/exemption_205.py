@@ -28,16 +28,16 @@ def _overlay_en(a):
     return a
 
 
-_CD = "न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी महोदय, ............ (म.प्र.)"
+_CD = "न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी महोदय, ............ (________)"
 
 
 def render_hi(a: dict) -> str:
     a = a or {}; g = a.get("grounds") or {}
     plural = bool(a.get("is_plural", False))
     aw = "प्रार्थीगण" if plural else "प्रार्थी"; acc = "आरोपीगण" if plural else "आरोपी"
-    state = _esc(a.get("state_name") or "म.प्र. राज्य")
+    state = _esc(a.get("state_name") or "________")
     stage = _esc(a.get("current_stage") or "विचाराधीन होकर साक्ष्य हेतु नियत")
-    court_name = a.get("court_name") or compose_court_name("magistrate", a.get("court_city"), "म.प्र.") \
+    court_name = a.get("court_name") or compose_court_name("magistrate", a.get("court_city"), a.get("state_name") or "") \
         if a.get("court_city") else (a.get("court_name") or _CD)
     hdr = render_header({
         "side_label": "", "court_name": court_name, "case_code": "प्रकरण क्रमांक",
@@ -81,9 +81,9 @@ def render_en(a: dict) -> str:
     a = _overlay_en(a); g = a.get("grounds") or {}
     plural = bool(a.get("is_plural", False))
     aw = "applicants" if plural else "applicant"
-    state = _esc(a.get("state_name") or "State of M.P.")
+    state = _esc(a.get("state_name") or "________")
     stage = _esc(a.get("current_stage_en") or "pending and fixed for evidence")
-    court_name = a.get("court_name") or compose_court_name("magistrate", a.get("court_city"), "M.P.", lang="en")
+    court_name = a.get("court_name") or compose_court_name("magistrate", a.get("court_city"), a.get("state_name") or "", lang="en")
     hdr = render_header({
         "side_label": "", "court_name": court_name, "case_code": "Case No.",
         "case_number": a.get("case_number") or "", "case_year": a.get("case_year") or str(date.today().year),
@@ -129,7 +129,7 @@ def field_spec(court: str = "magistrate") -> dict:
         F.f("case_year", "वर्ष", "Year", F.NUMBER, section="court"),
         F.f("accused_names", "आरोपी/प्रार्थी का नाम", "Accused / applicant name(s)", F.NAME, True, "parties"),
         F.f("is_plural", "एक से अधिक आरोपी?", "More than one accused?", F.TOGGLE, section="parties", default=False),
-        F.f("state_name", "अभियोगी पक्ष", "Prosecution side", section="parties", default="म.प्र. राज्य"),
+        F.f("state_name", "अभियोगी पक्ष", "Prosecution side", section="parties", default=""),
         F.f("current_stage", "प्रकरण की वर्तमान स्थिति", "Current stage", section="court",
             hint="जैसे: साक्ष्य हेतु नियत / आरोप विरचन हेतु नियत"),
         F.f("facts_narrative", "उपस्थिति में असमर्थता का कारण", "Reason for inability to attend", F.LONGTEXT, True, "facts",

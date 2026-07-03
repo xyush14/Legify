@@ -54,7 +54,7 @@ def _secs(sections, sep) -> str:
 # ----------------------------------------------------------- HINDI
 def render_hi(a: dict) -> str:
     a = a or {}
-    state = _esc(a.get("state_name") or "म.प्र.")
+    state = _esc(a.get("state_name") or "________")
     name = a.get("complainant_name") or ""
     sec_str = _secs(a.get("offence_sections"), ", ")
     ps = _ph(a.get("police_station"), "थाना")
@@ -125,7 +125,7 @@ def render_hi(a: dict) -> str:
 # ----------------------------------------------------------- ENGLISH
 def render_en(a: dict) -> str:
     a = a or {}
-    state = _esc(a.get("state_name_en") or "M.P.")
+    state = _esc(a.get("state_name_en") or a.get("state_name") or "________")
     name = _ph(a.get("complainant_name_en") or a.get("complainant_name"), "complainant")
     sec_str = _secs(a.get("offence_sections_en") or a.get("offence_sections"), ", ")
     ps = _ph(a.get("police_station_en") or a.get("police_station"), "police station")
@@ -210,7 +210,7 @@ def field_spec(court: str = "magistrate") -> dict:
         F.f("advocate_name", "अधिवक्ता का नाम", "Advocate name", F.NAME, section="filing"),
         F.f("filing_date", "दिनांक", "Date", F.DATE, section="filing", auto=True),
     ]
-    flds.append(F.f("state_name", "राज्य", "State", section="parties", hint="रिक्त रखने पर म.प्र."))
+    flds.append(F.f("state_name", "राज्य", "State", section="parties", hint="मामले का राज्य (रिक्त रखने पर स्थान रिक्त)"))
     return F.build_spec("parivad:magistrate", flds, _TOGGLES,
                         companions=["§223 BNSS examination of complainant on oath", "witness list (साक्ष्य सूची)",
                                     "documents / annexures", "vakalatnama"])

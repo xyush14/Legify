@@ -31,12 +31,12 @@ def _overlay_en(a):
     return a
 
 
-_CD = "न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी महोदय, ............ (म.प्र.)"
+_CD = "न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी महोदय, ............ (________)"
 
 
 def render_hi(a: dict) -> str:
     a = a or {}; g = a.get("grounds") or {}
-    court_name = a.get("court_name") or compose_court_name("magistrate", a.get("court_city"), "म.प्र.") \
+    court_name = a.get("court_name") or compose_court_name("magistrate", a.get("court_city"), a.get("state_name") or "") \
         if a.get("court_city") else (a.get("court_name") or _CD)
     hdr = render_header({
         "side_label": "", "court_name": court_name, "case_code": "परिवाद क्रमांक",
@@ -81,7 +81,7 @@ def render_hi(a: dict) -> str:
 
 def render_en(a: dict) -> str:
     a = _overlay_en(a); g = a.get("grounds") or {}
-    court_name = a.get("court_name") or compose_court_name("magistrate", a.get("court_city"), "M.P.", lang="en")
+    court_name = a.get("court_name") or compose_court_name("magistrate", a.get("court_city"), a.get("state_name") or "", lang="en")
     hdr = render_header({
         "side_label": "", "court_name": court_name, "case_code": "Complaint No.",
         "case_number": a.get("case_number") or "", "case_year": a.get("case_year") or str(date.today().year),
@@ -126,6 +126,7 @@ _TOGGLES = [
 def field_spec(court: str = "magistrate") -> dict:
     flds = [
         F.f("court_city", "जिला / शहर", "District / City", section="court", hint="लोकेशन से स्वतः → न्यायालय नाम"),
+        F.f("state_name", "राज्य", "State", section="court", hint="मामले का राज्य (रिक्त → स्थान रिक्त)"),
         F.f("court_name", "न्यायालय का नाम (स्वतः/ओवरराइड)", "Court name", required=True, section="court", auto=True),
         F.f("case_number", "परिवाद क्रमांक", "Complaint no.", required=True, section="court", ocr="order"),
         F.f("case_year", "वर्ष", "Year", F.NUMBER, section="court"),

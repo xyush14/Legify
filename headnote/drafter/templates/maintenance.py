@@ -45,14 +45,14 @@ def _ph(s: Optional[str], ph: str = "________") -> str:
 # ----------------------------------------------------------- HINDI
 def render_hi(a: dict) -> str:
     a = a or {}
-    state = _esc(a.get("state_name") or "म.प्र.")
+    state = _esc(a.get("state_name") or "________")
     children = a.get("children") or []
     plural = bool(children) or bool(a.get("is_plural"))
     aw = "आवेदकगण" if plural else "आवेदिका"        # applicant word (wife / wife+children)
     section_title = a.get("section_title") or "धारा 144 भा.ना.सु.सं. (125 दं.प्र.सं.)"
     court_name = a.get("court_name") or compose_court_name(
         "family", a.get("court_city"), state) if a.get("court_city") else \
-        (a.get("court_name") or "न्यायालय माननीय प्रधान न्यायाधीश महोदय, कुटुम्ब न्यायालय, ............ (म.प्र.)")
+        (a.get("court_name") or "न्यायालय माननीय प्रधान न्यायाधीश महोदय, कुटुम्ब न्यायालय, ............ (________)")
 
     wife = _ph(a.get("petitioner_name"), "आवेदिका का नाम")
     husband = _ph(a.get("respondent_name"), "पति का नाम")
@@ -150,7 +150,7 @@ def render_hi(a: dict) -> str:
 # ----------------------------------------------------------- ENGLISH
 def render_en(a: dict) -> str:
     a = a or {}
-    state = _esc(a.get("state_name_en") or "M.P.")
+    state = _esc(a.get("state_name_en") or a.get("state_name") or "________")
     children = a.get("children") or []
     plural = bool(children) or bool(a.get("is_plural"))
     aw = "Petitioners" if plural else "Petitioner"
@@ -263,7 +263,7 @@ def field_spec() -> dict:
         F.f("filing_date", "दिनांक", "Date", F.DATE, section="filing", auto=True),
     ]
     flds.append(F.custom_grounds())
-    flds.append(F.f("state_name", "राज्य", "State", section="parties", hint="रिक्त रखने पर म.प्र."))
+    flds.append(F.f("state_name", "राज्य", "State", section="parties", hint="मामले का राज्य (रिक्त रखने पर स्थान रिक्त)"))
     return F.build_spec("maintenance", flds, _TOGGLES,
                         companions=["Rajnesh assets-&-liabilities affidavit (mandatory)",
                                     "interim-maintenance application", "§13 counsel-appointment", "vakalatnama"])

@@ -94,13 +94,13 @@ def render_hi(a: dict) -> str:
     today = date.today()
     is_magistrate = (a.get("section") or "483") == "480"
     sec_title = "धारा 480 भा.ना.सु.सं. (437 दं.प्र.सं.)" if is_magistrate else "धारा 483 भा.ना.सु.सं. (439 दं.प्र.सं.)"
-    default_court = ("न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी, ............ (म.प्र.)"
-                     if is_magistrate else "न्यायालय माननीय सत्र न्यायाधीश महोदय, ............ (म.प्र.)")
+    default_court = ("न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी, ............ (________)"
+                     if is_magistrate else "न्यायालय माननीय सत्र न्यायाधीश महोदय, ............ (________)")
     app_ord = a.get("application_ordinal") or "प्रथम"
 
     ps = _ph(a.get("police_station"), "थाना")
     district = _ph(a.get("district"), "जिला")
-    state = a.get("state_name") or "म.प्र."
+    state = a.get("state_name") or "________"
     fir = _ph(a.get("fir_number"), "..../....")
     secs = _sections(a.get("sections"))
     arrest = _ph(a.get("arrest_date"), "..........")
@@ -241,7 +241,7 @@ def render_en(a: dict) -> str:
     app_ord = a.get("application_ordinal_en") or "FIRST"
     ps = _ph(a.get("police_station"), "P.S.")
     district = _ph(a.get("district"), "district")
-    state = a.get("state_name") or "M.P."
+    state = a.get("state_name") or "________"
     fir = _ph(a.get("fir_number"), "..../....")
     secs = _sections(a.get("sections"))
     arrest = _ph(a.get("arrest_date"), "..........")
@@ -250,8 +250,8 @@ def render_en(a: dict) -> str:
     hdr = render_header({
         "side_label": "On behalf of the Applicant",
         "court_name": a.get("court_name_en") or a.get("court_name") or (
-            "Court of the Judicial Magistrate First Class, ............ (M.P.)" if is_magistrate
-            else "Court of the Sessions Judge, ............ (M.P.)"),
+            "Court of the Judicial Magistrate First Class, ............ (________)" if is_magistrate
+            else "Court of the Sessions Judge, ............ (________)"),
         "case_code": "Bail Application", "case_number": a.get("case_number") or "",
         "case_year": a.get("case_year") or str(today.year),
         "applicant_label": "Applicant",

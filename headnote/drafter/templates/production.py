@@ -56,9 +56,9 @@ def _chunks(text) -> list:
 def _cfg(court):
     if court == "sessions":
         return dict(level="sessions", suffix="सत्रवाद",
-                    court_default="न्यायालय माननीय सत्र न्यायाधीश महोदय, ............ (म.प्र.)")
+                    court_default="न्यायालय माननीय सत्र न्यायाधीश महोदय, ............ (________)")
     return dict(level="magistrate", suffix="आर.सी.टी.",
-                court_default="न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी महोदय, ............ (म.प्र.)")
+                court_default="न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी महोदय, ............ (________)")
 
 
 # ----------------------------------------------------------- HINDI
@@ -69,13 +69,13 @@ def render_hi(a: dict) -> str:
     plural = bool(a.get("is_plural", False))
     aw = "प्रार्थीगण" if plural else "प्रार्थी"
     acc = "अभियुक्तगण" if plural else "अभियुक्त"
-    state = _esc(a.get("state_name") or "म.प्र. राज्य")
+    state = _esc(a.get("state_name") or "________")
     section_title = a.get("section_title") or "धारा 94 भा.ना.सु.सं. (91 दं.प्र.सं.)"
     ps = _ph(a.get("police_station"), "थाना"); crime = _ph(a.get("crime_number"), "..../....")
     secs = _secs(a.get("sections"))
     custodian = (a.get("custodian") or "").strip()
 
-    court_name = a.get("court_name") or compose_court_name(c["level"], a.get("court_city"), "म.प्र.") \
+    court_name = a.get("court_name") or compose_court_name(c["level"], a.get("court_city"), a.get("state_name") or "") \
         if a.get("court_city") else (a.get("court_name") or c["court_default"])
 
     hdr = render_header({
@@ -162,7 +162,7 @@ def render_en(a: dict) -> str:
     secs = _secs(a.get("sections_en") or a.get("sections"), sep=" and ")
     custodian = (a.get("custodian_en") or a.get("custodian") or "").strip()
 
-    court_name = a.get("court_name_en") or compose_court_name(c["level"], a.get("court_city_en") or a.get("court_city"), a.get("state_name_en") or "M.P.", lang="en")
+    court_name = a.get("court_name_en") or compose_court_name(c["level"], a.get("court_city_en") or a.get("court_city"), a.get("state_name_en") or a.get("state_name") or "________", lang="en")
     hdr = render_header({
         "side_label": "", "court_name": court_name, "case_code": "Criminal Case",
         "case_number": a.get("case_number") or "", "case_year": a.get("case_year") or str(date.today().year),
@@ -236,7 +236,7 @@ def field_spec(court: str = "magistrate") -> dict:
                      {"value": "विशेष सत्रवाद", "label": "विशेष सत्रवाद"}]),
         F.f("accused_names", "अभियुक्त/प्रार्थी का नाम", "Accused / applicant name(s)", F.NAME, True, "parties", ocr="order"),
         F.f("is_plural", "एक से अधिक अभियुक्त?", "More than one accused?", F.TOGGLE, section="parties", default=False),
-        F.f("state_name", "अभियोगी पक्ष (राज्य/परिवादी)", "Prosecution side (State / complainant)", section="parties", default="म.प्र. राज्य"),
+        F.f("state_name", "अभियोगी पक्ष (राज्य/परिवादी)", "Prosecution side (State / complainant)", section="parties", default=""),
         F.f("police_station", "पुलिस थाना", "Police station", required=True, section="crime", ocr="order"),
         F.f("crime_number", "अपराध क्रमांक", "Crime no.", required=True, section="crime", ocr="order"),
         F.f("sections", "धाराएं", "Offence sections", F.SECTION_LIST, True, "crime", ocr="order"),

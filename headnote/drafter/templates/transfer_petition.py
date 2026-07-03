@@ -32,9 +32,9 @@ def _doc(a, hi):
              ("TRANSFER APPLICATION UNDER SECTION 448 BNSS (408 CrPC)" if sessions else
               "TRANSFER APPLICATION UNDER SECTION 447 BNSS (407 CrPC)"))
     lvl = "sessions" if sessions else "hc"
-    cn = a.get("court_name") or (compose_court_name(lvl, a.get("court_city"), "म.प्र." if hi else "M.P.", lang=("hi" if hi else "en")) if a.get("court_city") else
-        (("न्यायालय माननीय सत्र न्यायाधीश महोदय, ............ (म.प्र.)" if sessions else "माननीय उच्च न्यायालय मध्यप्रदेश, खण्डपीठ ग्वालियर") if hi else
-         ("Court of the Sessions Judge, ............ (M.P.)" if sessions else "High Court of M.P., Bench at Gwalior")))
+    cn = a.get("court_name") or (compose_court_name(lvl, a.get("court_city"), a.get("state_name") or "", lang=("hi" if hi else "en")) if a.get("court_city") else
+        (("न्यायालय माननीय सत्र न्यायाधीश महोदय, ............ (________)" if sessions else "माननीय उच्च न्यायालय मध्यप्रदेश, खण्डपीठ ग्वालियर") if hi else
+         ("Court of the Sessions Judge, ............ (________)" if sessions else "High Court of M.P., Bench at Gwalior")))
     hdr = render_header({
         "side_label": "", "court_name": cn, "case_code": (a.get("case_code") or ("स्थानान्तरण आवेदन क्रमांक" if hi else "Transfer Appln. No.")),
         "case_number": a.get("case_number") or "", "case_year": a.get("case_year") or str(date.today().year),
@@ -86,7 +86,7 @@ def field_spec(court: str = "hc") -> dict:
         F.f("case_number", "आवेदन क्रमांक", "Application no.", section="court"),
         F.f("case_year", "वर्ष", "Year", F.NUMBER, section="court"),
         F.f("applicant_name", "आवेदक का नाम", "Applicant name", F.NAME, True, "parties"),
-        F.f("state_name", "अनावेदक (राज्य/विपक्षी)", "Respondent (State/opposite)", section="parties", default="म.प्र. राज्य"),
+        F.f("state_name", "अनावेदक (राज्य/विपक्षी)", "Respondent (State/opposite)", section="parties", default=""),
         F.f("case_details", "स्थानान्तरित प्रकरण (क्रमांक/धाराएं)", "Case to transfer (no./sections)", required=True, section="facts"),
         F.f("from_court", "वर्तमान न्यायालय (जिससे)", "Present court (from)", required=True, section="facts"),
         F.f("to_court", "वांछित न्यायालय (जिसमें)", "Desired court (to)", required=True, section="facts"),

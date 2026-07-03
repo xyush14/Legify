@@ -31,8 +31,8 @@ def _overlay_en(a):
 
 def _cfg(court):
     if court == "sessions":
-        return dict(level="sessions", court_default="न्यायालय माननीय सत्र न्यायाधीश महोदय, ............ (म.प्र.)")
-    return dict(level="magistrate", court_default="न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी महोदय, ............ (म.प्र.)")
+        return dict(level="sessions", court_default="न्यायालय माननीय सत्र न्यायाधीश महोदय, ............ (________)")
+    return dict(level="magistrate", court_default="न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी महोदय, ............ (________)")
 
 
 def render_hi(a: dict) -> str:
@@ -42,7 +42,7 @@ def render_hi(a: dict) -> str:
     aw = "प्रार्थीगण" if plural else "प्रार्थी"; acc = "अभियुक्तगण" if plural else "अभियुक्त"
     state = _esc(a.get("state_name") or "म.प्र. शासन")
     wit = _ph(a.get("witnesses"), "अ.सा.—01 आदि")
-    court_name = a.get("court_name") or compose_court_name(c["level"], a.get("court_city"), "म.प्र.") \
+    court_name = a.get("court_name") or compose_court_name(c["level"], a.get("court_city"), a.get("state_name") or "") \
         if a.get("court_city") else (a.get("court_name") or c["court_default"])
     hdr = render_header({
         "side_label": "", "court_name": court_name, "case_code": "प्रकरण क्रमांक",
@@ -85,9 +85,9 @@ def render_en(a: dict) -> str:
     c = _cfg(a.get("court") or "sessions"); g = a.get("grounds") or {}
     plural = bool(a.get("is_plural", True))
     aw = "applicants" if plural else "applicant"
-    state = _esc(a.get("state_name") or "State of M.P.")
+    state = _esc(a.get("state_name") or "________")
     wit = _ph(a.get("witnesses"), "PW-1 etc.")
-    court_name = a.get("court_name") or compose_court_name(c["level"], a.get("court_city"), "M.P.", lang="en")
+    court_name = a.get("court_name") or compose_court_name(c["level"], a.get("court_city"), a.get("state_name") or "", lang="en")
     hdr = render_header({
         "side_label": "", "court_name": court_name, "case_code": "Case No.",
         "case_number": a.get("case_number") or "", "case_year": a.get("case_year") or str(date.today().year),
