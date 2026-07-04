@@ -2820,3 +2820,154 @@ body:not(.auth-ready) .shell { display: none !important; }
   margin-top: 8px;
 }
 
+/* =====================================================================
+   ASK MODE — "AI for lawyers" (Claude-calm: literary, serif, minimal chrome)
+   The answer breathes on the page. Serif body = the voice; Geist sans = chrome.
+   No boxes, no uppercase micro-labels. Gold only on "Draft this".
+   ===================================================================== */
+:root { --font-read: 'Newsreader', Georgia, 'Times New Roman', serif; }
+
+.view--ask { max-width: 712px; padding-bottom: 0; min-height: calc(100vh - 48px); }
+.view--ask.is-active { display: flex; flex-direction: column; }
+.topbar--ask { padding-bottom: 14px; margin-bottom: 4px; border-bottom-color: var(--line-2); }
+
+.ask { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.ask__thread { flex: 1 1 auto; display: flex; flex-direction: column; padding: 16px 0 30px; }
+
+/* Empty state — calm, literary greeting */
+.ask__empty { margin: auto; text-align: center; max-width: 540px; padding: 6vh 0 3vh; }
+.ask-empty__mark { width: 40px; height: 40px; margin: 0 auto 22px; display: flex; align-items: center; justify-content: center; color: var(--ink-3); }
+.ask-empty__mark svg { width: 28px; height: 28px; }
+.ask-empty__title { font-family: var(--font-read); font-size: 30px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.2; margin: 0 0 12px; color: var(--ink); }
+.ask-empty__sub { font-size: 15px; color: var(--ink-2); line-height: 1.6; margin: 0 auto 30px; max-width: 440px; }
+.ask-empty__chips { display: flex; flex-direction: column; gap: 0; text-align: left; border-top: 1px solid var(--line-2); }
+.ask-chip { font-family: inherit; font-size: 14.5px; line-height: 1.5; color: var(--ink-2); background: transparent; border: none; border-bottom: 1px solid var(--line-2); border-radius: 0; padding: 14px 4px; cursor: pointer; transition: color var(--t-fast) var(--ease), padding var(--t-fast) var(--ease); text-align: left; display: flex; align-items: center; gap: 10px; }
+.ask-chip::before { content: '→'; color: var(--ink-3); font-size: 14px; transition: transform var(--t-fast) var(--ease); }
+.ask-chip:hover { color: var(--ink); padding-left: 8px; }
+.ask-chip:hover::before { transform: translateX(2px); color: var(--ink); }
+
+/* The lawyer's turn — a subtle right-aligned note, not a bubble, not a title */
+.askq { align-self: flex-end; max-width: 82%; background: var(--soft); border-radius: 16px; padding: 11px 17px; margin: 34px 0 6px; font-size: 15px; line-height: 1.55; color: var(--ink); }
+.askq:first-child { margin-top: 6px; }
+.askq__att { color: var(--ink-3); }
+.askq .askmsg__files { margin-bottom: 8px; justify-content: flex-end; }
+.askmsg__files { display: flex; flex-wrap: wrap; gap: 6px; }
+.askmsg__file { display: inline-flex; align-items: center; gap: 6px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; color: var(--ink-2); background: var(--surface); border: 1px solid var(--line); border-radius: 7px; padding: 4px 9px; }
+.askmsg__file svg { width: 13px; height: 13px; }
+
+/* The answer — the star. Serif, roomy, no container. */
+.answer { margin: 6px 0 20px; }
+.answer__body { font-family: var(--font-read); font-size: 17.5px; line-height: 1.68; color: #26251f; letter-spacing: 0.003em; }
+.answer__body > *:first-child { margin-top: 0; }
+.answer__body p { margin: 0 0 15px; }
+.answer__body p:last-child { margin-bottom: 0; }
+.askmd-lead { font-size: 18.5px; line-height: 1.6; color: var(--ink); }
+.askmd-h { font-family: var(--font-read); font-size: 18px; font-weight: 600; letter-spacing: -0.01em; color: var(--ink); margin: 26px 0 10px; }
+.answer__body ul, .answer__body ol { margin: 0 0 15px; padding-left: 24px; }
+.answer__body li { margin: 6px 0; padding-left: 2px; }
+.answer__body li::marker { color: var(--ink-3); }
+.answer__body strong { font-weight: 600; color: var(--ink); }
+.askmd-hr { border: 0; border-top: 1px solid var(--line-2); margin: 22px 0; }
+.askmd-quote { font-family: var(--font-read); border-left: 2px solid var(--line); padding: 4px 0 4px 18px; margin: 16px 0; color: var(--ink-2); font-style: italic; font-size: 16.5px; line-height: 1.6; }
+.answer__body code { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 0.82em; background: var(--soft); border-radius: 4px; padding: 1px 5px; }
+.answer__body a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: var(--ink-3); text-decoration-thickness: 1px; }
+.answer__body a:hover { text-decoration-color: var(--ink); }
+.askcite { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 10px; font-weight: 500; color: var(--ink-3); vertical-align: super; margin: 0 1px; }
+.askmsg__err { color: var(--bad); font-family: var(--font-read); font-style: italic; }
+
+/* No-bluff caveat — a quiet italic aside, monochrome (gold reserved for drafts) */
+.askmd-caveat { display: flex; gap: 10px; align-items: flex-start; border-left: 2px solid var(--ink-3); padding: 3px 0 3px 16px; margin: 18px 0; color: var(--ink-2); font-family: var(--font-read); font-style: italic; font-size: 15.5px; line-height: 1.55; }
+.askmd-caveat svg { width: 15px; height: 15px; flex: 0 0 auto; margin-top: 4px; color: var(--ink-3); }
+
+/* Tables */
+.askmd-tablewrap { overflow-x: auto; margin: 16px 0; }
+.askmd-table { border-collapse: collapse; width: 100%; font-family: var(--font-sans, inherit); font-size: 13.5px; }
+.askmd-table th, .askmd-table td { border: 1px solid var(--line); padding: 8px 12px; text-align: left; vertical-align: top; }
+.askmd-table th { background: var(--soft); font-weight: 600; color: var(--ink); }
+.askmd-table td { color: var(--ink-2); }
+
+/* Thinking indicator + streaming caret */
+.askmsg__thinking { display: inline-flex; gap: 5px; align-items: center; padding: 8px 0; }
+.askmsg__thinking span { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); animation: askthink 1.2s ease-in-out infinite; }
+.askmsg__thinking span:nth-child(2) { animation-delay: 0.18s; }
+.askmsg__thinking span:nth-child(3) { animation-delay: 0.36s; }
+@keyframes askthink { 0%, 60%, 100% { opacity: 0.25; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
+.askmsg__cursor { display: inline-block; width: 2px; height: 1.05em; background: var(--ink-3); vertical-align: -2px; margin-left: 1px; animation: askblink 1.1s steps(2, start) infinite; }
+@keyframes askblink { 50% { opacity: 0; } }
+
+/* Quiet grounding footer */
+.answer__grounding { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 20px; font-size: 12.5px; color: var(--ink-3); }
+.answer__grounding > svg { width: 14px; height: 14px; }
+.ask-gr__label { color: var(--ink-3); }
+.ask-gr__ref { color: var(--ink-2); text-decoration: none; border-bottom: 1px solid var(--line); }
+.ask-gr__ref:hover { color: var(--ink); border-bottom-color: var(--ink-3); }
+.ask-gr__dot { color: var(--line); }
+
+/* Action rail — quiet, appears settled under the answer */
+.answer__rail { display: flex; align-items: center; gap: 2px; margin-top: 14px; }
+.answer__act { display: inline-flex; align-items: center; gap: 5px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; color: var(--ink-3); background: transparent; border: none; border-radius: 7px; padding: 6px 8px; cursor: pointer; transition: color var(--t-fast) var(--ease), background var(--t-fast) var(--ease); }
+.answer__act svg { width: 15px; height: 15px; }
+.answer__act:hover { color: var(--ink); background: var(--soft); }
+.answer__act.is-on { color: var(--ink); }
+.answer__draftlink { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; color: var(--gold-ink); background: transparent; border: 1px solid var(--gold-line); border-radius: 8px; padding: 6px 12px; text-decoration: none; transition: background var(--t-fast) var(--ease); }
+.answer__draftlink svg { width: 14px; height: 14px; }
+.answer__draftlink:hover { background: var(--gold-soft); }
+
+/* Related — quiet suggestions, hairline-separated */
+.answer__related { margin-top: 26px; }
+.ask-rellabel { font-family: var(--font-read); font-size: 15px; font-weight: 600; color: var(--ink); margin-bottom: 4px; display: flex; align-items: center; gap: 7px; }
+.ask-rellabel svg { display: none; }
+.ask-rellist { border-top: 1px solid var(--line-2); }
+.ask-relrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; text-align: left; padding: 12px 2px; border: none; border-bottom: 1px solid var(--line-2); background: transparent; cursor: pointer; font-family: var(--font-read); font-size: 15.5px; color: var(--ink-2); transition: padding var(--t-fast) var(--ease), color var(--t-fast) var(--ease); }
+.ask-relrow:hover { padding-left: 6px; color: var(--ink); }
+.ask-relrow svg { width: 15px; height: 15px; color: var(--ink-3); flex: 0 0 auto; }
+.ask-relrow:hover svg { color: var(--ink); }
+
+/* Composer — a calm floating card */
+.ask__composer { position: sticky; bottom: 0; padding: 10px 0 18px; background: linear-gradient(to top, var(--bg) 76%, transparent); }
+.ask__composer-inner { border: 1px solid var(--line); border-radius: 20px; background: var(--surface); padding: 14px 16px 12px; box-shadow: 0 2px 14px -6px rgba(12,12,10,0.08); transition: border-color var(--t-fast) var(--ease), box-shadow var(--t-med) var(--ease); }
+.ask__composer-inner:focus-within { border-color: var(--ink-3); box-shadow: 0 6px 22px -10px rgba(12,12,10,0.14); }
+.ask__input { width: 100%; border: none; resize: none; background: transparent; font-family: inherit; font-size: 15.5px; line-height: 1.55; color: var(--ink); padding: 0; max-height: 200px; overflow-y: auto; }
+.ask__input:focus { outline: none; }
+.ask__input::placeholder { color: var(--ink-3); }
+.ask__composer-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.ask__composer-spacer { flex: 1 1 auto; }
+.ask__attach-btn { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border: none; border-radius: 50%; background: transparent; color: var(--ink-3); cursor: pointer; transition: color var(--t-fast) var(--ease), background var(--t-fast) var(--ease); }
+.ask__attach-btn svg { width: 18px; height: 18px; }
+.ask__attach-btn:hover { color: var(--ink); background: var(--soft); }
+.ask__send { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border: none; border-radius: 50%; background: var(--ink); color: var(--surface); cursor: pointer; transition: transform var(--t-fast) var(--ease), opacity var(--t-fast) var(--ease); }
+.ask__send svg { width: 17px; height: 17px; }
+.ask__send:hover { transform: translateY(-1px); }
+.ask__send:disabled { opacity: 0.3; cursor: default; transform: none; }
+
+/* Pending attachment chips */
+.ask__attachments { display: none; flex-wrap: wrap; gap: 7px; margin-bottom: 10px; }
+.ask-att { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--ink-2); background: var(--soft); border-radius: 8px; padding: 5px 8px 5px 9px; max-width: 260px; }
+.ask-att.is-error { color: var(--bad); }
+.ask-att > svg { width: 14px; height: 14px; flex: 0 0 auto; color: var(--ink-3); }
+.ask-att__name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
+.ask-att__meta { color: var(--ink-3); font-size: 10px; }
+.ask-att__err { color: var(--bad); font-size: 10px; }
+.ask-att__x { border: none; background: transparent; cursor: pointer; color: var(--ink-3); font-size: 16px; line-height: 1; padding: 0 2px; }
+.ask-att__x:hover { color: var(--ink); }
+.ask-att__spin { width: 12px; height: 12px; flex: 0 0 auto; border: 2px solid var(--line); border-top-color: var(--ink-2); border-radius: 50%; animation: askspin 0.7s linear infinite; }
+@keyframes askspin { to { transform: rotate(360deg); } }
+
+.ask__disclaimer { text-align: center; font-size: 10px; color: var(--ink-3); margin-top: 9px; letter-spacing: 0.02em; }
+
+/* Mobile: the fixed bottom-nav (60px) appears at <=760px — lift the sticky
+   composer above it so they never collide, and give the thread room to clear. */
+@media (max-width: 760px) {
+  .view--ask { min-height: auto; padding-left: 20px; padding-right: 20px; padding-bottom: 0; }
+  .ask-empty__title { font-size: 25px; }
+  .answer__body { font-size: 17px; }
+  .askq { max-width: 88%; }
+  /* Fixed composer docked ABOVE the 60px bottom-nav — reliable on mobile
+     where sticky-in-flex is flaky. Thread gets bottom room so nothing hides. */
+  .ask__composer { position: fixed; left: 0; right: 0; bottom: 60px; z-index: 40; padding: 8px 20px 10px; background: var(--bg); border-top: 1px solid var(--line-2); }
+  .ask__thread { padding-bottom: 150px; }
+  .ask__disclaimer { display: none; }
+}
+@media (max-width: 420px) {
+  .ask-empty__title { font-size: 23px; }
+}

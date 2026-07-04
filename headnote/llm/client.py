@@ -350,6 +350,97 @@ def call_claude_cached(
     return response_text, usage_dict
 
 
+def stream_chat(
+    messages: list[dict],
+    *,
+    system_prompt: str,
+    deep: bool = False,
+    max_tokens: int = 4000,
+):
+    """Stream a multi-turn chat completion, yielding text deltas as they arrive.
+
+    Powers the ASK-mode chat surface. Deliberately DeepSeek-only (per the
+    product cost rule — chat is high-volume conversational): V3 (deepseek-chat)
+    for fast answers, R1 (deepseek-reasoner) when `deep=True`. Falls through to
+    Groq's free-tier Llama on any DeepSeek failure so the surface never dies.
+
+    `messages` is an OpenAI-style history: [{"role": "user"/"assistant",
+    "content": str}, ...]. The system prompt is prepended here.
+
+    Yields
+    ------
+    ("delta", str)  — a chunk of answer text
+    ("usage", dict) — final token usage (once, at the end), for the cost meter
+
+    Never raises inside the stream — a provider error mid-flight is caught and
+    surfaced as a final ("error", message) tuple so the caller can close the
+    SSE cleanly.
+    """
+    model = "deepseek-reasoner" if deep else "deepseek-chat"
+    full_messages = [{"role": "system", "content": system_prompt}, *messages]
+
+    ds_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
+    if ds_key:
+        try:
+            from openai import OpenAI
+            _timeout = 180.0 if deep else 90.0
+            client = OpenAI(api_key=ds_key, base_url="https://api.deepseek.com", timeout=_timeout)
+            capped = min(max_tokens, 16384 if deep else 8192)
+            stream = client.chat.completions.create(
+                model=model,
+                messages=full_messages,
+                max_tokens=capped,
+                temperature=0.3,
+                stream=True,
+                stream_options={"include_usage": True},
+            )
+            usage_dict = {"model": f"deepseek:{model}", "input_tokens": 0, "output_tokens": 0,
+                          "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0}
+            for chunk in stream:
+                if getattr(chunk, "usage", None):
+                    u = chunk.usage
+                    usage_dict["input_tokens"] = getattr(u, "prompt_tokens", 0) or 0
+                    usage_dict["output_tokens"] = getattr(u, "completion_tokens", 0) or 0
+                if not chunk.choices:
+                    continue
+                delta = chunk.choices[0].delta
+                piece = getattr(delta, "content", None)
+                if piece:
+                    yield ("delta", piece)
+            yield ("usage", usage_dict)
+            return
+        except Exception as ds_exc:
+            log.warning("[llm] DeepSeek chat stream failed — trying Groq: %s", str(ds_exc)[:200])
+
+    # Fallback: Groq streaming (free tier, lower quality but keeps chat alive).
+    groq_key = os.environ.get("GROQ_API_KEY", "").strip()
+    if not groq_key:
+        yield ("error", "Chat is temporarily unavailable — no LLM provider configured.")
+        return
+    try:
+        from groq import Groq
+        gmodel = os.environ.get("GROQ_FALLBACK_MODEL", "llama-3.3-70b-versatile")
+        gclient = Groq(api_key=groq_key)
+        stream = gclient.chat.completions.create(
+            model=gmodel,
+            messages=full_messages,
+            max_tokens=min(max_tokens, 8000),
+            temperature=0.3,
+            stream=True,
+        )
+        for chunk in stream:
+            if not chunk.choices:
+                continue
+            piece = getattr(chunk.choices[0].delta, "content", None)
+            if piece:
+                yield ("delta", piece)
+        yield ("usage", {"model": f"groq:{gmodel}", "input_tokens": 0, "output_tokens": 0,
+                         "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0})
+    except Exception as groq_exc:
+        log.warning("[llm] Groq chat stream failed: %s", str(groq_exc)[:200])
+        yield ("error", "Chat is temporarily unavailable. Please try again in a moment.")
+
+
 def estimate_cost_usd(usage: dict) -> float:
     """Estimate USD cost from a usage dict. Handles Claude, DeepSeek, and Groq."""
     model = (usage.get("model") or "").lower()

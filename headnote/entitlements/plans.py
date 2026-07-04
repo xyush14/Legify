@@ -71,6 +71,7 @@ DEMO = Plan(
         # ample enough for a lawyer to complete a couple of drafts in a demo.
         PlanLimit("draft",         15,   "lifetime"),
         PlanLimit("judgment_read", None, "day"),    # unlimited browsing
+        PlanLimit("chat",          20,   "lifetime"),  # ASK mode — funnel; unlimited on paid
         PlanLimit("export_pdf",    0,    "lifetime"),  # gated, count always 0
         PlanLimit("hindi_export",  0,    "lifetime"),
     ],

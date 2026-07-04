@@ -1060,6 +1060,12 @@ from headnote.documents.storage import init_documents_db as _init_documents_db
 app.include_router(_documents_router)
 _init_documents_db()
 
+# ASK mode — the "AI for lawyers" conversational surface: /api/chat/message
+# (streamed SSE, DeepSeek-backed, grounded on the IPC↔BNS concordance,
+# no-bluff citation discipline — see headnote/api/chat.py + docs/CHAT_FEATURE.md.)
+from headnote.api.chat import router as _chat_router
+app.include_router(_chat_router)
+
 # Legal Lens — annotate document text with explainable terms + statute refs
 # (curated/verified data only): /api/lexicon/annotate. See headnote/api/lexicon.py.
 from headnote.api.lexicon import router as _lexicon_router

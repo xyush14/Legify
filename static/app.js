@@ -2241,35 +2241,28 @@
     return el;
   }
 
-  // The answer block: a "Grounded in" sources strip (filled from the sources
-  // event), the streamed body, then a rail + related follow-ups on completion.
+  // The answer block: the streamed body, then a quiet grounding footer + rail
+  // + related follow-ups on completion. No boxy top chrome — Claude-calm.
   function appendAskAnswer() {
     const thread = $('#ask-thread');
     const wrap = ce('div', { cls: 'answer' });
-    const sources = ce('div', { cls: 'answer__sources', attrs: { hidden: 'hidden' } });
     const body = ce('div', { cls: 'answer__body' });
     body.innerHTML = '<div class="askmsg__thinking" aria-label="Thinking"><span></span><span></span><span></span></div>';
-    wrap.appendChild(sources);
     wrap.appendChild(body);
     thread.appendChild(wrap);
     askScrollBottom();
-    return { wrap, sources, body };
+    return { wrap, body };
   }
 
-  // "Grounded in" strip — numbered chips of the real statute-concordance rows
-  // the answer rests on. Honest v1 stand-in for retrieved citations.
-  function renderAskSources(el, items) {
-    if (!items || !items.length) { el.hidden = true; return; }
-    const chips = items.map(s => {
-      const sub = [s.old_ref, s.title].filter(Boolean).join(' · ');
-      return `<a class="ask-src" href="/sections" title="${askEsc(s.new_ref)} — ${askEsc(s.title || '')}">` +
-        `<span class="ask-src__n">${s.n}</span>` +
-        `<span class="ask-src__txt"><span class="ask-src__ref">${askEsc(s.new_ref)}</span>` +
-        `<span class="ask-src__sub">${askEsc(sub)}</span></span></a>`;
-    }).join('');
-    el.innerHTML = '<div class="ask-srclabel mono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>grounded in</div>' +
-      '<div class="ask-srcrow">' + chips + '</div>';
-    el.hidden = false;
+  // A quiet one-line grounding footer — the real statute-concordance rows the
+  // answer rests on. Honest, understated (no Perplexity card strip).
+  function buildAskGrounding(items) {
+    const refs = items.map(s =>
+      `<a class="ask-gr__ref" href="/sections" title="${askEsc(s.title || '')}">${askEsc(s.new_ref)}</a>`
+    ).join('<span class="ask-gr__dot">·</span>');
+    return ce('div', { cls: 'answer__grounding', html:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>' +
+      '<span class="ask-gr__label">Grounded in</span>' + refs });
   }
 
   // Pull the trailing "RELATED: a | b | c" line out of an answer. Returns the
@@ -2315,7 +2308,7 @@
   // "Related" follow-up rows — click to ask that question next.
   function buildAskRelated(questions) {
     const box = ce('div', { cls: 'answer__related' });
-    box.innerHTML = '<div class="ask-rellabel mono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>related</div>';
+    box.innerHTML = '<div class="ask-rellabel">Related</div>';
     const list = ce('div', { cls: 'ask-rellist' });
     questions.forEach(q => {
       const row = ce('button', { cls: 'ask-relrow', attrs: { type: 'button' },
@@ -2408,8 +2401,9 @@
     const sendBtn = $('#ask-send');
     if (sendBtn) sendBtn.disabled = true;
 
-    const { wrap, sources, body } = appendAskAnswer();
+    const { wrap, body } = appendAskAnswer();
     let acc = '';
+    let srcItems = [];
     const paint = () => { body.innerHTML = askMarkdown(askStripRelatedTail(acc)) + '<span class="askmsg__cursor"></span>'; askScrollBottom(); };
 
     try {
@@ -2440,7 +2434,7 @@
           const dataLine = chunk.split('\n').find(l => l.startsWith('data:'));
           if (!dataLine) continue;
           let evt; try { evt = JSON.parse(dataLine.slice(5).trim()); } catch { continue; }
-          if (evt.type === 'sources') { renderAskSources(sources, evt.items); askScrollBottom(); }
+          if (evt.type === 'sources') { srcItems = evt.items || []; }
           else if (evt.type === 'delta') { acc += evt.text; paint(); }
           else if (evt.type === 'error') { acc += (acc ? '\n\n' : '') + '_' + evt.message + '_'; paint(); }
         }
@@ -2449,6 +2443,7 @@
       const { clean, related } = askExtractRelated(acc);
       body.innerHTML = askMarkdown(clean || '_No response._');
       askThread.push({ role: 'assistant', content: acc });
+      if (srcItems.length) wrap.appendChild(buildAskGrounding(srcItems));
       wrap.appendChild(buildAskRail(clean));
       if (related.length) wrap.appendChild(buildAskRelated(related));
       askScrollBottom();

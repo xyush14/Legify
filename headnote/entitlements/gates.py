@@ -218,6 +218,7 @@ def _quota_msg(feature: str, plan: str, used: int, limit: int) -> str:
     feature_display = {
         "deep_search":   "Deep Search",
         "draft":         "drafting",
+        "chat":          "Ask questions",
         "judgment_read": "Judgment reads",
         "export_pdf":    "PDF export",
         "hindi_export":  "Hindi PDF export",
