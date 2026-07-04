@@ -110,6 +110,20 @@ OPENDATA_HC_BUCKET = os.environ.get(
 
 ANTHROPIC_API_KEY: Optional[str] = os.environ.get("ANTHROPIC_API_KEY")
 DEFAULT_MODEL = os.environ.get("MODEL", "claude-sonnet-4-6")
+
+# --- Drafter authoring/mirror model (the QUALITY-critical drafting calls) -----
+# The paths that WRITE the draft — the numbered "यह कि …" grounds, the prayer, and
+# the reference field-swap (mirror) — route through this model. Default is Sonnet-tier,
+# which the LLM router (llm/client.py:_CLAUDE_TO_DEEPSEEK) maps to DeepSeek R1
+# (deepseek-reasoner, chain-of-thought). R1 reasons markedly better than V3 on which
+# ground neutralises which limb of a test, and on which reference spans are boilerplate
+# vs case-specific fields to swap — the exact "smart understanding" the drafter lacked
+# on V3 (deepseek-chat, the cheapest tier).
+#   Trade-off: R1 is slower (~60–180s) than V3 (~5–15s). If drafting latency ever hurts
+#   a live demo, set DRAFTER_AUTHOR_MODEL=claude-haiku-4-5 to route drafting back to V3.
+# Extraction/routing calls (classify, /suggest, reference-skeleton) deliberately stay on
+# V3 — they don't author prose, so paying for reasoning there buys nothing.
+DRAFTER_AUTHOR_MODEL = os.environ.get("DRAFTER_AUTHOR_MODEL", "claude-sonnet-4-6")
 # 6000 (was 4000): R1/Sonnet needs room to output 5 detailed cases with
 # stinger_sentence + held_line + court_quote + match_dimensions +
 # negative_carve_out + relevance_scores + internal_reasoning. 4000 was
@@ -301,6 +315,22 @@ SUPABASE_JWT_SECRET: Optional[str] = os.environ.get("SUPABASE_JWT_SECRET")
 SUPABASE_SERVICE_ROLE_KEY: Optional[str] = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 
 
+# ----------------------------------------------------------- Cases / CNR lookup
+# Third-party eCourts CNR API (no official self-serve API exists — the portal is
+# CAPTCHA-gated, NJDG is aggregate-only, nothing is on API Setu). Default vendor:
+# eCourtsIndia (CASE_DETAIL ≈ ₹1.50/lookup; ₹200 free credits). See
+# headnote/cases/ecourts_client.py — the adapter is vendor-swappable.
+CNR_API_TOKEN: Optional[str] = os.environ.get("CNR_API_TOKEN")
+CNR_API_BASE_URL: str = os.environ.get("CNR_API_BASE_URL", "https://ecourtsindia.com")
+CNR_API_CASE_PATH: str = os.environ.get("CNR_API_CASE_PATH", "/api/v1/case-detail")
+# "mock" (no network, realistic fixture) | "live" (call the vendor). Defaults to
+# live when a token is set, else mock — so local dev "just works" with no key.
+CNR_API_MODE: str = (
+    os.environ.get("CNR_API_MODE", "").lower().strip()
+    or ("live" if CNR_API_TOKEN else "mock")
+)
+
+
 # ----------------------------------------------------------------- pricing meter
 
 USD_TO_INR = float(os.environ.get("USD_TO_INR", "84.0"))
@@ -366,6 +396,8 @@ def summary() -> dict:
         "ik_daily_cap_inr": INDIAN_KANOON_DAILY_CAP_INR,
         "anthropic_key_configured": bool(ANTHROPIC_API_KEY),
         "admin_configured": bool(ADMIN_TOKEN),
+        "cnr_api_mode": CNR_API_MODE,
+        "cnr_api_configured": bool(CNR_API_TOKEN),
         "opus_escalation_enabled": ENABLE_OPUS_ESCALATION,
         "cases_path": str(CASES_PATH.relative_to(PROJECT_ROOT)) if CASES_PATH.is_relative_to(PROJECT_ROOT) else str(CASES_PATH),
         "static_dir": str(STATIC_DIR.relative_to(PROJECT_ROOT)) if STATIC_DIR.is_relative_to(PROJECT_ROOT) else str(STATIC_DIR),

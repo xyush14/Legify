@@ -34,6 +34,7 @@ import json
 import re
 from typing import Optional
 
+from headnote import config
 from headnote.drafter.templates._doc_header import render_header, compose_court_name
 
 
@@ -1603,7 +1604,7 @@ def mirror_document(matter: str, reference_text: str, doc_type: str, lang: str =
         f"Draft now, as JSON per the schema, in {'Hindi' if lang == 'hi' else 'English'} "
         "(match the reference's language/register)."
     )
-    raw, meta = _call_deepseek_or_groq(MIRROR_SYSTEM, user, max_tokens=7000, claude_model="claude-haiku-4-5")
+    raw, meta = _call_deepseek_or_groq(MIRROR_SYSTEM, user, max_tokens=7000, claude_model=config.DRAFTER_AUTHOR_MODEL)
     payload = parse_json_response(raw)
     blocks = payload.get("blocks")
     if not isinstance(blocks, list) or len(blocks) < 4:
@@ -1631,7 +1632,7 @@ def revise_mirrored(prior_html: str, instruction: str, doc_type: str = "other_cr
         "draft plus the instruction are the ONLY sources of facts — ____ stays ____ unless the instruction "
         f"fills it. Write in {'Hindi' if lang == 'hi' else 'English'}."
     )
-    raw, meta = _call_deepseek_or_groq(MIRROR_SYSTEM, user, max_tokens=7000, claude_model="claude-haiku-4-5")
+    raw, meta = _call_deepseek_or_groq(MIRROR_SYSTEM, user, max_tokens=7000, claude_model=config.DRAFTER_AUTHOR_MODEL)
     payload = parse_json_response(raw)
     if not isinstance(payload.get("blocks"), list) or len(payload["blocks"]) < 4:
         raise ValueError("mirror revision payload too thin")
@@ -1657,8 +1658,9 @@ def author_payload(matter: str, doc_type: str, lang: str = "hi", *, court: str =
     )
     if reference_skeleton:
         user += _mirror_instruction(reference_skeleton)
-    # V3 (deepseek-chat) = fast structured assembly; the heavy reasoning is in the prompt.
-    raw, meta = _call_deepseek_or_groq(system, user, max_tokens=4000, claude_model="claude-haiku-4-5")
+    # Authoring routes through DRAFTER_AUTHOR_MODEL (default Sonnet→DeepSeek R1) so the
+    # grounds are reasoned, not merely assembled. Set env to claude-haiku-4-5 for V3.
+    raw, meta = _call_deepseek_or_groq(system, user, max_tokens=4000, claude_model=config.DRAFTER_AUTHOR_MODEL)
     payload = parse_json_response(raw)
     return _shape_payload(payload, doc_type, b, meta)
 
@@ -1702,7 +1704,7 @@ def revise_document(prior_text: str, instruction: str, doc_type: str = "other_cr
         "Preserve everything the advocate did NOT ask to change; apply only the requested changes. "
         "Keep the house style and the zero-fabrication rules in force."
     )
-    raw, meta = _call_deepseek_or_groq(system, user, max_tokens=4000, claude_model="claude-haiku-4-5")
+    raw, meta = _call_deepseek_or_groq(system, user, max_tokens=4000, claude_model=config.DRAFTER_AUTHOR_MODEL)
     payload = _shape_payload(parse_json_response(raw), doc_type, b, meta)
     # a refine's facts of record = the accepted prior draft + the new instruction
     rendered = render_authored(payload, lang, source=(prior_text or "") + "\n" + (instruction or ""))

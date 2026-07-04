@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="/static/analytics.js?v=20260630a"></script>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex" /><!-- unlisted share page until advocate-reviewed -->
@@ -13,9 +14,29 @@
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
 <style>
   body { background: var(--bg); }
-  .wrap { max-width: 920px; margin: 0 auto; padding: 0 20px 96px; }
   body:not(.hi) .lang-hi { display: none; }
   body.hi .lang-en { display: none; }
+
+  /* Split-pane editor (matches /draft/recovery): essentials + fields LEFT, live document RIGHT */
+  .split { display: grid; grid-template-columns: 470px 1fr; height: calc(100vh - 56px); }
+  .form-pane { overflow-y: auto; padding: 8px 24px 70px; border-right: 1px solid var(--line); background: var(--surface); }
+  .doc-pane { overflow-y: auto; background: #e8e6df; padding: 28px 30px 80px; }
+  .doc-pane .doc { max-width: 860px; margin: 0 auto 26px; }
+  .doc-pane .paper { box-shadow: 0 1px 5px rgba(12,12,10,0.12); }
+  .form-pane .rhead { padding: 16px 0 8px; }
+  .form-pane .rhead h1 { font-size: var(--t-xl); }
+  .form-pane .card { margin: 14px 0; box-shadow: none; }
+  .form-pane .fill__grid { grid-template-columns: 1fr 1fr; }
+  .form-pane .field.col-3 { grid-column: span 2; }
+  .form-pane .keys ul { grid-template-columns: 1fr; }
+  @media (max-width: 960px) {
+    .split { display: block; height: auto; }
+    .form-pane { border-right: none; padding: 12px 16px 18px; }
+    .doc-pane { background: var(--bg); padding: 6px 14px 70px; }
+    .doc-pane .doc { max-width: none; }
+    .doc-pane .paper { box-shadow: none; }
+    .form-pane .fill__grid { grid-template-columns: 1fr; }
+  }
 
   .rtop { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 12px;
     padding: 12px 20px; margin: 0 -20px 0; background: rgba(250,250,249,0.86);
@@ -172,7 +193,8 @@
   <button class="rtop__btn" id="btn-copyall"><span class="lang-en">Copy</span><span class="lang-hi">कॉपी</span></button>
 </header>
 
-<div class="wrap">
+<div class="split">
+  <div class="form-pane">
 
   <div class="rhead">
     <div class="rhead__eyebrow"><span class="lang-en">Property · Tenancy · Rent Agreement / Lease Deed</span><span class="lang-hi">सम्पत्ति · किरायेदारी · किरायानामा / पट्टा विलेख</span></div>
@@ -258,7 +280,9 @@
       <p style="margin-top:14px;font-size:12px;color:var(--gold-ink);line-height:1.5;"><span class="lang-en">The हिंदी view translates the agreement itself; party &amp; property particulars (names, address, Aadhaar/PAN) stay exactly as you type them — as they should, to match the ID proofs.</span><span class="lang-hi">हिंदी दृश्य में अनुबंध का पाठ अनूदित होता है; पक्षकार व सम्पत्ति के विवरण (नाम, पता, आधार/PAN) आप जैसा लिखें वैसे ही रहते हैं — जो पहचान-प्रमाण से मिलान हेतु उचित है।</span></p>
     </div>
   </section>
+  </div><!-- /form-pane -->
 
+  <div class="doc-pane">
   <!-- THE DEED -->
   <section class="doc" id="doc-rent">
     <div class="doc__bar">
@@ -292,16 +316,16 @@
         <li>That this Rent Agreement can be terminated even before the expiry of the lease period by either side, i.e. the Lessee or the Lessor, by giving one month's prior written notice in advance, and the penalty for the same will be one month's rent.</li>
         <li>That the lease has been granted for the exclusive residential use of the Lessee's family, and the Lessee shall not sublet or part with the leased Premises in whole or in part under any circumstances whatsoever, and the Premises shall not be used for any unlawful or prohibited activity.</li>
         <li>That in no way shall the Lessee or his/her legal heirs claim ownership of the said Premises.</li>
-        <li>That <span class="ph" data-f="occupant" data-ph="[the Tenant and family only]">[the Tenant and family only]</span> will stay in the flat. If any other person is to stay apart from the discussed persons, the Tenant has to take prior permission from the Owner.</li>
-        <li>That if any complaint is received from the society / maintenance, the Owner shall have the right to take action to get the flat vacated.</li>
-        <li>That after taking possession of the flat, it is the responsibility of the Tenant to take care of all major and minor repairs of the flat.</li>
-        <li>That the Owner has the right to visit the flat from time to time for inspection, with prior intimation to the Tenant.</li>
+        <li>That <span class="ph" data-f="occupant" data-ph="[the Tenant and family only]">[the Tenant and family only]</span> will stay in the Premises. If any other person is to stay apart from the discussed persons, the Lessee has to take prior permission from the Lessor.</li>
+        <li>That if any complaint is received from the society / maintenance, the Lessor shall have the right to take action to get the Premises vacated.</li>
+        <li>That after taking possession of the Premises, it is the responsibility of the Lessee to take care of all major and minor repairs of the Premises.</li>
+        <li>That the Lessor has the right to visit the Premises from time to time for inspection, with prior intimation to the Lessee.</li>
         <li>That the terms and conditions of this lease agreement stated above shall be binding on both the parties, i.e. the terms and conditions are final.</li>
       </ol>
       <p><b>IN WITNESS WHEREOF</b> both the parties have set their respective hands on this Rent Agreement at <span class="ph" data-f="place_exec" data-ph="[place]">[place]</span> on the day, month and year first above written, in the presence of the following witnesses:</p>
       <div class="sigs">
-        <div class="col"><div class="ln"></div><div class="role">OWNER / FIRST PARTY</div></div>
-        <div class="col"><div class="ln"></div><div class="role">TENANT / SECOND PARTY</div></div>
+        <div class="col"><div class="ln"></div><div class="role">LESSOR / FIRST PARTY</div></div>
+        <div class="col"><div class="ln"></div><div class="role">LESSEE / SECOND PARTY</div></div>
       </div>
       <div class="wit">
         <p class="wlabel">WITNESSES:</p>
@@ -328,23 +352,23 @@
         <li>यह कि किराया प्रत्येक अंग्रेज़ी कैलेंडर माह की <span class="ph" data-f="rent_day" data-ph="[11]">[11]</span> तारीख को या उससे पूर्व क्रॉस्ड चेक / RTGS / NEFT द्वारा अदा किया जाएगा।</li>
         <li>यह कि किसी माह का किराया न देने की स्थिति में, तथा यदि पट्टेदार द्वारा चालू माह का किराया भी न दिया जाए, तो पट्टेदार सात कार्य-दिवसों में परिसर खाली करने हेतु उत्तरदायी होगा, तथा पट्टादाता ₹<span class="ph" data-f="security" data-ph="[राशि]">[राशि]</span> की प्रतिभूति जमा वापस करने हेतु उत्तरदायी नहीं होगा।</li>
         <li>यह कि उक्त अवधि की समाप्ति के पश्चात् किरायेदारी केवल दोनों पक्षों की परस्पर सहमति से पृथक नए पट्टा विलेख द्वारा ही बढ़ाई जा सकेगी, तथा यदि किरायेदारी जारी रहती है तो किराया उसके पश्चात् क्रमशः 10% बढ़ाया जाएगा। यदि पट्टा विलेख नवीनीकृत नहीं होता, तो किरायेदार को बिना किसी विलम्ब के तुरंत परिसर खाली करना होगा, तथा पट्टा-अवधि की समाप्ति पर किरायेदार मकान मालिक द्वारा माँगी गई क्षति एवं अन्य शुल्कों (यदि कोई हों) हेतु उत्तरदायी होगा।</li>
-        <li>यह कि अनुबंध (Annexure) अनुसार प्रदत्त समस्त फिक्स्चर एवं फिटिंग्स का समुचित ध्यान रखा जाएगा तथा उनका नियमित रख-रखाव पट्टेदार द्वारा किया जाएगा।</li>
+        <li>यह कि अनुलग्नक (Annexure) अनुसार प्रदत्त समस्त फिक्स्चर एवं फिटिंग्स का समुचित ध्यान रखा जाएगा तथा उनका नियमित रख-रखाव पट्टेदार द्वारा किया जाएगा।</li>
         <li>यह कि पट्टेदार पट्टे की समाप्ति के समय परिसर का रिक्त भौतिक कब्ज़ा पट्टादाता को शांतिपूर्वक सौंपेगा, साथ ही फिटिंग्स एवं फिक्स्चर विधिवत मरम्मत की हुई एवं कार्यशील स्थिति में, यदि कोई क्षति हुई हो।</li>
         <li>यह कि परिसर की दैनिक देखभाल एवं रख-रखाव पट्टेदार द्वारा स्वयं के व्यय पर किया जाएगा।</li>
         <li>यह कि पट्टेदार द्वारा पट्टे पर लिए गए परिसर में पट्टादाता की पूर्व लिखित सहमति के बिना कोई अतिरिक्त परिवर्तन / संशोधन नहीं किया जाएगा।</li>
         <li>यह कि यह किरायानामा पट्टा-अवधि की समाप्ति से पूर्व भी किसी भी पक्ष, अर्थात् पट्टेदार या पट्टादाता, द्वारा एक माह की पूर्व लिखित सूचना देकर समाप्त किया जा सकता है, तथा इसके लिए दण्ड एक माह का किराया होगा।</li>
         <li>यह कि पट्टा पट्टेदार के परिवार के अनन्य आवासीय उपयोग हेतु प्रदान किया गया है, तथा पट्टेदार किसी भी परिस्थिति में पट्टे के परिसर को पूर्णतः या अंशतः उप-किराए पर नहीं देगा या हस्तांतरित नहीं करेगा, तथा परिसर का उपयोग किसी अवैध या निषिद्ध गतिविधि हेतु नहीं किया जाएगा।</li>
         <li>यह कि पट्टेदार या उसके विधिक उत्तराधिकारी किसी भी प्रकार से उक्त परिसर के स्वामित्व का दावा नहीं करेंगे।</li>
-        <li>यह कि फ्लैट में केवल <span class="ph" data-f="occupant" data-ph="[किरायेदार तथा उसका परिवार]">[किरायेदार तथा उसका परिवार]</span> रहेंगे। यदि चर्चित व्यक्तियों के अतिरिक्त कोई अन्य व्यक्ति रहना हो, तो किरायेदार को मालिक से पूर्व अनुमति लेनी होगी।</li>
-        <li>यह कि यदि सोसायटी / रख-रखाव से कोई शिकायत प्राप्त होती है, तो मालिक को फ्लैट खाली कराने हेतु कार्रवाई करने का अधिकार होगा।</li>
-        <li>यह कि फ्लैट का कब्ज़ा लेने के पश्चात् फ्लैट की समस्त बड़ी एवं छोटी मरम्मत का ध्यान रखना किरायेदार का दायित्व है।</li>
-        <li>यह कि मालिक को किरायेदार को पूर्व सूचना देकर समय-समय पर निरीक्षण हेतु फ्लैट में आने का अधिकार होगा।</li>
+        <li>यह कि परिसर में केवल <span class="ph" data-f="occupant" data-ph="[किरायेदार तथा उसका परिवार]">[किरायेदार तथा उसका परिवार]</span> रहेंगे। यदि चर्चित व्यक्तियों के अतिरिक्त कोई अन्य व्यक्ति रहना हो, तो पट्टेदार को पट्टादाता से पूर्व अनुमति लेनी होगी।</li>
+        <li>यह कि यदि सोसायटी / रख-रखाव से कोई शिकायत प्राप्त होती है, तो पट्टादाता को परिसर खाली कराने हेतु कार्रवाई करने का अधिकार होगा।</li>
+        <li>यह कि परिसर का कब्ज़ा लेने के पश्चात् परिसर की समस्त बड़ी एवं छोटी मरम्मत का ध्यान रखना पट्टेदार का दायित्व है।</li>
+        <li>यह कि पट्टादाता को पट्टेदार को पूर्व सूचना देकर समय-समय पर निरीक्षण हेतु परिसर में आने का अधिकार होगा।</li>
         <li>यह कि इस पट्टा अनुबंध की उपरोक्त वर्णित शर्तें दोनों पक्षों पर बाध्यकारी होंगी, अर्थात् नियम एवं शर्तें अंतिम हैं।</li>
       </ol>
       <p><b>इसके साक्ष्य स्वरूप</b> दोनों पक्षों ने इस किरायानामा पर <span class="ph" data-f="place_exec" data-ph="[स्थान]">[स्थान]</span> में, ऊपर सर्वप्रथम लिखित दिन, माह एवं वर्ष को, निम्नलिखित गवाहों की उपस्थिति में हस्ताक्षर किए हैं:</p>
       <div class="sigs">
-        <div class="col"><div class="ln"></div><div class="role">मालिक / प्रथम पक्ष</div></div>
-        <div class="col"><div class="ln"></div><div class="role">किरायेदार / द्वितीय पक्ष</div></div>
+        <div class="col"><div class="ln"></div><div class="role">पट्टादाता / प्रथम पक्ष</div></div>
+        <div class="col"><div class="ln"></div><div class="role">पट्टेदार / द्वितीय पक्ष</div></div>
       </div>
       <div class="wit">
         <p class="wlabel">गवाह:</p>
@@ -369,7 +393,7 @@
           <li><b>पंजीकरण:</b> 12 माह या अधिक का पट्टा पंजीकृत होना आवश्यक है (पंजीकरण अधिनियम धारा 17 / सम्पत्ति अंतरण अधिनियम धारा 107)। इसे अपंजीकृत लीव-एंड-लाइसेंस रखने हेतु सामान्यतः 11 माह की अवधि रखी जाती है; नवीनीकरण नए विलेख से करें।</li>
           <li><b>स्टाम्प शुल्क:</b> राज्य द्वारा निर्धारित स्टाम्प पेपर / ई-स्टाम्प पर प्रिंट करें — मूल्य राज्य तथा किराया + जमा अनुसार भिन्न होता है। स्थानीय दर की पुष्टि करें।</li>
           <li><b>प्रतिभूति जमा:</b> सटीक राशि तथा वापसी की शर्तें स्पष्ट लिखें (कुछ राज्यों में आदर्श किरायेदारी कानून के तहत आवासीय हेतु यह 2 माह के किराए तक सीमित है)।</li>
-          <li><b>अनुबंध (Annexure):</b> फिक्स्चर/फिटिंग्स की सूची तथा दोनों पक्षों के आधार/PAN की प्रतियाँ संलग्न करें; दोनों पक्ष प्रत्येक पृष्ठ पर तथा प्रत्येक गवाह पते सहित हस्ताक्षर करें।</li>
+          <li><b>अनुलग्नक (Annexure):</b> फिक्स्चर/फिटिंग्स की सूची तथा दोनों पक्षों के आधार/PAN की प्रतियाँ संलग्न करें; दोनों पक्ष प्रत्येक पृष्ठ पर तथा प्रत्येक गवाह पते सहित हस्ताक्षर करें।</li>
           <li><b>10% वृद्धि / एक माह की सूचना:</b> ये पक्षों की सहमत शर्तों के अनुरूप हैं — प्रतिशत तथा सूचना-अवधि को वास्तविक सहमति अनुसार समायोजित करें।</li>
         </ul>
       </div>
@@ -382,11 +406,12 @@
       and have both parties and two witnesses sign every page. The Hindi text is a working translation — read it
       against the English.</span>
     <span class="lang-hi"><b>लेखक-स्तरीय ड्राफ्ट, Headnote द्वारा हस्ताक्षर से पूर्व समीक्षा हेतु तैयार — विधिक सलाह नहीं।</b>
-      अपने राज्य हेतु स्टाम्प शुल्क एवं पंजीकरण की आवश्यकता की पुष्टि करें, फिक्स्चर का अनुबंध पूर्ण करें, तथा दोनों पक्ष एवं दो गवाह
+      अपने राज्य हेतु स्टाम्प शुल्क एवं पंजीकरण की आवश्यकता की पुष्टि करें, फिक्स्चर का अनुलग्नक पूर्ण करें, तथा दोनों पक्ष एवं दो गवाह
       प्रत्येक पृष्ठ पर हस्ताक्षर करें। हिंदी पाठ एक कार्यकारी अनुवाद है — अंग्रेज़ी से मिलान करें।</span>
   </p>
 
-</div>
+  </div><!-- /doc-pane -->
+</div><!-- /split -->
 
 <script>
 (function () {
@@ -431,7 +456,7 @@
   var OVR = { kumar:'कुमार', kumari:'कुमारी', verma:'वर्मा', sharma:'शर्मा', singh:'सिंह', devi:'देवी', ram:'राम',
     shri:'श्री', smt:'श्रीमती', mr:'श्री', mrs:'श्रीमती', ms:'सुश्री', prasad:'प्रसाद', lal:'लाल', yadav:'यादव',
     gupta:'गुप्ता', jain:'जैन', patel:'पटेल', mishra:'मिश्रा', tiwari:'तिवारी', chouhan:'चौहान', rao:'राव',
-    reddy:'रेड्डी', ahmad:'अहमद', ahmed:'अहमद', khaleel:'ख़लील', rahish:'रहीश', preeti:'प्रीति', gunjan:'गुंजन',
+    reddy:'रेड्डी', ahmad:'अहमद', ahmed:'अहमद',
     dutta:'दत्ता', bhopal:'भोपाल', indore:'इंदौर', gwalior:'ग्वालियर', jabalpur:'जबलपुर', ujjain:'उज्जैन',
     sagar:'सागर', noida:'नोएडा', nainital:'नैनीताल', uttarakhand:'उत्तराखंड', west:'वेस्ट',
     wo:'पत्नी', so:'पुत्र', 'do':'पुत्री', aged:'आयु', age:'आयु', years:'वर्ष',
@@ -486,19 +511,19 @@
   document.getElementById('btn-reset').addEventListener('click', function () { setAll(null); inputs[0] && inputs[0].focus(); });
   document.getElementById('btn-sample').addEventListener('click', function () {
     setAll({
-      place_exec: 'Noida West',
+      place_exec: 'Bhopal',
       exec_date: '1st July, 2026',
       purpose: 'Residential',
-      lessor: 'Mr. Rahish Ahmad s/o Khaleel Ahmad (Aadhaar No. 3849 3974 6151, PAN DLNPA3054D), r/o Ayarpata Ward, Sherwood College, Tallital, Nainital, Uttarakhand 263002, Mobile 9639376660',
-      lessee: 'Mrs. Preeti Kumari w/o Gunjan Dutta (Aadhaar No. 7698 3213 5544, PAN BIUPK6492D), r/o G-1248, 12th Avenue, Gaur City 2, Greater Noida West, U.P., Mobile 9953888465',
-      property: 'Property at Kirlami Compound, backside of Hotel Mount N Mist, Governor House Road, Near Sherwood College, Ayarpatta Slope, Nainital, Uttarakhand 263001',
+      lessor: 'Mr. Ramesh Kumar s/o Late Shri Mohan Lal (Aadhaar No. ____, PAN ____), r/o 12, M.P. Nagar, Bhopal (M.P.) 462011, Mobile ____',
+      lessee: 'Mrs. Sunita Verma w/o Shri Rakesh Verma (Aadhaar No. ____, PAN ____), r/o 8, Arera Colony, Bhopal (M.P.) 462016, Mobile ____',
+      property: 'House No. B-45, First Floor, Shakti Nagar, Bhopal (M.P.) 462024',
       rent: '18,000',
       rent_words: 'Eighteen Thousand',
       period: '11 months',
       wef: '01.07.2026',
       rent_day: '11th',
       security: '36,000',
-      occupant: 'Mrs. Preeti Kumari (Tenant) and her family only'
+      occupant: 'Mrs. Sunita Verma (Tenant) and her family only'
     });
   });
 

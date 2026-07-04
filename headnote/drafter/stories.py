@@ -154,6 +154,124 @@ STORIES: dict[str, Story] = {
         render_hi=_lazy_template("discharge_239", "render_hi"),
         template_version=1,
         ready=True),
+
+    # ---- Phase-2 deterministic builders — authored to the bail/discharge
+    # standard, PENDING Vishnu ji's review. ready=False keeps them out of the
+    # product picker; each is reviewable at /draft/<id>/review (the route imports
+    # review_page_html directly, bypassing the ready gate). Flip ready=True per
+    # type once he signs off.
+    "anticipatory_bail": Story(
+        id="anticipatory_bail",
+        label={"en": "Anticipatory Bail (S.482 / S.438)", "hi": "अग्रिम जमानत (धारा 482)"},
+        sub={"en": "Pre-arrest · Sessions / HC · apprehension grounds",
+             "hi": "गिरफ्तारी-पूर्व · सत्र/उच्च न्यायालय · आशंका आधार"},
+        icon="lock",
+        sections=[],
+        render_en=_lazy_template("anticipatory_bail", "render_en"),
+        render_hi=_lazy_template("anticipatory_bail", "render_hi"),
+        template_version=1,
+        ready=False),
+    "maintenance": Story(
+        id="maintenance",
+        label={"en": "Maintenance (S.144 / S.125)", "hi": "भरण-पोषण (धारा 144)"},
+        sub={"en": "Family Court · wife / children · with verification",
+             "hi": "कुटुम्ब न्यायालय · पत्नी/बच्चे · सत्यापन सहित"},
+        icon="users",
+        sections=[],
+        render_en=_lazy_template("maintenance", "render_en"),
+        render_hi=_lazy_template("maintenance", "render_hi"),
+        template_version=1,
+        ready=False),
+    "appeal_conviction": Story(
+        id="appeal_conviction",
+        label={"en": "Appeal against Conviction (S.415 / S.374)", "hi": "दोषसिद्धि के विरुद्ध अपील (धारा 415)"},
+        sub={"en": "Sessions / HC · canonical header · grounds of appeal · acquittal · bilingual",
+             "hi": "सत्र/उच्च न्यायालय · मानक शीर्ष · अपील के आधार · दोषमुक्ति · द्विभाषी"},
+        icon="scale",
+        sections=[],
+        render_en=_lazy_template("appeal", "render_en"),  # canonical-standard — supersedes appeal_conviction.py
+        render_hi=_lazy_template("appeal", "render_hi"),
+        template_version=2,
+        ready=False),
+    "cheque_138": Story(
+        id="cheque_138",
+        label={"en": "Cheque Bounce Complaint (S.138 NI Act)", "hi": "चेक बाउंस परिवाद (धारा 138)"},
+        sub={"en": "JMFC · payee complaint · canonical header · bilingual",
+             "hi": "न्या.दं. · परिवाद पत्र · मानक शीर्ष · द्विभाषी"},
+        icon="file-text",
+        sections=[],
+        render_en=_lazy_template("cheque_138", "render_en"),
+        render_hi=_lazy_template("cheque_138", "render_hi"),
+        template_version=1,
+        ready=False),  # first builder on the canonical header — /draft/cheque/review
+    "bail": Story(
+        id="bail",
+        label={"en": "Bail — all courts (S.480 / 483 / 482)", "hi": "जमानत — सभी न्यायालय (धारा 480/483/482)"},
+        sub={"en": "Magistrate / Sessions / HC + anticipatory · canonical header · bilingual",
+             "hi": "मजिस्ट्रेट/सत्र/उच्च न्यायालय + अग्रिम · मानक शीर्ष · द्विभाषी"},
+        icon="lock",
+        sections=[],
+        render_en=_lazy_template("bail", "render_en"),
+        render_hi=_lazy_template("bail", "render_hi"),
+        template_version=1,
+        ready=False),  # unified, court-parameterized engine — /draft/bail/review
+                       # (supersedes bail_regular.py: adds HC tables/Zeba-Khan + anticipatory + field schema)
+    "discharge": Story(
+        id="discharge",
+        label={"en": "Discharge (S.262/250 · 239/227)", "hi": "उन्मोचन (धारा 262/250)"},
+        sub={"en": "Magistrate/Sessions · grave-suspicion · canonical header · bilingual",
+             "hi": "मजिस्ट्रेट/सत्र · प्रथम-दृष्टया · मानक शीर्ष · द्विभाषी"},
+        icon="shield",
+        sections=[],
+        render_en=_lazy_template("discharge", "render_en"),
+        render_hi=_lazy_template("discharge", "render_hi"),
+        template_version=1,
+        ready=False),  # canonical-header rebuild of discharge_239 — /draft/discharge/review
+    "revision": Story(
+        id="revision",
+        label={"en": "Criminal Revision (S.438-442 · 397-401)", "hi": "पुनरीक्षण (धारा 438-442)"},
+        sub={"en": "HC/Sessions · challenge a lower order · canonical header · bilingual",
+             "hi": "उच्च/सत्र न्यायालय · अधीनस्थ आदेश को चुनौती · मानक शीर्ष · द्विभाषी"},
+        icon="gavel",
+        sections=[],
+        render_en=_lazy_template("revision", "render_en"),
+        render_hi=_lazy_template("revision", "render_hi"),
+        template_version=1,
+        ready=False),  # canonical-standard — /draft/revision/review
+    "dv": Story(
+        id="dv",
+        label={"en": "Domestic Violence (S.12 PWDVA)", "hi": "घरेलू हिंसा (धारा 12)"},
+        sub={"en": "JMFC · §17-22 reliefs · canonical header · bilingual",
+             "hi": "न्या.दं. · §17-22 अनुतोष · मानक शीर्ष · द्विभाषी"},
+        icon="shield",
+        sections=[],
+        render_en=_lazy_template("dv", "render_en"),
+        render_hi=_lazy_template("dv", "render_hi"),
+        template_version=1,
+        ready=False),  # canonical-standard — /draft/dv/review
+    "quashing": Story(
+        id="quashing",
+        label={"en": "Quashing (S.528 BNSS / S.482)", "hi": "अभिखण्डन याचिका (धारा 528)"},
+        sub={"en": "High Court · compromise/abuse · canonical header · bilingual",
+             "hi": "उच्च न्यायालय · राजीनामा/दुरुपयोग · मानक शीर्ष · द्विभाषी"},
+        icon="x-circle",
+        sections=[],
+        render_en=_lazy_template("quashing", "render_en"),
+        render_hi=_lazy_template("quashing", "render_hi"),
+        template_version=1,
+        ready=False),  # canonical-standard — /draft/quashing/review
+    "parivad": Story(
+        id="parivad",
+        label={"en": "Private Complaint (S.223 BNSS / S.200)", "hi": "परिवाद पत्र (धारा 223)"},
+        sub={"en": "JMFC · cognizance + summon · canonical header · bilingual",
+             "hi": "न्या.दं. · संज्ञान + समन · मानक शीर्ष · द्विभाषी"},
+        icon="file-text",
+        sections=[],
+        render_en=_lazy_template("parivad", "render_en"),
+        render_hi=_lazy_template("parivad", "render_hi"),
+        template_version=1,
+        ready=False),  # canonical-standard — /draft/parivad/review
+
     "affidavit": Story(
         id="affidavit",
         label={"en": "Affidavit", "hi": "शपथपत्र"},
@@ -163,7 +281,12 @@ STORIES: dict[str, Story] = {
         id="vakalatnama",
         label={"en": "Vakalatnama", "hi": "वकालतनामा"},
         sub={"en": "Authorisation to represent", "hi": "प्रतिनिधित्व प्राधिकार"},
-        icon="user-check", ready=False),
+        icon="user-check",
+        sections=[],
+        render_en=_lazy_template("vakalatnama", "render_en"),
+        render_hi=_lazy_template("vakalatnama", "render_hi"),
+        template_version=1,
+        ready=False),  # proposal — /draft/vakalatnama/review for Vishnu sign-off
     "adjournment": Story(
         id="adjournment",
         label={"en": "Adjournment Application", "hi": "स्थगन आवेदन"},

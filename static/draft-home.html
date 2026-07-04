@@ -4,13 +4,14 @@
   <script src="/static/analytics.js?v=20260630a"></script>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Drafting — Headnote</title>
+<title>Draft from a prompt — Headnote</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  /* tokens + components copied verbatim from draft-bail.html (the app system) */
   :root{
     --bg:#fdfcf9; --panel:#fff; --ink:#0c0c0a; --muted:#6b6960;
     --line:rgba(12,12,10,.08); --line-strong:rgba(12,12,10,.18); --soft:#f5f3ec;
+    --gold:#a85e16; --gold-soft:#f7eede;
+    --ok:#2c6e34; --ok-soft:#e9f3ea; --warn:#9a6b00; --warn-soft:#fbf2dc;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;}
@@ -18,65 +19,236 @@
   .topbar__left{display:flex;align-items:center;gap:14px;}
   .topbar__back{color:var(--muted);text-decoration:none;font-size:14px;}
   .topbar__title{font-size:15px;font-weight:600;}
-  .btn{padding:8px 14px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;border:1px solid var(--line-strong);background:var(--panel);color:var(--ink);transition:all .12s;}
-  .btn--primary{background:var(--ink);color:var(--bg);border-color:var(--ink);}
+  .btn{padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--line-strong);background:var(--panel);color:var(--ink);transition:all .12s;}
+  .btn:hover{border-color:var(--ink);}
+  .btn--primary{background:var(--gold);color:#fff;border-color:var(--gold);}
+  .btn--primary:hover{background:#8f4f10;border-color:#8f4f10;}
+  .btn[disabled]{opacity:.5;cursor:default;}
 
-  .wrap{max-width:620px;margin:0 auto;padding:52px 24px 96px;}
-  h1{font-size:22px;font-weight:600;letter-spacing:-.01em;margin:0 0 24px;}
-  .lbl{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);}
+  .wrap{max-width:680px;margin:0 auto;padding:44px 24px 96px;}
+  h1{font-size:23px;font-weight:600;letter-spacing:-.01em;margin:0 0 6px;}
+  .dek{font-size:14px;color:var(--muted);margin:0 0 22px;line-height:1.5;}
+  .lbl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);}
 
-  .entry{display:flex;gap:10px;align-items:center;background:var(--panel);border:1px solid var(--line-strong);border-radius:8px;padding:6px 6px 6px 14px;}
-  .entry input{flex:1;border:none;outline:none;background:none;font:inherit;font-size:14px;color:var(--ink);}
-  .entry input::placeholder{color:var(--muted);}
+  /* composer */
+  .composer{background:var(--panel);border:1px solid var(--line-strong);border-radius:12px;padding:14px;box-shadow:0 1px 2px rgba(0,0,0,.03);}
+  .composer textarea{width:100%;border:none;outline:none;background:none;font:inherit;font-size:15px;line-height:1.55;color:var(--ink);resize:vertical;min-height:96px;}
+  .composer textarea::placeholder{color:var(--muted);}
+  .composer__bar{display:flex;align-items:center;gap:10px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);}
+  .seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden;}
+  .seg button{border:none;background:var(--panel);color:var(--muted);font:inherit;font-size:12.5px;font-weight:600;padding:6px 12px;cursor:pointer;}
+  .seg button.on{background:var(--ink);color:var(--bg);}
+  .composer__spacer{flex:1;}
 
-  section{margin-top:40px;}
-  .sechead{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px;}
-  .sechead a{font-size:13px;color:var(--ink);text-decoration:none;opacity:.6;}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;}
+  .chip{font-size:12.5px;color:var(--ink);background:var(--soft);border:1px solid var(--line);border-radius:999px;padding:6px 12px;cursor:pointer;transition:all .12s;}
+  .chip:hover{border-color:var(--line-strong);background:#efece3;}
+
+  section{margin-top:34px;}
+  .sechead{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px;}
+  .sechead a{font-size:13px;color:var(--ink);text-decoration:none;opacity:.65;}
   .sechead a:hover{opacity:1;}
-
-  .row{display:flex;align-items:baseline;gap:16px;padding:15px 2px;border-top:1px solid var(--line);}
-  .row:hover{background:var(--soft);}
-  .name{font-size:14.5px;font-weight:500;}
-  .sub{font-size:13px;color:var(--muted);margin-top:2px;}
-  .right{margin-left:auto;text-align:right;white-space:nowrap;}
-  .when{font-size:12.5px;color:var(--muted);}
-  .state{font-size:11px;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:.06em;opacity:.7;}
-
-  .doc{display:flex;align-items:baseline;gap:16px;padding:12px 2px;border-top:1px solid var(--line);cursor:pointer;}
+  .doc{display:flex;align-items:baseline;gap:16px;padding:12px 2px;border-top:1px solid var(--line);cursor:pointer;text-decoration:none;color:inherit;}
   .doc:hover{background:var(--soft);}
   .dn{font-size:14px;}
   .ds{margin-left:auto;font-size:12.5px;color:var(--muted);}
-  .more{font-size:13px;color:var(--muted);padding-top:14px;}
+
+  /* result */
+  #result{margin-top:30px;display:none;}
+  .res-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+  .badge{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:4px 10px;border-radius:999px;}
+  .badge--ok{background:var(--ok-soft);color:var(--ok);}
+  .badge--ai{background:var(--gold-soft);color:var(--gold);}
+  .res-type{font-size:14px;font-weight:600;}
+  .res-meta{font-size:12.5px;color:var(--muted);}
+  .res-actions{margin-left:auto;display:flex;gap:8px;}
+  .frame{width:100%;height:760px;border:1px solid var(--line-strong);border-radius:10px;background:#cdccc6;}
+  .notes{margin-top:14px;display:grid;gap:12px;}
+  .note{border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.55;}
+  .note h4{margin:0 0 6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;}
+  .note--cite h4{color:var(--gold);} .note--cite{background:#fffdf8;border-color:var(--gold-soft);}
+  .note--warn h4{color:var(--warn);} .note--warn{background:var(--warn-soft);border-color:#eedfb4;}
+  .note--comp h4{color:var(--muted);}
+  .note ul{margin:0;padding-left:18px;} .note li{margin-bottom:4px;}
+  .res-empty{display:none;}
+
+  .loading{display:none;align-items:center;gap:10px;margin-top:24px;color:var(--muted);font-size:14px;}
+  .spinner{width:16px;height:16px;border:2px solid var(--line-strong);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .err{display:none;margin-top:18px;background:#fdecec;border:1px solid #f3c9c9;color:#9a2b2b;border-radius:10px;padding:12px 14px;font-size:13.5px;}
 </style>
 </head>
 <body>
 <div class="topbar">
-  <div class="topbar__left"><a class="topbar__back" href="/">← Back</a><span class="topbar__title">Headnote — Drafting</span></div>
+  <div class="topbar__left"><a class="topbar__back" href="/app">← Back</a><span class="topbar__title">Headnote — Drafting</span></div>
 </div>
 
 <div class="wrap">
   <h1>What are you drafting?</h1>
+  <p class="dek">Describe the matter in your own words — Hindi, English, or both. Headnote drafts it in
+    proper court format: a verbatim template where we have one, otherwise a senior-style draft authored to your
+    house style. <strong>It never fabricates case law.</strong></p>
 
-  <div class="entry">
-    <input placeholder="Upload an FIR or order, or describe the matter…" />
-    <button class="btn btn--primary">New draft</button>
+  <div class="composer">
+    <textarea id="prompt" placeholder="e.g. रमेश कुमार पुत्र श्यामलाल, उम्र 32, निवासी पनिहार जिला ग्वालियर के लिये सत्र न्यायालय में नियमित जमानत — अपराध क्रमांक 123/2025 थाना पनिहार, धारा 420/406, गिरफ्तारी 01.06.2026, एकमात्र कमाने वाला, कोई पूर्ववृत्त नहीं।"></textarea>
+    <div class="composer__bar">
+      <div class="seg" id="lang-seg">
+        <button data-lang="hi" class="on">हिंदी</button>
+        <button data-lang="en">English</button>
+      </div>
+      <div class="composer__spacer"></div>
+      <button class="btn btn--primary" id="draft-btn">Draft it →</button>
+    </div>
   </div>
 
-  <section>
-    <div class="sechead"><span class="lbl">Recent</span><a href="#">View all</a></div>
-    <div class="row"><div><div class="name">Ramesh Kumar — Regular Bail, Sessions</div><div class="sub">§483 BNSS · Sessions Court, Gwalior</div></div><div class="right"><div class="when">2 days ago</div><div class="state">Draft</div></div></div>
-    <div class="row"><div><div class="name">Sunita Bai — Production of Documents</div><div class="sub">§94 BNSS · JMFC, Gwalior</div></div><div class="right"><div class="when">5 days ago</div><div class="state">Filed</div></div></div>
-    <div class="row"><div><div class="name">Anil Verma — Anticipatory Bail</div><div class="sub">§482 BNSS · High Court, Gwalior bench</div></div><div class="right"><div class="when">1 week ago</div><div class="state">Draft</div></div></div>
-  </section>
+  <div class="chips" id="chips">
+    <span class="chip">सत्र न्यायालय में नियमित जमानत — FIR 123/2025, धारा 420 व 406, 3 माह से न्यायिक अभिरक्षा में, एकमात्र कमाने वाला</span>
+    <span class="chip">Anticipatory bail — apprehension of arrest, offence ≤7 yrs, ready to cooperate with investigation</span>
+    <span class="chip">पत्नी हेतु भरण-पोषण धारा 144 — पति ₹40,000 मासिक कमाता है, बिना कारण छोड़ दिया</span>
+    <span class="chip">Civil suit for recovery of ₹5,00,000 — lent to Suresh at Bhopal, refuses to repay despite notice</span>
+  </div>
 
+  <div class="loading" id="loading"><div class="spinner"></div><span id="loading-text">Reading the matter…</span></div>
+  <div class="err" id="err"></div>
+
+  <!-- RESULT -->
+  <div id="result">
+    <div class="res-head">
+      <span class="badge" id="res-badge"></span>
+      <span class="res-type" id="res-type"></span>
+      <span class="res-meta" id="res-meta"></span>
+      <span class="res-actions">
+        <span class="seg" id="out-lang-seg" style="display:none;">
+          <button data-lang="hi" class="on">हिं</button><button data-lang="en">EN</button>
+        </span>
+        <button class="btn" id="print-btn">Print / PDF</button>
+        <button class="btn" id="edit-btn" style="display:none;">Refine in editor →</button>
+      </span>
+    </div>
+    <iframe class="frame" id="frame" title="draft preview"></iframe>
+    <div class="notes" id="notes"></div>
+  </div>
+
+  <!-- pick a type -->
   <section>
-    <div class="sechead"><span class="lbl">Documents</span></div>
-    <div class="doc"><span class="dn">Regular Bail — Sessions</span><span class="ds">§483 · 439</span></div>
-    <div class="doc"><span class="dn">Regular Bail — High Court</span><span class="ds">§483 · 439</span></div>
-    <div class="doc"><span class="dn">Bail — Magistrate</span><span class="ds">§480 · 437</span></div>
-    <div class="doc"><span class="dn">Anticipatory Bail</span><span class="ds">§482 · 438</span></div>
-    <div class="more">Family · Appeal &amp; Revision · Discharge · Procedural</div>
+    <div class="sechead"><span class="lbl">…or pick a type</span><a href="/draft/court">Browse all 35 by court →</a></div>
+    <a class="doc" href="/draft/bail"><span class="dn">Regular Bail — Sessions / High Court</span><span class="ds">§483 · 439</span></a>
+    <a class="doc" href="/draft/bail"><span class="dn">Bail — Magistrate</span><span class="ds">§480 · 437</span></a>
+    <a class="doc" href="/draft/bail"><span class="dn">Anticipatory Bail</span><span class="ds">§482 · 438</span></a>
+    <a class="doc" href="/draft/discharge"><span class="dn">Discharge</span><span class="ds">§250 · 227</span></a>
+    <a class="doc" href="/draft/court"><span class="dn">Family · Appeal &amp; Revision · §138 · Quashing · Procedural</span><span class="ds">→</span></a>
   </section>
 </div>
+
+<script>
+(function(){
+  var lang = "hi", last = null;
+  var $ = function(id){ return document.getElementById(id); };
+
+  // language segmented control (input language)
+  $("lang-seg").addEventListener("click", function(e){
+    var b = e.target.closest("button"); if(!b) return;
+    lang = b.dataset.lang;
+    [].forEach.call(this.querySelectorAll("button"), function(x){ x.classList.toggle("on", x===b); });
+  });
+
+  // example chips fill the prompt
+  $("chips").addEventListener("click", function(e){
+    var c = e.target.closest(".chip"); if(!c) return;
+    $("prompt").value = c.textContent.trim(); $("prompt").focus();
+  });
+
+  // output-language toggle re-renders from cached pages
+  $("out-lang-seg").addEventListener("click", function(e){
+    var b = e.target.closest("button"); if(!b || !last) return;
+    [].forEach.call(this.querySelectorAll("button"), function(x){ x.classList.toggle("on", x===b); });
+    showPage(b.dataset.lang);
+  });
+
+  $("print-btn").addEventListener("click", function(){
+    var f = $("frame"); if(f.contentWindow){ f.contentWindow.focus(); f.contentWindow.print(); }
+  });
+
+  function showPage(which){
+    var html = (which === "en" ? last.page_en : last.page_hi) || last.page_hi || last.page_en || "";
+    $("frame").srcdoc = html;
+  }
+
+  var EDIT_ROUTE = { bail:"/draft/bail", anticipatory_bail:"/draft/bail", discharge:"/draft/discharge" };
+
+  function renderResult(res){
+    last = res;
+    var authored = res.mode === "authored";
+    var badge = $("res-badge");
+    badge.className = "badge " + (authored ? "badge--ai" : "badge--ok");
+    badge.textContent = authored ? "AI-authored · review" : "Verbatim template";
+    $("res-type").textContent = res.title || res.doc_type || "Draft";
+    var conf = res.confidence != null ? " · match " + Math.round(res.confidence*100) + "%" : "";
+    $("res-meta").textContent = (authored
+        ? "no fixed template — drafted in your house style" : "deterministic · zero hallucination") + conf;
+
+    // bilingual toggle only if both pages exist
+    $("out-lang-seg").style.display = (res.page_hi && res.page_en) ? "" : "none";
+
+    // refine-in-editor for canonical types we have an editor for
+    var er = EDIT_ROUTE[res.doc_type];
+    var eb = $("edit-btn");
+    if(!authored && er){ eb.style.display = ""; eb.onclick = function(){ location.href = er; }; }
+    else { eb.style.display = "none"; }
+
+    showPage(lang);
+
+    // side notes: cite-at-hearing, warnings, companions
+    var notes = $("notes"); notes.innerHTML = "";
+    if(res.cite_at_hearing && res.cite_at_hearing.length){
+      var items = res.cite_at_hearing.map(function(c){
+        var t = c.case || c; return "<li><strong>"+esc(t)+"</strong>"+(c.point?" — "+esc(c.point):"")+"</li>"; }).join("");
+      notes.insertAdjacentHTML("beforeend",
+        '<div class="note note--cite"><h4>Authorities — cite at hearing (verify before use)</h4><ul>'+items+'</ul></div>');
+    }
+    if(res.warnings && res.warnings.length){
+      notes.insertAdjacentHTML("beforeend",
+        '<div class="note note--warn"><h4>Before you file</h4><ul>'+res.warnings.map(function(w){return "<li>"+esc(w)+"</li>";}).join("")+'</ul></div>');
+    }
+    if(res.companions && res.companions.length){
+      notes.insertAdjacentHTML("beforeend",
+        '<div class="note note--comp"><h4>File these alongside</h4><ul>'+res.companions.map(function(w){return "<li>"+esc(w)+"</li>";}).join("")+'</ul></div>');
+    }
+    $("result").style.display = "block";
+    $("result").scrollIntoView({behavior:"smooth", block:"start"});
+  }
+
+  function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+  function draft(){
+    var prompt = $("prompt").value.trim();
+    if(!prompt){ $("prompt").focus(); return; }
+    $("err").style.display = "none";
+    $("result").style.display = "none";
+    $("draft-btn").disabled = true;
+    $("loading").style.display = "flex";
+    var msgs = ["Reading the matter…","Choosing the right application…","Composing in court format…","Checking sections & citations…"];
+    var i=0; $("loading-text").textContent = msgs[0];
+    var tick = setInterval(function(){ i=(i+1)%msgs.length; $("loading-text").textContent = msgs[i]; }, 2200);
+
+    fetch("/api/draft/from-prompt", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ prompt: prompt, lang: lang })
+    }).then(function(r){ return r.json(); }).then(function(res){
+      clearInterval(tick); $("loading").style.display = "none"; $("draft-btn").disabled = false;
+      if(!res || res.ok === false){ throw new Error((res && res.error) || "Could not draft this. Try rephrasing."); }
+      renderResult(res);
+    }).catch(function(e){
+      clearInterval(tick); $("loading").style.display = "none"; $("draft-btn").disabled = false;
+      $("err").textContent = e.message || String(e); $("err").style.display = "block";
+    });
+  }
+
+  $("draft-btn").addEventListener("click", draft);
+  $("prompt").addEventListener("keydown", function(e){
+    if((e.metaKey || e.ctrlKey) && e.key === "Enter"){ draft(); }
+  });
+})();
+</script>
 </body>
 </html>

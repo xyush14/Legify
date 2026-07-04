@@ -1,0 +1,168 @@
+"""Persistence for CNR case folders.
+
+Mirrors headnote/drafter/storage.py exactly: a SQLite ``cases`` table in the
+same file as drafts + the IK cache (KANOON_CACHE_PATH), so one Railway Volume
+covers everything and there's ZERO external setup to test locally.
+
+(The per-user `saved_caselaw` shelf uses Supabase, but that needs remote creds
+the local dev box doesn't have. Cases live next to drafts in SQLite so the
+"add case → draft for this case" flow works end-to-end with no config. A
+Supabase mirror can come later for prod multi-device sync — same row shape.)
+
+user_id is the Supabase user.id (or the local-dev synthetic id). A case is
+unique per (user_id, cnr): re-adding the same CNR refreshes it in place.
+"""
+
+from __future__ import annotations
+
+import json
+import sqlite3
+import uuid
+from contextlib import contextmanager
+from datetime import datetime, timezone
+from typing import Iterator, Optional
+
+from headnote.config import KANOON_CACHE_PATH
+
+
+_COLS = ("id, user_id, cnr, case_title, court_name, case_number, case_year, "
+         "stage, next_hearing_date, case_json, source, created_at, updated_at")
+
+
+def _init_schema(conn: sqlite3.Connection) -> None:
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS cases (
+            id                TEXT PRIMARY KEY,
+            user_id           TEXT,                 -- Supabase user.id or NULL
+            cnr               TEXT NOT NULL,        -- 16-char eCourts CNR
+            case_title        TEXT,
+            court_name        TEXT,
+            case_number       TEXT,
+            case_year         TEXT,
+            stage             TEXT,
+            next_hearing_date TEXT,
+            case_json         TEXT NOT NULL,        -- full normalised case dict
+            source            TEXT,                 -- 'mock' | 'ecourtsindia' | ...
+            created_at        TEXT NOT NULL,
+            updated_at        TEXT NOT NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_cases_user_cnr ON cases(user_id, cnr);
+        CREATE INDEX IF NOT EXISTS idx_cases_user    ON cases(user_id);
+        CREATE INDEX IF NOT EXISTS idx_cases_updated ON cases(updated_at DESC);
+    """)
+    conn.commit()
+
+
+@contextmanager
+def _conn() -> Iterator[sqlite3.Connection]:
+    c = sqlite3.connect(KANOON_CACHE_PATH, timeout=10)
+    try:
+        _init_schema(c)
+        yield c
+    finally:
+        c.close()
+
+
+def init_cases_db() -> None:
+    """Call once at app boot to ensure the cases table exists."""
+    with _conn() as _:
+        pass
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _row(r) -> Optional[dict]:
+    if not r:
+        return None
+    return {
+        "id": r[0], "user_id": r[1], "cnr": r[2], "case_title": r[3],
+        "court_name": r[4], "case_number": r[5], "case_year": r[6],
+        "stage": r[7], "next_hearing_date": r[8],
+        "case_json": json.loads(r[9] or "{}"),
+        "source": r[10], "created_at": r[11], "updated_at": r[12],
+    }
+
+
+def add_case(*, user_id: Optional[str], case: dict) -> Optional[dict]:
+    """Upsert a normalised case on (user_id, cnr). Returns the stored row."""
+    cnr = case.get("cnr")
+    if not cnr:
+        raise ValueError("case dict missing 'cnr'")
+    now = _now()
+    cid = uuid.uuid4().hex
+    payload = json.dumps(case, ensure_ascii=False)
+    with _conn() as c:
+        c.execute(
+            """INSERT INTO cases
+                 (id, user_id, cnr, case_title, court_name, case_number, case_year,
+                  stage, next_hearing_date, case_json, source, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(user_id, cnr) DO UPDATE SET
+                 case_title        = excluded.case_title,
+                 court_name        = excluded.court_name,
+                 case_number       = excluded.case_number,
+                 case_year         = excluded.case_year,
+                 stage             = excluded.stage,
+                 next_hearing_date = excluded.next_hearing_date,
+                 case_json         = excluded.case_json,
+                 source            = excluded.source,
+                 updated_at        = excluded.updated_at""",
+            (cid, user_id, cnr, case.get("case_title"), case.get("court_name"),
+             case.get("case_number"), case.get("case_year"), case.get("stage"),
+             case.get("next_hearing_date"), payload, case.get("source"), now, now),
+        )
+        c.commit()
+        row = c.execute(
+            f"SELECT {_COLS} FROM cases WHERE user_id IS ? AND cnr = ?",
+            (user_id, cnr),
+        ).fetchone()
+    return _row(row)
+
+
+def get_case(case_id: str, *, user_id: Optional[str]) -> Optional[dict]:
+    with _conn() as c:
+        row = c.execute(
+            f"SELECT {_COLS} FROM cases WHERE id = ? AND user_id IS ?",
+            (case_id, user_id),
+        ).fetchone()
+    return _row(row)
+
+
+def list_cases(*, user_id: Optional[str], limit: int = 100) -> list[dict]:
+    with _conn() as c:
+        rows = c.execute(
+            f"SELECT {_COLS} FROM cases WHERE user_id IS ? "
+            "ORDER BY updated_at DESC LIMIT ?",
+            (user_id, limit),
+        ).fetchall()
+    return [_row(r) for r in rows]
+
+
+def delete_case(case_id: str, *, user_id: Optional[str]) -> bool:
+    with _conn() as c:
+        cur = c.execute(
+            "DELETE FROM cases WHERE id = ? AND user_id IS ?",
+            (case_id, user_id),
+        )
+        c.commit()
+    return cur.rowcount > 0
+
+
+def update_client(case_id: str, *, user_id: Optional[str], client: dict) -> Optional[dict]:
+    """Merge lawyer-entered client details (name/mobile/email/father/age/…) into
+    the matter's case_json under `client`. eCourts never supplies these — they're
+    entered once per matter and reused for autofill + reminders."""
+    row = get_case(case_id, user_id=user_id)
+    if row is None:
+        return None
+    cj = row["case_json"] or {}
+    cj["client"] = {**(cj.get("client") or {}), **(client or {})}
+    with _conn() as c:
+        c.execute(
+            "UPDATE cases SET case_json = ?, updated_at = ? WHERE id = ? AND user_id IS ?",
+            (json.dumps(cj, ensure_ascii=False), _now(), case_id, user_id),
+        )
+        c.commit()
+    return get_case(case_id, user_id=user_id)

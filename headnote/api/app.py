@@ -1052,13 +1052,27 @@ from headnote.drafter.storage import init_drafts_db as _init_drafts_db
 app.include_router(_drafter_router)
 _init_drafts_db()
 
+# Cases — CNR-driven case folders that pre-fill the drafter: /api/cases/*
+# (SQLite, next to drafts; mock-first CNR adapter — see headnote/cases/.)
+from headnote.api.cases import router as _cases_router
+from headnote.cases.storage import init_cases_db as _init_cases_db
+app.include_router(_cases_router)
+_init_cases_db()
+
 # Document Vault — OCR + searchable scanned case documents: /api/documents/*
-# (SQLite, next to drafts; reuses the Groq vision OCR + the shared fastembed
-# model for hybrid keyword + semantic search — see headnote/documents/.)
+# (SQLite, next to drafts/cases; reuses the Groq vision OCR + the shared
+# fastembed model for hybrid keyword + semantic search — see headnote/documents/.)
 from headnote.api.documents import router as _documents_router
 from headnote.documents.storage import init_documents_db as _init_documents_db
 app.include_router(_documents_router)
 _init_documents_db()
+
+# Recorder / consultations — record a client conversation → structured report
+# that hands off to the drafter. See headnote/api/consultations.py.
+from headnote.api.consultations import router as _consultations_router
+from headnote.consultations.storage import init_consultations_db as _init_consultations_db
+app.include_router(_consultations_router)
+_init_consultations_db()
 
 # ASK mode — the "AI for lawyers" conversational surface: /api/chat/message
 # (streamed SSE, DeepSeek-backed, grounded on the IPC↔BNS concordance,
@@ -1403,6 +1417,13 @@ def payment_failed_page():
                         headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
+@app.get("/cases", include_in_schema=False)
+@app.get("/cases/", include_in_schema=False)
+def cases_page():
+    """CNR-driven case folders → one-click pre-filled bail/discharge drafts."""
+    return FileResponse(config.STATIC_DIR / "cases.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
 @app.get("/draft/bail", include_in_schema=False)
 @app.get("/draft/bail/", include_in_schema=False)
 def draft_bail_application():
@@ -1423,9 +1444,19 @@ def draft_bail_application():
 @app.get("/documents/", include_in_schema=False)
 def documents_page():
     """Document Vault — upload scanned/handwritten case documents (postmortem
-    notes, FIRs, affidavits, orders), OCR them, and read the text beside the
-    original page (EN ⇄ हिं). Static SPA; talks to /api/documents/*."""
+    notes, FIRs, affidavits, orders), OCR them, and search the whole pile by
+    keyword AND meaning. Static SPA; talks to /api/documents/*."""
     return FileResponse(config.STATIC_DIR / "documents.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
+@app.get("/recorder", include_in_schema=False)
+@app.get("/recorder/", include_in_schema=False)
+def recorder_page():
+    """Recorder — record an in-person lawyer–client consultation, transcribe it
+    (Groq Whisper), and generate a structured legal work-product report (facts,
+    issues, next steps) that hands off to the drafter. Static SPA; talks to
+    /api/consultations/*."""
+    return FileResponse(config.STATIC_DIR / "recorder.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
 @app.get("/draft/recovery", include_in_schema=False)
@@ -1503,10 +1534,281 @@ def draft_discharge_page():
 
 
 @app.get("/draft/discharge/review", include_in_schema=False)
-def draft_discharge_review():
-    """Read-only sample render — advocate quick-review fallback (no JS)."""
+def draft_discharge_review(draft: str | None = None):
+    """Read-only sample render — advocate quick-review fallback (no JS).
+    Canonical-header rebuild (bilingual, court-parameterized §262/250). Supersedes
+    the old discharge_239 render.
+
+    ?draft=<id> renders that saved draft's answers instead of the sample —
+    used by the Cases feature to preview a CNR-prefilled discharge application."""
     from fastapi.responses import HTMLResponse
-    from headnote.drafter.templates.discharge_239 import review_page_html
+    from headnote.drafter.templates.discharge import review_page_html
+    data = None
+    if draft:
+        from headnote.drafter import storage as _ds
+        d = _ds.get_draft(draft)
+        if d is not None:
+            data = d.answers
+    return HTMLResponse(review_page_html(data),
+                        headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
+# --- Phase-2 deterministic builders — advocate review pages (no JS, sample
+# render). Each is a PROPOSAL pending Vishnu ji's sign-off; the full form/OCR
+# pages are built once he approves the drafting. Same pattern as the discharge
+# review route above. ---
+
+@app.get("/draft/anticipatory/review", include_in_schema=False)
+def draft_anticipatory_review():
+    """§482 BNSS (438 CrPC) anticipatory bail — sample render for review."""
+    from fastapi.responses import HTMLResponse
+    from headnote.drafter.templates.anticipatory_bail import review_page_html
+    return HTMLResponse(review_page_html(),
+                        headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
+@app.get("/draft/maintenance/review", include_in_schema=False)
+def draft_maintenance_review():
+    """§144 BNSS (125 CrPC) maintenance (कुटुम्ब न्यायालय) — sample render for review."""
+    from fastapi.responses import HTMLResponse
+    from headnote.drafter.templates.maintenance import review_page_html
+    return HTMLResponse(review_page_html(),
+                        headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
+@app.get("/draft/appeal/review", include_in_schema=False)
+def draft_appeal_review():
+    """Criminal appeal against conviction §415 BNSS (374 CrPC) — bilingual sample on
+    the canonical header (section-labelled; impugned-judgment recital · acquittal prayer).
+    Repointed to the canonical-standard builder (supersedes appeal_conviction.py)."""
+    from fastapi.responses import HTMLResponse
+    from headnote.drafter.templates.appeal import review_page_html
+    return HTMLResponse(review_page_html(),
+                        headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
+@app.get("/draft/vakalatnama/review", include_in_schema=False)
+def draft_vakalatnama_review():
+    """Vakalatnama (वकालतनामा) — sample render for review."""
+    from fastapi.responses import HTMLResponse
+    from headnote.drafter.templates.vakalatnama import review_page_html
+    return HTMLResponse(review_page_html(),
+                        headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
+@app.get("/draft/cheque/review", include_in_schema=False)
+def draft_cheque_review():
+    """§138 NI Act cheque-dishonour complaint — BILINGUAL sample render (the first
+    builder on the canonical pixel-exact header). Hindi sheet + English sheet."""
+    from fastapi.responses import HTMLResponse
+    from headnote.drafter.templates.cheque_138 import review_page_html
+    return HTMLResponse(review_page_html(),
+                        headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
+@app.get("/draft/bail/review", include_in_schema=False)
+def draft_bail_new_review(draft: str | None = None):
+    """Unified bail engine (Magistrate §480 / Sessions §483 / HC §483 + anticipatory
+    §482) on the canonical header — bilingual multi-court sample render.
+
+    ?draft=<id> renders that saved draft's answers instead of the sample —
+    used by the Cases feature to preview a CNR-prefilled bail application."""
+    from fastapi.responses import HTMLResponse
+    from headnote.drafter.templates.bail import review_page_html
+    data = None
+    if draft:
+        from headnote.drafter import storage as _ds
+        d = _ds.get_draft(draft)
+        if d is not None:
+            data = d.answers
+    return HTMLResponse(review_page_html(data),
+                        headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
+@app.get("/draft/revision/review", include_in_schema=False)
+def draft_revision_review():
+    """Criminal revision §438-442/§397-401 (पुनरीक्षण) — bilingual sample on the
+    canonical header (section-labelled; impugned-order recital + 90-day limitation)."""
+    from fastapi.responses import HTMLResponse
+    from headnote.drafter.templates.revision import review_page_html
+    return HTMLResponse(review_page_html(),
+                        headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
+@app.get("/draft/dv/review", include_in_schema=False)
+def draft_dv_review():
+    """Domestic Violence §12 PWDVA — bilingual sample on the canonical header
+    (व्यथित/प्रत्यर्थीगण · §17-22 relief blocks · सत्यापन)."""
+    from fastapi.responses import HTMLResponse
+    from headnote.drafter.templates.dv import review_page_html
+    return HTMLResponse(review_page_html(),
+                        headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
+@app.get("/draft/quashing/review", include_in_schema=False)
+def draft_quashing_review():
+    """Quashing §528 BNSS / §482 CrPC — bilingual sample on the canonical header
+    (आवेदक/अनावेदक · compromise/राजीनामा basis · संक्षेप विवरण + आधार)."""
+    from fastapi.responses import HTMLResponse
+    from headnote.drafter.templates.quashing import review_page_html
+    return HTMLResponse(review_page_html(),
+                        headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
+@app.get("/draft/parivad/review", include_in_schema=False)
+def draft_parivad_review():
+    """Private complaint §223 BNSS / §200 CrPC — bilingual sample on the canonical
+    header (परिवादी/आरोपीगण · cognizance-summon-punish prayer · witness list)."""
+    from fastapi.responses import HTMLResponse
+    from headnote.drafter.templates.parivad import review_page_html
+    return HTMLResponse(review_page_html(),
+                        headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
+@app.get("/api/draft/fields/{doc_type}", include_in_schema=False)
+def draft_field_schema(doc_type: str, court: str = "sessions", bail_type: str = "regular"):
+    """Input-field schema for a draft type — the per-client variables the lawyer
+    fills + the toggles ('what more can change'). The form UI renders from this."""
+    from fastapi.responses import JSONResponse
+    if doc_type == "bail":
+        from headnote.drafter.templates.bail import field_spec
+        return JSONResponse(field_spec(court, bail_type))
+    if doc_type in ("cheque", "cheque_138"):
+        from headnote.drafter.templates.cheque_138 import field_spec
+        return JSONResponse(field_spec())
+    if doc_type == "discharge":
+        from headnote.drafter.templates.discharge import field_spec
+        return JSONResponse(field_spec(court))
+    if doc_type == "maintenance":
+        from headnote.drafter.templates.maintenance import field_spec
+        return JSONResponse(field_spec())
+    if doc_type == "revision":
+        from headnote.drafter.templates.revision import field_spec
+        return JSONResponse(field_spec(court))
+    if doc_type == "appeal":
+        from headnote.drafter.templates.appeal import field_spec
+        return JSONResponse(field_spec(court))
+    if doc_type == "dv":
+        from headnote.drafter.templates.dv import field_spec
+        return JSONResponse(field_spec())
+    if doc_type == "quashing":
+        from headnote.drafter.templates.quashing import field_spec
+        return JSONResponse(field_spec())
+    if doc_type == "parivad":
+        from headnote.drafter.templates.parivad import field_spec
+        return JSONResponse(field_spec())
+    if doc_type == "vakalatnama":
+        from headnote.drafter.templates.vakalatnama import field_spec
+        return JSONResponse(field_spec())
+    return JSONResponse({"error": f"no field schema registered for '{doc_type}'"}, status_code=404)
+
+
+def _draft_module(doc_type: str):
+    """Resolve a draft type → its builder module (field_spec + render_hi/render_en)."""
+    if doc_type == "bail":
+        from headnote.drafter.templates import bail as m; return m
+    if doc_type in ("cheque", "cheque_138"):
+        from headnote.drafter.templates import cheque_138 as m; return m
+    if doc_type == "discharge":
+        from headnote.drafter.templates import discharge as m; return m
+    if doc_type == "maintenance":
+        from headnote.drafter.templates import maintenance as m; return m
+    if doc_type == "revision":
+        from headnote.drafter.templates import revision as m; return m
+    if doc_type == "appeal":
+        from headnote.drafter.templates import appeal as m; return m
+    if doc_type == "dv":
+        from headnote.drafter.templates import dv as m; return m
+    if doc_type == "quashing":
+        from headnote.drafter.templates import quashing as m; return m
+    if doc_type == "parivad":
+        from headnote.drafter.templates import parivad as m; return m
+    if doc_type == "vakalatnama":
+        from headnote.drafter.templates import vakalatnama as m; return m
+    return None
+
+
+def _draft_spec(mod, doc_type: str, court: str, bail_type: str) -> dict:
+    if doc_type == "bail":
+        return mod.field_spec(court, bail_type)
+    if doc_type in ("discharge", "revision", "appeal"):
+        return mod.field_spec(court)
+    return mod.field_spec()
+
+
+class DraftTweakRequest(BaseModel):
+    doc_type: str = Field(..., description="bail · cheque · discharge · maintenance · revision")
+    data: dict = Field(default_factory=dict, description="current draft values")
+    prompt: str = Field(..., description="the lawyer's natural-language tweak")
+    court: str = "sessions"
+    bail_type: str = "regular"
+    use_llm: bool = True
+
+
+@app.post("/api/draft/tweak", include_in_schema=False)
+def draft_tweak(req: DraftTweakRequest):
+    """Prompt-based tweak: a lawyer's natural-language change → STRUCTURED PATCH
+    (DeepSeek intent-router → Groq → heuristic fallback) → deterministic re-render.
+    The LLM only turns known knobs (field values · reviewed-ground toggles · variant)
+    and captures the lawyer's own extra ground (flagged). It never writes boilerplate,
+    sections, or citations — those stay template-/verified-sourced."""
+    from fastapi.responses import JSONResponse
+    from headnote.drafter import prompt_tweak
+    mod = _draft_module(req.doc_type)
+    if mod is None:
+        return JSONResponse({"error": f"no draft builder for '{req.doc_type}'"}, status_code=404)
+    spec = _draft_spec(mod, req.doc_type, req.court, req.bail_type)
+    result = prompt_tweak.tweak(spec, req.data, req.prompt, use_llm=req.use_llm)
+    out = {"ok": True, **result,
+           "html_hi": mod.render_hi(result["data"]),
+           "html_en": mod.render_en(result["data"])}
+    return JSONResponse(out)
+
+
+class DraftRenderRequest(BaseModel):
+    doc_type: str = Field(..., description="bail · cheque · discharge · maintenance · revision · appeal · dv · quashing · parivad · vakalatnama")
+    data: dict = Field(default_factory=dict, description="current draft field values")
+    court: str = "sessions"
+    bail_type: str = "regular"
+
+
+@app.post("/api/draft/render", include_in_schema=False)
+def draft_render(req: DraftRenderRequest):
+    """Canonical live render — the Drafting Studio's preview engine. Maps a draft
+    type + field values → the deterministic bilingual document (Hindi source of truth
+    + English mirror). Same builders as the /draft/*/review pages; no LLM."""
+    from fastapi.responses import JSONResponse
+    from headnote.drafter.bundle import assemble
+    mod = _draft_module(req.doc_type)
+    if mod is None:
+        return JSONResponse({"error": f"no draft builder for '{req.doc_type}'"}, status_code=404)
+    return JSONResponse(assemble(mod, req.data))
+
+
+class DraftTranslateRequest(BaseModel):
+    fields: dict = Field(default_factory=dict)
+    target: str = "hi"
+
+
+@app.post("/api/draft/translate", include_in_schema=False)
+def draft_translate(req: DraftTranslateRequest):
+    """Live value-translation for the V2 editor — type in any language, the
+    document renders in the document's language. Free Google→MyMemory (no key)."""
+    from fastapi.responses import JSONResponse
+    from headnote.translate import _translate_string
+    out = {}
+    for k, v in (req.fields or {}).items():
+        out[k] = _translate_string(v, req.target) if isinstance(v, str) and v.strip() else v
+    return JSONResponse({"ok": True, "translated": out})
+
+
+@app.get("/draft/bail-regular/review", include_in_schema=False)
+def draft_bail_regular_review():
+    """Regular bail §483/439 (Sessions; §480/437 Magistrate) — BILINGUAL sample on
+    the canonical header. (New-standard builder; the legacy /draft/bail live page
+    still uses bail_application.py until migrated.)"""
+    from fastapi.responses import HTMLResponse
+    from headnote.drafter.templates.bail_regular import review_page_html
     return HTMLResponse(review_page_html(),
                         headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
@@ -1532,10 +1834,9 @@ def draft_complaint_application():
 @app.get("/draft/template/{doc_type}", include_in_schema=False)
 @app.get("/draft/template/{doc_type}/", include_in_schema=False)
 def draft_template_drafter(doc_type: str):
-    """Universal template drafter — one page that auto-renders the form
-    for any template registered in compose_templates.py. Form on the left,
-    live AI-generated preview on the right (pull-up sheet on mobile).
-    """
+    """The EXISTING universal editor (all V1 features). For the reviewed canonical
+    types its /api/draft/template-schema + /api/draft/render-template calls are
+    served by the V2 deterministic engine; for other ids, the legacy LLM path."""
     return FileResponse(config.STATIC_DIR / "draft-template.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
