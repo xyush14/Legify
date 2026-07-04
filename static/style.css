@@ -2046,7 +2046,11 @@ button { font-family: inherit; }
    Mobile shell — top bar + bottom nav + slide-out drawer
    Default state: hidden on desktop. Shown when viewport <= 760px.
    ============================================================================= */
-.mobnav, .botnav, .drawer-backdrop { display: none; }
+.mobnav, .botnav { display: none; }
+/* The drawer backdrop hides via its [hidden] attribute (toggled by openDrawer/
+   closeDrawer), NOT a blanket display:none — otherwise it can never render to
+   catch an outside tap. It only ever opens on mobile, so desktop keeps [hidden]. */
+.drawer-backdrop[hidden] { display: none; }
 
 .mobnav {
   position: fixed; top: 0; left: 0; right: 0;

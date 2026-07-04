@@ -202,8 +202,8 @@
 
   // Wire mobile chrome handlers — called from boot() once DOM is ready.
   function wireMobileChrome() {
-    const menuBtn = $('#mobnav-menu');
-    if (menuBtn) menuBtn.addEventListener('click', toggleDrawer);
+    // The hamburger menu was removed — the bottom nav is the primary mobile
+    // navigation. The drawer now opens only from the bottom-bar "account" item.
     const backdrop = $('#drawer-backdrop');
     if (backdrop) backdrop.addEventListener('click', closeDrawer);
     $$('.botnav__item[data-view]').forEach(btn => {
@@ -1819,6 +1819,13 @@
       if (b.disabled) return;
       if (!b.dataset.view) return;   // plain <a> links (e.g. /sections) navigate natively
       b.addEventListener('click', () => switchView(b.dataset.view));
+    });
+
+    // Brand / logo → Ask (the app home), NOT the marketing site. href="/app#ask"
+    // is the no-JS fallback; here we intercept to switch in-place without a reload.
+    [$('#sidebar-brand'), $('#mobnav-brand')].forEach(el => {
+      if (!el) return;
+      el.addEventListener('click', (e) => { e.preventDefault(); switchView('ask'); });
     });
 
     // ============================================================
