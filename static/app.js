@@ -169,6 +169,8 @@
     // Lazy-render the saved-case-law library on entry (always re-fetch so it
     // reflects saves/unsaves made in the research view this session).
     if (view === 'saved') renderSavedView();
+    // ASK mode — wire + render the chat surface on first entry (idempotent).
+    if (view === 'ask') initAskView();
     // Scroll to top on view switch (mobile UX)
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
@@ -1791,7 +1793,7 @@
     }
 
     // ============================================================
-    // Search — cross-court flat search across all 35 templates.
+    // Search — cross-court flat search across all templates (criminal + civil).
     // ============================================================
     const searchInput = document.getElementById('draft-search-input');
     const searchClear = document.getElementById('draft-search-clear');
@@ -1929,7 +1931,7 @@
     // draft-court) send the user BACK to the drafting home instead of
     // research — they link to /app#drafting. Default stays research.
     const _hashView = (location.hash || '').replace(/^#/, '').trim();
-    if (['research', 'browse', 'drafting', 'account', 'saved'].includes(_hashView)) {
+    if (['research', 'browse', 'drafting', 'account', 'saved', 'ask'].includes(_hashView)) {
       switchView(_hashView);
     }
   }
@@ -2103,6 +2105,402 @@
     `;
     modal.classList.add('is-open');
   };
+
+  // ============================================================== ASK MODE
+  // The "AI for lawyers" conversational surface. Additive: it does not touch
+  // research/drafting — it talks a matter through and, when a task belongs to
+  // another feature, hands the lawyer a link. Streamed token-by-token over SSE
+  // from /api/chat/message. Every answer is honest about what it can't verify.
+  let _askWired = false;
+  const askThread = [];       // [{role:'user'|'assistant', content:string}]
+  let askAttachments = [];    // [{name, text, chars}] — pending, folded into the next question
+
+  const ASK_SUGGESTIONS = [
+    'What does §103 BNS punish, and what changed from IPC §302?',
+    'Client’s bail was rejected once under §103 BNS. What are the realistic options now?',
+    'Explain anticipatory bail under BNSS §482 in plain terms.',
+    'Difference between discharge and quashing — when do I use which?',
+  ];
+
+  function askEsc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+      ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  }
+
+  // A "no-bluff" caveat — the model admitting it can't verify something. We
+  // pull these out of the prose and render them as an amber callout so the
+  // honesty is a visible feature, not a buried sentence.
+  const ASK_CAVEAT_RE = /(confirm (the citation|at hearing|before)|don'?t have a verified|do not have a verified|couldn'?t (verify|find|confirm)|cannot (verify|confirm)|not (certain|sure) of the (exact )?citation|unverified|verify (this|it|independently|before)|no verified source)/i;
+
+  // Minimal, safe markdown → HTML. Escapes first, then applies a small,
+  // predictable subset (headings, blockquotes, lists, tables, rules,
+  // bold/italic/code, links). Bare internal paths (/app, /draft/…) auto-link
+  // so the model's soft pointers become one-click. Caveat paragraphs render as
+  // amber callouts; the first paragraph reads as the lead line.
+  function askMarkdown(src) {
+    const lines = String(src || '').replace(/\r\n/g, '\n').split('\n');
+    const html = [];
+    let list = null;      // 'ul' | 'ol' | null
+    let para = [];
+    let seenBlock = false;   // has any block been emitted yet (for lead styling)
+    const inline = (t) => {
+      t = askEsc(t);
+      t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
+      t = t.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+      t = t.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+      t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/[^\s)]*)\)/g,
+        (_m, txt, url) => `<a href="${url}" ${url.startsWith('/') ? '' : 'target="_blank" rel="noopener"'}>${txt}</a>`);
+      t = t.replace(/(^|[\s(])(\/(?:app|draft|documents|sections)[^\s<)]*)/g,
+        (_m, pre, path) => `${pre}<a href="${path}">${path}</a>`);
+      // Inline citation markers [1] / [1][2] → subtle superscript refs.
+      t = t.replace(/\[(\d{1,2})\]/g, '<sup class="askcite">$1</sup>');
+      return t;
+    };
+    const flushPara = () => {
+      if (!para.length) return;
+      const text = para.join(' ');
+      if (ASK_CAVEAT_RE.test(text)) {
+        html.push('<div class="askmd-caveat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg><span>' + inline(text) + '</span></div>');
+      } else {
+        const cls = seenBlock ? '' : ' class="askmd-lead"';
+        html.push('<p' + cls + '>' + inline(text) + '</p>');
+      }
+      seenBlock = true;
+      para = [];
+    };
+    const closeList = () => { if (list) { html.push(`</${list}>`); list = null; seenBlock = true; } };
+    const isTableSep = (s) => /^\s*\|?[\s:|-]+\|?\s*$/.test(s) && s.includes('-');
+    const splitRow = (s) => s.replace(/^\s*\|/, '').replace(/\|\s*$/, '').split('|').map(c => c.trim());
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trimEnd();
+      const t = line.trim();
+      // Table: a `| … |` row followed by a `|---|` separator.
+      if (t.startsWith('|') && i + 1 < lines.length && isTableSep(lines[i + 1])) {
+        flushPara(); closeList();
+        const head = splitRow(t);
+        let j = i + 2;
+        const rows = [];
+        while (j < lines.length && lines[j].trim().startsWith('|')) { rows.push(splitRow(lines[j].trim())); j++; }
+        let tb = '<div class="askmd-tablewrap"><table class="askmd-table"><thead><tr>' +
+          head.map(c => '<th>' + inline(c) + '</th>').join('') + '</tr></thead><tbody>';
+        for (const r of rows) tb += '<tr>' + r.map(c => '<td>' + inline(c) + '</td>').join('') + '</tr>';
+        tb += '</tbody></table></div>';
+        html.push(tb); seenBlock = true; i = j - 1; continue;
+      }
+      if (!t) { flushPara(); closeList(); continue; }
+      let m;
+      if (/^(---+|\*\*\*+|___+)$/.test(t)) {
+        flushPara(); closeList(); html.push('<hr class="askmd-hr">');
+      } else if ((m = t.match(/^(#{1,4})\s+(.*)$/))) {
+        flushPara(); closeList();
+        const lvl = Math.min(m[1].length + 1, 4);
+        html.push(`<h${lvl} class="askmd-h">${inline(m[2])}</h${lvl}>`); seenBlock = true;
+      } else if ((m = t.match(/^>\s?(.*)$/))) {
+        flushPara(); closeList();
+        html.push(`<blockquote class="askmd-quote">${inline(m[1])}</blockquote>`); seenBlock = true;
+      } else if ((m = t.match(/^[-*]\s+(.*)$/))) {
+        flushPara(); if (list !== 'ul') { closeList(); html.push('<ul>'); list = 'ul'; }
+        html.push('<li>' + inline(m[1]) + '</li>');
+      } else if ((m = t.match(/^\d+\.\s+(.*)$/))) {
+        flushPara(); if (list !== 'ol') { closeList(); html.push('<ol>'); list = 'ol'; }
+        html.push('<li>' + inline(m[1]) + '</li>');
+      } else {
+        if (list) closeList();
+        para.push(t);
+      }
+    }
+    flushPara(); closeList();
+    return html.join('\n');
+  }
+
+  function askScrollBottom() {
+    const thread = $('#ask-thread');
+    if (thread) thread.scrollTop = thread.scrollHeight;
+  }
+
+  function renderAskThread() {
+    const thread = $('#ask-thread');
+    if (!thread) return;
+    const empty = $('#ask-empty');
+    if (askThread.length === 0) { if (empty) empty.style.display = ''; return; }
+    if (empty) empty.style.display = 'none';
+  }
+
+  // Build one message row. Returns the <div class="askmsg__body"> so the
+  // streaming loop can update it in place.
+  // A turn = the lawyer's question rendered as a title (Perplexity-style),
+  // followed by the answer block. The question is NOT a chat bubble.
+  function appendAskQuestion(html) {
+    const thread = $('#ask-thread');
+    const empty = $('#ask-empty');
+    if (empty) empty.style.display = 'none';
+    const el = ce('div', { cls: 'askq' });
+    el.innerHTML = html || '';
+    thread.appendChild(el);
+    askScrollBottom();
+    return el;
+  }
+
+  // The answer block: a "Grounded in" sources strip (filled from the sources
+  // event), the streamed body, then a rail + related follow-ups on completion.
+  function appendAskAnswer() {
+    const thread = $('#ask-thread');
+    const wrap = ce('div', { cls: 'answer' });
+    const sources = ce('div', { cls: 'answer__sources', attrs: { hidden: 'hidden' } });
+    const body = ce('div', { cls: 'answer__body' });
+    body.innerHTML = '<div class="askmsg__thinking" aria-label="Thinking"><span></span><span></span><span></span></div>';
+    wrap.appendChild(sources);
+    wrap.appendChild(body);
+    thread.appendChild(wrap);
+    askScrollBottom();
+    return { wrap, sources, body };
+  }
+
+  // "Grounded in" strip — numbered chips of the real statute-concordance rows
+  // the answer rests on. Honest v1 stand-in for retrieved citations.
+  function renderAskSources(el, items) {
+    if (!items || !items.length) { el.hidden = true; return; }
+    const chips = items.map(s => {
+      const sub = [s.old_ref, s.title].filter(Boolean).join(' · ');
+      return `<a class="ask-src" href="/sections" title="${askEsc(s.new_ref)} — ${askEsc(s.title || '')}">` +
+        `<span class="ask-src__n">${s.n}</span>` +
+        `<span class="ask-src__txt"><span class="ask-src__ref">${askEsc(s.new_ref)}</span>` +
+        `<span class="ask-src__sub">${askEsc(sub)}</span></span></a>`;
+    }).join('');
+    el.innerHTML = '<div class="ask-srclabel mono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>grounded in</div>' +
+      '<div class="ask-srcrow">' + chips + '</div>';
+    el.hidden = false;
+  }
+
+  // Pull the trailing "RELATED: a | b | c" line out of an answer. Returns the
+  // clean answer text + the follow-up questions.
+  function askExtractRelated(text) {
+    const m = text.match(/(?:^|\n)\s*(?:#{0,4}\s*)?related\s*:?\s*(.+?)\s*$/i);
+    if (!m) return { clean: text, related: [] };
+    const related = m[1].split(/\s*[|•]\s*|\s*\n\s*/).map(s => s.replace(/^[-*\d.\s]+/, '').trim()).filter(Boolean).slice(0, 4);
+    if (!related.length) return { clean: text, related: [] };
+    return { clean: text.slice(0, m.index).trim(), related };
+  }
+
+  // While streaming, hide a partial "RELATED:" tail so it never flashes.
+  function askStripRelatedTail(text) {
+    return text.replace(/(?:\n\s*)?(?:#{0,4}\s*)?related\s*:?.*$/i, '');
+  }
+
+  function buildAskRail(rawText) {
+    const rail = ce('div', { cls: 'answer__rail' });
+    const copyBtn = ce('button', { cls: 'answer__act', attrs: { type: 'button', 'aria-label': 'Copy answer' },
+      html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span>copy</span>' });
+    copyBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(rawText).then(() => toast('Copied', 'info', 1400)).catch(() => {});
+    });
+    const up = ce('button', { cls: 'answer__act answer__act--icon', attrs: { type: 'button', 'aria-label': 'Good answer' },
+      html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11v9H4a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1z"/><path d="M7 11l4-8a2 2 0 0 1 2 2v4h5a2 2 0 0 1 2 2l-2 7a2 2 0 0 1-2 1H7"/></svg>' });
+    const down = ce('button', { cls: 'answer__act answer__act--icon', attrs: { type: 'button', 'aria-label': 'Needs work' },
+      html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17 13V4h3a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1z"/><path d="M17 13l-4 8a2 2 0 0 1-2-2v-4H6a2 2 0 0 1-2-2l2-7a2 2 0 0 1 2-1h9"/></svg>' });
+    const vote = (btn, val) => btn.addEventListener('click', () => {
+      up.classList.toggle('is-on', val === 'up'); down.classList.toggle('is-on', val === 'down');
+      toast(val === 'up' ? 'Thanks — noted' : 'Thanks — we’ll use this to improve', 'info', 1600);
+    });
+    vote(up, 'up'); vote(down, 'down');
+    rail.appendChild(copyBtn); rail.appendChild(up); rail.appendChild(down);
+    if (/\b(bail|discharge|reply|जवाब|notice|application|complaint|petition|vakalatnama|maintenance|अग्रिम|जमानत)\b/i.test(rawText)) {
+      const draftLink = ce('a', { cls: 'answer__draftlink', attrs: { href: '/app#drafting' },
+        html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4z"/></svg><span>Draft this</span>' });
+      rail.appendChild(draftLink);
+    }
+    return rail;
+  }
+
+  // "Related" follow-up rows — click to ask that question next.
+  function buildAskRelated(questions) {
+    const box = ce('div', { cls: 'answer__related' });
+    box.innerHTML = '<div class="ask-rellabel mono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>related</div>';
+    const list = ce('div', { cls: 'ask-rellist' });
+    questions.forEach(q => {
+      const row = ce('button', { cls: 'ask-relrow', attrs: { type: 'button' },
+        html: `<span>${askEsc(q)}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg>` });
+      row.addEventListener('click', () => { const i = $('#ask-input'); i.value = q; sendAsk(); });
+      list.appendChild(row);
+    });
+    box.appendChild(list);
+    return box;
+  }
+
+  const _fileSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>';
+
+  // Render the pending-attachment chips above the composer input.
+  function renderAskAttachments() {
+    const wrap = $('#ask-attachments');
+    if (!wrap) return;
+    wrap.innerHTML = askAttachments.map((a, i) => {
+      const status = a.loading ? '<span class="ask-att__spin"></span>'
+        : a.error ? '<span class="ask-att__err">failed</span>'
+        : `<span class="ask-att__meta mono">${a.chars ? Math.round(a.chars / 100) / 10 + 'k chars' : 'ready'}</span>`;
+      return `<span class="ask-att${a.error ? ' is-error' : ''}">${_fileSvg}<span class="ask-att__name">${askEsc(a.name)}</span>${status}` +
+        `<button type="button" class="ask-att__x" data-i="${i}" aria-label="Remove ${askEsc(a.name)}">&times;</button></span>`;
+    }).join('');
+    wrap.querySelectorAll('.ask-att__x').forEach(b => b.addEventListener('click', () => {
+      askAttachments.splice(parseInt(b.dataset.i, 10), 1); renderAskAttachments();
+    }));
+    wrap.style.display = askAttachments.length ? 'flex' : 'none';
+  }
+
+  // OCR/extract each chosen file via /api/chat/attach and stash the text for
+  // the next question. Chips show progress; failures are non-fatal.
+  async function uploadAskFiles(fileList) {
+    const files = [...fileList].slice(0, 5);
+    for (const f of files) {
+      const entry = { name: f.name, loading: true, text: '', chars: 0 };
+      askAttachments.push(entry);
+    }
+    renderAskAttachments();
+    for (let k = 0; k < files.length; k++) {
+      const f = files[k];
+      const entry = askAttachments.find(a => a.name === f.name && a.loading);
+      try {
+        const fd = new FormData();
+        fd.append('file', f);
+        const res = await fetch('/api/chat/attach', { method: 'POST', headers: { ...(await authHeaders()) }, body: fd });
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 402) { handleEntitlementError(402, data); if (entry) askAttachments.splice(askAttachments.indexOf(entry), 1); renderAskAttachments(); continue; }
+        if (!res.ok) throw new Error((data.detail && (data.detail.message || data.detail)) || 'read failed');
+        if (entry) { entry.loading = false; entry.text = data.text || ''; entry.chars = data.chars || 0; }
+      } catch (e) {
+        if (entry) { entry.loading = false; entry.error = true; }
+        toast('Couldn’t read “' + f.name + '”', 'error', 3000);
+      }
+      renderAskAttachments();
+    }
+  }
+
+  let _askInFlight = false;
+  async function sendAsk() {
+    if (_askInFlight) return;
+    const input = $('#ask-input');
+    const q = (input.value || '').trim();
+    // Allow a send with only an attachment (defaults to "read this for me").
+    const atts = askAttachments.filter(a => a.text);
+    if (!q && !atts.length) return;
+    input.value = '';
+    input.style.height = 'auto';
+    askAttachments = [];
+    renderAskAttachments();
+
+    // What the MODEL sees: attachment text folded in as context.
+    let sent = q || 'Please read the attached document, summarise the key facts, and flag anything I should act on.';
+    if (atts.length) {
+      const ctx = atts.map(a => `[Attached document: ${a.name}]\n${a.text}`).join('\n\n');
+      sent = ctx + '\n\n---\n\n' + sent;
+    }
+    askThread.push({ role: 'user', content: sent });
+
+    // What the LAWYER sees: their question as a title + file chips (never the raw OCR dump).
+    let qhtml = '';
+    if (atts.length) {
+      qhtml += '<div class="askmsg__files">' + atts.map(a =>
+        `<span class="askmsg__file">${_fileSvg}${askEsc(a.name)}</span>`).join('') + '</div>';
+    }
+    qhtml += '<div class="askq__text">' + (q ? askEsc(q) : '<span class="askq__att">Attached document</span>') + '</div>';
+    appendAskQuestion(qhtml);
+
+    _askInFlight = true;
+    const sendBtn = $('#ask-send');
+    if (sendBtn) sendBtn.disabled = true;
+
+    const { wrap, sources, body } = appendAskAnswer();
+    let acc = '';
+    const paint = () => { body.innerHTML = askMarkdown(askStripRelatedTail(acc)) + '<span class="askmsg__cursor"></span>'; askScrollBottom(); };
+
+    try {
+      const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
+      const res = await fetch('/api/chat/message', {
+        method: 'POST', headers,
+        body: JSON.stringify({ messages: askThread }),
+      });
+      if (res.status === 402) {
+        const data = await res.json().catch(() => ({}));
+        handleEntitlementError(402, data);
+        wrap.remove();
+        askThread.pop();
+        return;
+      }
+      if (!res.ok || !res.body) throw new Error('HTTP ' + res.status);
+
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        let idx;
+        while ((idx = buf.indexOf('\n\n')) >= 0) {
+          const chunk = buf.slice(0, idx); buf = buf.slice(idx + 2);
+          const dataLine = chunk.split('\n').find(l => l.startsWith('data:'));
+          if (!dataLine) continue;
+          let evt; try { evt = JSON.parse(dataLine.slice(5).trim()); } catch { continue; }
+          if (evt.type === 'sources') { renderAskSources(sources, evt.items); askScrollBottom(); }
+          else if (evt.type === 'delta') { acc += evt.text; paint(); }
+          else if (evt.type === 'error') { acc += (acc ? '\n\n' : '') + '_' + evt.message + '_'; paint(); }
+        }
+      }
+      acc = acc.trim();
+      const { clean, related } = askExtractRelated(acc);
+      body.innerHTML = askMarkdown(clean || '_No response._');
+      askThread.push({ role: 'assistant', content: acc });
+      wrap.appendChild(buildAskRail(clean));
+      if (related.length) wrap.appendChild(buildAskRelated(related));
+      askScrollBottom();
+    } catch (e) {
+      body.innerHTML = '<p class="askmsg__err">Something went wrong reaching the model. Please try again.</p>';
+    } finally {
+      _askInFlight = false;
+      if (sendBtn) sendBtn.disabled = false;
+      input.focus();
+    }
+  }
+
+  function initAskView() {
+    if (_askWired) return;
+    _askWired = true;
+    const input = $('#ask-input');
+    const sendBtn = $('#ask-send');
+    const empty = $('#ask-empty');
+
+    if (empty) {
+      empty.querySelector('.ask-empty__chips').innerHTML =
+        ASK_SUGGESTIONS.map(s => `<button type="button" class="ask-chip">${askEsc(s)}</button>`).join('');
+      empty.querySelectorAll('.ask-chip').forEach((c, i) => c.addEventListener('click', () => {
+        input.value = ASK_SUGGESTIONS[i]; input.focus(); sendAsk();
+      }));
+    }
+    if (sendBtn) sendBtn.addEventListener('click', sendAsk);
+
+    // Attach: paperclip opens the file picker; chosen files are OCR'd/extracted.
+    const attachBtn = $('#ask-attach-btn');
+    const fileInput = $('#ask-file');
+    if (attachBtn && fileInput) {
+      attachBtn.addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', () => {
+        if (fileInput.files && fileInput.files.length) uploadAskFiles(fileInput.files);
+        fileInput.value = '';
+      });
+    }
+
+    if (input) {
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAsk(); }
+      });
+      // Auto-grow the composer up to a cap.
+      input.addEventListener('input', () => {
+        input.style.height = 'auto';
+        input.style.height = Math.min(input.scrollHeight, 200) + 'px';
+      });
+      input.focus();
+    }
+    renderAskThread();
+  }
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot);

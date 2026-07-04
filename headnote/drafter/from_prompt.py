@@ -368,6 +368,15 @@ _DETERMINISTIC = {
     "restitution_9":      ("restitution_9", "family", ""),
     "general_affidavit":  ("general_affidavit", "", ""),
     "legal_notice":       ("legal_notice", "", ""),
+    # ---- civil suits — now DETERMINISTIC (CPC plaints via the _civil engine) ----
+    "recovery_suit":      ("recovery_suit", "civil", ""),
+    "injunction_suit":    ("injunction_suit", "civil", ""),
+    "specific_performance": ("specific_performance", "civil", ""),
+    "declaration_suit":   ("declaration_suit", "civil", ""),
+    "partition_suit":     ("partition_suit", "civil", ""),
+    "eviction_suit":      ("eviction_suit", "civil", ""),
+    "written_statement":  ("written_statement", "civil", ""),
+    "consumer_complaint": ("consumer_complaint", "consumer", ""),
 }
 
 # single-forum types — the classifier's court guess must not override these
@@ -379,6 +388,10 @@ _FORCE_COURT = {
     "supurdgi": "magistrate", "exemption_205": "magistrate", "compounding": "magistrate",
     "complaint_156": "magistrate", "statement_178": "magistrate",
     "production_warrant": "magistrate", "dv": "magistrate", "parivad": "magistrate",
+    # civil suits must stay in a civil forum (never a criminal-court guess)
+    "recovery_suit": "civil", "injunction_suit": "civil", "specific_performance": "civil",
+    "declaration_suit": "civil", "partition_suit": "civil", "eviction_suit": "civil",
+    "written_statement": "civil", "consumer_complaint": "consumer",
 }
 
 

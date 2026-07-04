@@ -31,7 +31,7 @@
        The SDK is loaded but inert until openOtplessWidget() opens it. -->
   <script id="otpless-sdk"></script>
 
-  <link rel="stylesheet" href="/static/style.css?v=20260703b" />
+  <link rel="stylesheet" href="/static/style.css?v=20260704c" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23ffffff'/%3E%3Ccircle cx='50' cy='50' r='12' fill='%23121212'/%3E%3C/svg%3E" />
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/static/favicon.svg">
@@ -71,6 +71,12 @@
       </div>
 
       <nav class="sidebar__nav" aria-label="Primary">
+        <button type="button" class="navitem" data-view="ask">
+          <svg class="navicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7a8.5 8.5 0 0 1-.9-3.8A8.38 8.38 0 0 1 12.5 3 8.38 8.38 0 0 1 21 11.5z"/>
+          </svg>
+          <span>ask</span>
+        </button>
         <button type="button" class="navitem is-active" data-view="research" aria-current="page">
           <svg class="navicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/>
@@ -158,6 +164,63 @@
 
     <!-- ============ Main content ============ -->
     <main id="main" class="main">
+
+      <!-- ============ ASK VIEW ============ -->
+      <!-- "AI for lawyers" chat. Additive surface: talks a matter through,
+           links out to research/drafting, and refuses to bluff a citation.
+           Streamed token-by-token from /api/chat/message (see app.js ASK
+           module + headnote/api/chat.py). -->
+      <section class="view view--ask" data-view="ask">
+        <header class="topbar topbar--ask">
+          <div class="topbar__title">ask</div>
+          <div class="topbar__hint mono">AI for lawyers · grounded in BNS/BNSS · never invents a citation</div>
+        </header>
+
+        <div class="ask">
+          <div class="ask__thread" id="ask-thread" aria-live="polite">
+            <div class="ask__empty" id="ask-empty">
+              <div class="ask-empty__mark" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7a8.5 8.5 0 0 1-.9-3.8A8.38 8.38 0 0 1 12.5 3 8.38 8.38 0 0 1 21 11.5z"/>
+                </svg>
+              </div>
+              <h2 class="ask-empty__title">Ask anything about Indian litigation</h2>
+              <p class="ask-empty__sub">Statutes, strategy, procedure — answered in plain terms, current to BNS/BNSS, and honest about what it can’t verify.</p>
+              <div class="ask-empty__chips"></div>
+            </div>
+          </div>
+
+          <div class="ask__composer">
+            <div class="ask__composer-inner">
+              <div class="ask__attachments" id="ask-attachments"></div>
+              <textarea
+                id="ask-input"
+                class="ask__input"
+                rows="1"
+                autocomplete="off"
+                placeholder="Ask a question, or describe the matter…"
+                aria-label="Ask a legal question"></textarea>
+              <div class="ask__composer-row">
+                <button type="button" id="ask-attach-btn" class="ask__attach-btn"
+                        aria-label="Attach a document" title="Attach a document — FIR, order, notice (image, PDF or Word)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M21.44 11.05l-9.19 9.19a5 5 0 0 1-7.07-7.07l9.19-9.19a3 3 0 0 1 4.24 4.24l-9.2 9.19a1 1 0 0 1-1.41-1.41l8.49-8.49"/>
+                  </svg>
+                </button>
+                <input type="file" id="ask-file" hidden multiple
+                       accept="image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx" />
+                <div class="ask__composer-spacer"></div>
+                <button type="button" id="ask-send" class="ask__send" aria-label="Ask">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M12 19V5M6 11l6-6 6 6"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="ask__disclaimer mono">Verify authorities before filing. Headnote flags what it can’t confirm.</div>
+          </div>
+        </div>
+      </section>
 
       <!-- ============ RESEARCH VIEW ============ -->
       <section class="view view--research is-active" data-view="research">
@@ -385,7 +448,7 @@
               class="draft-search__input"
               autocomplete="off"
               spellcheck="false"
-              placeholder="search across all 35 templates — e.g. ant bail, vakalat, 138, quashing" />
+              placeholder="search all templates — e.g. recovery suit, injunction, ant bail, 138, eviction" />
             <button type="button" class="draft-search__clear" id="draft-search-clear" aria-label="clear search" hidden>×</button>
           </div>
 
@@ -449,6 +512,12 @@
 
   <!-- ============ Mobile bottom nav (hidden on desktop) ============ -->
   <nav class="botnav" id="botnav" aria-label="Mobile bottom navigation">
+    <button type="button" class="botnav__item" data-view="ask">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7a8.5 8.5 0 0 1-.9-3.8A8.38 8.38 0 0 1 12.5 3 8.38 8.38 0 0 1 21 11.5z"/>
+      </svg>
+      <span>ask</span>
+    </button>
     <button type="button" class="botnav__item is-active" data-view="research">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/>
@@ -594,7 +663,7 @@
   <!-- ============ END AUTH OVERLAY ============ -->
 
   <script src="/static/auth.js?v=20260527a" defer></script>
-  <script src="/static/app.js?v=20260527a" defer></script>
+  <script src="/static/app.js?v=20260704c" defer></script>
 
   <!-- Prompt drafter (drafting view) — self-contained; POSTs /api/draft/from-prompt -->
   <script>
@@ -889,6 +958,18 @@
         renderRefAttached(); if(refAttached) input.focus();
       });
     }
+
+    // Handoff seed: the Recorder (/recorder) drops a matter brief into
+    // sessionStorage then sends the lawyer to /app#drafting. Pick it up once.
+    try{
+      var seed=sessionStorage.getItem("hn_seed_prompt");
+      if(seed){
+        sessionStorage.removeItem("hn_seed_prompt");
+        input.value=seed;
+        autoEl.textContent = /[ऀ-ॿ]/.test(seed) ? "auto · हिंदी" : "auto-detects language";
+        input.focus();
+      }
+    }catch(e){}
   })();
   </script>
 </body>

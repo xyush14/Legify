@@ -1198,9 +1198,33 @@ COURT_LABELS: dict[str, dict[str, str]] = {
     "sessions":   {"en": "Sessions Court",    "hi": "सत्र न्यायालय"},
     "magistrate": {"en": "Magistrate Court",  "hi": "मजिस्ट्रेट न्यायालय"},
     "family":     {"en": "Family Court",      "hi": "परिवार न्यायालय"},
+    "civil":      {"en": "Civil Court",       "hi": "व्यवहार न्यायालय"},
+    "consumer":   {"en": "Consumer Commission", "hi": "उपभोक्ता आयोग"},
     "procedural": {"en": "Common",            "hi": "सामान्य"},  # cross-court rail
 }
-COURT_ORDER: list[str] = ["sc", "hc", "sessions", "magistrate", "family", "procedural"]
+COURT_ORDER: list[str] = ["sc", "hc", "sessions", "magistrate", "family", "civil", "consumer", "procedural"]
+
+# Canonical civil-suit tiles (deterministic CPC plaints via the _civil engine).
+# These are NOT LLM templates — they point straight at the universal editor at
+# /draft/template/<id>, which serves the canonical schema (see template_adapter).
+_CIVIL_TILES: list[dict] = [
+    {"id": "recovery_suit", "name_en": "Recovery of Money", "name_hi": "धन वसूली वाद",
+     "court": "civil", "popularity": 5, "description": "Suit to recover a loan / price of goods / dues (Order VII CPC, §34 interest)"},
+    {"id": "injunction_suit", "name_en": "Permanent Injunction", "name_hi": "स्थायी निषेधाज्ञा वाद",
+     "court": "civil", "popularity": 5, "description": "Restrain interference / dispossession / construction (§38 Specific Relief Act)"},
+    {"id": "specific_performance", "name_en": "Specific Performance", "name_hi": "विनिर्दिष्ट अनुपालन वाद",
+     "court": "civil", "popularity": 4, "description": "Enforce an agreement to sell (§10 SRA; §16(c) readiness & willingness)"},
+    {"id": "declaration_suit", "name_en": "Declaration of Right / Title", "name_hi": "घोषणा वाद",
+     "court": "civil", "popularity": 4, "description": "Declare legal character / title + consequential relief (§34 SRA)"},
+    {"id": "partition_suit", "name_en": "Partition & Separate Possession", "name_hi": "बंटवारा वाद",
+     "court": "civil", "popularity": 4, "description": "Partition joint / ancestral property (preliminary + final decree)"},
+    {"id": "eviction_suit", "name_en": "Eviction & Arrears of Rent", "name_hi": "बेदखली एवं बकाया किराया वाद",
+     "court": "civil", "popularity": 4, "description": "Landlord's eviction on a State rent-control ground + arrears"},
+    {"id": "written_statement", "name_en": "Written Statement", "name_hi": "जवाबदावा (लिखित कथन)",
+     "court": "civil", "popularity": 3, "description": "Defendant's reply — objections + para-wise reply + special pleas (Order VIII)"},
+    {"id": "consumer_complaint", "name_en": "Consumer Complaint", "name_hi": "उपभोक्ता परिवाद",
+     "court": "consumer", "popularity": 4, "description": "Defective goods / deficient service before the District Commission (§35 CPA 2019)"},
+]
 
 # Per-template (court, popularity 1-5). Popularity sorts the within-court
 # template list — higher = more prominent on the court drill-down page.
@@ -1319,6 +1343,18 @@ def list_templates_slim() -> list[dict]:
         }
         for t in TEMPLATES.values()
         if t["id"] not in _HIDDEN_FROM_PICKER
+    ] + [
+        {
+            "id": t["id"], "name_en": t["name_en"], "name_hi": t["name_hi"],
+            "category": "civil", "tier": "canonical",
+            "court": t["court"],
+            "court_label_en": COURT_LABELS[t["court"]]["en"],
+            "court_label_hi": COURT_LABELS[t["court"]]["hi"],
+            "popularity": t["popularity"],
+            "redirect_url": "/draft/template/" + t["id"],
+            "quality": "tuned", "description": t["description"], "example_prompts": [],
+        }
+        for t in _CIVIL_TILES
     ]
 
 

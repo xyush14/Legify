@@ -60,6 +60,15 @@ CANONICAL_MAP = {
     "cheque_138": ("cheque", "magistrate", "regular"),
     "parivad": ("parivad", "magistrate", "regular"),
     "vakalatnama": ("vakalatnama", "any", "regular"),
+    # ---- civil suits (deterministic CPC plaints via _civil engine) ----
+    "recovery_suit": ("recovery_suit", "civil", "regular"),
+    "injunction_suit": ("injunction_suit", "civil", "regular"),
+    "specific_performance": ("specific_performance", "civil", "regular"),
+    "declaration_suit": ("declaration_suit", "civil", "regular"),
+    "partition_suit": ("partition_suit", "civil", "regular"),
+    "eviction_suit": ("eviction_suit", "civil", "regular"),
+    "written_statement": ("written_statement", "civil", "regular"),
+    "consumer_complaint": ("consumer_complaint", "consumer", "regular"),
 }
 
 LABELS = {
@@ -105,6 +114,14 @@ LABELS = {
     "cheque_138": {"en": "Cheque Dishonour Complaint (S.138)", "hi": "चेक बाउंस परिवाद (धारा 138)"},
     "parivad": {"en": "Private Complaint (S.223 / 200)", "hi": "परिवाद पत्र (धारा 223)"},
     "vakalatnama": {"en": "Vakalatnama", "hi": "वकालतनामा"},
+    "recovery_suit": {"en": "Recovery of Money (Order VII CPC)", "hi": "धन वसूली वाद (आदेश 7 सी.पी.सी.)"},
+    "injunction_suit": {"en": "Permanent Injunction (S.38 SRA)", "hi": "स्थायी निषेधाज्ञा वाद (धारा 38)"},
+    "specific_performance": {"en": "Specific Performance (S.10 SRA)", "hi": "विनिर्दिष्ट अनुपालन वाद (धारा 10)"},
+    "declaration_suit": {"en": "Declaration (S.34 SRA)", "hi": "घोषणा वाद (धारा 34)"},
+    "partition_suit": {"en": "Partition & Separate Possession", "hi": "बंटवारा वाद"},
+    "eviction_suit": {"en": "Eviction & Arrears of Rent", "hi": "बेदखली एवं बकाया किराया वाद"},
+    "written_statement": {"en": "Written Statement (Order VIII CPC)", "hi": "जवाबदावा (आदेश 8 सी.पी.सी.)"},
+    "consumer_complaint": {"en": "Consumer Complaint (S.35 CPA 2019)", "hi": "उपभोक्ता परिवाद (धारा 35)"},
 }
 
 _SECTION_FIX = {"crime": "fir"}   # map our section ids onto the editor's SECTION_LABELS

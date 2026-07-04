@@ -278,6 +278,7 @@ Unicode). Pipeline = Unicode field values → transliterate English names to Dev
 
 | Area | Routes (representative) | Notes |
 |---|---|---|
+| **ASK mode** | `/api/chat/message` (SSE) | "AI for lawyers" chat; DeepSeek→Groq stream, statute-map grounded, no-bluff; SPA `data-view="ask"`. See §15 (2026-07-04) |
 | **Research** | `/api/situation`, `/api/digest`, `/api/headnote`, `/api/browse/*`, `/api/hf_search`, `/api/judgment/*` | core engine; SC corpus endpoints under `/api/judgment` |
 | **Drafting** | `/draft/bail`, `/draft/discharge`, `/draft/template/{type}`, `/api/draft/*` (start, render-live, pdf, ocr-fir, transcribe) | see §6.4 |
 | **Auth** | `/api/me`, `/api/auth-verify` | Supabase JWT |
@@ -516,6 +517,39 @@ machine with any account, in minutes.
 
 > Append a dated line whenever something structural changes. Newest on top.
 
+- **2026-07-04** — **Civil drafting is now DETERMINISTIC — 8 CPC-plaint templates (the biggest civil-quality jump).**
+  Civil matters were previously LLM-authored (good, but review-heavy); now the eight civil suit types render
+  as verbatim, zero-fabrication deterministic plaints, the same moat model as bail/discharge. New shared
+  **`headnote/drafter/templates/_civil.py`** engine builds the whole CPC Order VII skeleton — cause-title
+  (pan-India via compose_court_name), parties, type-specific facts, cause of action, jurisdiction, valuation
+  & court-fee, limitation, lettered PRAYER (सहायता अ/ब/स…), and verification (Order VI Rule 15) — bilingual,
+  no LLM. Eight thin modules supply only their statute + fact/prayer paras: `recovery_suit` (§34 interest),
+  `injunction_suit` (§38 SRA + O39 companion), `specific_performance` (§10 SRA — §16(c) readiness averment
+  hard-coded so it's never omitted), `declaration_suit` (§34 SRA proviso), `partition_suit` (two-decree),
+  `eviction_suit` (State rent-control Act — never assumes MP), `consumer_complaint` (§35 CPA 2019, District
+  Commission), `written_statement` (Order VIII — objections + para-wise reply + special pleas, signed by the
+  defendant). Wired through the full stack: `template_adapter.CANONICAL_MAP`/`LABELS` (editor + schema),
+  `from_prompt._DETERMINISTIC` + `_FORCE_COURT` (the classifier now routes civil matters to these instead of
+  the authored engine), and a new **Civil Court (7) + Consumer Commission (1)** group in the browse catalogue
+  (`compose_templates.py`). Total canonical templates 42 → 50. Verified: all 8 render bilingual (sample +
+  empty), editor schema + full document render, prompt-first routing (non-MP cause-title, facts filled, no MP
+  leak); civil bodies carry NO case-law (cite-at-hearing only) — deterministic assembly means nothing is
+  fabricated. Follow-up: build these from Vishnu's real filed civil formats where available; verified civil
+  citation ledger still pending.
+
+- **2026-07-04** — **ASK mode shipped — the "AI for lawyers" chat (uncommitted).** New flagship surface in the
+  /app SPA (`data-view="ask"`, first sidebar + bottom-nav item); research/drafting/etc. untouched. Streamed
+  token-by-token over **SSE**: `POST /api/chat/message` in `headnote/api/chat.py` → events `{type:delta|error|done}`;
+  new `stream_chat()` in `headnote/llm/client.py` (DeepSeek `stream=True`, V3 fast / R1 via a `deep` toggle,
+  Groq fallback — never raises). Grounded, not trained: `_grounding_block()` injects authoritative BNS/BNSS rows
+  from `statute_map.lookup()` into a **no-bluff** system prompt (never invents a citation → "confirm at hearing").
+  Gated up-front via `can_use_feature` (SSE can't 402 mid-stream); meter recorded in `finally` (never `yield` there);
+  `PlanLimit("chat",20,"lifetime")` on DEMO only (funnel; unlimited on paid). Frontend ASK module (app.js IIFE):
+  `fetch`+ReadableStream (not EventSource — needs Bearer), safe mini-markdown renderer where `##` → mono uppercase
+  section labels and `>` → statute blockquote, blinking caret, action rail (copy · 👍/👎 · gold "Draft this"
+  link-out). Presentation = the structured-brief look (mono labels + blockquote, gold scoped to the draft link).
+  Verified live in preview (real Groq stream, section headings + blockquote render, zero console errors). v1.5 TODO:
+  wire `verify.py` for real Verified badges + case-law links; persist thread; 👍/👎 → eval set.
 - **2026-07-04** — **Pan-India Phase 2: the 34 canonical templates are now State-driven too.** Follow-up to
   the pan-India engine below — the criminal/family/civil canonical template modules no longer default to MP.
   Every `compose_court_name(..., "म.प्र."/"M.P.")` and every `a.get("state_name") or "म.प्र."` fallback across
