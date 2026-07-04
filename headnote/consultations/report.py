@@ -112,6 +112,14 @@ Use the nearest [mm:ss] marker as "time"; if none, "".
 empty array over a guess.
 - Write all prose (summary/facts/issues/admissions/steps/questions) in the SAME \
 language as the conversation (keep Hindi in Hindi). Keys stay English.
+- REGISTER: write as an Indian advocate drafting a file note — कानूनी हिंदी, not \
+casual speech. Refer to the lawyer's own client as «मुवक्किल» (or by procedural \
+role: प्रार्थी / आवेदक / अभियुक्त / परिवादी / याचिकाकर्ता as the matter fits) — \
+NEVER «ग्राहक» (that means a shop customer and is wrong for a client). Use the \
+opponent's role too (राज्य/अभियोजन, प्रत्यर्थी, विपक्षी). Use correct legal terms \
+(प्राथमिकी/FIR, आरोप-पत्र, जमानत, उन्मोचन, गुज़ारा-भत्ता, क्रूरता) and precise \
+section names (e.g. "धारा 125 दं.प्र.सं." / "धारा 144 BNSS"). Keep it crisp and \
+professional — no filler, no repetition.
 - If a section has nothing real to say, return it EMPTY ([] or "") — do not pad.
 - If the transcript is too short/unclear to build a real memo, still return the \
 JSON with best-effort fields and note it in "unverified".
