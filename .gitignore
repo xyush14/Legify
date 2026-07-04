@@ -66,3 +66,6 @@ headnote_contacts.csv
 
 # Regional-language runtime write-back cache (machine translations, not verified)
 headnote/drafter/i18n/machine/
+
+# Pytest cache
+.pytest_cache/
