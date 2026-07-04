@@ -31,7 +31,7 @@
        The SDK is loaded but inert until openOtplessWidget() opens it. -->
   <script id="otpless-sdk"></script>
 
-  <link rel="stylesheet" href="/static/style.css?v=20260704g" />
+  <link rel="stylesheet" href="/static/style.css?v=20260705a" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23ffffff'/%3E%3Ccircle cx='50' cy='50' r='12' fill='%23121212'/%3E%3C/svg%3E" />
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/static/favicon.svg">
@@ -83,12 +83,6 @@
           </svg>
           <span>research</span>
         </button>
-        <button type="button" class="navitem" data-view="browse">
-          <svg class="navicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M3 7h18M3 12h18M3 17h18"/>
-          </svg>
-          <span>browse</span>
-        </button>
         <button type="button" class="navitem" data-view="drafting">
           <svg class="navicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4z"/>
@@ -135,19 +129,19 @@
         -->
         <a id="sidebar-plan-card" class="sidebar-plan" href="/pricing"
            style="display:none;text-decoration:none;color:inherit;
-                  background:linear-gradient(135deg,#1a1a18,#2a221a);
-                  border:1px solid #c9a96e;border-radius:10px;
+                  background:#0c0c0a;
+                  border:1px solid #26251f;border-radius:10px;
                   padding:12px 14px;margin-bottom:10px;">
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <div>
-              <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#c9a96e;font-weight:600;margin-bottom:2px;">
+              <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#e8e6e0;font-weight:600;margin-bottom:2px;">
                 <span id="sidebar-plan-label">Demo</span>
               </div>
-              <div id="sidebar-plan-sub" style="font-size:12px;color:#b8b0a4;line-height:1.4;">
+              <div id="sidebar-plan-sub" style="font-size:12px;color:#a8a69e;line-height:1.4;">
                 Upgrade for unlimited drafts &amp; research
               </div>
             </div>
-            <div id="sidebar-plan-arrow" style="color:#c9a96e;font-size:18px;font-weight:600;">→</div>
+            <div id="sidebar-plan-arrow" style="color:#e8e6e0;font-size:18px;font-weight:600;">→</div>
           </div>
         </a>
 
@@ -274,16 +268,23 @@
 
         <!-- Results area -->
         <div class="results" id="results" aria-live="polite"></div>
-      </section>
 
-      <!-- ============ BROWSE VIEW ============ -->
-      <section class="view" data-view="browse">
-        <header class="topbar">
-          <div class="topbar__title">browse judgments</div>
-          <div class="topbar__hint mono">direct search across indian kanoon · sc + hcs · free with every plan</div>
-        </header>
+        <!-- Browse judgments — direct Indian Kanoon search, folded into Research
+             as an inline expandable panel (was its own nav view). The form/filter
+             IDs are unchanged so the existing browse handlers keep working. -->
+        <div class="browse-cta">
+          <button type="button" class="browse-cta__btn" id="browse-toggle" aria-expanded="false" aria-controls="browse-panel">
+            <span class="browse-cta__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18M3 12h18M3 17h18"/></svg></span>
+            <span class="browse-cta__text">
+              <span class="browse-cta__label">Browse judgments directly</span>
+              <span class="browse-cta__hint mono">search Indian Kanoon · SC + HCs · free with every plan</span>
+            </span>
+            <span class="browse-cta__chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>
+          </button>
+        </div>
 
-        <div class="composer composer--compact">
+        <div class="browse-panel" id="browse-panel" hidden>
+          <div class="composer composer--compact">
           <div class="composer__inner">
             <div class="browse-form">
               <input
@@ -362,7 +363,8 @@
           </div>
         </div>
 
-        <div class="results" id="browse-results" aria-live="polite"></div>
+          <div class="results" id="browse-results" aria-live="polite"></div>
+        </div>
       </section>
 
       <!-- ============ DRAFTING VIEW (v2 — court-organised) ============
@@ -530,12 +532,6 @@
       </svg>
       <span>research</span>
     </button>
-    <button type="button" class="botnav__item" data-view="browse">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M3 7h18M3 12h18M3 17h18"/>
-      </svg>
-      <span>browse</span>
-    </button>
     <button type="button" class="botnav__item" data-view="drafting">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
         <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4z"/>
@@ -669,7 +665,7 @@
   <!-- ============ END AUTH OVERLAY ============ -->
 
   <script src="/static/auth.js?v=20260527a" defer></script>
-  <script src="/static/app.js?v=20260704g" defer></script>
+  <script src="/static/app.js?v=20260705a" defer></script>
 
   <!-- Prompt drafter (drafting view) — self-contained; POSTs /api/draft/from-prompt -->
   <script>

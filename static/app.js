@@ -171,6 +171,8 @@
     if (view === 'saved') renderSavedView();
     // ASK mode — wire + render the chat surface on first entry (idempotent).
     if (view === 'ask') initAskView();
+    // Swap the sidebar "recent" list to match the section (Ask vs Research).
+    renderHistory();
     // Scroll to top on view switch (mobile UX)
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
@@ -268,6 +270,95 @@
     const t = (query || '').trim().split('\n')[0];
     return t.length > 48 ? t.slice(0, 45) + '…' : (t || 'untitled chat');
   }
+
+  // ---- Ask sessions — a SEPARATE memory from Research chats ----------------
+  // Ask keeps its own per-user history so the sidebar "recent" list shows Ask
+  // conversations only while in the Ask view, and Research chats only outside
+  // it. Shape: { id, title, ts, messages:[{role,content}], turns:[...] }.
+  //   messages — the raw thread sent to the model (may fold in attachment text)
+  //   turns    — display records ({qText,qFiles,answer,sources,related}) so a
+  //              saved session re-renders cleanly without the OCR context dump.
+  const ASK_CHATS_MAX = 30;
+  function askChatsKey() {
+    const uid = (window.headnoteAuth && window.headnoteAuth.userId && window.headnoteAuth.userId()) || 'anon';
+    return `headnote.askchats.v1.${uid}`;
+  }
+  function readAskChats() {
+    try { return JSON.parse(localStorage.getItem(askChatsKey()) || '[]'); }
+    catch { return []; }
+  }
+  function writeAskChats(arr) {
+    try { localStorage.setItem(askChatsKey(), JSON.stringify(arr.slice(0, ASK_CHATS_MAX))); } catch {}
+  }
+  function saveCurrentAskChat() {
+    if (!askTurns.length) return;                 // nothing said yet
+    if (!state.currentAskId) state.currentAskId = uuid();
+    let chats = readAskChats().filter(x => x.id !== state.currentAskId);
+    chats.unshift({
+      id: state.currentAskId,
+      title: chatTitle(askTurns[0].qText || 'ask'),
+      ts: Date.now(),
+      messages: askThread.slice(),
+      turns: askTurns.slice(),
+    });
+    writeAskChats(chats);
+    renderHistory();
+  }
+  function createNewAskChat() {
+    state.currentAskId = uuid();
+    askThread = [];
+    askTurns = [];
+    const thread = $('#ask-thread');
+    if (thread) {
+      [...thread.children].forEach(c => { if (c.id !== 'ask-empty') c.remove(); });
+      const empty = $('#ask-empty'); if (empty) empty.style.display = '';
+    }
+    renderHistory();
+    const input = $('#ask-input'); if (input) input.focus();
+  }
+  function loadAskChat(chatId) {
+    const c = readAskChats().find(x => x.id === chatId);
+    if (!c) return;
+    state.currentAskId = c.id;
+    askThread = (c.messages || []).slice();
+    askTurns = (c.turns || []).slice();
+    renderAskConversation(askTurns);
+    renderHistory();
+    closeDrawer();
+    switchView('ask');
+  }
+  function deleteAskChat(chatId) {
+    writeAskChats(readAskChats().filter(c => c.id !== chatId));
+    if (state.currentAskId === chatId) createNewAskChat();
+    else renderHistory();
+  }
+  // Rebuild the Ask thread DOM from saved display turns (no API call).
+  function renderAskConversation(turns) {
+    const thread = $('#ask-thread');
+    if (!thread) return;
+    [...thread.children].forEach(c => { if (c.id !== 'ask-empty') c.remove(); });
+    const empty = $('#ask-empty');
+    if (!turns || !turns.length) { if (empty) empty.style.display = ''; return; }
+    if (empty) empty.style.display = 'none';
+    turns.forEach(t => {
+      let qhtml = '';
+      if (t.qFiles && t.qFiles.length) {
+        qhtml += '<div class="askmsg__files">' + t.qFiles.map(n =>
+          `<span class="askmsg__file">${_fileSvg}${askEsc(n)}</span>`).join('') + '</div>';
+      }
+      qhtml += '<div class="askq__text">' + (t.qText ? askEsc(t.qText) : '<span class="askq__att">Attached document</span>') + '</div>';
+      appendAskQuestion(qhtml);
+      const wrap = ce('div', { cls: 'answer' });
+      const body = ce('div', { cls: 'answer__body' });
+      body.innerHTML = askMarkdown(t.answer || '_No response._');
+      wrap.appendChild(body);
+      if (t.sources && t.sources.length) wrap.appendChild(buildAskGrounding(t.sources));
+      wrap.appendChild(buildAskRail(t.answer || ''));
+      if (t.related && t.related.length) wrap.appendChild(buildAskRelated(t.related));
+      thread.appendChild(wrap);
+    });
+    askScrollBottom();
+  }
   function createNewChat() {
     // Don't clutter the sidebar with multiple empty chats — if the user
     // hit "new chat" without typing, reuse the existing empty one.
@@ -348,7 +439,43 @@
     if (!text || !text.trim()) return;
     if (!state.currentChatId) state.currentChatId = uuid();
   }
+  // Ask has its OWN recent-list, shown only in the Ask view. Mirrors the
+  // Research chats list but reads/writes the separate ask-sessions store.
+  function renderAskHistory() {
+    const wrap = $('#history');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    const newBtn = ce('button', { cls: 'history-newchat', text: '+ new chat' });
+    newBtn.addEventListener('click', createNewAskChat);
+    wrap.appendChild(newBtn);
+    const chats = readAskChats();
+    if (!chats.length) {
+      wrap.appendChild(ce('div', { cls: 'history-empty', text: 'no ask history yet — ask a question to begin' }));
+      return;
+    }
+    chats.forEach(c => {
+      const row = ce('div', { cls: 'history-row' + (c.id === state.currentAskId ? ' history-row--active' : '') });
+      const b = ce('button', {
+        cls: 'history-item',
+        text: c.title || 'ask',
+        attrs: { title: c.title || '', role: 'listitem' },
+      });
+      b.addEventListener('click', () => loadAskChat(c.id));
+      const del = ce('button', { cls: 'history-del', text: '×', attrs: { 'aria-label': 'Delete chat' } });
+      del.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (confirm('Delete this chat?')) deleteAskChat(c.id);
+      });
+      row.appendChild(b);
+      row.appendChild(del);
+      wrap.appendChild(row);
+    });
+  }
+
   function renderHistory() {
+    // The sidebar "recent" list is scoped to the active section: Ask history in
+    // the Ask view, Research chats everywhere else.
+    if (state.activeView === 'ask') { renderAskHistory(); return; }
     const wrap = $('#history');
     if (!wrap) return;
     wrap.innerHTML = '';
@@ -1882,6 +2009,29 @@
     $('#browse-input').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') submitBrowse();
     });
+
+    // Browse is folded into Research as an inline expandable panel (no longer a
+    // separate view). The CTA toggles the panel; first open focuses the input.
+    const browseToggle = $('#browse-toggle');
+    if (browseToggle) {
+      browseToggle.addEventListener('click', () => openBrowsePanel());
+    }
+  }
+
+  // Expand (or toggle) the inline Browse-judgments panel inside the Research
+  // view. force=true always opens (used by the #browse back-compat hash).
+  function openBrowsePanel(force) {
+    const panel = $('#browse-panel');
+    const toggle = $('#browse-toggle');
+    if (!panel) return;
+    const willOpen = force ? true : panel.hidden;
+    panel.hidden = !willOpen;
+    if (toggle) toggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    if (willOpen) {
+      const input = $('#browse-input');
+      if (input) input.focus();
+      panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
   }
 
   function boot() {
@@ -1931,7 +2081,12 @@
     // draft-court) send the user BACK to the drafting home instead of
     // research — they link to /app#drafting. Default stays research.
     const _hashView = (location.hash || '').replace(/^#/, '').trim();
-    if (['research', 'browse', 'drafting', 'account', 'saved', 'ask'].includes(_hashView)) {
+    // #browse is legacy — Browse now lives inside Research as an inline panel.
+    // Land on Research and pop the panel open so old links still work.
+    if (_hashView === 'browse') {
+      switchView('research');
+      openBrowsePanel(true);
+    } else if (['research', 'drafting', 'account', 'saved', 'ask'].includes(_hashView)) {
       switchView(_hashView);
     }
   }
@@ -2112,8 +2267,12 @@
   // another feature, hands the lawyer a link. Streamed token-by-token over SSE
   // from /api/chat/message. Every answer is honest about what it can't verify.
   let _askWired = false;
-  const askThread = [];       // [{role:'user'|'assistant', content:string}]
+  let askThread = [];         // [{role:'user'|'assistant', content:string}] — reassigned on session load
   let askAttachments = [];    // [{name, text, chars}] — pending, folded into the next question
+  // Display-side record of the current Ask conversation, kept in parallel with
+  // askThread so a saved session can be re-rendered WITHOUT the raw OCR context
+  // dump that askThread folds into user turns. One entry per Q→A exchange.
+  let askTurns = [];          // [{ qText, qFiles:[name], answer, sources:[], related:[] }]
 
   const ASK_SUGGESTIONS = [
     'What does §103 BNS punish, and what changed from IPC §302?',
@@ -2447,6 +2606,10 @@
       wrap.appendChild(buildAskRail(clean));
       if (related.length) wrap.appendChild(buildAskRelated(related));
       askScrollBottom();
+      // Record this exchange to the current Ask session (its own memory) so it
+      // shows in the Ask-only recent list and can be re-opened later.
+      askTurns.push({ qText: q, qFiles: atts.map(a => a.name), answer: clean, sources: srcItems, related });
+      saveCurrentAskChat();
     } catch (e) {
       body.innerHTML = '<p class="askmsg__err">Something went wrong reaching the model. Please try again.</p>';
     } finally {

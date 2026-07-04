@@ -6,15 +6,16 @@
    ========================================================================== */
 
 :root {
-  /* base palette — near-pure white surface, near-black ink, two greys */
-  --bg:        #fafaf9;
+  /* base palette — pure white surface, near-black ink, neutral greys.
+     Background is white everywhere (no warm tint) per the consistency audit. */
+  --bg:        #ffffff;
   --surface:   #ffffff;
   --ink:       #0c0c0a;
   --ink-2:     #4b4b48;
   --ink-3:     #8a8a82;
-  --line:      #e8e6e0;
-  --line-2:    #f1efea;
-  --soft:      #f6f4ee;
+  --line:      #e7e7e4;
+  --line-2:    #f1f1ef;
+  --soft:      #f5f5f4;
 
   /* one accent, used scarcely */
   --accent:    #d4ff3a;        /* trust signal — verified citations only */
@@ -37,17 +38,18 @@
   --radius:    6px;
   --radius-lg: 10px;
 
-  /* ---- gold accent (scoped to the drafting surface) -----------------------
-     Gold is the signature of the *draft* pages (draft-court.html + statute
-     labels) — warm, paper-like. It is deliberately NOT used for product-wide
-     CTAs / inputs / stages: the work surface stays calm monochrome per the
-     premise at the top of this file. Kept here so the draft pages resolve. */
-  --gold:      #c9a96e;
-  --gold-deep: #b4894b;
-  --gold-soft: #faf7ed;
-  --gold-line: #ece3c8;
-  --gold-ink:  #8c7549;
-  --gold-grad: linear-gradient(135deg, #d8b878, #c08f4d);
+  /* ---- (formerly gold) — now monochrome ----------------------------------
+     The drafting surface used to carry a warm gold signature. Per the
+     consistency audit the whole product is one calm monochrome system:
+     CTAs are black, surfaces are white/neutral-grey, no warm tint anywhere.
+     These tokens are repurposed to neutral values so every existing
+     var(--gold*) reference resolves to the monochrome palette in one place. */
+  --gold:      #0c0c0a;   /* was gold — now ink (CTA fills / borders) */
+  --gold-deep: #000000;   /* was deep gold — now black (borders / hover) */
+  --gold-soft: #f5f5f4;   /* was cream — now neutral soft surface */
+  --gold-line: #e7e7e4;   /* was gold hairline — now neutral hairline */
+  --gold-ink:  #4b4b48;   /* was gold ink — now muted ink text */
+  --gold-grad: #0c0c0a;   /* was gold gradient — now solid ink */
 
   /* Neutral elevation — soft, cool, barely-there depth. Minimal, not heavy. */
   --shadow-card: 0 1px 2px rgba(12, 12, 10, 0.04);
@@ -563,6 +565,28 @@ button { font-family: inherit; }
   letter-spacing: 0.01em;
   min-height: 14px;
 }
+
+/* Browse-judgments CTA + inline panel (folded into the Research view).
+   The CTA is a quiet full-width affordance below the research results; it
+   expands the direct Indian-Kanoon search in place. Monochrome, no accent. */
+.browse-cta { margin: 22px 0 0; }
+.browse-cta__btn {
+  display: flex; align-items: center; gap: 14px; width: 100%; text-align: left;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg);
+  padding: 14px 16px; cursor: pointer; color: var(--ink);
+  transition: border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
+}
+.browse-cta__btn:hover { border-color: var(--ink-3); background: var(--soft); }
+.browse-cta__icon { flex: none; width: 20px; height: 20px; color: var(--ink-2); }
+.browse-cta__icon svg { width: 100%; height: 100%; }
+.browse-cta__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.browse-cta__label { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
+.browse-cta__hint { font-size: 11px; color: var(--ink-3); }
+.browse-cta__chev { flex: none; margin-left: auto; width: 18px; height: 18px; color: var(--ink-3); transition: transform var(--t-med) var(--ease); }
+.browse-cta__chev svg { width: 100%; height: 100%; }
+.browse-cta__btn[aria-expanded="true"] .browse-cta__chev { transform: rotate(180deg); }
+.browse-panel { margin-top: 14px; }
+.browse-panel[hidden] { display: none; }
 
 /* Browse form layout */
 .browse-form {
@@ -1561,8 +1585,8 @@ button { font-family: inherit; }
   width: 38px; height: 38px;
   border-radius: 50%;
   display: grid; place-items: center;
-  background: #c9a96e;
-  color: #0c0c0a;
+  background: var(--ink);
+  color: #ffffff;
   font-size: 18px;
   flex-shrink: 0;
 }
@@ -1578,7 +1602,7 @@ button { font-family: inherit; }
   line-height: 1.4;
 }
 .persona-nudge__arrow {
-  color: #8c7549;
+  color: var(--ink);
   font-size: 18px;
   font-weight: 600;
   transition: transform 0.15s;
@@ -1595,7 +1619,7 @@ button { font-family: inherit; }
   box-shadow: 0 1px 2px rgba(12,12,10,0.03);
   transition: border-color 0.15s, box-shadow 0.15s;
 }
-.pd:focus-within { border-color: var(--gold); box-shadow: 0 2px 14px -6px rgba(180,137,75,0.35); }
+.pd:focus-within { border-color: var(--ink); box-shadow: 0 2px 14px -6px rgba(12,12,10,0.22); }
 .pd__input {
   width: 100%; border: 0; outline: 0; background: none; resize: vertical;
   font-family: inherit; font-size: 15px; line-height: 1.55; color: var(--ink); min-height: 64px;
@@ -1620,10 +1644,10 @@ button { font-family: inherit; }
 .pd__voice { color: var(--gold-ink, #8c7549); }
 .pd__auto { font-size: 11px; color: var(--muted, #9a988f); white-space: nowrap; opacity: 0.8; }
 .pd__btn {
-  border: 1px solid var(--gold-deep, #b4894b); background: var(--gold, #c9a96e); color: #1a1611;
+  border: 1px solid var(--ink); background: var(--ink); color: #fff;
   font-family: inherit; font-size: 13px; font-weight: 600; padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: filter 0.12s;
 }
-.pd__btn:hover { filter: brightness(1.05); }
+.pd__btn:hover { filter: brightness(1.35); }
 .pd__btn[disabled] { opacity: 0.5; cursor: default; }
 .pd__btn--ghost { background: var(--surface); color: var(--ink); border-color: var(--line); font-weight: 500; }
 .pd__btn--ghost:hover { border-color: var(--ink); filter: none; }
@@ -1665,10 +1689,10 @@ button { font-family: inherit; }
 .pd-note { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; font-size: 13px; line-height: 1.55; }
 .pd-note h4 { margin: 0 0 6px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; font-family: 'Geist Mono', monospace; }
 .pd-note ul { margin: 0; padding-left: 18px; } .pd-note li { margin-bottom: 4px; }
-.pd-note--cite { background: #fffdf8; border-color: var(--gold-line, #ece3c8); } .pd-note--cite h4 { color: var(--gold-ink, #8c7549); }
+.pd-note--cite { background: #fafafa; border-color: var(--line); } .pd-note--cite h4 { color: var(--gold-ink, #8c7549); }
 .pd-note--warn { background: #fbf2dc; border-color: #eedfb4; } .pd-note--warn h4 { color: #9a6b00; }
 .pd-note--comp h4 { color: var(--muted, #6b6960); }
-.pd-note--mirror { background: #fffdf8; border-color: var(--gold-line, #ece3c8); }
+.pd-note--mirror { background: #fafafa; border-color: var(--line); }
 .pd-note--mirror h4 { color: var(--gold-ink, #8c7549); }
 .pd-note--mirror p { margin: 0; }
 /* ⚠ fact-grounding card — invented/unverified details. Loud on purpose: this is the
@@ -1680,12 +1704,12 @@ button { font-family: inherit; }
 
 /* सुझाव rail — sections check + missing points beside an authored draft.
    Suggestion-only surface: pips carry state, + जोड़ें routes through /refine. */
-.pd-note--sug { background: #fcfcfa; border-color: var(--gold-line, #ece3c8); }
+.pd-note--sug { background: #fafafa; border-color: var(--line); }
 .pd-note--sug h4 { color: var(--gold-ink, #8c7549); display: flex; justify-content: space-between; gap: 8px; }
 .pd-note--sug h4 .pd-sug-badge { font-weight: 500; color: var(--muted, #6b6960); letter-spacing: 0.05em; }
 .pd-sug-row { display: flex; gap: 9px; align-items: flex-start; padding: 6px 0; }
 .pd-sug-row + .pd-sug-row { border-top: 1px solid #f0eee8; }
-.pd-sug-pip { flex: none; width: 7px; height: 7px; border-radius: 50%; margin-top: 6px; background: #c9a227; }
+.pd-sug-pip { flex: none; width: 7px; height: 7px; border-radius: 50%; margin-top: 6px; background: var(--ink-3); }
 .pd-sug-pip--ok { background: #3d6b4f; }
 .pd-sug-pip--flag { background: #b3402a; }
 .pd-sug-row small { display: block; color: var(--muted, #6b6960); font-size: 11.5px; margin-top: 1px; }
@@ -1703,7 +1727,7 @@ button { font-family: inherit; }
 .pd__attach-note--ref { color: var(--gold-ink, #8c7549); max-width: 640px; line-height: 1.5; }
 
 /* ---- Editor discoverability — primary Edit CTA, coach-mark, editability strip, refine panel ---- */
-.pd__btn--primary { box-shadow: 0 2px 10px -3px rgba(180,137,75,0.55); }
+.pd__btn--primary { box-shadow: 0 2px 10px -3px rgba(12,12,10,0.35); }
 
 .pd-edit-wrap { position: relative; display: inline-flex; }
 .pd-coach {
@@ -1717,7 +1741,7 @@ button { font-family: inherit; }
   content: ""; position: absolute; top: -6px; right: 26px; width: 12px; height: 12px;
   background: var(--ink, #0c0c0a); transform: rotate(45deg);
 }
-.pd-coach strong { display: block; margin-bottom: 4px; color: var(--gold, #c9a96e); font-size: 13px; }
+.pd-coach strong { display: block; margin-bottom: 4px; color: #ffffff; font-size: 13px; }
 .pd-coach__x {
   margin-top: 9px; border: 0; background: rgba(255,255,255,0.14); color: #f4f2ea;
   font-family: inherit; font-size: 11.5px; font-weight: 600; padding: 5px 11px;
@@ -1737,11 +1761,11 @@ button { font-family: inherit; }
   font-family: inherit; font-size: 12.5px; font-weight: 600; padding: 7px 13px;
   border-radius: 8px; cursor: pointer; white-space: nowrap;
 }
-.pd-editbar__btn:hover { background: var(--gold, #c9a96e); color: #1a1611; }
+.pd-editbar__btn:hover { background: var(--ink); color: #fff; border-color: var(--ink); }
 
 .pd-refine {
-  margin-top: 14px; padding: 14px; border: 1px solid var(--gold-line, #ece3c8);
-  border-radius: 12px; background: #fffdf8;
+  margin-top: 14px; padding: 14px; border: 1px solid var(--line);
+  border-radius: 12px; background: #fafafa;
 }
 .pd-refine[hidden] { display: none; }
 .pd-refine__label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--gold-ink, #8c7549); margin-bottom: 8px; }
@@ -2622,9 +2646,9 @@ body:not(.auth-ready) .shell { display: none !important; }
    Designed to feel warm + premium, not desperate — gold accent + cream panel.
    ============================================================================ */
 .assist-cta {
-  background: #faf7ed;
-  border: 1px solid #ece3c8;
-  border-left: 3px solid #c9a96e;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--ink);
   border-radius: 12px;
   padding: 22px 24px;
   margin: 28px 0 12px;
@@ -2658,8 +2682,8 @@ body:not(.auth-ready) .shell { display: none !important; }
 .assist-cta__input {
   width: 100%;
   padding: 11px 14px;
-  border: 1px solid #ddd5b8;
-  background: #fffdf6;
+  border: 1px solid var(--line);
+  background: var(--surface);
   border-radius: 8px;
   font-family: inherit;
   font-size: 13.5px;
@@ -2671,10 +2695,10 @@ body:not(.auth-ready) .shell { display: none !important; }
 }
 .assist-cta__input:focus {
   outline: none;
-  border-color: #c9a96e;
+  border-color: var(--ink);
   background: #ffffff;
 }
-.assist-cta__input::placeholder { color: #b5ad95; }
+.assist-cta__input::placeholder { color: var(--ink-3); }
 
 .assist-cta__row {
   display: flex;
@@ -2687,7 +2711,7 @@ body:not(.auth-ready) .shell { display: none !important; }
 .assist-cta__sla {
   font-family: 'Geist Mono', monospace;
   font-size: 11px;
-  color: #8c7549;
+  color: var(--ink-3);
   letter-spacing: 0.04em;
 }
 .assist-cta__submit {
