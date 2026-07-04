@@ -30,9 +30,63 @@ return a minimal transcript-only report so the flow never dies.
 from __future__ import annotations
 
 import logging
+import re
 from typing import Optional
 
 log = logging.getLogger(__name__)
+
+
+# --- section-number plausibility guard -------------------------------------
+# STT often mis-hears a section number (a lawyer's "336" becomes "1336"). We
+# never assert an impossible section as fact: if a spoken number exceeds the
+# real range of its Act, we flag it for verification. Deterministic, so it
+# can't hallucinate — and Acts we don't recognise are left untouched (no false
+# flags). Numbers are the highest real section in each 2023/legacy code.
+_ACT_MAX = {
+    "bnss": 531, "bns": 358, "bsa": 170,
+    "ipc": 511, "crpc": 484, "cpc": 158,
+    "evidence": 167, "ni": 147, "dv": 37, "hma": 30, "mv": 217,
+}
+# Ordered longest/most-specific first so "bnss" wins over the "bns" substring.
+_ACT_ALIASES = [
+    ("bnss",     ["bnss", "बीएनएसएस", "बी.एन.एस.एस", "नागरिक सुरक्षा संहिता"]),
+    ("bns",      ["bns", "बीएनएस", "न्याय संहिता", "nyaya sanhita"]),
+    ("bsa",      ["bsa", "भारतीय साक्ष्य", "साक्ष्य अधिनियम"]),
+    ("crpc",     ["crpc", "cr.p.c", "cr. p.c", "दं.प्र.सं", "दंड प्रक्रिया", "सीआरपीसी"]),
+    ("cpc",      ["cpc", "सी.पी.सी", "सिविल प्रक्रिया", "civil procedure"]),
+    ("ipc",      ["ipc", "आईपीसी", "भा.द.सं", "दंड संहिता", "penal code"]),
+    ("ni",       ["ni act", "n.i. act", "negotiable instrument", "परक्राम्य लिखत"]),
+    ("dv",       ["dv act", "pwdva", "घरेलू हिंसा", "domestic violence"]),
+    ("hma",      ["hindu marriage", "हिंदू विवाह"]),
+    ("mv",       ["mv act", "motor vehicles", "मोटर यान"]),
+    ("evidence", ["evidence act", "indian evidence"]),
+]
+_ACT_DISP = {
+    "bnss": "BNSS", "bns": "BNS", "bsa": "BSA", "ipc": "IPC", "crpc": "CrPC",
+    "cpc": "CPC", "evidence": "Evidence Act", "ni": "NI Act", "dv": "DV Act",
+    "hma": "Hindu Marriage Act", "mv": "MV Act",
+}
+# Requires an explicit section marker (Section / धारा / § / u/s) before the
+# number, so a stray year like "2019" is never read as a section.
+_SEC_RE = re.compile(r"(?:section|sec\.?|u/s|धारा|§)\s*0*(\d{1,4})", re.I)
+
+
+def _implausible_section(text: str):
+    """(act_key, num) if `text` names a section number that can't exist for its
+    Act; else None."""
+    low = (text or "").lower()
+    act = None
+    for key, aliases in _ACT_ALIASES:
+        if any(a in low for a in aliases):
+            act = key
+            break
+    if act is None or act not in _ACT_MAX:
+        return None
+    m = _SEC_RE.search(text or "")
+    if not m:
+        return None
+    num = int(m.group(1))
+    return (act, num) if num > _ACT_MAX[act] else None
 
 
 # doc_type → human label used for the handoff button. Keys align with the
@@ -143,7 +197,35 @@ def _party(p) -> dict:
     return {"name": _s(p.get("name")), "role": _s(p.get("role")), "detail": _s(p.get("detail"))}
 
 
-def _normalize(report: dict, transcript: str) -> dict:
+def _flag_implausible_sections(r: dict, lang: str) -> None:
+    """Flag any spoken section number that can't exist for its Act (STT mishears
+    "336" as "1336"). Marks the matching provision to_research and prepends a
+    verification note to `unverified`. Deterministic — never invents."""
+    scan = [(p, p.get("ref", "")) for p in r.get("provisions", [])]
+    scan += [(None, r.get("matter_label", "")), (None, r.get("relief_sought", ""))]
+    notes, seen = [], set()
+    for prov, text in scan:
+        hit = _implausible_section(text)
+        if not hit:
+            continue
+        act, num = hit
+        if prov is not None:
+            prov["status"] = "to_research"
+        if (act, num) in seen:
+            continue
+        seen.add((act, num))
+        disp, mx = _ACT_DISP.get(act, act.upper()), _ACT_MAX[act]
+        if lang == "hi":
+            notes.append(f"«धारा {num} {disp}» — {disp} में केवल {mx} धाराएँ होती हैं; "
+                         f"धारा संख्या सत्यापित करें (श्रुतलेख में त्रुटि संभव)।")
+        else:
+            notes.append(f"Section {num} {disp} — {disp} has only {mx} sections; "
+                         f"verify the section number (may be mis-heard).")
+    if notes:
+        r["unverified"] = notes + [u for u in r.get("unverified", []) if u not in notes]
+
+
+def _normalize(report: dict, transcript: str, lang: str = "hi") -> dict:
     """Defensive shaping so the UI always gets the keys/types it expects."""
     r = dict(report or {})
     r["title"] = _s(r.get("title")) or "Untitled consultation"
@@ -216,6 +298,7 @@ def _normalize(report: dict, transcript: str) -> dict:
             quotes.append({"text": q.strip(), "time": ""})
     r["key_quotes"] = quotes
 
+    _flag_implausible_sections(r, lang)
     r["suggested_draft"] = _build_handoff(r)
     return r
 
@@ -249,7 +332,7 @@ def _build_handoff(r: dict) -> dict:
     return {"doc_type": dt, "label": label, "prompt": prompt}
 
 
-def _fallback_report(transcript: str, reason: str) -> dict:
+def _fallback_report(transcript: str, reason: str, lang: str = "hi") -> dict:
     """Minimal report when the LLM is unavailable — keeps the flow alive."""
     snippet = (transcript or "").strip()
     summary = (snippet[:280] + "…") if len(snippet) > 280 else snippet
@@ -259,7 +342,7 @@ def _fallback_report(transcript: str, reason: str) -> dict:
         "summary": summary or "Transcript captured; structured report unavailable.",
         "action_items": ["Review the full transcript and structure the matter manually."],
         "unverified": [f"Automatic report generation failed ({reason}); read the transcript."],
-    }, transcript)
+    }, transcript, lang)
 
 
 def build_report(transcript: str, *, lang: str = "hi", hint: str = "",
@@ -271,7 +354,7 @@ def build_report(transcript: str, *, lang: str = "hi", hint: str = "",
     a timestamp. Falls back to the plain transcript."""
     transcript = (transcript or "").strip()
     if not transcript:
-        return _fallback_report("", "empty transcript")
+        return _fallback_report("", "empty transcript", lang)
 
     # DeepSeek V3 primary, Groq Llama free fallback — never Claude (house cost
     # rule). Same call shape as from_prompt.classify(). claude_model is just the
@@ -291,7 +374,7 @@ def build_report(transcript: str, *, lang: str = "hi", hint: str = "",
             claude_model="claude-haiku-4-5",
         )
         parsed = parse_json_response(raw)
-        return _normalize(parsed, transcript)
+        return _normalize(parsed, transcript, lang)
     except Exception as e:  # noqa: BLE001 — never let report gen kill the flow
         log.warning("consultation report generation failed: %s", e)
-        return _fallback_report(transcript, str(e)[:120])
+        return _fallback_report(transcript, str(e)[:120], lang)
