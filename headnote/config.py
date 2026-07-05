@@ -272,7 +272,11 @@ _PARTNER_DEFAULT = (
 _YEARLY_GRANT_DEFAULT = (
     "dharasinghmeena1991@gmail.com",
 )
-_MONTHLY_GRANT_DEFAULT: tuple[str, ...] = ()
+_MONTHLY_GRANT_DEFAULT: tuple[str, ...] = (
+    # Paid monthly out-of-platform 2026-07-05 — activates to a real 30-day
+    # subscription on their first Google sign-in, then one-shot consumed.
+    "anandyadavcp7@gmail.com",
+)
 _founder_env = os.environ.get("FOUNDER_EMAILS", "")
 _partner_env = os.environ.get("PARTNER_EMAILS", "")
 _yearly_grant_env = os.environ.get("YEARLY_GRANT_EMAILS", "")
