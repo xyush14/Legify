@@ -91,9 +91,10 @@ def render_hi(a: dict) -> str:
     sentence = _ph(a.get("sentence_passed"), "दण्ड")
     sec_str = _secs(a.get("sections_convicted"), " तथा ")
     matter_title = f'{state} राज्य बनाम {_ph(name, "अपीलार्थी")}'
-    court_name = a.get("court_name") or (
-        compose_court_name(c["level"], a.get("court_city"), state) if a.get("court_city")
-        else "न्यायालय माननीय सत्र न्यायाधीश महोदय, जिला ________ (म.प्र.)")
+    # Always route through the pan-India chokepoint — it leaves blanks (____) when
+    # city/state are unknown and NEVER defaults to MP. (Do not reintroduce a
+    # hardcoded "(म.प्र.)" fallback here — see feedback_court_location.)
+    court_name = a.get("court_name") or compose_court_name(c["level"], a.get("court_city"), state)
 
     # appellant descriptor (label-left canonical block)
     occ = a.get("appellant_occupation")

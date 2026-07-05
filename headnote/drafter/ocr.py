@@ -496,10 +496,23 @@ def ocr_text_pages(pages: Sequence[tuple[bytes, str]],
     if total <= max_imgs:
         ocr_text = _vision_text_one_call(client, model, pages, page_offset=0, total=total, prompt=prompt)
     else:
+        # per-batch resilience: one unreadable batch must not kill the whole upload —
+        # keep every page that DID read and note the ones that didn't.
         out: list[str] = []
+        failed: list[str] = []
+        last_err: Optional[Exception] = None
         for start in range(0, total, max_imgs):
             chunk = pages[start:start + max_imgs]
-            out.append(_vision_text_one_call(client, model, chunk, page_offset=start, total=total, prompt=prompt))
+            try:
+                out.append(_vision_text_one_call(client, model, chunk, page_offset=start, total=total, prompt=prompt))
+            except Exception as e:
+                last_err = e
+                failed.append(f"{start + 1}–{min(start + len(chunk), total)}")
+                log.warning("OCR batch %s failed: %s", failed[-1], e)
+        if not any(t.strip() for t in out):
+            raise last_err or ValueError("OCR returned no text")
+        if failed:
+            out.append(f"[पृष्ठ {', '.join(failed)} पढ़े नहीं जा सके — pages could not be read]")
         ocr_text = "\n\n".join(t for t in out if t)
     if office_text:
         return "\n\n".join(t for t in (ocr_text, office_text) if t.strip())

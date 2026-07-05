@@ -22,8 +22,12 @@ can pick up where the prompt left off.
 from __future__ import annotations
 
 import json
+import logging
+import os
 
 from headnote.drafter import author
+
+log = logging.getLogger("headnote.drafter")
 
 
 def _finalize(result: dict) -> dict:
@@ -194,7 +198,7 @@ def classify(matter: str, lang: str = "hi") -> dict:
     from headnote.llm.client import _call_deepseek_or_groq, parse_json_response
     try:
         raw, _meta = _call_deepseek_or_groq(
-            CLASSIFY_SYSTEM, matter.strip(), max_tokens=200, claude_model="claude-haiku-4-5")
+            CLASSIFY_SYSTEM, matter.strip(), max_tokens=200, claude_model="claude-haiku-4-5", json_mode=True)
         out = parse_json_response(raw)
         dt = (out.get("doc_type") or "").strip()
         if dt not in _VOCAB:
@@ -494,36 +498,190 @@ def extract_fields(spec: dict, matter: str) -> tuple[dict, list[str]]:
         "variants": spec.get("variants", {}),
     }
     system = EXTRACT_SYSTEM.replace("{schema}", json.dumps(schema, ensure_ascii=False))
-    raw, _meta = _call_deepseek_or_groq(system, matter.strip(), max_tokens=900, claude_model="claude-haiku-4-5")
+    raw, _meta = _call_deepseek_or_groq(system, matter.strip(), max_tokens=900, claude_model="claude-haiku-4-5", json_mode=True)
     patch = validate_patch(parse_json_response(raw), spec)
     return apply_patch({}, patch, spec)
 
 
 # ---------------------------------------------------------------------------
 # 4) Orchestrate — the public entry point.
+#
+#    ONE INTENT: whatever the advocate gave → the correct document, in its
+#    prescribed format, ALWAYS. The LLM authors every draft from the WHOLE input
+#    (the old field-extraction→rigid-template primary silently discarded every
+#    fact outside its schema — the #1 "it didn't read my prompt" complaint).
+#    The canonical templates stay on as (a) the PRESCRIBED-FORMAT specimen shown
+#    to the model, (b) the deterministic floor when the LLM chain is down, and
+#    (c) the structured-editor handoff. Nothing in this module raises to the API.
 # ---------------------------------------------------------------------------
-def draft_from_prompt(matter: str, lang: str = "auto", reference_text: str = "") -> dict:
-    """Freeform prompt → best-effort court-ready draft. Returns a unified result:
-      {ok, mode: "canonical"|"authored", doc_type, court, confidence, html_hi,
-       html_en, data?, cite_at_hearing, companions, warnings, title, meta}
+def _strip_html(html: str) -> str:
+    """Rendered template HTML → readable plain-text specimen for the prompt."""
+    import re as _re
+    t = html or ""
+    t = _re.sub(r"<(?:br|/p|/li|/div|/h\d|/tr|/th|/td)[^>]*>", "\n", t, flags=_re.I)
+    t = _re.sub(r"<li[^>]*>", "\n", t, flags=_re.I)
+    t = _re.sub(r"<[^>]+>", "", t)
+    t = (t.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+          .replace("&nbsp;", " ").replace("&#39;", "'").replace("&quot;", '"'))
+    t = _re.sub(r"[ \t]+", " ", t)
+    t = _re.sub(r"\n\s*\n+", "\n\n", t)
+    return t.strip()
 
-    If `reference_text` is given, the advocate uploaded a FILED draft as a STYLE
-    reference: we author the draft to MIRROR that document's structure, headings, tone
-    and formatting (the user's facts fill the dynamic slots). The explicit "match THIS
-    document" intent wins over the canonical templates, so a reference always routes to
-    the house-style authoring engine (which keeps the verified-citation guard).
+
+def _format_exemplar(key: str, court: str, bail_type: str, lang: str) -> str:
+    """The canonical template rendered BLANK → the prescribed-format specimen the
+    authoring engine writes the matter INTO (templates as curriculum, not cage).
+    Best-effort: '' on any failure — authoring still has the type brief + skeleton."""
+    try:
+        mod = _module(key)
+        if mod is None:
+            return ""
+        data: dict = {}
+        if court:
+            data["court"] = court
+        if bail_type:
+            data["bail_type"] = bail_type
+        if lang == "en" and hasattr(mod, "render_en"):
+            html = mod.render_en(dict(data))
+        else:
+            html = mod.render_hi(dict(data))
+        return _strip_html(html)[:7000]
+    except Exception:
+        return ""
+
+
+def _canonical_result(dt: str, key: str, court: str, bail_type: str, matter: str,
+                      lang: str, cls: dict, shared_warnings: list[str],
+                      data: dict | None = None) -> dict:
+    """The deterministic canonical render — the old primary, now the floor (and the
+    DRAFTER_CANONICAL_FIRST escape hatch). Raises if the module/render fails; the
+    caller decides the next rung. Pass `data` to skip the extraction LLM call."""
+    mod = _module(key)
+    spec = _spec(mod, key, court, bail_type)
+    changelog: list[str] = []
+    if data is None:
+        data, changelog = extract_fields(spec, matter)
+    data = dict(data)
+    if court:
+        data["court"] = court
+    if bail_type:
+        data["bail_type"] = bail_type
+    html_hi = mod.render_hi(data)
+    html_en = mod.render_en(data) if hasattr(mod, "render_en") else ""
+    cite = list(getattr(mod, "CITE_AT_HEARING", []) or [])
+    editor_id, editor_fields = _editor_handoff(key, court, bail_type, data)
+    from headnote.drafter.template_adapter import LABELS as _TA_LABELS
+    lab = _TA_LABELS.get(editor_id) or {}
+    title = lab.get("hi") or author.brief_for(
+        dt if dt in author.TYPE_BRIEFS else "other_criminal")["label_hi"]
+    # honesty about what a rigid template can't hold: list the input facts it dropped
+    warnings = list(shared_warnings)
+    warnings.extend(author.coverage_warnings(matter, html_hi or html_en, lang))
+    return {
+        "ok": True, "mode": "canonical", "doc_type": dt, "court": court,
+        "bail_type": bail_type, "lang": lang, "confidence": cls["confidence"],
+        "editor_id": editor_id, "editor_fields": editor_fields,
+        "html_hi": html_hi, "html_en": html_en,
+        "data": data, "changelog": changelog,
+        "cite_at_hearing": cite,
+        "companions": spec.get("companions") or [],
+        "warnings": warnings,
+        "title": title,
+        "reason": cls.get("reason", ""),
+    }
+
+
+def _last_resort(dt: str, lang: str, matter: str, warnings: list[str]) -> dict:
+    """The absolute floor — pure Python, zero LLM, zero template imports beyond the
+    in-module brief table. Produces the standard SHAPE of the application with the
+    advocate's own input preserved verbatim as drafting notes, so a drafting request
+    NEVER comes back as an error while the lawyer is mid-work. Cannot fail."""
+    hi = lang != "en"
+    try:
+        b = author.brief_for(dt if dt in author.TYPE_BRIEFS else "other_criminal")
+        title = b["label_hi"] if hi else b["label_en"]
+    except Exception:
+        title = "आवेदन पत्र" if hi else "Application"
+
+    def esc(s: str) -> str:
+        return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+    ph = '<span class="ph">____</span>'
+    lead = "यह कि " if hi else "That "
+    paras = "".join(f"<li>{lead}{ph} ।</li>" for _ in range(3))
+    closer = "यह कि, अन्य तर्क वक्त बहस मौखिक रुप से निवेदित किये जावेंगे।" if hi else ""
+    prayer = ("अतः श्रीमान न्यायालय से प्रार्थना है कि ____ करने की कृपा करें।" if hi
+              else "It is therefore prayed that this Hon'ble Court may kindly ____.")
+    notes = ""
+    if (matter or "").strip():
+        lbl = "आपके दिए तथ्य (ड्राफ्ट में यथास्थान जोड़ें)" if hi else "Your facts (add into the draft)"
+        notes = (f'<div class="cb-block-label">{esc(lbl)}</div>'
+                 f'<p class="cb-prelude">{esc(matter.strip())}</p>')
+    html = (
+        '<div class="cb-doc">'
+        f'<p style="text-align:center;font-weight:bold">{"न्यायालय " if hi else "In the Court of "}{ph}</p>'
+        f'<p style="text-align:center;font-weight:bold;text-decoration:underline">{esc(title)}</p>'
+        '<div class="doc-body"><ol class="cb-paras">'
+        + paras + (f"<li>{esc(closer)}</li>" if closer else "")
+        + "</ol>"
+        f'<div class="cb-prayer"><p>{esc(prayer)}</p></div>'
+        + notes + "</div></div>")
+    warn = list(warnings)
+    warn.append(
+        "AI ड्राफ्टिंग क्षणिक रूप से अनुपलब्ध रही — यह मानक ढाँचा है और आपके लिखे तथ्य नीचे सुरक्षित हैं; "
+        "कुछ देर बाद पुनः प्रयास करें।"
+        if hi else
+        "AI drafting was temporarily unavailable — this is the standard shape and your facts are "
+        "preserved below; please try again shortly.")
+    return {
+        "ok": True, "mode": "skeleton", "doc_type": dt, "court": "", "lang": lang,
+        "confidence": 0.0,
+        "html_hi": html if hi else "", "html_en": html if not hi else "",
+        "cite_at_hearing": [], "companions": [], "warnings": warn,
+        "title": title, "reason": "all drafting engines unavailable — standard shape returned",
+    }
+
+
+def draft_from_prompt(matter: str, lang: str = "auto", reference_text: str = "") -> dict:
+    """Freeform prompt (+ optional OCR'd case papers merged in, + optional style
+    reference) → court-ready draft. Returns a unified result:
+      {ok, mode: "authored"|"canonical"|"skeleton", doc_type, court, confidence,
+       html_hi, html_en, data?, editor_id?, cite_at_hearing, companions, warnings,
+       title, meta}
+
+    Routing — ONE primary path, then a never-fail ladder:
+      1. AUTHORED (primary, all types): the LLM drafts from the advocate's WHOLE
+         input, with the matching canonical template (rendered blank) injected as
+         the PRESCRIBED FORMAT. Reference uploaded → the mirror engine instead
+         (reference = format, input = facts). All guards (citation whitelist,
+         fact-grounding, section pairs, input coverage) apply.
+      2. CANONICAL floor: LLM chain down → the deterministic template render.
+      3. SKELETON floor: no template either → pure-python standard shape with the
+         advocate's input preserved. This function NEVER raises.
+
+    Set DRAFTER_CANONICAL_FIRST=1 to restore the old canonical-first routing.
     """
     matter = (matter or "").strip()
     reference_text = (reference_text or "").strip()
-    requested_lang = lang
     if not matter and not reference_text:
         return {"ok": False, "error": "empty prompt"}
+    try:
+        return _draft(matter, lang, reference_text)
+    except Exception:
+        # the absolute backstop — a drafting request must never surface a stack trace
+        log.exception("draft_from_prompt: unexpected failure — returning skeleton floor")
+        rl = resolve_lang(lang, matter or reference_text)
+        return _finalize(_last_resort("other_criminal", rl, matter, []))
 
+
+def _draft(matter: str, lang: str, reference_text: str) -> dict:
+    requested_lang = lang
     cls = classify(matter or reference_text, lang)
     dt = cls["doc_type"]
     # Auto-detect the draft language from the advocate's input (intent-aware), unless the
     # caller pinned 'hi'/'en'. Everything downstream renders/authors in this resolved lang.
     lang = resolve_lang(lang, matter or reference_text, cls.get("language"))
+    extra_warnings: list[str] = []
 
     # --- style-reference path — mirror the uploaded draft's shape/voice (authored) ---
     if reference_text:
@@ -545,27 +703,39 @@ def draft_from_prompt(matter: str, lang: str = "auto", reference_text: str = "")
             result = None
         if result is None:
             # fallback: the older skeleton pass + house-style authoring
-            skeleton = author.extract_reference_skeleton(reference_text, lang)
-            result = author.author_document(
-                matter, author_type, lang, court=a_court,
-                reference_skeleton=skeleton)
-            result["mirror_ok"] = bool(skeleton)
-            if not skeleton:
-                result.setdefault("warnings", []).insert(
-                    0, "Could not read the reference clearly — drafted in the standard house style instead.")
-        result.update({
-            "court": a_court,
-            "confidence": cls["confidence"],
-            "html_hi": result["html"] if lang != "en" else "",
-            "html_en": result["html"] if lang == "en" else "",
-            "reason": "mirrored your reference draft",
-            "classified_as": dt,
-            "mirrored": True,
-        })
-        return _finalize(result)
+            try:
+                skeleton = author.extract_reference_skeleton(reference_text, lang)
+                result = author.author_document(
+                    matter, author_type, lang, court=a_court,
+                    reference_skeleton=skeleton)
+                result["mirror_ok"] = bool(skeleton)
+                if not skeleton:
+                    result.setdefault("warnings", []).insert(
+                        0, "Could not read the reference clearly — drafted in the standard house style instead.")
+            except Exception:
+                result = None
+        if result is not None:
+            result.update({
+                "court": a_court,
+                "confidence": cls["confidence"],
+                "html_hi": result["html"] if lang != "en" else "",
+                "html_en": result["html"] if lang == "en" else "",
+                "reason": "mirrored your reference draft",
+                "classified_as": dt,
+                "mirrored": True,
+            })
+            return _finalize(result)
+        # reference path fully down → draft WITHOUT the reference rather than fail
+        extra_warnings.append(
+            "रेफरेंस दस्तावेज़ लागू नहीं हो सका — ड्राफ्ट मानक प्रारूप में बना है।"
+            if lang != "en" else
+            "Could not apply the reference document — drafted in the standard format instead.")
+        reference_text = ""
+        if not matter:
+            return _finalize(_last_resort(dt, lang, matter, extra_warnings))
 
     # warnings every path shares: the FIR-date/code gate + low classifier confidence
-    shared_warnings: list[str] = []
+    shared_warnings: list[str] = list(extra_warnings)
     gate = _code_gate_warning(matter, dt, lang)
     if gate:
         shared_warnings.append(gate)
@@ -575,53 +745,107 @@ def draft_from_prompt(matter: str, lang: str = "auto", reference_text: str = "")
             if lang == "en" else
             "आवेदन का प्रकार कम विश्वास के साथ अनुमानित है — प्रकार की पुष्टि कर लें।")
 
-    # --- deterministic (canonical template) path — the moat ---
-    if dt in _DETERMINISTIC:
-        key, def_court, bail_type = _DETERMINISTIC[dt]
+    det = _DETERMINISTIC.get(dt)
+    key = bail_type = ""
+    court = ""
+    if det:
+        key, def_court, bail_type = det
         court = _FORCE_COURT.get(dt) or cls.get("court") or def_court
+
+    # escape hatch: one env var restores the old canonical-first routing exactly
+    if det and os.environ.get("DRAFTER_CANONICAL_FIRST", "").strip().lower() in ("1", "true", "yes", "on"):
+        try:
+            return _finalize(_canonical_result(dt, key, court, bail_type, matter, lang, cls, shared_warnings))
+        except Exception as e:
+            cls["reason"] = f"canonical render failed ({type(e).__name__}); authored instead"
+
+    # --- PRIMARY: the LLM authors from the WHOLE input, prescribed format in front ---
+    # Field extraction runs in a parallel thread as a best-effort side product (the
+    # structured-editor handoff + the canonical floor's data) — never on the critical
+    # path, never a reason to drop input facts from the draft itself.
+    extract_fut = None
+    if det:
         try:
             mod = _module(key)
             spec = _spec(mod, key, court, bail_type)
-            data, log = extract_fields(spec, matter)
-            if court:
-                data["court"] = court
-            if bail_type:
-                data["bail_type"] = bail_type
-            html_hi = mod.render_hi(data)
-            html_en = mod.render_en(data) if hasattr(mod, "render_en") else ""
-            cite = list(getattr(mod, "CITE_AT_HEARING", []) or [])
-            editor_id, editor_fields = _editor_handoff(key, court, bail_type, data)
-            from headnote.drafter.template_adapter import LABELS as _TA_LABELS
-            lab = _TA_LABELS.get(editor_id) or {}
-            title = lab.get("hi") or author.brief_for(
-                dt if dt in author.TYPE_BRIEFS else "other_criminal")["label_hi"]
-            return _finalize({
-                "ok": True, "mode": "canonical", "doc_type": dt, "court": court,
-                "bail_type": bail_type, "lang": lang, "confidence": cls["confidence"],
-                "editor_id": editor_id, "editor_fields": editor_fields,
-                "html_hi": html_hi, "html_en": html_en,
-                "data": data, "changelog": log,
-                "cite_at_hearing": cite,
-                "companions": spec.get("companions") or [],
-                "warnings": list(shared_warnings),
-                "title": title,
-                "reason": cls.get("reason", ""),
-            })
-        except Exception as e:  # canonical path failed → fall through to authoring
-            cls["reason"] = f"canonical render failed ({type(e).__name__}); authored instead"
+            import concurrent.futures as _cf
+            _pool = _cf.ThreadPoolExecutor(max_workers=1)
+            extract_fut = _pool.submit(extract_fields, spec, matter)
+            _pool.shutdown(wait=False)
+        except Exception:
+            extract_fut = None
 
-    # --- authored (house-style LLM) path — long tail + civil + anything else ---
     author_type = dt if dt in author.TYPE_BRIEFS else (
         "other_civil" if dt == "other_civil" else "other_criminal")
-    a_court = _authored_court(author_type, cls)
-    result = author.author_document(matter, author_type, lang, court=a_court)
-    result.update({
-        "court": a_court,
-        "confidence": cls["confidence"],
-        "html_hi": result["html"] if lang != "en" else "",
-        "html_en": result["html"] if lang == "en" else "",
-        "reason": cls.get("reason", ""),
-        "classified_as": dt,
-    })
-    result["warnings"] = shared_warnings + list(result.get("warnings") or [])
-    return _finalize(result)
+    a_court = court or _authored_court(author_type, cls)
+    exemplar = _format_exemplar(key, court, bail_type, lang) if det else ""
+
+    result = None
+    try:
+        result = author.author_document(matter, author_type, lang, court=a_court,
+                                        format_exemplar=exemplar)
+    except Exception:
+        log.exception("authoring path failed for doc_type=%s — falling to canonical floor", dt)
+        result = None
+
+    if result is not None:
+        result.update({
+            "doc_type": dt,
+            "court": a_court,
+            "bail_type": bail_type or "",
+            "confidence": cls["confidence"],
+            "html_hi": result["html"] if lang != "en" else "",
+            "html_en": result["html"] if lang == "en" else "",
+            "reason": cls.get("reason", ""),
+            "classified_as": dt,
+        })
+        if det:
+            # union the template's reviewed hearing authorities into the authored ones
+            try:
+                mod = _module(key)
+                cites = result.setdefault("cite_at_hearing", [])
+                for c in (getattr(mod, "CITE_AT_HEARING", []) or []):
+                    if c not in cites:
+                        cites.append(c)
+            except Exception:
+                pass
+            # structured-editor handoff, if the parallel extraction landed
+            if extract_fut is not None:
+                try:
+                    data, _ = extract_fut.result(timeout=25)
+                    data = dict(data)
+                    if court:
+                        data["court"] = court
+                    if bail_type:
+                        data["bail_type"] = bail_type
+                    eid, efields = _editor_handoff(key, court, bail_type, data)
+                    if eid:
+                        result["editor_id"], result["editor_fields"] = eid, efields
+                        result["data"] = data
+                except Exception:
+                    pass
+        result["warnings"] = shared_warnings + list(result.get("warnings") or [])
+        return _finalize(result)
+
+    # --- FLOOR 1: LLM chain down → the deterministic canonical template render ---
+    if det:
+        try:
+            data: dict = {}
+            if extract_fut is not None:
+                try:
+                    data, _ = extract_fut.result(timeout=25)
+                except Exception:
+                    data = {}
+            floor = _canonical_result(dt, key, court, bail_type, matter, lang, cls,
+                                      shared_warnings, data=data)
+            floor["warnings"] = list(floor.get("warnings") or []) + [
+                "AI ड्राफ्टिंग क्षणिक रूप से अनुपलब्ध रही — यह मानक (canonical) प्रारूप है; रिक्त स्थान संपादक में भर लें।"
+                if lang != "en" else
+                "AI drafting was temporarily unavailable — this is the standard canonical format; "
+                "fill the blanks in the editor."]
+            return _finalize(floor)
+        except Exception:
+            log.exception("canonical floor failed for doc_type=%s — returning skeleton", dt)
+
+    # --- FLOOR 2: pure-python standard shape (cannot fail) ---
+    return _finalize(_last_resort(dt, lang, matter, shared_warnings))

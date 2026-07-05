@@ -30,14 +30,14 @@ def _cfg(court):
         "sessions": dict(level="sessions", court_default="न्यायालय माननीय सत्र न्यायाधीश महोदय, ............ (________)"),
         "magistrate": dict(level="magistrate", court_default="न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी महोदय, ............ (________)"),
         "family": dict(level="family", court_default="न्यायालय माननीय कुटुम्ब न्यायालय, ............ (________)"),
-    }.get(court, dict(level="hc", court_default="माननीय उच्च न्यायालय मध्यप्रदेश, खण्डपीठ ग्वालियर"))
+    }.get(court, dict(level="hc", court_default="माननीय उच्च न्यायालय __________, __________"))
 
 
 def render_hi(a: dict) -> str:
     a = a or {}; c = _cfg(a.get("court") or "hc"); g = a.get("grounds") or {}
     nd = _ph(a.get("next_date"), "नियत दिनांक")
-    court_name = a.get("court_name") or compose_court_name(c["level"], a.get("court_city"), a.get("state_name") or "") \
-        if a.get("court_city") else (a.get("court_name") or c["court_default"])
+    # Always via the pan-India chokepoint — blanks when city/state unknown, never MP.
+    court_name = a.get("court_name") or compose_court_name(c["level"], a.get("court_city"), a.get("state_name") or "")
     hdr = render_header({
         "side_label": "", "court_name": court_name, "case_code": a.get("case_code") or "प्रकरण क्रमांक",
         "case_number": a.get("case_number") or "", "case_year": a.get("case_year") or str(date.today().year),

@@ -173,12 +173,12 @@ class FromPromptBody(BaseModel):
     lang:   Literal["hi", "en", "auto"] = "auto"  # 'auto' → intent-aware detect from the prompt
 
 
-@router.post("/from-prompt", summary="Prompt-first drafting → best court-ready draft (canonical | house-style authored)")
+@router.post("/from-prompt", summary="Prompt-first drafting → best court-ready draft (authored-primary, never fails)")
 def draft_from_prompt_route(body: FromPromptBody):
-    """One freeform description → the best draft we can produce: the DETERMINISTIC canonical
-    template where we have the type (zero hallucination, verbatim grounds), else the house-style
-    LLM AUTHORING engine with the verified-citation guard (long-tail criminal + any civil matter).
-    The LLM only fills structured content; the layout + citation whitelist stay ours.
+    """One freeform description → the LLM authors the draft from the WHOLE input, with the
+    matching canonical template injected as the PRESCRIBED FORMAT and every guard in force
+    (verified-citation whitelist, fact-grounding, section pairs, input coverage). Never-fail
+    ladder inside: authored → canonical floor → pure-python skeleton.
     See headnote/drafter/from_prompt.py."""
     from fastapi.responses import JSONResponse
     from headnote.drafter.from_prompt import draft_from_prompt
@@ -186,8 +186,12 @@ def draft_from_prompt_route(body: FromPromptBody):
         return JSONResponse({"ok": False, "error": "empty prompt"}, status_code=400)
     try:
         return draft_from_prompt(body.prompt, body.lang)
-    except Exception as e:
-        return JSONResponse({"ok": False, "error": f"{type(e).__name__}: {e}"}, status_code=500)
+    except Exception as e:  # draft_from_prompt never raises — this is a belt-and-braces backstop
+        import logging
+        logging.getLogger("headnote.drafter").exception("from-prompt backstop hit")
+        return JSONResponse({"ok": False, "error":
+                             "ड्राफ्ट बनाने में क्षणिक बाधा आई — कृपया दोबारा 'Draft' दबाएँ। "
+                             "(A temporary hiccup while drafting — please tap Draft again.)"})
 
 
 class SuggestBody(BaseModel):
@@ -279,6 +283,7 @@ async def draft_from_document(
         return JSONResponse({"ok": False, "error": "attach a document or describe the matter"}, status_code=400)
 
     doc_text = ""
+    ocr_warning = ""
     if uploads:
         if len(uploads) > _OCR_MAX_PAGES:
             return JSONResponse({"ok": False, "error": f"too many pages ({len(uploads)}); max {_OCR_MAX_PAGES}"}, status_code=400)
@@ -287,29 +292,48 @@ async def draft_from_document(
             pages, office_text = office.collect_uploads(entries, max_bytes=_OCR_MAX_BYTES)
         except ValueError as e:
             return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+        # OCR failure must NEVER kill the request — degrade to whatever text we do
+        # have (office extraction / the typed prompt) and say so in a warning.
         try:
             doc_text = ocr_text_pages(pages, office_text=office_text)
         except Exception as e:
-            return JSONResponse({"ok": False, "error": f"could not read the document: {e}"}, status_code=502)
+            import logging
+            logging.getLogger("headnote.drafter").warning("OCR degraded: %s", e)
+            doc_text = (office_text or "").strip()
+            ocr_warning = ("अपलोड किया दस्तावेज़ पढ़ा नहीं जा सका — ड्राफ्ट आपके लिखे विवरण से बना है। "
+                           "साफ़ फोटो के साथ दोबारा कोशिश करें।"
+                           if (lang or "hi") != "en" else
+                           "Could not read the uploaded document — the draft was made from your typed "
+                           "description. Try again with a clearer photo.")
+
+    def _with_ocr_warning(result):
+        if ocr_warning and isinstance(result, dict):
+            result.setdefault("warnings", []).insert(0, ocr_warning)
+        return result
 
     # role="reference": the document is a STYLE reference to mirror; the typed prompt carries the facts.
     if role == "reference":
         if not doc_text.strip():
-            return JSONResponse({"ok": False, "error": "could not read the reference document"}, status_code=400)
-        try:
-            return draft_from_prompt((prompt or "").strip(), lang, reference_text=doc_text.strip())
-        except Exception as e:
-            return JSONResponse({"ok": False, "error": f"{type(e).__name__}: {e}"}, status_code=500)
+            if (prompt or "").strip():
+                # reference unreadable but the matter is typed — draft it anyway
+                return _with_ocr_warning(draft_from_prompt((prompt or "").strip(), lang))
+            return JSONResponse({"ok": False, "error":
+                                 "रेफरेंस दस्तावेज़ पढ़ा नहीं जा सका — साफ़ फोटो/PDF के साथ दोबारा कोशिश करें। "
+                                 "(Could not read the reference document — try a clearer photo/PDF.)"})
+        return _with_ocr_warning(
+            draft_from_prompt((prompt or "").strip(), lang, reference_text=doc_text.strip()))
 
     # role="facts" (default): the document is the source of facts; a typed prompt adds intent.
     matter = (prompt or "").strip()
     if doc_text.strip():
         ref = "संलग्न दस्तावेज से तथ्य" if lang == "hi" else "Facts from the attached document"
         matter = (matter + "\n\n" if matter else "") + ref + ":\n" + doc_text.strip()
-    try:
-        return draft_from_prompt(matter, lang)
-    except Exception as e:
-        return JSONResponse({"ok": False, "error": f"{type(e).__name__}: {e}"}, status_code=500)
+    if not matter.strip():
+        return JSONResponse({"ok": False, "error":
+                             "दस्तावेज़ पढ़ा नहीं जा सका और कोई विवरण भी नहीं लिखा गया — मामला टाइप करें या साफ़ "
+                             "फोटो अपलोड करें। (Could not read the document and nothing was typed — describe "
+                             "the matter or upload a clearer photo.)"})
+    return _with_ocr_warning(draft_from_prompt(matter, lang))
 
 
 class RefineBody(BaseModel):
@@ -345,8 +369,15 @@ def refine_route(body: RefineBody):
             "html_en": result["html"] if lang == "en" else "",
         })
         return _finalize(result)
-    except Exception as e:
-        return JSONResponse({"ok": False, "error": f"{type(e).__name__}: {e}"}, status_code=500)
+    except Exception:
+        # never a 500 mid-edit: the advocate's current draft is safe in the editor —
+        # tell them the change didn't land and to retry, in a shape the UI handles.
+        import logging
+        logging.getLogger("headnote.drafter").exception("refine failed")
+        return JSONResponse({"ok": False, "error":
+                             "बदलाव लागू नहीं हो सका — आपका ड्राफ्ट सुरक्षित है; कृपया वही निर्देश दोबारा भेजें। "
+                             "(The change could not be applied — your draft is safe; please send the "
+                             "instruction again.)"})
 
 
 @router.get("/{draft_id}", summary="Get one draft by id")

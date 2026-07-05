@@ -156,7 +156,7 @@ def render_en(a: dict) -> str:
     c = _cfg(court)
     plural = bool(a.get("is_plural", False))
     aw = "applicants" if plural else "applicant"
-    state = _esc(a.get("state_name_en") or "State of M.P.")
+    state = _esc(a.get("state_name_en") or "State of ________")
     ps = _ph(a.get("police_station_en") or a.get("police_station"), "police station")
     crime = _ph(a.get("crime_number"), "..../....")
     secs = _secs(a.get("sections_en") or a.get("sections"), sep=" and ")

@@ -38,16 +38,16 @@ def _cfg(court):
         return dict(level="sessions", case_code="आपराधिक अपील क्रमांक",
                     court_default="न्यायालय माननीय सत्र न्यायाधीश महोदय, ............ (________)")
     return dict(level="hc", case_code="आपराधिक अपील क्रमांक",
-                court_default="माननीय उच्च न्यायालय मध्यप्रदेश, खण्डपीठ ग्वालियर")
+                court_default="माननीय उच्च न्यायालय __________, __________")
 
 
 def render_hi(a: dict) -> str:
     a = a or {}; c = _cfg(a.get("court") or "hc"); g = a.get("grounds") or {}
-    state = _esc(a.get("state_name") or "म.प्र. शासन")
+    state = _esc(a.get("state_name") or "________ शासन")
     tc = _ph(a.get("trial_court"), "विचारण न्यायालय"); cd = _ph(a.get("conviction_date"), "दोषसिद्धि दिनांक")
     secs = _secs(a.get("sections_convicted")); sent = _ph(a.get("sentence_passed"), "दण्डादेश")
-    court_name = a.get("court_name") or compose_court_name(c["level"], a.get("court_city"), a.get("state_name") or "") \
-        if a.get("court_city") else (a.get("court_name") or c["court_default"])
+    # Always via the pan-India chokepoint — blanks when city/state unknown, never MP.
+    court_name = a.get("court_name") or compose_court_name(c["level"], a.get("court_city"), a.get("state_name") or "")
     hdr = render_header({
         "side_label": "अपीलार्थी की ओर से", "court_name": court_name, "case_code": c["case_code"],
         "case_number": a.get("appeal_number") or "", "case_year": a.get("appeal_year") or str(date.today().year),
@@ -152,7 +152,7 @@ def field_spec(court: str = "hc") -> dict:
         F.f("appeal_number", "अपील क्रमांक", "Appeal no.", section="court"),
         F.f("appeal_year", "वर्ष", "Year", F.NUMBER, section="court"),
         F.f("appellant_name", "अपीलार्थी का नाम", "Appellant name", F.NAME, True, "parties"),
-        F.f("state_name", "प्रतिअपीलार्थी (राज्य)", "Respondent (State)", section="parties", default="म.प्र. शासन"),
+        F.f("state_name", "प्रतिअपीलार्थी (राज्य)", "Respondent (State)", section="parties", default=""),
         F.f("trial_court", "विचारण न्यायालय", "Trial court", required=True, section="order",
             hint="जिसने दोषसिद्ध किया — जैसे न्यायिक दण्डाधिकारी / सत्र न्यायालय ____"),
         F.f("conviction_date", "दोषसिद्धि दिनांक", "Date of conviction", F.DATE, True, "order"),

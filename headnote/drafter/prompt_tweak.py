@@ -132,8 +132,11 @@ def run_router(spec: dict, data: dict, prompt: str) -> dict:
     return a validated PATCH. Raises on any LLM/parse failure so the caller can
     fall back to parse_heuristic()."""
     from headnote.llm.client import _call_deepseek_or_groq, parse_json_response
+    # A field-patch extraction is a fast structured task — use V3 (deepseek-chat),
+    # not the reasoner. R1 at max_tokens=500 would spend the whole budget on
+    # chain-of-thought and return empty content (the invalid-JSON 502).
     raw, _meta = _call_deepseek_or_groq(
-        _router_system(spec, data), prompt, max_tokens=500, claude_model="claude-sonnet-4-6")
+        _router_system(spec, data), prompt, max_tokens=900, claude_model="claude-haiku-4-5", json_mode=True)
     return validate_patch(parse_json_response(raw), spec)
 
 

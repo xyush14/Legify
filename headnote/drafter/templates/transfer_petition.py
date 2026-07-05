@@ -32,14 +32,13 @@ def _doc(a, hi):
              ("TRANSFER APPLICATION UNDER SECTION 448 BNSS (408 CrPC)" if sessions else
               "TRANSFER APPLICATION UNDER SECTION 447 BNSS (407 CrPC)"))
     lvl = "sessions" if sessions else "hc"
-    cn = a.get("court_name") or (compose_court_name(lvl, a.get("court_city"), a.get("state_name") or "", lang=("hi" if hi else "en")) if a.get("court_city") else
-        (("न्यायालय माननीय सत्र न्यायाधीश महोदय, ............ (________)" if sessions else "माननीय उच्च न्यायालय मध्यप्रदेश, खण्डपीठ ग्वालियर") if hi else
-         ("Court of the Sessions Judge, ............ (________)" if sessions else "High Court of M.P., Bench at Gwalior")))
+    # Always via the pan-India chokepoint — blanks when city/state unknown, never MP.
+    cn = a.get("court_name") or compose_court_name(lvl, a.get("court_city"), a.get("state_name") or "", lang=("hi" if hi else "en"))
     hdr = render_header({
         "side_label": "", "court_name": cn, "case_code": (a.get("case_code") or ("स्थानान्तरण आवेदन क्रमांक" if hi else "Transfer Appln. No.")),
         "case_number": a.get("case_number") or "", "case_year": a.get("case_year") or str(date.today().year),
         "applicant_label": ("आवेदक" if hi else "Applicant"), "applicant_desc": [_ph(a.get("applicant_name"), "आवेदक" if hi else "applicant")],
-        "respondent_label": ("अनावेदक" if hi else "Respondent"), "respondent_desc": [_esc(a.get("state_name") or ("म.प्र. राज्य" if hi else "State of M.P."))],
+        "respondent_label": ("अनावेदक" if hi else "Respondent"), "respondent_desc": [_esc(a.get("state_name") or ("________ राज्य" if hi else "State of ________"))],
         "versus": ("बनाम" if hi else "Versus"), "title_line": title,
     })
     case = _ph(a.get("case_details"), "प्रकरण क्रमांक/धाराएं" if hi else "case no./sections")

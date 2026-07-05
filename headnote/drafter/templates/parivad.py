@@ -58,9 +58,9 @@ def render_hi(a: dict) -> str:
     name = a.get("complainant_name") or ""
     sec_str = _secs(a.get("offence_sections"), ", ")
     ps = _ph(a.get("police_station"), "थाना")
-    court_name = a.get("court_name") or (
-        compose_court_name("magistrate", a.get("court_city"), state) if a.get("court_city")
-        else "न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी महोदय, ________ (म.प्र.)")
+    # Route through the pan-India chokepoint — blanks (____) when city/state unknown,
+    # never MP. (Do not reintroduce a hardcoded "(म.प्र.)" fallback — feedback_court_location.)
+    court_name = a.get("court_name") or compose_court_name("magistrate", a.get("court_city"), state)
     fem = a.get("complainant_is_woman", True)
     cw = "परिवादिया" if fem else "परिवादी"
 

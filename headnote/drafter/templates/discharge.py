@@ -217,7 +217,7 @@ def field_spec(court: str = "magistrate") -> dict:
             options=[{"value": "आर.सी.टी.", "label": "आर.सी.टी. (RCT)"}, {"value": "सत्र प्रकरण", "label": "सत्र प्रकरण"}]),
         F.f("accused_names", "अभियुक्तगण के नाम", "Accused name(s)", F.NAME, True, "parties", ocr="order"),
         F.f("is_plural", "एक से अधिक अभियुक्त?", "More than one accused?", F.TOGGLE, section="parties", default=True),
-        F.f("state_name", "राज्य", "State", section="parties", default="म.प्र."),
+        F.f("state_name", "राज्य", "State", section="parties", default=""),
         F.f("police_station", "पुलिस थाना", "Police station", required=True, section="crime", ocr="order"),
         F.f("crime_number", "अपराध क्रमांक", "Crime no.", required=True, section="crime", ocr="order"),
         F.f("sections", "धाराएं", "Offence sections", F.SECTION_LIST, True, "crime", ocr="order"),

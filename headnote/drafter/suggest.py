@@ -139,7 +139,7 @@ def _missing_points(doc_type: str, plain: str, lang: str) -> tuple[list[dict], s
             draft=plain[:6000]))
         raw, _meta = _call_deepseek_or_groq(
             _MISSING_SYSTEM.replace("%LANG%", "Hindi" if lang == "hi" else "English"),
-            user, max_tokens=1400, claude_model="claude-haiku-4-5")
+            user, max_tokens=1400, claude_model="claude-haiku-4-5", json_mode=True)
         items = (parse_json_response(raw) or {}).get("missing") or []
     except Exception:
         return [], ("सुझाव सीमित हैं — छूटे बिंदुओं की जाँच अभी उपलब्ध नहीं" if lang == "hi"

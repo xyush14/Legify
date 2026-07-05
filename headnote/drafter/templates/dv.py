@@ -55,9 +55,9 @@ def render_hi(a: dict) -> str:
     a = a or {}
     state = _esc(a.get("state_name") or "________")
     name = a.get("aggrieved_name") or ""
-    court_name = a.get("court_name") or (
-        compose_court_name("magistrate", a.get("court_city"), state) if a.get("court_city")
-        else "न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी महोदय, ________ (म.प्र.)")
+    # Route through the pan-India chokepoint — blanks (____) when city/state unknown,
+    # never MP. (Do not reintroduce a hardcoded "(म.प्र.)" fallback — feedback_court_location.)
+    court_name = a.get("court_name") or compose_court_name("magistrate", a.get("court_city"), state)
     g = a.get("grounds") or {}
     amt = a.get("monetary_amount") or "________"
     comp = a.get("compensation_amount") or "________"

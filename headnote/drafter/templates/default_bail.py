@@ -211,7 +211,7 @@ def field_spec(court: str = "magistrate") -> dict:
         F.f("court_name", "न्यायालय का नाम (स्वतः/ओवरराइड)", "Court name", required=True, section="court", auto=True),
         F.f("case_year", "वर्ष", "Year", F.NUMBER, section="court"),
         F.f("applicant_name", "आवेदक (बन्दी) का नाम", "Applicant (detenu) name", F.NAME, True, "parties", ocr="fir"),
-        F.f("state_name", "राज्य", "State", section="parties", default="म.प्र."),
+        F.f("state_name", "राज्य", "State", section="parties", default=""),
         F.f("police_station", "पुलिस थाना", "Police station", required=True, section="crime", ocr="fir"),
         F.f("crime_number", "अपराध क्रमांक", "Crime no.", required=True, section="crime", ocr="fir"),
         F.f("sections", "धाराएं", "Offence sections", F.SECTION_LIST, True, "crime", ocr="fir"),

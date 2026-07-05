@@ -57,7 +57,7 @@ def _strip_lead(s: str) -> str:
 def _cfg(court):
     return {
         "sessions": dict(level="sessions", court_default="न्यायालय माननीय सत्र न्यायाधीश महोदय, ............ (________)"),
-        "hc":       dict(level="hc",       court_default="माननीय उच्च न्यायालय मध्यप्रदेश, खण्डपीठ ग्वालियर"),
+        "hc":       dict(level="hc",       court_default="माननीय उच्च न्यायालय __________, __________"),
         "family":   dict(level="family",   court_default="न्यायालय माननीय कुटुम्ब न्यायालय, ............ (________)"),
     }.get(court, dict(level="magistrate", court_default="न्यायालय माननीय न्यायिक दण्डाधिकारी प्रथम श्रेणी महोदय, ............ (________)"))
 
@@ -70,8 +70,8 @@ def render_hi(a: dict) -> str:
     app_label = _esc(a.get("applicant_label") or "आवेदिका")
     res_label = _esc(a.get("respondent_label") or "अनावेदक")
     replying_to = _esc(a.get("replying_to") or "आवेदन पत्र")
-    court_name = a.get("court_name") or compose_court_name(c["level"], a.get("court_city"), a.get("state_name") or "") \
-        if a.get("court_city") else (a.get("court_name") or c["court_default"])
+    # Always via the pan-India chokepoint — blanks when city/state unknown, never MP.
+    court_name = a.get("court_name") or compose_court_name(c["level"], a.get("court_city"), a.get("state_name") or "")
 
     hdr = render_header({
         "side_label": "",

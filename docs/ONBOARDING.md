@@ -517,6 +517,23 @@ machine with any account, in minutes.
 
 > Append a dated line whenever something structural changes. Newest on top.
 
+- **2026-07-06** — **Draft mode rebuilt input-first: LLM-authored is now the PRIMARY path for ALL 41 types; canonical
+  templates become the prescribed-format specimen + the never-fail floor.** The old routing sent every classified type
+  through field-extraction → rigid template render, silently discarding every input fact outside the schema (the
+  "it didn't read my prompt" complaint). New routing in `from_prompt.py`: classify (hint only) → `author_document()`
+  drafts from the WHOLE input with the canonical template rendered blank and injected as a `PRESCRIBED FORMAT`
+  specimen (`_format_exemplar`); field extraction now runs only as a parallel best-effort thread for the
+  structured-editor handoff. **Never-fail ladder:** authored → slim-retry (drops the 14K-token skill prefix so the
+  Groq free-tier fallback stops 413ing — it was silently dead for authoring) → deterministic canonical floor →
+  pure-python skeleton floor (`_last_resort`, preserves the advocate's input as drafting notes); `draft_from_prompt`
+  can no longer raise, and `/from-document` degrades through OCR failure (per-batch resilience in `ocr_text_pages`,
+  friendly bilingual warnings) instead of 502ing. **New input-coverage guard** (`author.coverage_warnings`) — the
+  inverse of the grounding guard: dates/amounts/case-numbers the advocate GAVE but the draft dropped get a ⚠ warning;
+  both guards now normalise Devanagari digits (१०.०६.२०२४ ≡ 10.06.2024 — was double-false-flagging). HOUSE_STYLE +
+  MIRROR_SYSTEM gained the "use the whole brief / brief is primary" contract. Escape hatch:
+  `DRAFTER_CANONICAL_FIRST=1` restores the old canonical-first routing exactly. Verified end-to-end: rich bail prompt
+  → all 10 input facts in the draft, 0 fabrications; mirror path → 0 reference-fact leaks; 41/41 blank exemplar +
+  floor renders; a real Groq daily-quota exhaustion mid-test fired the canonical floor with ok:true.
 - **2026-07-04** — **Civil drafting is now DETERMINISTIC — 8 CPC-plaint templates (the biggest civil-quality jump).**
   Civil matters were previously LLM-authored (good, but review-heavy); now the eight civil suit types render
   as verbatim, zero-fabrication deterministic plaints, the same moat model as bail/discharge. New shared

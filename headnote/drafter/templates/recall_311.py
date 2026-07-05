@@ -40,7 +40,7 @@ def render_hi(a: dict) -> str:
     c = _cfg(a.get("court") or "sessions"); g = a.get("grounds") or {}
     plural = bool(a.get("is_plural", True))
     aw = "प्रार्थीगण" if plural else "प्रार्थी"; acc = "अभियुक्तगण" if plural else "अभियुक्त"
-    state = _esc(a.get("state_name") or "म.प्र. शासन")
+    state = _esc(a.get("state_name") or "________ शासन")
     wit = _ph(a.get("witnesses"), "अ.सा.—01 आदि")
     court_name = a.get("court_name") or compose_court_name(c["level"], a.get("court_city"), a.get("state_name") or "") \
         if a.get("court_city") else (a.get("court_name") or c["court_default"])
@@ -134,7 +134,7 @@ def field_spec(court: str = "sessions") -> dict:
         F.f("case_year", "वर्ष", "Year", F.NUMBER, section="court"),
         F.f("accused_names", "अभियुक्त/प्रार्थी का नाम", "Accused / applicant name(s)", F.NAME, True, "parties"),
         F.f("is_plural", "एक से अधिक अभियुक्त?", "More than one accused?", F.TOGGLE, section="parties", default=True),
-        F.f("state_name", "अभियोगी पक्ष", "Prosecution side", section="parties", default="म.प्र. शासन"),
+        F.f("state_name", "अभियोगी पक्ष", "Prosecution side", section="parties", default=""),
         F.f("witnesses", "किन साक्षियों को पुनः बुलाना है", "Which witness(es) to recall", required=True, section="facts",
             hint="जैसे: अ.सा.—01 एवं अ.सा.—02"),
         F.f("facts_narrative", "पुनः बुलाने का कारण", "Why recall", F.LONGTEXT, True, "facts",

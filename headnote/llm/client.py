@@ -86,6 +86,7 @@ def _call_deepseek_fallback(
     *,
     max_tokens: int,
     claude_model: str = "claude-sonnet-4-6",
+    json_mode: bool = False,
 ) -> Tuple[str, dict]:
     """DeepSeek API call — fires as primary (when LLM_PROVIDER=deepseek) or as
     fallback when Anthropic fails.
@@ -132,21 +133,33 @@ def _call_deepseek_fallback(
         timeout=_ds_timeout,
     )
 
-    # R1 supports a longer max_tokens than V3
+    # R1 (deepseek-reasoner) spends part of its token budget on the hidden
+    # chain-of-thought BEFORE it emits the answer. If the caller's max_tokens
+    # is small (e.g. 4000 for a draft), reasoning eats the whole budget and
+    # `content` comes back EMPTY — the #1 cause of the "invalid JSON /
+    # Expecting value: line 1 column 1 (char 0)" 502. So give the reasoner a
+    # generous output floor regardless of what the caller asked for.
     if model == "deepseek-reasoner":
-        capped_max = min(max_tokens or 8000, 16384)
+        capped_max = min(max(max_tokens or 8000, 12000), 16384)
     else:
         capped_max = min(max_tokens or 4000, 8192)
 
-    resp = client.chat.completions.create(
-        model=model,
-        messages=[
+    kwargs: dict = {
+        "model": model,
+        "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user",   "content": user_prompt},
         ],
-        max_tokens=capped_max,
-        temperature=0.2,
-    )
+        "max_tokens": capped_max,
+        "temperature": 0.2,
+    }
+    # DeepSeek V3 (deepseek-chat) supports strict JSON mode, which stops the
+    # model from wrapping the object in prose or ```json fences. The reasoner
+    # does NOT support response_format, so only apply it for chat.
+    if json_mode and model == "deepseek-chat":
+        kwargs["response_format"] = {"type": "json_object"}
+
+    resp = client.chat.completions.create(**kwargs)
     text = resp.choices[0].message.content or ""
     usage = resp.usage
     return text, {
@@ -163,6 +176,7 @@ def _call_groq_fallback(
     user_prompt: str,
     *,
     max_tokens: int,
+    json_mode: bool = False,
 ) -> Tuple[str, dict]:
     """Last-resort fallback to Groq's free-tier Llama-3.3-70B when both
     Anthropic AND DeepSeek fail. Lowest quality for Indian legal reasoning
@@ -188,16 +202,19 @@ def _call_groq_fallback(
     log.warning("[llm] Falling back to Groq %s (Anthropic + DeepSeek both failed)", model)
 
     client = Groq(api_key=groq_key)
-    resp = client.chat.completions.create(
-        model=model,
-        messages=[
+    groq_kwargs: dict = {
+        "model": model,
+        "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user",   "content": user_prompt},
         ],
-        max_tokens=min(max_tokens or 4000, 8000),
-        temperature=0.2,
-        timeout=20.0,  # Groq free tier is fast (3-8s). 20s is generous; 60s was burning pipeline budget.
-    )
+        "max_tokens": min(max_tokens or 4000, 8000),
+        "temperature": 0.2,
+        "timeout": 20.0,  # Groq free tier is fast (3-8s). 20s is generous; 60s was burning pipeline budget.
+    }
+    if json_mode:
+        groq_kwargs["response_format"] = {"type": "json_object"}
+    resp = client.chat.completions.create(**groq_kwargs)
     text = resp.choices[0].message.content or ""
     usage = resp.usage
     return text, {
@@ -215,20 +232,32 @@ def _call_deepseek_or_groq(
     *,
     max_tokens: int,
     claude_model: str = "claude-sonnet-4-6",
+    json_mode: bool = False,
 ) -> Tuple[str, dict]:
     """Try DeepSeek first; fall through to Groq if DeepSeek key is absent or
     the call errors. Used as the fallback path after Anthropic fails AND as
     the primary path when LLM_PROVIDER=deepseek.
+
+    If DeepSeek returns EMPTY content (the reasoner burning its whole token
+    budget on chain-of-thought is the classic cause), we treat that as a
+    failure and fall through to Groq rather than handing an empty string back
+    to a json.loads() that will 502.
     """
     try:
-        return _call_deepseek_fallback(
+        text, meta = _call_deepseek_fallback(
             system_prompt, user_prompt,
             max_tokens=max_tokens,
             claude_model=claude_model,
+            json_mode=json_mode,
         )
+        if not (text or "").strip():
+            raise RuntimeError("DeepSeek returned empty content (reasoner likely ran out of output budget)")
+        return text, meta
     except Exception as ds_exc:
         log.warning("[llm] DeepSeek failed — trying Groq: %s", str(ds_exc)[:200])
-        return _call_groq_fallback(system_prompt, user_prompt, max_tokens=max_tokens)
+        return _call_groq_fallback(
+            system_prompt, user_prompt, max_tokens=max_tokens, json_mode=json_mode,
+        )
 
 
 def get_client():
@@ -369,8 +398,10 @@ def stream_chat(
 
     Yields
     ------
-    ("delta", str)  — a chunk of answer text
-    ("usage", dict) — final token usage (once, at the end), for the cost meter
+    ("reasoning", str) — a chunk of the model's chain-of-thought (R1 only; the
+                         "Analysing…" trace shown live in the UI)
+    ("delta", str)     — a chunk of answer text
+    ("usage", dict)    — final token usage (once, at the end), for the cost meter
 
     Never raises inside the stream — a provider error mid-flight is caught and
     surfaced as a final ("error", message) tuple so the caller can close the
@@ -404,6 +435,11 @@ def stream_chat(
                 if not chunk.choices:
                     continue
                 delta = chunk.choices[0].delta
+                # R1 (deepseek-reasoner) streams its chain-of-thought in
+                # `reasoning_content` BEFORE the answer arrives in `content`.
+                rc = getattr(delta, "reasoning_content", None)
+                if rc:
+                    yield ("reasoning", rc)
                 piece = getattr(delta, "content", None)
                 if piece:
                     yield ("delta", piece)
@@ -472,22 +508,97 @@ def estimate_cost_usd(usage: dict) -> float:
     )
 
 
+def _repair_truncated_json(s: str):
+    """Best-effort repair of JSON cut off mid-stream. Walks the text tracking
+    string/bracket state, trims the dangling fragment after the last complete
+    value, closes what's open, and parses. Returns None if unrecoverable."""
+    import re as _re
+    stack: list[str] = []
+    in_str = esc = False
+    last_complete = 0   # index just past the last completed value/container
+    for i, ch in enumerate(s):
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+                last_complete = i + 1
+        else:
+            if ch == '"':
+                in_str = True
+            elif ch in "{[":
+                stack.append(ch)
+            elif ch in "}]":
+                if stack:
+                    stack.pop()
+                last_complete = i + 1
+                if not stack:
+                    break
+            elif ch in "0123456789el.":   # inside a number/true/false/null literal
+                last_complete = i + 1
+    if not stack and last_complete:
+        try:
+            return json.loads(s[:last_complete])
+        except json.JSONDecodeError:
+            return None
+    if not last_complete:
+        return None
+    t = s[:last_complete]
+    # drop a dangling `,"key"` / `,"key":` left hanging after the cut
+    t = _re.sub(r',\s*"(?:[^"\\]|\\.)*"\s*:?\s*$', "", t)
+    t = _re.sub(r",\s*$", "", t)
+    for ch in reversed(stack):
+        t += "}" if ch == "{" else "]"
+    try:
+        return json.loads(t)
+    except json.JSONDecodeError:
+        return None
+
+
 def parse_json_response(raw: str) -> dict:
-    """Parse Claude/DeepSeek response as JSON, tolerating ```json fences.
-    Raises HTTPException(502) if the response is not parseable JSON."""
-    text = raw.strip()
+    """Parse Claude/DeepSeek response as JSON, tolerating ```json fences, a
+    reasoning preamble before the object, and trailing prose. Raises
+    HTTPException(502) with a human-readable message only if nothing
+    JSON-shaped can be recovered."""
+    text = (raw or "").strip()
     if text.startswith("```"):
         text = "\n".join(text.split("\n")[1:])
         if text.endswith("```"):
             text = text[: -3]
         text = text.strip()
+    # Fast path.
     try:
         return json.loads(text)
-    except json.JSONDecodeError as e:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Model returned invalid JSON: {e}. Raw start: {text[:200]}",
-        )
+    except json.JSONDecodeError:
+        pass
+    # Salvage: grab the largest {...} span (models sometimes wrap the object in
+    # a "Here is the draft:" preamble or add a trailing note).
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        try:
+            return json.loads(text[start : end + 1])
+        except json.JSONDecodeError:
+            pass
+    # Repair: TRUNCATED output (max_tokens hit / provider cut the stream mid-key —
+    # seen live: '…"case_number": "409/2021", "case_ye'). Close the open string,
+    # drop the dangling key/value fragment, close every open bracket. A partial
+    # payload the renderer can degrade gracefully on beats a failed draft.
+    if start != -1:
+        repaired = _repair_truncated_json(text[start:])
+        if repaired is not None:
+            return repaired
+    # Give up — but with a message a lawyer (not a stack trace) can act on.
+    raise HTTPException(
+        status_code=502,
+        detail=(
+            "The drafting model didn't return a usable draft this time "
+            "(it replied empty or in the wrong format). Please tap Draft it "
+            "again — it usually succeeds on the retry."
+        ),
+    )
 
 
 def build_meta(usage: dict, elapsed: float) -> dict:

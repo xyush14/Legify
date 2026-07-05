@@ -854,6 +854,11 @@ ZERO FABRICATION — THE ABSOLUTE RULE:
   – For every fact the structure needs but the advocate did not give, write "____" — never a guess, never a
     placeholder name like "Ram Kumar" or a specimen date. List each such gap in "warnings" so the advocate
     knows what to fill.
+  – USE THE WHOLE BRIEF — the mirror duty of the same contract: every fact the advocate DID give (each name,
+    relationship, date, amount, FIR/case/account number, address, section, event) MUST appear in the draft at
+    its proper place. DROPPING a given fact is as serious a failure as inventing one — the advocate wrote it
+    because the court needs it. If a given fact fits nowhere in the skeleton, add a numbered fact para for it;
+    never discard it.
   – When the input is thin, WRITE A THIN DRAFT (the skeleton with ____ blanks). Do not pad it with content.
 
 VERIFIED CITATIONS YOU MAY USE IN THE BODY (only these; reproduce exactly; omit if not apposite):
@@ -943,7 +948,8 @@ _CIVIL_NOTE = """CIVIL DRAFTING ADDENDUM (this is a CIVIL matter — CPC discipl
 """
 
 
-def _author_system(doc_type: str, lang: str) -> str:
+def _author_system(doc_type: str, lang: str, format_exemplar: str = "",
+                   inject_skill: bool = True) -> str:
     b = brief_for(doc_type)
     fam = family_for(doc_type)
     skeleton = "\n".join(f"  {i+1}. {s}" for i, s in enumerate(b.get("skeleton", [])))
@@ -957,7 +963,33 @@ def _author_system(doc_type: str, lang: str) -> str:
               .replace("{lang}", "Hindi" if lang == "hi" else "English"))
     if doc_type in CIVIL_TYPES:
         system = system.replace("THE MATTER TYPE:", _CIVIL_NOTE + "THE MATTER TYPE:")
-    return system
+    if (format_exemplar or "").strip():
+        # The canonical template, rendered blank, IS the prescribed format for this
+        # application — the model writes the advocate's matter INTO this shape instead
+        # of a schema-limited extraction throwing the matter's richness away.
+        block = (
+            "PRESCRIBED FORMAT — Headnote's reviewed, court-filed प्रारूप for exactly this application type "
+            "(a BLANK specimen; ____ marks a placeholder). Your draft MUST come out in this shape: the same "
+            "cause-title pattern, the same title line, the same recital order, the same standard sentences, "
+            "the same prayer and verification framing. Write the advocate's facts INTO this shape, EXPAND the "
+            "numbered paragraphs with the matter's own specifics (the specimen shows the floor, not the "
+            "ceiling), and keep ____ wherever the advocate gave no value. The specimen carries NO facts — "
+            "facts come ONLY from the matter.\n"
+            "<SPECIMEN>\n" + format_exemplar.strip() + "\n</SPECIMEN>\n\n"
+        )
+        system = system.replace("THE MATTER TYPE:", block + "THE MATTER TYPE:")
+    # Prepend the FULL drafting skill as a stable, cacheable reference prefix
+    # (Drafter Quality Roadmap §4.2 — "half the quality gap"). Stable text first
+    # so DeepSeek's prefix cache hits; the distilled operating prompt + per-matter
+    # slice follow. Empty string when injection is disabled/unavailable.
+    # inject_skill=False builds the SLIM prompt for the free-tier fallback retry:
+    # the ~14K-token skill blows Groq's 12K-TPM limit, which silently killed the
+    # whole fallback tier for authoring (413 on every call) whenever DeepSeek was down.
+    if not inject_skill:
+        return system
+    from headnote.drafter.skill_context import full_skill_context
+    skill = full_skill_context()
+    return f"{skill}\n{system}" if skill else system
 
 
 # ===========================================================================
@@ -1080,10 +1112,20 @@ def _is_generic_role(name: str) -> bool:
     return (not a) or (a in _G_ROLE_WORDS) or a.startswith(("the ", "his ", "her ", "their "))
 
 
+# Devanagari ↔ ASCII digits: the model often writes १०.०६.२०२४ for 10.06.2024 in a
+# Hindi draft. Both guards must treat the two scripts as the SAME number, or a
+# perfectly-grounded date false-flags as "invented" AND "missing" at once.
+_DEV_DIGITS = str.maketrans("०१२३४५६७८९", "0123456789")
+
+
+def _norm_digits(s: str) -> str:
+    return (s or "").translate(_DEV_DIGITS)
+
+
 def _ground_index(source: str) -> dict:
     """Pre-index the advocate's source text (their typed brief / OCR'd case papers)
     for O(1) grounding membership tests."""
-    src = source or ""
+    src = _norm_digits(source or "")
     return {"digits": re.sub(r"\D", "", src),
             "text": re.sub(r"\s+", " ", src).casefold()}
 
@@ -1094,7 +1136,7 @@ def _grounded(atom: str, kind: str, gi: dict) -> bool:
     if not atom or "_" in atom:
         return True
     if kind in ("date", "money"):
-        d = re.sub(r"\D", "", atom)
+        d = re.sub(r"\D", "", _norm_digits(atom))
         return (not d) or (d in gi["digits"])
     a = re.sub(r"\s+", " ", atom).casefold().strip(" .,-–")
     if not a:
@@ -1147,6 +1189,45 @@ def _grounding_warnings(ung: list, lang: str) -> list[str]:
                 f"invented — verify or delete each before filing (highlighted in the draft): {shown}"]
     return [f"⚠ इस ड्राफ्ट के {len(uniq)} विवरण आपके दिए इनपुट में नहीं मिले और हो सकता है स्वतः जोड़े गए हों — "
             f"दाखिल करने से पूर्व प्रत्येक की पुष्टि करें या हटाएँ (ड्राफ्ट में हाइलाइट किए गए): {shown}"]
+
+
+# ===========================================================================
+# 4c) INPUT-COVERAGE GUARD — the mirror image of the grounding guard. Grounding
+#     asks "is everything in the DRAFT traceable to the input?"; coverage asks
+#     "did everything concrete in the INPUT make it into the draft?" — the
+#     lawyer's actual complaint when a draft comes back generic is the second
+#     one ("it didn't read what I wrote"). Deterministic, same atom regexes,
+#     digit-normalised matching (so 05.01.2024 vs 5.1.2024 still counts).
+# ===========================================================================
+_C_CASE_NO = re.compile(r"\b\d{1,5}\s*/\s*(?:19|20)\d{2}\b")   # FIR/case no. — 123/2024
+
+
+def coverage_warnings(matter: str, draft_text: str, lang: str = "hi") -> list[str]:
+    """Return a warning listing concrete atoms (dates, amounts, FIR/case numbers)
+    that the advocate GAVE but the draft does not carry. Pure/deterministic."""
+    src = _norm_digits(matter or "")
+    if not src.strip() or not (draft_text or "").strip():
+        return []
+    draft_digits = re.sub(r"\D", "", _norm_digits(draft_text))
+    atoms: list[str] = []
+    for rx in (_G_DATE, _G_MONEY, _C_CASE_NO):
+        atoms.extend(m.group(0) for m in rx.finditer(src))
+    missing, seen = [], set()
+    for a in atoms:
+        d = re.sub(r"\D", "", a)
+        if not d or d in seen:
+            continue
+        seen.add(d)
+        if d not in draft_digits:
+            missing.append(a.strip())
+    if not missing:
+        return []
+    shown = "; ".join(missing[:10]) + (" …" if len(missing) > 10 else "")
+    if lang == "en":
+        return [f"⚠ {len(missing)} detail(s) you provided did not make it into the draft — "
+                f"add them where they belong before filing: {shown}"]
+    return [f"⚠ आपके दिए {len(missing)} विवरण ड्राफ्ट में नहीं आए — दाखिल करने से पूर्व इन्हें "
+            f"सही स्थान पर जोड़ें: {shown}"]
 
 
 # ===========================================================================
@@ -1345,7 +1426,7 @@ def extract_reference_skeleton(reference_text: str, lang: str = "hi") -> str:
     try:
         raw, _meta = _call_deepseek_or_groq(
             REF_SKELETON_SYSTEM, reference_text[:12000], max_tokens=1200,
-            claude_model="claude-haiku-4-5")
+            claude_model="claude-haiku-4-5", json_mode=True)
         spec = parse_json_response(raw)
     except Exception:
         return ""
@@ -1413,6 +1494,9 @@ THE TWO-SOURCE RULE — what comes from where:
   the advocate's brief. The reference's facts are ANOTHER CLIENT'S CASE — never let a reference name, date,
   amount or storyline leak into the new draft. Where the structure needs a value the brief does not give,
   write ____ in its place.
+• THE BRIEF IS PRIMARY: every fact the brief gives MUST be written into the new draft at its proper place —
+  the reference dictates FORM, the brief dictates CONTENT. Dropping a brief fact is as much a defect as
+  inventing one; if a brief fact fits nowhere in the reference's structure, add a numbered para for it.
 • NEVER INVENT a fact, a party, a relationship or a narrative the brief does not state. A draft full of ____
   is CORRECT; an invented story is a career-ending defect for the advocate.
 • STATUTES/SECTIONS: cite what the NEW matter actually needs (the reference shows the FORMAT of the recital,
@@ -1604,7 +1688,7 @@ def mirror_document(matter: str, reference_text: str, doc_type: str, lang: str =
         f"Draft now, as JSON per the schema, in {'Hindi' if lang == 'hi' else 'English'} "
         "(match the reference's language/register)."
     )
-    raw, meta = _call_deepseek_or_groq(MIRROR_SYSTEM, user, max_tokens=7000, claude_model=config.DRAFTER_AUTHOR_MODEL)
+    raw, meta = _call_deepseek_or_groq(MIRROR_SYSTEM, user, max_tokens=7000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
     payload = parse_json_response(raw)
     blocks = payload.get("blocks")
     if not isinstance(blocks, list) or len(blocks) < 4:
@@ -1612,6 +1696,8 @@ def mirror_document(matter: str, reference_text: str, doc_type: str, lang: str =
     # ground facts against the advocate's brief ONLY — the reference is another
     # client's case, so its facts must NEVER count as verification for this draft.
     rendered = render_mirrored(payload, doc_type, source=matter)
+    # …and the mirror duty: everything concrete the advocate GAVE must be in the draft
+    rendered["warnings"].extend(coverage_warnings(matter, rendered["html"], lang))
     return _mirror_result(payload, rendered, doc_type, lang, meta)
 
 
@@ -1632,7 +1718,7 @@ def revise_mirrored(prior_html: str, instruction: str, doc_type: str = "other_cr
         "draft plus the instruction are the ONLY sources of facts — ____ stays ____ unless the instruction "
         f"fills it. Write in {'Hindi' if lang == 'hi' else 'English'}."
     )
-    raw, meta = _call_deepseek_or_groq(MIRROR_SYSTEM, user, max_tokens=7000, claude_model=config.DRAFTER_AUTHOR_MODEL)
+    raw, meta = _call_deepseek_or_groq(MIRROR_SYSTEM, user, max_tokens=7000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
     payload = parse_json_response(raw)
     if not isinstance(payload.get("blocks"), list) or len(payload["blocks"]) < 4:
         raise ValueError("mirror revision payload too thin")
@@ -1644,12 +1730,14 @@ def revise_mirrored(prior_html: str, instruction: str, doc_type: str = "other_cr
 
 
 def author_payload(matter: str, doc_type: str, lang: str = "hi", *, court: str = "",
-                   reference_skeleton: str = "") -> dict:
+                   reference_skeleton: str = "", format_exemplar: str = "") -> dict:
     """Call the runtime LLM (DeepSeek → Groq; never Claude) and return the parsed,
     schema-shaped payload. Raises on LLM/parse failure (caller decides fallback).
-    If `reference_skeleton` is given, the draft is authored to MIRROR that structure/voice."""
+    If `reference_skeleton` is given, the draft is authored to MIRROR that structure/voice.
+    If `format_exemplar` is given (the canonical template rendered blank), the draft is
+    authored INTO that prescribed format — templates as curriculum, not cage."""
     from headnote.llm.client import _call_deepseek_or_groq, parse_json_response
-    system = _author_system(doc_type, lang)
+    system = _author_system(doc_type, lang, format_exemplar=format_exemplar)
     b = brief_for(doc_type)
     user = (
         f"MATTER (the advocate's instructions / facts — use ONLY these facts):\n{matter.strip()}\n\n"
@@ -1660,18 +1748,30 @@ def author_payload(matter: str, doc_type: str, lang: str = "hi", *, court: str =
         user += _mirror_instruction(reference_skeleton)
     # Authoring routes through DRAFTER_AUTHOR_MODEL (default Sonnet→DeepSeek R1) so the
     # grounds are reasoned, not merely assembled. Set env to claude-haiku-4-5 for V3.
-    raw, meta = _call_deepseek_or_groq(system, user, max_tokens=4000, claude_model=config.DRAFTER_AUTHOR_MODEL)
-    payload = parse_json_response(raw)
+    try:
+        raw, meta = _call_deepseek_or_groq(system, user, max_tokens=6000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
+        payload = parse_json_response(raw)
+    except Exception:
+        # SLIM RETRY — covers BOTH failure classes: (a) the ~14K-token skill prefix
+        # 413s the free-tier fallback (Groq 12K TPM), and (b) the model returned
+        # broken/truncated JSON (a fresh roll usually lands). A skill-less authored
+        # draft beats no draft; every guard still applies.
+        slim = _author_system(doc_type, lang, format_exemplar=format_exemplar, inject_skill=False)
+        raw, meta = _call_deepseek_or_groq(slim, user, max_tokens=6000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
+        payload = parse_json_response(raw)
     return _shape_payload(payload, doc_type, b, meta)
 
 
 def author_document(matter: str, doc_type: str, lang: str = "hi", *, court: str = "",
-                    reference_skeleton: str = "") -> dict:
+                    reference_skeleton: str = "", format_exemplar: str = "") -> dict:
     """End-to-end authoring: prompt → house-style court-ready HTML + flagged extras.
     Returns {ok, mode, doc_type, html, cite_at_hearing, companions, warnings, meta}."""
-    payload = author_payload(matter, doc_type, lang, court=court, reference_skeleton=reference_skeleton)
+    payload = author_payload(matter, doc_type, lang, court=court,
+                             reference_skeleton=reference_skeleton, format_exemplar=format_exemplar)
     # ground every fact in the output against the advocate's own brief (the matter)
     rendered = render_authored(payload, lang, source=matter)
+    # …and the mirror duty: everything concrete the advocate GAVE must be in the draft
+    rendered["warnings"].extend(coverage_warnings(matter, rendered["html"], lang))
     return {
         "ok": True,
         "mode": "authored",
@@ -1704,8 +1804,15 @@ def revise_document(prior_text: str, instruction: str, doc_type: str = "other_cr
         "Preserve everything the advocate did NOT ask to change; apply only the requested changes. "
         "Keep the house style and the zero-fabrication rules in force."
     )
-    raw, meta = _call_deepseek_or_groq(system, user, max_tokens=4000, claude_model=config.DRAFTER_AUTHOR_MODEL)
-    payload = _shape_payload(parse_json_response(raw), doc_type, b, meta)
+    try:
+        raw, meta = _call_deepseek_or_groq(system, user, max_tokens=6000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
+        payload = _shape_payload(parse_json_response(raw), doc_type, b, meta)
+    except Exception:
+        # slim retry (see author_payload) — keep the edit path alive on the free tier
+        # and re-roll on broken/truncated JSON
+        slim = _author_system(doc_type, lang, inject_skill=False)
+        raw, meta = _call_deepseek_or_groq(slim, user, max_tokens=6000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
+        payload = _shape_payload(parse_json_response(raw), doc_type, b, meta)
     # a refine's facts of record = the accepted prior draft + the new instruction
     rendered = render_authored(payload, lang, source=(prior_text or "") + "\n" + (instruction or ""))
     return {
