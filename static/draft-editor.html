@@ -401,14 +401,22 @@
         '<button class="hcta" id="hero-cta">Add facts in the assistant →</button>';
       box.appendChild(h);
     }
-    // ungrounded first (the actionable, must-verify class)
+    // ungrounded first (the actionable class). In reference mode these are values
+    // CARRIED from the reference for the advocate to swap — not "maybe invented".
     if((A.ungrounded||[]).length){
       amber++;
-      box.appendChild(chk("warn","!","<b>"+A.ungrounded.length+" detail(s) not in your input</b><div class='sub'>Highlighted in amber — verify or delete: "+esc(A.ungrounded.slice(0,6).join("; "))+"</div>"));
+      var head=A.mirrored?"<b>"+A.ungrounded.length+" detail(s) carried from your reference</b>"
+                         :"<b>"+A.ungrounded.length+" detail(s) not in your input</b>";
+      var sub=A.mirrored?"Highlighted in amber — replace with this client’s details: "
+                        :"Highlighted in amber — verify or delete: ";
+      box.appendChild(chk("warn","!",head+"<div class='sub'>"+sub+esc(A.ungrounded.slice(0,6).join("; "))+"</div>"));
     }
     warns.forEach(function(w){
       // skip the generic "contains placeholders" note — the hero already says it better
       if(/placeholder|____|रिक्त स्थान/i.test(w) && blanks>=3) return;
+      // in reference mode, the "…may be invented" grounding note is superseded by the
+      // reframed "carried from your reference" chip above — don't show both.
+      if(A.mirrored && /may be invented|स्वतः जोड़े गए/i.test(w)) return;
       var isWarn=/^⚠|verify|जाँच|पुष्टि|नहीं मिले|नहीं आए/.test(w);
       if(isWarn) amber++;
       box.appendChild(chk(isWarn?"warn":"info", isWarn?"!":"i", w));

@@ -1569,22 +1569,33 @@ headings, SAME boilerplate framing sentences, SAME paragraph voice and register,
 reference, and EVERY companion section the reference carries (schedule of property, verification, affidavit,
 list of documents — whatever is there), adapted to the new matter.
 
-THE TWO-SOURCE RULE — what comes from where:
-• STRUCTURE, FORMAT, BOILERPLATE, IDIOM → from the REFERENCE. Reuse its recurring/standard sentences (the
-  para openings, the cause-of-action para shape, the prayer framing, the verification wording) with the new
-  matter's specifics slotted in. Mirror its ORDER exactly — if the statute recital comes before the parties,
-  keep it before the parties.
-• FACTS (names, relationships, dates, amounts, account/FIR/case numbers, addresses, the story) → ONLY from
-  the advocate's brief. The reference's facts are ANOTHER CLIENT'S CASE — never let a reference name, date,
-  amount or storyline leak into the new draft. Where the structure needs a value the brief does not give,
-  write ____ in its place.
-• THE BRIEF IS PRIMARY: every fact the brief gives MUST be written into the new draft at its proper place —
-  the reference dictates FORM, the brief dictates CONTENT. Dropping a brief fact is as much a defect as
-  inventing one; if a brief fact fits nowhere in the reference's structure, add a numbered para for it.
-• THE ADVOCATE'S LETTERHEAD IS FORMAT, NOT A CASE FACT: the reference's own letterhead — the advocate's
-  name, designation ("एडवोकेट"), court, office/residence address, enrolment no., mobile — belongs to the
-  ADVOCATE (the user), not to the old client. Reproduce it VERBATIM, laid out exactly as in the reference
-  (name block left, address block right → use the "columns" kind; separator lines → the "rule" kind).
+THE THREE-SOURCE RULE — what comes from where, in priority order. The advocate gave you a reference BECAUSE
+they want a near-complete draft they lightly edit — NEVER return an empty skeleton of one-line shells.
+
+1. THE BRIEF (the advocate's typed matter + any attached case papers) is the PRIMARY source of THIS client's
+   facts — names, relationships, dates, amounts, and the STORY / the point-by-point position. Write EVERY
+   fact the brief gives into its proper place, in FULL. If the brief tells a story, the paragraphs must TELL
+   THAT STORY at length in the reference's register — never compress a narrative the advocate gave into a
+   one-line "____". Mirror the reference's ORDER and headings exactly.
+
+2. THE REFERENCE supplies two things you MUST carry:
+   (a) THE ADVOCATE'S OWN STANDING INFO — the letterhead: name, designation ("एडवोकेट"), court, office &
+       residence ADDRESS, mobile, enrolment. This is the SAME advocate on every draft — it is NOT a client
+       fact. Reproduce it VERBATIM, including the address and mobile number (name block left, address block
+       right → the "columns" kind; separator lines → the "rule" kind). Do NOT blank it.
+   (b) THE REUSABLE LEGAL SCAFFOLD — the framing sentences, the admit/deny paragraph shapes, the recital and
+       prayer wording, the standard legal language and idiom. PRESERVE this scaffold richly so the output is
+       a working draft, not a blank form.
+
+3. CLIENT-SPECIFIC PARTICULARS the scaffold needs (a specific name, amount, date, or the substance of a
+   point) that the BRIEF does NOT supply: keep the reference's own wording in place as a WORKING PLACEHOLDER
+   (it is highlighted downstream for the advocate to confirm or replace) — do not blank a rich paragraph to
+   "____". Only write ____ where there is genuinely nothing to carry. NEVER invent a net-new fact, party,
+   date or figure that appears in NEITHER the brief NOR the reference.
+
+Net effect: a rich brief → a rich, specific draft in the reference's format. A thin brief + a rich reference
+→ the reference's FULL scaffold with its specifics carried and flagged for the advocate to swap. Either way
+the advocate edits a near-complete draft — they never re-type the factual background from scratch.
 • ONE SCRIPT THROUGHOUT: if the draft is Hindi, EVERYTHING is Devanagari — when the brief types names/
   places in Roman ("Ayush Shivhare s/o Vishnu"), TRANSLITERATE them (आयुष शिवहरे पुत्र विष्णु) and write
   English fact fragments as formal Hindi. Never leave a Roman name sitting inside a Hindi sentence.
@@ -1594,17 +1605,15 @@ THE TWO-SOURCE RULE — what comes from where:
 • PAGE BREAKS: use {"kind":"pagebreak"} ONLY where a NEW companion document begins (affidavit, list of
   documents). NEVER where the reference's physical page happens to end — the new draft reflows continuously
   and the printer decides the page boundaries.
-• NEVER INVENT a fact, a party, a relationship or a narrative the brief does not state. A draft full of ____
-  is CORRECT; an invented story is a career-ending defect for the advocate.
-• THE OPENING RECITAL is the worst offender: the party names, the opposite party, the notice/order date in
-  the very first "in the matter of / जो कि मैं अपने पक्षकार …" sentence MUST be ____ unless the brief gives
-  them. Do NOT borrow a plausible name, and do NOT lift the reference's party names or its numbers (its
-  "9,50,000 रुपये 15 दिवस" is that client's — never copy "15" or any figure from it). Every name/date/amount
-  in the output must appear in the brief; if it doesn't, it is ____.
-• A PARA-WISE REPLY (जबाव सूचना पत्र / written statement) replies to ANOTHER document, paragraph by paragraph.
-  You can only reproduce the reference's admit/deny FRAMING sentences ("पद क्रमांक-__ … स्वीकार/अस्वीकार है");
-  the substance of each reply is ____ unless the brief supplies the notice being replied to. Do not fabricate
-  what is admitted or denied.
+• DO NOT INVENT NET-NEW facts — a name, party, date or figure present in NEITHER the brief NOR the reference.
+  (Carrying the reference's own wording as a flagged placeholder is allowed and expected per rule 3; inventing
+  a brand-new plausible value from nowhere is not.) In the OPENING RECITAL, prefer the brief's client/opposite
+  party/notice-date; if the brief is silent, carry the reference's wording as a placeholder rather than
+  guessing a fresh name.
+• A PARA-WISE REPLY (जबाव सूचना पत्र / written statement) answers another document point by point. Reproduce
+  the reference's admit/deny FRAMING for each point AND carry its substantive reasoning as the scaffold; where
+  the brief gives this client's version of a point, write that version in full instead. Do not reduce a point
+  the reference argues in a full paragraph down to a bare "____".
 • STATUTES/SECTIONS: cite what the NEW matter actually needs (the reference shows the FORMAT of the recital,
   not the sections to copy). If unsure of a section number, write ____.
 • CITATIONS: put NO case citation in the body. If authority helps, list only real judgments you are certain
@@ -1746,12 +1755,15 @@ def render_mirrored(p: dict, doc_type: str, source: str = "") -> dict:
             out.append(f'<div class="mr-rule mr-rule-{style}"></div>')
             continue
         if kind == "columns":
+            # the advocate's letterhead (name / address / mobile) — their OWN standing
+            # info, NOT a client fact: use fmt (no fact-grounding) so it renders verbatim
+            # and is never amber-flagged.
             left = _demarkdown(str(b.get("left") or ""))
             right = _demarkdown(str(b.get("right") or ""))
             if not left and not right:
                 continue
-            out.append(f'<div class="mr-cols"><div class="l">{fmtg(left)}</div>'
-                       f'<div class="r">{fmtg(right)}</div></div>')
+            out.append(f'<div class="mr-cols"><div class="l">{fmt(left)}</div>'
+                       f'<div class="r">{fmt(right)}</div></div>')
             continue
         if kind == "party":
             lines = [_demarkdown(str(x)) for x in (b.get("lines") or []) if str(x).strip()]
