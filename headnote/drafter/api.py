@@ -438,6 +438,83 @@ def delete_draft(draft_id: str):
     return {"deleted": True, "id": draft_id}
 
 
+def _draft_matter_text(answers: dict) -> str:
+    """The current draft's own text, tags stripped — used as the FACTS source when
+    re-mirroring in place (the draft now carries the matter, so it is the brief)."""
+    body = (answers.get("html_hi") or answers.get("html_en") or "")
+    t = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", body)
+    t = re.sub(r"(?i)<(br|/p|/div|/li|/h\d|/tr)[^>]*>", "\n", t)
+    t = re.sub(r"<[^>]+>", "", t)
+    t = (t.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+          .replace("&nbsp;", " ").replace("&#39;", "'").replace("&quot;", '"'))
+    t = re.sub(r"[ \t]+", " ", t)
+    return re.sub(r"\n\s*\n+", "\n", t).strip()
+
+
+@router.post("/{draft_id}/apply-reference", summary="Re-mirror this draft into an uploaded reference's format, IN PLACE")
+async def apply_reference(
+    draft_id: str,
+    file: Optional[UploadFile] = File(None),
+    files: Optional[List[UploadFile]] = File(None),
+):
+    """Attach a filed document as a STYLE reference to an EXISTING draft: OCR the
+    reference, re-mirror the draft's current facts into that format, and update the
+    SAME draft in place (same id — no orphan, no navigation). Reference = format,
+    the draft's own text = facts (two-source rule); every guard still fires."""
+    from fastapi.responses import JSONResponse
+    from headnote.drafter.ocr import ocr_text_pages
+    from headnote.drafter.from_prompt import draft_from_prompt
+
+    d = storage.get_draft(draft_id)
+    if d is None:
+        return JSONResponse({"ok": False, "error": "draft not found"}, status_code=404)
+    answers = d.to_dict().get("answers") or {}
+
+    uploads: List[UploadFile] = []
+    if files:
+        uploads.extend(files)
+    if file:
+        uploads.append(file)
+    if not uploads:
+        return JSONResponse({"ok": False, "error": "attach a reference document (image / PDF / Word)"}, status_code=400)
+    if len(uploads) > _OCR_MAX_PAGES:
+        return JSONResponse({"ok": False, "error": f"too many pages ({len(uploads)}); max {_OCR_MAX_PAGES}"}, status_code=400)
+
+    entries = [(await up.read(), up.content_type or "", up.filename or "") for up in uploads]
+    try:
+        pages, office_text = office.collect_uploads(entries, max_bytes=_OCR_MAX_BYTES)
+    except ValueError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    try:
+        ref_text = ocr_text_pages(pages, office_text=office_text)
+    except Exception:
+        return JSONResponse({"ok": False, "error":
+                             "रेफरेंस दस्तावेज़ पढ़ा नहीं जा सका — साफ़ फोटो/PDF के साथ फिर कोशिश करें। "
+                             "(Could not read the reference — try a clearer photo/PDF.)"})
+    if not (ref_text or "").strip():
+        return JSONResponse({"ok": False, "error": "could not read the reference document"})
+
+    matter = _draft_matter_text(answers)
+    lang = answers.get("lang") or d.lang or "hi"
+    result = draft_from_prompt(matter, lang, reference_text=ref_text.strip())
+    if not (isinstance(result, dict) and result.get("ok")):
+        return JSONResponse({"ok": False, "error":
+                             "रेफरेंस लागू नहीं हो सका — कृपया दोबारा कोशिश करें। "
+                             "(Could not apply the reference — please try again.)"})
+    # update the SAME draft in place with the re-mirrored payload
+    new_payload = {**answers}
+    for k in ("html_hi", "html_en", "page_hi", "page_en", "warnings", "ungrounded",
+              "cite_at_hearing", "companions", "mirrored", "title", "lang"):
+        if k in result:
+            new_payload[k] = result[k]
+    new_payload["mirrored"] = True
+    storage.update_draft(draft_id, answers=new_payload,
+                         lang=(result.get("lang") or lang),
+                         title=(result.get("title") or d.title))
+    result["draft_id"] = draft_id
+    return result
+
+
 @router.get("/{draft_id}/render", summary="Render the draft to HTML for preview")
 def render_draft(draft_id: str, lang: Optional[str] = None):
     """Returns rendered HTML. `lang` query param overrides the draft's

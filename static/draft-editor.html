@@ -101,6 +101,21 @@
   .comp{display:flex;align-items:center;gap:9px;padding:7px 0;font-size:12.6px;color:var(--ink-2)}
   .comp input{accent-color:var(--ink);width:15px;height:15px}
   .muted{color:var(--ink-4);font-size:12px;line-height:1.5}
+  /* format section */
+  .fmt-btn{display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:1px dashed var(--line);border-radius:var(--radius);padding:11px 12px;color:var(--ink-2);font-size:12.6px}
+  .fmt-btn:hover{border-color:var(--ink-3);color:var(--ink)}
+  .fmt-btn .i{font-size:14px}
+  .fmt-on{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--verify);background:#f7ffe0;border-radius:var(--radius);padding:11px 12px}
+  .fmt-on .i{color:var(--verify-deep);font-size:14px;margin-top:1px}
+  .fmt-on .tx{font-size:12.4px;line-height:1.44;color:var(--ink)}
+  .fmt-on .tx .sub{color:var(--ink-3);font-size:11.4px;margin-top:2px}
+  .fmt-on .replace{margin-top:6px;font-family:var(--mono);font-size:10px;letter-spacing:.03em;color:var(--ink-2);text-decoration:underline;text-underline-offset:2px}
+  .fmt-on .replace:hover{color:var(--ink)}
+  .fmt-soon{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:var(--radius);padding:11px 12px;margin-top:8px;opacity:.85}
+  .fmt-soon .i{font-size:14px;color:var(--ink-3);margin-top:1px}
+  .fmt-soon .tx{font-size:12.4px;line-height:1.44;color:var(--ink-2)}
+  .fmt-soon .tx b{color:var(--ink);font-weight:560}
+  .soon-tag{display:inline-block;font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;background:var(--rail);border:1px solid var(--line);color:var(--ink-3);padding:2px 6px;border-radius:20px;margin-top:5px}
   .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:9px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:60}
   .toast.show{opacity:1}
   @media (max-width:1080px){.body{grid-template-columns:1fr}.rail{display:none}}
@@ -183,6 +198,10 @@
         </div>
       </div>
       <div id="p-file" style="display:none">
+        <div class="sec"><span class="lbl">Format</span>
+          <div id="format-box" style="margin-top:6px"></div>
+          <input type="file" id="ref-file" accept="image/*,.pdf,.docx,.doc" multiple hidden>
+        </div>
         <div class="sec"><span class="lbl">Authorities for hearing</span>
           <div id="authorities" style="margin-top:6px"></div></div>
         <div class="sec"><span class="lbl">File these alongside</span>
@@ -350,7 +369,50 @@
     co.innerHTML=comps.length? comps.map(function(c){
       return '<label class="comp"><input type="checkbox"> '+esc(c)+'</label>';
     }).join("") : '<div class="muted">No mandatory companions for this type.</div>';
+    renderFormat();
   }
+
+  // ---- format: reference (attach / attached) + Draft DNA (members, soon) ----
+  function renderFormat(){
+    var box=$("format-box");
+    var soon='<div class="fmt-soon"><div class="i">◈</div><div class="tx"><b>Apply my Draft DNA</b>'+
+             '<div class="sub">Your letterhead, numbering & voice on every draft — learned from your past filings.</div>'+
+             '<span class="soon-tag">Coming soon · Members</span></div></div>';
+    if(A.mirrored){
+      box.innerHTML='<div class="fmt-on"><div class="i">✦</div><div class="tx"><b>Reference attached</b>'+
+        '<div class="sub">This draft mirrors the format of your uploaded document.</div>'+
+        '<div><button class="replace" id="ref-replace">Replace reference</button></div></div></div>'+soon;
+      var rp=$("ref-replace"); if(rp) rp.onclick=function(){ $("ref-file").click(); };
+    } else {
+      box.innerHTML='<button class="fmt-btn" id="ref-attach"><span class="i">✦</span>'+
+        '<span>Attach a reference draft — match its exact format</span></button>'+soon;
+      var ra=$("ref-attach"); if(ra) ra.onclick=function(){ $("ref-file").click(); };
+    }
+  }
+  // upload → re-mirror this draft IN PLACE
+  (function(){
+    var fi=$("ref-file"); if(!fi) return;
+    fi.addEventListener("change",function(){
+      var fs=fi.files; if(!fs||!fs.length) return;
+      var fd=new FormData(); for(var i=0;i<fs.length;i++) fd.append("files",fs[i]);
+      fi.value="";
+      setSaved("saving"); toast("Reading your reference & re-formatting…");
+      var box=$("format-box"); box.innerHTML='<div class="muted">Matching your reference’s format…</div>';
+      fetch("/api/draft/"+encodeURIComponent(DRAFT_ID)+"/apply-reference",{method:"POST",body:fd})
+      .then(function(r){return r.json();}).then(function(res){
+        if(!res||!res.ok){ toast((res&&res.error)?res.error.slice(0,100):"Couldn’t apply the reference — your draft is safe."); setSaved("saved"); renderFormat(); return; }
+        // swap in the re-mirrored document (same draft_id) + refresh everything
+        A.page_hi=res.page_hi||A.page_hi; A.page_en=res.page_en||A.page_en;
+        A.html_hi=res.html_hi||A.html_hi; A.html_en=res.html_en||A.html_en;
+        A.warnings=res.warnings||[]; A.ungrounded=res.ungrounded||[];
+        A.cite_at_hearing=res.cite_at_hearing||A.cite_at_hearing; A.companions=res.companions||A.companions;
+        A.mirrored=true; A.title=res.title||A.title; A.lang=res.lang||A.lang;
+        lang=(A.lang==="en")?"en":"hi";
+        renderDoc(); renderTrust(); renderFile();
+        setSaved("saved"); toast("Reference applied ✓");
+      }).catch(function(){ setSaved("saved"); toast("Network hiccup — your draft is safe. Try again."); renderFormat(); });
+    });
+  })();
 
   // ---- suggestions (live, from /api/draft/suggest) ----
   function loadSuggest(){
