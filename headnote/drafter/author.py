@@ -1605,12 +1605,17 @@ OUTPUT — ONLY valid JSON (no prose, no markdown fence):
 {
  "title": "<short label for this draft>",
  "font": "serif" | "devanagari",
+ "num_format": "<the reference's paragraph-number style with {n} as the number, e.g. '{n}.' or '({n})' or '{n}ए' — copy EXACTLY what the reference uses; omit for '{n}.'>",
+ "num_digits": "arabic" | "devanagari",
+ "item_letters": "latin" | "hindi",
  "blocks": [ …the ENTIRE document, top to bottom, one block per visual element… ],
  "cite_at_hearing": [{"case": "…", "point": "…"}],
  "companions": ["<documents to file alongside that you did NOT draft as blocks>"],
  "warnings": ["<anything the advocate must verify>"]
 }
 "font": "serif" for an English/Times-style reference; "devanagari" for a Hindi one.
+"num_format"/"num_digits"/"item_letters": MIRROR the reference's own numbering idiom — if it numbers paras
+"१." use devanagari digits; if its prayer sub-clauses run (अ) (ब) (स) use item_letters "hindi".
 
 Block kinds (use EXACTLY these):
  {"kind":"columns","left":"विष्णु शिवहरे\\nएडवोकेट\\nउच्च न्यायालय खण्डपीठ ग्वालियर म.प्र.","right":"कार्यालय एवं निवास:- ____\\nमोबा. ____"}
@@ -1668,6 +1673,25 @@ def render_mirrored(p: dict, doc_type: str, source: str = "") -> dict:
     num = 0                     # auto para number — resets on pagebreak
     item_i = 0                  # auto sub-clause letter — resets on any other kind
     flagged_any = False
+
+    # numbering idiom mirrored from the reference: "1." vs "१." vs "1ए" vs "(1)";
+    # prayer sub-clauses (a)(b) vs (अ)(ब). Sanitised — a bad format falls back.
+    num_format = str(p.get("num_format") or "{n}.").strip()
+    if "{n}" not in num_format or len(num_format) > 8:
+        num_format = "{n}."
+    deva_nums = (p.get("num_digits") or "").strip().lower() == "devanagari"
+    _HINDI_LETTERS = ["अ", "ब", "स", "द", "इ", "फ", "ग", "ह", "ज", "क", "ल", "म"]
+
+    def _num_marker(n: int) -> str:
+        s = str(n)
+        if deva_nums:
+            s = s.translate(str.maketrans("0123456789", "०१२३४५६७८९"))
+        return num_format.replace("{n}", s)
+
+    def _item_marker(i: int) -> str:
+        if (p.get("item_letters") or "").strip().lower() == "hindi":
+            return _HINDI_LETTERS[i - 1] if i <= len(_HINDI_LETTERS) else str(i)
+        return chr(96 + i) if i <= 26 else str(i)
 
     def fmt(t: str) -> str:
         """citation guard + escape — for boilerplate blocks (court name, headings)."""
@@ -1752,11 +1776,10 @@ def render_mirrored(p: dict, doc_type: str, source: str = "") -> dict:
             continue
         if kind == "num":
             num += 1
-            out.append(f'<div class="mr-num"><span class="n">{num}.</span>{fmtg(text)}</div>')
+            out.append(f'<div class="mr-num"><span class="n">{_esc(_num_marker(num))}</span>{fmtg(text)}</div>')
         elif kind == "item":
             item_i += 1
-            letter = chr(96 + item_i) if item_i <= 26 else str(item_i)
-            out.append(f'<div class="mr-item"><span class="n">({letter})</span>{fmtg(text)}</div>')
+            out.append(f'<div class="mr-item"><span class="n">({_esc(_item_marker(item_i))})</span>{fmtg(text)}</div>')
         elif kind == "center":
             cls = "mr-center" + (" mr-b" if b.get("bold") else "") + (" mr-u" if b.get("underline") else "")
             out.append(f'<div class="{cls}">{fmt(text)}</div>')
