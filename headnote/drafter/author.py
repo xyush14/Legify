@@ -809,6 +809,10 @@ HOUSE STYLE — follow exactly:
   Hinglish, NOT casual Hindi) — natural for Hindi-belt forums (UP, MP, Bihar, Rajasthan, Chhattisgarh,
   Jharkhand, Uttarakhand, Haryana, HP, Delhi). If English, use formal Indian court English — the norm for
   most other High Courts and many State trial courts. Match the register a senior office in that State files.
+  ONE SCRIPT THROUGHOUT: in a Hindi draft, names/places the advocate typed in Roman ("Ayush Shivhare s/o
+  Vishnu, Gwalior") are TRANSLITERATED to Devanagari (आयुष शिवहरे पुत्र विष्णु, ग्वालियर) and English fact
+  fragments are written as formal Hindi — never leave a Roman name inside a Hindi sentence. Likewise an
+  English draft carries romanised names, not Devanagari. Dates/numbers keep their given values.
 • PARTIES: a full descriptor block, not a bare name. Applicant = naam + पुत्र/पुत्री/पत्नी श्री <father/husband>
   + आयु + व्यवसाय + निवासी <address>, जिला <district> (<state>). Respondent for a State criminal matter =
   "<state> शासन द्वारा, पुलिस थाना <PS>, जिला <district>". Use the right party LABELS per matter:
@@ -1122,12 +1126,81 @@ def _norm_digits(s: str) -> str:
     return (s or "").translate(_DEV_DIGITS)
 
 
+# Phonetic skeleton for Devanagari name matching: transliteration is not unique
+# (the machine writes शिव्हरे, the model शिवहरे; विश्नु vs विष्णु — same name).
+# Dropping matras/halant and collapsing the sibilants gives both spellings the
+# same skeleton, so a correctly-transliterated name grounds instead of flagging.
+_DEVA_STRIP = set("ािीुूृॄेैोौॅॉंँः़्ऽ")
+_DEVA_FOLD = str.maketrans({"श": "स", "ष": "स", "ण": "न", "ऋ": "र", "ळ": "ल",
+                            # long/short independent vowels are transliteration noise
+                            "आ": "अ", "ई": "इ", "ऊ": "उ", "ऐ": "ए", "औ": "ओ"})
+
+
+def _deva_skeleton(s: str) -> str:
+    s = _norm_digits(s or "")
+    s = "".join(ch for ch in s if ch not in _DEVA_STRIP)
+    return re.sub(r"\s+", " ", s.translate(_DEVA_FOLD)).casefold()
+
+
+def _strip_honorifics(a: str) -> str:
+    """Strip STACKED honorifics ('स्व. श्री कमलेश राणा' → 'कमलेश राणा')."""
+    while True:
+        b = _G_HONORIFIC.sub("", a).strip()
+        if b == a:
+            return a
+        a = b
+
+
+def _ed_le1(a: str, b: str) -> bool:
+    """Edit distance ≤ 1 — absorbs the one-character spelling variance two valid
+    transliterations of the same name routinely have (कंलेश vs कमलेश)."""
+    if a == b:
+        return True
+    la, lb = len(a), len(b)
+    if abs(la - lb) > 1:
+        return False
+    if la > lb:
+        a, b, la, lb = b, a, lb, la
+    i = j = diff = 0
+    while i < la and j < lb:
+        if a[i] == b[j]:
+            i += 1; j += 1
+            continue
+        diff += 1
+        if diff > 1:
+            return False
+        if la == lb:
+            i += 1
+        j += 1
+    return diff + (lb - j) <= 1
+
+
 def _ground_index(source: str) -> dict:
     """Pre-index the advocate's source text (their typed brief / OCR'd case papers)
-    for O(1) grounding membership tests."""
+    for O(1) grounding membership tests. The index also carries a TRANSLITERATED
+    shadow of the source — a Hindi draft correctly writes the Roman-typed "Ayush
+    Shivhare" as आयुष शिवहरे, and that must GROUND, not flag as invented (and the
+    reverse for an English draft from a Devanagari brief)."""
     src = _norm_digits(source or "")
-    return {"digits": re.sub(r"\D", "", src),
-            "text": re.sub(r"\s+", " ", src).casefold()}
+    text = re.sub(r"\s+", " ", src).casefold()
+    try:
+        from headnote.drafter.transliterate import en_to_hi, hi_to_en
+        shadows = []
+        if re.search(r"[A-Za-z]", src):
+            # transliterate only NAME-SHAPED words (capitalized) — running English
+            # ("sent", "dated") through the phonetic engine pollutes the shadow with
+            # tokens that accidentally match real Devanagari words (सेंत ≈ सीता).
+            names = re.findall(r"\b[A-Z][a-z]+\b", src)
+            shadows.append(en_to_hi(" ".join(names) if names else src))
+        if any("ऀ" <= ch <= "ॿ" for ch in src):
+            shadows.append(hi_to_en(src))
+        if shadows:
+            text += " || " + re.sub(r"\s+", " ", " || ".join(shadows)).casefold()
+    except Exception:
+        pass
+    skel = _deva_skeleton(text)
+    return {"digits": re.sub(r"\D", "", src), "text": text, "skel": skel,
+            "skel_tokens": set(re.split(r"[^\wऀ-ॿ]+", skel)) - {""}}
 
 
 def _grounded(atom: str, kind: str, gi: dict) -> bool:
@@ -1141,8 +1214,19 @@ def _grounded(atom: str, kind: str, gi: dict) -> bool:
     a = re.sub(r"\s+", " ", atom).casefold().strip(" .,-–")
     if not a:
         return True
-    a2 = _G_HONORIFIC.sub("", a).strip()      # match with or without the honorific
-    return (a in gi["text"]) or (bool(a2) and a2 in gi["text"])
+    a2 = _strip_honorifics(a)                 # match with or without honorifics (stacked too)
+    if (a in gi["text"]) or (bool(a2) and a2 in gi["text"]):
+        return True
+    # cross-script leniency: a Devanagari name is the SAME name as its Roman-typed
+    # source form if every word's phonetic skeleton matches a source token within
+    # edit distance 1 (two valid transliterations rarely agree to the letter).
+    if any("ऀ" <= ch <= "ॿ" for ch in a):
+        toks = gi.get("skel_tokens") or set()
+        words = [_deva_skeleton(w) for w in (a2 or a).split()]
+        words = [w for w in words if len(w) >= 2]
+        if words and toks:
+            return all(any(_ed_le1(w, t) for t in toks if len(t) >= 2) for w in words)
+    return False
 
 
 def _mark_grounding(text: str, gi: dict, ung: list) -> str:
@@ -1497,6 +1581,19 @@ THE TWO-SOURCE RULE — what comes from where:
 • THE BRIEF IS PRIMARY: every fact the brief gives MUST be written into the new draft at its proper place —
   the reference dictates FORM, the brief dictates CONTENT. Dropping a brief fact is as much a defect as
   inventing one; if a brief fact fits nowhere in the reference's structure, add a numbered para for it.
+• THE ADVOCATE'S LETTERHEAD IS FORMAT, NOT A CASE FACT: the reference's own letterhead — the advocate's
+  name, designation ("एडवोकेट"), court, office/residence address, enrolment no., mobile — belongs to the
+  ADVOCATE (the user), not to the old client. Reproduce it VERBATIM, laid out exactly as in the reference
+  (name block left, address block right → use the "columns" kind; separator lines → the "rule" kind).
+• ONE SCRIPT THROUGHOUT: if the draft is Hindi, EVERYTHING is Devanagari — when the brief types names/
+  places in Roman ("Ayush Shivhare s/o Vishnu"), TRANSLITERATE them (आयुष शिवहरे पुत्र विष्णु) and write
+  English fact fragments as formal Hindi. Never leave a Roman name sitting inside a Hindi sentence.
+  Digits stay as the reference writes them.
+• PLAIN TEXT ONLY inside blocks — never markdown. No "##", no "**", no backticks. If the reference shows
+  decorative marks (e.g. a title between // slashes //), reproduce those characters as text.
+• PAGE BREAKS: use {"kind":"pagebreak"} ONLY where a NEW companion document begins (affidavit, list of
+  documents). NEVER where the reference's physical page happens to end — the new draft reflows continuously
+  and the printer decides the page boundaries.
 • NEVER INVENT a fact, a party, a relationship or a narrative the brief does not state. A draft full of ____
   is CORRECT; an invented story is a career-ending defect for the advocate.
 • STATUTES/SECTIONS: cite what the NEW matter actually needs (the reference shows the FORMAT of the recital,
@@ -1516,6 +1613,9 @@ OUTPUT — ONLY valid JSON (no prose, no markdown fence):
 "font": "serif" for an English/Times-style reference; "devanagari" for a Hindi one.
 
 Block kinds (use EXACTLY these):
+ {"kind":"columns","left":"विष्णु शिवहरे\\nएडवोकेट\\nउच्च न्यायालय खण्डपीठ ग्वालियर म.प्र.","right":"कार्यालय एवं निवास:- ____\\nमोबा. ____"}
+                                                            → two-column letterhead row (name/designation left, address/phone right)
+ {"kind":"rule","style":"double"}                            → full-width separator line; style "single" | "double" | "dashed"
  {"kind":"center","text":"…","bold":true,"underline":true}  → centred line (court name, case-number line)
  {"kind":"label","text":"IN THE MATTER OF:"}                → bold underlined left-margin label
  {"kind":"recital","text":"A PETITION UNDER …"}             → the indented bold justified block under a label
@@ -1531,6 +1631,24 @@ Block kinds (use EXACTLY these):
  {"kind":"table","headers":["Sl.","Document","Pages"],"rows":[["1","____",""]]}
  {"kind":"pagebreak"}                                       → next companion document (affidavit, list of documents)
                                                               starts on a fresh page; para numbering restarts"""
+
+
+# markdown artifacts the model sometimes leaks into block text ("## विष्णु शिवहरे…",
+# "**बनाम**") — a filed court paper has no markdown, so strip deterministically.
+_MD_HEAD = re.compile(r"^\s*#{1,6}\s+")
+_MD_BOLD = re.compile(r"\*\*([^*]+)\*\*")
+
+
+def _demarkdown(t: str) -> str:
+    t = _MD_HEAD.sub("", t or "")
+    t = _MD_BOLD.sub(r"\1", t)
+    return t.replace("```", "").strip()
+
+
+# a pagebreak is REAL only when a new companion document starts after it; a break
+# followed by ordinary body flow is the reference's physical page boundary leaking
+# through (prints as a near-empty first page — seen live).
+_BREAK_OK_NEXT = {"center", "head", "label", "recital"}
 
 
 def render_mirrored(p: dict, doc_type: str, source: str = "") -> dict:
@@ -1574,20 +1692,37 @@ def render_mirrored(p: dict, doc_type: str, source: str = "") -> dict:
             h += ' <span class="ph">[उद्धृत निर्णय — सत्यापन आवश्यक]</span>'
         return h
 
-    for b in (p.get("blocks") or []):
-        if not isinstance(b, dict):
-            b = {"kind": "text", "text": str(b)}
+    blocks = [(b if isinstance(b, dict) else {"kind": "text", "text": str(b)})
+              for b in (p.get("blocks") or [])]
+    for bi, b in enumerate(blocks):
         kind = (b.get("kind") or "text").strip().lower()
-        text = str(b.get("text") or "").strip()
+        text = _demarkdown(str(b.get("text") or ""))
         if kind != "item":
             item_i = 0
         if kind == "pagebreak":
+            nxt = next(((x.get("kind") or "text").strip().lower()
+                        for x in blocks[bi + 1:] if isinstance(x, dict)), "")
+            if nxt not in _BREAK_OK_NEXT:
+                continue    # reference page-boundary artifact — the draft reflows
             num = 0
             out.append('<div class="mr-break"></div>')
             continue
+        if kind == "rule":
+            style = (b.get("style") or "single").strip().lower()
+            style = style if style in ("single", "double", "dashed") else "single"
+            out.append(f'<div class="mr-rule mr-rule-{style}"></div>')
+            continue
+        if kind == "columns":
+            left = _demarkdown(str(b.get("left") or ""))
+            right = _demarkdown(str(b.get("right") or ""))
+            if not left and not right:
+                continue
+            out.append(f'<div class="mr-cols"><div class="l">{fmtg(left)}</div>'
+                       f'<div class="r">{fmtg(right)}</div></div>')
+            continue
         if kind == "party":
-            lines = [str(x).strip() for x in (b.get("lines") or []) if str(x).strip()]
-            desig = str(b.get("designation") or "").strip()
+            lines = [_demarkdown(str(x)) for x in (b.get("lines") or []) if str(x).strip()]
+            desig = _demarkdown(str(b.get("designation") or ""))
             if not lines and not desig:
                 continue
             body = "<br>".join(fmtg(x) for x in lines)
@@ -1596,8 +1731,8 @@ def render_mirrored(p: dict, doc_type: str, source: str = "") -> dict:
             out.append(f'<div class="mr-party">{body}</div>')
             continue
         if kind == "sig":
-            left = str(b.get("left") or "").strip()
-            right = str(b.get("right") or "").strip()
+            left = _demarkdown(str(b.get("left") or ""))
+            right = _demarkdown(str(b.get("right") or ""))
             if not left and not right:
                 continue
             out.append(f'<div class="mr-sig"><div class="l">{_esc(left)}</div>'

@@ -124,6 +124,15 @@ HEADER_CSS = """
   .mr-break{border-top:1px dashed #c4c0b6;margin:28pt -6pt 26pt}
   .mr-table{width:100%;border-collapse:collapse;margin:8pt 0 12pt;font-size:12pt}
   .mr-table th,.mr-table td{border:1px solid #333;padding:4pt 6pt;text-align:left;vertical-align:top}
+  /* letterhead row (advocate name left, office/mobile right) + separator rules —
+     mirrors the two-column top of a real filed letterhead (e.g. जवाब सूचना पत्र) */
+  .mr-cols{display:flex;justify-content:space-between;gap:18pt;margin:0 0 8pt;white-space:pre-line;line-height:1.5}
+  .mr-cols .l{font-weight:700}
+  .mr-cols .r{text-align:left;max-width:55%}
+  .mr-rule{margin:6pt 0 10pt}
+  .mr-rule-single{border-top:1.5pt solid #000}
+  .mr-rule-double{border-top:3.5pt double #000}
+  .mr-rule-dashed{border-top:1.5pt dashed #000}
 """
 
 # Print fidelity: the on-screen 1.00" margins live as PADDING on the .doc-a4 card,
