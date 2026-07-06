@@ -235,8 +235,10 @@
       method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({ prompt: prompt, lang: lang })
     }).then(function(r){ return r.json(); }).then(function(res){
-      clearInterval(tick); $("loading").style.display = "none"; $("draft-btn").disabled = false;
-      if(!res || res.ok === false){ throw new Error((res && res.error) || "Could not draft this. Try rephrasing."); }
+      clearInterval(tick);
+      if(!res || res.ok === false){ $("loading").style.display="none"; $("draft-btn").disabled=false; throw new Error((res && res.error) || "Could not draft this. Try rephrasing."); }
+      if(res.draft_id){ $("loading-text").textContent="Opening the editor…"; location.href="/draft/editor/"+encodeURIComponent(res.draft_id); return; }
+      $("loading").style.display = "none"; $("draft-btn").disabled = false;
       renderResult(res);
     }).catch(function(e){
       clearInterval(tick); $("loading").style.display = "none"; $("draft-btn").disabled = false;

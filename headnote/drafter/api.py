@@ -173,6 +173,35 @@ class FromPromptBody(BaseModel):
     lang:   Literal["hi", "en", "auto"] = "auto"  # 'auto' → intent-aware detect from the prompt
 
 
+def _persist_editor_draft(result: dict) -> dict:
+    """Persist a from-prompt/from-document result so it opens in the Draft Studio
+    editor at /draft/editor/<id>, and stamp `draft_id` onto the returned dict. The
+    full editor payload (body HTML both langs + the trust data) lives in the draft's
+    `answers` blob — no schema change. Best-effort: a storage failure never breaks
+    the draft response (the inline fallback still renders)."""
+    if not isinstance(result, dict) or not result.get("ok"):
+        return result
+    try:
+        payload = {k: result.get(k) for k in (
+            "doc_type", "court", "bail_type", "lang", "title", "mode",
+            "html_hi", "html_en", "page_hi", "page_en", "warnings", "ungrounded",
+            "cite_at_hearing", "companions", "editor_id", "editor_fields",
+            "data", "mirrored", "confidence", "reason", "classified_as",
+        )}
+        d = storage.create_draft(
+            story_id=(result.get("doc_type") or "other_criminal"),
+            template_version=1,
+            lang=(result.get("lang") or "hi"),
+            answers=payload,
+            title=(result.get("title") or result.get("doc_type") or "Draft"),
+        )
+        result["draft_id"] = d.id
+    except Exception:
+        import logging
+        logging.getLogger("headnote.drafter").warning("draft persist failed", exc_info=True)
+    return result
+
+
 @router.post("/from-prompt", summary="Prompt-first drafting → best court-ready draft (authored-primary, never fails)")
 def draft_from_prompt_route(body: FromPromptBody):
     """One freeform description → the LLM authors the draft from the WHOLE input, with the
@@ -185,7 +214,7 @@ def draft_from_prompt_route(body: FromPromptBody):
     if not (body.prompt or "").strip():
         return JSONResponse({"ok": False, "error": "empty prompt"}, status_code=400)
     try:
-        return draft_from_prompt(body.prompt, body.lang)
+        return _persist_editor_draft(draft_from_prompt(body.prompt, body.lang))
     except Exception as e:  # draft_from_prompt never raises — this is a belt-and-braces backstop
         import logging
         logging.getLogger("headnote.drafter").exception("from-prompt backstop hit")
@@ -309,7 +338,7 @@ async def draft_from_document(
     def _with_ocr_warning(result):
         if ocr_warning and isinstance(result, dict):
             result.setdefault("warnings", []).insert(0, ocr_warning)
-        return result
+        return _persist_editor_draft(result)
 
     # role="reference": the document is a STYLE reference to mirror; the typed prompt carries the facts.
     if role == "reference":

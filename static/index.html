@@ -31,7 +31,7 @@
        The SDK is loaded but inert until openOtplessWidget() opens it. -->
   <script id="otpless-sdk"></script>
 
-  <link rel="stylesheet" href="/static/style.css?v=20260705b" />
+  <link rel="stylesheet" href="/static/style.css?v=20260705c" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23ffffff'/%3E%3Ccircle cx='50' cy='50' r='12' fill='%23121212'/%3E%3C/svg%3E" />
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/static/favicon.svg">
@@ -663,7 +663,7 @@
   <!-- ============ END AUTH OVERLAY ============ -->
 
   <script src="/static/auth.js?v=20260527a" defer></script>
-  <script src="/static/app.js?v=20260705b" defer></script>
+  <script src="/static/app.js?v=20260705c" defer></script>
 
   <!-- Prompt drafter (drafting view) — self-contained; POSTs /api/draft/from-prompt -->
   <script>
@@ -915,8 +915,11 @@
         req=fetch("/api/draft/from-prompt",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:prompt,lang:lang})});
       }
       req.then(function(r){return r.json();})
-        .then(function(res){clearInterval(tick);$("pd-loading").hidden=true;draftBtn.disabled=false;
-          if(!res||res.ok===false){throw new Error((res&&(res.error||res.detail))||"Could not draft this — try rephrasing or attach a clearer document.");}renderResult(res);})
+        .then(function(res){clearInterval(tick);
+          if(!res||res.ok===false){throw new Error((res&&(res.error||res.detail))||"Could not draft this — try rephrasing or attach a clearer document.");}
+          // Land in Draft Studio — the full editor (toolbar, trust panel, refine, export).
+          if(res.draft_id){ $("pd-loading-text").textContent="Opening the editor…"; location.href="/draft/editor/"+encodeURIComponent(res.draft_id); return; }
+          $("pd-loading").hidden=true;draftBtn.disabled=false;renderResult(res);})
         .catch(function(e){clearInterval(tick);$("pd-loading").hidden=true;draftBtn.disabled=false;$("pd-err").textContent=(e.message||String(e));$("pd-err").hidden=false;});
     }
     draftBtn.addEventListener("click",draft);
