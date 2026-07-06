@@ -1318,7 +1318,8 @@ def coverage_warnings(matter: str, draft_text: str, lang: str = "hi") -> list[st
 # 5) RENDER  — structured content → canonical header + cb-* body (house format).
 # ===========================================================================
 def _esc(s: Optional[str]) -> str:
-    return "" if s is None else str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    # strip stray CJK (mojibake safety-net; never valid in an Indian court doc) then escape
+    return "" if s is None else _strip_cjk(str(s)).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
 _DEFAULT_VERIFICATION = (
@@ -1614,7 +1615,8 @@ the advocate edits a near-complete draft — they never re-type the factual back
 • ONE SCRIPT THROUGHOUT: if the draft is Hindi, EVERYTHING is Devanagari — when the brief types names/
   places in Roman ("Ayush Shivhare s/o Vishnu"), TRANSLITERATE them (आयुष शिवहरे पुत्र विष्णु) and write
   English fact fragments as formal Hindi. Never leave a Roman name sitting inside a Hindi sentence.
-  Digits stay as the reference writes them.
+  Digits stay as the reference writes them. Use ONLY Devanagari and Latin script — NEVER emit any Chinese,
+  Japanese or Korean (CJK) character; there is no CJK in an Indian court document.
 • PLAIN TEXT ONLY inside blocks — never markdown. No "##", no "**", no backticks. If the reference shows
   decorative marks (e.g. a title between // slashes //), reproduce those characters as text.
 • PAGE BREAKS: use {"kind":"pagebreak"} ONLY where a NEW companion document begins (affidavit, list of
@@ -1676,11 +1678,27 @@ Block kinds (use EXACTLY these):
 _MD_HEAD = re.compile(r"^\s*#{1,6}\s+")
 _MD_BOLD = re.compile(r"\*\*([^*]+)\*\*")
 
+# CJK / kana / hangul — a known failure mode where DeepSeek/Groq emit Chinese-looking
+# glyphs instead of Devanagari on a Hindi task. NONE of these ever belong in an Indian
+# court document, so we (a) detect a corrupt generation to force a retry, and (b) strip
+# any stray survivors at render time.
+_CJK_RE = re.compile(r"[぀-ヿ㐀-䶿一-鿿가-힯豈-﫿]")
+
+
+def _strip_cjk(t: str) -> str:
+    return _CJK_RE.sub("", t or "")
+
+
+def _looks_script_corrupt(text: str) -> bool:
+    """True when the output carries enough CJK that the model clearly drifted off
+    Devanagari — the trigger to re-generate rather than show garbled 'Chinese' text."""
+    return len(_CJK_RE.findall(text or "")) >= 5
+
 
 def _demarkdown(t: str) -> str:
     t = _MD_HEAD.sub("", t or "")
     t = _MD_BOLD.sub(r"\1", t)
-    return t.replace("```", "").strip()
+    return _strip_cjk(t.replace("```", "")).strip()
 
 
 # a pagebreak is REAL only when a new companion document starts after it; a break
@@ -1869,10 +1887,59 @@ def _mirror_result(payload: dict, rendered: dict, doc_type: str, lang: str, meta
     }
 
 
+_MIRROR_MAX_CONT = 4        # continuation rounds — enough for a ~15-page filing
+_MIRROR_MAX_BLOCKS = 500     # hard stop so a repeating model can't loop forever
+
+
+def _block_sig(b: dict) -> str:
+    """A short identity for a block — used to drop a continuation's accidental repeat
+    of the last block already produced."""
+    if not isinstance(b, dict):
+        return str(b)[:80]
+    return (str(b.get("kind") or "") + "|" +
+            (str(b.get("text") or "") or " ".join(str(x) for x in (b.get("lines") or [])) or
+             str(b.get("left") or "") + str(b.get("right") or ""))[:80])
+
+
+def _mirror_continue(reference_text: str, matter: str, blocks_so_far: list, lang: str):
+    """One continuation call: the model resumes the SAME document after the blocks it
+    already produced and returns ONLY the remaining blocks. Returns (more_blocks, truncated)."""
+    import json as _json
+    from headnote.llm.client import _call_deepseek_or_groq, parse_json_response
+    tail = blocks_so_far[-3:]
+    anchor = _json.dumps(tail, ensure_ascii=False)
+    user = (
+        "REFERENCE (structure/format ONLY):\n" + (reference_text or "").strip()[:_MIRROR_REF_CAP] + "\n\n"
+        "THE NEW MATTER (the ONLY source of facts; ____ where silent):\n"
+        + ((matter or "").strip() or "(no brief typed)") + "\n\n"
+        f"CONTINUATION TASK: you have ALREADY produced {len(blocks_so_far)} blocks of this document; the LAST "
+        f"few were:\n{anchor}\n\n"
+        "Continue the SAME document from IMMEDIATELY AFTER that last block. Output ONLY the REMAINING blocks "
+        'as JSON {"blocks":[ … ]}, in the same schema, same language/register. Do NOT repeat any block shown '
+        'above. If the document is already complete (prayer, signature and verification all done), return '
+        '{"blocks":[]}.'
+    )
+    raw, _meta = _call_deepseek_or_groq(MIRROR_SYSTEM, user, max_tokens=16000,
+                                        claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
+    if _looks_script_corrupt(raw):
+        return [], False
+    payload = parse_json_response(raw)
+    more = payload.get("blocks")
+    more = more if isinstance(more, list) else []
+    # drop a leading repeat of the last block we already have
+    if more and blocks_so_far and _block_sig(more[0]) == _block_sig(blocks_so_far[-1]):
+        more = more[1:]
+    return more, bool(payload.get("_truncated"))
+
+
 def mirror_document(matter: str, reference_text: str, doc_type: str, lang: str = "hi") -> dict:
     """Primary reference path: the advocate's brief + the VERBATIM reference →
     typed layout blocks → deterministic render. Raises on LLM/parse failure or a
-    too-thin payload — the caller falls back to the skeleton+authored path."""
+    too-thin payload — the caller falls back to the skeleton+authored path.
+
+    ANY-LENGTH: a long document overflows one model call, so if the first pass is
+    truncated we keep asking the model to CONTINUE (append the remaining blocks)
+    until it finishes or we hit the round cap — the advocate gets the WHOLE draft."""
     from headnote.llm.client import _call_deepseek_or_groq, parse_json_response
     user = (
         "REFERENCE (the filed document to mirror — structure/format/boilerplate ONLY, its facts are "
@@ -1883,16 +1950,35 @@ def mirror_document(matter: str, reference_text: str, doc_type: str, lang: str =
         "(match the reference's language/register)."
     )
     raw, meta = _call_deepseek_or_groq(MIRROR_SYSTEM, user, max_tokens=16000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
+    if _looks_script_corrupt(raw):
+        # model drifted into CJK garbage — bail so the caller re-generates via a clean path
+        raise ValueError("mirror output script-corrupt (CJK) — re-generating")
     payload = parse_json_response(raw)
     blocks = payload.get("blocks")
     if not isinstance(blocks, list) or len(blocks) < 4:
         raise ValueError("mirror payload too thin — falling back to the skeleton path")
+
+    # continuation loop — stitch the rest of a long document
+    truncated = bool(payload.get("_truncated"))
+    rounds = 0
+    while truncated and rounds < _MIRROR_MAX_CONT and len(blocks) < _MIRROR_MAX_BLOCKS:
+        rounds += 1
+        try:
+            more, truncated = _mirror_continue(reference_text, matter, blocks, lang)
+        except Exception:
+            break
+        if not more:
+            truncated = False
+            break
+        blocks.extend(more)
+    payload["blocks"] = blocks
+
     # ground facts against the advocate's brief ONLY — the reference is another
     # client's case, so its facts must NEVER count as verification for this draft.
     rendered = render_mirrored(payload, doc_type, source=matter)
     # …and the mirror duty: everything concrete the advocate GAVE must be in the draft
     rendered["warnings"].extend(coverage_warnings(matter, rendered["html"], lang))
-    if payload.get("_truncated"):
+    if truncated:   # still cut off after the continuation rounds — be honest
         rendered["warnings"].insert(0, _TRUNCATION_WARN[lang if lang == "en" else "hi"])
     return _mirror_result(payload, rendered, doc_type, lang, meta)
 
@@ -1946,12 +2032,14 @@ def author_payload(matter: str, doc_type: str, lang: str = "hi", *, court: str =
     # grounds are reasoned, not merely assembled. Set env to claude-haiku-4-5 for V3.
     try:
         raw, meta = _call_deepseek_or_groq(system, user, max_tokens=9000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
+        if _looks_script_corrupt(raw):
+            raise ValueError("author output script-corrupt (CJK) — re-generating")
         payload = parse_json_response(raw)
     except Exception:
-        # SLIM RETRY — covers BOTH failure classes: (a) the ~14K-token skill prefix
-        # 413s the free-tier fallback (Groq 12K TPM), and (b) the model returned
-        # broken/truncated JSON (a fresh roll usually lands). A skill-less authored
-        # draft beats no draft; every guard still applies.
+        # SLIM RETRY — covers failure classes: (a) the ~14K-token skill prefix 413s the
+        # free-tier fallback (Groq 12K TPM); (b) broken/truncated JSON; (c) the model
+        # drifted into CJK glyphs instead of Devanagari. A fresh roll usually lands; a
+        # skill-less authored draft beats no draft; every guard still applies.
         slim = _author_system(doc_type, lang, format_exemplar=format_exemplar, inject_skill=False)
         raw, meta = _call_deepseek_or_groq(slim, user, max_tokens=9000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
         payload = parse_json_response(raw)
