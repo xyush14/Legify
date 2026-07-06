@@ -1571,6 +1571,11 @@ list of documents — whatever is there), adapted to the new matter.
 
 THE THREE-SOURCE RULE — what comes from where, in priority order. The advocate gave you a reference BECAUSE
 they want a near-complete draft they lightly edit — NEVER return an empty skeleton of one-line shells.
+This rule is UNIVERSAL — it governs EVERY kind of document (bail, anticipatory bail, discharge, revision,
+appeal, writ, quashing, maintenance, DV, cheque, plaint/suit of any kind, written statement, reply/जबाव,
+legal notice, affidavit, petition, application — whatever the reference is), in EVERY State/UT and forum,
+in Hindi, English or any regional language. The examples below are illustrations of the principle, never a
+restriction to one document type.
 
 1. THE BRIEF (the advocate's typed matter + any attached case papers) is the PRIMARY source of THIS client's
    facts — names, relationships, dates, amounts, and the STORY / the point-by-point position. Write EVERY
