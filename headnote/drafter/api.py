@@ -19,6 +19,7 @@ import re
 from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from headnote.drafter import office, storage, stories
@@ -323,8 +324,13 @@ async def draft_from_document(
             return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
         # OCR failure must NEVER kill the request — degrade to whatever text we do
         # have (office extraction / the typed prompt) and say so in a warning.
+        # run_in_threadpool: this endpoint is async, and OCR/LLM are BLOCKING — calling
+        # them directly would freeze the whole event loop for the entire (30-120s) job,
+        # so health checks fail and the platform drops the connection → "Failed to fetch"
+        # on multi-page uploads. The threadpool keeps the loop free. (The typed /from-prompt
+        # route is a sync `def`, which FastAPI already threadpools — that's why it worked.)
         try:
-            doc_text = ocr_text_pages(pages, office_text=office_text)
+            doc_text = await run_in_threadpool(ocr_text_pages, pages, office_text=office_text)
         except Exception as e:
             import logging
             logging.getLogger("headnote.drafter").warning("OCR degraded: %s", e)
@@ -345,12 +351,14 @@ async def draft_from_document(
         if not doc_text.strip():
             if (prompt or "").strip():
                 # reference unreadable but the matter is typed — draft it anyway
-                return _with_ocr_warning(draft_from_prompt((prompt or "").strip(), lang))
+                res = await run_in_threadpool(draft_from_prompt, (prompt or "").strip(), lang)
+                return _with_ocr_warning(res)
             return JSONResponse({"ok": False, "error":
                                  "रेफरेंस दस्तावेज़ पढ़ा नहीं जा सका — साफ़ फोटो/PDF के साथ दोबारा कोशिश करें। "
                                  "(Could not read the reference document — try a clearer photo/PDF.)"})
-        return _with_ocr_warning(
-            draft_from_prompt((prompt or "").strip(), lang, reference_text=doc_text.strip()))
+        res = await run_in_threadpool(draft_from_prompt, (prompt or "").strip(), lang,
+                                      reference_text=doc_text.strip())
+        return _with_ocr_warning(res)
 
     # role="facts" (default): the document is the source of facts; a typed prompt adds intent.
     matter = (prompt or "").strip()
@@ -362,7 +370,8 @@ async def draft_from_document(
                              "दस्तावेज़ पढ़ा नहीं जा सका और कोई विवरण भी नहीं लिखा गया — मामला टाइप करें या साफ़ "
                              "फोटो अपलोड करें। (Could not read the document and nothing was typed — describe "
                              "the matter or upload a clearer photo.)"})
-    return _with_ocr_warning(draft_from_prompt(matter, lang))
+    res = await run_in_threadpool(draft_from_prompt, matter, lang)
+    return _with_ocr_warning(res)
 
 
 class RefineBody(BaseModel):
@@ -486,7 +495,9 @@ async def apply_reference(
     except ValueError as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
     try:
-        ref_text = ocr_text_pages(pages, office_text=office_text)
+        # threadpool: OCR + mirror are blocking; this is an async endpoint (see the note
+        # in draft_from_document) — running them inline would freeze the event loop.
+        ref_text = await run_in_threadpool(ocr_text_pages, pages, office_text=office_text)
     except Exception:
         return JSONResponse({"ok": False, "error":
                              "रेफरेंस दस्तावेज़ पढ़ा नहीं जा सका — साफ़ फोटो/PDF के साथ फिर कोशिश करें। "
@@ -496,7 +507,8 @@ async def apply_reference(
 
     matter = _draft_matter_text(answers)
     lang = answers.get("lang") or d.lang or "hi"
-    result = draft_from_prompt(matter, lang, reference_text=ref_text.strip())
+    result = await run_in_threadpool(draft_from_prompt, matter, lang,
+                                     reference_text=ref_text.strip())
     if not (isinstance(result, dict) and result.get("ok")):
         return JSONResponse({"ok": False, "error":
                              "रेफरेंस लागू नहीं हो सका — कृपया दोबारा कोशिश करें। "
