@@ -46,8 +46,11 @@
   .tb svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
   .tb .g{font-size:14px;line-height:1}
   .tsep{width:1px;height:18px;background:var(--line);margin:0 6px;flex:none}
-  .tsel{height:28px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink-2);font-family:var(--mono);font-size:11px;padding:0 8px}
+  .tsel{height:28px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink-2);font-family:var(--mono);font-size:11px;padding:0 6px;max-width:150px}
   .tsel:hover{border-color:var(--ink-3)}
+  .tb-color{position:relative;overflow:hidden}
+  .tb-color input[type=color]{position:absolute;left:0;top:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0}
+  .tb sup,.tb sub{font-weight:600}
 
   .body{display:grid;grid-template-columns:242px 1fr 328px;overflow:hidden;min-height:0}
   .rail{background:#fff;overflow-y:auto;padding:17px 15px}
@@ -146,16 +149,34 @@
     <button class="tb" data-cmd="redo" title="Redo (⌘⇧Z)" aria-label="Redo"><svg viewBox="0 0 20 20"><path d="M13 8H7.5a4 4 0 0 0 0 8H12"/><path d="M13 8l3-3m-3 3 3 3"/></svg></button>
    </div>
    <span class="tsep"></span>
+   <select class="tsel" id="fontname" title="Font" style="min-width:118px">
+     <option value="">Font</option>
+     <option value="'Noto Sans Devanagari','Mangal',sans-serif">Devanagari (Noto)</option>
+     <option value="'Mangal','Noto Sans Devanagari'">Mangal</option>
+     <option value="'Kokila','Noto Serif Devanagari',serif">Kokila</option>
+     <option value="'Times New Roman',serif">Times New Roman</option>
+     <option value="Georgia,serif">Georgia (serif)</option>
+     <option value="Arial,'Helvetica Neue',sans-serif">Arial (sans)</option>
+   </select>
    <select class="tsel" id="fontsize" title="Text size">
-     <option value="">Size</option><option value="2">Small</option><option value="3">Normal</option>
-     <option value="4">Large</option><option value="5">X-Large</option>
+     <option value="">Size</option><option value="1">8</option><option value="2">10</option>
+     <option value="3">12</option><option value="4">14</option><option value="5">18</option>
+     <option value="6">24</option><option value="7">36</option>
    </select>
    <span class="tsep"></span>
    <div class="tb-group">
-    <button class="tb" data-cmd="bold" title="Bold" aria-label="Bold"><span class="g" style="font-weight:800">B</span></button>
-    <button class="tb" data-cmd="italic" title="Italic" aria-label="Italic"><span class="g" style="font-style:italic;font-family:Georgia,serif">I</span></button>
-    <button class="tb" data-cmd="underline" title="Underline" aria-label="Underline"><span class="g" style="text-decoration:underline;text-underline-offset:2px">U</span></button>
+    <button class="tb" data-cmd="bold" title="Bold (⌘B)" aria-label="Bold"><span class="g" style="font-weight:800">B</span></button>
+    <button class="tb" data-cmd="italic" title="Italic (⌘I)" aria-label="Italic"><span class="g" style="font-style:italic;font-family:Georgia,serif">I</span></button>
+    <button class="tb" data-cmd="underline" title="Underline (⌘U)" aria-label="Underline"><span class="g" style="text-decoration:underline;text-underline-offset:2px">U</span></button>
     <button class="tb" data-cmd="strikeThrough" title="Strikethrough" aria-label="Strikethrough"><span class="g" style="text-decoration:line-through">S</span></button>
+   </div>
+   <div class="tb-group">
+    <button class="tb" data-cmd="superscript" title="Superscript" aria-label="Superscript"><span class="g">x<sup style="font-size:8px">2</sup></span></button>
+    <button class="tb" data-cmd="subscript" title="Subscript" aria-label="Subscript"><span class="g">x<sub style="font-size:8px">2</sub></span></button>
+   </div>
+   <div class="tb-group">
+    <label class="tb tb-color" title="Text colour" aria-label="Text colour"><span class="g" style="border-bottom:3px solid currentColor;line-height:.9">A</span><input type="color" id="forecolor" value="#000000"></label>
+    <label class="tb tb-color" title="Highlight" aria-label="Highlight"><svg viewBox="0 0 20 20"><path d="M4 16l3-1 8-8-2-2-8 8-1 3z"/><path d="M3 18h6" stroke-width="2.4"/></svg><input type="color" id="hilite" value="#fff2a8"></label>
    </div>
    <span class="tsep"></span>
    <div class="tb-group">
@@ -164,10 +185,16 @@
     <button class="tb" data-cmd="justifyRight" title="Align right" aria-label="Align right"><svg viewBox="0 0 20 20"><path d="M3 5h14M8 9h9M5 13h12M10 17h7"/></svg></button>
     <button class="tb" data-cmd="justifyFull" title="Justify" aria-label="Justify"><svg viewBox="0 0 20 20"><path d="M3 5h14M3 9h14M3 13h14M3 17h14"/></svg></button>
    </div>
-   <span class="tsep"></span>
    <div class="tb-group">
     <button class="tb" data-cmd="insertUnorderedList" title="Bullet list" aria-label="Bullet list"><svg viewBox="0 0 20 20"><circle cx="4" cy="6" r="1.3" fill="currentColor" stroke="none"/><circle cx="4" cy="14" r="1.3" fill="currentColor" stroke="none"/><path d="M8 6h9M8 14h9"/></svg></button>
-    <button class="tb" data-cmd="insertOrderedList" title="Numbered list" aria-label="Numbered list"><svg viewBox="0 0 20 20"><path d="M8 6h9M8 14h9" /><text x="2.2" y="8" font-size="6" fill="currentColor" stroke="none" font-family="monospace">1</text><text x="2.2" y="16" font-size="6" fill="currentColor" stroke="none" font-family="monospace">2</text></svg></button>
+    <button class="tb" data-cmd="insertOrderedList" title="Numbered list" aria-label="Numbered list"><svg viewBox="0 0 20 20"><path d="M8 6h9M8 14h9"/><text x="2" y="8" font-size="6" fill="currentColor" stroke="none" font-family="monospace">1</text><text x="2" y="16" font-size="6" fill="currentColor" stroke="none" font-family="monospace">2</text></svg></button>
+    <button class="tb" data-cmd="outdent" title="Decrease indent" aria-label="Decrease indent"><svg viewBox="0 0 20 20"><path d="M8 5h9M8 10h9M8 15h9M6 8l-3 2 3 2"/></svg></button>
+    <button class="tb" data-cmd="indent" title="Increase indent" aria-label="Increase indent"><svg viewBox="0 0 20 20"><path d="M8 5h9M8 10h9M8 15h9M3 8l3 2-3 2"/></svg></button>
+   </div>
+   <span class="tsep"></span>
+   <div class="tb-group">
+    <button class="tb" data-cmd="insertHorizontalRule" title="Insert divider" aria-label="Insert divider"><svg viewBox="0 0 20 20"><path d="M3 10h14M5 6h10M5 14h10" stroke-dasharray="0.1 3.2"/></svg></button>
+    <button class="tb" id="tb-link" title="Insert link" aria-label="Insert link"><svg viewBox="0 0 20 20"><path d="M8 12a3 3 0 0 0 4 0l3-3a3 3 0 0 0-4-4l-1 1M12 8a3 3 0 0 0-4 0l-3 3a3 3 0 0 0 4 4l1-1"/></svg></button>
    </div>
    <span class="tsep"></span>
    <button class="tb" data-cmd="removeFormat" title="Clear formatting" aria-label="Clear formatting"><svg viewBox="0 0 20 20"><path d="M6 5h10M9 5l-2 12M13 13l4 4M17 13l-4 4"/></svg></button>
@@ -265,6 +292,7 @@
       var sheet=doc.querySelector(".doc-a4")||doc.body;
       sheet.setAttribute("contenteditable","true");
       sheet.style.outline="none";
+      try{ doc.execCommand("styleWithCSS",false,true); }catch(e){}  // color/font → inline style
       doc.body.addEventListener("input",onEdit);
       doc.body.addEventListener("mouseup",syncToolbar);
       doc.body.addEventListener("keyup",syncToolbar);
@@ -315,11 +343,19 @@
       onEdit(); syncToolbar();
     });
   });
-  $("fontsize").addEventListener("change",function(){
-    var doc=idoc(); if(!doc||!this.value) return;
-    docEl.contentWindow.focus();
-    try{ doc.execCommand("fontSize",false,this.value); }catch(e){}
-    this.value=""; onEdit();
+  function exec(cmd,val){ var doc=idoc(); if(!doc) return; docEl.contentWindow.focus();
+    try{ doc.execCommand(cmd,false,val); }catch(e){} onEdit(); }
+  $("fontsize").addEventListener("change",function(){ if(this.value) exec("fontSize",this.value); this.value=""; });
+  $("fontname").addEventListener("change",function(){ if(this.value) exec("fontName",this.value); this.value=""; });
+  // colour pickers apply live as you drag; keep the iframe selection (mousedown preventDefault)
+  ["forecolor","hilite"].forEach(function(id){
+    var el=$(id); if(!el) return;
+    el.closest(".tb-color").addEventListener("mousedown",function(e){ if(e.target!==el) e.preventDefault(); });
+    el.addEventListener("input",function(){ exec(id==="forecolor"?"foreColor":"hiliteColor",this.value); });
+  });
+  $("tb-link").addEventListener("mousedown",function(e){ e.preventDefault(); });
+  $("tb-link").addEventListener("click",function(){
+    var url=window.prompt("Link URL:","https://"); if(url) exec("createLink",url);
   });
   function syncToolbar(){
     var doc=idoc(); if(!doc) return;
