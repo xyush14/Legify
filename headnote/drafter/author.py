@@ -1562,6 +1562,16 @@ def _mirror_instruction(reference_skeleton: str) -> str:
 # ===========================================================================
 _MIRROR_REF_CAP = 24000     # chars of OCR'd reference the model sees (≈ 15+ pages)
 
+# shown when the model's output was cut off at the token limit (long Hindi documents
+# are token-heavy) and we salvaged a partial draft — so a short draft is never passed
+# off as complete. The advocate can tap Refine ("बाकी हिस्सा जोड़ो") to extend it.
+_TRUNCATION_WARN = {
+    "hi": "⚠ यह ड्राफ्ट लंबा होने के कारण बीच में कट गया है — नीचे का हिस्सा अधूरा है। "
+          "पूरा करने के लिए Assistant में 'शेष ड्राफ्ट जोड़ो' लिखें या कम पृष्ठ अपलोड करें।",
+    "en": "⚠ This draft was cut short because it ran long — the tail is incomplete. "
+          "Tap Refine and ask to 'continue the rest of the draft', or upload fewer pages.",
+}
+
 MIRROR_SYSTEM = """You are the drafting engine of Headnote. An Indian advocate has uploaded a FILED court
 document (the REFERENCE) and typed a brief for a NEW matter. Produce the NEW draft so the advocate's clerk
 could not tell it apart from that office's own filing: SAME cause-title layout, SAME section order, SAME
@@ -1872,7 +1882,7 @@ def mirror_document(matter: str, reference_text: str, doc_type: str, lang: str =
         f"Draft now, as JSON per the schema, in {'Hindi' if lang == 'hi' else 'English'} "
         "(match the reference's language/register)."
     )
-    raw, meta = _call_deepseek_or_groq(MIRROR_SYSTEM, user, max_tokens=7000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
+    raw, meta = _call_deepseek_or_groq(MIRROR_SYSTEM, user, max_tokens=16000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
     payload = parse_json_response(raw)
     blocks = payload.get("blocks")
     if not isinstance(blocks, list) or len(blocks) < 4:
@@ -1882,6 +1892,8 @@ def mirror_document(matter: str, reference_text: str, doc_type: str, lang: str =
     rendered = render_mirrored(payload, doc_type, source=matter)
     # …and the mirror duty: everything concrete the advocate GAVE must be in the draft
     rendered["warnings"].extend(coverage_warnings(matter, rendered["html"], lang))
+    if payload.get("_truncated"):
+        rendered["warnings"].insert(0, _TRUNCATION_WARN[lang if lang == "en" else "hi"])
     return _mirror_result(payload, rendered, doc_type, lang, meta)
 
 
@@ -1902,7 +1914,7 @@ def revise_mirrored(prior_html: str, instruction: str, doc_type: str = "other_cr
         "draft plus the instruction are the ONLY sources of facts — ____ stays ____ unless the instruction "
         f"fills it. Write in {'Hindi' if lang == 'hi' else 'English'}."
     )
-    raw, meta = _call_deepseek_or_groq(MIRROR_SYSTEM, user, max_tokens=7000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
+    raw, meta = _call_deepseek_or_groq(MIRROR_SYSTEM, user, max_tokens=16000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
     payload = parse_json_response(raw)
     if not isinstance(payload.get("blocks"), list) or len(payload["blocks"]) < 4:
         raise ValueError("mirror revision payload too thin")
@@ -1933,7 +1945,7 @@ def author_payload(matter: str, doc_type: str, lang: str = "hi", *, court: str =
     # Authoring routes through DRAFTER_AUTHOR_MODEL (default Sonnet→DeepSeek R1) so the
     # grounds are reasoned, not merely assembled. Set env to claude-haiku-4-5 for V3.
     try:
-        raw, meta = _call_deepseek_or_groq(system, user, max_tokens=6000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
+        raw, meta = _call_deepseek_or_groq(system, user, max_tokens=9000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
         payload = parse_json_response(raw)
     except Exception:
         # SLIM RETRY — covers BOTH failure classes: (a) the ~14K-token skill prefix
@@ -1941,7 +1953,7 @@ def author_payload(matter: str, doc_type: str, lang: str = "hi", *, court: str =
         # broken/truncated JSON (a fresh roll usually lands). A skill-less authored
         # draft beats no draft; every guard still applies.
         slim = _author_system(doc_type, lang, format_exemplar=format_exemplar, inject_skill=False)
-        raw, meta = _call_deepseek_or_groq(slim, user, max_tokens=6000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
+        raw, meta = _call_deepseek_or_groq(slim, user, max_tokens=9000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
         payload = parse_json_response(raw)
     return _shape_payload(payload, doc_type, b, meta)
 
@@ -1956,6 +1968,8 @@ def author_document(matter: str, doc_type: str, lang: str = "hi", *, court: str 
     rendered = render_authored(payload, lang, source=matter)
     # …and the mirror duty: everything concrete the advocate GAVE must be in the draft
     rendered["warnings"].extend(coverage_warnings(matter, rendered["html"], lang))
+    if payload.get("_truncated"):
+        rendered["warnings"].insert(0, _TRUNCATION_WARN["en" if lang == "en" else "hi"])
     return {
         "ok": True,
         "mode": "authored",
@@ -1989,13 +2003,13 @@ def revise_document(prior_text: str, instruction: str, doc_type: str = "other_cr
         "Keep the house style and the zero-fabrication rules in force."
     )
     try:
-        raw, meta = _call_deepseek_or_groq(system, user, max_tokens=6000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
+        raw, meta = _call_deepseek_or_groq(system, user, max_tokens=9000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
         payload = _shape_payload(parse_json_response(raw), doc_type, b, meta)
     except Exception:
         # slim retry (see author_payload) — keep the edit path alive on the free tier
         # and re-roll on broken/truncated JSON
         slim = _author_system(doc_type, lang, inject_skill=False)
-        raw, meta = _call_deepseek_or_groq(slim, user, max_tokens=6000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
+        raw, meta = _call_deepseek_or_groq(slim, user, max_tokens=9000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
         payload = _shape_payload(parse_json_response(raw), doc_type, b, meta)
     # a refine's facts of record = the accepted prior draft + the new instruction
     rendered = render_authored(payload, lang, source=(prior_text or "") + "\n" + (instruction or ""))
