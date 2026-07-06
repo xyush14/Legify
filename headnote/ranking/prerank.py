@@ -53,7 +53,14 @@ PRERANK_MIN_SCORE = 4.5     # weighted total below this → drop the case
 PRERANK_TOP_N      = 10     # how many to hand to Sonnet after pruning
 
 
-PRERANK_SYSTEM = """You are a fast pre-ranker for Indian criminal case-law retrieval. Your job: score every candidate case in the input pool on five dimensions and return JSON.
+PRERANK_SYSTEM = """You are a fast pre-ranker for Indian case-law retrieval — criminal AND civil. Your job: score every candidate case in the input pool on five dimensions and return JSON.
+
+The query envelope carries a `domain` (criminal / civil / mixed). Score candidates
+against THAT domain: for a civil query (property, contract, specific performance,
+tenancy, succession, family), a civil case on the same Act/doctrine is a strong
+match and a criminal case is usually a weak one — and vice versa. For a mixed
+matter (e.g. double sale of land raising both title and IPC 420/BNS 318 cheating),
+cases on EITHER face can score high on their own merits.
 
 YOU ARE NOT THE FINAL REASONER. You do quick discrimination on a wide pool.
 Sonnet will do the deep relevance work later on the top N you return.
@@ -70,14 +77,17 @@ SCORING RUBRIC (apply to EVERY candidate)
 For each candidate, score on these five dimensions, integer 1–10:
 
   1. STATUTE MATCH
-     10 = exact section + Act match (e.g., both invoke Section 372 CrPC proviso)
+     10 = exact section + Act match (e.g., both invoke Section 372 CrPC proviso;
+          both invoke Section 54 Transfer of Property Act)
       7 = same Act, different section
       4 = related Act in same domain
       1 = unrelated statute
+     [Old↔new code equivalents count as the SAME section: IPC 420 ≡ BNS 318 etc.]
 
   2. STAGE MATCH
-     10 = same procedural stage (both are bail / both are appeal)
-      7 = adjacent stage (ABA → regular bail; appeal → revision)
+     10 = same procedural stage (both are bail / both are appeal / both are
+          suits for specific performance / both are Order XXXIX injunctions)
+      7 = adjacent stage (ABA → regular bail; suit → first appeal)
       4 = different stage but same broad phase (trial → appeal)
       1 = unrelated stage
 
@@ -145,6 +155,7 @@ Return ONLY the JSON. No prose, no markdown fences.
 
 PRERANK_USER_TEMPLATE = """STRUCTURED QUERY:
   canonical_question: {canonical_question}
+  domain:             {domain}
   primary_statute:    {primary_statute}
   secondary_statutes: {secondary_statutes}
   stage:              {stage}
@@ -205,6 +216,7 @@ def prerank_candidates(
 
     user_prompt = PRERANK_USER_TEMPLATE.format(
         canonical_question = refined.canonical_question,
+        domain             = getattr(refined, "domain", "criminal") or "criminal",
         primary_statute    = refined.primary_statute or "(none)",
         secondary_statutes = ", ".join(refined.secondary_statutes) or "(none)",
         stage              = refined.stage or "(unspecified)",

@@ -800,6 +800,13 @@
     'conviction':   { cls: 'badge--outcome-bad',     label: 'conviction' },
     'bail-denied':  { cls: 'badge--outcome-bad',     label: 'bail denied' },
     'remand':       { cls: 'badge--outcome-neutral', label: 'remand' },
+    // Civil dispositions — "good" = relief was granted (favours the party
+    // seeking it); shown neutral-positive since the card's match_dimensions
+    // already flag when the outcome cuts against the lawyer's side.
+    'decreed':                       { cls: 'badge--outcome-good', label: 'suit decreed' },
+    'injunction-granted':            { cls: 'badge--outcome-good', label: 'injunction granted' },
+    'specific-performance-granted':  { cls: 'badge--outcome-good', label: 'specific performance' },
+    'eviction-ordered':              { cls: 'badge--outcome-neutral', label: 'eviction ordered' },
     'other':        null,
   };
   function outcomeBadge(case_) {
@@ -872,10 +879,40 @@
       cross_refs: pn.cross_refs || c.cross_refs || [],
       bns_note: c.bns_note || '',
       outcome: c.outcome || '',
+      // Honesty label — set by the backend when this card was kept only to
+      // avoid an empty page (weak fact-match or unmatched id). Rendered as an
+      // amber strip so filler is never mistaken for an exact match.
+      is_fallback_match: !!c.is_fallback_match,
+      relevance_note: c.relevance_note || '',
+      // Citation-integrity status set by the backend source-verifier. A card is
+      // "verified" ONLY when its Indian Kanoon doc id resolves, the resolved
+      // title matches the cited case, the quote is present in that judgment, and
+      // the HELD line is a holding (not a party's allegation). Absent/anything-
+      // else → treat as unverified. We NEVER show a green badge we can't back.
+      verification_status: c.verification_status || (c.verification_flags && c.verification_flags.length ? 'unverified' : ''),
+      verification_flags: Array.isArray(c.verification_flags) ? c.verification_flags : [],
+      verification_reason: c.verification_reason || '',
     };
   }
-  function verifiedBadge() {
-    return ce('span', { cls: 'badge badge--verified', text: 'verified' });
+  // The badge is BOUND to the backend's verification_status. Green
+  // "verified · Indian Kanoon" only when the citation was positively confirmed;
+  // otherwise an amber "unverified — verify before use" chip. When the backend
+  // sent no status at all (older/cached payloads), stay conservative and show
+  // unverified rather than a false green.
+  function statusBadge(c) {
+    if (c.verification_status === 'verified') {
+      return ce('span', {
+        cls: 'badge badge--verified',
+        text: 'verified · Indian Kanoon',
+        attrs: { title: 'Doc id resolves, title matches the cited case, and the quoted line was found in the judgment.' },
+      });
+    }
+    const reason = c.verification_reason || 'this citation was not confirmed against its source';
+    return ce('span', {
+      cls: 'badge badge--unverified',
+      text: 'unverified — verify before use',
+      attrs: { title: reason },
+    });
   }
   // A citation is "neutral" (free, court-issued) rather than a paid reporter
   // when it carries the SC/HC neutral form or the official S.C.R. report:
@@ -1047,6 +1084,15 @@
 
     const rows = [];
 
+    // 0. Honesty strip — this card is filler kept to avoid an empty page,
+    // not an exact match. Shown FIRST so it can't be missed in triage.
+    if (c.relevance_note) {
+      rows.push(ce('div', { cls: 'case-card__row case-card__row--fallback', children: [
+        ce('div', { cls: 'case-card__rowlabel', text: '⚠ fit' }),
+        ce('div', { cls: 'case-card__rowtext', text: c.relevance_note }),
+      ]}));
+    }
+
     // NEW ORDER (mirrors Cri.L.J. + the lawyer's 10-second triage):
     //   1. Stinger sentence   — "Why this helps your matter" (lawyer voice)
     //   2. HELD line          — binding ratio, paste-ready into petition
@@ -1148,10 +1194,12 @@
     const badges = ce('div', { cls: 'case-card__badges' });
     const ob = outcomeBadge(c); if (ob) badges.appendChild(ob);
     const fb = fameBadge(c);    if (fb) badges.appendChild(fb);
-    badges.appendChild(verifiedBadge());
+    badges.appendChild(statusBadge(c));
     // Official Supreme Court copy badge — this case was matched to our
-    // court-accepted open-data corpus (neutral citation + signed PDF).
-    if (c.is_official_copy) {
+    // court-accepted open-data corpus (neutral citation + signed PDF). Only an
+    // asserted authority chip, so it is gated on the same verification as the
+    // "verified" badge — never claim "official SC copy" on an unconfirmed card.
+    if (c.is_official_copy && c.verification_status === 'verified') {
       badges.appendChild(ce('span', { cls: 'badge badge--official', text: '⚖ official SC copy' }));
     }
     const j = judgmentLink(c);  if (j) badges.appendChild(j);
@@ -1172,6 +1220,14 @@
     // We pass the original `raw` so the full situation-specific snapshot is
     // what gets stored and later re-rendered.
     badges.appendChild(buildSaveButton(raw, c.case_id));
+
+    // Ask-this-judgment — grounded Q&A scoped to this ONE judgment. Only
+    // offered when we hold a real IK doc id (the chat fetches that doc).
+    if (c.kanoon_doc_id) {
+      const jBtn = ce('button', { cls: 'btn--ghost jchat-open', text: 'ask this judgment' });
+      jBtn.addEventListener('click', () => openJudgmentChat(c));
+      badges.appendChild(jBtn);
+    }
 
     // Hindi toggle button (per-card back-translation of ratio + quote)
     const hindiBtn = ce('button', { cls: 'btn--ghost', text: 'हिंदी में दिखाएँ' });
@@ -1295,7 +1351,9 @@
     const card = ce('div', { cls: 'case-card case-card--shell', children: [head, meta, ...rows] });
     const reported = buildReportedRow(s);
     if (reported) card.appendChild(reported);
-    const badges = ce('div', { cls: 'case-card__badges', children: [verifiedBadge()] });
+    // Shell = pre-analysis skeleton; the citation hasn't been source-verified
+    // yet, so statusBadge degrades to "unverified" rather than a false green.
+    const badges = ce('div', { cls: 'case-card__badges', children: [statusBadge(s)] });
     const fb = fameBadge(s); if (fb) badges.appendChild(fb);
     card.appendChild(badges);
     return card;
@@ -1303,8 +1361,191 @@
 
   function renderCasesAsCards(cases) {
     const list = ce('div', { cls: 'results' });
+
+    // Best-match pin: when the backend gated a #1 (source-verified + direct
+    // fact parallel + clear margin), present it as THE answer and collapse
+    // the runner-ups behind a toggle. No pin → classic flat list.
+    if (cases.length > 1 && cases[0] && cases[0].is_best_match) {
+      const pinWrap = ce('div', { cls: 'best-match' });
+      pinWrap.appendChild(ce('div', { cls: 'best-match__label mono', children: [
+        ce('span', { cls: 'best-match__star', text: '★' }),
+        ce('span', { text: ' closest authority for your facts' }),
+      ]}));
+      pinWrap.appendChild(renderCaseCard(cases[0], 0));
+      list.appendChild(pinWrap);
+
+      const rest = cases.slice(1);
+      const restWrap = ce('div', { cls: 'best-match__rest', attrs: { hidden: '' } });
+      rest.forEach((c, i) => restWrap.appendChild(renderCaseCard(c, i + 1)));
+      const toggle = ce('button', {
+        cls: 'btn--ghost best-match__toggle',
+        text: `${rest.length} more supporting ${rest.length === 1 ? 'case' : 'cases'} ▾`,
+        attrs: { type: 'button' },
+      });
+      toggle.addEventListener('click', () => {
+        const open = restWrap.hasAttribute('hidden');
+        if (open) restWrap.removeAttribute('hidden');
+        else restWrap.setAttribute('hidden', '');
+        toggle.textContent = open
+          ? 'hide supporting cases ▴'
+          : `${rest.length} more supporting ${rest.length === 1 ? 'case' : 'cases'} ▾`;
+      });
+      list.appendChild(toggle);
+      list.appendChild(restWrap);
+      return list;
+    }
+
     cases.forEach((c, i) => list.appendChild(renderCaseCard(c, i)));
     return list;
+  }
+
+  // ---- Ask-this-judgment: slide-over chat scoped to ONE judgment ----------
+  // Grounded Q&A against /api/judgment/chat (SSE). Every answer is verified
+  // server-side after the stream (para anchors exist + quotes are verbatim)
+  // and badged honestly here. Thread is per-judgment, in-memory only.
+  const _jchat = { docId: null, title: '', url: '', thread: [], busy: false, el: null };
+
+  function ensureJudgmentPanel() {
+    if (_jchat.el) return _jchat.el;
+    const panel = ce('div', { cls: 'jchat', attrs: { hidden: '' } });
+    panel.innerHTML =
+      '<div class="jchat__head">' +
+        '<div class="jchat__titlewrap">' +
+          '<div class="jchat__kicker mono">ask this judgment</div>' +
+          '<div class="jchat__title"></div>' +
+        '</div>' +
+        '<button type="button" class="jchat__close" title="Close">✕</button>' +
+      '</div>' +
+      '<div class="jchat__hint">Answers come only from this judgment, with paragraph anchors you can check. If it doesn’t deal with your question, it will say so.</div>' +
+      '<div class="jchat__body"></div>' +
+      '<div class="jchat__inputrow">' +
+        '<textarea class="jchat__input" rows="2" placeholder="e.g. does this apply if the first sale deed was unregistered?"></textarea>' +
+        '<button type="button" class="jchat__send">Ask</button>' +
+      '</div>';
+    document.body.appendChild(panel);
+    panel.querySelector('.jchat__close').addEventListener('click', closeJudgmentChat);
+    panel.querySelector('.jchat__send').addEventListener('click', sendJudgmentQuestion);
+    panel.querySelector('.jchat__input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendJudgmentQuestion(); }
+    });
+    _jchat.el = panel;
+    return panel;
+  }
+
+  function openJudgmentChat(c) {
+    const panel = ensureJudgmentPanel();
+    const docId = parseInt(String(c.kanoon_doc_id), 10);
+    if (!docId) return;
+    if (_jchat.docId !== docId) {          // switching judgments resets the thread
+      _jchat.docId = docId;
+      _jchat.title = c.title || ('Judgment #' + docId);
+      _jchat.url = c.kanoon_url || '';
+      _jchat.thread = [];
+      panel.querySelector('.jchat__body').innerHTML = '';
+    }
+    const titleEl = panel.querySelector('.jchat__title');
+    titleEl.innerHTML = '';
+    if (_jchat.url) {
+      titleEl.appendChild(ce('a', { text: _jchat.title, attrs: { href: _jchat.url, target: '_blank', rel: 'noopener' } }));
+    } else {
+      titleEl.textContent = _jchat.title;
+    }
+    panel.removeAttribute('hidden');
+    panel.querySelector('.jchat__input').focus();
+  }
+
+  function closeJudgmentChat() {
+    if (_jchat.el) _jchat.el.setAttribute('hidden', '');
+  }
+
+  function jchatScroll() {
+    const b = _jchat.el && _jchat.el.querySelector('.jchat__body');
+    if (b) b.scrollTop = b.scrollHeight;
+  }
+
+  async function sendJudgmentQuestion() {
+    if (_jchat.busy || !_jchat.docId) return;
+    const panel = _jchat.el;
+    const input = panel.querySelector('.jchat__input');
+    const q = (input.value || '').trim();
+    if (!q) return;
+    input.value = '';
+    _jchat.busy = true;
+    const sendBtn = panel.querySelector('.jchat__send');
+    sendBtn.disabled = true;
+
+    const bodyEl = panel.querySelector('.jchat__body');
+    bodyEl.appendChild(ce('div', { cls: 'jchat__q', text: q }));
+    const ansEl = ce('div', { cls: 'jchat__a' });
+    bodyEl.appendChild(ansEl);
+    jchatScroll();
+
+    _jchat.thread.push({ role: 'user', content: q });
+    let acc = '';
+    let verifyReport = null;
+    const paint = () => { ansEl.innerHTML = askMarkdown(acc) + '<span class="askmsg__cursor"></span>'; jchatScroll(); };
+
+    try {
+      const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
+      const res = await fetch('/api/judgment/chat', {
+        method: 'POST', headers,
+        body: JSON.stringify({ doc_id: _jchat.docId, messages: _jchat.thread }),
+      });
+      if (res.status === 402) {
+        const data = await res.json().catch(() => ({}));
+        handleEntitlementError(402, data);
+        ansEl.remove();
+        _jchat.thread.pop();
+        return;
+      }
+      if (!res.ok || !res.body) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || ('HTTP ' + res.status));
+      }
+
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        let idx;
+        while ((idx = buf.indexOf('\n\n')) >= 0) {
+          const chunk = buf.slice(0, idx); buf = buf.slice(idx + 2);
+          const dataLine = chunk.split('\n').find(l => l.startsWith('data:'));
+          if (!dataLine) continue;
+          let evt; try { evt = JSON.parse(dataLine.slice(5).trim()); } catch { continue; }
+          if (evt.type === 'delta') { acc += evt.text; paint(); }
+          else if (evt.type === 'verify') { verifyReport = evt.report || null; }
+          else if (evt.type === 'error') { acc += (acc ? '\n\n' : '') + '_' + evt.message + '_'; paint(); }
+        }
+      }
+      acc = acc.trim();
+      ansEl.innerHTML = askMarkdown(acc || '_No response._');
+      _jchat.thread.push({ role: 'assistant', content: acc });
+
+      // Honesty badge — same fail-closed philosophy as the research cards:
+      // green only when the server positively verified anchors + quotes.
+      if (acc) {
+        const r = verifyReport || {};
+        const ok = r.clean === true;
+        const label = ok
+          ? '✓ anchors & quotes verified against the judgment'
+          : '⚠ could not fully verify — check the anchors against the full text';
+        ansEl.appendChild(ce('div', {
+          cls: 'jchat__verify ' + (ok ? 'jchat__verify--ok' : 'jchat__verify--warn'),
+          text: label,
+        }));
+      }
+      jchatScroll();
+    } catch (e) {
+      ansEl.innerHTML = '<p class="askmsg__err">' + askEsc(e.message || 'Something went wrong. Please try again.') + '</p>';
+    } finally {
+      _jchat.busy = false;
+      sendBtn.disabled = false;
+      input.focus();
+    }
   }
 
   function renderCasesAsTable(cases) {

@@ -164,6 +164,74 @@ def _strip_for_similarity(text: str) -> str:
     return text.strip()
 
 
+# ------------------------------------------------- holding vs. allegation guard
+
+# Phrases that introduce a PARTY'S allegation / the prosecution's case / a
+# recital of the complaint — i.e. NOT the court's own finding. If a card's HELD
+# line or quote reads like one of these and carries no holding language, the LLM
+# has almost certainly mislabelled a recital as the ratio.
+_ALLEGATION_MARKERS = re.compile(
+    r"\b("
+    r"it (?:is|was) alleged|the (?:complainant|prosecution|petitioner|informant) alleged|"
+    r"as alleged|allegedly|it (?:is|was) (?:further )?(?:contended|submitted|argued|urged)|"
+    r"the (?:prosecution|complainant)(?:'s)? (?:case|story|version) (?:is|was)|"
+    r"the case of the (?:complainant|prosecution|petitioner)|"
+    r"according to the (?:complainant|fir|prosecution|informant)|"
+    r"the fir (?:alleges|states|discloses)|as per the (?:complaint|fir)|"
+    r"having (?:given|made) the (?:fraudulent|false)|"
+    r"it is the (?:case|allegation|grievance) of"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# Language that marks the court speaking in its own voice (a genuine holding).
+_HOLDING_VERBS = re.compile(
+    r"\b("
+    r"we hold|it is held|held that|we find|we are of the (?:view|opinion)|"
+    r"in our (?:view|opinion|considered)|the court (?:holds|finds|is of the view)|"
+    r"we conclude|it is (?:well[\-\s]?)?settled|is liable to be|we allow|we dismiss|"
+    r"we set aside|we quash|is hereby quashed|we direct|the law is|the principle is|"
+    r"cannot be sustained|no case is made out|does not (?:constitute|disclose)"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# Outcomes where the court REJECTED the moving party's allegation. If the HELD
+# line then asserts that very allegation, it is a recital mislabelled as ratio.
+_REJECTING_OUTCOMES = ("quash", "acquit", "discharge", "dismiss")
+
+
+def held_reads_as_allegation(
+    held_line: str = "",
+    court_quote: str = "",
+    outcome: str = "",
+) -> bool:
+    """True if a card's HELD/quote recites a PARTY'S allegation instead of the
+    court's finding.
+
+    Two triggers:
+      1. Allegation language present, holding language absent.
+      2. Allegation language present AND the case's outcome shows the court
+         rejected that allegation (quashed / acquitted / discharged) — a strong
+         signal the recital was mislabelled even if a stray holding verb appears.
+
+    Errs toward flagging (the downstream effect is only a downgrade to
+    'unverified', never a drop), consistent with the zero-fabrication bias.
+    """
+    text = " ".join(t for t in (held_line, court_quote) if t).strip()
+    if not text:
+        return False
+    body = re.sub(r"^\s*held\s*[—:\-]\s*", "", text, flags=re.IGNORECASE)
+    has_alleg = bool(_ALLEGATION_MARKERS.search(body))
+    if not has_alleg:
+        return False
+    has_hold = bool(_HOLDING_VERBS.search(body))
+    if not has_hold:
+        return True
+    oc = (outcome or "").lower()
+    return any(k in oc for k in _REJECTING_OUTCOMES)
+
+
 # ----------------------------------------------------- quote / anchor extraction
 
 # Match quotes wrapped in double quotes, smart quotes, or following the

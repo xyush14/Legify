@@ -555,7 +555,10 @@ def _build_search_input(
     plain-English doctrinal terms; the statute reference is included as
     an anchor (helps narrow) but is NOT what leads the search.
 
-    Query construction order (most important first for IK keyword scoring):
+    Query construction order (most important first for IK keyword scoring)
+    depends on the matter's DOMAIN (refined_query["domain"]):
+
+    CRIMINAL (default — the historical behaviour, unchanged):
       1. factual_archetype       — high-level fact-pattern label
       2. core_circumstances      — 2 specific fact phrases
       3. legal_concepts          — plain-English doctrinal terms
@@ -564,50 +567,69 @@ def _build_search_input(
       6. primary_statute         — statute anchor (LAST, single mention)
       7. dual_statute (old code) — for pre-2024 cases on the same concept
 
+    CIVIL / MIXED: the statute + doctrine ARE the anchor. Civil fact patterns
+    (a sale deed, a tenancy) are too generic for IK keyword scoring, but
+    "Section 54 Transfer of Property Act" + "bona fide purchaser" is exactly
+    how civil precedent is indexed. So:
+      1. primary_statute         — governing Act/section FIRST
+      2. legal_concepts          — plain-English doctrinal terms
+      3. doctrines_at_issue      — formal doctrine names
+      4. factual_archetype       — fact-pattern label
+      5. core_circumstances      — 1 specific fact phrase
+      6. secondary statute       — one more anchor
+
     Falls back to _distill_query when refined_query is None.
     The raw situation is NEVER sent verbatim — IK's keyword search returns
     zero hits for long natural-language queries.
     """
     if refined_query:
         parts: list[str] = []
-        # ── FACTS first ──
-        if refined_query.get("factual_archetype"):
-            fa = str(refined_query["factual_archetype"]).replace("_", " ")
-            if fa: parts.append(fa)
-        for circ in (refined_query.get("core_circumstances") or [])[:2]:
-            if circ:
-                # IK API has a length limit on formInput; keep each phrase short
-                s = str(circ).strip()
-                if 6 <= len(s) <= 80:
-                    parts.append(s)
-        # ── ISSUE / DOCTRINE ──
-        for lc in (refined_query.get("legal_concepts") or [])[:3]:
-            if lc:
-                s = str(lc).replace("_", " ").strip()
-                if s and s not in parts: parts.append(s)
-        for d in (refined_query.get("doctrines_at_issue") or [])[:2]:
-            if d:
-                s = str(d).replace("_", " ").strip()
-                if s and s not in parts: parts.append(s)
-        # ── Procedural posture ──
-        if refined_query.get("stage"):
-            stg = str(refined_query["stage"]).replace("_", " ")
-            if stg and stg not in parts: parts.append(stg)
-        # ── Statute anchor LAST (single primary mention) ──
-        if refined_query.get("primary_statute"):
-            ps = str(refined_query["primary_statute"]).strip()
-            if ps and ps not in parts: parts.append(ps)
-        # Include one secondary statute IF present (helps when primary is
-        # generic like "IPC" and secondary specifies "Section 376"):
-        for s in (refined_query.get("secondary_statutes") or [])[:1]:
-            if s and str(s).strip() not in parts:
-                parts.append(str(s).strip())
-        # Dual-code old form (for pre-2024 cases citing IPC/CrPC):
-        for ds in (refined_query.get("dual_statute_map") or [])[:1]:
-            if isinstance(ds, dict):
-                old = ds.get("old")
-                if old and str(old).strip() not in parts:
-                    parts.append(str(old).strip())
+        civil_first = refined_query.get("domain") in ("civil", "mixed")
+
+        def _add(s, lo=1, hi=200):
+            s = str(s or "").replace("_", " ").strip() if s else ""
+            if s and lo <= len(s) <= hi and s not in parts:
+                parts.append(s)
+
+        if civil_first:
+            # ── STATUTE + DOCTRINE first (civil anchor) ──
+            _add(refined_query.get("primary_statute"))
+            for lc in (refined_query.get("legal_concepts") or [])[:3]:
+                _add(lc)
+            for d in (refined_query.get("doctrines_at_issue") or [])[:2]:
+                _add(d)
+            # ── then FACTS ──
+            _add(refined_query.get("factual_archetype"))
+            for circ in (refined_query.get("core_circumstances") or [])[:1]:
+                _add(circ, lo=6, hi=80)
+            for s in (refined_query.get("secondary_statutes") or [])[:1]:
+                _add(s)
+            # Old-code form still matters for the criminal face of a mixed matter
+            for ds in (refined_query.get("dual_statute_map") or [])[:1]:
+                if isinstance(ds, dict):
+                    _add(ds.get("old"))
+        else:
+            # ── FACTS first (criminal — historical order) ──
+            _add(refined_query.get("factual_archetype"))
+            for circ in (refined_query.get("core_circumstances") or [])[:2]:
+                _add(circ, lo=6, hi=80)
+            # ── ISSUE / DOCTRINE ──
+            for lc in (refined_query.get("legal_concepts") or [])[:3]:
+                _add(lc)
+            for d in (refined_query.get("doctrines_at_issue") or [])[:2]:
+                _add(d)
+            # ── Procedural posture ──
+            _add(refined_query.get("stage"))
+            # ── Statute anchor LAST (single primary mention) ──
+            _add(refined_query.get("primary_statute"))
+            # Include one secondary statute IF present (helps when primary is
+            # generic like "IPC" and secondary specifies "Section 376"):
+            for s in (refined_query.get("secondary_statutes") or [])[:1]:
+                _add(s)
+            # Dual-code old form (for pre-2024 cases citing IPC/CrPC):
+            for ds in (refined_query.get("dual_statute_map") or [])[:1]:
+                if isinstance(ds, dict):
+                    _add(ds.get("old"))
         distilled = " ".join(parts[:12])  # cap at 12 tokens for IK formInput length
     else:
         distilled = _distill_query(situation)
@@ -660,7 +682,12 @@ def _rank_search_hits(
         elif mode == "hidden":
             citation_score = 0.5            # constant; reranker handles fame
         else:  # mixed
-            citation_score = math.log1p(h.numcitedby) * 1.0
+            # Exactness-first: keep fame as a tiebreaker, not the driver. At
+            # ×1.0 a 5,000-citation landmark (log1p≈8.5) drowned a 3-4 token
+            # headline keyword match, so famous-tangential hits monopolised
+            # the fetch budget. ×0.6 lets keyword relevance lead while famous
+            # cases still edge out equally-relevant obscure ones.
+            citation_score = math.log1p(h.numcitedby) * 0.6
 
         # Always-positive base so normalisation across sources is comparable
         score = max(0.5, citation_score + headline_score + court_bonus)

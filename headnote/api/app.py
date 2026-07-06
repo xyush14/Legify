@@ -322,6 +322,83 @@ def _get_kanoon_client():
     return _kanoon_client_singleton
 
 
+def _verify_card_sources(cases: list[dict], client) -> dict:
+    """Confirm each card's citation against the live Indian Kanoon source and set
+    a per-card `verification_status` that the badge is bound to.
+
+    Sets on each card:
+      - verification_status: "verified" | "unverified"
+      - verification_flags:  merged machine flags (unresolved, title_mismatch,
+        quote_unverified, year_unverified, holding_mismatch, source_unchecked …)
+      - verification_reason: short human sentence for the amber state
+
+    A card is "verified" ONLY when its IK doc id resolves, the resolved title
+    matches the cited case, the quoted line is present in that judgment, AND the
+    HELD line is the court's finding (not a party's allegation). Anything else →
+    "unverified — verify before use". Fail-closed: no client / any error →
+    unverified. Verification must never 500 the endpoint.
+    """
+    from headnote.kanoon.resolve import verify_card_source
+    from headnote.verify import held_reads_as_allegation
+
+    def _one(case: dict) -> None:
+        pn = case.get("practitioner_notes") or {}
+        quotes = [case.get("court_quote"), case.get("quotable_phrase"), pn.get("quotable_phrase")]
+        src = verify_card_source(
+            client,
+            doc_id=case.get("kanoon_doc_id"),
+            cited_title=case.get("title") or case.get("case_title") or "",
+            quotes=quotes,
+            year=case.get("year"),
+        )
+        # When the doc IS the cited case, its publish year is authoritative —
+        # correct a wrong LLM year (bug: "Suneel Galgotia … 2025" vs real 2016)
+        # rather than let a verified card display the wrong year.
+        if src.title_match and src.resolved_year and str(case.get("year") or "").strip() != src.resolved_year:
+            case["year"] = src.resolved_year
+
+        alleg = held_reads_as_allegation(
+            held_line=case.get("held_line") or case.get("ratio") or "",
+            court_quote=case.get("court_quote") or case.get("quotable_phrase") or "",
+            outcome=case.get("outcome") or "",
+        )
+        flags = list(dict.fromkeys(
+            list(case.get("verification_flags") or []) + list(src.flags)
+        ))
+        if alleg and "holding_mismatch" not in flags:
+            flags.append("holding_mismatch")
+
+        verified = src.is_verified() and not alleg
+        case["verification_status"] = "verified" if verified else "unverified"
+        case["verification_flags"] = flags
+        reason = src.reason
+        if alleg and not verified:
+            reason = ("the HELD line recites a party's allegation, not the "
+                      "court's finding — verify before use")
+        if not verified and not reason:
+            reason = "citation not confirmed — verify before use"
+        case["verification_reason"] = reason
+
+    if cases:
+        try:
+            from concurrent.futures import ThreadPoolExecutor
+            with ThreadPoolExecutor(max_workers=min(4, len(cases))) as pool:
+                list(pool.map(_one, cases))
+        except Exception as e:  # noqa: BLE001 — degrade to inline, never 500
+            print(f"[situation-source-verify] pool failed, running inline: {e}")
+            for c in cases:
+                try:
+                    _one(c)
+                except Exception:  # noqa: BLE001
+                    c["verification_status"] = "unverified"
+                    c["verification_flags"] = list(dict.fromkeys(
+                        list(c.get("verification_flags") or []) + ["source_unchecked"]))
+                    c["verification_reason"] = "citation not confirmed — verify before use"
+
+    n_ok = sum(1 for c in cases if c.get("verification_status") == "verified")
+    return {"checked": len(cases), "verified": n_ok, "unverified": len(cases) - n_ok}
+
+
 def _filtered_corpus_json(query: str, *, top_k: Optional[int] = None) -> str:
     """JSON of the top-K most relevant curated cases. Used in the curated-only
     path and as a fallback for digest mode (which doesn't go through IK yet).
@@ -1079,6 +1156,11 @@ _init_consultations_db()
 # no-bluff citation discipline — see headnote/api/chat.py + docs/CHAT_FEATURE.md.)
 from headnote.api.chat import router as _chat_router
 app.include_router(_chat_router)
+
+# Ask-this-judgment — Q&A scoped to ONE judgment, para-anchored + post-stream
+# verified: POST /api/judgment/chat (SSE). See headnote/api/judgment_chat.py.
+from headnote.api.judgment_chat import router as _judgment_chat_router
+app.include_router(_judgment_chat_router)
 
 # Legal Lens — annotate document text with explainable terms + statute refs
 # (curated/verified data only): /api/lexicon/annotate. See headnote/api/lexicon.py.
@@ -3127,10 +3209,20 @@ def _api_situation_impl(req: SituationRequest, _record, on_retrieved=None):
             zero_archetype_cases.append(c)
             filtered_zero_archetype += 1
     # If dropping would leave fewer than 3 cases, keep the zero-archetype
-    # cases too — better to show a lower-relevance case than an empty page.
+    # cases too — BUT say so. Silently padding weak matches is exactly the
+    # "results aren't exact" complaint: the lawyer can't tell a genuine
+    # fact-match from filler. Each re-added case carries an explicit
+    # relevance_note the card renders as an amber strip, and a 1-2 card
+    # answer is allowed to stand as the honest result.
     if len(final) < _MIN_CASES_GUARD and zero_archetype_cases:
         needed = _MIN_CASES_GUARD - len(final)
-        final.extend(zero_archetype_cases[:needed])
+        for c in zero_archetype_cases[:needed]:
+            c["is_fallback_match"] = True
+            c["relevance_note"] = (
+                "closest available — not an exact match on your facts; "
+                "verify fit before relying on it"
+            )
+            final.append(c)
         filtered_zero_archetype -= min(needed, len(zero_archetype_cases))
     if filtered_zero_archetype > 0:
         print(
@@ -3182,8 +3274,15 @@ def _api_situation_impl(req: SituationRequest, _record, on_retrieved=None):
                     if c.get("case_id") not in fabricated_ids
                 ]
                 if not kept:
-                    # ALL cases fabricated — keep originals (better than empty)
-                    print("[situation-verify] all cases fabricated — keeping originals")
+                    # ALL cases fabricated — keep originals (better than empty),
+                    # but label every one so nothing reads as a checked citation.
+                    for c in parsed.get("cases", []):
+                        c["is_fallback_match"] = True
+                        c["relevance_note"] = (
+                            "could not be matched to a source document — "
+                            "verify independently before use"
+                        )
+                    print("[situation-verify] all cases fabricated — keeping originals (labelled)")
                 elif len(kept) >= _MIN_CASES_GUARD:
                     parsed["cases"] = kept
                 else:
@@ -3197,11 +3296,21 @@ def _api_situation_impl(req: SituationRequest, _record, on_retrieved=None):
                         if c.get("case_id") in fabricated_ids
                     ]
                     needed = _MIN_CASES_GUARD - len(kept)
-                    kept.extend(fabricated_cases[:needed])
+                    # Honesty over padding: any restored case is explicitly
+                    # labelled — its id didn't match the evidence set, so the
+                    # lawyer must not read it as a checked citation. (The
+                    # source-verifier downstream will also mark it unverified.)
+                    for c in fabricated_cases[:needed]:
+                        c["is_fallback_match"] = True
+                        c["relevance_note"] = (
+                            "could not be matched to a source document — "
+                            "verify independently before use"
+                        )
+                        kept.append(c)
                     parsed["cases"] = kept
                     print(
                         f"[situation-verify] restored {min(needed, len(fabricated_cases))} "
-                        f"fabricated cases to reach minimum {_MIN_CASES_GUARD}"
+                        f"fabricated cases (labelled) to reach minimum {_MIN_CASES_GUARD}"
                     )
             # Flag anchor/quote issues on individual cases for transparency
             _flag_map = {}
@@ -3265,6 +3374,7 @@ def _api_situation_impl(req: SituationRequest, _record, on_retrieved=None):
     # lawyer correct misinterpretations early.
     meta["refined_query"] = {
         "canonical_question":   refined.canonical_question,
+        "domain":               getattr(refined, "domain", "criminal"),
         "intent_type":          refined.intent_type,
         "primary_statute":      refined.primary_statute,
         "secondary_statutes":   refined.secondary_statutes,
@@ -3331,6 +3441,66 @@ def _api_situation_impl(req: SituationRequest, _record, on_retrieved=None):
                 return 1
             return 2
         parsed["cases"].sort(key=_court_tier_for_sort)
+
+    # Source-integrity gate for the "verified" badge: confirm each card's IK
+    # doc id resolves + its title matches + the quote is present, and that the
+    # HELD line is a holding (not a party's allegation). Runs AFTER enrichment
+    # (kanoon_doc_id is attached there) and is fail-closed — an unconfirmable
+    # citation is marked "unverified", never badged green. See _verify_card_sources.
+    _t_sv = time.time()
+    try:
+        source_verification = _verify_card_sources(parsed.get("cases", []), _get_kanoon_client())
+        meta["source_verification"] = source_verification
+    except Exception as e:  # noqa: BLE001 — must never break the response
+        print(f"[situation-source-verify] failed: {e}")
+        for c in parsed.get("cases", []):
+            c.setdefault("verification_status", "unverified")
+            c.setdefault("verification_reason", "citation not confirmed — verify before use")
+    _stage("06_source_verify", _t_sv)
+
+    # ---- Best-match pin -------------------------------------------------
+    # Pinpoint ONE case as "the answer" ONLY when the evidence justifies it.
+    # Gate (all must hold — deterministic, conservative):
+    #   1. source-verified (doc resolves + title matches + quote present)
+    #   2. not a fallback/padding card
+    #   3. direct fact-pattern parallel (fact_archetype_match == 3)
+    #   4. clear margin: total >= runner-up + 2, OR it is the ONLY case with
+    #      a direct fact parallel.
+    # When the gate fails, no pin — an honest "closest three" beats a
+    # confidently wrong #1. The pinned case moves to the front; the UI shows
+    # it as "closest authority" and collapses the rest.
+    try:
+        _cases = parsed.get("cases") or []
+
+        def _rs(c):
+            rs = c.get("relevance_scores") or {}
+            return (int(rs.get("total") or 0), int(rs.get("fact_archetype_match") or 0))
+
+        eligible = [
+            c for c in _cases
+            if c.get("verification_status") == "verified"
+            and not c.get("is_fallback_match")
+        ]
+        if eligible:
+            eligible.sort(key=_rs, reverse=True)
+            top = eligible[0]
+            top_total, top_fact = _rs(top)
+            others = [c for c in _cases if c is not top]
+            runner_total = max((_rs(c)[0] for c in others), default=0)
+            only_direct_fact = top_fact == 3 and all(_rs(c)[1] < 3 for c in others)
+            if top_fact == 3 and (top_total >= runner_total + 2 or only_direct_fact):
+                top["is_best_match"] = True
+                parsed["cases"] = [top] + others
+                meta["best_match"] = {
+                    "case_id": top.get("case_id"),
+                    "title": top.get("title"),
+                    "total_score": top_total,
+                    "margin": top_total - runner_total,
+                }
+                print(f"[situation-pin] best match: {top.get('case_id')} "
+                      f"(total={top_total}, runner-up={runner_total})")
+    except Exception as e:  # noqa: BLE001 — pinning must never break results
+        print(f"[situation-pin] failed: {e}")
 
     # Telemetry — fire-and-forget, never blocks the response
     record_query(

@@ -142,18 +142,36 @@ def _fame_factor(numcitedby: int, scale: int = 100) -> float:
     return min(1.0, numcitedby / scale)
 
 
+# Exactness damper: the Sonnet fact-match rubric scores 0.1-0.3 for
+# "tangentially related — touches the topic but different fact pattern".
+# A famous-tangential case still racks up semantic similarity (shared topic
+# keywords) + fame + jurisdiction and used to outrank the obscure case with
+# the lawyer's exact facts. Below this threshold the composite is damped so
+# tangential cases can only win when nothing better exists.
+_TANGENTIAL_FACT_THRESHOLD = 0.35
+_TANGENTIAL_DAMPER = 0.6
+
+
+def _damp_tangential(score: float, s: ScoredCandidate) -> float:
+    if s.fact_pattern_match <= _TANGENTIAL_FACT_THRESHOLD:
+        return score * _TANGENTIAL_DAMPER
+    return score
+
+
 def _score_hidden(s: ScoredCandidate) -> float:
-    return (
-        0.45 * s.fact_pattern_match
-        + 0.25 * s.semantic_similarity
-        + 0.15 * s.jurisdiction_match
+    return _damp_tangential(
+        0.50 * s.fact_pattern_match
+        + 0.22 * s.semantic_similarity
+        + 0.13 * s.jurisdiction_match
         + 0.10 * s.recency_score
         + 0.05 * s.good_law_score
-        - 0.20 * s.fame_penalty
+        - 0.20 * s.fame_penalty,
+        s,
     )
 
 
 def _score_famous(s: ScoredCandidate) -> float:
+    # famous mode is explicitly landmark-seeking — no damper, weights unchanged
     return (
         0.30 * s.fact_pattern_match
         + 0.20 * s.semantic_similarity
@@ -165,13 +183,16 @@ def _score_famous(s: ScoredCandidate) -> float:
 
 
 def _score_mixed(s: ScoredCandidate) -> float:
-    """No fame adjustment in either direction — neutral ranking."""
-    return (
-        0.40 * s.fact_pattern_match
-        + 0.30 * s.semantic_similarity
-        + 0.15 * s.jurisdiction_match
-        + 0.10 * s.recency_score
-        + 0.05 * s.good_law_score
+    """No fame adjustment in either direction — exactness-first neutral ranking.
+    fact_pattern_match is the dominant signal (0.50): the case whose facts
+    mirror the lawyer's matter must beat the famous case on the same topic."""
+    return _damp_tangential(
+        0.50 * s.fact_pattern_match
+        + 0.25 * s.semantic_similarity
+        + 0.12 * s.jurisdiction_match
+        + 0.08 * s.recency_score
+        + 0.05 * s.good_law_score,
+        s,
     )
 
 

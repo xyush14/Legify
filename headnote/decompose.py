@@ -27,12 +27,12 @@ class Decomposition(TypedDict):
     cost_paise: int
 
 
-_SYSTEM_PROMPT = """You are preparing a criminal-law research query for retrieval. Given the user's question, generate TWO focused sub-queries plus a one-line summary.
+_SYSTEM_PROMPT = """You are preparing an Indian legal research query (criminal OR civil) for retrieval. Given the user's question, generate TWO focused sub-queries plus a one-line summary.
 
 Return STRICT JSON only:
 {
   "judgments_query": "A natural-language sub-query optimised for retrieving relevant precedents. Mention the legal question, fact pattern, and procedural stage if implied. 1-3 sentences.",
-  "statute_query": "The specific BNS/BNSS/IEA/CrPC sections and any related procedural provisions the matter engages. Cite section numbers precisely. 1-2 sentences.",
+  "statute_query": "The specific sections the matter engages — BNS/BNSS/IEA/CrPC for criminal; the governing civil Act for civil matters (e.g. Transfer of Property Act 1882, Specific Relief Act 1963, Contract Act 1872, CPC, Registration Act 1908, Limitation Act 1963). Cite section numbers precisely. 1-2 sentences.",
   "user_facing_summary": "A single lowercase sentence describing what is being researched. Plain English. No marketing language. Example: 'researching s.125 crpc maintenance denials on living-in-adultery grounds and high-court revisional powers.'"
 }
 
