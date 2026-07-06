@@ -37,16 +37,17 @@
   .btn-exp:hover{background:#000}
 
   /* toolbar */
-  .toolbar{display:flex;align-items:center;gap:3px;padding:0 12px;background:#fff;border-bottom:1px solid var(--line);overflow-x:auto}
+  .toolbar{display:flex;align-items:center;gap:2px;padding:0 14px;background:#fff;border-bottom:1px solid var(--line);overflow-x:auto}
   .toolbar::-webkit-scrollbar{height:0}
-  .tb{width:31px;height:28px;border-radius:7px;display:grid;place-items:center;color:var(--ink-2);font-size:14px}
-  .tb:hover{background:var(--rail);color:var(--ink)}
-  .tb.on{background:var(--ink);color:#fff}
-  .tb b{font-family:Georgia,serif}
-  .tb i{font-family:Georgia,serif}
-  .tb.u span{text-decoration:underline}
-  .tsep{width:1px;height:20px;background:var(--line);margin:0 5px;flex:none}
-  .tsel{height:28px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--ink-2);font-family:var(--mono);font-size:11px;padding:0 6px}
+  .tb-group{display:flex;align-items:center;gap:1px;background:var(--rail);border-radius:9px;padding:2px}
+  .tb{width:30px;height:28px;border-radius:7px;display:grid;place-items:center;color:var(--ink-2);font-size:13.5px;transition:background .12s,color .12s}
+  .tb:hover{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.07)}
+  .tb.on{background:var(--ink);color:#fff;box-shadow:none}
+  .tb svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+  .tb .g{font-size:14px;line-height:1}
+  .tsep{width:1px;height:18px;background:var(--line);margin:0 6px;flex:none}
+  .tsel{height:28px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink-2);font-family:var(--mono);font-size:11px;padding:0 8px}
+  .tsel:hover{border-color:var(--ink-3)}
 
   .body{display:grid;grid-template-columns:242px 1fr 328px;overflow:hidden;min-height:0}
   .rail{background:#fff;overflow-y:auto;padding:17px 15px}
@@ -71,6 +72,12 @@
   .readybar{margin-top:8px;padding:10px;border-radius:var(--radius);background:var(--rail);font-size:12px;color:var(--ink-2);text-align:center}
   .readybar b{color:var(--ink)}
   .readybar.ready{background:#f2ffd0;color:var(--verify-deep)}
+  /* prominent "add your facts" hero — shown when the draft is mostly blanks */
+  .hero{border:1px solid #e7ddb4;background:linear-gradient(180deg,#fffdf4,#fff8e0);border-radius:11px;padding:13px 14px;margin-bottom:11px}
+  .hero .ht{font-weight:600;font-size:13px;color:var(--warn-ink);margin-bottom:4px}
+  .hero .hb{font-size:12px;line-height:1.5;color:var(--ink-2)}
+  .hero .hcta{margin-top:9px;width:100%;background:var(--ink);color:#fff;border-radius:8px;padding:8px;font-size:12.5px;font-weight:540}
+  .hero .hcta:hover{background:#000}
 
   /* center canvas = iframe */
   .canvas{background:#cdccc6;overflow:hidden;position:relative}
@@ -134,28 +141,36 @@
   </div>
 
   <div class="toolbar" id="toolbar">
-    <button class="tb" data-cmd="undo" title="Undo">↶</button>
-    <button class="tb" data-cmd="redo" title="Redo">↷</button>
-    <span class="tsep"></span>
-    <select class="tsel" id="fontsize" title="Font size">
-      <option value="">Size</option><option value="2">Small</option><option value="3">Normal</option>
-      <option value="4">Large</option><option value="5">X-Large</option>
-    </select>
-    <span class="tsep"></span>
-    <button class="tb" data-cmd="bold" title="Bold"><b>B</b></button>
-    <button class="tb" data-cmd="italic" title="Italic"><i>I</i></button>
-    <button class="tb u" data-cmd="underline" title="Underline"><span>U</span></button>
-    <button class="tb" data-cmd="strikeThrough" title="Strikethrough"><span style="text-decoration:line-through">S</span></button>
-    <span class="tsep"></span>
-    <button class="tb" data-cmd="justifyLeft" title="Align left">⬅</button>
-    <button class="tb" data-cmd="justifyCenter" title="Align center">↔</button>
-    <button class="tb" data-cmd="justifyRight" title="Align right">➡</button>
-    <button class="tb" data-cmd="justifyFull" title="Justify">☰</button>
-    <span class="tsep"></span>
-    <button class="tb" data-cmd="insertUnorderedList" title="Bullet list">•</button>
-    <button class="tb" data-cmd="insertOrderedList" title="Numbered list">1.</button>
-    <span class="tsep"></span>
-    <button class="tb" data-cmd="removeFormat" title="Clear formatting">⌫</button>
+   <div class="tb-group">
+    <button class="tb" data-cmd="undo" title="Undo (⌘Z)" aria-label="Undo"><svg viewBox="0 0 20 20"><path d="M7 8H12.5a4 4 0 0 1 0 8H8"/><path d="M7 8 4 5m3 3L4 11"/></svg></button>
+    <button class="tb" data-cmd="redo" title="Redo (⌘⇧Z)" aria-label="Redo"><svg viewBox="0 0 20 20"><path d="M13 8H7.5a4 4 0 0 0 0 8H12"/><path d="M13 8l3-3m-3 3 3 3"/></svg></button>
+   </div>
+   <span class="tsep"></span>
+   <select class="tsel" id="fontsize" title="Text size">
+     <option value="">Size</option><option value="2">Small</option><option value="3">Normal</option>
+     <option value="4">Large</option><option value="5">X-Large</option>
+   </select>
+   <span class="tsep"></span>
+   <div class="tb-group">
+    <button class="tb" data-cmd="bold" title="Bold" aria-label="Bold"><span class="g" style="font-weight:800">B</span></button>
+    <button class="tb" data-cmd="italic" title="Italic" aria-label="Italic"><span class="g" style="font-style:italic;font-family:Georgia,serif">I</span></button>
+    <button class="tb" data-cmd="underline" title="Underline" aria-label="Underline"><span class="g" style="text-decoration:underline;text-underline-offset:2px">U</span></button>
+    <button class="tb" data-cmd="strikeThrough" title="Strikethrough" aria-label="Strikethrough"><span class="g" style="text-decoration:line-through">S</span></button>
+   </div>
+   <span class="tsep"></span>
+   <div class="tb-group">
+    <button class="tb" data-cmd="justifyLeft" title="Align left" aria-label="Align left"><svg viewBox="0 0 20 20"><path d="M3 5h14M3 9h9M3 13h12M3 17h7"/></svg></button>
+    <button class="tb" data-cmd="justifyCenter" title="Align center" aria-label="Align center"><svg viewBox="0 0 20 20"><path d="M3 5h14M5 9h10M4 13h12M6 17h8"/></svg></button>
+    <button class="tb" data-cmd="justifyRight" title="Align right" aria-label="Align right"><svg viewBox="0 0 20 20"><path d="M3 5h14M8 9h9M5 13h12M10 17h7"/></svg></button>
+    <button class="tb" data-cmd="justifyFull" title="Justify" aria-label="Justify"><svg viewBox="0 0 20 20"><path d="M3 5h14M3 9h14M3 13h14M3 17h14"/></svg></button>
+   </div>
+   <span class="tsep"></span>
+   <div class="tb-group">
+    <button class="tb" data-cmd="insertUnorderedList" title="Bullet list" aria-label="Bullet list"><svg viewBox="0 0 20 20"><circle cx="4" cy="6" r="1.3" fill="currentColor" stroke="none"/><circle cx="4" cy="14" r="1.3" fill="currentColor" stroke="none"/><path d="M8 6h9M8 14h9"/></svg></button>
+    <button class="tb" data-cmd="insertOrderedList" title="Numbered list" aria-label="Numbered list"><svg viewBox="0 0 20 20"><path d="M8 6h9M8 14h9" /><text x="2.2" y="8" font-size="6" fill="currentColor" stroke="none" font-family="monospace">1</text><text x="2.2" y="16" font-size="6" fill="currentColor" stroke="none" font-family="monospace">2</text></svg></button>
+   </div>
+   <span class="tsep"></span>
+   <button class="tb" data-cmd="removeFormat" title="Clear formatting" aria-label="Clear formatting"><svg viewBox="0 0 20 20"><path d="M6 5h10M9 5l-2 12M13 13l4 4M17 13l-4 4"/></svg></button>
   </div>
 
   <div class="body">
@@ -335,21 +350,39 @@
   function renderTrust(){
     var box=$("trust"), warns=(A.warnings||[]).filter(Boolean), amber=0;
     box.innerHTML="";
-    // count fill-in blanks live from the doc
-    var blanks=0; try{ var doc=idoc(); if(doc){ blanks=(doc.body.innerHTML.match(/_{3,}|class="ph"/g)||[]).length; } }catch(e){}
-    warns.forEach(function(w){
-      var isWarn=/^⚠|verify|जाँच|पुष्टि|नहीं मिले|नहीं आए/.test(w);
-      if(isWarn) amber++;
-      box.appendChild(chk(isWarn?"warn":"info", isWarn?"!":"i", w));
-    });
+    // count fill-in blanks from the stored body (the iframe may not be loaded yet
+    // when this runs — reading it live would under-count to zero).
+    var src=(lang==="en"?(A.html_en||A.page_en):(A.html_hi||A.page_hi))||A.html_hi||A.page_hi||"";
+    var blanks=(String(src).match(/_{3,}|class=.ph./g)||[]).length;
+    // HERO: when the draft is mostly a format skeleton, guide the advocate to add facts
+    // (the common reference-with-thin-brief case) instead of a weak "placeholders" note.
+    if(blanks>=3){
+      var h=document.createElement("div"); h.className="hero";
+      h.innerHTML='<div class="ht">'+blanks+' blanks to fill</div>'+
+        '<div class="hb">'+(A.mirrored
+          ? "This draft has your reference’s <b>format</b>. The facts stay yours — type your matter (parties, the notice/order being answered, dates, amounts) and I’ll write them into this shape."
+          : "Add the specific facts (names, dates, FIR/case no., amounts) where you see ____ — or tell the assistant and I’ll fill them.")+'</div>'+
+        '<button class="hcta" id="hero-cta">Add facts in the assistant →</button>';
+      box.appendChild(h);
+    }
+    // ungrounded first (the actionable, must-verify class)
     if((A.ungrounded||[]).length){
       amber++;
       box.appendChild(chk("warn","!","<b>"+A.ungrounded.length+" detail(s) not in your input</b><div class='sub'>Highlighted in amber — verify or delete: "+esc(A.ungrounded.slice(0,6).join("; "))+"</div>"));
     }
+    warns.forEach(function(w){
+      // skip the generic "contains placeholders" note — the hero already says it better
+      if(/placeholder|____|रिक्त स्थान/i.test(w) && blanks>=3) return;
+      var isWarn=/^⚠|verify|जाँच|पुष्टि|नहीं मिले|नहीं आए/.test(w);
+      if(isWarn) amber++;
+      box.appendChild(chk(isWarn?"warn":"info", isWarn?"!":"i", w));
+    });
     box.appendChild(chk("ok","✓","<b>No fabricated case law</b><div class='sub'>Body carries no unverified citation</div>"));
     var rb=$("readybar");
-    if(amber===0){ rb.className="readybar ready"; rb.innerHTML="✓ <b>Ready to file</b> — nothing flagged for review."; }
-    else { rb.className="readybar"; rb.innerHTML="Resolve the <b>"+amber+" flagged item(s)</b> above to reach <b>Ready to file</b>."; }
+    if(amber===0 && blanks===0){ rb.className="readybar ready"; rb.innerHTML="✓ <b>Ready to file</b> — nothing flagged for review."; }
+    else if(amber===0){ rb.className="readybar"; rb.innerHTML="Fill the <b>"+blanks+" blank(s)</b> to reach <b>Ready to file</b>."; }
+    else { rb.className="readybar"; rb.innerHTML="Resolve the <b>"+amber+" flagged item(s)</b>"+(blanks?" and <b>"+blanks+" blank(s)</b>":"")+" to reach <b>Ready to file</b>."; }
+    var hc=$("hero-cta"); if(hc) hc.onclick=function(){ var ri=$("refine-in"); if(ri){ setSeg("assist"); ri.focus(); } };
   }
   function chk(kind,ic,html){
     var d=document.createElement("div"); d.className="chk "+kind;
@@ -461,11 +494,13 @@
   document.querySelectorAll("#refine-chips .chip").forEach(function(c){ c.onclick=function(){ $("refine-in").value=c.textContent; $("refine-in").focus(); }; });
 
   // ---- right-rail toggle ----
-  document.querySelectorAll("#seg button").forEach(function(b){ b.onclick=function(){
-    document.querySelectorAll("#seg button").forEach(function(x){x.classList.remove("on");}); b.classList.add("on");
-    $("p-assist").style.display=b.dataset.p==="assist"?"":"none";
-    $("p-file").style.display=b.dataset.p==="file"?"":"none";
-  };});
+  function setSeg(p){
+    document.querySelectorAll("#seg button").forEach(function(x){x.classList.toggle("on",x.dataset.p===p);});
+    $("p-assist").style.display=p==="assist"?"":"none";
+    $("p-file").style.display=p==="file"?"":"none";
+  }
+  window.setSeg=setSeg;
+  document.querySelectorAll("#seg button").forEach(function(b){ b.onclick=function(){ setSeg(b.dataset.p); }; });
 
   // ---- language toggle ----
   $("langtog").addEventListener("click",function(e){

@@ -1596,6 +1596,15 @@ THE TWO-SOURCE RULE — what comes from where:
   and the printer decides the page boundaries.
 • NEVER INVENT a fact, a party, a relationship or a narrative the brief does not state. A draft full of ____
   is CORRECT; an invented story is a career-ending defect for the advocate.
+• THE OPENING RECITAL is the worst offender: the party names, the opposite party, the notice/order date in
+  the very first "in the matter of / जो कि मैं अपने पक्षकार …" sentence MUST be ____ unless the brief gives
+  them. Do NOT borrow a plausible name, and do NOT lift the reference's party names or its numbers (its
+  "9,50,000 रुपये 15 दिवस" is that client's — never copy "15" or any figure from it). Every name/date/amount
+  in the output must appear in the brief; if it doesn't, it is ____.
+• A PARA-WISE REPLY (जबाव सूचना पत्र / written statement) replies to ANOTHER document, paragraph by paragraph.
+  You can only reproduce the reference's admit/deny FRAMING sentences ("पद क्रमांक-__ … स्वीकार/अस्वीकार है");
+  the substance of each reply is ____ unless the brief supplies the notice being replied to. Do not fabricate
+  what is admitted or denied.
 • STATUTES/SECTIONS: cite what the NEW matter actually needs (the reference shows the FORMAT of the recital,
   not the sections to copy). If unsure of a section number, write ____.
 • CITATIONS: put NO case citation in the body. If authority helps, list only real judgments you are certain
