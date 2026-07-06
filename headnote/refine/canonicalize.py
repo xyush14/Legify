@@ -154,8 +154,23 @@ OUTPUT JSON SCHEMA
     "components": ["string", ...]
   },
   "ranking_hint":           "string — one sentence: what should rank highest?",
+  "ik_search_queries":      ["string — see SEARCH QUERIES below", ...],
   "ambiguity_notes":        "string | null"
 }
+
+SEARCH QUERIES (this is where retrieval is won or lost)
+========================================================
+Emit 3-4 SHORT keyword queries (4-8 words each) for Indian Kanoon's
+keyword search engine. Think like a senior advocate at the terminal: each
+query is a DIFFERENT ANGLE on the matter, phrased in the words an Indian
+JUDGMENT would actually use — not the lawyer's colloquial phrasing.
+  1. statute + operative concept  (e.g. "section 54 transfer of property double sale")
+  2. doctrine as judgments phrase it  (e.g. "subsequent purchaser prior agreement notice")
+  3. fact-pattern / remedy idiom  (e.g. "two sale deeds same property priority")
+  4. old-code variant when the matter has one  (e.g. "420 IPC cheating sale deed")
+Rules: lowercase, no punctuation, no years, no "the lawyer's client",
+NO query longer than 8 words. Each query must stand alone — do not
+assume the engine sees the others.
 
 Return ONLY the JSON. No prose, no markdown fences.
 """
@@ -202,6 +217,10 @@ class RefinedQuery:
     court_level:          Optional[str] = None
     expected_answer_shape: dict = field(default_factory=dict)
     ranking_hint:         str = ""
+    # LLM-authored short IK queries, each a different retrieval angle phrased
+    # the way judgments are indexed. Empty → retrieval falls back to the
+    # deterministic facet-join query only.
+    ik_search_queries:    list[str] = field(default_factory=list)
     ambiguity_notes:      Optional[str] = None
     normalization_substitutions: list[dict] = field(default_factory=list)
     cost_paise:           int = 0
@@ -317,6 +336,7 @@ def canonicalize(normalized: NormalizedQuery) -> RefinedQuery:
         court_level          = parsed.get("court_level"),
         expected_answer_shape= parsed.get("expected_answer_shape") or {},
         ranking_hint         = parsed.get("ranking_hint", ""),
+        ik_search_queries    = _clean_search_queries(parsed.get("ik_search_queries")),
         ambiguity_notes      = parsed.get("ambiguity_notes"),
         normalization_substitutions = normalized.substitutions,
         cost_paise           = result.cost_paise,
@@ -468,6 +488,31 @@ def _detect_domain(text: str) -> str:
 
 
 # ---------------------------------------------------------------- helpers
+
+def _clean_search_queries(raw) -> list[str]:
+    """Validate the LLM's ik_search_queries: strings only, 2-8 words,
+    lowercased, deduped, capped at 4. Anything malformed is dropped —
+    retrieval always has the deterministic facet query as its floor."""
+    if not isinstance(raw, list):
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for q in raw:
+        if not isinstance(q, str):
+            continue
+        s = re.sub(r"[^\w\s()/-]", " ", q.lower())
+        s = re.sub(r"\s+", " ", s).strip()
+        n_words = len(s.split())
+        if not (3 <= n_words <= 8):
+            continue
+        if s in seen:
+            continue
+        seen.add(s)
+        out.append(s)
+        if len(out) >= 4:
+            break
+    return out
+
 
 def _parse_json_safe(raw: str) -> dict:
     """Lift any well-formed JSON object out of the Haiku response."""

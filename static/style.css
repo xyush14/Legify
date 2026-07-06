@@ -1096,20 +1096,21 @@ button { font-family: inherit; }
   font-weight: 700;
   color: var(--good);
 }
-/* Unverified — citation could not be confirmed against its source. Amber, not
-   green: a lawyer must never read this as a checked citation. */
+/* Unverified — citation not auto-confirmed against its source. Icon-only,
+   muted: the absence of the green tick is the signal; the tooltip carries
+   the explanation. Never green — a lawyer must not read it as checked. */
 .badge--unverified {
-  background: rgba(183, 121, 31, 0.09);
-  color: var(--warn);
-  border-color: rgba(183, 121, 31, 0.28);
-  font-weight: 600;
+  background: var(--soft);
+  color: var(--ink-2);
+  border-color: var(--line);
   text-transform: none;
   cursor: help;
+  padding: 2px 7px;
 }
 .badge--unverified::before {
-  content: '⚠';
-  font-weight: 700;
-  color: var(--warn);
+  content: '◌';
+  font-weight: 600;
+  color: var(--ink-2);
 }
 /* Fallback-fit strip — the card was kept only to avoid an empty page and is
    NOT an exact match; amber row pinned at the top of the card body. */

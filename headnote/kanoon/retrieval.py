@@ -96,8 +96,12 @@ DEFAULT_TOP_PARAGRAPHS_PER_CASE = 2   # 4→2: shorter Phase 2 prompts, faster g
 # serial-wait penalty no longer scales linearly — bumping from 4 → 6
 # costs ~1 extra second total, not 6.
 import os as _os
-DEFAULT_MAX_NEW_FETCHES = int(_os.environ.get("MAX_IK_FETCHES", "3"))
-DEFAULT_MAX_NEW_FETCHES_HIDDEN = int(_os.environ.get("MAX_IK_FETCHES_HIDDEN", "4"))
+# Raised 3→5 / 4→6 alongside the multi-angle search fan-out: a 4-query union
+# yields 30-40 candidate hits, and capping fresh fetches at 3 starved the
+# selection stage of choice. Fetches run in parallel (latency ≈ one round
+# trip) and cost ₹0.20 each, cached forever.
+DEFAULT_MAX_NEW_FETCHES = int(_os.environ.get("MAX_IK_FETCHES", "5"))
+DEFAULT_MAX_NEW_FETCHES_HIDDEN = int(_os.environ.get("MAX_IK_FETCHES_HIDDEN", "6"))
 # 6 → 4 parallel: stays under IK's rate limit while keeping latency low.
 # IK doc fetch parallelism. 8 = comfortable for IK's rate limits (they
 # allow up to 10 concurrent connections per IP without throttling) and
@@ -643,11 +647,107 @@ def _build_search_input(
     return f"{distilled} {filters}".strip() if filters else distilled
 
 
+def _build_search_queries(
+    situation: str,
+    extra_filters: str = "",
+    refined_query: Optional[dict] = None,
+) -> list[str]:
+    """The retrieval fan-out: up to 4 IK queries, each a DIFFERENT angle.
+
+    Why: a single 12-token facet-join query gives IK's keyword engine one
+    shot — if its BM25 reading of that soup misses, the on-point case never
+    enters the candidate pool and no downstream reranking can recover it.
+    Short, angle-diverse queries (statute+concept / doctrine idiom / fact
+    idiom / old-code variant) are how lawyers actually search and how IK
+    is actually indexed.
+
+    Order: LLM-authored angle queries first (refined_query["ik_search_queries"],
+    validated upstream), then the deterministic facet-join as the floor,
+    then facet-derived variants if we still have fewer than 3. Hits are
+    unioned by the caller; per-query cost ₹0.50, cached by query hash.
+    """
+    filters = extra_filters or DEFAULT_SEARCH_FILTERS
+    queries: list[str] = []
+
+    def _push(q: str) -> None:
+        q = re.sub(r"\s+", " ", (q or "")).strip()
+        if not q:
+            return
+        full = f"{q} {filters}".strip() if filters else q
+        if full not in queries:
+            queries.append(full)
+
+    rq = refined_query or {}
+    # 1. LLM-authored angles — the best signal when present
+    for q in (rq.get("ik_search_queries") or [])[:3]:
+        _push(str(q))
+    # 2. Deterministic facet-join — the historical floor, always included
+    # (already carries the filters suffix, so append directly, not via _push)
+    base_full = _build_search_input(situation, extra_filters=filters, refined_query=refined_query)
+    if base_full and base_full not in queries:
+        queries.append(base_full)
+    # 3. Facet-derived variants if the pool of queries is still thin
+    if len(queries) < 3:
+        ps = str(rq.get("primary_statute") or "").strip()
+        if ps:
+            _push(ps)
+        concept_bits = [str(c) for c in (rq.get("legal_concepts") or [])[:2]]
+        concept_bits += [str(d).replace("_", " ") for d in (rq.get("doctrines_at_issue") or [])[:1]]
+        _push(" ".join(b for b in concept_bits if b))
+    return queries[:4]
+
+
+def _issue_anchor_terms(refined_query: Optional[dict]) -> list[str]:
+    """Short distinctive strings that mark a search hit as ON THE ISSUE —
+    bare section references ("section 54"), act names ("transfer of
+    property act"), doctrine phrases ("bona fide purchaser"). Hits whose
+    title/headline carry these get boosted BEFORE the ₹0.20-per-doc fetch
+    budget is spent, so the fetches go to on-issue cases."""
+    if not refined_query:
+        return []
+    terms: list[str] = []
+
+    def _sections(s: str) -> list[str]:
+        return re.findall(r"(?:section|s\.?)\s*(\d{1,4}[A-Za-z]{0,2}\b)", s or "", flags=re.IGNORECASE)
+
+    statutes = [str(refined_query.get("primary_statute") or "")]
+    statutes += [str(s) for s in (refined_query.get("secondary_statutes") or [])[:2]]
+    for src in statutes:
+        for sec in _sections(src)[:2]:
+            terms.append(f"section {sec.lower()}")
+        act = re.sub(r"section\s+[\dA-Za-z()]+\s+of\s+(the\s+)?", "", src, flags=re.IGNORECASE)
+        act = re.sub(r"[,–-]?\s*\d{4}.*$", "", act).strip().lower()
+        if 6 <= len(act) <= 60:
+            terms.append(act)
+    for ds in (refined_query.get("dual_statute_map") or [])[:2]:
+        if isinstance(ds, dict):
+            for side in ("old", "new"):
+                for sec in _sections(str(ds.get(side) or ""))[:1]:
+                    terms.append(f"section {sec.lower()}")
+    for d in (refined_query.get("doctrines_at_issue") or [])[:3]:
+        s = str(d).replace("_", " ").strip().lower()
+        if len(s) >= 6:
+            terms.append(s)
+    for lc in (refined_query.get("legal_concepts") or [])[:3]:
+        s = str(lc).strip().lower()
+        if len(s) >= 6:
+            terms.append(s)
+
+    seen: set[str] = set()
+    out: list[str] = []
+    for t in terms:
+        if t and t not in seen:
+            seen.add(t)
+            out.append(t)
+    return out[:8]
+
+
 # ----------------------------------------------------------- hit ranking
 
 def _rank_search_hits(
     hits: list[SearchHit], query: str, *, curated_titles_lc: set[str],
     mode: str = "mixed",
+    anchor_terms: Optional[list[str]] = None,
 ) -> list[tuple[float, SearchHit]]:
     """Return hits sorted by composite relevance score (highest first).
 
@@ -657,12 +757,18 @@ def _rank_search_hits(
       hidden — citation weight PENALISED (log×−0.5); obscure-but-relevant
                cases bubble up. Headline keyword match is the primary signal.
 
+    `anchor_terms` (from _issue_anchor_terms) are distinctive issue markers —
+    section refs, act names, doctrine phrases. A hit carrying one in its
+    title/headline is almost certainly ON the issue, so it gets a strong
+    bonus before the per-doc fetch budget is allocated.
+
     Always drops hits already in the curated corpus (no point paying ₹0.20
     to re-fetch what we already have verbatim).
     """
     import math
 
     query_tokens = set(_tokens(query))
+    anchors = [a for a in (anchor_terms or []) if a]
     scored: list[tuple[float, SearchHit]] = []
     for h in hits:
         title_lc = h.title.lower()
@@ -671,6 +777,19 @@ def _rank_search_hits(
 
         headline_score = len(query_tokens & set(_tokens(h.headline))) * 1.0
         court_bonus = 1.5 if "supreme court" in h.docsource.lower() else 0.0
+
+        # Issue-anchor bonus — title hit is the strongest on-issue signal
+        # IK gives us for free; headline hit is next best. Capped so a
+        # keyword-stuffed headline can't drown the other signals.
+        anchor_bonus = 0.0
+        if anchors:
+            headline_lc = (h.headline or "").lower()
+            for a in anchors:
+                if a in title_lc:
+                    anchor_bonus += 2.0
+                elif a in headline_lc:
+                    anchor_bonus += 1.0
+            anchor_bonus = min(anchor_bonus, 5.0)
 
         # IMPORTANT: in hidden mode we do NOT penalise citations here. Producing
         # negative scores breaks downstream normalisation (max_rel becomes
@@ -690,7 +809,7 @@ def _rank_search_hits(
             citation_score = math.log1p(h.numcitedby) * 0.6
 
         # Always-positive base so normalisation across sources is comparable
-        score = max(0.5, citation_score + headline_score + court_bonus)
+        score = max(0.5, citation_score + headline_score + court_bonus + anchor_bonus)
         scored.append((score, h))
     scored.sort(key=lambda t: t[0], reverse=True)
     return scored
@@ -1296,41 +1415,50 @@ def retrieve_for_situation(
         run_ik_search = True
 
     if run_ik_search:
-        form_input = _build_search_input(situation, extra_filters=search_filters, refined_query=refined_query)
+        # MULTI-ANGLE FAN-OUT. One keyword query gives IK's engine a single
+        # shot at the issue — if it misses, the on-point case never enters
+        # the pool and no downstream reranking can recover it. We run up to
+        # 4 short angle-diverse queries (LLM-authored judgment phrasing +
+        # the deterministic facet-join floor) IN PARALLEL — wall-clock stays
+        # ~one round-trip; each query is ₹0.50 and cached by query hash.
+        search_queries = _build_search_queries(
+            situation, extra_filters=search_filters, refined_query=refined_query,
+        )
         all_hits: list[SearchHit] = []
+        _seen_tids: set[int] = set()
+        _budget_hit = False
 
-        # Single IK search page per query to stay inside Render's request
-        # budget. A second page was being fetched in hidden mode to surface
-        # lower-cited results, but the extra ₹0.50 + ~1.5s round-trip wasn't
-        # worth pushing past the 25s timeout. The fame penalty in the
-        # reranker already pulls obscure cases up from page 0 results.
-        pages_to_fetch = 1
-        for page_n in range(pages_to_fetch):
-            try:
-                page = client.search(form_input, pagenum=page_n)
-                meta.ik_search_calls += 1
-                all_hits.extend(page.hits)
-            except KanoonBudgetExceeded as e:
-                if page_n == 0:
-                    meta.notes.append(f"IK budget exceeded; using curated+semantic only: {e}")
-                    return _finalise(cases, evidence, meta, t0, client, spend_before)
-                else:
-                    meta.notes.append(f"IK page {page_n} budget exceeded; using page 0 results only")
-                    break
-            except KanoonError as e:
-                if page_n == 0:
-                    meta.notes.append(
-                        f"IK search failed ({type(e).__name__}); using curated+semantic only: {e}"
-                    )
-                    return _finalise(cases, evidence, meta, t0, client, spend_before)
-                else:
-                    meta.notes.append(f"IK search page {page_n} failed: {e}")
-                    break
+        from concurrent.futures import ThreadPoolExecutor as _TPE, as_completed as _as_done
+        with _TPE(max_workers=min(4, len(search_queries))) as _pool:
+            _futs = {_pool.submit(client.search, q, pagenum=0): q for q in search_queries}
+            for _fut in _as_done(_futs):
+                _q = _futs[_fut]
+                try:
+                    page = _fut.result()
+                    meta.ik_search_calls += 1
+                    for h in page.hits:
+                        if h.tid not in _seen_tids:
+                            _seen_tids.add(h.tid)
+                            all_hits.append(h)
+                except KanoonBudgetExceeded as e:
+                    _budget_hit = True
+                    meta.notes.append(f"IK budget exceeded on query {_q[:60]!r}: {e}")
+                except KanoonError as e:
+                    meta.notes.append(f"IK search failed on query {_q[:60]!r} ({type(e).__name__})")
+
+        if not all_hits:
+            meta.notes.append(
+                "IK live search unavailable (budget exceeded); using curated+semantic only"
+                if _budget_hit else
+                "IK live search returned no usable hits; using curated+semantic only"
+            )
+            return _finalise(cases, evidence, meta, t0, client, spend_before)
 
         ranked = _rank_search_hits(
             all_hits, situation,
             curated_titles_lc=set(curated_used),
             mode=mode,
+            anchor_terms=_issue_anchor_terms(refined_query),
         )
         ranked = [(s, h) for s, h in ranked if f"ik:{h.tid}" not in semantic_case_ids]
 

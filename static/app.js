@@ -907,11 +907,13 @@
         attrs: { title: 'Doc id resolves, title matches the cited case, and the quoted line was found in the judgment.' },
       });
     }
-    const reason = c.verification_reason || 'this citation was not confirmed against its source';
+    // Unverified: a quiet icon-only chip. The full explanation lives in the
+    // tooltip — honest without shouting at the lawyer on every card.
+    const reason = c.verification_reason || 'not auto-confirmed against the source yet';
     return ce('span', {
       cls: 'badge badge--unverified',
-      text: 'unverified — verify before use',
-      attrs: { title: reason },
+      text: '',
+      attrs: { title: 'Source check pending — ' + reason + '. Open the judgment to confirm.', 'aria-label': 'source check pending' },
     });
   }
   // A citation is "neutral" (free, court-issued) rather than a paid reporter
