@@ -681,12 +681,21 @@ def _build_search_queries(
     # 1. LLM-authored angles — the best signal when present
     for q in (rq.get("ik_search_queries") or [])[:3]:
         _push(str(q))
-    # 2. Deterministic facet-join — the historical floor, always included
+    # 2. The canonical question itself, distilled to content words. This is
+    #    the issue as the analyser understood it ("criminal offence double
+    #    sale land co-sharers knowledge prior sale") — often the single best
+    #    query, and immune to the facet-join's generic-token noise.
+    cq = str(rq.get("canonical_question") or "").strip().lower()
+    if cq:
+        cq_words = [w for w in re.findall(r"[a-z]{3,}", cq) if w not in _QUERY_STOPWORDS]
+        if len(cq_words) >= 3:
+            _push(" ".join(cq_words[:8]))
+    # 3. Deterministic facet-join — the historical floor, always included
     # (already carries the filters suffix, so append directly, not via _push)
     base_full = _build_search_input(situation, extra_filters=filters, refined_query=refined_query)
     if base_full and base_full not in queries:
         queries.append(base_full)
-    # 3. Facet-derived variants if the pool of queries is still thin
+    # 4. Facet-derived variants if the pool of queries is still thin
     if len(queries) < 3:
         ps = str(rq.get("primary_statute") or "").strip()
         if ps:
@@ -694,7 +703,7 @@ def _build_search_queries(
         concept_bits = [str(c) for c in (rq.get("legal_concepts") or [])[:2]]
         concept_bits += [str(d).replace("_", " ") for d in (rq.get("doctrines_at_issue") or [])[:1]]
         _push(" ".join(b for b in concept_bits if b))
-    return queries[:4]
+    return queries[:5]
 
 
 def _issue_anchor_terms(refined_query: Optional[dict]) -> list[str]:
@@ -1429,7 +1438,8 @@ def retrieve_for_situation(
         _budget_hit = False
 
         from concurrent.futures import ThreadPoolExecutor as _TPE, as_completed as _as_done
-        with _TPE(max_workers=min(4, len(search_queries))) as _pool:
+        meta.notes.append("IK queries: " + " | ".join(q[:70] for q in search_queries))
+        with _TPE(max_workers=min(5, len(search_queries))) as _pool:
             _futs = {_pool.submit(client.search, q, pagenum=0): q for q in search_queries}
             for _fut in _as_done(_futs):
                 _q = _futs[_fut]
@@ -1454,8 +1464,13 @@ def retrieve_for_situation(
             )
             return _finalise(cases, evidence, meta, t0, client, spend_before)
 
+        # Rank hits against the CANONICAL QUESTION, not the raw situation: a
+        # long client story is full of generic tokens (share, deed, land,
+        # transfer) that let off-issue cases rack up headline overlap. The
+        # distilled question carries only the issue vocabulary.
+        _rank_query = str((refined_query or {}).get("canonical_question") or "").strip() or situation
         ranked = _rank_search_hits(
-            all_hits, situation,
+            all_hits, _rank_query,
             curated_titles_lc=set(curated_used),
             mode=mode,
             anchor_terms=_issue_anchor_terms(refined_query),

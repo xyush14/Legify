@@ -164,13 +164,19 @@ Emit 3-4 SHORT keyword queries (4-8 words each) for Indian Kanoon's
 keyword search engine. Think like a senior advocate at the terminal: each
 query is a DIFFERENT ANGLE on the matter, phrased in the words an Indian
 JUDGMENT would actually use — not the lawyer's colloquial phrasing.
-  1. statute + operative concept  (e.g. "section 54 transfer of property double sale")
-  2. doctrine as judgments phrase it  (e.g. "subsequent purchaser prior agreement notice")
-  3. fact-pattern / remedy idiom  (e.g. "two sale deeds same property priority")
-  4. old-code variant when the matter has one  (e.g. "420 IPC cheating sale deed")
-Rules: lowercase, no punctuation, no years, no "the lawyer's client",
-NO query longer than 8 words. Each query must stand alone — do not
-assume the engine sees the others.
+  1. statute + operative concept  (e.g. section 420 cheating "second sale deed")
+  2. doctrine as judgments phrase it  (e.g. "sale of same property" subsequent purchaser)
+  3. fact-pattern / remedy idiom  (e.g. vendor "already sold" property cheating)
+  4. old-code variant when the matter has one  (e.g. 420 IPC cheating sale deed)
+PRECISION RULES (these queries fail on generic words):
+  - Wrap the ONE most distinctive 2-3 word phrase of each query in double
+    quotes — the engine then requires that exact phrase ("double sale",
+    "second sale deed", "agreement to sell").
+  - AVOID bare homonyms that collide across domains: "share" alone pulls
+    company-shares cases — write "share in joint property" or "co-sharer";
+    "deed" alone pulls partnership deeds — write "sale deed".
+  - lowercase, no other punctuation, no years, no "the lawyer's client",
+    NO query longer than 8 words. Each query must stand alone.
 
 Return ONLY the JSON. No prose, no markdown fences.
 """
@@ -490,9 +496,12 @@ def _detect_domain(text: str) -> str:
 # ---------------------------------------------------------------- helpers
 
 def _clean_search_queries(raw) -> list[str]:
-    """Validate the LLM's ik_search_queries: strings only, 2-8 words,
-    lowercased, deduped, capped at 4. Anything malformed is dropped —
-    retrieval always has the deterministic facet query as its floor."""
+    """Validate the LLM's ik_search_queries: strings only, 3-8 words,
+    lowercased, deduped, capped at 4. Double quotes are PRESERVED — IK
+    treats a quoted span as an exact-phrase requirement, which is the main
+    precision lever against generic-keyword noise. Unbalanced quotes are
+    stripped. Anything malformed is dropped — retrieval always has the
+    deterministic facet query as its floor."""
     if not isinstance(raw, list):
         return []
     out: list[str] = []
@@ -500,9 +509,12 @@ def _clean_search_queries(raw) -> list[str]:
     for q in raw:
         if not isinstance(q, str):
             continue
-        s = re.sub(r"[^\w\s()/-]", " ", q.lower())
+        s = re.sub(r"[“”]", '"', q.lower())
+        s = re.sub(r'[^\w\s()/"-]', " ", s)
         s = re.sub(r"\s+", " ", s).strip()
-        n_words = len(s.split())
+        if s.count('"') % 2 != 0:          # unbalanced — drop the quotes, keep the words
+            s = s.replace('"', "")
+        n_words = len(s.replace('"', "").split())
         if not (3 <= n_words <= 8):
             continue
         if s in seen:

@@ -3099,48 +3099,16 @@ def _api_situation_impl(req: SituationRequest, _record, on_retrieved=None):
     escalated = False
     parsed = parse_json_response(raw)
 
-    # SAFETY NET: if the LLM returned 0 cases but retrieval surfaced ≥3,
-    # the LLM was being too conservative (V3 is prone to this). Force the
-    # top 3 retrieval results through with minimal LLM-generated content.
-    # The lawyer can decide if they're useful — better than empty page.
+    # NO SAFETY-NET INJECTION. When the model returns 0 cases it usually
+    # means the retrieval pool was keyword noise — force-injecting the top 3
+    # with a "review it yourself" stinger was exactly the padded-page failure
+    # the lawyer complained about. An empty result renders the personal-assist
+    # rail; the fix for a thin pool is better retrieval, not filler.
     _llm_cases_count = len(parsed.get("cases", []))
     if _llm_cases_count == 0 and len(retrieval_cases) >= 3:
         print(
-            f"[situation-safety] LLM returned 0 cases but retrieval surfaced "
-            f"{len(retrieval_cases)} — injecting top 3 as fallback"
-        )
-        fallback_cases = []
-        for cs in retrieval_cases[:3]:
-            fallback_cases.append({
-                "case_id": cs.case_id,
-                "title": cs.title,
-                "court": cs.court,
-                "year": cs.year,
-                "citation": cs.citation,
-                "stinger_sentence": (
-                    f"This case was surfaced from the corpus by relevance "
-                    f"to your matter. Review the judgment to assess fit."
-                ),
-                "held_line": "",
-                "negative_carve_out": "",
-                "court_quote": "",
-                "relevance_explanation": "",
-                "match_dimensions": [],
-                "relevance_scores": {
-                    "fact_archetype_match": 1,
-                    "doctrinal_match": 1,
-                    "outcome_alignment": 1,
-                    "authority_weight": 1,
-                    "total": 4,
-                },
-                "fallback_safety_net": True,
-            })
-        parsed["cases"] = fallback_cases
-        parsed.setdefault("confidence", "low")
-        parsed.setdefault("internal_reasoning", {})
-        parsed["internal_reasoning"]["safety_net_triggered"] = (
-            "LLM returned 0 cases; retrieval pool had ≥3 candidates. "
-            "Top 3 injected as fallback."
+            f"[situation-quality] LLM kept 0 of {len(retrieval_cases)} retrieval "
+            f"candidates — pool was likely off-issue; returning empty (no injection)"
         )
 
     # Existence filter — a case_id is "known" if it appeared in ANY of:
@@ -3204,42 +3172,25 @@ def _api_situation_impl(req: SituationRequest, _record, on_retrieved=None):
         f"{len(verified)} exist in corpus, {len(dropped)} dropped (unknown id): {dropped}"
     )
 
-    # Defensive filter: the v2 prompt instructs the model to drop any case
-    # scoring 0 on fact-archetype match. Enforce here BUT with a minimum-
-    # cases guard — never drop below 3 cases. DeepSeek may not populate
-    # relevance_scores as precisely as Claude; dropping too aggressively
-    # on default values leaves the lawyer with only 1-2 results.
-    _MIN_CASES_GUARD = 3
+    # QUALITY OVER COUNT. A case the model itself scored 0 on fact-archetype
+    # match is filler — showing it (with or without an apologetic label) reads
+    # as "the system couldn't find anything relevant". Drop it, full stop.
+    # One strong case presented confidently beats three with disclaimers; the
+    # personal-assist rail is the backstop when the pool is genuinely thin.
+    # (History: a min-3 guard used to resurrect these with an amber "not an
+    # exact match" strip — live feedback killed it: never pad, never apologise.)
     filtered_zero_archetype = 0
     final = []
-    zero_archetype_cases = []
     for c in verified:
         score = c.get("relevance_scores", {}).get("fact_archetype_match", 1)
         if score > 0:
             final.append(c)
         else:
-            zero_archetype_cases.append(c)
             filtered_zero_archetype += 1
-    # If dropping would leave fewer than 3 cases, keep the zero-archetype
-    # cases too — BUT say so. Silently padding weak matches is exactly the
-    # "results aren't exact" complaint: the lawyer can't tell a genuine
-    # fact-match from filler. Each re-added case carries an explicit
-    # relevance_note the card renders as an amber strip, and a 1-2 card
-    # answer is allowed to stand as the honest result.
-    if len(final) < _MIN_CASES_GUARD and zero_archetype_cases:
-        needed = _MIN_CASES_GUARD - len(final)
-        for c in zero_archetype_cases[:needed]:
-            c["is_fallback_match"] = True
-            c["relevance_note"] = (
-                "closest available — not an exact match on your facts; "
-                "verify fit before relying on it"
-            )
-            final.append(c)
-        filtered_zero_archetype -= min(needed, len(zero_archetype_cases))
     if filtered_zero_archetype > 0:
         print(
             f"[situation-filter] archetype filter: {len(final)} kept, "
-            f"{filtered_zero_archetype} dropped (score=0)"
+            f"{filtered_zero_archetype} dropped (score=0, no resurrection)"
         )
     parsed["cases"] = final
     parsed["filtered_zero_archetype"] = filtered_zero_archetype
@@ -3286,44 +3237,19 @@ def _api_situation_impl(req: SituationRequest, _record, on_retrieved=None):
                     if c.get("case_id") not in fabricated_ids
                 ]
                 if not kept:
-                    # ALL cases fabricated — keep originals (better than empty),
-                    # but label every one so nothing reads as a checked citation.
+                    # ALL ids failed to match the evidence set. This is the
+                    # systemic id-mangling signature (not an irrelevance
+                    # signal) — keep them internally but mark fallback so the
+                    # best-match pin never promotes one; the source-verifier
+                    # downstream will badge them unverified.
                     for c in parsed.get("cases", []):
                         c["is_fallback_match"] = True
-                        c["relevance_note"] = (
-                            "could not be matched to a source document — "
-                            "verify independently before use"
-                        )
-                    print("[situation-verify] all cases fabricated — keeping originals (labelled)")
-                elif len(kept) >= _MIN_CASES_GUARD:
-                    parsed["cases"] = kept
+                    print("[situation-verify] all case ids unmatched — keeping originals (unpinnable)")
                 else:
-                    # Not enough non-fabricated cases. The "fabricated" ones
-                    # likely have reformatted case_ids (DeepSeek adds party
-                    # names or reformats). Keep the non-fabricated ones, then
-                    # re-add fabricated cases to reach the minimum — they're
-                    # still from the corpus, just with mangled IDs.
-                    fabricated_cases = [
-                        c for c in parsed.get("cases", [])
-                        if c.get("case_id") in fabricated_ids
-                    ]
-                    needed = _MIN_CASES_GUARD - len(kept)
-                    # Honesty over padding: any restored case is explicitly
-                    # labelled — its id didn't match the evidence set, so the
-                    # lawyer must not read it as a checked citation. (The
-                    # source-verifier downstream will also mark it unverified.)
-                    for c in fabricated_cases[:needed]:
-                        c["is_fallback_match"] = True
-                        c["relevance_note"] = (
-                            "could not be matched to a source document — "
-                            "verify independently before use"
-                        )
-                        kept.append(c)
+                    # QUALITY OVER COUNT: cases whose ids failed to match are
+                    # dropped, never re-added to hit a minimum. Fewer strong
+                    # results beat a padded page.
                     parsed["cases"] = kept
-                    print(
-                        f"[situation-verify] restored {min(needed, len(fabricated_cases))} "
-                        f"fabricated cases (labelled) to reach minimum {_MIN_CASES_GUARD}"
-                    )
             # Flag anchor/quote issues on individual cases for transparency
             _flag_map = {}
             for f in report.findings:

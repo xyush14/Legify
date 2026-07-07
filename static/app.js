@@ -1086,14 +1086,9 @@
 
     const rows = [];
 
-    // 0. Honesty strip — this card is filler kept to avoid an empty page,
-    // not an exact match. Shown FIRST so it can't be missed in triage.
-    if (c.relevance_note) {
-      rows.push(ce('div', { cls: 'case-card__row case-card__row--fallback', children: [
-        ce('div', { cls: 'case-card__rowlabel', text: '⚠ fit' }),
-        ce('div', { cls: 'case-card__rowtext', text: c.relevance_note }),
-      ]}));
-    }
+    // (The old "⚠ fit — closest available" strip is gone: the backend no
+    // longer pads results with weak matches, so every card shown is one the
+    // pipeline actually stands behind. Quality over count.)
 
     // NEW ORDER (mirrors Cri.L.J. + the lawyer's 10-second triage):
     //   1. Stinger sentence   — "Why this helps your matter" (lawyer voice)

@@ -256,21 +256,28 @@ STEP 2 — Score EVERY corpus case on FOUR dimensions, integer 0–3 each:
       2 = High Court on point, or Supreme Court obiter directly on point
       3 = binding Supreme Court ratio directly on point
 
-  A case scoring 0 on FACT-ARCHETYPE MATCH is unlikely to be the lawyer's best fit, but if the corpus offers nothing closer, INCLUDE IT anyway with a low score and an honest stinger that calls out the fact-pattern gap. The lawyer needs to see the closest cases the corpus has, even imperfect ones — they can evaluate fit themselves. Only OMIT a corpus case if a genuinely better fact-match is also available.
+  A case scoring 0 on FACT-ARCHETYPE MATCH *and* ≤1 on DOCTRINAL MATCH is
+  NOISE — a keyword collision from retrieval (e.g. a company-shares case
+  surfacing for a query about a co-sharer's share in land). DO NOT return it.
+  Returning it "so the lawyer can decide" reads as the system having found
+  nothing — one genuinely applicable case beats three padded with excuses.
 
 STEP 3 — Sort and select
   Sort by TOTAL score (sum of four dimensions, max 12) descending.
   Tiebreaker 1: fact-archetype match (descending).
   Tiebreaker 2: outcome alignment (descending).
-  ALWAYS return at least 3 cases when the corpus has at least 3 entries — even if scores are modest. Mark confidence=medium or low if the matches are imperfect, but DO return them. The lawyer can decide. Only return fewer than 3 when the corpus literally has fewer than 3 cases.
-  If the corpus has 5+ cases, return 3-5. Pick the top 5 by total score.
+  Return ONLY the cases that genuinely advance the lawyer's matter — up to 5.
+  If only 1 or 2 qualify, return exactly those 1 or 2. NEVER include a case
+  whose only merit is that it was in the pool. A short strong answer is the
+  product; a padded answer is the failure mode.
 
 ANTI-HALLUCINATION RULES (non-negotiable)
 =========================================
 1. NEVER cite a case not in the provided corpus. The corpus is your only universe.
 2. NEVER fabricate citations, paragraph numbers, statute references, or holdings. Every fact must trace to the corpus entry for that case.
 3. NEVER pull from general training-set knowledge of Indian case law. If a famous case comes to mind that isn't in the corpus, do not include it.
-4. DO return what the corpus has. Returning an empty `cases` array is ALMOST ALWAYS the wrong call — the corpus was retrieved for a reason, and the lawyer needs visibility into what exists, even if no case is a perfect fit. Use the `confidence` field and the `stinger_sentence` to be honest about quality of fit. ONLY return zero cases if the corpus is literally empty (0 entries provided).
+4. NEVER invent facts about the LAWYER'S matter to manufacture a parallel. The stinger_sentence may only reference facts the lawyer actually stated. If the case involves dishonoured cheques and the lawyer's matter does not, you cannot write "like your matter where cheques were dishonoured" — that is fabrication, the cardinal sin of this product.
+5. Prefer a short, strong answer. Return only the cases that genuinely apply; 1-2 on-point cases are a better response than 5 where 3 are keyword noise. Return zero cases when nothing in the corpus addresses the matter — the UI has a human-research fallback for exactly that.
 
 CASE_ID FORMAT — THE SINGLE MOST IMPORTANT FORMATTING RULE
 ==========================================================
@@ -331,7 +338,7 @@ OUTPUT JSON SCHEMA (style-dependent fields shown together — populate the block
         "authority_weight": 0,
         "total": 0
       },
-      "stinger_sentence": "string — 25-40 word sentence that names the SPECIFIC parallel between this case and the lawyer's matter. Format: 'Like your client/matter, here [fact]; court [outcome] because [doctrine] — directly applicable to your [stage] before [court].' This is the single most important output field. Never generic ('this case addresses...'). Never starts with 'This case'.",
+      "stinger_sentence": "string — 25-40 word sentence that names the SPECIFIC parallel between this case and the lawyer's matter. Format: 'Like your client/matter, here [fact]; court [outcome] because [doctrine] — directly applicable to your [stage] before [court].' This is the single most important output field. Never generic ('this case addresses...'). Never starts with 'This case'. The [fact] on the lawyer's side MUST be a fact the lawyer actually stated — never import the CASE'S facts (cheques, shares, tax) into the description of the lawyer's matter to force a parallel.",
       "held_line": "string — the binding rule in 1-3 sentences, present tense, paste-ready into a written submission. Format: 'HELD — [the rule].' Compress from the case's CONCLUSION/RATIO paragraphs — the COURT'S OWN finding. CRITICAL: this must NEVER be a recital of what a party alleged, contended, or claimed (the FIR's story, the complainant's version, the prosecution case). If the passage begins 'it was alleged/contended/submitted…' or narrates the complaint, that is NOT the holding. If the court REJECTED the allegation (FIR quashed, accused acquitted/discharged), the held_line must state that rejection — never present the rejected allegation as the ruling. Never invent.",
       "negative_carve_out": "string — 1-2 sentence statement of what this case does NOT decide / does NOT support. Critical so the lawyer knows what opposing counsel can use to distinguish. Empty string if no clear carve-out.",
       "match_dimensions": {
@@ -784,7 +791,10 @@ Return STRICT JSON only — no preamble, no fences:
   }
 }
 
-Pick 3 to 5 case_ids. Order from most relevant (rank 1) to least."""
+Pick UP TO 5 case_ids — but only ones that genuinely advance the matter. If
+only 1 or 2 qualify, pick exactly those; if none do, return an empty list.
+NEVER pad with tangential cases to look thorough. Order from most relevant
+(rank 1) to least."""
 
 
 def _compact_candidate_block(c: dict) -> str:
