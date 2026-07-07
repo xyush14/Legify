@@ -1318,7 +1318,8 @@ def coverage_warnings(matter: str, draft_text: str, lang: str = "hi") -> list[st
 # 5) RENDER  — structured content → canonical header + cb-* body (house format).
 # ===========================================================================
 def _esc(s: Optional[str]) -> str:
-    return "" if s is None else str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    # strip stray CJK (mojibake safety-net; never valid in an Indian court doc) then escape
+    return "" if s is None else _strip_cjk(str(s)).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
 _DEFAULT_VERIFICATION = (
@@ -1562,6 +1563,16 @@ def _mirror_instruction(reference_skeleton: str) -> str:
 # ===========================================================================
 _MIRROR_REF_CAP = 24000     # chars of OCR'd reference the model sees (≈ 15+ pages)
 
+# shown when the model's output was cut off at the token limit (long Hindi documents
+# are token-heavy) and we salvaged a partial draft — so a short draft is never passed
+# off as complete. The advocate can tap Refine ("बाकी हिस्सा जोड़ो") to extend it.
+_TRUNCATION_WARN = {
+    "hi": "⚠ यह ड्राफ्ट लंबा होने के कारण बीच में कट गया है — नीचे का हिस्सा अधूरा है। "
+          "पूरा करने के लिए Assistant में 'शेष ड्राफ्ट जोड़ो' लिखें या कम पृष्ठ अपलोड करें।",
+    "en": "⚠ This draft was cut short because it ran long — the tail is incomplete. "
+          "Tap Refine and ask to 'continue the rest of the draft', or upload fewer pages.",
+}
+
 MIRROR_SYSTEM = """You are the drafting engine of Headnote. An Indian advocate has uploaded a FILED court
 document (the REFERENCE) and typed a brief for a NEW matter. Produce the NEW draft so the advocate's clerk
 could not tell it apart from that office's own filing: SAME cause-title layout, SAME section order, SAME
@@ -1569,33 +1580,57 @@ headings, SAME boilerplate framing sentences, SAME paragraph voice and register,
 reference, and EVERY companion section the reference carries (schedule of property, verification, affidavit,
 list of documents — whatever is there), adapted to the new matter.
 
-THE TWO-SOURCE RULE — what comes from where:
-• STRUCTURE, FORMAT, BOILERPLATE, IDIOM → from the REFERENCE. Reuse its recurring/standard sentences (the
-  para openings, the cause-of-action para shape, the prayer framing, the verification wording) with the new
-  matter's specifics slotted in. Mirror its ORDER exactly — if the statute recital comes before the parties,
-  keep it before the parties.
-• FACTS (names, relationships, dates, amounts, account/FIR/case numbers, addresses, the story) → ONLY from
-  the advocate's brief. The reference's facts are ANOTHER CLIENT'S CASE — never let a reference name, date,
-  amount or storyline leak into the new draft. Where the structure needs a value the brief does not give,
-  write ____ in its place.
-• THE BRIEF IS PRIMARY: every fact the brief gives MUST be written into the new draft at its proper place —
-  the reference dictates FORM, the brief dictates CONTENT. Dropping a brief fact is as much a defect as
-  inventing one; if a brief fact fits nowhere in the reference's structure, add a numbered para for it.
-• THE ADVOCATE'S LETTERHEAD IS FORMAT, NOT A CASE FACT: the reference's own letterhead — the advocate's
-  name, designation ("एडवोकेट"), court, office/residence address, enrolment no., mobile — belongs to the
-  ADVOCATE (the user), not to the old client. Reproduce it VERBATIM, laid out exactly as in the reference
-  (name block left, address block right → use the "columns" kind; separator lines → the "rule" kind).
+THE THREE-SOURCE RULE — what comes from where, in priority order. The advocate gave you a reference BECAUSE
+they want a near-complete draft they lightly edit — NEVER return an empty skeleton of one-line shells.
+This rule is UNIVERSAL — it governs EVERY kind of document (bail, anticipatory bail, discharge, revision,
+appeal, writ, quashing, maintenance, DV, cheque, plaint/suit of any kind, written statement, reply/जबाव,
+legal notice, affidavit, petition, application — whatever the reference is), in EVERY State/UT and forum,
+in Hindi, English or any regional language. The examples below are illustrations of the principle, never a
+restriction to one document type.
+
+1. THE BRIEF (the advocate's typed matter + any attached case papers) is the PRIMARY source of THIS client's
+   facts — names, relationships, dates, amounts, and the STORY / the point-by-point position. Write EVERY
+   fact the brief gives into its proper place, in FULL. If the brief tells a story, the paragraphs must TELL
+   THAT STORY at length in the reference's register — never compress a narrative the advocate gave into a
+   one-line "____". Mirror the reference's ORDER and headings exactly.
+
+2. THE REFERENCE supplies two things you MUST carry:
+   (a) THE ADVOCATE'S OWN STANDING INFO — the letterhead: name, designation ("एडवोकेट"), court, office &
+       residence ADDRESS, mobile, enrolment. This is the SAME advocate on every draft — it is NOT a client
+       fact. Reproduce it VERBATIM, including the address and mobile number (name block left, address block
+       right → the "columns" kind; separator lines → the "rule" kind). Do NOT blank it.
+   (b) THE REUSABLE LEGAL SCAFFOLD — the framing sentences, the admit/deny paragraph shapes, the recital and
+       prayer wording, the standard legal language and idiom. PRESERVE this scaffold richly so the output is
+       a working draft, not a blank form.
+
+3. CLIENT-SPECIFIC PARTICULARS the scaffold needs (a specific name, amount, date, or the substance of a
+   point) that the BRIEF does NOT supply: keep the reference's own wording in place as a WORKING PLACEHOLDER
+   (it is highlighted downstream for the advocate to confirm or replace) — do not blank a rich paragraph to
+   "____". Only write ____ where there is genuinely nothing to carry. NEVER invent a net-new fact, party,
+   date or figure that appears in NEITHER the brief NOR the reference.
+
+Net effect: a rich brief → a rich, specific draft in the reference's format. A thin brief + a rich reference
+→ the reference's FULL scaffold with its specifics carried and flagged for the advocate to swap. Either way
+the advocate edits a near-complete draft — they never re-type the factual background from scratch.
 • ONE SCRIPT THROUGHOUT: if the draft is Hindi, EVERYTHING is Devanagari — when the brief types names/
   places in Roman ("Ayush Shivhare s/o Vishnu"), TRANSLITERATE them (आयुष शिवहरे पुत्र विष्णु) and write
   English fact fragments as formal Hindi. Never leave a Roman name sitting inside a Hindi sentence.
-  Digits stay as the reference writes them.
+  Digits stay as the reference writes them. Use ONLY Devanagari and Latin script — NEVER emit any Chinese,
+  Japanese or Korean (CJK) character; there is no CJK in an Indian court document.
 • PLAIN TEXT ONLY inside blocks — never markdown. No "##", no "**", no backticks. If the reference shows
   decorative marks (e.g. a title between // slashes //), reproduce those characters as text.
 • PAGE BREAKS: use {"kind":"pagebreak"} ONLY where a NEW companion document begins (affidavit, list of
   documents). NEVER where the reference's physical page happens to end — the new draft reflows continuously
   and the printer decides the page boundaries.
-• NEVER INVENT a fact, a party, a relationship or a narrative the brief does not state. A draft full of ____
-  is CORRECT; an invented story is a career-ending defect for the advocate.
+• DO NOT INVENT NET-NEW facts — a name, party, date or figure present in NEITHER the brief NOR the reference.
+  (Carrying the reference's own wording as a flagged placeholder is allowed and expected per rule 3; inventing
+  a brand-new plausible value from nowhere is not.) In the OPENING RECITAL, prefer the brief's client/opposite
+  party/notice-date; if the brief is silent, carry the reference's wording as a placeholder rather than
+  guessing a fresh name.
+• A PARA-WISE REPLY (जबाव सूचना पत्र / written statement) answers another document point by point. Reproduce
+  the reference's admit/deny FRAMING for each point AND carry its substantive reasoning as the scaffold; where
+  the brief gives this client's version of a point, write that version in full instead. Do not reduce a point
+  the reference argues in a full paragraph down to a bare "____".
 • STATUTES/SECTIONS: cite what the NEW matter actually needs (the reference shows the FORMAT of the recital,
   not the sections to copy). If unsure of a section number, write ____.
 • CITATIONS: put NO case citation in the body. If authority helps, list only real judgments you are certain
@@ -1643,11 +1678,27 @@ Block kinds (use EXACTLY these):
 _MD_HEAD = re.compile(r"^\s*#{1,6}\s+")
 _MD_BOLD = re.compile(r"\*\*([^*]+)\*\*")
 
+# CJK / kana / hangul — a known failure mode where DeepSeek/Groq emit Chinese-looking
+# glyphs instead of Devanagari on a Hindi task. NONE of these ever belong in an Indian
+# court document, so we (a) detect a corrupt generation to force a retry, and (b) strip
+# any stray survivors at render time.
+_CJK_RE = re.compile(r"[぀-ヿ㐀-䶿一-鿿가-힯豈-﫿]")
+
+
+def _strip_cjk(t: str) -> str:
+    return _CJK_RE.sub("", t or "")
+
+
+def _looks_script_corrupt(text: str) -> bool:
+    """True when the output carries enough CJK that the model clearly drifted off
+    Devanagari — the trigger to re-generate rather than show garbled 'Chinese' text."""
+    return len(_CJK_RE.findall(text or "")) >= 5
+
 
 def _demarkdown(t: str) -> str:
     t = _MD_HEAD.sub("", t or "")
     t = _MD_BOLD.sub(r"\1", t)
-    return t.replace("```", "").strip()
+    return _strip_cjk(t.replace("```", "")).strip()
 
 
 # a pagebreak is REAL only when a new companion document starts after it; a break
@@ -1737,12 +1788,15 @@ def render_mirrored(p: dict, doc_type: str, source: str = "") -> dict:
             out.append(f'<div class="mr-rule mr-rule-{style}"></div>')
             continue
         if kind == "columns":
+            # the advocate's letterhead (name / address / mobile) — their OWN standing
+            # info, NOT a client fact: use fmt (no fact-grounding) so it renders verbatim
+            # and is never amber-flagged.
             left = _demarkdown(str(b.get("left") or ""))
             right = _demarkdown(str(b.get("right") or ""))
             if not left and not right:
                 continue
-            out.append(f'<div class="mr-cols"><div class="l">{fmtg(left)}</div>'
-                       f'<div class="r">{fmtg(right)}</div></div>')
+            out.append(f'<div class="mr-cols"><div class="l">{fmt(left)}</div>'
+                       f'<div class="r">{fmt(right)}</div></div>')
             continue
         if kind == "party":
             lines = [_demarkdown(str(x)) for x in (b.get("lines") or []) if str(x).strip()]
@@ -1833,10 +1887,59 @@ def _mirror_result(payload: dict, rendered: dict, doc_type: str, lang: str, meta
     }
 
 
+_MIRROR_MAX_CONT = 4        # continuation rounds — enough for a ~15-page filing
+_MIRROR_MAX_BLOCKS = 500     # hard stop so a repeating model can't loop forever
+
+
+def _block_sig(b: dict) -> str:
+    """A short identity for a block — used to drop a continuation's accidental repeat
+    of the last block already produced."""
+    if not isinstance(b, dict):
+        return str(b)[:80]
+    return (str(b.get("kind") or "") + "|" +
+            (str(b.get("text") or "") or " ".join(str(x) for x in (b.get("lines") or [])) or
+             str(b.get("left") or "") + str(b.get("right") or ""))[:80])
+
+
+def _mirror_continue(reference_text: str, matter: str, blocks_so_far: list, lang: str):
+    """One continuation call: the model resumes the SAME document after the blocks it
+    already produced and returns ONLY the remaining blocks. Returns (more_blocks, truncated)."""
+    import json as _json
+    from headnote.llm.client import _call_deepseek_or_groq, parse_json_response
+    tail = blocks_so_far[-3:]
+    anchor = _json.dumps(tail, ensure_ascii=False)
+    user = (
+        "REFERENCE (structure/format ONLY):\n" + (reference_text or "").strip()[:_MIRROR_REF_CAP] + "\n\n"
+        "THE NEW MATTER (the ONLY source of facts; ____ where silent):\n"
+        + ((matter or "").strip() or "(no brief typed)") + "\n\n"
+        f"CONTINUATION TASK: you have ALREADY produced {len(blocks_so_far)} blocks of this document; the LAST "
+        f"few were:\n{anchor}\n\n"
+        "Continue the SAME document from IMMEDIATELY AFTER that last block. Output ONLY the REMAINING blocks "
+        'as JSON {"blocks":[ … ]}, in the same schema, same language/register. Do NOT repeat any block shown '
+        'above. If the document is already complete (prayer, signature and verification all done), return '
+        '{"blocks":[]}.'
+    )
+    raw, _meta = _call_deepseek_or_groq(MIRROR_SYSTEM, user, max_tokens=16000,
+                                        claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
+    if _looks_script_corrupt(raw):
+        return [], False
+    payload = parse_json_response(raw)
+    more = payload.get("blocks")
+    more = more if isinstance(more, list) else []
+    # drop a leading repeat of the last block we already have
+    if more and blocks_so_far and _block_sig(more[0]) == _block_sig(blocks_so_far[-1]):
+        more = more[1:]
+    return more, bool(payload.get("_truncated"))
+
+
 def mirror_document(matter: str, reference_text: str, doc_type: str, lang: str = "hi") -> dict:
     """Primary reference path: the advocate's brief + the VERBATIM reference →
     typed layout blocks → deterministic render. Raises on LLM/parse failure or a
-    too-thin payload — the caller falls back to the skeleton+authored path."""
+    too-thin payload — the caller falls back to the skeleton+authored path.
+
+    ANY-LENGTH: a long document overflows one model call, so if the first pass is
+    truncated we keep asking the model to CONTINUE (append the remaining blocks)
+    until it finishes or we hit the round cap — the advocate gets the WHOLE draft."""
     from headnote.llm.client import _call_deepseek_or_groq, parse_json_response
     user = (
         "REFERENCE (the filed document to mirror — structure/format/boilerplate ONLY, its facts are "
@@ -1846,16 +1949,37 @@ def mirror_document(matter: str, reference_text: str, doc_type: str, lang: str =
         f"Draft now, as JSON per the schema, in {'Hindi' if lang == 'hi' else 'English'} "
         "(match the reference's language/register)."
     )
-    raw, meta = _call_deepseek_or_groq(MIRROR_SYSTEM, user, max_tokens=7000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
+    raw, meta = _call_deepseek_or_groq(MIRROR_SYSTEM, user, max_tokens=16000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
+    if _looks_script_corrupt(raw):
+        # model drifted into CJK garbage — bail so the caller re-generates via a clean path
+        raise ValueError("mirror output script-corrupt (CJK) — re-generating")
     payload = parse_json_response(raw)
     blocks = payload.get("blocks")
     if not isinstance(blocks, list) or len(blocks) < 4:
         raise ValueError("mirror payload too thin — falling back to the skeleton path")
+
+    # continuation loop — stitch the rest of a long document
+    truncated = bool(payload.get("_truncated"))
+    rounds = 0
+    while truncated and rounds < _MIRROR_MAX_CONT and len(blocks) < _MIRROR_MAX_BLOCKS:
+        rounds += 1
+        try:
+            more, truncated = _mirror_continue(reference_text, matter, blocks, lang)
+        except Exception:
+            break
+        if not more:
+            truncated = False
+            break
+        blocks.extend(more)
+    payload["blocks"] = blocks
+
     # ground facts against the advocate's brief ONLY — the reference is another
     # client's case, so its facts must NEVER count as verification for this draft.
     rendered = render_mirrored(payload, doc_type, source=matter)
     # …and the mirror duty: everything concrete the advocate GAVE must be in the draft
     rendered["warnings"].extend(coverage_warnings(matter, rendered["html"], lang))
+    if truncated:   # still cut off after the continuation rounds — be honest
+        rendered["warnings"].insert(0, _TRUNCATION_WARN[lang if lang == "en" else "hi"])
     return _mirror_result(payload, rendered, doc_type, lang, meta)
 
 
@@ -1876,7 +2000,7 @@ def revise_mirrored(prior_html: str, instruction: str, doc_type: str = "other_cr
         "draft plus the instruction are the ONLY sources of facts — ____ stays ____ unless the instruction "
         f"fills it. Write in {'Hindi' if lang == 'hi' else 'English'}."
     )
-    raw, meta = _call_deepseek_or_groq(MIRROR_SYSTEM, user, max_tokens=7000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
+    raw, meta = _call_deepseek_or_groq(MIRROR_SYSTEM, user, max_tokens=16000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
     payload = parse_json_response(raw)
     if not isinstance(payload.get("blocks"), list) or len(payload["blocks"]) < 4:
         raise ValueError("mirror revision payload too thin")
@@ -1907,15 +2031,17 @@ def author_payload(matter: str, doc_type: str, lang: str = "hi", *, court: str =
     # Authoring routes through DRAFTER_AUTHOR_MODEL (default Sonnet→DeepSeek R1) so the
     # grounds are reasoned, not merely assembled. Set env to claude-haiku-4-5 for V3.
     try:
-        raw, meta = _call_deepseek_or_groq(system, user, max_tokens=6000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
+        raw, meta = _call_deepseek_or_groq(system, user, max_tokens=9000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
+        if _looks_script_corrupt(raw):
+            raise ValueError("author output script-corrupt (CJK) — re-generating")
         payload = parse_json_response(raw)
     except Exception:
-        # SLIM RETRY — covers BOTH failure classes: (a) the ~14K-token skill prefix
-        # 413s the free-tier fallback (Groq 12K TPM), and (b) the model returned
-        # broken/truncated JSON (a fresh roll usually lands). A skill-less authored
-        # draft beats no draft; every guard still applies.
+        # SLIM RETRY — covers failure classes: (a) the ~14K-token skill prefix 413s the
+        # free-tier fallback (Groq 12K TPM); (b) broken/truncated JSON; (c) the model
+        # drifted into CJK glyphs instead of Devanagari. A fresh roll usually lands; a
+        # skill-less authored draft beats no draft; every guard still applies.
         slim = _author_system(doc_type, lang, format_exemplar=format_exemplar, inject_skill=False)
-        raw, meta = _call_deepseek_or_groq(slim, user, max_tokens=6000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
+        raw, meta = _call_deepseek_or_groq(slim, user, max_tokens=9000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
         payload = parse_json_response(raw)
     return _shape_payload(payload, doc_type, b, meta)
 
@@ -1930,6 +2056,8 @@ def author_document(matter: str, doc_type: str, lang: str = "hi", *, court: str 
     rendered = render_authored(payload, lang, source=matter)
     # …and the mirror duty: everything concrete the advocate GAVE must be in the draft
     rendered["warnings"].extend(coverage_warnings(matter, rendered["html"], lang))
+    if payload.get("_truncated"):
+        rendered["warnings"].insert(0, _TRUNCATION_WARN["en" if lang == "en" else "hi"])
     return {
         "ok": True,
         "mode": "authored",
@@ -1963,13 +2091,13 @@ def revise_document(prior_text: str, instruction: str, doc_type: str = "other_cr
         "Keep the house style and the zero-fabrication rules in force."
     )
     try:
-        raw, meta = _call_deepseek_or_groq(system, user, max_tokens=6000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
+        raw, meta = _call_deepseek_or_groq(system, user, max_tokens=9000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
         payload = _shape_payload(parse_json_response(raw), doc_type, b, meta)
     except Exception:
         # slim retry (see author_payload) — keep the edit path alive on the free tier
         # and re-roll on broken/truncated JSON
         slim = _author_system(doc_type, lang, inject_skill=False)
-        raw, meta = _call_deepseek_or_groq(slim, user, max_tokens=6000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
+        raw, meta = _call_deepseek_or_groq(slim, user, max_tokens=9000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
         payload = _shape_payload(parse_json_response(raw), doc_type, b, meta)
     # a refine's facts of record = the accepted prior draft + the new instruction
     rendered = render_authored(payload, lang, source=(prior_text or "") + "\n" + (instruction or ""))

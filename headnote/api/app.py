@@ -1922,6 +1922,18 @@ def draft_template_drafter(doc_type: str):
     return FileResponse(config.STATIC_DIR / "draft-template.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
+@app.get("/draft/editor/{draft_id}", include_in_schema=False)
+@app.get("/draft/editor/{draft_id}/", include_in_schema=False)
+def draft_editor_page(draft_id: str):
+    """Draft Studio — the land-in editor. A prompt/upload draft is persisted by
+    /api/draft/from-prompt|from-document and the composer navigates here. The page
+    loads the draft via GET /api/draft/{id}, renders the court-format document
+    editable (with a formatting toolbar), the Trust panel (from the draft's
+    warnings/ungrounded/coverage), and the refine assistant (/api/draft/refine).
+    Autosaves via PATCH /api/draft/{id}."""
+    return FileResponse(config.STATIC_DIR / "draft-editor.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
 @app.get("/draft/court", include_in_schema=False)
 @app.get("/draft/court/", include_in_schema=False)
 @app.get("/draft/court/{court_id}", include_in_schema=False)

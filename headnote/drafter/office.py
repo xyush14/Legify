@@ -130,6 +130,8 @@ def collect_uploads(entries, *, max_bytes: int):
                 texts.append(extract_office_text(data, mime, filename))
             except ValueError as e:
                 raise ValueError(f"page {idx}: {e}")
+            except Exception as e:  # noqa: BLE001 — any parser error → clean 400, never a 500
+                raise ValueError(f"page {idx}: couldn't read this Word/Excel file ({e})")
             continue
         if (mime or "").split(";")[0].strip().lower() not in MEDIA_MIME:
             raise ValueError(
@@ -166,17 +168,37 @@ def _extract_docx(data: bytes) -> str:
             elif tag == "tbl":
                 yield Table(child, parent)
 
+    # Per-block try/except: a single malformed table/paragraph (merged or nested cells,
+    # content controls, odd XML) must not sink the whole extraction — skip it and go on.
+    # And wrap the walk so ANY python-docx error surfaces as a clean ValueError (a raw
+    # KeyError/AttributeError here would escape collect_uploads' ValueError catch → 500).
     out: list[str] = []
-    for block in _iter_block_items(doc):
-        if isinstance(block, Paragraph):
-            txt = block.text.strip()
-            if txt:
-                out.append(txt)
-        elif isinstance(block, Table):
-            md = _table_to_markdown([[c.text.strip() for c in row.cells] for row in block.rows])
-            if md:
-                out.append(md)
-    return "\n\n".join(out).strip()
+    try:
+        for block in _iter_block_items(doc):
+            try:
+                if isinstance(block, Paragraph):
+                    txt = block.text.strip()
+                    if txt:
+                        out.append(txt)
+                elif isinstance(block, Table):
+                    rows = []
+                    for row in block.rows:
+                        try:
+                            rows.append([c.text.strip() for c in row.cells])
+                        except Exception:
+                            continue
+                    md = _table_to_markdown(rows)
+                    if md:
+                        out.append(md)
+            except Exception:
+                continue
+    except Exception as e:  # noqa: BLE001 — malformed body structure
+        if not out:
+            raise ValueError(f"couldn't read the Word file's contents ({e})")
+    text = "\n\n".join(out).strip()
+    if not text:
+        raise ValueError("the Word file has no readable text (it may be scanned images — upload it as a PDF)")
+    return text
 
 
 def _extract_xlsx(data: bytes) -> str:

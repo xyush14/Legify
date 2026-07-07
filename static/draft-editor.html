@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Draft Studio — Headnote</title>
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  :root{
+    --chrome:#fafaf9; --rail:#f6f6f4; --line:#e7e7e4; --line-2:#efefec;
+    --ink:#0c0c0a; --ink-2:#4b4b48; --ink-3:#8a8a82; --ink-4:#b4afa3;
+    --verify:#d4ff3a; --verify-deep:#2f3d00;
+    --warn-bg:#fff5d6; --warn-mark:#f0c000; --warn-ink:#7a5c00;
+    --radius:9px;
+    --mono:'Geist Mono',ui-monospace,'SF Mono',Menlo,monospace;
+  }
+  html,body{height:100%}
+  body{margin:0;background:var(--chrome);color:var(--ink);overflow:hidden}
+  .lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3)}
+  button{font-family:inherit;cursor:pointer;border:0;background:none;color:inherit}
+  .app{height:100vh;display:grid;grid-template-rows:52px 42px 1fr}
+
+  /* top bar */
+  .topbar{display:flex;align-items:center;gap:13px;padding:0 15px;background:#fff;border-bottom:1px solid var(--line);min-width:0}
+  .back{display:flex;align-items:center;gap:6px;color:var(--ink-3);font-size:13px;text-decoration:none}
+  .back:hover{color:var(--ink)}
+  .brand{width:25px;height:25px;border-radius:7px;background:var(--ink);color:#fff;display:grid;place-items:center;font-weight:700;font-size:13px}
+  .doctitle{font-weight:560;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:32vw}
+  .typechip{font-family:var(--mono);font-size:10px;letter-spacing:.03em;color:var(--ink-2);background:var(--rail);border:1px solid var(--line);padding:3px 8px;border-radius:20px;white-space:nowrap}
+  .saved{margin-left:auto;display:flex;align-items:center;gap:6px;color:var(--ink-3);font-size:12px;white-space:nowrap}
+  .saved .dot{width:6px;height:6px;border-radius:50%;background:#5aa84b}
+  .saved.saving .dot{background:var(--warn-mark)}
+  .langtog{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;font-family:var(--mono);font-size:11px}
+  .langtog button{padding:5px 10px;color:var(--ink-3)}
+  .langtog button.on{background:var(--ink);color:#fff}
+  .btn-exp{display:flex;align-items:center;gap:7px;background:var(--ink);color:#fff;padding:8px 13px;border-radius:8px;font-size:13px;font-weight:540}
+  .btn-exp:hover{background:#000}
+
+  /* toolbar */
+  .toolbar{display:flex;align-items:center;gap:2px;padding:0 14px;background:#fff;border-bottom:1px solid var(--line);overflow-x:auto}
+  .toolbar::-webkit-scrollbar{height:0}
+  .tb-group{display:flex;align-items:center;gap:1px;background:var(--rail);border-radius:9px;padding:2px}
+  .tb{width:30px;height:28px;border-radius:7px;display:grid;place-items:center;color:var(--ink-2);font-size:13.5px;transition:background .12s,color .12s}
+  .tb:hover{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.07)}
+  .tb.on{background:var(--ink);color:#fff;box-shadow:none}
+  .tb svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+  .tb .g{font-size:14px;line-height:1}
+  .tsep{width:1px;height:18px;background:var(--line);margin:0 6px;flex:none}
+  .tsel{height:28px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink-2);font-family:var(--mono);font-size:11px;padding:0 6px;max-width:150px}
+  .tsel:hover{border-color:var(--ink-3)}
+  .tb-color{position:relative;overflow:hidden}
+  .tb-color input[type=color]{position:absolute;left:0;top:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0}
+  .tb sup,.tb sub{font-weight:600}
+
+  .body{display:grid;grid-template-columns:242px 1fr 328px;overflow:hidden;min-height:0}
+  .rail{background:#fff;overflow-y:auto;padding:17px 15px}
+  .rail.left{border-right:1px solid var(--line)}
+  .rail.right{border-left:1px solid var(--line)}
+  .rail::-webkit-scrollbar{width:8px}.rail::-webkit-scrollbar-thumb{background:#e2e2de;border-radius:8px}
+  .sec{margin-bottom:22px}
+  .sec>.lbl{margin-bottom:10px;display:block}
+
+  .out{display:flex;flex-direction:column;gap:1px}
+  .out a{display:flex;gap:9px;padding:6px 8px;border-radius:7px;color:var(--ink-2);font-size:13px;text-decoration:none;cursor:pointer}
+  .out a:hover{background:var(--rail);color:var(--ink)}
+
+  .trust{display:flex;flex-direction:column;gap:8px}
+  .chk{border:1px solid var(--line);border-radius:var(--radius);padding:10px 11px;display:flex;gap:10px;align-items:flex-start;background:#fff}
+  .chk.click{cursor:pointer}.chk.click:hover{border-color:var(--ink-3)}
+  .chk .ic{width:18px;height:18px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:11px;font-weight:700;margin-top:1px}
+  .chk.warn .ic{background:var(--warn-mark);color:#3d2f00}
+  .chk.ok .ic{background:var(--verify);color:var(--verify-deep)}
+  .chk .tx{font-size:12.4px;line-height:1.44}.chk .tx b{font-weight:600}
+  .chk .sub{color:var(--ink-3);font-size:11.4px;margin-top:2px}
+  .readybar{margin-top:8px;padding:10px;border-radius:var(--radius);background:var(--rail);font-size:12px;color:var(--ink-2);text-align:center}
+  .readybar b{color:var(--ink)}
+  .readybar.ready{background:#f2ffd0;color:var(--verify-deep)}
+  /* prominent "add your facts" hero — shown when the draft is mostly blanks */
+  .hero{border:1px solid #e7ddb4;background:linear-gradient(180deg,#fffdf4,#fff8e0);border-radius:11px;padding:13px 14px;margin-bottom:11px}
+  .hero .ht{font-weight:600;font-size:13px;color:var(--warn-ink);margin-bottom:4px}
+  .hero .hb{font-size:12px;line-height:1.5;color:var(--ink-2)}
+  .hero .hcta{margin-top:9px;width:100%;background:var(--ink);color:#fff;border-radius:8px;padding:8px;font-size:12.5px;font-weight:540}
+  .hero .hcta:hover{background:#000}
+
+  /* center canvas = iframe */
+  .canvas{background:#cdccc6;overflow:hidden;position:relative}
+  #doc{width:100%;height:100%;border:0;display:block}
+  .canvas .loading{position:absolute;inset:0;display:grid;place-items:center;color:var(--ink-3);font-size:13px;font-family:var(--mono)}
+
+  /* right rail */
+  .segtog{display:flex;background:var(--rail);border-radius:9px;padding:3px;margin-bottom:15px}
+  .segtog button{flex:1;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:6px;border-radius:7px;color:var(--ink-3)}
+  .segtog button.on{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+  .ask{border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff}
+  .ask textarea{width:100%;border:0;resize:none;font-family:inherit;font-size:13px;color:var(--ink);min-height:40px;background:transparent}
+  .ask textarea:focus{outline:none}
+  .ask .row{display:flex;align-items:center;gap:8px;margin-top:6px}
+  .ask .send{margin-left:auto;background:var(--ink);color:#fff;width:30px;height:30px;border-radius:8px;display:grid;place-items:center}
+  .ask .send:disabled{opacity:.4;cursor:default}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .chip{font-size:12px;color:var(--ink-2);background:var(--rail);border:1px solid var(--line);padding:5px 10px;border-radius:18px}
+  .chip:hover{border-color:var(--ink-3);color:var(--ink)}
+  .item{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line-2)}
+  .item:last-child{border-bottom:0}
+  .item .b{flex:1;font-size:12.6px;line-height:1.45;color:var(--ink-2)}.item .b b{color:var(--ink);font-weight:560}
+  .add{font-family:var(--mono);font-size:10px;letter-spacing:.03em;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:5px 9px;white-space:nowrap}
+  .add:hover{background:var(--ink);color:#fff}.add.added{background:var(--verify);border-color:var(--verify);color:var(--verify-deep)}
+  .cite{display:flex;gap:9px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--line-2)}.cite:last-child{border-bottom:0}
+  .cite .vdot{width:8px;height:8px;border-radius:50%;background:var(--verify);margin-top:5px;flex:none;box-shadow:0 0 0 3px rgba(212,255,58,.22)}
+  .cite .c .case{font-weight:560;font-size:12.4px}.cite .c .pt{color:var(--ink-3);font-size:11.4px;margin-top:1px}
+  .comp{display:flex;align-items:center;gap:9px;padding:7px 0;font-size:12.6px;color:var(--ink-2)}
+  .comp input{accent-color:var(--ink);width:15px;height:15px}
+  .muted{color:var(--ink-4);font-size:12px;line-height:1.5}
+  /* format section */
+  .fmt-btn{display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:1px dashed var(--line);border-radius:var(--radius);padding:11px 12px;color:var(--ink-2);font-size:12.6px}
+  .fmt-btn:hover{border-color:var(--ink-3);color:var(--ink)}
+  .fmt-btn .i{font-size:14px}
+  .fmt-on{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--verify);background:#f7ffe0;border-radius:var(--radius);padding:11px 12px}
+  .fmt-on .i{color:var(--verify-deep);font-size:14px;margin-top:1px}
+  .fmt-on .tx{font-size:12.4px;line-height:1.44;color:var(--ink)}
+  .fmt-on .tx .sub{color:var(--ink-3);font-size:11.4px;margin-top:2px}
+  .fmt-on .replace{margin-top:6px;font-family:var(--mono);font-size:10px;letter-spacing:.03em;color:var(--ink-2);text-decoration:underline;text-underline-offset:2px}
+  .fmt-on .replace:hover{color:var(--ink)}
+  .fmt-soon{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:var(--radius);padding:11px 12px;margin-top:8px;opacity:.85}
+  .fmt-soon .i{font-size:14px;color:var(--ink-3);margin-top:1px}
+  .fmt-soon .tx{font-size:12.4px;line-height:1.44;color:var(--ink-2)}
+  .fmt-soon .tx b{color:var(--ink);font-weight:560}
+  .soon-tag{display:inline-block;font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;background:var(--rail);border:1px solid var(--line);color:var(--ink-3);padding:2px 6px;border-radius:20px;margin-top:5px}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:9px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:60}
+  .toast.show{opacity:1}
+  @media (max-width:1080px){.body{grid-template-columns:1fr}.rail{display:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <a class="back" href="/app" title="Back to Headnote">←</a>
+    <div class="brand">H</div>
+    <div class="doctitle" id="doctitle">Draft</div>
+    <span class="typechip" id="typechip"></span>
+    <div class="saved" id="saved"><span class="dot"></span> <span id="saved-tx">Saved</span></div>
+    <div class="langtog" id="langtog" style="display:none"><button data-l="hi" class="on">हिं</button><button data-l="en">EN</button></div>
+    <button class="btn-exp" id="export">↓ Export PDF</button>
+  </div>
+
+  <div class="toolbar" id="toolbar">
+   <div class="tb-group">
+    <button class="tb" data-cmd="undo" title="Undo (⌘Z)" aria-label="Undo"><svg viewBox="0 0 20 20"><path d="M7 8H12.5a4 4 0 0 1 0 8H8"/><path d="M7 8 4 5m3 3L4 11"/></svg></button>
+    <button class="tb" data-cmd="redo" title="Redo (⌘⇧Z)" aria-label="Redo"><svg viewBox="0 0 20 20"><path d="M13 8H7.5a4 4 0 0 0 0 8H12"/><path d="M13 8l3-3m-3 3 3 3"/></svg></button>
+   </div>
+   <span class="tsep"></span>
+   <select class="tsel" id="fontname" title="Font" style="min-width:118px">
+     <option value="">Font</option>
+     <option value="'Noto Sans Devanagari','Mangal',sans-serif">Devanagari (Noto)</option>
+     <option value="'Mangal','Noto Sans Devanagari'">Mangal</option>
+     <option value="'Kokila','Noto Serif Devanagari',serif">Kokila</option>
+     <option value="'Times New Roman',serif">Times New Roman</option>
+     <option value="Georgia,serif">Georgia (serif)</option>
+     <option value="Arial,'Helvetica Neue',sans-serif">Arial (sans)</option>
+   </select>
+   <select class="tsel" id="fontsize" title="Text size">
+     <option value="">Size</option><option value="1">8</option><option value="2">10</option>
+     <option value="3">12</option><option value="4">14</option><option value="5">18</option>
+     <option value="6">24</option><option value="7">36</option>
+   </select>
+   <span class="tsep"></span>
+   <div class="tb-group">
+    <button class="tb" data-cmd="bold" title="Bold (⌘B)" aria-label="Bold"><span class="g" style="font-weight:800">B</span></button>
+    <button class="tb" data-cmd="italic" title="Italic (⌘I)" aria-label="Italic"><span class="g" style="font-style:italic;font-family:Georgia,serif">I</span></button>
+    <button class="tb" data-cmd="underline" title="Underline (⌘U)" aria-label="Underline"><span class="g" style="text-decoration:underline;text-underline-offset:2px">U</span></button>
+    <button class="tb" data-cmd="strikeThrough" title="Strikethrough" aria-label="Strikethrough"><span class="g" style="text-decoration:line-through">S</span></button>
+   </div>
+   <div class="tb-group">
+    <button class="tb" data-cmd="superscript" title="Superscript" aria-label="Superscript"><span class="g">x<sup style="font-size:8px">2</sup></span></button>
+    <button class="tb" data-cmd="subscript" title="Subscript" aria-label="Subscript"><span class="g">x<sub style="font-size:8px">2</sub></span></button>
+   </div>
+   <div class="tb-group">
+    <label class="tb tb-color" title="Text colour" aria-label="Text colour"><span class="g" style="border-bottom:3px solid currentColor;line-height:.9">A</span><input type="color" id="forecolor" value="#000000"></label>
+    <label class="tb tb-color" title="Highlight" aria-label="Highlight"><svg viewBox="0 0 20 20"><path d="M4 16l3-1 8-8-2-2-8 8-1 3z"/><path d="M3 18h6" stroke-width="2.4"/></svg><input type="color" id="hilite" value="#fff2a8"></label>
+   </div>
+   <span class="tsep"></span>
+   <div class="tb-group">
+    <button class="tb" data-cmd="justifyLeft" title="Align left" aria-label="Align left"><svg viewBox="0 0 20 20"><path d="M3 5h14M3 9h9M3 13h12M3 17h7"/></svg></button>
+    <button class="tb" data-cmd="justifyCenter" title="Align center" aria-label="Align center"><svg viewBox="0 0 20 20"><path d="M3 5h14M5 9h10M4 13h12M6 17h8"/></svg></button>
+    <button class="tb" data-cmd="justifyRight" title="Align right" aria-label="Align right"><svg viewBox="0 0 20 20"><path d="M3 5h14M8 9h9M5 13h12M10 17h7"/></svg></button>
+    <button class="tb" data-cmd="justifyFull" title="Justify" aria-label="Justify"><svg viewBox="0 0 20 20"><path d="M3 5h14M3 9h14M3 13h14M3 17h14"/></svg></button>
+   </div>
+   <div class="tb-group">
+    <button class="tb" data-cmd="insertUnorderedList" title="Bullet list" aria-label="Bullet list"><svg viewBox="0 0 20 20"><circle cx="4" cy="6" r="1.3" fill="currentColor" stroke="none"/><circle cx="4" cy="14" r="1.3" fill="currentColor" stroke="none"/><path d="M8 6h9M8 14h9"/></svg></button>
+    <button class="tb" data-cmd="insertOrderedList" title="Numbered list" aria-label="Numbered list"><svg viewBox="0 0 20 20"><path d="M8 6h9M8 14h9"/><text x="2" y="8" font-size="6" fill="currentColor" stroke="none" font-family="monospace">1</text><text x="2" y="16" font-size="6" fill="currentColor" stroke="none" font-family="monospace">2</text></svg></button>
+    <button class="tb" data-cmd="outdent" title="Decrease indent" aria-label="Decrease indent"><svg viewBox="0 0 20 20"><path d="M8 5h9M8 10h9M8 15h9M6 8l-3 2 3 2"/></svg></button>
+    <button class="tb" data-cmd="indent" title="Increase indent" aria-label="Increase indent"><svg viewBox="0 0 20 20"><path d="M8 5h9M8 10h9M8 15h9M3 8l3 2-3 2"/></svg></button>
+   </div>
+   <span class="tsep"></span>
+   <div class="tb-group">
+    <button class="tb" data-cmd="insertHorizontalRule" title="Insert divider" aria-label="Insert divider"><svg viewBox="0 0 20 20"><path d="M3 10h14M5 6h10M5 14h10" stroke-dasharray="0.1 3.2"/></svg></button>
+    <button class="tb" id="tb-link" title="Insert link" aria-label="Insert link"><svg viewBox="0 0 20 20"><path d="M8 12a3 3 0 0 0 4 0l3-3a3 3 0 0 0-4-4l-1 1M12 8a3 3 0 0 0-4 0l-3 3a3 3 0 0 0 4 4l1-1"/></svg></button>
+   </div>
+   <span class="tsep"></span>
+   <button class="tb" data-cmd="removeFormat" title="Clear formatting" aria-label="Clear formatting"><svg viewBox="0 0 20 20"><path d="M6 5h10M9 5l-2 12M13 13l4 4M17 13l-4 4"/></svg></button>
+  </div>
+
+  <div class="body">
+    <!-- LEFT: outline + trust -->
+    <aside class="rail left">
+      <div class="sec"><span class="lbl">Outline</span><nav class="out" id="outline"></nav></div>
+      <div class="sec"><span class="lbl">Before you file</span>
+        <div class="trust" id="trust"></div>
+        <div class="readybar" id="readybar"></div>
+      </div>
+    </aside>
+
+    <!-- CENTER: the editable document -->
+    <main class="canvas">
+      <div class="loading" id="loading">loading draft…</div>
+      <iframe id="doc" title="draft document"></iframe>
+    </main>
+
+    <!-- RIGHT: assistant + to-file -->
+    <aside class="rail right">
+      <div class="segtog" id="seg">
+        <button class="on" data-p="assist">Assistant</button>
+        <button data-p="file">To file</button>
+      </div>
+      <div id="p-assist">
+        <div class="ask">
+          <textarea id="refine-in" placeholder="Ask for a change — “add a parity ground”, “make the facts stronger”, “change court to Sessions”…"></textarea>
+          <div class="row"><span class="lbl">Refines the whole draft</span>
+            <button class="send" id="refine-send" title="Apply">↑</button></div>
+        </div>
+        <div class="chips" id="refine-chips">
+          <button class="chip">Add a parity ground</button>
+          <button class="chip">Make the facts stronger</button>
+          <button class="chip">Add period of custody</button>
+          <button class="chip">More formal register</button>
+        </div>
+        <div class="sec" style="margin-top:22px">
+          <span class="lbl">सुझाव — points to consider</span>
+          <div id="suggest" style="margin-top:6px"><div class="muted">Checking for missing points…</div></div>
+        </div>
+      </div>
+      <div id="p-file" style="display:none">
+        <div class="sec"><span class="lbl">Format</span>
+          <div id="format-box" style="margin-top:6px"></div>
+          <input type="file" id="ref-file" accept="image/*,.pdf,.docx,.doc" multiple hidden>
+        </div>
+        <div class="sec"><span class="lbl">Authorities for hearing</span>
+          <div id="authorities" style="margin-top:6px"></div></div>
+        <div class="sec"><span class="lbl">File these alongside</span>
+          <div id="companions" style="margin-top:4px"></div></div>
+      </div>
+    </aside>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id);};
+  var DRAFT_ID=(location.pathname.match(/\/draft\/editor\/([^\/]+)/)||[])[1];
+  var A={};                 // the draft answers payload
+  var lang="hi";            // current display language
+  var docEl=$("doc"), dirty=false, saveTimer=null;
+
+  function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+  function toast(m){var t=$("toast");t.textContent=m;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove("show");},2200);}
+  function idoc(){return docEl.contentDocument||(docEl.contentWindow&&docEl.contentWindow.document);}
+
+  // ---- load ----
+  fetch("/api/draft/"+encodeURIComponent(DRAFT_ID)).then(function(r){
+    if(!r.ok) throw new Error("not found"); return r.json();
+  }).then(function(d){
+    A=(d&&d.answers)||{};
+    lang=(A.lang==="en")?"en":"hi";
+    $("doctitle").textContent=A.title||A.doc_type||"Draft";
+    var court=A.court?(" · "+A.court):"";
+    $("typechip").textContent=(A.doc_type||"draft")+court;
+    if(A.page_hi&&A.page_en){ $("langtog").style.display=""; }
+    renderDoc(); renderTrust(); renderFile(); loadSuggest();
+  }).catch(function(){
+    $("loading").textContent="Couldn’t load this draft. It may have been removed.";
+  });
+
+  // ---- the editable document (iframe WYSIWYG) ----
+  function pageFor(l){ return (l==="en"? (A.page_en||A.page_hi) : (A.page_hi||A.page_en)) || ""; }
+  function renderDoc(){
+    var page=pageFor(lang);
+    if(!page){ $("loading").textContent="This draft has no document body."; return; }
+    docEl.onload=function(){
+      var doc=idoc(); if(!doc) return;
+      // make the sheet editable; keep app print CSS from firing inside the frame
+      var sheet=doc.querySelector(".doc-a4")||doc.body;
+      sheet.setAttribute("contenteditable","true");
+      sheet.style.outline="none";
+      try{ doc.execCommand("styleWithCSS",false,true); }catch(e){}  // color/font → inline style
+      doc.body.addEventListener("input",onEdit);
+      doc.body.addEventListener("mouseup",syncToolbar);
+      doc.body.addEventListener("keyup",syncToolbar);
+      $("loading").style.display="none";
+      buildOutline(doc);
+    };
+    docEl.srcdoc=page;
+  }
+
+  function onEdit(){ dirty=true; setSaved("saving"); clearTimeout(saveTimer); saveTimer=setTimeout(save,1100); }
+
+  function currentBody(){
+    var doc=idoc(); if(!doc) return null;
+    var sheet=doc.querySelector(".doc-a4");
+    return sheet? sheet.innerHTML : (doc.body?doc.body.innerHTML:null);
+  }
+  function currentPage(){
+    var doc=idoc(); if(!doc) return null;
+    return "<!doctype html>\n"+doc.documentElement.outerHTML;
+  }
+
+  function setSaved(state){
+    var s=$("saved"), tx=$("saved-tx");
+    if(state==="saving"){s.classList.add("saving");tx.textContent="Saving…";}
+    else{s.classList.remove("saving");tx.textContent="Saved";}
+  }
+
+  function save(){
+    var body=currentBody(), page=currentPage();
+    if(body==null){ setSaved("saved"); return; }
+    if(lang==="en"){ A.html_en=body; A.page_en=page; } else { A.html_hi=body; A.page_hi=page; }
+    fetch("/api/draft/"+encodeURIComponent(DRAFT_ID),{
+      method:"PATCH",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({answers:A})
+    }).then(function(r){ setSaved("saved"); dirty=false; })
+      .catch(function(){ setSaved("saved"); });
+  }
+  // save on leave if a pending edit exists
+  window.addEventListener("beforeunload",function(){ if(dirty){ try{ save(); }catch(e){} } });
+
+  // ---- toolbar ----
+  document.querySelectorAll(".tb").forEach(function(b){
+    b.addEventListener("mousedown",function(e){ e.preventDefault(); });   // keep iframe selection
+    b.addEventListener("click",function(){
+      var doc=idoc(); if(!doc) return;
+      docEl.contentWindow.focus();
+      try{ doc.execCommand(b.dataset.cmd,false,null); }catch(e){}
+      onEdit(); syncToolbar();
+    });
+  });
+  function exec(cmd,val){ var doc=idoc(); if(!doc) return; docEl.contentWindow.focus();
+    try{ doc.execCommand(cmd,false,val); }catch(e){} onEdit(); }
+  $("fontsize").addEventListener("change",function(){ if(this.value) exec("fontSize",this.value); this.value=""; });
+  $("fontname").addEventListener("change",function(){ if(this.value) exec("fontName",this.value); this.value=""; });
+  // colour pickers apply live as you drag; keep the iframe selection (mousedown preventDefault)
+  ["forecolor","hilite"].forEach(function(id){
+    var el=$(id); if(!el) return;
+    el.closest(".tb-color").addEventListener("mousedown",function(e){ if(e.target!==el) e.preventDefault(); });
+    el.addEventListener("input",function(){ exec(id==="forecolor"?"foreColor":"hiliteColor",this.value); });
+  });
+  $("tb-link").addEventListener("mousedown",function(e){ e.preventDefault(); });
+  $("tb-link").addEventListener("click",function(){
+    var url=window.prompt("Link URL:","https://"); if(url) exec("createLink",url);
+  });
+  function syncToolbar(){
+    var doc=idoc(); if(!doc) return;
+    [["bold","bold"],["italic","italic"],["underline","underline"],["strikeThrough","strikeThrough"],
+     ["justifyLeft","justifyLeft"],["justifyCenter","justifyCenter"],["justifyRight","justifyRight"],["justifyFull","justifyFull"]]
+    .forEach(function(p){
+      var btn=document.querySelector('.tb[data-cmd="'+p[0]+'"]'); if(!btn) return;
+      try{ btn.classList.toggle("on",doc.queryCommandState(p[1])); }catch(e){}
+    });
+  }
+
+  // ---- outline (derived from the doc's own headings) ----
+  function buildOutline(doc){
+    var nav=$("outline"); nav.innerHTML="";
+    var heads=doc.querySelectorAll(".hdr-court,.cb-head,.cb-block-label,.mr-head,.mr-label,.mr-center.mr-b");
+    var n=0;
+    heads.forEach(function(h){
+      var t=(h.textContent||"").trim(); if(!t||t.length>60) return;
+      h.id=h.id||("sec"+(n++));
+      var a=document.createElement("a"); a.textContent=t;
+      a.onclick=function(){ h.scrollIntoView({behavior:"smooth",block:"center"}); };
+      nav.appendChild(a);
+    });
+    if(!nav.children.length){ nav.innerHTML='<div class="muted">Whole document</div>'; }
+  }
+
+  // ---- trust panel (from the draft's own guard output) ----
+  function renderTrust(){
+    var box=$("trust"), warns=(A.warnings||[]).filter(Boolean), amber=0;
+    box.innerHTML="";
+    // count fill-in blanks from the stored body (the iframe may not be loaded yet
+    // when this runs — reading it live would under-count to zero).
+    var src=(lang==="en"?(A.html_en||A.page_en):(A.html_hi||A.page_hi))||A.html_hi||A.page_hi||"";
+    var blanks=(String(src).match(/_{3,}|class=.ph./g)||[]).length;
+    // HERO: when the draft is mostly a format skeleton, guide the advocate to add facts
+    // (the common reference-with-thin-brief case) instead of a weak "placeholders" note.
+    if(blanks>=3){
+      var h=document.createElement("div"); h.className="hero";
+      h.innerHTML='<div class="ht">'+blanks+' blanks to fill</div>'+
+        '<div class="hb">'+(A.mirrored
+          ? "This draft has your reference’s <b>format</b>. The facts stay yours — type your matter (parties, the notice/order being answered, dates, amounts) and I’ll write them into this shape."
+          : "Add the specific facts (names, dates, FIR/case no., amounts) where you see ____ — or tell the assistant and I’ll fill them.")+'</div>'+
+        '<button class="hcta" id="hero-cta">Add facts in the assistant →</button>';
+      box.appendChild(h);
+    }
+    // ungrounded first (the actionable class). In reference mode these are values
+    // CARRIED from the reference for the advocate to swap — not "maybe invented".
+    if((A.ungrounded||[]).length){
+      amber++;
+      var head=A.mirrored?"<b>"+A.ungrounded.length+" detail(s) carried from your reference</b>"
+                         :"<b>"+A.ungrounded.length+" detail(s) not in your input</b>";
+      var sub=A.mirrored?"Highlighted in amber — replace with this client’s details: "
+                        :"Highlighted in amber — verify or delete: ";
+      box.appendChild(chk("warn","!",head+"<div class='sub'>"+sub+esc(A.ungrounded.slice(0,6).join("; "))+"</div>"));
+    }
+    warns.forEach(function(w){
+      // skip the generic "contains placeholders" note — the hero already says it better
+      if(/placeholder|____|रिक्त स्थान/i.test(w) && blanks>=3) return;
+      // in reference mode, the "…may be invented" grounding note is superseded by the
+      // reframed "carried from your reference" chip above — don't show both.
+      if(A.mirrored && /may be invented|स्वतः जोड़े गए/i.test(w)) return;
+      var isWarn=/^⚠|verify|जाँच|पुष्टि|नहीं मिले|नहीं आए/.test(w);
+      if(isWarn) amber++;
+      box.appendChild(chk(isWarn?"warn":"info", isWarn?"!":"i", w));
+    });
+    box.appendChild(chk("ok","✓","<b>No fabricated case law</b><div class='sub'>Body carries no unverified citation</div>"));
+    var rb=$("readybar");
+    if(amber===0 && blanks===0){ rb.className="readybar ready"; rb.innerHTML="✓ <b>Ready to file</b> — nothing flagged for review."; }
+    else if(amber===0){ rb.className="readybar"; rb.innerHTML="Fill the <b>"+blanks+" blank(s)</b> to reach <b>Ready to file</b>."; }
+    else { rb.className="readybar"; rb.innerHTML="Resolve the <b>"+amber+" flagged item(s)</b>"+(blanks?" and <b>"+blanks+" blank(s)</b>":"")+" to reach <b>Ready to file</b>."; }
+    var hc=$("hero-cta"); if(hc) hc.onclick=function(){ var ri=$("refine-in"); if(ri){ setSeg("assist"); ri.focus(); } };
+  }
+  function chk(kind,ic,html){
+    var d=document.createElement("div"); d.className="chk "+kind;
+    d.innerHTML='<div class="ic">'+ic+'</div><div class="tx">'+html+'</div>';
+    return d;
+  }
+
+  // ---- to-file: authorities + companions ----
+  function renderFile(){
+    var au=$("authorities"), cites=A.cite_at_hearing||[];
+    if(cites.length){
+      au.innerHTML=cites.map(function(c){
+        return '<div class="cite"><span class="vdot"></span><div class="c"><div class="case">'+esc(c.case||c)+'</div>'+(c.point?'<div class="pt">'+esc(c.point)+'</div>':'')+'</div></div>';
+      }).join("")+'<div style="font-family:var(--mono);font-size:10px;letter-spacing:.05em;color:var(--ink-4);margin-top:8px">● OFFER AT HEARING — VERIFY BEFORE CITING</div>';
+    } else { au.innerHTML='<div class="muted">No authorities suggested — argue on statute + facts.</div>'; }
+    var co=$("companions"), comps=A.companions||[];
+    co.innerHTML=comps.length? comps.map(function(c){
+      return '<label class="comp"><input type="checkbox"> '+esc(c)+'</label>';
+    }).join("") : '<div class="muted">No mandatory companions for this type.</div>';
+    renderFormat();
+  }
+
+  // ---- format: reference (attach / attached) + Draft DNA (members, soon) ----
+  function renderFormat(){
+    var box=$("format-box");
+    var soon='<div class="fmt-soon"><div class="i">◈</div><div class="tx"><b>Apply my Draft DNA</b>'+
+             '<div class="sub">Your letterhead, numbering & voice on every draft — learned from your past filings.</div>'+
+             '<span class="soon-tag">Coming soon · Members</span></div></div>';
+    if(A.mirrored){
+      box.innerHTML='<div class="fmt-on"><div class="i">✦</div><div class="tx"><b>Reference attached</b>'+
+        '<div class="sub">This draft mirrors the format of your uploaded document.</div>'+
+        '<div><button class="replace" id="ref-replace">Replace reference</button></div></div></div>'+soon;
+      var rp=$("ref-replace"); if(rp) rp.onclick=function(){ $("ref-file").click(); };
+    } else {
+      box.innerHTML='<button class="fmt-btn" id="ref-attach"><span class="i">✦</span>'+
+        '<span>Attach a reference draft — match its exact format</span></button>'+soon;
+      var ra=$("ref-attach"); if(ra) ra.onclick=function(){ $("ref-file").click(); };
+    }
+  }
+  // upload → re-mirror this draft IN PLACE
+  (function(){
+    var fi=$("ref-file"); if(!fi) return;
+    fi.addEventListener("change",function(){
+      var fs=fi.files; if(!fs||!fs.length) return;
+      var fd=new FormData(); for(var i=0;i<fs.length;i++) fd.append("files",fs[i]);
+      fi.value="";
+      setSaved("saving"); toast("Reading your reference & re-formatting…");
+      var box=$("format-box"); box.innerHTML='<div class="muted">Matching your reference’s format…</div>';
+      fetch("/api/draft/"+encodeURIComponent(DRAFT_ID)+"/apply-reference",{method:"POST",body:fd})
+      .then(function(r){return r.json();}).then(function(res){
+        if(!res||!res.ok){ toast((res&&res.error)?res.error.slice(0,100):"Couldn’t apply the reference — your draft is safe."); setSaved("saved"); renderFormat(); return; }
+        // swap in the re-mirrored document (same draft_id) + refresh everything
+        A.page_hi=res.page_hi||A.page_hi; A.page_en=res.page_en||A.page_en;
+        A.html_hi=res.html_hi||A.html_hi; A.html_en=res.html_en||A.html_en;
+        A.warnings=res.warnings||[]; A.ungrounded=res.ungrounded||[];
+        A.cite_at_hearing=res.cite_at_hearing||A.cite_at_hearing; A.companions=res.companions||A.companions;
+        A.mirrored=true; A.title=res.title||A.title; A.lang=res.lang||A.lang;
+        lang=(A.lang==="en")?"en":"hi";
+        renderDoc(); renderTrust(); renderFile();
+        setSaved("saved"); toast("Reference applied ✓");
+      }).catch(function(){ setSaved("saved"); toast("Network hiccup — your draft is safe. Try again."); renderFormat(); });
+    });
+  })();
+
+  // ---- suggestions (live, from /api/draft/suggest) ----
+  function loadSuggest(){
+    var box=$("suggest");
+    var text=""; try{ text=idoc()?idoc().body.innerText:""; }catch(e){}
+    if(!text){ text=A.html_hi||A.html_en||""; }
+    fetch("/api/draft/suggest",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({doc_type:A.doc_type||"other_criminal",text:text,lang:lang,llm:true})})
+    .then(function(r){return r.json();}).then(function(d){
+      var pts=(d&&(d.missing||d.points||[]))||[];
+      if(!pts.length){ box.innerHTML='<div class="muted">No obvious missing points — looks complete.</div>'; return; }
+      box.innerHTML="";
+      pts.slice(0,5).forEach(function(p){
+        var txt=(typeof p==="string")?p:(p.text||p.point||p.label||"");
+        if(!txt) return;
+        var it=document.createElement("div"); it.className="item";
+        it.innerHTML='<div class="b">'+esc(txt)+'</div>';
+        var btn=document.createElement("button"); btn.className="add"; btn.textContent="+ जोड़ें";
+        btn.onclick=function(){ btn.classList.add("added"); btn.textContent="…"; refine((lang==="en"?"Add a ground covering: ":"इस बिंदु पर आधार जोड़ें: ")+txt, btn); };
+        it.appendChild(btn); box.appendChild(it);
+      });
+    }).catch(function(){ box.innerHTML='<div class="muted">Suggestions unavailable right now.</div>'; });
+  }
+
+  // ---- refine (whole-draft revision via /api/draft/refine) ----
+  function refine(instruction, srcBtn){
+    var body=currentBody(); if(body==null){ toast("Draft still loading…"); return; }
+    setSaved("saving"); var send=$("refine-send"); send.disabled=true;
+    fetch("/api/draft/refine",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({prev_html:body,instruction:instruction,doc_type:A.doc_type||"other_criminal",lang:lang})})
+    .then(function(r){return r.json();}).then(function(res){
+      send.disabled=false;
+      if(!res||!res.ok){ toast((res&&res.error)?res.error.slice(0,90):"Couldn’t apply that — your draft is safe."); setSaved("saved"); if(srcBtn){srcBtn.classList.remove("added");srcBtn.textContent="+ जोड़ें";} return; }
+      // swap in the revised document + refresh trust
+      if(lang==="en"){ A.page_en=res.page_en||res.page_hi; A.html_en=res.html_en||res.html_hi; }
+      else { A.page_hi=res.page_hi||res.page_en; A.html_hi=res.html_hi||res.html_en; }
+      A.warnings=res.warnings||A.warnings; A.ungrounded=res.ungrounded||[];
+      A.cite_at_hearing=res.cite_at_hearing||A.cite_at_hearing; A.companions=res.companions||A.companions;
+      renderDoc(); renderTrust(); renderFile();
+      save(); toast("Applied ✓"); if(srcBtn){srcBtn.textContent="✓ जोड़ा";}
+      $("refine-in").value="";
+    }).catch(function(){ send.disabled=false; setSaved("saved"); toast("Network hiccup — your draft is safe. Try again."); if(srcBtn){srcBtn.classList.remove("added");srcBtn.textContent="+ जोड़ें";} });
+  }
+  $("refine-send").addEventListener("click",function(){ var v=$("refine-in").value.trim(); if(v) refine(v,null); });
+  $("refine-in").addEventListener("keydown",function(e){ if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)){ var v=this.value.trim(); if(v) refine(v,null); } });
+  document.querySelectorAll("#refine-chips .chip").forEach(function(c){ c.onclick=function(){ $("refine-in").value=c.textContent; $("refine-in").focus(); }; });
+
+  // ---- right-rail toggle ----
+  function setSeg(p){
+    document.querySelectorAll("#seg button").forEach(function(x){x.classList.toggle("on",x.dataset.p===p);});
+    $("p-assist").style.display=p==="assist"?"":"none";
+    $("p-file").style.display=p==="file"?"":"none";
+  }
+  window.setSeg=setSeg;
+  document.querySelectorAll("#seg button").forEach(function(b){ b.onclick=function(){ setSeg(b.dataset.p); }; });
+
+  // ---- language toggle ----
+  $("langtog").addEventListener("click",function(e){
+    var b=e.target.closest("button"); if(!b) return;
+    if(dirty) save();
+    lang=b.dataset.l;
+    document.querySelectorAll("#langtog button").forEach(function(x){x.classList.toggle("on",x===b);});
+    renderDoc();
+  });
+
+  // ---- export = print the document only (iframe) ----
+  $("export").addEventListener("click",function(){
+    var w=docEl.contentWindow; if(!w){ toast("Draft still loading…"); return; }
+    if(dirty) save();
+    w.focus(); w.print();
+  });
+})();
+</script>
+</body>
+</html>

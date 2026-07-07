@@ -589,6 +589,11 @@ def parse_json_response(raw: str) -> dict:
     if start != -1:
         repaired = _repair_truncated_json(text[start:])
         if repaired is not None:
+            # mark that this payload was salvaged from a CUT-OFF response so the caller
+            # can warn the advocate the draft is incomplete (don't present a truncated
+            # draft as if it were finished).
+            if isinstance(repaired, dict):
+                repaired["_truncated"] = True
             return repaired
     # Give up — but with a message a lawyer (not a stack trace) can act on.
     raise HTTPException(
