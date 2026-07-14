@@ -28,6 +28,7 @@ from headnote.entitlements import (
     check_and_record,
     get_current_user,
 )
+from headnote.entitlements.auth import optional_user
 
 
 router = APIRouter(prefix="/api/draft", tags=["drafter"])
@@ -706,6 +707,142 @@ async def ocr_fir(
         # Cost scales roughly with page count. 300p per page is conservative.
         _record(cost_paise=0, model="groq/llama-4-scout-vision")
         return {"ok": True, "page_count": len(uploads), "extracted": parsed}
+
+
+@router.post("/fir/extract", summary="OCR an FIR → bail confirm-step fields (Draft from FIR, step 1)")
+async def fir_extract(
+    court: str = Form("sessions"),
+    lang: str = Form("hi"),
+    file: Optional[UploadFile] = File(None),
+    files: Optional[List[UploadFile]] = File(None),
+    user: Optional[CurrentUser] = Depends(optional_user),
+):
+    """Step 1 of the "Draft from FIR" flow (web confirm step AND the Word add-in).
+
+    OCR the uploaded FIR, map it onto the canonical bail template's own slots,
+    and return them as a CONFIRM step: each value the FIR supplied is flagged
+    `found` (amber — machine-read, the advocate confirms before it goes in), and
+    each required field the FIR can't supply is flagged `missing` so the UI can
+    prompt for it. NOTHING is written into a draft here. Jurisdiction is never inferred.
+
+    `court`: magistrate | sessions | hc (→ doc_type bail_<court>). `lang`: hi | en.
+    Accepts a single `file` or a list of `files` (NCRB I.I.F.-I runs 3-5 pages).
+
+    Anon-friendly: OCR is Groq free-tier (₹0), so the Word add-in (which has no
+    login session) may call it unauthenticated; signed-in calls are metered as usual.
+    """
+    from headnote.drafter import template_adapter as TA
+    from headnote.drafter.ocr import ocr_fir_pages
+    from headnote.drafter.fir_intake import fir_ocr_to_bail_slots, confirm_fields
+
+    lang = "en" if (lang or "").lower().startswith("en") else "hi"
+    doc_type = f"bail_{(court or 'sessions').lower().strip()}"
+    if not TA.is_canonical(doc_type):
+        doc_type = "bail_sessions"
+
+    uploads: List[UploadFile] = []
+    if files:
+        uploads.extend(files)
+    if file:
+        uploads.append(file)
+    if not uploads:
+        raise HTTPException(status_code=400, detail="upload 'file' or 'files'")
+    if len(uploads) > _OCR_MAX_PAGES:
+        raise HTTPException(status_code=400, detail=f"too many pages ({len(uploads)}); max {_OCR_MAX_PAGES}")
+
+    entries = [(await up.read(), up.content_type or "", up.filename or "") for up in uploads]
+    try:
+        pages, office_text = office.collect_uploads(entries, max_bytes=_OCR_MAX_BYTES)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    async def _build() -> dict:
+        # OCR is blocking; threadpool it so the async loop stays free on multi-page
+        # uploads (see the note in draft_from_document). An unreadable FIR must never
+        # 500 — degrade to an empty confirm step with a friendly note so the advocate
+        # can just type the fields instead.
+        try:
+            parsed = await run_in_threadpool(ocr_fir_pages, pages, office_text=office_text)
+        except Exception as e:
+            import logging
+            logging.getLogger("headnote.drafter").warning("FIR OCR degraded: %s", e)
+            parsed = {}
+        slots = fir_ocr_to_bail_slots(parsed, lang) if parsed else {}
+        fields = confirm_fields(doc_type, slots, lang)
+        read_ok = bool(slots)
+        note = "" if read_ok else (
+            "एफआईआर पढ़ी नहीं जा सकी — नीचे विवरण स्वयं भरें, या साफ़ फोटो के साथ दोबारा कोशिश करें।"
+            if lang != "en" else
+            "Couldn't read the FIR — fill the details below, or try again with a clearer photo."
+        )
+        return {
+            "ok": True,
+            "read_ok": read_ok,
+            "doc_type": doc_type,
+            "court": doc_type.split("_", 1)[1],
+            "lang": lang,
+            "page_count": len(uploads),
+            "fields": fields,          # the confirm step (amber/missing/empty)
+            "slots": slots,            # raw mapped values, for the render step
+            "narrative": {"hi": parsed.get("narrative_hi", ""), "en": parsed.get("narrative_en", "")},
+            "note": note,
+        }
+
+    # Meter only for signed-in users; anon (Word add-in) runs free-tier OCR unmetered.
+    if user:
+        with check_and_record(user.id, "draft", endpoint="fir_extract", email=user.email) as _record:
+            result = await _build()
+            _record(cost_paise=0, model="groq/llama-4-scout-vision")
+            return result
+    return await _build()
+
+
+class RenderCanonicalBody(BaseModel):
+    doc_type: str
+    fields:   dict = Field(default_factory=dict)
+    lang:     Literal["hi", "en", "mr", "bn", "gu"] = "hi"
+
+
+@router.post("/render-canonical", summary="Deterministic canonical render (free, ungated) — fields → document HTML")
+def render_canonical(body: RenderCanonicalBody):
+    """Free, deterministic render of a CANONICAL template only (no LLM, ₹0). Used by
+    the Word add-in's Fields tab to turn structured fields → the live document as the
+    lawyer types. Refuses non-canonical types (those need the metered LLM path via
+    /render-template), so it's safe to leave unauthenticated."""
+    from fastapi.responses import JSONResponse
+    from headnote.drafter import template_adapter as TA
+    if not TA.is_canonical(body.doc_type):
+        return JSONResponse({"ok": False, "error": f"'{body.doc_type}' is not a canonical (deterministic) template"}, status_code=400)
+    try:
+        return {"ok": True, "document": TA.document(body.doc_type, body.fields or {}, body.lang)}
+    except Exception as e:
+        import logging
+        logging.getLogger("headnote.drafter").exception("render-canonical failed: %s", body.doc_type)
+        return JSONResponse({"ok": False, "error": f"{type(e).__name__}: {e}"}, status_code=502)
+
+
+class FirFieldsBody(BaseModel):
+    slots:    dict = Field(default_factory=dict, description="raw FIR→bail slots from /fir/extract")
+    doc_type: str = Field("bail_sessions", description="canonical bail doc_type to re-map onto")
+    lang:     Literal["hi", "en"] = "hi"
+
+
+@router.post("/fir/fields", summary="Re-map FIR slots onto a different bail court (no OCR; instant court switch)")
+def fir_fields(body: FirFieldsBody):
+    """Step 1b: the advocate switches court (Magistrate/Sessions/HC · regular/anticipatory)
+    in the confirm step. The FIR facts don't change — only the target template's field set
+    does — so we re-derive the confirm fields from the already-extracted slots against the new
+    doc_type's schema. No OCR, no LLM, no cost. Open (no auth): operates only on client-held
+    slots, mints nothing."""
+    from fastapi.responses import JSONResponse
+    from headnote.drafter import template_adapter as TA
+    from headnote.drafter.fir_intake import confirm_fields
+    doc_type = body.doc_type if TA.is_canonical(body.doc_type) else "bail_sessions"
+    try:
+        fields = confirm_fields(doc_type, body.slots or {}, body.lang)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": f"{type(e).__name__}: {e}"}, status_code=502)
+    return {"ok": True, "doc_type": doc_type, "fields": fields}
 
 
 @router.post("/ocr-bail-order", summary="OCR a Sessions/Magistrate bail order → structured fields")

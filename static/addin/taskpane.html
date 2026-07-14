@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Headnote for Word</title>
+  <!-- Office.js (required; loaded from Microsoft's CDN inside the Word webview) -->
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <style>
+    :root{ --ink:#1a1a1a; --muted:#6b6b6b; --line:#e6e2d9; --soft:#f6f4ee; --gold:#b8860b; --bad:#c0392b; --ok:#2e9e5b; }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);font-size:13px;line-height:1.5;background:#fff}
+    .mono{font-family:ui-monospace,"Cascadia Mono",Menlo,monospace}
+    header{padding:14px 16px 10px;border-bottom:1px solid var(--line)}
+    header h1{font-size:14px;margin:0;font-weight:600}
+    header p{margin:2px 0 0;font-size:11px;color:var(--muted)}
+    .tabs{display:flex;gap:2px;padding:8px 12px 0}
+    .tab{flex:1;border:0;background:none;font:inherit;font-size:12px;padding:8px 6px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent}
+    .tab.on{color:var(--ink);border-bottom-color:var(--gold);font-weight:600}
+    .pane{display:none;padding:14px 16px}
+    .pane.on{display:block}
+    label.lbl{display:block;font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:0 0 5px}
+    textarea,select,input[type=text]{width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 10px;font:inherit;font-size:13px;background:#fff}
+    textarea:focus,select:focus{outline:none;border-color:var(--gold)}
+    textarea{resize:vertical;min-height:96px}
+    .row{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
+    button.act{background:var(--ink);color:#fff;border:1px solid var(--ink);border-radius:8px;padding:9px 14px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+    button.act:hover{opacity:.9}
+    button.act:disabled{opacity:.5;cursor:default}
+    button.chip{background:#fff;border:1px solid var(--line);border-radius:20px;padding:5px 11px;font:inherit;font-size:12px;cursor:pointer;color:var(--ink)}
+    button.chip:hover{background:var(--soft)}
+    button.chip.on{border-color:var(--gold);color:var(--gold)}
+    .hint{font-size:11px;color:var(--muted);margin-top:8px}
+    .status{margin-top:12px;font-size:12px;min-height:16px}
+    .status.err{color:var(--bad)}
+    .status.busy{color:var(--muted)}
+    .status.ok{color:var(--ok)}
+    .findings{margin-top:12px}
+    .f-row{display:flex;gap:8px;align-items:baseline;padding:5px 0;font-size:12.5px;border-top:1px dotted var(--line)}
+    .f-pip{width:7px;height:7px;border-radius:50%;flex:0 0 auto;margin-top:5px;background:var(--line)}
+    .f-row--ok .f-pip{background:var(--ok)} .f-row--flag .f-pip{background:var(--bad)} .f-row--info .f-pip{background:#e0a800}
+    .f-row small{display:block;color:var(--muted);font-size:11px}
+    .f-sub{font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:12px 0 4px}
+    .f-add{margin-left:auto;flex:0 0 auto;border:1px solid var(--line);background:#fff;border-radius:6px;padding:2px 8px;font:inherit;font-size:11px;cursor:pointer}
+    .f-add:hover{background:var(--soft)}
+    .v{font-size:11px} .v--x{opacity:.55}
+    .lim{margin-top:10px;font-size:11.5px;color:#7a6a2a;background:var(--soft);border-radius:6px;padding:7px 9px}
+    .note{margin:10px 16px 0;font-size:11px;color:var(--muted);background:var(--soft);border-radius:6px;padding:8px 10px}
+    .ff{margin:8px 0}
+    .ff__lab{display:flex;align-items:center;gap:6px;font-size:10.5px;letter-spacing:.03em;text-transform:uppercase;color:var(--muted);margin:0 0 3px}
+    .ff__dot{width:6px;height:6px;border-radius:50%;flex:0 0 auto}
+    .ff--found .ff__dot{background:#e0a800} .ff--missing .ff__dot{background:var(--bad)} .ff--empty .ff__dot{background:var(--line)}
+    .ff--found .ff__in{border-color:#e9c46a;background:#fffdf5}
+    .ff--missing .ff__in{border-color:#e5b4ad;background:#fff8f7}
+    .ff__in{min-height:auto}
+    .ff textarea.ff__in{min-height:64px}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Headnote for Word</h1>
+    <p>Draft · improve · review — Hindi &amp; English, court-ready.</p>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button class="tab on" data-pane="draft" role="tab">Draft</button>
+    <button class="tab" data-pane="fields" role="tab">Fields</button>
+    <button class="tab" data-pane="improve" role="tab">Improve</button>
+    <button class="tab" data-pane="review" role="tab">Review</button>
+  </div>
+
+  <!-- DRAFT -->
+  <section class="pane on" id="pane-draft">
+    <label class="lbl">Describe the matter</label>
+    <textarea id="d-input" placeholder="e.g. सत्र न्यायालय में नियमित जमानत, FIR 123/2025 थाना पनिहार, धारा 420/406, एकमात्र कमाने वाला… (हिंदी / English / both)"></textarea>
+    <div class="row">
+      <button class="act" id="d-go">Draft &amp; insert →</button>
+      <span class="hint" id="d-auto">auto-detects language</span>
+    </div>
+    <div class="hint">The draft is appended to the end of your document, in court format. Nothing is fabricated — unverified citations are flagged.</div>
+    <div class="status" id="d-status"></div>
+  </section>
+
+  <!-- FIELDS — upload a document to auto-fill, or type; the Word document rebuilds live -->
+  <section class="pane" id="pane-fields">
+    <label class="lbl">Which bail application</label>
+    <select id="f-court">
+      <option value="bail_sessions">Regular · Sessions §483</option>
+      <option value="bail_magistrate">Regular · Magistrate §480</option>
+      <option value="bail_hc">Regular · High Court §483</option>
+      <option value="anticipatory_bail">Anticipatory · Sessions §482</option>
+      <option value="anticipatory_bail_hc">Anticipatory · High Court §482</option>
+    </select>
+    <div class="row">
+      <button class="chip" id="f-upload">📄 Upload FIR / document → auto-fill</button>
+      <input type="file" id="f-file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" multiple hidden>
+      <label class="chip" style="cursor:default">lang:
+        <select id="f-lang" style="border:0;padding:0 2px;background:none"><option value="hi">हिं</option><option value="en">EN</option></select>
+      </label>
+    </div>
+    <div class="status" id="f-status"></div>
+    <div id="f-grid" style="margin-top:6px"></div>
+    <div class="row">
+      <button class="act" id="f-rebuild">Rebuild document</button>
+      <label style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px">
+        <input type="checkbox" id="f-live" checked> live update
+      </label>
+    </div>
+    <div class="hint">This tab builds the <b>whole document</b> from these fields — uploading a document fills them, and typing rebuilds the draft in Word. Amber = read from your upload (confirm it). Court/jurisdiction is never assumed.</div>
+  </section>
+
+  <!-- IMPROVE -->
+  <section class="pane" id="pane-improve">
+    <label class="lbl">Select text in the document, then choose</label>
+    <div class="row">
+      <button class="chip on" data-style="formal">Formalise</button>
+      <button class="chip" data-style="strengthen">Strengthen</button>
+      <button class="chip" data-style="concise">Tighten</button>
+      <button class="chip" data-style="hindi">Fix the Hindi</button>
+    </div>
+    <div class="row">
+      <button class="act" id="i-go">Improve selection →</button>
+    </div>
+    <div class="hint">Your edit is inserted as a <b>tracked change</b> so you can accept or reject it in Word. We keep every fact — only wording changes.</div>
+    <div class="status" id="i-status"></div>
+  </section>
+
+  <!-- REVIEW -->
+  <section class="pane" id="pane-review">
+    <label class="lbl">What is this document?</label>
+    <select id="r-type">
+      <option value="bail">Bail application</option>
+      <option value="anticipatory_bail">Anticipatory bail</option>
+      <option value="discharge">Discharge</option>
+      <option value="cheque_138">Cheque bounce §138</option>
+      <option value="maintenance">Maintenance</option>
+      <option value="dv">Domestic violence</option>
+      <option value="revision">Revision</option>
+      <option value="appeal">Appeal</option>
+    </select>
+    <div class="row">
+      <button class="act" id="r-go">Review document →</button>
+    </div>
+    <div class="hint">Checks sections cited, surfaces <b>verified</b> authorities, and flags missing mandatory points. Add a missing point to the end of your document with one tap.</div>
+    <div class="status" id="r-status"></div>
+    <div class="findings" id="r-findings"></div>
+  </section>
+
+  <div class="note" id="kruti-note" hidden>
+    Reading legacy <b>Kruti Dev</b> text isn't supported yet — Improve/Review work best on Unicode Hindi or English. Drafting fresh content always works.
+  </div>
+
+  <script>
+  (function(){
+    "use strict";
+    var API = "";                 // same-origin (served from headnote.in) → relative paths
+    var ready = false;
+    var $ = function(id){ return document.getElementById(id); };
+    var improveStyle = "formal";
+
+    Office.onReady(function(info){
+      ready = (info.host === Office.HostType.Word);
+      if(!ready){
+        document.body.innerHTML = '<p style="padding:16px">Open this add-in inside Microsoft Word.</p>';
+      }
+    });
+
+    // ---- tabs ----
+    Array.prototype.forEach.call(document.querySelectorAll(".tab"), function(t){
+      t.addEventListener("click", function(){
+        document.querySelectorAll(".tab").forEach(function(x){ x.classList.toggle("on", x===t); });
+        document.querySelectorAll(".pane").forEach(function(p){ p.classList.toggle("on", p.id==="pane-"+t.dataset.pane); });
+      });
+    });
+
+    // ---- helpers ----
+    function isHindi(s){ return /[ऀ-ॿ]/.test(s||""); }
+    function status(el, msg, cls){ el.className = "status " + (cls||""); el.textContent = msg||""; }
+    function stripHtml(html){
+      var d = document.createElement("div"); d.innerHTML = html||"";
+      d.querySelectorAll("script,style").forEach(function(n){ n.remove(); });
+      // block tags → newlines so paragraphs survive
+      d.querySelectorAll("p,div,br,li,tr,h1,h2,h3,h4").forEach(function(n){ n.insertAdjacentText("afterend","\n"); });
+      var t = (d.textContent||"").replace(/ /g," ");
+      return t.replace(/\n{2,}/g,"\n").split("\n").map(function(x){return x.trim();}).filter(Boolean);
+    }
+    async function insertParagraphsAtEnd(lines){
+      await Word.run(async function(ctx){
+        var body = ctx.document.body;
+        lines.forEach(function(line){ body.insertParagraph(line, Word.InsertLocation.end); });
+        await ctx.sync();
+      });
+    }
+    async function getSelectionText(){
+      var out = "";
+      await Word.run(async function(ctx){
+        var sel = ctx.document.getSelection(); sel.load("text");
+        await ctx.sync(); out = sel.text || "";
+      });
+      return out;
+    }
+    async function replaceSelectionTracked(text){
+      await Word.run(async function(ctx){
+        try { ctx.document.changeTrackingMode = Word.ChangeTrackingMode.trackAll; } catch(e){}
+        var sel = ctx.document.getSelection();
+        sel.insertText(text, Word.InsertLocation.replace);
+        await ctx.sync();
+      });
+    }
+    async function getBodyText(){
+      var out = "";
+      await Word.run(async function(ctx){
+        var b = ctx.document.body; b.load("text");
+        await ctx.sync(); out = b.text || "";
+      });
+      return out;
+    }
+    async function post(path, payload){
+      var r = await fetch(API + path, {
+        method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)
+      });
+      var j = await r.json();
+      if(!r.ok || (j && j.ok === false)) throw new Error((j && (j.error||j.detail)) || ("HTTP "+r.status));
+      return j;
+    }
+
+    // ---- DRAFT ----
+    $("d-input").addEventListener("input", function(){
+      $("d-auto").textContent = isHindi(this.value) ? "auto · हिंदी" : "auto-detects language";
+    });
+    $("d-go").addEventListener("click", async function(){
+      if(!ready) return;
+      var prompt = $("d-input").value.trim();
+      if(!prompt){ status($("d-status"),"Describe the matter first.","err"); return; }
+      this.disabled = true; status($("d-status"),"Drafting in court format…","busy");
+      try{
+        var res = await post("/api/draft/from-prompt", { prompt: prompt, lang: "auto" });
+        var html = res.html_hi || res.html_en || res.page_hi || res.page_en || "";
+        var lines = stripHtml(html);
+        if(!lines.length) throw new Error("Empty draft — try rephrasing.");
+        await insertParagraphsAtEnd(lines);
+        var extra = (res.ungrounded && res.ungrounded.length)
+          ? " ⚠ "+res.ungrounded.length+" detail(s) flagged to verify."
+          : (res.cite_at_hearing && res.cite_at_hearing.length ? " Authorities noted to cite at hearing." : "");
+        status($("d-status"), "Inserted at the end of your document."+extra, "ok");
+      }catch(e){ status($("d-status"), e.message||String(e), "err"); }
+      this.disabled = false;
+    });
+
+    // ---- IMPROVE ----
+    document.querySelectorAll("#pane-improve .chip").forEach(function(c){
+      c.addEventListener("click", function(){
+        improveStyle = c.dataset.style;
+        document.querySelectorAll("#pane-improve .chip").forEach(function(x){ x.classList.toggle("on", x===c); });
+      });
+    });
+    var INSTR = {
+      formal:     "Rewrite in formal Indian court language. Keep every fact, name, date, section and number exactly.",
+      strengthen: "Strengthen this as a legal argument — firmer, better-reasoned. Keep every fact, name, date and section exactly.",
+      concise:    "Make this tighter and clearer without losing any fact, name, date or section.",
+      hindi:      "Correct the Hindi into formal court Hindi (Devanagari). Keep every fact, name, date, section and number exactly."
+    };
+    $("i-go").addEventListener("click", async function(){
+      if(!ready) return;
+      this.disabled = true; status($("i-status"),"Reading your selection…","busy");
+      try{
+        var sel = await getSelectionText();
+        if(!sel.trim()){ status($("i-status"),"Select some text in the document first.","err"); this.disabled=false; return; }
+        status($("i-status"),"Improving…","busy");
+        var lang = isHindi(sel) ? "hi" : "en";
+        var res = await post("/api/draft/refine", {
+          prev_html: sel, instruction: INSTR[improveStyle], doc_type:"other_criminal", lang: lang
+        });
+        var improved = stripHtml(res.html || res.html_hi || res.html_en || "").join("\n");
+        if(!improved.trim()) throw new Error("No change produced — try another option.");
+        await replaceSelectionTracked(improved);
+        status($("i-status"),"Done — shown as a tracked change. Review ▸ Accept/Reject in Word.","ok");
+      }catch(e){ status($("i-status"), e.message||String(e), "err"); }
+      this.disabled = false;
+    });
+
+    // ---- REVIEW ----
+    $("r-go").addEventListener("click", async function(){
+      if(!ready) return;
+      this.disabled = true; $("r-findings").innerHTML=""; status($("r-status"),"Reading the document…","busy");
+      try{
+        var text = await getBodyText();
+        if(!text.trim()){ status($("r-status"),"The document is empty.","err"); this.disabled=false; return; }
+        status($("r-status"),"Checking sections & authorities…","busy");
+        var lang = isHindi(text) ? "hi" : "en";
+        var s = await post("/api/draft/suggest", { doc_type: $("r-type").value, text: text.slice(0,6000), lang: lang, llm: true });
+        status($("r-status"),"", "ok");
+        renderFindings(s, lang);
+      }catch(e){ status($("r-status"), e.message||String(e), "err"); }
+      this.disabled = false;
+    });
+    function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+    function renderFindings(s, lang){
+      var host = $("r-findings"); var h = "";
+      (s.sections||[]).forEach(function(x){
+        var cls = x.state==="ok"?"ok":(x.state==="flag"?"flag":"info");
+        h += '<div class="f-row f-row--'+cls+'"><span class="f-pip"></span><span>'+esc(x.text)+(x.detail?'<small>'+esc(x.detail)+'</small>':"")+'</span></div>';
+      });
+      var miss = (s.missing||[]);
+      if(miss.length){
+        h += '<div class="f-sub">missing points</div>';
+        miss.forEach(function(m,i){
+          h += '<div class="f-row f-row--info"><span class="f-pip"></span><span>'+esc(m.point)+(m.why?'<small>'+esc(m.why)+'</small>':"")+'</span>'+
+               (m.para?'<button class="f-add" data-para="'+i+'">＋ add</button>':"")+'</div>';
+        });
+      }
+      var auth = (s.authorities||[]);
+      if(auth.length){
+        h += '<div class="f-sub">authorities</div>';
+        auth.slice(0,6).forEach(function(a){
+          var v = a.verified ? '<span class="v" title="verified">✓</span>' : '<span class="v v--x" title="verify before use">⚠</span>';
+          h += '<div class="f-row"><span class="f-pip"></span><span>'+v+' <strong>'+esc(a.case||"")+'</strong>'+(a.point?' — '+esc(a.point):"")+'</span></div>';
+        });
+      }
+      if(s.limitation) h += '<div class="lim">⏱ '+esc(s.limitation)+'</div>';
+      if(!h) h = '<div class="f-row f-row--ok"><span class="f-pip"></span><span>'+(lang==="en"?"Sections and structure look right.":"धाराएँ व ढाँचा सही दिख रहे हैं।")+'</span></div>';
+      host.innerHTML = h;
+      host.querySelectorAll(".f-add").forEach(function(btn){
+        btn.addEventListener("click", async function(){
+          var m = miss[+btn.dataset.para]; if(!m||!m.para) return;
+          btn.disabled = true; btn.textContent = "…";
+          try{ await insertParagraphsAtEnd(stripHtml(m.para)); btn.textContent = "✓ added"; }
+          catch(e){ btn.textContent = "＋ add"; btn.disabled=false; }
+        });
+      });
+    }
+
+    // ---- FIELDS (upload → auto-fill → live Word document) ----
+    var F = { docType:"bail_sessions", lang:"hi", vals:{}, fields:[], loaded:false };
+    function fLang(){ return $("f-lang").value === "en" ? "en" : "hi"; }
+    function fCourtHint(){ return /hc/.test(F.docType) ? "hc" : (/magistrate/.test(F.docType) ? "magistrate" : "sessions"); }
+
+    async function loadSchemaFields(){
+      try{
+        var r = await fetch(API + "/api/draft/template-schema/" + encodeURIComponent(F.docType));
+        var d = await r.json();
+        var flds = ((d.template && d.template.fields) || []).filter(function(f){ return f.type !== "toggle"; });
+        F.fields = flds.map(function(f){
+          return { key:f.key, label:(fLang()==="en"?f.label_en:f.label_hi)||f.label_en||f.key,
+                   type:f.type, required:!!f.required };
+        });
+        renderFieldGrid();
+      }catch(e){ status($("f-status"), "Could not load the fields.", "err"); }
+    }
+    function renderFieldGrid(){
+      var g = $("f-grid"); g.innerHTML = "";
+      F.fields.forEach(function(f){
+        var v = F.vals[f.key] || "";
+        // amber only for values that arrived from an upload (tracked in F.vals + _fromUpload)
+        var st = (v && F._fromUpload && F._fromUpload[f.key]) ? "found" : (v ? "empty" : (f.required ? "missing" : "empty"));
+        var lab = esc(f.label) + (f.required ? ' <span style="color:var(--bad)">*</span>' : "");
+        var ctl = (f.type==="longtext")
+          ? '<textarea class="ff__in" data-k="'+esc(f.key)+'">'+esc(v)+'</textarea>'
+          : '<input class="ff__in" type="text" data-k="'+esc(f.key)+'" value="'+esc(v)+'">';
+        g.insertAdjacentHTML("beforeend",
+          '<div class="ff ff--'+st+'"><label class="ff__lab"><span class="ff__dot"></span>'+lab+'</label>'+ctl+'</div>');
+      });
+      g.querySelectorAll(".ff__in").forEach(function(el){
+        el.addEventListener("input", function(){
+          F.vals[el.dataset.k] = el.value;
+          if(F._fromUpload) delete F._fromUpload[el.dataset.k];   // edited → owned by the advocate, no longer "unconfirmed"
+          var wrap = el.closest(".ff"); if(wrap) wrap.className = "ff ff--" + (el.value ? "empty" : "empty");
+          scheduleRebuild();
+        });
+      });
+    }
+    var _rbTimer=null;
+    function scheduleRebuild(){ if(!$("f-live").checked) return; clearTimeout(_rbTimer); _rbTimer=setTimeout(rebuildDoc, 1300); }
+    async function rebuildDoc(){
+      if(!ready) return;
+      status($("f-status"), "Updating the document…", "busy");
+      try{
+        var res = await post("/api/draft/render-canonical", { doc_type:F.docType, fields:F.vals, lang:fLang() });
+        var lines = stripHtml(res.document || "");
+        if(!lines.length){ status($("f-status"), "Fill a few fields to build the draft.", ""); return; }
+        await Word.run(async function(ctx){
+          var body = ctx.document.body; body.clear();
+          lines.forEach(function(l){ body.insertParagraph(l, Word.InsertLocation.end); });
+          await ctx.sync();
+        });
+        status($("f-status"), "Document rebuilt from your fields.", "ok");
+      }catch(e){ status($("f-status"), e.message||String(e), "err"); }
+    }
+
+    $("f-court").addEventListener("change", function(){ F.docType = this.value; loadSchemaFields().then(function(){ if($("f-live").checked) rebuildDoc(); }); });
+    $("f-lang").addEventListener("change", function(){ F.lang = fLang(); loadSchemaFields(); });
+    $("f-rebuild").addEventListener("click", rebuildDoc);
+    $("f-upload").addEventListener("click", function(){ $("f-file").click(); });
+    $("f-file").addEventListener("change", async function(){
+      if(!$("f-file").files || !$("f-file").files.length) return;
+      status($("f-status"), "Reading the document…", "busy");
+      try{
+        var fd = new FormData();
+        for(var i=0;i<$("f-file").files.length;i++) fd.append("files", $("f-file").files[i]);
+        fd.append("court", fCourtHint());
+        fd.append("lang", fLang());
+        var r = await fetch(API + "/api/draft/fir/extract", { method:"POST", body: fd });
+        var res = await r.json();
+        $("f-file").value = "";
+        if(!res || res.ok===false) throw new Error((res && (res.error||res.detail)) || "Could not read the document.");
+        // Fold the read facts into the field values; mark them amber for confirmation.
+        F._fromUpload = F._fromUpload || {};
+        var merge = function(k, v){ if(v==null || String(v).trim()==="") return; F.vals[k] = Array.isArray(v)? v.join(", ") : v; F._fromUpload[k] = true; };
+        (res.fields||[]).forEach(function(f){ merge(f.key, f.value); });
+        Object.keys(res.slots||{}).forEach(function(k){ if(F.vals[k]==null) merge(k, res.slots[k]); });
+        await loadSchemaFields();
+        status($("f-status"), res.read_ok ? "Filled from your document — confirm the amber fields." : (res.note || "Couldn't read it — fill the fields by hand."), res.read_ok ? "ok" : "err");
+        if($("f-live").checked) rebuildDoc();
+      }catch(e){ status($("f-status"), e.message||String(e), "err"); $("f-file").value=""; }
+    });
+
+    // Lazy-load the field list the first time the Fields tab is opened.
+    document.querySelector('.tab[data-pane="fields"]').addEventListener("click", function(){
+      if(!F.loaded){ F.loaded = true; loadSchemaFields(); }
+    });
+  })();
+  </script>
+</body>
+</html>

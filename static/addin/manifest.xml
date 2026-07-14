@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Headnote for Word — Office task-pane add-in.
+
+  Sideload:
+    Windows : Word ▸ Insert ▸ Add-ins ▸ My Add-ins ▸ Upload My Add-in ▸ pick this manifest.xml
+    Mac     : copy this file into  ~/Library/Containers/com.microsoft.Word/Data/Documents/wef
+              then  Word ▸ Insert ▸ Add-ins ▸ My Add-ins ▸ Developer Add-ins
+    Web     : Word online ▸ Home ▸ Add-ins ▸ Upload My Add-in
+
+  The task pane + APIs are served from https://headnote.in (same origin, no CORS),
+  so this works as soon as the add-in files are deployed there.
+-->
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+           xsi:type="TaskPaneApp">
+  <Id>b6a1e2c4-1f3a-4e9b-9c7d-1a2b3c4d5e6f</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>Headnote</ProviderName>
+  <DefaultLocale>en-US</DefaultLocale>
+  <DisplayName DefaultValue="Headnote for Word" />
+  <Description DefaultValue="Draft, improve and review Indian court documents inside Word — bail, FIR-to-bail, and verified case law, in Hindi or English." />
+  <IconUrl DefaultValue="https://headnote.in/static/headnote-logo-email.png" />
+  <HighResolutionIconUrl DefaultValue="https://headnote.in/static/headnote-logo-email.png" />
+  <SupportUrl DefaultValue="https://headnote.in" />
+
+  <!-- Only load in Word. -->
+  <Hosts>
+    <Host Name="Document" />
+  </Hosts>
+
+  <DefaultSettings>
+    <SourceLocation DefaultValue="https://headnote.in/static/addin/taskpane.html" />
+  </DefaultSettings>
+
+  <!-- Read the open document and write edits/redlines back into it. -->
+  <Permissions>ReadWriteDocument</Permissions>
+</OfficeApp>
