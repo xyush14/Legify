@@ -803,6 +803,30 @@ class RenderCanonicalBody(BaseModel):
     lang:     Literal["hi", "en", "mr", "bn", "gu"] = "hi"
 
 
+@router.get("/canonical-types", summary="List canonical (deterministic) drafter types, grouped criminal/civil (for the Word add-in)")
+def canonical_types():
+    """Every canonical/deterministic template with its hi/en label and a coarse
+    group (criminal · civil · family · other), for the Word add-in's drafter picker.
+    Ungated (labels only, no client data). Stays in sync with CANONICAL_MAP/LABELS."""
+    from headnote.drafter import template_adapter as TA
+    _civil = {"recovery_suit", "injunction_suit", "specific_performance", "declaration_suit",
+              "partition_suit", "eviction_suit", "written_statement", "consumer_complaint", "mact_166"}
+    _family = {"maintenance", "dv", "divorce_13", "restitution_9"}
+    _other = {"vakalatnama", "general_affidavit", "legal_notice", "mention_memo"}
+    def _group(tid: str) -> str:
+        if tid in _civil:  return "civil"
+        if tid in _family: return "family"
+        if tid in _other:  return "other"
+        return "criminal"
+    out = []
+    for tid in TA.CANONICAL_MAP:
+        lab = TA.LABELS.get(tid, {"en": tid, "hi": tid})
+        out.append({"doc_type": tid, "label_en": lab["en"], "label_hi": lab["hi"], "group": _group(tid)})
+    order = {"criminal": 0, "civil": 1, "family": 2, "other": 3}
+    out.sort(key=lambda x: (order.get(x["group"], 9), x["label_en"]))
+    return {"ok": True, "types": out}
+
+
 @router.post("/render-canonical", summary="Deterministic canonical render (free, ungated) — fields → document HTML")
 def render_canonical(body: RenderCanonicalBody):
     """Free, deterministic render of a CANONICAL template only (no LLM, ₹0). Used by
@@ -818,6 +842,29 @@ def render_canonical(body: RenderCanonicalBody):
     except Exception as e:
         import logging
         logging.getLogger("headnote.drafter").exception("render-canonical failed: %s", body.doc_type)
+        return JSONResponse({"ok": False, "error": f"{type(e).__name__}: {e}"}, status_code=502)
+
+
+@router.post("/render-docx", summary="Canonical draft → native Word .docx (base64) for the Word add-in (fidelity)")
+def render_docx(body: RenderCanonicalBody):
+    """Render a CANONICAL draft as a NATIVE .docx (python-docx) and return it
+    base64-encoded, so the Word add-in drops it in with insertFileFromBase64 and
+    keeps the court format 1:1 (centered court name, party blocks, numbered grounds,
+    right-aligned signature) — unlike HTML import, which can't reproduce our
+    flex/grid layout. Free, deterministic, canonical-only → safe unauthenticated."""
+    import base64
+    from fastapi.responses import JSONResponse
+    from headnote.drafter import template_adapter as TA
+    if not TA.is_canonical(body.doc_type):
+        return JSONResponse({"ok": False, "error": f"'{body.doc_type}' is not a canonical template"}, status_code=400)
+    try:
+        from headnote.drafter.docx_render import canonical_to_docx
+        data = canonical_to_docx(body.doc_type, body.fields or {}, body.lang)
+        return {"ok": True, "filename": f"{body.doc_type}.docx",
+                "docx_base64": base64.b64encode(data).decode("ascii")}
+    except Exception as e:
+        import logging
+        logging.getLogger("headnote.drafter").exception("render-docx failed: %s", body.doc_type)
         return JSONResponse({"ok": False, "error": f"{type(e).__name__}: {e}"}, status_code=502)
 
 

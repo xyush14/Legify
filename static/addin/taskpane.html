@@ -106,7 +106,7 @@
         <input type="checkbox" id="f-live" checked> live update
       </label>
     </div>
-    <div class="hint">This tab builds the <b>whole document</b> from these fields — uploading a document fills them, and typing rebuilds the draft in Word. Amber = read from your upload (confirm it). Court/jurisdiction is never assumed.</div>
+    <div class="hint">Upload a document to auto-fill, or type — Headnote inserts a <b>native, court-formatted draft</b> into Word (centered headings, party blocks, numbered grounds) and updates it in place as you edit, without disturbing the rest of your document. Amber = read from your upload (confirm it). Court/jurisdiction is never assumed.</div>
   </section>
 
   <!-- IMPROVE -->
@@ -191,6 +191,38 @@
         await ctx.sync();
       });
     }
+    // Fidelity path: fetch a NATIVE .docx for a canonical draft and drop it into
+    // Word with full court formatting preserved (centered court name, party blocks,
+    // numbered grounds, right-aligned signature) — no HTML flattening.
+    async function renderDocxB64(docType, fields, lang){
+      var res = await post("/api/draft/render-docx", { doc_type:docType, fields:fields, lang:lang||"hi" });
+      return res.docx_base64;
+    }
+    // Insert (or, on re-build, replace) the draft inside a tagged content control so
+    // the rest of the lawyer's document is never touched and re-builds don't duplicate.
+    async function insertDraftDocx(b64){
+      await Word.run(async function(ctx){
+        var ccs = ctx.document.contentControls.getByTag("hn-draft");
+        ccs.load("items");
+        await ctx.sync();
+        if(ccs.items.length){
+          ccs.items[0].insertFileFromBase64(b64, Word.InsertLocation.replace);
+        } else {
+          var range = ctx.document.getSelection();
+          var inserted = range.insertFileFromBase64(b64, Word.InsertLocation.replace);
+          var cc = inserted.insertContentControl();
+          cc.tag = "hn-draft"; cc.title = "Headnote draft";
+          cc.cannotDelete = false; cc.appearance = "BoundingBox";
+        }
+        await ctx.sync();
+      });
+    }
+    async function insertHtmlAtSelection(html){
+      await Word.run(async function(ctx){
+        ctx.document.getSelection().insertHtml(html, Word.InsertLocation.replace);
+        await ctx.sync();
+      });
+    }
     async function getSelectionText(){
       var out = "";
       await Word.run(async function(ctx){
@@ -235,14 +267,22 @@
       this.disabled = true; status($("d-status"),"Drafting in court format…","busy");
       try{
         var res = await post("/api/draft/from-prompt", { prompt: prompt, lang: "auto" });
-        var html = res.html_hi || res.html_en || res.page_hi || res.page_en || "";
-        var lines = stripHtml(html);
-        if(!lines.length) throw new Error("Empty draft — try rephrasing.");
-        await insertParagraphsAtEnd(lines);
+        // Canonical types → native .docx (full court formatting). Authored/long-tail
+        // types have no canonical layout → insert their HTML (prose, formatting-light).
+        if(res.doc_type && res.editor_fields && Object.keys(res.editor_fields).length){
+          try{
+            var b64 = await renderDocxB64(res.doc_type, res.editor_fields, res.lang||"hi");
+            await insertDraftDocx(b64);
+          }catch(e){ await insertHtmlAtSelection(res.html_hi || res.html_en || ""); }
+        } else {
+          var html = res.html_hi || res.html_en || "";
+          if(!html) throw new Error("Empty draft — try rephrasing.");
+          await insertHtmlAtSelection(html);
+        }
         var extra = (res.ungrounded && res.ungrounded.length)
           ? " ⚠ "+res.ungrounded.length+" detail(s) flagged to verify."
           : (res.cite_at_hearing && res.cite_at_hearing.length ? " Authorities noted to cite at hearing." : "");
-        status($("d-status"), "Inserted at the end of your document."+extra, "ok");
+        status($("d-status"), "Draft inserted in court format."+extra, "ok");
       }catch(e){ status($("d-status"), e.message||String(e), "err"); }
       this.disabled = false;
     });
@@ -373,17 +413,13 @@
     function scheduleRebuild(){ if(!$("f-live").checked) return; clearTimeout(_rbTimer); _rbTimer=setTimeout(rebuildDoc, 1300); }
     async function rebuildDoc(){
       if(!ready) return;
-      status($("f-status"), "Updating the document…", "busy");
+      status($("f-status"), "Building the draft in court format…", "busy");
       try{
-        var res = await post("/api/draft/render-canonical", { doc_type:F.docType, fields:F.vals, lang:fLang() });
-        var lines = stripHtml(res.document || "");
-        if(!lines.length){ status($("f-status"), "Fill a few fields to build the draft.", ""); return; }
-        await Word.run(async function(ctx){
-          var body = ctx.document.body; body.clear();
-          lines.forEach(function(l){ body.insertParagraph(l, Word.InsertLocation.end); });
-          await ctx.sync();
-        });
-        status($("f-status"), "Document rebuilt from your fields.", "ok");
+        // Native .docx (full fidelity) inserted into a tagged content control — the
+        // rest of the document is untouched and re-builds replace in place (no clear).
+        var b64 = await renderDocxB64(F.docType, F.vals, fLang());
+        await insertDraftDocx(b64);
+        status($("f-status"), "Draft built from your fields — native Word format.", "ok");
       }catch(e){ status($("f-status"), e.message||String(e), "err"); }
     }
 
