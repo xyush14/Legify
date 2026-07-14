@@ -562,7 +562,7 @@ def list_drafts(
 @router.post("/translate-fields", summary="Translate legal-form prose fields EN↔HI")
 async def translate_fields(
     body: TranslateFieldsBody,
-    user: CurrentUser = Depends(get_current_user),
+    user: Optional[CurrentUser] = Depends(optional_user),
 ):
     """Translate the prose fields of any legal drafting form in either direction.
 
@@ -619,33 +619,34 @@ async def translate_fields(
         f"{fields_json}"
     )
 
-    with check_and_record(user.id, "draft", endpoint="translate_fields", email=user.email) as _record:
+    def _translate() -> dict:
         try:
             raw = _llm_call(system, prompt, max_tokens=3000, model="quality")
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"Translation failed: {e}")
-
-        # Strip fences if model wrapped output
         text = raw.strip()
         if text.startswith("```"):
             text = re.sub(r"^```(?:json)?\s*", "", text)
             text = re.sub(r"\s*```$", "", text.strip())
-
         try:
-            translated = json.loads(text)
+            return json.loads(text)
         except json.JSONDecodeError:
             m = re.search(r"\{.*\}", text, re.DOTALL)
             if m:
                 try:
-                    translated = json.loads(m.group(0))
+                    return json.loads(m.group(0))
                 except json.JSONDecodeError:
-                    translated = to_translate  # fallback: return originals unchanged
-            else:
-                translated = to_translate
+                    return to_translate  # fallback: return originals unchanged
+            return to_translate
 
-        cost_paise = 40  # DeepSeek V3; flat estimate for the cost meter
-        _record(cost_paise=cost_paise, model="deepseek-chat")
-        return {"translated": translated}
+    # Meter for signed-in users; anon (Word add-in — English→doc-language on apply)
+    # runs unmetered, same policy as /fir/extract.
+    if user:
+        with check_and_record(user.id, "draft", endpoint="translate_fields", email=user.email) as _record:
+            translated = _translate()
+            _record(cost_paise=40, model="deepseek-chat")
+            return {"translated": translated}
+    return {"translated": _translate()}
 
 
 # ----------------------------------------------------------- OCR
@@ -866,6 +867,82 @@ def render_docx(body: RenderCanonicalBody):
         import logging
         logging.getLogger("headnote.drafter").exception("render-docx failed: %s", body.doc_type)
         return JSONResponse({"ok": False, "error": f"{type(e).__name__}: {e}"}, status_code=502)
+
+
+class DetectFieldsBody(BaseModel):
+    text: str = Field(..., description="plain text of the OPEN Word document")
+    lang: Literal["hi", "en", "auto"] = "auto"
+
+
+@router.post("/detect-fields", summary="Read an open draft's text → its client-specific fields (Word add-in 'adapt this draft')")
+def detect_fields(body: DetectFieldsBody):
+    """The intelligence behind the add-in's "adapt this draft" pane. Given the text of
+    whatever draft the lawyer has open (ANY type, ours or theirs), an LLM returns the
+    CLIENT-SPECIFIC PARTICULARS it finds — party names/relations, age, occupation,
+    address, police station, district, FIR/case number, sections, key dates, court —
+    each with its value copied VERBATIM as it appears, so the add-in can find-and-replace
+    it surgically. Boilerplate legal prose is ignored. Ungated (labels/values from the
+    doc the user already has open; no metering). DeepSeek V3 (fast)."""
+    from fastapi.responses import JSONResponse
+    from headnote.drafter.compose import _llm_call
+
+    text = (body.text or "").strip()
+    if not text:
+        return JSONResponse({"ok": False, "error": "empty document"}, status_code=400)
+    doc_lang = "en" if (body.lang == "en" or (body.lang == "auto" and not re.search(r"[ऀ-ॿ]", text))) else "hi"
+
+    system = (
+        "You extract the CLIENT-SPECIFIC PARTICULARS from an Indian court draft so they "
+        "can be edited for a new matter. These are the values that change case-to-case: "
+        "party names (applicant/petitioner/complainant/accused/respondent), father/husband "
+        "name, age, occupation, address, police station, district/place, FIR or crime or "
+        "case number, statutory sections, key dates, and the court's name/place.\n"
+        "RULES:\n"
+        "- Copy each value EXACTLY as it appears in the document (verbatim, same script, same "
+        "digits, same punctuation) — it will be used for find-and-replace, so it must match.\n"
+        "- Do NOT include boilerplate legal language, grounds prose, or prayer text.\n"
+        "- Skip anything you cannot find an actual value for (no guessing, no blanks).\n"
+        "- Use stable snake_case keys (applicant_name, father_name, age, occupation, address, "
+        "police_station, district, fir_number, sections, court, incident_date, next_date …).\n"
+        "- Give each a short English label for the UI.\n"
+        "Return STRICT JSON only: "
+        '{"fields":[{"key","label","value"}], "facts":{"label","value"}|null} '
+        "where facts.value is the verbatim first sentence of the facts/story narrative if the "
+        "draft has one (used to locate it), else null. No markdown, no commentary."
+    )
+    prompt = "Extract the particulars from this draft:\n\n" + text[:9000]
+    try:
+        raw = _llm_call(system, prompt, max_tokens=1500, model="fast")
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": f"detection failed: {e}"}, status_code=502)
+
+    s = (raw or "").strip()
+    if s.startswith("```"):
+        s = re.sub(r"^```(?:json)?\s*", "", s)
+        s = re.sub(r"\s*```$", "", s.strip())
+    try:
+        data = json.loads(s)
+    except json.JSONDecodeError:
+        m = re.search(r"\{.*\}", s, re.DOTALL)
+        if not m:
+            return JSONResponse({"ok": False, "error": "could not parse the draft's fields"}, status_code=502)
+        try:
+            data = json.loads(m.group(0))
+        except json.JSONDecodeError:
+            return JSONResponse({"ok": False, "error": "could not parse the draft's fields"}, status_code=502)
+
+    # keep only well-formed field rows whose value actually occurs in the document
+    fields = []
+    for f in (data.get("fields") or []):
+        if not isinstance(f, dict):
+            continue
+        key, label, value = (f.get("key") or "").strip(), (f.get("label") or "").strip(), (f.get("value") or "").strip()
+        if key and value and value in text:
+            fields.append({"key": key, "label": label or key, "value": value})
+    facts = data.get("facts") if isinstance(data.get("facts"), dict) else None
+    if facts and not (facts.get("value") or "").strip():
+        facts = None
+    return {"ok": True, "lang": doc_lang, "fields": fields, "facts": facts}
 
 
 class FirFieldsBody(BaseModel):
