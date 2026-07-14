@@ -55,9 +55,10 @@
   <section class="sec hidden" id="sel-sec">
     <div class="sec__h">selected text</div>
     <div class="chips">
-      <button class="chip" data-act="formal">Formalise</button>
+      <button class="chip" data-act="formalise">Formalise</button>
       <button class="chip" data-act="strengthen">Strengthen</button>
-      <button class="chip" data-act="concise">Shorten</button>
+      <button class="chip" data-act="shorten">Shorten</button>
+      <button class="chip" data-act="simplify">Simplify</button>
       <button class="chip" data-act="translate">हिं ⇄ EN</button>
       <button class="chip" data-act="rewrite">Rewrite…</button>
     </div>
@@ -245,19 +246,14 @@
       try{ state.selText = (await getSelText()).trim(); }catch(e){ state.selText=""; }
       show("sel-sec", !!state.selText);
     }
-    var INSTR = {
-      formal:"Rewrite in formal Indian court language. Keep every fact, name, date, section and number exactly.",
-      strengthen:"Strengthen this as a legal argument — firmer and better-reasoned. Keep every fact, name, date and section exactly.",
-      concise:"Make this tighter and clearer without losing any fact, name, date or section.",
-      translate:"Convert this to the other language — Hindi↔English — in formal court register, keeping statute refs and numbers.",
-      rewrite:null
-    };
     document.querySelectorAll("#sel-sec .chip").forEach(function(c){
       c.addEventListener("click", function(){ actOnSelection(c.dataset.act); });
     });
+    // Scoped edit of ONLY the selection via /edit-selection — fast, returns just the
+    // revised snippet (never a whole draft), applied as a tracked change.
     async function actOnSelection(act){
       if(!state.selText){ status($("sel-status"),"Select some text first.","err"); return; }
-      var instruction = INSTR[act];
+      var instruction = null;
       if(act==="rewrite"){
         instruction = ($("ask-input").value.trim()) || window.prompt("How should this be rewritten?");
         if(!instruction) return;
@@ -265,11 +261,12 @@
       status($("sel-status"),"Working…","busy");
       try{
         var lang = isHindi(state.selText) ? "hi" : "en";
-        var res = await post("/api/draft/refine", { prev_html: state.selText, instruction: instruction, doc_type:"other_criminal", lang: lang });
-        var out = htmlToText(res.html || res.html_hi || res.html_en || "");
-        if(!out.trim()) throw new Error("No change produced.");
+        var res = await post("/api/draft/edit-selection", { text: state.selText, action: act, instruction: instruction, lang: lang });
+        var out = (res.text || "").trim();
+        if(!out) throw new Error("No change produced.");
         await replaceSelectionTracked(out);   // tracked change → Accept all in Word's Review tab
         status($("sel-status"),"Done — shown as a tracked change (Review ▸ Accept all).","ok");
+        if(act==="rewrite") $("ask-input").value="";
       }catch(e){ status($("sel-status"), e.message||String(e), "err"); }
     }
     function htmlToText(html){

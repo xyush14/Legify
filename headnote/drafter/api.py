@@ -869,6 +869,74 @@ def render_docx(body: RenderCanonicalBody):
         return JSONResponse({"ok": False, "error": f"{type(e).__name__}: {e}"}, status_code=502)
 
 
+class EditSelectionBody(BaseModel):
+    text:        str = Field(..., description="the SELECTED snippet from the document")
+    action:      str = Field("formalise", description="formalise|strengthen|shorten|simplify|grammar|translate|rewrite")
+    instruction: Optional[str] = Field(None, description="custom instruction (for action=rewrite)")
+    lang:        Literal["hi", "en", "auto"] = "auto"
+
+
+# Persona-informed transforms for select-to-act. Each is a one-shot, SCOPED edit of
+# just the selected text — never a whole document. Covers litigation (formalise /
+# strengthen / shorten), in-house & client-facing (simplify), and quick fixes (grammar).
+_SELECTION_ACTIONS = {
+    "formalise":  "Rewrite in formal Indian court register.",
+    "strengthen": "Strengthen it as a legal argument — firmer, better-reasoned, persuasive.",
+    "shorten":    "Make it tighter and more concise.",
+    "simplify":   "Rewrite in plain, clear language a client could follow, keeping it accurate.",
+    "grammar":    "Fix grammar, spelling and flow only — keep the wording and meaning as close as possible.",
+    "translate":  "Translate to the OTHER language (Hindi↔English) in formal legal register.",
+}
+
+
+@router.post("/edit-selection", summary="Transform ONLY a selected snippet (Word add-in select-to-act) — fast, scoped")
+def edit_selection(body: EditSelectionBody):
+    """The add-in's select-to-act. Applies ONE transformation to just the selected text
+    and returns ONLY the transformed text — it never turns a snippet into a whole
+    document (that was the /refine bug) and never invents facts. Fast: a single small
+    DeepSeek-V3 call. Ungated (operates on text the user already has open)."""
+    from fastapi.responses import JSONResponse
+    from headnote.drafter.compose import _llm_call
+
+    text = (body.text or "").strip()
+    if not text:
+        return JSONResponse({"ok": False, "error": "no text selected"}, status_code=400)
+    if body.action == "rewrite":
+        task = (body.instruction or "").strip() or "Improve this text."
+    else:
+        task = _SELECTION_ACTIONS.get(body.action, _SELECTION_ACTIONS["formalise"])
+
+    system = (
+        "You are editing a SELECTED SNIPPET from an Indian legal document — not the whole "
+        "document. Apply ONLY the requested change to this snippet and return ONLY the "
+        "revised snippet.\n"
+        "HARD RULES:\n"
+        "- Return just the edited text — NO headings, NO court format, NO extra paragraphs, "
+        "never expand a snippet into a full draft or template.\n"
+        "- Preserve every fact, name, date, number, FIR/case number and statute reference "
+        "exactly (unless the task is to translate, then keep those tokens unchanged).\n"
+        "- Keep the SAME language/script as the input unless explicitly translating.\n"
+        "- Output plain text only — no markdown, no quotes around it, no commentary."
+    )
+    prompt = f"Task: {task}\n\nSnippet:\n{text}"
+    # size the response to the input so short selections come back fast
+    max_toks = min(2000, max(256, len(text) // 2 + 300))
+    try:
+        out = _llm_call(system, prompt, max_tokens=max_toks, model="fast")
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": f"edit failed: {e}"}, status_code=502)
+    out = (out or "").strip()
+    if out.startswith("```"):
+        out = re.sub(r"^```[a-z]*\s*", "", out)
+        out = re.sub(r"\s*```$", "", out.strip())
+    # strip a wrapping quote the model sometimes adds
+    if len(out) > 1 and out[0] in "\"'“" and out[-1] in "\"'”":
+        out = out[1:-1].strip()
+    if not out:
+        return JSONResponse({"ok": False, "error": "no change produced"}, status_code=502)
+    return {"ok": True, "text": out}
+
+
 class DetectFieldsBody(BaseModel):
     text: str = Field(..., description="plain text of the OPEN Word document")
     lang: Literal["hi", "en", "auto"] = "auto"
