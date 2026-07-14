@@ -29,29 +29,40 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH as ALIGN
 from docx.oxml.ns import qn
 from docx.shared import Pt, Inches
 
-_HI_FONT = "Mangal"           # Devanagari Unicode font shipped with Windows/Office
-_EN_FONT = "Times New Roman"  # court-standard Latin
+import os
+
+# Latin text uses a court-standard serif that exists on every OS. Devanagari is
+# COMPLEX SCRIPT — Word renders it with the run's `w:cs` font, so that's where the
+# Hindi font must go. Default "Nirmala UI" is the modern Windows Devanagari font
+# (present on Win8+/Win11, unlike the legacy "Mangal", which recent Windows drops);
+# on macOS Word substitutes an installed Devanagari face automatically. Override
+# with HEADNOTE_DEVA_FONT if a deployment standardises on another font.
+_LATIN_FONT = "Times New Roman"
+_DEVA_FONT = os.environ.get("HEADNOTE_DEVA_FONT", "Nirmala UI")
 _BASE_PT = 12
 
 
 def _script_font(lang: str) -> str:
-    return _HI_FONT if lang != "en" else _EN_FONT
+    # kept for the Normal-style default: Devanagari face for Hindi docs so any
+    # stray un-run-styled text still resolves to a Devanagari-capable font.
+    return _DEVA_FONT if lang != "en" else _LATIN_FONT
 
 
 def _style_run(run, *, lang: str, bold=False, underline=False, size=_BASE_PT):
-    """Apply font (ascii + hAnsi + complex-script) so Devanagari renders in Word."""
-    name = _script_font(lang)
+    """Style a run and pin fonts per script: Latin → Times New Roman (w:ascii/hAnsi),
+    Devanagari → the Devanagari font (w:cs). Word chooses per character by Unicode
+    range, so Hindi always lands on the complex-script font and renders."""
     run.bold = bold
     run.underline = underline
     run.font.size = Pt(size)
-    run.font.name = name
     rpr = run._element.get_or_add_rPr()
     rfonts = rpr.find(qn("w:rFonts"))
     if rfonts is None:
         rfonts = rpr.makeelement(qn("w:rFonts"), {})
         rpr.insert(0, rfonts)
-    for attr in ("w:ascii", "w:hAnsi", "w:cs"):
-        rfonts.set(qn(attr), name)
+    rfonts.set(qn("w:ascii"), _LATIN_FONT)
+    rfonts.set(qn("w:hAnsi"), _LATIN_FONT)
+    rfonts.set(qn("w:cs"), _DEVA_FONT)
 
 
 _ALIGN = {"center": ALIGN.CENTER, "right": ALIGN.RIGHT, "justify": ALIGN.JUSTIFY, "left": ALIGN.LEFT}
