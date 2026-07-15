@@ -325,14 +325,15 @@ SUPABASE_SERVICE_ROLE_KEY: Optional[str] = os.environ.get("SUPABASE_SERVICE_ROLE
 # eCourtsIndia (CASE_DETAIL ≈ ₹1.50/lookup; ₹200 free credits). See
 # headnote/cases/ecourts_client.py — the adapter is vendor-swappable.
 CNR_API_TOKEN: Optional[str] = os.environ.get("CNR_API_TOKEN")
-CNR_API_BASE_URL: str = os.environ.get("CNR_API_BASE_URL", "https://ecourtsindia.com")
-CNR_API_CASE_PATH: str = os.environ.get("CNR_API_CASE_PATH", "/api/v1/case-detail")
-# Advocate-wise search: enrollment/Bar number OR advocate name → the lawyer's
-# whole case list (the lawyer-centric onboarding). Per-court on the official
-# portal; the aggregator exposes it as one call. Path is env-overridable so we
-# can lock it against the live vendor without a code change.
-CNR_API_ADVOCATE_PATH: str = os.environ.get("CNR_API_ADVOCATE_PATH", "/api/v1/advocate-cases")
-CNR_API_CAUSELIST_PATH: str = os.environ.get("CNR_API_CAUSELIST_PATH", "/api/v1/cause-list")
+# The API backend is webapi.ecourtsindia.com — the www site (ecourtsindia.com)
+# is a Cloudflare-walled marketing/docs SPA and returns a bot-challenge on /api/*.
+CNR_API_BASE_URL: str = os.environ.get("CNR_API_BASE_URL", "https://webapi.ecourtsindia.com")
+# Case by CNR is a PATH param: GET /api/partner/case/{cnr}
+CNR_API_CASE_PATH: str = os.environ.get("CNR_API_CASE_PATH", "/api/partner/case")
+# Advocate-wise (by name) full-text search → the lawyer's case list. GET
+# /api/partner/search?Advocates=<name>&CaseStatuses=PENDING&CourtCodes=<..>&Page&PageSize
+CNR_API_ADVOCATE_PATH: str = os.environ.get("CNR_API_ADVOCATE_PATH", "/api/partner/search")
+CNR_API_CAUSELIST_PATH: str = os.environ.get("CNR_API_CAUSELIST_PATH", "/api/partner/causelist/cnr/batch")
 # The vendor sits behind Cloudflare — a request with no browser User-Agent gets
 # a 403 "request blocked" on every path. Send a real UA or live mode is dead.
 CNR_API_USER_AGENT: str = os.environ.get(

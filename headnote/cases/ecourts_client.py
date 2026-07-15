@@ -137,12 +137,101 @@ def _headers() -> dict:
 
 
 def _fetch_live(cnr: str) -> dict:
-    """Call the vendor's CASE_DETAIL endpoint. Confirm path/auth/shape against
-    the dashboard API Docs on the first real call, then tune ``_normalise_live``."""
-    url = config.CNR_API_BASE_URL.rstrip("/") + config.CNR_API_CASE_PATH
-    r = httpx.get(url, params={"cnr": cnr}, headers=_headers(), timeout=25.0)
-    r.raise_for_status()
-    return _normalise_live(r.json() or {}, cnr)
+    """GET /api/partner/case/{cnr} on webapi.ecourtsindia.com. Envelope is
+    {"data": {...}} in the vendor's camelCase shape → _normalise_webapi."""
+    url = f"{config.CNR_API_BASE_URL.rstrip('/')}{config.CNR_API_CASE_PATH.rstrip('/')}/{cnr}"
+    r = httpx.get(url, headers=_headers(), timeout=25.0)
+    if r.status_code != 200:
+        raise ValueError(f"vendor {r.status_code} at {r.url}: {r.text[:300]}")
+    payload = r.json() or {}
+    data = payload.get("data") if isinstance(payload.get("data"), dict) else payload
+    # Case detail nests the record under data.courtCaseData; search rows are flat.
+    cc = data.get("courtCaseData") if isinstance(data.get("courtCaseData"), dict) else data
+    return _normalise_webapi(cc, cnr)
+
+
+# --- webapi.ecourtsindia.com shape (camelCase; search rows + case detail) ----
+def _split_regno(s):
+    """'4812/2000' -> ('4812','2000')."""
+    if s and "/" in str(s):
+        a, b = str(s).split("/", 1)
+        return a.strip(), b.strip()
+    return (str(s).strip() if s else None), None
+
+
+def _normalise_webapi(row: dict, cnr: str = "") -> dict:
+    """Map the vendor's camelCase case object (search result OR case detail) →
+    our normalised contract. Search rows already carry parties, advocates,
+    sections, court and nextHearingDate — enough for the diary + folder facts."""
+    row = row or {}
+    c = _blank_case(cnr or _first(row, "cnr", "id", default=""))
+    c["source"] = "ecourtsindia"
+    c["raw"] = row
+
+    c["case_type"] = _first(row, "caseTypeRaw", "caseType")
+    c["case_status"] = _first(row, "caseStatus")
+    regno = _first(row, "registrationNumber", "filingNumber")
+    num, yr = _split_regno(regno)
+    c["case_number"] = num
+    c["case_year"] = _first(row, "filingYear") or yr
+    c["registration_number"] = _first(row, "registrationNumber")
+    c["filing_number"] = _first(row, "filingNumber")
+    c["filing_date"] = _first(row, "filingDate", "registrationDate")
+    c["court_name"] = _first(row, "courtName")
+    c["court_name_en"] = c["court_name"]
+    c["district"] = _first(row, "districtCode")
+    c["state_name"] = _first(row, "stateCode")
+    c["court_city"] = c["district"]
+    c["next_hearing_date"] = _first(row, "nextHearingDate")
+    c["last_listed_date"] = _first(row, "lastHearingDate")
+    cat = _first(row, "caseCategory")
+    fp = _first(row, "caseCategoryFacetPath", default=[])
+    c["category"] = (fp[0] if isinstance(fp, list) and fp else None) or cat
+    # status + category read as the "stage" line in the UI
+    c["stage"] = " · ".join([x for x in (_first(row, "caseStatus"), cat) if x]) or None
+
+    def _names(v):
+        if isinstance(v, list):
+            return [str(x) for x in v if x]
+        return [str(v)] if v else []
+    pet = _names(_first(row, "petitioners", default=[]))
+    res = _names(_first(row, "respondents", default=[]))
+    c["petitioner_name"] = pet[0] if pet else None
+    c["respondent_name"] = res[0] if res else None
+    c["petitioner_name_en"] = c["petitioner_name"]
+    c["respondent_name_en"] = c["respondent_name"]
+    c["petitioner_advocates"] = _names(_first(row, "petitionerAdvocates", default=[]))
+    c["respondent_advocates"] = _names(_first(row, "respondentAdvocates", default=[]))
+    c["judge"] = (", ".join(_names(_first(row, "judges", default=[]))) or None)
+
+    secs = _first(row, "actsAndSections", default=[])
+    if isinstance(secs, list):
+        c["sections"] = [str(s) for s in secs if s]
+    c["sections_en"] = list(c["sections"])
+
+    # richer fields present on the case-detail record (absent on search rows)
+    raw_stage = _first(row, "stageOfCaseRaw", "purpose")
+    if raw_stage and raw_stage != "UNKNOWN":
+        c["stage"] = raw_stage
+    fir = row.get("firDetails") if isinstance(row.get("firDetails"), dict) else {}
+    c["police_station"] = _first(fir, "policeStation", "police_station")
+    c["fir_number"] = _first(fir, "firNumber", "fir_number")
+    c["fir_year"] = _first(fir, "firYear", "fir_year")
+    io = _first(row, "interimOrders", "judgmentOrders", default=[])
+    if isinstance(io, list):
+        c["orders"] = io
+    ia = _first(row, "interlocutoryApplications", default=[])
+    if isinstance(ia, list):
+        c["ias"] = ia
+    ec_ = _first(row, "earlierCourtDetails", default=[])
+    if isinstance(ec_, list) and ec_:
+        c["earlier_court"] = ec_[0]
+
+    c["court_level"] = _infer_level(c["court_name"], c["case_type"])
+    if c["petitioner_name"] or c["respondent_name"]:
+        c["case_title"] = f"{c.get('petitioner_name') or '—'} vs {c.get('respondent_name') or '—'}"
+        c["case_title_en"] = c["case_title"]
+    return c
 
 
 # ------------------------------------------------------------ advocate import
@@ -155,44 +244,40 @@ def import_by_advocate(enrolment_number: str = "", *, advocate_name: str = "",
     so the enrollment flow is fully demoable with no key. Live mode calls the
     vendor's advocate-search endpoint; ``_normalise_advocate_list`` is the only
     place to tune per vendor."""
+    # The vendor indexes advocate NAME (full-text), not Bar number — prefer name.
+    name = advocate_name or enrolment_number
     if config.CNR_API_MODE == "live":
         if not config.CNR_API_TOKEN:
             raise RuntimeError("CNR_API_MODE=live but CNR_API_TOKEN is not set")
-        return _import_by_advocate_live(enrolment_number or advocate_name,
-                                        state=state, court_code=court_code)
-    return _import_by_advocate_mock(enrolment_number or advocate_name or "MP/DEMO/2010")
+        return _import_by_advocate_live(name, state=state, court_code=court_code)
+    return _import_by_advocate_mock(name or "DEMO")
 
 
-def _import_by_advocate_live(query: str, *, state: str = "", court_code: str = "") -> list[dict]:
+def _import_by_advocate_live(name: str, *, state: str = "", court_code: str = "",
+                             max_pages: int = 4, page_size: int = 50) -> list[dict]:
+    """GET /api/partner/search?Advocates=<name>&CaseStatuses=PENDING&… — the
+    advocate's PENDING matters (the live diary). Name-based (the vendor indexes
+    advocate NAME, not Bar number); a court/state scope keeps it precise. Pages
+    until exhausted or max_pages (avoids pulling a whole disposed history)."""
     url = config.CNR_API_BASE_URL.rstrip("/") + config.CNR_API_ADVOCATE_PATH
-    params = {"bar_number": query, "enrolment_number": query, "advocate": query}
-    if state:
-        params["state"] = state
-    if court_code:
-        params["court_code"] = court_code
-    r = httpx.get(url, params=params, headers=_headers(), timeout=30.0)
-    if r.status_code != 200:
-        # Surface the vendor's real status + body so we can lock the endpoint
-        # (their docs are WAF-blocked to our fetchers) — the error text flows to
-        # the UI toast, turning one click into a diagnostic.
-        raise ValueError(f"vendor {r.status_code} at {r.url}: {r.text[:300]}")
-    return _normalise_advocate_list(r.json() or {})
-
-
-def _normalise_advocate_list(payload: dict) -> list[dict]:
-    """Map a vendor advocate-search response → list of our normalised case dicts.
-    Vendors nest the list under different keys; be defensive. Each row is often
-    a slim case summary — enough for the diary (title/court/next date/CNR)."""
-    rows = (payload.get("data") or payload.get("cases") or payload.get("results")
-            or (payload if isinstance(payload, list) else []))
     out: list[dict] = []
-    for row in (rows or []):
-        if not isinstance(row, dict):
-            continue
-        cnr = _first(row, "cnr", "cnr_number", "cino")
-        c = _normalise_live(row, cnr or "")
-        c["source"] = "ecourtsindia"
-        out.append(c)
+    for page in range(1, max_pages + 1):
+        params = {"Advocates": name, "CaseStatuses": "PENDING",
+                  "Page": page, "PageSize": page_size}
+        if court_code:
+            params["CourtCodes"] = court_code
+        if state:
+            params["StateCodes"] = state
+        r = httpx.get(url, params=params, headers=_headers(), timeout=40.0)
+        if r.status_code != 200:
+            raise ValueError(f"vendor {r.status_code} at {r.url}: {r.text[:300]}")
+        data = (r.json() or {}).get("data") or {}
+        rows = data.get("results") or []
+        for row in rows:
+            if isinstance(row, dict):
+                out.append(_normalise_webapi(row, _first(row, "cnr", "id", default="")))
+        if not data.get("hasNextPage"):
+            break
     return out
 
 

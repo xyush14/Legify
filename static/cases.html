@@ -205,10 +205,10 @@
         <!-- lawyer-centric onboarding: fetch the whole docket by Bar number -->
         <div class="case-card" id="enrollCard" style="display:none;margin-bottom:18px;padding:18px 20px">
           <div style="font-size:15px;font-weight:600;letter-spacing:-.01em;margin-bottom:4px">Bring in your whole cause list</div>
-          <div style="font-size:13px;color:var(--ink-2);line-height:1.55;margin-bottom:14px">Enter your Bar enrolment number — we pull every case you're on record in and build your diary. After that, hearing dates update themselves.</div>
+          <div style="font-size:13px;color:var(--ink-2);line-height:1.55;margin-bottom:14px">Enter your name <b>exactly as it appears on the cause list</b> — we pull every pending case you're on record in and build your diary. (eCourts indexes advocates by name; add a court code to narrow it.)</div>
           <div class="pgrid">
-            <div class="fld"><label>Bar enrolment number</label><input id="i_enrol" class="input mono" placeholder="MP/1234/2010" autocomplete="off" /></div>
-            <div class="fld"><label>State &amp; court (optional, narrows the search)</label><input id="i_state" class="input" placeholder="e.g. Gwalior District Court, MP" /></div>
+            <div class="fld"><label>Advocate name (as on record)</label><input id="i_advname" class="input" placeholder="e.g. Vishnu Sharma" autocomplete="off" /></div>
+            <div class="fld"><label>Court code — optional, narrows it</label><input id="i_court" class="input mono" placeholder="e.g. MPHC01" /></div>
           </div>
           <div class="panel-foot">
             <button class="btn" onclick="$('#enrollCard').style.display='none'">Later</button>
@@ -562,14 +562,14 @@ async function refreshDate(id){ toast('Checking source…');
 }
 
 /* ---- lawyer-centric: import the whole docket by Bar enrolment number ---- */
-function openEnroll(){ $('#enrollCard').style.display='block'; $('#i_enrol').focus(); window.scrollTo(0,0); }
+function openEnroll(){ $('#enrollCard').style.display='block'; $('#i_advname').focus(); window.scrollTo(0,0); }
 async function importByAdvocate(){
-  const enrol=$('#i_enrol').value.trim();
-  if(!enrol){ toast('Enter your Bar enrolment number','error'); return; }
+  const name=$('#i_advname').value.trim();
+  if(!name){ toast('Enter the advocate name (as on the cause list)','error'); return; }
   const b=$('#enrolBtn'); b.disabled=true; b.textContent='Fetching…';
   try{
     const r=await fetch('/api/cases/import/advocate',{method:'POST',headers:H(true),
-      body:JSON.stringify({enrolment_number:enrol, state:$('#i_state').value.trim()})});
+      body:JSON.stringify({advocate_name:name, court_code:$('#i_court').value.trim()})});
     const d=await r.json(); if(!r.ok) throw new Error(d.detail||'import failed');
     toast(`Imported ${d.imported} case(s) into your diary`,'success');
     $('#enrollCard').style.display='none'; await loadAll();
