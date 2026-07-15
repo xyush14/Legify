@@ -131,13 +131,21 @@ def get_consultation(consult_id: str, *, user_id: Optional[str]) -> Optional[dic
     return _row(row)
 
 
-def list_consultations(*, user_id: Optional[str], limit: int = 100) -> list[dict]:
-    """Newest first. Drops the heavy transcript from list payloads (kept on GET)."""
+def list_consultations(*, user_id: Optional[str], limit: int = 100,
+                       case_id: Optional[str] = None) -> list[dict]:
+    """Newest first. Drops the heavy transcript from list payloads (kept on GET).
+    Pass case_id to return only recordings filed under that matter."""
+    where = "user_id IS ?"
+    params: list = [user_id]
+    if case_id is not None:
+        where += " AND case_id = ?"
+        params.append(case_id)
+    params.append(limit)
     with _conn() as c:
         rows = c.execute(
-            f"SELECT {_COLS} FROM consultations WHERE user_id IS ? "
+            f"SELECT {_COLS} FROM consultations WHERE {where} "
             "ORDER BY updated_at DESC LIMIT ?",
-            (user_id, limit),
+            tuple(params),
         ).fetchall()
     out = []
     for r in rows:
@@ -146,6 +154,18 @@ def list_consultations(*, user_id: Optional[str], limit: int = 100) -> list[dict
             row.pop("transcript", None)
             out.append(row)
     return out
+
+
+def set_consultation_case(consult_id: str, *, case_id: Optional[str],
+                          user_id: Optional[str]) -> bool:
+    """Attach (or detach) a consultation to a case folder."""
+    with _conn() as c:
+        cur = c.execute(
+            "UPDATE consultations SET case_id = ? WHERE id = ? AND user_id IS ?",
+            (case_id, consult_id, user_id),
+        )
+        c.commit()
+    return cur.rowcount > 0
 
 
 def delete_consultation(consult_id: str, *, user_id: Optional[str]) -> bool:

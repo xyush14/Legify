@@ -49,6 +49,22 @@ def _init_schema(conn: sqlite3.Connection) -> None:
         CREATE UNIQUE INDEX IF NOT EXISTS idx_cases_user_cnr ON cases(user_id, cnr);
         CREATE INDEX IF NOT EXISTS idx_cases_user    ON cases(user_id);
         CREATE INDEX IF NOT EXISTS idx_cases_updated ON cases(updated_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_cases_user_next ON cases(user_id, next_hearing_date);
+
+        -- Per-hearing outcome log (the diary's "what happened today"). Kept as
+        -- its own rows (auditable history) rather than buried in case_json.
+        CREATE TABLE IF NOT EXISTS hearing_logs (
+            id                TEXT PRIMARY KEY,
+            user_id           TEXT,
+            case_id           TEXT NOT NULL,
+            hearing_date      TEXT,          -- the date this outcome is for
+            what_happened     TEXT,          -- free text ("witness examined")
+            next_hearing_date TEXT,          -- new next date set by the log
+            stage             TEXT,          -- optional updated stage
+            created_at        TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_hlog_case ON hearing_logs(case_id);
+        CREATE INDEX IF NOT EXISTS idx_hlog_user_next ON hearing_logs(user_id, next_hearing_date);
     """)
     conn.commit()
 
@@ -166,3 +182,67 @@ def update_client(case_id: str, *, user_id: Optional[str], client: dict) -> Opti
         )
         c.commit()
     return get_case(case_id, user_id=user_id)
+
+
+def set_next_date(case_id: str, *, user_id: Optional[str],
+                  next_hearing_date: Optional[str],
+                  stage: Optional[str] = None) -> Optional[dict]:
+    """Roll a matter's next hearing date forward (used by the rolling refresh and
+    by hearing-outcome logging). Also mirrors into case_json so drafts/prefill
+    see the fresh values."""
+    row = get_case(case_id, user_id=user_id)
+    if row is None:
+        return None
+    cj = row["case_json"] or {}
+    if next_hearing_date is not None:
+        cj["next_hearing_date"] = next_hearing_date
+    if stage is not None:
+        cj["stage"] = stage
+    now = _now()
+    with _conn() as c:
+        c.execute(
+            "UPDATE cases SET next_hearing_date = COALESCE(?, next_hearing_date), "
+            "stage = COALESCE(?, stage), case_json = ?, updated_at = ? "
+            "WHERE id = ? AND user_id IS ?",
+            (next_hearing_date, stage, json.dumps(cj, ensure_ascii=False), now,
+             case_id, user_id),
+        )
+        c.commit()
+    return get_case(case_id, user_id=user_id)
+
+
+def log_hearing(case_id: str, *, user_id: Optional[str],
+                hearing_date: Optional[str], what_happened: Optional[str],
+                next_hearing_date: Optional[str] = None,
+                stage: Optional[str] = None) -> Optional[dict]:
+    """Record a hearing outcome AND roll the matter's next date/stage forward,
+    in one place. Returns the updated case row."""
+    row = get_case(case_id, user_id=user_id)
+    if row is None:
+        return None
+    with _conn() as c:
+        c.execute(
+            "INSERT INTO hearing_logs (id, user_id, case_id, hearing_date, "
+            "what_happened, next_hearing_date, stage, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (uuid.uuid4().hex, user_id, case_id, hearing_date, what_happened,
+             next_hearing_date, stage, _now()),
+        )
+        c.commit()
+    return set_next_date(case_id, user_id=user_id,
+                         next_hearing_date=next_hearing_date, stage=stage)
+
+
+def list_hearing_logs(case_id: str, *, user_id: Optional[str]) -> list[dict]:
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT id, hearing_date, what_happened, next_hearing_date, stage, created_at "
+            "FROM hearing_logs WHERE case_id = ? AND user_id IS ? "
+            "ORDER BY created_at DESC",
+            (case_id, user_id),
+        ).fetchall()
+    return [
+        {"id": r[0], "hearing_date": r[1], "what_happened": r[2],
+         "next_hearing_date": r[3], "stage": r[4], "created_at": r[5]}
+        for r in rows
+    ]

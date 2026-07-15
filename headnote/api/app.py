@@ -1499,10 +1499,18 @@ def payment_failed_page():
                         headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
+@app.get("/testmatter", include_in_schema=False)
+@app.get("/testmatter/", include_in_schema=False)
 @app.get("/cases", include_in_schema=False)
 @app.get("/cases/", include_in_schema=False)
 def cases_page():
-    """CNR-driven case folders → one-click pre-filled bail/discharge drafts."""
+    """Matters — the lawyer's self-maintaining diary + per-client case folders
+    (recordings + drafts + documents + case-law), with one-click pre-filled
+    drafts.
+
+    Served privately at /testmatter while in development — deliberately NOT
+    linked from the public app nav, so live users don't see it until we ship.
+    (/cases kept as a back-compat alias.)"""
     return FileResponse(config.STATIC_DIR / "cases.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 

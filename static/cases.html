@@ -14,11 +14,72 @@
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
 <style>
   .hi{font-family:'Noto Sans Devanagari','Geist',sans-serif;}
-  /* top bar: filter + actions */
+  .mono{font-family:'Geist Mono',ui-monospace,monospace;}
+
+  /* view tabs */
+  .vtabs{display:flex;gap:4px;background:var(--soft);border:1px solid var(--line);border-radius:999px;padding:4px;width:max-content;margin-bottom:20px;}
+  .vtabs button{border:0;background:none;font:inherit;font-size:13px;color:var(--ink-3);padding:6px 16px;border-radius:999px;cursor:pointer;}
+  .vtabs button.on{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:var(--shadow-card);}
+  .view{display:none;} .view.on{display:block;}
+
+  /* stat bar */
+  .stats{display:flex;border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow:hidden;margin-bottom:16px;box-shadow:var(--shadow-card);}
+  .stat{flex:1;padding:12px 18px;border-right:1px solid var(--line-2);}
+  .stat:last-child{border-right:0;}
+  .stat__n{font-size:20px;font-weight:600;letter-spacing:-.02em;}
+  .stat__l{font-size:11px;color:var(--ink-3);margin-top:1px;}
+
+  /* date nav + week strip */
+  .datenav{display:flex;align-items:center;gap:8px;margin-bottom:14px;}
+  .datenav__arrow{border:1px solid var(--line);background:var(--surface);width:32px;height:32px;border-radius:8px;cursor:pointer;color:var(--ink-2);font-size:15px;line-height:1;}
+  .datenav__arrow:hover{border-color:var(--ink);color:var(--ink);}
+  .datenav__range{font-family:'Geist Mono',monospace;font-size:11px;color:var(--ink-3);}
+  .week{display:flex;gap:7px;margin-bottom:22px;}
+  .week__d{flex:1;border:1px solid var(--line);border-radius:10px;padding:9px 4px 8px;text-align:center;cursor:pointer;background:var(--surface);transition:all .12s ease;}
+  .week__d:hover{border-color:var(--ink-3);transform:translateY(-1px);}
+  .week__d.sel{background:var(--ink);border-color:var(--ink);color:var(--surface);}
+  .week__d.today .week__num{color:var(--gold,#b7791f);}
+  .week__d.sel.today .week__num{color:#fff;}
+  .week__dow{font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);}
+  .week__d.sel .week__dow{color:rgba(255,255,255,.65);}
+  .week__num{font-size:16px;font-weight:600;margin-top:3px;letter-spacing:-.01em;}
+  .week__cnt{font-size:10px;color:var(--ink-3);margin-top:3px;}
+  .week__d.sel .week__cnt{color:rgba(255,255,255,.7);}
+  .undated-pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2);background:var(--soft);border:1px solid var(--line);border-radius:999px;padding:5px 12px;cursor:pointer;margin-bottom:16px;}
+  .undated-pill.sel{background:var(--ink);color:#fff;border-color:var(--ink);}
+
+  /* action bar */
+  .actbar{display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap;}
+  .actbar .input{flex:1;min-width:200px;padding:9px 13px;border-radius:8px;}
+
+  /* ledger (diary board) */
+  .ledger{border:1px solid var(--line);border-radius:14px;background:var(--surface);overflow:hidden;box-shadow:var(--shadow-card);}
+  .lrow{display:grid;grid-template-columns:30px 1fr auto;gap:14px;padding:15px 20px;border-bottom:1px solid var(--line-2);transition:background .12s ease;}
+  .lrow:last-child{border-bottom:0;}
+  .lrow:hover{background:#fbfbfa;}
+  .lrow__sl{font-family:'Geist Mono',monospace;font-size:12px;color:var(--ink-3);padding-top:3px;}
+  .lrow__name{font-size:15px;font-weight:600;letter-spacing:-.01em;display:flex;align-items:center;gap:9px;flex-wrap:wrap;cursor:pointer;}
+  .lrow__name:hover{text-decoration:underline;text-underline-offset:2px;}
+  .tag{font-family:'Geist Mono',monospace;font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);border:1px solid var(--line);border-radius:999px;padding:2px 7px;}
+  .lrow__cite{font-size:12.5px;color:var(--ink-2);margin-top:3px;}
+  .lrow__meta{font-family:'Geist Mono',monospace;font-size:11px;color:var(--ink-3);margin-top:5px;}
+  .lrow__right{display:flex;align-items:center;gap:7px;flex:0 0 auto;}
+  .iconbtn{border:1px solid var(--line);background:var(--surface);width:34px;height:34px;border-radius:8px;cursor:pointer;color:var(--ink-2);display:inline-flex;align-items:center;justify-content:center;transition:all .12s ease;text-decoration:none;}
+  .iconbtn:hover{border-color:var(--ink);color:var(--ink);}
+  .iconbtn svg{width:16px;height:16px;}
+  .btn-log{border:1px solid var(--ink);background:var(--surface);color:var(--ink);font:inherit;font-size:12.5px;font-weight:500;padding:8px 13px;border-radius:8px;cursor:pointer;white-space:nowrap;}
+  .btn-log:hover{background:var(--ink);color:var(--surface);}
+  .log{grid-column:1 / -1;display:none;margin-top:4px;padding-top:14px;border-top:1px dashed var(--line);gap:10px;align-items:flex-end;flex-wrap:wrap;}
+  .log.open{display:flex;}
+  .log .fld{display:flex;flex-direction:column;gap:5px;}
+  .log .fld label{font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);}
+  .log .fld--grow{flex:1;min-width:200px;}
+  .log .input{width:100%;padding:8px 11px;border-radius:8px;}
+
+  /* matter card list (All matters) */
   .bar{display:flex;gap:8px;align-items:center;margin-bottom:18px;}
   .bar .input{flex:1;}
-  /* matter card — only what's scanned */
-  .m{padding:15px 18px;}
+  .m{padding:15px 18px;cursor:pointer;}
   .m__head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
   .m__title{font-size:15px;font-weight:600;letter-spacing:-0.01em;line-height:1.3;}
   .nx{text-align:right;white-space:nowrap;flex:0 0 auto;}
@@ -40,6 +101,7 @@
   .menu button{display:block;width:100%;text-align:left;border:0;background:none;font:inherit;font-size:13px;color:var(--ink);padding:8px 10px;border-radius:6px;cursor:pointer;}
   .menu button:hover{background:var(--soft);}
   .menu button.danger{color:var(--bad);}
+
   /* add / edit panel */
   .panel{display:none;margin-bottom:18px;} .panel.is-open{display:block;}
   .pgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
@@ -50,6 +112,36 @@
   .more-toggle{background:none;border:0;color:var(--ink-2);font:inherit;font-size:12px;cursor:pointer;padding:0;margin-top:12px;text-decoration:underline;text-underline-offset:2px;}
   .consent{display:flex;gap:8px;align-items:center;font-size:12.5px;color:var(--ink-2);margin-top:12px;}
   .panel-foot{display:flex;justify-content:flex-end;gap:10px;margin-top:16px;}
+
+  /* folder detail */
+  .fback{background:none;border:0;color:var(--ink-3);font:inherit;font-size:13px;cursor:pointer;padding:0;margin-bottom:14px;display:inline-flex;gap:6px;align-items:center;}
+  .fback:hover{color:var(--ink);}
+  .fhead{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:18px 20px;box-shadow:var(--shadow-card);margin-bottom:8px;}
+  .fhead__title{font-size:19px;font-weight:600;letter-spacing:-.02em;line-height:1.25;}
+  .fhead__meta{font-family:'Geist Mono',monospace;font-size:11.5px;color:var(--ink-2);margin-top:6px;}
+  .fhead__acts{display:flex;gap:6px;align-items:center;position:relative;flex:0 0 auto;}
+  .ftabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin:18px 0 18px;overflow-x:auto;}
+  .ftab{border:0;background:none;font:inherit;font-size:13px;color:var(--ink-3);padding:10px 14px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;}
+  .ftab.on{color:var(--ink);font-weight:600;border-bottom-color:var(--ink);}
+  .ftab .cnt{color:var(--ink-3);font-weight:400;font-size:11px;margin-left:3px;}
+  .fpane{display:none;} .fpane.on{display:block;}
+  .info{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:16px 18px;box-shadow:var(--shadow-card);margin-bottom:14px;}
+  .info h3{font-size:12px;font-family:'Geist Mono',monospace;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);margin:0 0 12px;font-weight:500;}
+  .kv{display:grid;grid-template-columns:130px 1fr;gap:8px 14px;font-size:13px;}
+  .kv dt{color:var(--ink-3);} .kv dd{margin:0;color:var(--ink);}
+  .artifact{display:flex;justify-content:space-between;align-items:center;gap:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:13px 16px;margin-bottom:9px;text-decoration:none;color:inherit;}
+  .artifact:hover{border-color:var(--ink-3);}
+  .artifact__t{font-size:13.5px;font-weight:500;}
+  .artifact__s{font-family:'Geist Mono',monospace;font-size:11px;color:var(--ink-3);margin-top:3px;}
+  .paneempty{text-align:center;color:var(--ink-3);font-size:13px;padding:26px 10px;border:1px dashed var(--line);border-radius:12px;}
+  .linkrow{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap;}
+  .linkrow select{font:inherit;font-size:12.5px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);flex:1;min-width:180px;}
+  .tl{border-left:2px solid var(--line);margin-left:6px;padding-left:16px;}
+  .tl__i{position:relative;padding-bottom:14px;}
+  .tl__i:before{content:'';position:absolute;left:-22px;top:4px;width:8px;height:8px;border-radius:50%;background:var(--ink-3);}
+  .tl__d{font-family:'Geist Mono',monospace;font-size:11px;color:var(--ink-3);}
+  .tl__w{font-size:13px;margin-top:2px;}
+  .sugbtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
 </style>
 </head>
 <body class="auth-ready">
@@ -71,19 +163,18 @@
   </aside>
 
   <main id="main" class="main">
-    <section class="view is-active" style="max-width:820px">
+    <section style="max-width:880px">
       <header class="topbar">
         <div class="topbar__title">matters</div>
-        <div class="topbar__hint mono" id="hint">enter a CNR · draft in one click</div>
+        <div class="topbar__hint mono" id="hint">your diary, self-updating</div>
       </header>
 
-      <div class="bar">
-        <input id="filter" class="input" placeholder="Filter by party, CNR or court…" autocomplete="off" />
-        <button class="btn" id="importBtn">Import by Bar ID</button>
-        <button class="btn btn--primary" onclick="openAdd()">+ Add case</button>
+      <div class="vtabs" id="vtabs">
+        <button class="on" data-v="diary" onclick="switchView('diary')">Diary</button>
+        <button data-v="list" onclick="switchView('list')">All matters</button>
       </div>
 
-      <!-- add / edit panel -->
+      <!-- add / edit panel (shared) -->
       <div class="case-card panel" id="panel">
         <div class="case-card__title" id="panelTitle" style="font-size:15px;margin-bottom:14px">Add a case</div>
         <div class="pgrid">
@@ -108,11 +199,42 @@
         </div>
       </div>
 
-      <div class="results" id="rows"></div>
-      <div class="empty" id="empty" style="display:none">
-        <h2>No matters yet</h2>
-        <p>Add a case by its CNR and it becomes a one-click, pre-filled draft. <a href="#" onclick="openAdd();return false" style="border-bottom:1px solid var(--line)">Add one</a>.</p>
-      </div>
+      <!-- ============ DIARY ============ -->
+      <section class="view on" id="viewDiary">
+        <div class="stats" id="stats"></div>
+        <div class="datenav">
+          <button class="datenav__arrow" title="Previous week" onclick="shiftWeek(-7)">‹</button>
+          <button class="datenav__arrow" title="Next week" onclick="shiftWeek(7)">›</button>
+          <span class="datenav__range" id="range"></span>
+        </div>
+        <div class="week" id="week"></div>
+        <div id="undatedWrap"></div>
+        <div class="actbar">
+          <input class="input" id="dfilter" placeholder="Search this day — client, case no. or court…" />
+          <button class="btn" onclick="openPhoto()">Add from photo</button>
+          <button class="btn" onclick="openAdd()">Add by CNR</button>
+          <button class="btn" id="importBtn2">Import by Bar ID</button>
+        </div>
+        <div class="ledger" id="board"></div>
+      </section>
+
+      <!-- ============ ALL MATTERS ============ -->
+      <section class="view" id="viewList">
+        <div class="bar">
+          <input id="filter" class="input" placeholder="Filter by party, CNR or court…" autocomplete="off" />
+          <button class="btn" id="importBtn">Import by Bar ID</button>
+          <button class="btn btn--primary" onclick="openAdd()">+ Add case</button>
+        </div>
+        <div class="results" id="rows"></div>
+        <div class="empty" id="empty" style="display:none">
+          <h2>No matters yet</h2>
+          <p>Add a case by its CNR and it becomes a one-click, pre-filled draft. <a href="#" onclick="openAdd();return false" style="border-bottom:1px solid var(--line)">Add one</a>.</p>
+        </div>
+      </section>
+
+      <!-- ============ FOLDER (dive-in) ============ -->
+      <section class="view" id="viewFolder"></section>
+
     </section>
   </main>
 </div>
@@ -121,22 +243,49 @@
 
 <script>
 const $ = s => document.querySelector(s);
-let CASES = [], editingId = null;
+let CASES = [], DIARY = null, editingId = null;
+let selDate = null, weekAnchor = null, curView = 'diary';
+let FOLDER = null, folderTab = 'facts';
 
+/* icons */
+const CALL=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.6A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1L8 9.6a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.8.3 1.7.5 2.6.6a2 2 0 0 1 1.7 2z"/></svg>`;
+const DRAFT=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4z"/></svg>`;
+const OPEN=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>`;
+
+/* ---- auth + helpers ---- */
 function authToken(){ try{ for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i);
   if(/sb-.*-auth-token/.test(k)){ const v=JSON.parse(localStorage.getItem(k)); if(v&&v.access_token) return v.access_token; if(Array.isArray(v)&&v[0]) return v[0]; } } }catch(e){} return null; }
 function H(json){ const h=json?{'Content-Type':'application/json'}:{}; const t=authToken(); if(t) h.Authorization='Bearer '+t; return h; }
 function esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function toast(m,kind){ const t=document.createElement('div'); t.className='toast'+(kind?' toast--'+kind:''); t.textContent=m; $('#toasts').appendChild(t); setTimeout(()=>t.remove(),3200); }
+const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function parseISO(s){ const [y,m,d]=(s||'').split('-').map(Number); return new Date(y,(m||1)-1,d||1); }
+function fmtDay(iso){ const d=parseISO(iso); return `${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}`; }
+function shortCourt(s){ return (s||'').replace(/^न्यायालय\s*/,''); }
+function partyName(item){ const cj=item.case_json||{}, cl=cj.client||{};
+  if(cl.name) return cl.name;
+  const bad=x=> x && /राज्य|state|म\.?प्र\.?|u\.?p\.?|मध्य|union of india/i.test(x);
+  const r=cj.respondent_name, p=cj.petitioner_name;
+  if(r && !bad(r)) return r; if(p && !bad(p)) return p;
+  return item.case_title || item.cnr; }
 
+/* ---- view router ---- */
+function switchView(v){ curView=v; if(v!=='folder') FOLDER=null;
+  document.querySelectorAll('#vtabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  ['viewDiary','viewList','viewFolder'].forEach(id=>$('#'+id).classList.toggle('on', id.toLowerCase().includes(v)));
+  $('#vtabs').style.display = v==='folder' ? 'none' : '';
+  if(v==='diary') renderDiary(); if(v==='list') render();
+}
+
+/* ---- add/edit panel ---- */
 function openAdd(){ editingId=null; $('#panelTitle').textContent='Add a case'; $('#cnrFld').style.display='';
   ['cnr','name','mobile','email','father','age','occupation','address'].forEach(k=>$('#i_'+k).value=''); $('#i_consent').checked=false;
-  $('#panel').classList.add('is-open'); $('#i_cnr').focus(); }
-function editClient(id){ const c=CASES.find(x=>x.id===id); if(!c) return; editingId=id; const cl=(c.case_json&&c.case_json.client)||{};
+  $('#panel').classList.add('is-open'); $('#i_cnr').focus(); window.scrollTo(0,0); }
+function editClient(id){ const c=CASES.find(x=>x.id===id)||(FOLDER&&FOLDER.case.id===id?FOLDER.case:null); if(!c) return; editingId=id; const cl=(c.case_json&&c.case_json.client)||{};
   $('#panelTitle').textContent='Client — '+(c.case_title||c.cnr); $('#cnrFld').style.display='none';
   $('#i_name').value=cl.name||''; $('#i_mobile').value=cl.mobile||''; $('#i_email').value=cl.email||'';
   $('#i_father').value=cl.father||''; $('#i_age').value=cl.age||''; $('#i_occupation').value=cl.occupation||''; $('#i_address').value=cl.address||''; $('#i_consent').checked=!!cl.consent;
-  $('#more').classList.add('is-open'); $('#panel').classList.add('is-open'); $('#i_name').focus(); }
+  $('#more').classList.add('is-open'); $('#panel').classList.add('is-open'); $('#i_name').focus(); window.scrollTo(0,0); }
 function closePanel(){ $('#panel').classList.remove('is-open'); }
 function toggleMore(){ $('#more').classList.toggle('is-open'); }
 function clientPayload(){ const g=k=>$('#i_'+k).value.trim(); return { name:g('name'),mobile:g('mobile'),email:g('email'),father:g('father'),age:g('age'),occupation:g('occupation'),address:g('address'),consent:$('#i_consent').checked }; }
@@ -149,43 +298,123 @@ async function submitPanel(){ const btn=$('#panelSave'); btn.disabled=true;
       const cl=clientPayload(); const hasClient=Object.values(cl).some(v=>v&&v!==false); const body={cnr}; if(hasClient) body.client=cl;
       const r=await fetch('/api/cases/add-cnr',{method:'POST',headers:H(true),body:JSON.stringify(body)});
       if(!r.ok) throw new Error((await r.json()).detail||'lookup failed'); toast('Case added','success'); }
-    closePanel(); await load();
+    closePanel(); await loadAll();
+    if(FOLDER) openFolder(FOLDER.case.id);
   }catch(e){ toast(e.message,'error'); } finally{ btn.disabled=false; } }
 
 async function draftFor(id, story){ toast('Building '+story+' draft…');
   try{ const r=await fetch(`/api/cases/${id}/draft/${story}`,{method:'POST',headers:H()}); const d=await r.json();
     if(!r.ok) throw new Error(d.detail||'draft failed'); window.open(d.review_url,'_blank'); toast('Draft ready','success');
+    if(FOLDER&&FOLDER.case.id===id) openFolder(id);
   }catch(e){ toast(e.message,'error'); } }
 
-async function removeCase(id){ if(!confirm('Remove this matter?')) return; await fetch('/api/cases/'+id,{method:'DELETE',headers:H()}); load(); }
+async function removeCase(id){ if(!confirm('Remove this matter?')) return; await fetch('/api/cases/'+id,{method:'DELETE',headers:H()});
+  if(FOLDER) switchView('diary'); await loadAll(); }
 
-function toggleMenu(id,ev){ ev.stopPropagation(); document.querySelectorAll('.menu.open').forEach(m=>{ if(m.id!=='menu-'+id) m.classList.remove('open'); }); $('#menu-'+id).classList.toggle('open'); }
+function toggleMenu(id,ev){ ev.stopPropagation(); document.querySelectorAll('.menu.open').forEach(m=>{ if(m.id!=='menu-'+id) m.classList.remove('open'); }); const el=$('#menu-'+id); if(el) el.classList.toggle('open'); }
 document.addEventListener('click',()=>document.querySelectorAll('.menu.open').forEach(m=>m.classList.remove('open')));
 
+/* ========================= DIARY ========================= */
+async function loadDiary(anchor){ const q=anchor?('?from_='+anchor):'';
+  const r=await fetch('/api/cases/diary'+q,{headers:H()}); DIARY=await r.json();
+  weekAnchor=DIARY.from;
+  if(!selDate || !DIARY.days.some(d=>d.date===selDate)){
+    selDate = DIARY.days.some(d=>d.date===DIARY.today) ? DIARY.today : (DIARY.days[0]&&DIARY.days[0].date);
+  }
+  renderDiary();
+}
+function shiftWeek(delta){ const d=parseISO(weekAnchor); d.setDate(d.getDate()+delta);
+  const iso=d.toISOString().slice(0,10); selDate=null; loadDiary(iso); }
+
+function renderDiary(){ if(!DIARY) return;
+  const todayCount=(DIARY.days.find(d=>d.date===DIARY.today)||{}).count||0;
+  $('#stats').innerHTML=[
+    ['Today',todayCount],['This week',DIARY.total],
+    ['Undated',DIARY.undated.length],['All matters',CASES.length],
+  ].map(([l,n])=>`<div class="stat"><div class="stat__n">${n}</div><div class="stat__l">${l}</div></div>`).join('');
+  $('#range').textContent = `${fmtDay(DIARY.from)} — ${fmtDay(DIARY.to)}`;
+  $('#week').innerHTML=DIARY.days.map(d=>{ const dt=parseISO(d.date);
+    return `<div class="week__d${d.date===selDate?' sel':''}${d.date===DIARY.today?' today':''}" onclick="pickDay('${d.date}')">
+      <div class="week__dow">${DOW[dt.getDay()]}</div><div class="week__num">${dt.getDate()}</div>
+      <div class="week__cnt">${d.count||'—'}</div></div>`; }).join('');
+  $('#undatedWrap').innerHTML = DIARY.undated.length
+    ? `<div class="undated-pill${selDate==='__undated'?' sel':''}" onclick="pickDay('__undated')">⚑ ${DIARY.undated.length} matter(s) with no next date — set one</div>` : '';
+  renderBoard();
+}
+function pickDay(d){ selDate=d; renderDiary(); }
+function dayItems(){ if(selDate==='__undated') return DIARY.undated;
+  return (DIARY.days.find(d=>d.date===selDate)||{}).items||[]; }
+
+function renderBoard(){
+  const q=($('#dfilter').value||'').toLowerCase().trim();
+  let items=dayItems();
+  if(q) items=items.filter(c=>JSON.stringify(c).toLowerCase().includes(q));
+  if(!items.length){ $('#board').innerHTML=`<div class="paneempty" style="border:0">Nothing listed for ${selDate==='__undated'?'undated matters':fmtDay(selDate||DIARY.today)}.</div>`; return; }
+  $('#board').innerHTML=items.map((c,i)=>lrow(c,i)).join('');
+}
+function lrow(c,i){
+  const cj=c.case_json||{}, cl=cj.client||{}, sug=(c.suggested||[]);
+  const story=(sug[0]||{story_id:'bail'}).story_id;
+  const meta=[c.case_number?esc(c.case_number)+'/'+esc(c.case_year||''):null, shortCourt(c.court_name||cj.court_name), (cj.sections||[]).join(', '), c.stage].filter(Boolean);
+  const call = cl.mobile ? `<a class="iconbtn" title="Call ${esc(cl.name||'')}" href="tel:${esc(cl.mobile)}">${CALL}</a>` : '';
+  return `<div class="lrow" id="row${i}">
+    <div class="lrow__sl">${String(i+1).padStart(2,'0')}</div>
+    <div class="lrow__main">
+      <div class="lrow__name hi" onclick="openFolder('${c.id}')">${esc(partyName(c))}${cl.role?`<span class="tag">${esc(cl.role)}</span>`:''}</div>
+      ${c.case_title?`<div class="lrow__cite hi">${esc(c.case_title)}</div>`:''}
+      <div class="lrow__meta hi">${esc(meta.join(' · '))}</div>
+    </div>
+    <div class="lrow__right">
+      ${call}
+      <button class="iconbtn" title="Draft for this matter" onclick="draftFor('${c.id}','${story}')">${DRAFT}</button>
+      <button class="iconbtn" title="Open case folder" onclick="openFolder('${c.id}')">${OPEN}</button>
+      <button class="btn-log" onclick="toggleLog(${i})">Log hearing</button>
+    </div>
+    <div class="log" id="log${i}">
+      <div class="fld fld--grow"><label>What happened today</label><input class="input" id="lw${i}" placeholder="e.g. witness examined, statement recorded"></div>
+      <div class="fld"><label>Next date</label><input class="input mono" id="ln${i}" placeholder="dd/mm/yyyy" style="width:140px"></div>
+      <button class="btn btn--primary" onclick="saveLog('${c.id}',${i})" style="border-radius:8px">Save</button>
+    </div>
+  </div>`;
+}
+function toggleLog(i){ $('#log'+i).classList.toggle('open'); }
+async function saveLog(id,i){
+  const body={ hearing_date:(selDate&&selDate!=='__undated')?selDate:null,
+    what_happened:$('#lw'+i).value.trim(), next_hearing_date:$('#ln'+i).value.trim()||null };
+  try{ const r=await fetch(`/api/cases/${id}/hearing-log`,{method:'POST',headers:H(true),body:JSON.stringify(body)});
+    if(!r.ok) throw new Error((await r.json()).detail||'save failed');
+    toast(body.next_hearing_date?('Logged · next date '+body.next_hearing_date):'Hearing logged','success');
+    await loadAll();
+  }catch(e){ toast(e.message,'error'); }
+}
+$('#dfilter')&&$('#dfilter').addEventListener('input',renderBoard);
+
+/* ========================= ALL MATTERS ========================= */
 function card(c){
   const cj=c.case_json||{}, cl=cj.client||{}, sug=c.suggested||[];
   const primary=sug[0]||{story_id:'bail',label:'Bail'}, other=sug[1]||{story_id:'discharge',label:'Discharge'};
-  const court=(c.court_name||cj.court_name||'').replace(/^न्यायालय\s*/,'');
+  const court=shortCourt(c.court_name||cj.court_name||'');
   const meta=[`<span>${esc(c.cnr)}</span>`]; if(court) meta.push(`<span class="hi">${esc(court)}</span>`);
   if(c.case_number) meta.push(`<span>${esc(c.case_number)}/${esc(c.case_year||'')}</span>`);
   if(c.source==='mock') meta.push('<span>sample</span>');
   const secs=(cj.sections||[]).join(', ');
   const client = cl.name
     ? `<span class="hi"><b>${esc(cl.name)}</b></span>${cl.mobile?` · ${esc(cl.mobile)}`:''}`
-    : `<button class="addcli" onclick="editClient('${c.id}')">+ add client</button>`;
-  return `<div class="case-card m">
+    : `<button class="addcli" onclick="event.stopPropagation();editClient('${c.id}')">+ add client</button>`;
+  return `<div class="case-card m" onclick="openFolder('${c.id}')">
     <div class="m__head">
       <div class="m__title hi">${esc(c.case_title||c.cnr)}</div>
       ${c.next_hearing_date?`<div class="nx"><b>${esc(c.next_hearing_date)}</b><span>next hearing</span></div>`:''}
     </div>
     <div class="m__meta">${meta.join(' · ')}</div>
     ${(secs||c.stage)?`<div class="m__sub hi">${esc(secs)}${c.stage?` · <span class="stg">${esc(c.stage)}</span>`:''}</div>`:''}
-    <div class="m__foot">
+    <div class="m__foot" onclick="event.stopPropagation()">
       <div class="m__client">${client}</div>
       <div class="m__act">
         <button class="btn btn--primary" title="${esc(primary.reason||'')}" onclick="draftFor('${c.id}','${primary.story_id}')">Draft ${esc(primary.label)}</button>
         <button class="kebab" onclick="toggleMenu('${c.id}',event)" aria-label="more">⋯</button>
         <div class="menu" id="menu-${c.id}">
+          <button onclick="openFolder('${c.id}')">Open folder</button>
           <button onclick="draftFor('${c.id}','${other.story_id}')">Draft ${esc(other.label)}</button>
           <button onclick="editClient('${c.id}')">${cl.name?'Edit':'Add'} client</button>
           <button class="danger" onclick="removeCase('${c.id}')">Remove matter</button>
@@ -194,21 +423,140 @@ function card(c){
     </div>
   </div>`;
 }
-
 function render(){
   const q=($('#filter').value||'').toLowerCase().trim();
   const list=q ? CASES.filter(c=>JSON.stringify(c).toLowerCase().includes(q)) : CASES;
   $('#rows').innerHTML=list.map(card).join('');
-  $('#hint').textContent = CASES.length ? `${CASES.length} ${CASES.length===1?'matter':'matters'} · draft in one click` : 'enter a CNR · draft in one click';
+  $('#hint').textContent = CASES.length ? `${CASES.length} ${CASES.length===1?'matter':'matters'} · your diary, self-updating` : 'your diary, self-updating';
   $('#empty').style.display=CASES.length?'none':'block';
 }
-
-async function load(){ try{ const r=await fetch('/api/cases',{headers:H()}); CASES=(await r.json()).items||[]; render(); }
-  catch(e){ toast('Could not load matters: '+e.message,'error'); } }
-
 $('#filter').addEventListener('input',render);
-$('#importBtn').addEventListener('click',()=>toast('Import by Bar ID ships with the live key — pulls your whole docket at once.'));
-load();
+
+/* ========================= FOLDER ========================= */
+async function openFolder(id){ switchViewToFolder();
+  $('#viewFolder').innerHTML='<div class="paneempty" style="border:0">Loading folder…</div>';
+  try{ const r=await fetch(`/api/cases/${id}/folder`,{headers:H()}); if(!r.ok) throw new Error('not found');
+    FOLDER=await r.json(); folderTab='facts'; renderFolder();
+  }catch(e){ toast('Could not open folder','error'); switchView('diary'); }
+}
+function switchViewToFolder(){ curView='folder';
+  ['viewDiary','viewList','viewFolder'].forEach(id=>$('#'+id).classList.toggle('on', id==='viewFolder'));
+  $('#vtabs').style.display='none'; window.scrollTo(0,0);
+}
+function renderFolder(){
+  const f=FOLDER, c=f.case, cj=c.case_json||{}, cl=f.client||{};
+  const sug=c.suggested||[];
+  const meta=[c.cnr, shortCourt(c.court_name), c.case_number?c.case_number+'/'+(c.case_year||''):null].filter(Boolean).join(' · ');
+  const tabs=[['facts','Facts'],['recordings','Recordings',f.recordings.length],['drafts','Drafts',f.drafts.length],
+    ['documents','Documents',f.documents.length],['caselaw','Case-law',f.caselaw.length],['summary','Prep']];
+  $('#viewFolder').innerHTML=`
+    <button class="fback" onclick="switchView('diary')">‹ back to diary</button>
+    <div class="fhead">
+      <div>
+        <div class="fhead__title hi">${esc(c.case_title||c.cnr)}</div>
+        <div class="fhead__meta hi">${esc(meta)}</div>
+        ${c.stage?`<div class="fhead__meta hi">${esc(c.stage)}</div>`:''}
+      </div>
+      <div style="text-align:right">
+        ${c.next_hearing_date?`<div class="nx"><b>${esc(c.next_hearing_date)}</b><span>next hearing</span></div>`:''}
+        <div class="fhead__acts" style="justify-content:flex-end;margin-top:10px">
+          ${sug[0]?`<button class="btn btn--primary" onclick="draftFor('${c.id}','${sug[0].story_id}')">Draft ${esc(sug[0].label)}</button>`:''}
+          <button class="kebab" onclick="toggleMenu('f',event)">⋯</button>
+          <div class="menu" id="menu-f">
+            <button onclick="refreshDate('${c.id}')">Refresh next date</button>
+            <button onclick="editClient('${c.id}')">${cl.name?'Edit':'Add'} client</button>
+            <button class="danger" onclick="removeCase('${c.id}')">Remove matter</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="ftabs">${tabs.map(([k,l,n])=>`<button class="ftab${k===folderTab?' on':''}" onclick="setFolderTab('${k}')">${l}${n!=null?`<span class="cnt">${n}</span>`:''}</button>`).join('')}</div>
+    <div id="fpane"></div>`;
+  renderPane();
+}
+function setFolderTab(t){ folderTab=t; document.querySelectorAll('.ftab').forEach(b=>{}); renderFolder(); }
+
+function renderPane(){
+  const f=FOLDER, c=f.case, cj=c.case_json||{}, cl=f.client||{}, el=$('#fpane');
+  if(folderTab==='facts'){
+    const parties=[['Party (client)',cl.name],['Father / Husband',cl.father],['Occupation',cl.occupation],
+      ['Address',cl.address],['Mobile',cl.mobile],['Petitioner',cj.petitioner_name],['Respondent',cj.respondent_name],
+      ['Police station',cj.police_station],['FIR',cj.fir_number],['Sections',(cj.sections||[]).join(', ')],
+      ['Prior court',cj.prior_court]].filter(x=>x[1]);
+    const sug=c.suggested||[];
+    el.innerHTML=`
+      <div class="info"><h3>Client</h3>${cl.name?'':'<p style="color:var(--ink-3);font-size:13px;margin:0 0 10px">No client details yet.</p>'}
+        <dl class="kv">${parties.map(([k,v])=>`<dt>${esc(k)}</dt><dd class="hi">${esc(v)}</dd>`).join('')||'<dd>—</dd>'}</dl>
+        <div class="linkrow"><button class="btn" onclick="editClient('${c.id}')">${cl.name?'Edit client details':'Add client details'}</button></div>
+      </div>
+      ${sug.length?`<div class="info"><h3>Suggested next draft</h3><div class="sugbtns">${sug.map(s=>`<button class="btn${s.primary?' btn--primary':''}" title="${esc(s.reason||'')}" onclick="draftFor('${c.id}','${s.story_id}')">Draft ${esc(s.label)}</button>`).join('')}</div></div>`:''}
+      ${f.hearing_logs.length?`<div class="info"><h3>Hearing history</h3><div class="tl">${f.hearing_logs.map(h=>`<div class="tl__i"><div class="tl__d">${esc(h.hearing_date||h.created_at.slice(0,10))}${h.next_hearing_date?' → next '+esc(h.next_hearing_date):''}</div><div class="tl__w">${esc(h.what_happened||'—')}</div></div>`).join('')}</div></div>`:''}
+    `;
+  } else if(folderTab==='recordings'){
+    el.innerHTML = listPane(f.recordings.map(r=>({t:r.title||'Consultation',s:[(r.matter_type||''),r.created_at?r.created_at.slice(0,10):''].filter(Boolean).join(' · '),href:'/recorder'})),
+      'No recordings filed here yet.', 'recording');
+    loadLinkOptions('recording');
+  } else if(folderTab==='drafts'){
+    el.innerHTML = listPane(f.drafts.map(d=>({t:d.title||d.story_id,s:[(d.story_id||''),d.updated_at?d.updated_at.slice(0,10):''].filter(Boolean).join(' · '),href:`/draft/${d.story_id}/review?draft=${d.id}`})),
+      'No drafts filed here yet — generate one from Facts.', 'draft');
+    loadLinkOptions('draft');
+  } else if(folderTab==='documents'){
+    el.innerHTML = listPane(f.documents.map(d=>({t:d.title||d.original_filename||'Document',s:[(d.doc_type||''),d.page_count?d.page_count+'p':''].filter(Boolean).join(' · '),href:'/documents'})),
+      'No documents filed here yet.', 'document');
+    loadLinkOptions('document');
+  } else if(folderTab==='caselaw'){
+    el.innerHTML=`<div class="paneempty">Pinning verified case-law to a matter is coming next. For now, research from <a href="/app" style="border-bottom:1px solid var(--line)">Research</a>.</div>`;
+  } else if(folderTab==='summary'){
+    el.innerHTML=`<div class="info"><h3>Prep mode</h3>
+      <p style="font-size:13px;color:var(--ink-2);line-height:1.6;margin:0 0 12px">Prep mode reads this folder — the recording facts, documents, sections and stage — and suggests a strategy plus <b>verified</b> case-law (never invented). Coming in the next build.</p>
+      <button class="btn btn--primary" onclick="toast('Prep mode ships next — the plumbing (folder context) is ready.')">Prepare this matter</button></div>`;
+  }
+}
+function listPane(items, empty, kind){
+  const list = items.length ? items.map(x=>`<a class="artifact" href="${x.href}" ${x.href.startsWith('/draft')||x.href==='/recorder'||x.href==='/documents'?'':''}><div><div class="artifact__t hi">${esc(x.t)}</div>${x.s?`<div class="artifact__s">${esc(x.s)}</div>`:''}</div><span style="color:var(--ink-3)">›</span></a>`).join('')
+    : `<div class="paneempty">${esc(empty)}</div>`;
+  return list + linkPickerHTML(kind);
+}
+function linkPickerHTML(kind){
+  return `<div class="linkrow"><select id="linkSel"><option value="">Link an existing ${kind}…</option></select>
+    <button class="btn" onclick="doLink('${kind}')">Attach</button></div>`;
+}
+async function loadLinkOptions(kind){
+  const sel=$('#linkSel'); if(!sel) return;
+  const url = kind==='recording' ? '/api/consultations' : kind==='document' ? '/api/documents' : '/api/draft/?limit=100';
+  try{ const r=await fetch(url,{headers:H()}); const j=await r.json();
+    const arr = j.items||j.drafts||[];
+    const cur=(FOLDER&&FOLDER.case.id);
+    arr.filter(x=>!x.case_id || x.case_id!==cur).forEach(x=>{
+      const label = kind==='draft' ? (x.title||x.story_id) : (x.title||x.original_filename||x.id);
+      const o=document.createElement('option'); o.value=x.id; o.textContent=label.slice(0,60); sel.appendChild(o);
+    });
+  }catch(e){}
+}
+async function doLink(kind){ const sel=$('#linkSel'); const id=sel&&sel.value; if(!id){ toast('Pick one to link','error'); return; }
+  try{ const r=await fetch(`/api/cases/${FOLDER.case.id}/link`,{method:'POST',headers:H(true),body:JSON.stringify({artifact_type:kind,artifact_id:id})});
+    if(!r.ok) throw new Error((await r.json()).detail||'link failed'); toast('Filed under this matter','success'); openFolder(FOLDER.case.id);
+  }catch(e){ toast(e.message,'error'); }
+}
+async function refreshDate(id){ toast('Checking source…');
+  try{ const r=await fetch(`/api/cases/${id}/refresh-next-date`,{method:'POST',headers:H()}); const d=await r.json();
+    toast(d.ok?'Next date refreshed':(d.reason||'nothing to refresh')); await loadAll(); if(FOLDER) openFolder(id);
+  }catch(e){ toast(e.message,'error'); }
+}
+
+/* ---- ingestion stubs (wired in the next build) ---- */
+function openPhoto(){ toast('Diary-photo import ships in the next build — Add by CNR works now.'); }
+$('#importBtn')&&$('#importBtn').addEventListener('click',()=>toast('Bar-ID auto-import ships with the live key — pulls the whole docket at once.'));
+$('#importBtn2')&&$('#importBtn2').addEventListener('click',()=>toast('Bar-ID auto-import ships with the live key — pulls the whole docket at once.'));
+
+/* ---- boot ---- */
+async function loadAll(){
+  try{ const r=await fetch('/api/cases',{headers:H()}); CASES=(await r.json()).items||[]; }
+  catch(e){ toast('Could not load matters','error'); CASES=[]; }
+  await loadDiary(weekAnchor);
+  if(curView==='list') render(); else if(curView==='folder'&&FOLDER) {/* keep */} else renderDiary();
+}
+loadAll();
 </script>
 </body>
 </html>

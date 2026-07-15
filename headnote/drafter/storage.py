@@ -46,6 +46,12 @@ def _init_schema(conn: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_drafts_story  ON drafts(story_id);
         CREATE INDEX IF NOT EXISTS idx_drafts_updated ON drafts(updated_at DESC);
     """)
+    # Additive migration: link a draft to a case folder (nullable). SQLite has no
+    # ADD COLUMN IF NOT EXISTS, so guard on the live column set.
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(drafts)")}
+    if "case_id" not in cols:
+        conn.execute("ALTER TABLE drafts ADD COLUMN case_id TEXT")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_drafts_case ON drafts(case_id)")
     conn.commit()
 
 
@@ -78,6 +84,7 @@ class Draft:
     updated_at: Optional[str] = None
     exported_at: Optional[str] = None
     exported_format: Optional[str] = None
+    case_id: Optional[str] = None
 
     @staticmethod
     def _row_to(d) -> "Draft":
@@ -86,6 +93,7 @@ class Draft:
             lang=d[4], answers=json.loads(d[5] or "{}"),
             title=d[6], created_at=d[7], updated_at=d[8],
             exported_at=d[9], exported_format=d[10],
+            case_id=d[11] if len(d) > 11 else None,
         )
 
     def to_dict(self) -> dict:
@@ -101,6 +109,7 @@ class Draft:
             "updated_at": self.updated_at,
             "exported_at": self.exported_at,
             "exported_format": self.exported_format,
+            "case_id": self.case_id,
         }
 
 
@@ -112,22 +121,23 @@ def create_draft(
     lang: str = "en",
     answers: Optional[dict] = None,
     title: Optional[str] = None,
+    case_id: Optional[str] = None,
 ) -> Draft:
     now = datetime.now(timezone.utc).isoformat()
     draft_id = uuid.uuid4().hex
     answers_json = json.dumps(answers or {}, ensure_ascii=False)
     with _conn() as c:
         c.execute(
-            "INSERT INTO drafts (id, user_id, story_id, template_version, lang, answers_json, title, created_at, updated_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (draft_id, user_id, story_id, template_version, lang, answers_json, title, now, now),
+            "INSERT INTO drafts (id, user_id, story_id, template_version, lang, answers_json, title, created_at, updated_at, case_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (draft_id, user_id, story_id, template_version, lang, answers_json, title, now, now, case_id),
         )
         c.commit()
     return Draft(
         id=draft_id, user_id=user_id, story_id=story_id,
         template_version=template_version, lang=lang,
         answers=answers or {}, title=title,
-        created_at=now, updated_at=now,
+        created_at=now, updated_at=now, case_id=case_id,
     )
 
 
@@ -135,7 +145,7 @@ def get_draft(draft_id: str) -> Optional[Draft]:
     with _conn() as c:
         row = c.execute(
             "SELECT id, user_id, story_id, template_version, lang, answers_json, "
-            "title, created_at, updated_at, exported_at, exported_format "
+            "title, created_at, updated_at, exported_at, exported_format, case_id "
             "FROM drafts WHERE id = ?",
             (draft_id,),
         ).fetchone()
@@ -177,27 +187,40 @@ def update_draft(
     return existing
 
 
-def list_drafts(*, user_id: Optional[str] = None, limit: int = 20) -> list[Draft]:
+_SELECT_COLS = ("id, user_id, story_id, template_version, lang, answers_json, "
+                "title, created_at, updated_at, exported_at, exported_format, case_id")
+
+
+def list_drafts(*, user_id: Optional[str] = None, limit: int = 20,
+                case_id: Optional[str] = None) -> list[Draft]:
     """Return the user's recent drafts (most-recently-updated first).
-    Pass user_id=None to list anonymous drafts (development only)."""
+    Pass user_id=None to list anonymous drafts (development only).
+    Pass case_id to return only drafts filed under that matter."""
+    where = ["user_id IS NULL"] if user_id is None else ["user_id = ?"]
+    params: list = [] if user_id is None else [user_id]
+    if case_id is not None:
+        where.append("case_id = ?")
+        params.append(case_id)
+    params.append(limit)
     with _conn() as c:
-        if user_id is None:
-            rows = c.execute(
-                "SELECT id, user_id, story_id, template_version, lang, answers_json, "
-                "title, created_at, updated_at, exported_at, exported_format "
-                "FROM drafts WHERE user_id IS NULL "
-                "ORDER BY updated_at DESC LIMIT ?",
-                (limit,),
-            ).fetchall()
-        else:
-            rows = c.execute(
-                "SELECT id, user_id, story_id, template_version, lang, answers_json, "
-                "title, created_at, updated_at, exported_at, exported_format "
-                "FROM drafts WHERE user_id = ? "
-                "ORDER BY updated_at DESC LIMIT ?",
-                (user_id, limit),
-            ).fetchall()
+        rows = c.execute(
+            f"SELECT {_SELECT_COLS} FROM drafts WHERE {' AND '.join(where)} "
+            "ORDER BY updated_at DESC LIMIT ?",
+            tuple(params),
+        ).fetchall()
     return [Draft._row_to(r) for r in rows]
+
+
+def set_draft_case(draft_id: str, *, case_id: Optional[str], user_id: Optional[str]) -> bool:
+    """Attach (or, with case_id=None, detach) a draft to a case folder.
+    Ownership-scoped: only the owning user can re-file their draft."""
+    with _conn() as c:
+        cur = c.execute(
+            "UPDATE drafts SET case_id = ? WHERE id = ? AND user_id IS ?",
+            (case_id, draft_id, user_id),
+        )
+        c.commit()
+    return cur.rowcount > 0
 
 
 def delete_draft(draft_id: str) -> bool:

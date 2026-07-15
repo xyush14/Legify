@@ -37,7 +37,7 @@ from headnote.retrieval.embeddings import EMBED_DIM, embed_texts
 
 
 _COLS = ("id, user_id, title, doc_type, original_filename, mime, page_count, "
-         "full_text, metadata_json, created_at, updated_at")
+         "full_text, metadata_json, created_at, updated_at, case_id")
 
 # Chunking for semantic search: ~600 chars per window with light overlap so a
 # phrase straddling a boundary still lands inside one chunk.
@@ -62,6 +62,7 @@ def _init_schema(conn: sqlite3.Connection) -> None:
         );
         CREATE INDEX IF NOT EXISTS idx_docs_user    ON documents(user_id);
         CREATE INDEX IF NOT EXISTS idx_docs_updated ON documents(updated_at DESC);
+        -- case_id added below via a guarded ALTER (additive, nullable).
 
         -- Keyword index. Standalone (not external-content) FTS5: we mirror rows
         -- in/out by hand so there are no triggers to keep in sync across the
@@ -96,6 +97,11 @@ def _init_schema(conn: sqlite3.Connection) -> None:
         );
         CREATE INDEX IF NOT EXISTS idx_pages_doc ON document_pages(doc_id);
     """)
+    # Additive migration: link a document to a case folder (nullable).
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(documents)")}
+    if "case_id" not in cols:
+        conn.execute("ALTER TABLE documents ADD COLUMN case_id TEXT")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_docs_case ON documents(case_id)")
     conn.commit()
 
 
@@ -127,6 +133,7 @@ def _row(r) -> Optional[dict]:
         "original_filename": r[4], "mime": r[5], "page_count": r[6],
         "full_text": r[7], "metadata": json.loads(r[8] or "{}"),
         "created_at": r[9], "updated_at": r[10],
+        "case_id": r[11] if len(r) > 11 else None,
     }
 
 
@@ -200,7 +207,8 @@ def add_document(*, user_id: Optional[str], title: str, full_text: str,
                  original_filename: Optional[str] = None,
                  mime: Optional[str] = None,
                  pages: Optional[list[tuple[bytes, str]]] = None,
-                 metadata: Optional[dict] = None) -> Optional[dict]:
+                 metadata: Optional[dict] = None,
+                 case_id: Optional[str] = None) -> Optional[dict]:
     """Store an OCR'd document + its page images + keyword/semantic indexes.
 
     `pages` is the list of display images [(bytes, mime), …] — the original
@@ -216,10 +224,10 @@ def add_document(*, user_id: Optional[str], title: str, full_text: str,
         c.execute(
             """INSERT INTO documents
                  (id, user_id, title, doc_type, original_filename, mime,
-                  page_count, full_text, metadata_json, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                  page_count, full_text, metadata_json, created_at, updated_at, case_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (did, user_id, title, doc_type, original_filename, mime,
-             page_count, full_text, meta, now, now),
+             page_count, full_text, meta, now, now, case_id),
         )
         c.execute(
             "INSERT INTO documents_fts (doc_id, title, body) VALUES (?, ?, ?)",
@@ -279,12 +287,19 @@ def get_document(doc_id: str, *, user_id: Optional[str]) -> Optional[dict]:
     return _row(row)
 
 
-def list_documents(*, user_id: Optional[str], limit: int = 200) -> list[dict]:
+def list_documents(*, user_id: Optional[str], limit: int = 200,
+                   case_id: Optional[str] = None) -> list[dict]:
+    where = "user_id IS ?"
+    params: list = [user_id]
+    if case_id is not None:
+        where += " AND case_id = ?"
+        params.append(case_id)
+    params.append(limit)
     with _conn() as c:
         rows = c.execute(
-            f"SELECT {_COLS} FROM documents WHERE user_id IS ? "
+            f"SELECT {_COLS} FROM documents WHERE {where} "
             "ORDER BY updated_at DESC LIMIT ?",
-            (user_id, limit),
+            tuple(params),
         ).fetchall()
     # Trim full_text in list view — the card only needs a preview.
     out = []
@@ -295,6 +310,17 @@ def list_documents(*, user_id: Optional[str], limit: int = 200) -> list[dict]:
             del d["full_text"]
             out.append(d)
     return out
+
+
+def set_document_case(doc_id: str, *, case_id: Optional[str], user_id: Optional[str]) -> bool:
+    """Attach (or detach, with case_id=None) a document to a case folder."""
+    with _conn() as c:
+        cur = c.execute(
+            "UPDATE documents SET case_id = ? WHERE id = ? AND user_id IS ?",
+            (case_id, doc_id, user_id),
+        )
+        c.commit()
+    return cur.rowcount > 0
 
 
 def delete_document(doc_id: str, *, user_id: Optional[str]) -> bool:
