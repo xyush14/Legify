@@ -221,6 +221,7 @@
 
       <!-- ============ DIARY ============ -->
       <section class="view on" id="viewDiary">
+        <input type="file" id="diaryFile" accept="image/*,application/pdf" capture="environment" style="display:none" />
 
         <!-- lawyer-centric onboarding: fetch the whole docket by Bar number -->
         <div class="case-card" id="enrollCard" style="display:none;margin-bottom:18px;padding:18px 20px">
@@ -411,8 +412,7 @@ function renderBoard(){
   $('#board').innerHTML=items.map((c,i)=>lrow(c,i)).join('');
 }
 function lrow(c,i){
-  const cj=c.case_json||{}, cl=cj.client||{}, sug=(c.suggested||[]);
-  const story=(sug[0]||{story_id:'bail'}).story_id;
+  const cj=c.case_json||{}, cl=cj.client||{};
   const meta=[c.case_number?esc(c.case_number)+'/'+esc(c.case_year||''):null, shortCourt(c.court_name||cj.court_name), (cj.sections||[]).join(', '), c.stage].filter(Boolean);
   const call = cl.mobile ? `<a class="iconbtn" title="Call ${esc(cl.name||'')}" href="tel:${esc(cl.mobile)}">${CALL}</a>` : '';
   return `<div class="lrow" id="row${i}">
@@ -424,7 +424,6 @@ function lrow(c,i){
     </div>
     <div class="lrow__right">
       ${call}
-      <button class="iconbtn" title="Draft for this matter" onclick="draftFor('${c.id}','${story}')">${DRAFT}</button>
       <button class="iconbtn" title="Open case folder" onclick="openFolder('${c.id}')">${OPEN}</button>
       <button class="btn-log" onclick="toggleLog(${i})">Log hearing</button>
     </div>
@@ -449,8 +448,7 @@ $('#dfilter')&&$('#dfilter').addEventListener('input',renderBoard);
 
 /* ========================= ALL MATTERS ========================= */
 function card(c){
-  const cj=c.case_json||{}, cl=cj.client||{}, sug=c.suggested||[];
-  const primary=sug[0]||{story_id:'bail',label:'Bail'}, other=sug[1]||{story_id:'discharge',label:'Discharge'};
+  const cj=c.case_json||{}, cl=cj.client||{};
   const court=shortCourt(c.court_name||cj.court_name||'');
   const meta=[`<span>${esc(c.cnr)}</span>`]; if(court) meta.push(`<span class="hi">${esc(court)}</span>`);
   if(c.case_number) meta.push(`<span>${esc(c.case_number)}/${esc(c.case_year||'')}</span>`);
@@ -469,11 +467,10 @@ function card(c){
     <div class="m__foot" onclick="event.stopPropagation()">
       <div class="m__client">${client}</div>
       <div class="m__act">
-        <button class="btn btn--primary" title="${esc(primary.reason||'')}" onclick="draftFor('${c.id}','${primary.story_id}')">Draft ${esc(primary.label)}</button>
+        <button class="btn" onclick="openFolder('${c.id}')">Open</button>
         <button class="kebab" onclick="toggleMenu('${c.id}',event)" aria-label="more">⋯</button>
         <div class="menu" id="menu-${c.id}">
           <button onclick="openFolder('${c.id}')">Open folder</button>
-          <button onclick="draftFor('${c.id}','${other.story_id}')">Draft ${esc(other.label)}</button>
           <button onclick="editClient('${c.id}')">${cl.name?'Edit':'Add'} client</button>
           <button class="danger" onclick="removeCase('${c.id}')">Remove matter</button>
         </div>
@@ -519,7 +516,6 @@ function renderFolder(){
         ${c.next_hearing_date?`<div class="nx"><b>${esc(c.next_hearing_date)}</b><span>next hearing</span></div>`:''}
         <div class="fhead__acts" style="justify-content:flex-end;margin-top:10px">
           <button class="star ${isPinned(c.id)?'on':''}" title="Pin to top" onclick="togglePin('${c.id}',event)" style="width:34px;height:34px;border:1px solid var(--line);border-radius:6px;display:inline-flex;align-items:center;justify-content:center">${STAR}</button>
-          ${sug[0]?`<button class="btn btn--primary" onclick="draftFor('${c.id}','${sug[0].story_id}')">Draft ${esc(sug[0].label)}</button>`:''}
           <button class="kebab" onclick="toggleMenu('f',event)">⋯</button>
           <div class="menu" id="menu-f">
             <button onclick="refreshDate('${c.id}')">Refresh next date</button>
@@ -542,13 +538,11 @@ function renderPane(){
       ['Address',cl.address],['Mobile',cl.mobile],['Petitioner',cj.petitioner_name],['Respondent',cj.respondent_name],
       ['Police station',cj.police_station],['FIR',cj.fir_number],['Sections',(cj.sections||[]).join(', ')],
       ['Prior court',cj.prior_court]].filter(x=>x[1]);
-    const sug=c.suggested||[];
     el.innerHTML=`
       <div class="info"><h3>Client</h3>${cl.name?'':'<p style="color:var(--ink-3);font-size:13px;margin:0 0 10px">No client details yet.</p>'}
         <dl class="kv">${parties.map(([k,v])=>`<dt>${esc(k)}</dt><dd class="hi">${esc(v)}</dd>`).join('')||'<dd>—</dd>'}</dl>
         <div class="linkrow"><button class="btn" onclick="editClient('${c.id}')">${cl.name?'Edit client details':'Add client details'}</button></div>
       </div>
-      ${sug.length?`<div class="info"><h3>Suggested next draft</h3><div class="sugbtns">${sug.map(s=>`<button class="btn${s.primary?' btn--primary':''}" title="${esc(s.reason||'')}" onclick="draftFor('${c.id}','${s.story_id}')">Draft ${esc(s.label)}</button>`).join('')}</div></div>`:''}
       ${f.hearing_logs.length?`<div class="info"><h3>Hearing history</h3><div class="tl">${f.hearing_logs.map(h=>`<div class="tl__i"><div class="tl__d">${esc(h.hearing_date||h.created_at.slice(0,10))}${h.next_hearing_date?' → next '+esc(h.next_hearing_date):''}</div><div class="tl__w">${esc(h.what_happened||'—')}</div></div>`).join('')}</div></div>`:''}
     `;
   } else if(folderTab==='recordings'){
@@ -642,17 +636,42 @@ function candToggle(i,v){ if(CANDS[i]) CANDS[i]._sel=v; updateConfirmCount(); }
 function candSelectAll(v){ CANDS.forEach(c=>c._sel=v); renderCandidates(); }
 function updateConfirmCount(){ const n=CANDS.filter(c=>c._sel).length; $('#confirmBtn').textContent=`Add ${n} selected`; }
 async function confirmSelected(){
-  const cnrs=CANDS.filter(c=>c._sel).map(c=>c.cnr);
-  if(!cnrs.length){ toast('Tick the cases that are yours','error'); return; }
+  const sel=CANDS.filter(c=>c._sel);
+  if(!sel.length){ toast('Tick the cases that are yours','error'); return; }
   const b=$('#confirmBtn'); b.disabled=true; b.textContent='Adding…';
   try{
-    const r=await fetch('/api/cases/import/advocate/confirm',{method:'POST',headers:H(true),body:JSON.stringify({cnrs})});
-    const d=await r.json(); if(!r.ok) throw new Error(d.detail||'add failed');
+    let d;
+    if(sel.some(c=>c._diary)){
+      const rows=sel.map(c=>({client:c.client,case_no:c.case_no,court:c.court,next_date:c.next_date}));
+      const r=await fetch('/api/cases/import/diary-confirm',{method:'POST',headers:H(true),body:JSON.stringify({rows})});
+      d=await r.json(); if(!r.ok) throw new Error(d.detail||'add failed');
+    } else {
+      const cnrs=sel.map(c=>c.cnr);
+      const r=await fetch('/api/cases/import/advocate/confirm',{method:'POST',headers:H(true),body:JSON.stringify({cnrs})});
+      d=await r.json(); if(!r.ok) throw new Error(d.detail||'add failed');
+    }
     toast(`Added ${d.imported} case(s) to your diary`,'success'); closeEnroll(); await loadAll();
   }catch(e){ toast(e.message,'error'); } finally{ b.disabled=false; updateConfirmCount(); }
 }
 $('#candFilter')&&$('#candFilter').addEventListener('input',renderCandidates);
-function openPhoto(){ toast('Diary-photo import is next — for now, find by name or add one by CNR.'); }
+function openPhoto(){ const el=$('#diaryFile'); if(el){ el.value=''; el.click(); } }
+$('#diaryFile')&&$('#diaryFile').addEventListener('change', async (e)=>{
+  const f=e.target.files&&e.target.files[0]; if(!f) return;
+  toast('Reading your diary photo…');
+  const fd=new FormData(); fd.append('file',f);
+  try{
+    const r=await fetch('/api/cases/import/diary-photo',{method:'POST',headers:H(),body:fd});
+    const d=await r.json(); if(!r.ok) throw new Error(d.detail||'read failed');
+    if(!(d.rows||[]).length){ toast("Couldn't read case rows — try a clearer photo",'error'); return; }
+    $('#enrollCard').style.display='block';
+    CANDS=d.rows.map(row=>({_diary:true,_sel:true,cnr:null,
+      case_title:row.client||row.case_no, case_number:row.case_no, court_name:row.court,
+      next_hearing_date:row.next_date, sections:[], advocates:[],
+      client:row.client, case_no:row.case_no, court:row.court, next_date:row.next_date}));
+    renderCandidates(); $('#candWrap').style.display='block'; window.scrollTo(0,0);
+    toast(`Read ${CANDS.length} case(s) — tick the ones to add`,'success');
+  }catch(e){ toast(e.message,'error'); }
+});
 $('#importBtn')&&$('#importBtn').addEventListener('click',openEnroll);
 
 /* ---- global search (by client / party / case no.) ---- */

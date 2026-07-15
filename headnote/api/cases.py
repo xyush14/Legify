@@ -23,7 +23,7 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
 from headnote.entitlements import CurrentUser, get_current_user
@@ -230,6 +230,91 @@ def advocate_confirm(body: AdvocateConfirmBody,
                 case = ecourts_client.fetch_cnr(cnr)
             except Exception:  # noqa: BLE001
                 continue
+        row = cases_storage.add_case(user_id=user.id, case=case)
+        if row:
+            stored.append(_diary_item(row))
+    return {"ok": True, "imported": len(stored), "items": stored}
+
+
+_DIARY_OCR_PROMPT = (
+    "You are reading a page from an Indian advocate's court diary / cause list. "
+    "Each line is usually one case. Extract EVERY case row you can see. "
+    "Return ONLY a JSON array, no prose, each item like: "
+    '{"client":"party or client name","case_no":"case number/year","court":"court or judge","next_date":"date if written, else empty"}. '
+    "Preserve the original script (Hindi/English) for names. If a field is not present, use an empty string. "
+    "Do not invent rows or fields."
+)
+
+
+@router.post("/import/diary-photo",
+             summary="OCR a photo of the paper diary/cause-list into case rows (candidates)")
+async def import_diary_photo(file: UploadFile = File(...),
+                            user: CurrentUser = Depends(get_current_user)) -> dict:
+    """Read a diary-page photo → parsed rows for the lawyer to review + confirm.
+    Nothing is stored here. Reuses the Groq vision OCR (same as the document vault)."""
+    from headnote.drafter.ocr import ocr_text_pages, _rasterize_pdfs
+    from headnote.drafter import office
+    import json as _json, re as _re
+
+    entries = [(await file.read(), file.content_type or "", file.filename or "diary")]
+    try:
+        media_pages, _office = office.collect_uploads(entries, max_bytes=20 * 1024 * 1024)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    pages: list = []
+    for data, mt in media_pages:
+        pages.extend(_rasterize_pdfs([(data, mt)]) if mt == "application/pdf" else [(data, mt)])
+    if not pages:
+        raise HTTPException(status_code=400, detail="no readable image in the upload")
+    try:
+        raw = ocr_text_pages(pages, prompt=_DIARY_OCR_PROMPT)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"OCR failed: {e}")
+
+    # pull the JSON array out of the model's response
+    txt = (raw or "").strip()
+    m = _re.search(r"\[.*\]", txt, _re.S)
+    rows = []
+    if m:
+        try:
+            parsed = _json.loads(m.group(0))
+            for r in parsed if isinstance(parsed, list) else []:
+                if isinstance(r, dict) and (r.get("client") or r.get("case_no")):
+                    rows.append({"client": (r.get("client") or "").strip(),
+                                 "case_no": (r.get("case_no") or "").strip(),
+                                 "court": (r.get("court") or "").strip(),
+                                 "next_date": (r.get("next_date") or "").strip()})
+        except Exception:  # noqa: BLE001
+            pass
+    return {"count": len(rows), "rows": rows}
+
+
+class DiaryConfirmBody(BaseModel):
+    rows: list[dict] = Field(..., description="reviewed diary rows to save")
+
+
+@router.post("/import/diary-confirm", summary="Save reviewed diary-photo rows as matters")
+def import_diary_confirm(body: DiaryConfirmBody,
+                         user: CurrentUser = Depends(get_current_user)) -> dict:
+    import hashlib
+    stored = []
+    for r in body.rows:
+        client = (r.get("client") or "").strip()
+        case_no = (r.get("case_no") or "").strip()
+        if not (client or case_no):
+            continue
+        # no CNR from a photo → deterministic pseudo-key so re-import updates in place
+        key = hashlib.md5(f"{user.id}|{client}|{case_no}|{r.get('court','')}".encode()).hexdigest()[:12]
+        case = {
+            "cnr": "DY" + key.upper(),
+            "source": "diary",
+            "case_title": client or case_no,
+            "case_number": case_no, "case_year": "",
+            "court_name": (r.get("court") or "").strip(),
+            "next_hearing_date": (r.get("next_date") or "").strip(),
+            "sections": [],
+            "client": {"name": client} if client else {},
+        }
         row = cases_storage.add_case(user_id=user.id, case=case)
         if row:
             stored.append(_diary_item(row))
