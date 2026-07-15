@@ -172,6 +172,7 @@ def import_by_advocate(body: AdvocateImportBody,
 
 class AdvocateSearchBody(BaseModel):
     advocate_name: str = Field(..., min_length=1, max_length=120)
+    city:          str = Field("", max_length=80, description="City/district to scope (e.g. Gwalior)")
     court_code:    str = Field("", max_length=60)
     state:         str = Field("", max_length=60)
 
@@ -195,7 +196,8 @@ def advocate_search(body: AdvocateSearchBody,
     is saved here — same-name strangers are filtered out at the confirm step."""
     try:
         cases = ecourts_client.import_by_advocate(
-            "", advocate_name=body.advocate_name, state=body.state, court_code=body.court_code)
+            "", advocate_name=body.advocate_name, state=body.state,
+            court_code=body.court_code, city=body.city)
     except Exception as e:  # noqa: BLE001
         log.warning("advocate search failed for %s: %s", body.advocate_name, e)
         raise HTTPException(status_code=502, detail=f"search failed: {e}")

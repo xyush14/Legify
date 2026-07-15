@@ -235,39 +235,72 @@ def _normalise_webapi(row: dict, cnr: str = "") -> dict:
 
 
 # ------------------------------------------------------------ advocate import
-def import_by_advocate(enrolment_number: str = "", *, advocate_name: str = "",
-                       state: str = "", court_code: str = "") -> list[dict]:
-    """The lawyer-centric onboarding: given a Bar enrolment number (or name),
-    return the advocate's whole case list as normalised case dicts.
+# Lazy-loaded court directory (code → description), used to resolve a typed
+# city ("Gwalior") to the vendor's court codes so lawyers never see raw codes.
+_COURT_INDEX = None
 
-    Mock mode returns a realistic multi-case docket (spread across the diary week)
-    so the enrollment flow is fully demoable with no key. Live mode calls the
-    vendor's advocate-search endpoint; ``_normalise_advocate_list`` is the only
-    place to tune per vendor."""
-    # The vendor indexes advocate NAME (full-text), not Bar number — prefer name.
-    name = advocate_name or enrolment_number
+
+def _court_index() -> list:
+    global _COURT_INDEX
+    if _COURT_INDEX is None:
+        try:
+            url = config.CNR_API_BASE_URL.rstrip("/") + "/api/partner/enums"
+            r = httpx.get(url, params={"types": "courtCode"}, headers=_headers(), timeout=30.0)
+            data = (r.json() or {}).get("data") or {}
+            _COURT_INDEX = data.get("enums", {}).get("courtCode", []) or []
+        except Exception:  # noqa: BLE001 — non-fatal; fall back to unscoped search
+            _COURT_INDEX = []
+    return _COURT_INDEX
+
+
+def resolve_city_to_courts(city: str, *, limit: int = 15) -> list[str]:
+    """Map a typed city/district name → the vendor court codes whose description
+    contains it (district, family, HC bench, etc.). Over-matching is fine — the
+    lawyer ticks the right cases at confirm."""
+    city = (city or "").strip().lower()
+    if not city:
+        return []
+    out = []
+    for e in _court_index():
+        if city in str(e.get("description", "")).lower():
+            out.append(e.get("code"))
+            if len(out) >= limit:
+                break
+    return out
+
+
+def import_by_advocate(enrolment_number: str = "", *, advocate_name: str = "",
+                       state: str = "", court_code: str = "", city: str = "") -> list[dict]:
+    """The lawyer-centric onboarding: given an advocate name (+ optional city or
+    court code), return the advocate's PENDING case list as normalised dicts.
+
+    Mock mode returns a realistic docket so the flow is demoable with no key. Live
+    mode resolves the city → court codes and calls the vendor advocate search."""
+    name = advocate_name or enrolment_number   # vendor indexes NAME, not Bar no.
     if config.CNR_API_MODE == "live":
         if not config.CNR_API_TOKEN:
             raise RuntimeError("CNR_API_MODE=live but CNR_API_TOKEN is not set")
-        return _import_by_advocate_live(name, state=state, court_code=court_code)
+        codes = [court_code] if court_code else (resolve_city_to_courts(city) if city else [])
+        return _import_by_advocate_live(name, court_codes=codes, state=state)
     return _import_by_advocate_mock(name or "DEMO")
 
 
-def _import_by_advocate_live(name: str, *, state: str = "", court_code: str = "",
+def _import_by_advocate_live(name: str, *, court_codes: list = None, state: str = "",
                              max_pages: int = 4, page_size: int = 50) -> list[dict]:
     """GET /api/partner/search?Advocates=<name>&CaseStatuses=PENDING&… — the
-    advocate's PENDING matters (the live diary). Name-based (the vendor indexes
-    advocate NAME, not Bar number); a court/state scope keeps it precise. Pages
-    until exhausted or max_pages (avoids pulling a whole disposed history)."""
+    advocate's PENDING matters (the live diary). Name-based; a court scope keeps
+    it precise. Multiple courts are passed as REPEATED CourtCodes params (the
+    vendor ignores comma-separated). Pages until exhausted or max_pages."""
     url = config.CNR_API_BASE_URL.rstrip("/") + config.CNR_API_ADVOCATE_PATH
+    court_codes = [c for c in (court_codes or []) if c]
     out: list[dict] = []
     for page in range(1, max_pages + 1):
-        params = {"Advocates": name, "CaseStatuses": "PENDING",
-                  "Page": page, "PageSize": page_size}
-        if court_code:
-            params["CourtCodes"] = court_code
+        params = [("Advocates", name), ("CaseStatuses", "PENDING"),
+                  ("Page", page), ("PageSize", page_size)]
+        for c in court_codes:
+            params.append(("CourtCodes", c))
         if state:
-            params["StateCodes"] = state
+            params.append(("StateCodes", state))
         r = httpx.get(url, params=params, headers=_headers(), timeout=40.0)
         if r.status_code != 200:
             raise ValueError(f"vendor {r.status_code} at {r.url}: {r.text[:300]}")

@@ -229,7 +229,7 @@
           <div style="font-size:13px;color:var(--ink-2);line-height:1.55;margin-bottom:14px">Enter your name <b>exactly as it appears on the cause list</b> — we pull every pending case you're on record in and build your diary. (eCourts indexes advocates by name; add a court code to narrow it.)</div>
           <div class="pgrid">
             <div class="fld"><label>Advocate name (as on record)</label><input id="i_advname" class="input" placeholder="e.g. Vishnu Sharma" autocomplete="off" /></div>
-            <div class="fld"><label>Court code — optional, narrows it</label><input id="i_court" class="input mono" placeholder="e.g. MPHC01" /></div>
+            <div class="fld"><label>City / district — optional, narrows it</label><input id="i_court" class="input" placeholder="e.g. Gwalior" /></div>
           </div>
           <div class="panel-foot">
             <button class="btn" onclick="closeEnroll()">Later</button>
@@ -607,7 +607,7 @@ async function searchAdvocate(){
   const b=$('#enrolBtn'); b.disabled=true; b.textContent='Searching…';
   try{
     const r=await fetch('/api/cases/import/advocate/search',{method:'POST',headers:H(true),
-      body:JSON.stringify({advocate_name:name, court_code:$('#i_court').value.trim()})});
+      body:JSON.stringify({advocate_name:name, city:$('#i_court').value.trim()})});
     const d=await r.json(); if(!r.ok) throw new Error(d.detail||'search failed');
     CANDS=(d.candidates||[]).map(c=>({...c,_sel:true}));
     renderCandidates(); $('#candWrap').style.display=CANDS.length?'block':'none';
