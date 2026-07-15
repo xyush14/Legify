@@ -138,6 +138,56 @@ def diary_day(date: str, user: CurrentUser = Depends(get_current_user)) -> dict:
     return {"date": target, "count": len(items), "items": items}
 
 
+class AdvocateImportBody(BaseModel):
+    enrolment_number: str = Field("", max_length=60, description="Bar enrolment/registration number, e.g. MP/1234/2010")
+    advocate_name:    str = Field("", max_length=120, description="Fallback if no enrolment number")
+    state:            str = Field("", max_length=60)
+    court_code:       str = Field("", max_length=60)
+
+
+@router.post("/import/advocate",
+             summary="Import a lawyer's whole case list by Bar enrolment number (lawyer-centric onboarding)")
+def import_by_advocate(body: AdvocateImportBody,
+                       user: CurrentUser = Depends(get_current_user)) -> dict:
+    if not (body.enrolment_number or body.advocate_name):
+        raise HTTPException(status_code=400, detail="Give a Bar enrolment number or advocate name")
+    try:
+        cases = ecourts_client.import_by_advocate(
+            body.enrolment_number, advocate_name=body.advocate_name,
+            state=body.state, court_code=body.court_code,
+        )
+    except Exception as e:  # noqa: BLE001 — network / vendor errors
+        log.warning("advocate import failed for %s: %s", body.enrolment_number, e)
+        raise HTTPException(status_code=502, detail=f"advocate import failed: {e}")
+
+    stored = []
+    for case in cases:
+        if not case.get("cnr"):
+            continue
+        row = cases_storage.add_case(user_id=user.id, case=case)
+        if row:
+            stored.append(_diary_item(row))
+    return {"ok": True, "imported": len(stored), "items": stored}
+
+
+@router.get("/_probe", summary="[temporary] raw vendor probe to lock the live shape")
+def probe(key: str, path: str = "", cnr: str = "", enrolment: str = "",
+          user: CurrentUser = Depends(get_current_user)) -> dict:
+    """Fire one raw GET at the vendor (auth + browser UA) and return status +
+    body snippet, so we can capture the real response shape from prod. Gated by
+    CNR_API_PROBE_KEY; removed once the mapping is locked."""
+    from headnote import config as _cfg
+    if not _cfg.CNR_API_PROBE_KEY or key != _cfg.CNR_API_PROBE_KEY:
+        raise HTTPException(status_code=403, detail="probe disabled")
+    target = path or _cfg.CNR_API_ADVOCATE_PATH
+    params = {}
+    if cnr:
+        params["cnr"] = cnr
+    if enrolment:
+        params.update({"bar_number": enrolment, "enrolment_number": enrolment, "advocate": enrolment})
+    return ecourts_client.probe_raw(target, params)
+
+
 @router.get("/{case_id}", summary="Get one matter (full payload + suggestions)")
 def get_case(case_id: str, user: CurrentUser = Depends(get_current_user)) -> dict:
     row = cases_storage.get_case(case_id, user_id=user.id)

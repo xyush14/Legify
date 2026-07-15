@@ -327,6 +327,22 @@ SUPABASE_SERVICE_ROLE_KEY: Optional[str] = os.environ.get("SUPABASE_SERVICE_ROLE
 CNR_API_TOKEN: Optional[str] = os.environ.get("CNR_API_TOKEN")
 CNR_API_BASE_URL: str = os.environ.get("CNR_API_BASE_URL", "https://ecourtsindia.com")
 CNR_API_CASE_PATH: str = os.environ.get("CNR_API_CASE_PATH", "/api/v1/case-detail")
+# Advocate-wise search: enrollment/Bar number OR advocate name → the lawyer's
+# whole case list (the lawyer-centric onboarding). Per-court on the official
+# portal; the aggregator exposes it as one call. Path is env-overridable so we
+# can lock it against the live vendor without a code change.
+CNR_API_ADVOCATE_PATH: str = os.environ.get("CNR_API_ADVOCATE_PATH", "/api/v1/advocate-cases")
+CNR_API_CAUSELIST_PATH: str = os.environ.get("CNR_API_CAUSELIST_PATH", "/api/v1/cause-list")
+# The vendor sits behind Cloudflare — a request with no browser User-Agent gets
+# a 403 "request blocked" on every path. Send a real UA or live mode is dead.
+CNR_API_USER_AGENT: str = os.environ.get(
+    "CNR_API_USER_AGENT",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+)
+# Secret that gates the temporary raw-probe endpoint (used once to capture the
+# live response shape from prod, then removed). Unset = probe disabled.
+CNR_API_PROBE_KEY: Optional[str] = os.environ.get("CNR_API_PROBE_KEY")
 # "mock" (no network, realistic fixture) | "live" (call the vendor). Defaults to
 # live when a token is set, else mock — so local dev "just works" with no key.
 CNR_API_MODE: str = (

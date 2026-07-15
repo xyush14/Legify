@@ -201,6 +201,21 @@
 
       <!-- ============ DIARY ============ -->
       <section class="view on" id="viewDiary">
+
+        <!-- lawyer-centric onboarding: fetch the whole docket by Bar number -->
+        <div class="case-card" id="enrollCard" style="display:none;margin-bottom:18px;padding:18px 20px">
+          <div style="font-size:15px;font-weight:600;letter-spacing:-.01em;margin-bottom:4px">Bring in your whole cause list</div>
+          <div style="font-size:13px;color:var(--ink-2);line-height:1.55;margin-bottom:14px">Enter your Bar enrolment number — we pull every case you're on record in and build your diary. After that, hearing dates update themselves.</div>
+          <div class="pgrid">
+            <div class="fld"><label>Bar enrolment number</label><input id="i_enrol" class="input mono" placeholder="MP/1234/2010" autocomplete="off" /></div>
+            <div class="fld"><label>State &amp; court (optional, narrows the search)</label><input id="i_state" class="input" placeholder="e.g. Gwalior District Court, MP" /></div>
+          </div>
+          <div class="panel-foot">
+            <button class="btn" onclick="$('#enrollCard').style.display='none'">Later</button>
+            <button class="btn btn--primary" id="enrolBtn" onclick="importByAdvocate()">Fetch my cases</button>
+          </div>
+        </div>
+
         <div class="stats" id="stats"></div>
         <div class="datenav">
           <button class="datenav__arrow" title="Previous week" onclick="shiftWeek(-7)">‹</button>
@@ -211,9 +226,9 @@
         <div id="undatedWrap"></div>
         <div class="actbar">
           <input class="input" id="dfilter" placeholder="Search this day — client, case no. or court…" />
+          <button class="btn btn--primary" onclick="openEnroll()">Fetch my cases (Bar no.)</button>
+          <button class="btn" onclick="openAdd()">Add one by CNR</button>
           <button class="btn" onclick="openPhoto()">Add from photo</button>
-          <button class="btn" onclick="openAdd()">Add by CNR</button>
-          <button class="btn" id="importBtn2">Import by Bar ID</button>
         </div>
         <div class="ledger" id="board"></div>
       </section>
@@ -228,7 +243,7 @@
         <div class="results" id="rows"></div>
         <div class="empty" id="empty" style="display:none">
           <h2>No matters yet</h2>
-          <p>Add a case by its CNR and it becomes a one-click, pre-filled draft. <a href="#" onclick="openAdd();return false" style="border-bottom:1px solid var(--line)">Add one</a>.</p>
+          <p>Fetch your whole cause list with your Bar number, or add one case by CNR. <a href="#" onclick="switchView('diary');openEnroll();return false" style="border-bottom:1px solid var(--line)">Fetch my cases</a>.</p>
         </div>
       </section>
 
@@ -327,6 +342,8 @@ function shiftWeek(delta){ const d=parseISO(weekAnchor); d.setDate(d.getDate()+d
   const iso=d.toISOString().slice(0,10); selDate=null; loadDiary(iso); }
 
 function renderDiary(){ if(!DIARY) return;
+  // First run — lead with the lawyer-centric onboarding.
+  if(!CASES.length) $('#enrollCard').style.display='block';
   const todayCount=(DIARY.days.find(d=>d.date===DIARY.today)||{}).count||0;
   $('#stats').innerHTML=[
     ['Today',todayCount],['This week',DIARY.total],
@@ -544,10 +561,22 @@ async function refreshDate(id){ toast('Checking source…');
   }catch(e){ toast(e.message,'error'); }
 }
 
-/* ---- ingestion stubs (wired in the next build) ---- */
-function openPhoto(){ toast('Diary-photo import ships in the next build — Add by CNR works now.'); }
-$('#importBtn')&&$('#importBtn').addEventListener('click',()=>toast('Bar-ID auto-import ships with the live key — pulls the whole docket at once.'));
-$('#importBtn2')&&$('#importBtn2').addEventListener('click',()=>toast('Bar-ID auto-import ships with the live key — pulls the whole docket at once.'));
+/* ---- lawyer-centric: import the whole docket by Bar enrolment number ---- */
+function openEnroll(){ $('#enrollCard').style.display='block'; $('#i_enrol').focus(); window.scrollTo(0,0); }
+async function importByAdvocate(){
+  const enrol=$('#i_enrol').value.trim();
+  if(!enrol){ toast('Enter your Bar enrolment number','error'); return; }
+  const b=$('#enrolBtn'); b.disabled=true; b.textContent='Fetching…';
+  try{
+    const r=await fetch('/api/cases/import/advocate',{method:'POST',headers:H(true),
+      body:JSON.stringify({enrolment_number:enrol, state:$('#i_state').value.trim()})});
+    const d=await r.json(); if(!r.ok) throw new Error(d.detail||'import failed');
+    toast(`Imported ${d.imported} case(s) into your diary`,'success');
+    $('#enrollCard').style.display='none'; await loadAll();
+  }catch(e){ toast(e.message,'error'); } finally{ b.disabled=false; b.textContent='Fetch my cases'; }
+}
+function openPhoto(){ toast('Diary-photo import is next — for now, fetch by Bar number or add one by CNR.'); }
+$('#importBtn')&&$('#importBtn').addEventListener('click',openEnroll);
 
 /* ---- boot ---- */
 async function loadAll(){

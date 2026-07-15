@@ -124,19 +124,108 @@ def fetch_cnr(cnr: str) -> dict:
 
 
 # ------------------------------------------------------------ live
-def _fetch_live(cnr: str) -> dict:
-    """Call the vendor's CASE_DETAIL endpoint. Confirm path/auth/shape against
-    https://ecourtsindia.com/api/docs on the first real call, then tune
-    ``_normalise_live``."""
-    url = config.CNR_API_BASE_URL.rstrip("/") + config.CNR_API_CASE_PATH
-    headers = {
+def _headers() -> dict:
+    """Auth + a browser User-Agent. The vendor is behind Cloudflare — WITHOUT a
+    UA every request is 403 "request blocked" (verified). This header is the
+    difference between live mode working and dead-on-arrival."""
+    return {
         "Authorization": f"Bearer {config.CNR_API_TOKEN}",
         "x-api-key": config.CNR_API_TOKEN or "",
         "Accept": "application/json",
+        "User-Agent": config.CNR_API_USER_AGENT,
     }
-    r = httpx.get(url, params={"cnr": cnr}, headers=headers, timeout=25.0)
+
+
+def _fetch_live(cnr: str) -> dict:
+    """Call the vendor's CASE_DETAIL endpoint. Confirm path/auth/shape against
+    the dashboard API Docs on the first real call, then tune ``_normalise_live``."""
+    url = config.CNR_API_BASE_URL.rstrip("/") + config.CNR_API_CASE_PATH
+    r = httpx.get(url, params={"cnr": cnr}, headers=_headers(), timeout=25.0)
     r.raise_for_status()
     return _normalise_live(r.json() or {}, cnr)
+
+
+# ------------------------------------------------------------ advocate import
+def import_by_advocate(enrolment_number: str = "", *, advocate_name: str = "",
+                       state: str = "", court_code: str = "") -> list[dict]:
+    """The lawyer-centric onboarding: given a Bar enrolment number (or name),
+    return the advocate's whole case list as normalised case dicts.
+
+    Mock mode returns a realistic multi-case docket (spread across the diary week)
+    so the enrollment flow is fully demoable with no key. Live mode calls the
+    vendor's advocate-search endpoint; ``_normalise_advocate_list`` is the only
+    place to tune per vendor."""
+    if config.CNR_API_MODE == "live":
+        if not config.CNR_API_TOKEN:
+            raise RuntimeError("CNR_API_MODE=live but CNR_API_TOKEN is not set")
+        return _import_by_advocate_live(enrolment_number or advocate_name,
+                                        state=state, court_code=court_code)
+    return _import_by_advocate_mock(enrolment_number or advocate_name or "MP/DEMO/2010")
+
+
+def _import_by_advocate_live(query: str, *, state: str = "", court_code: str = "") -> list[dict]:
+    url = config.CNR_API_BASE_URL.rstrip("/") + config.CNR_API_ADVOCATE_PATH
+    params = {"bar_number": query, "enrolment_number": query, "advocate": query}
+    if state:
+        params["state"] = state
+    if court_code:
+        params["court_code"] = court_code
+    r = httpx.get(url, params=params, headers=_headers(), timeout=30.0)
+    if r.status_code != 200:
+        # Surface the vendor's real status + body so we can lock the endpoint
+        # (their docs are WAF-blocked to our fetchers) — the error text flows to
+        # the UI toast, turning one click into a diagnostic.
+        raise ValueError(f"vendor {r.status_code} at {r.url}: {r.text[:300]}")
+    return _normalise_advocate_list(r.json() or {})
+
+
+def _normalise_advocate_list(payload: dict) -> list[dict]:
+    """Map a vendor advocate-search response → list of our normalised case dicts.
+    Vendors nest the list under different keys; be defensive. Each row is often
+    a slim case summary — enough for the diary (title/court/next date/CNR)."""
+    rows = (payload.get("data") or payload.get("cases") or payload.get("results")
+            or (payload if isinstance(payload, list) else []))
+    out: list[dict] = []
+    for row in (rows or []):
+        if not isinstance(row, dict):
+            continue
+        cnr = _first(row, "cnr", "cnr_number", "cino")
+        c = _normalise_live(row, cnr or "")
+        c["source"] = "ecourtsindia"
+        out.append(c)
+    return out
+
+
+def _import_by_advocate_mock(seed: str) -> list[dict]:
+    """A realistic 6-matter docket for one advocate, next dates spread across the
+    coming days so the diary lights up. Deterministic off the seed."""
+    from datetime import date, timedelta
+    base = sum(ord(ch) for ch in (seed or "x"))
+    today = date.today()
+    out = []
+    for i in range(6):
+        cnr = f"MPGW01{(base + i*37) % 1000000:06d}20{20 + i}"
+        c = _fetch_mock(cnr)
+        c["source"] = "mock"
+        # spread next hearing across today..+8 days (two undated to show the gap)
+        if i < 4:
+            c["next_hearing_date"] = (today + timedelta(days=i * 2)).strftime("%d/%m/%Y")
+        c["raw"]["_advocate_seed"] = seed
+        out.append(c)
+    return out
+
+
+def probe_raw(path: str, params: dict) -> dict:
+    """Temporary: fire a raw GET at the vendor (with auth + UA) and return the
+    status + a body snippet, so we can lock the real response shape from prod.
+    Not for normal use — gated behind CNR_API_PROBE_KEY at the API layer."""
+    url = config.CNR_API_BASE_URL.rstrip("/") + path
+    try:
+        r = httpx.get(url, params=params, headers=_headers(), timeout=30.0)
+        body = r.text
+        return {"url": str(r.url), "status": r.status_code, "body": body[:4000]}
+    except Exception as e:  # noqa: BLE001
+        return {"url": url, "status": None, "error": repr(e)[:500]}
 
 
 def _first(d: dict, *keys, default=None):
