@@ -170,6 +170,72 @@ def import_by_advocate(body: AdvocateImportBody,
     return {"ok": True, "imported": len(stored), "items": stored}
 
 
+class AdvocateSearchBody(BaseModel):
+    advocate_name: str = Field(..., min_length=1, max_length=120)
+    court_code:    str = Field("", max_length=60)
+    state:         str = Field("", max_length=60)
+
+
+class AdvocateConfirmBody(BaseModel):
+    cnrs: list[str] = Field(..., description="CNRs the lawyer confirmed are theirs")
+
+
+# Short-lived per-user cache of the last advocate search, so 'confirm' stores the
+# ticked cases without a second paid fetch. In-memory (single instance) with a
+# fetch_cnr fallback on miss.
+_SEARCH_CACHE: dict = {}
+
+
+@router.post("/import/advocate/search",
+             summary="Find an advocate's cases (candidates to confirm — NOT stored yet)")
+def advocate_search(body: AdvocateSearchBody,
+                    user: CurrentUser = Depends(get_current_user)) -> dict:
+    """Step 1 of the disambiguating import: return the pending cases tagged to
+    this advocate name so the lawyer can tick which are actually theirs. Nothing
+    is saved here — same-name strangers are filtered out at the confirm step."""
+    try:
+        cases = ecourts_client.import_by_advocate(
+            "", advocate_name=body.advocate_name, state=body.state, court_code=body.court_code)
+    except Exception as e:  # noqa: BLE001
+        log.warning("advocate search failed for %s: %s", body.advocate_name, e)
+        raise HTTPException(status_code=502, detail=f"search failed: {e}")
+
+    _SEARCH_CACHE[user.id] = {c["cnr"]: c for c in cases if c.get("cnr")}
+    candidates = [{
+        "cnr": c.get("cnr"),
+        "case_title": c.get("case_title"),
+        "court_name": c.get("court_name"),
+        "case_number": c.get("case_number"), "case_year": c.get("case_year"),
+        "next_hearing_date": c.get("next_hearing_date"),
+        "stage": c.get("stage"), "case_type": c.get("case_type"),
+        "sections": c.get("sections") or [],
+        "petitioner_name": c.get("petitioner_name"),
+        "respondent_name": c.get("respondent_name"),
+        # co-advocates on the case — the disambiguation signal (his cases cluster)
+        "advocates": (c.get("petitioner_advocates") or []) + (c.get("respondent_advocates") or []),
+    } for c in cases]
+    return {"count": len(candidates), "candidates": candidates}
+
+
+@router.post("/import/advocate/confirm",
+             summary="Store only the cases the lawyer confirmed are theirs")
+def advocate_confirm(body: AdvocateConfirmBody,
+                     user: CurrentUser = Depends(get_current_user)) -> dict:
+    cache = _SEARCH_CACHE.get(user.id, {})
+    stored = []
+    for cnr in body.cnrs:
+        case = cache.get(cnr)
+        if case is None:                      # cache expired → re-fetch by CNR
+            try:
+                case = ecourts_client.fetch_cnr(cnr)
+            except Exception:  # noqa: BLE001
+                continue
+        row = cases_storage.add_case(user_id=user.id, case=case)
+        if row:
+            stored.append(_diary_item(row))
+    return {"ok": True, "imported": len(stored), "items": stored}
+
+
 @router.get("/_probe", summary="[temporary] raw vendor probe to lock the live shape")
 def probe(key: str, path: str = "", cnr: str = "", enrolment: str = "",
           user: CurrentUser = Depends(get_current_user)) -> dict:

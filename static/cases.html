@@ -142,6 +142,25 @@
   .tl__d{font-family:'Geist Mono',monospace;font-size:11px;color:var(--ink-3);}
   .tl__w{font-size:13px;margin-top:2px;}
   .sugbtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
+  /* refined: labels, global search, pinned, recents, candidate list */
+  .lbl2{font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-3);margin:20px 0 9px;}
+  .gsearch{position:relative;margin-bottom:8px;}
+  .gsearch .input{width:100%;padding:11px 13px 11px 38px;border-radius:11px;}
+  .gsearch .gi{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--ink-3);pointer-events:none;}
+  .gsresults{position:absolute;top:46px;left:0;right:0;background:var(--surface);border:1px solid var(--line);border-radius:11px;box-shadow:var(--shadow-lift);z-index:60;display:none;overflow:hidden;}
+  .gsitem{padding:10px 14px;cursor:pointer;display:flex;gap:8px;align-items:baseline;border-bottom:1px solid var(--line-2);}
+  .gsitem:last-child{border-bottom:0;} .gsitem:hover{background:var(--soft);}
+  .pinrow{display:flex;gap:8px;flex-wrap:wrap;}
+  .pinchip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:7px 11px;font-size:12.5px;cursor:pointer;}
+  .pinchip:hover{border-color:var(--ink-3);}
+  .star{background:none;border:0;cursor:pointer;color:var(--ink-3);padding:2px;line-height:0;}
+  .star.on{color:#b0791f;}
+  .star svg{width:16px;height:16px;}
+  .recent{display:flex;align-items:center;gap:9px;font-size:13px;padding:6px 2px;cursor:pointer;}
+  .recent:hover{color:var(--ink);} .recent .rz{margin-left:auto;font-family:'Geist Mono',monospace;font-size:11px;color:var(--ink-3);}
+  .cand{display:flex;gap:10px;align-items:flex-start;padding:10px 4px;border-bottom:1px solid var(--line-2);cursor:pointer;}
+  .cand:last-child{border-bottom:0;}
+  .cand input{margin-top:3px;flex:0 0 auto;}
 </style>
 </head>
 <body class="auth-ready">
@@ -211,10 +230,30 @@
             <div class="fld"><label>Court code — optional, narrows it</label><input id="i_court" class="input mono" placeholder="e.g. MPHC01" /></div>
           </div>
           <div class="panel-foot">
-            <button class="btn" onclick="$('#enrollCard').style.display='none'">Later</button>
-            <button class="btn btn--primary" id="enrolBtn" onclick="importByAdvocate()">Fetch my cases</button>
+            <button class="btn" onclick="closeEnroll()">Later</button>
+            <button class="btn btn--primary" id="enrolBtn" onclick="searchAdvocate()">Find my cases</button>
+          </div>
+          <div id="candWrap" style="display:none;margin-top:16px;border-top:1px solid var(--line-2);padding-top:14px">
+            <div style="font-size:13px;color:var(--ink-2);line-height:1.5;margin-bottom:10px">Tick the cases that are actually yours — same-name matters from other advocates just leave unticked. You do this once; after that we track them by case number.</div>
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+              <input id="candFilter" class="input" placeholder="Filter — type a client you recognise" style="flex:1">
+              <button class="btn" onclick="candSelectAll(true)">Select all</button>
+              <button class="btn" onclick="candSelectAll(false)">None</button>
+            </div>
+            <div id="candList" style="max-height:360px;overflow:auto"></div>
+            <div class="panel-foot">
+              <button class="btn" onclick="closeEnroll()">Cancel</button>
+              <button class="btn btn--primary" id="confirmBtn" onclick="confirmSelected()">Add selected</button>
+            </div>
           </div>
         </div>
+
+        <div class="gsearch">
+          <svg class="gi" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>
+          <input id="gsearch" class="input" placeholder="Find any matter — client, party or case no." autocomplete="off" />
+          <div class="gsresults" id="gsResults"></div>
+        </div>
+        <div id="pinnedWrap"></div>
 
         <div class="stats" id="stats"></div>
         <div class="datenav">
@@ -231,6 +270,7 @@
           <button class="btn" onclick="openPhoto()">Add from photo</button>
         </div>
         <div class="ledger" id="board"></div>
+        <div id="recentsWrap"></div>
       </section>
 
       <!-- ============ ALL MATTERS ============ -->
@@ -356,7 +396,7 @@ function renderDiary(){ if(!DIARY) return;
       <div class="week__cnt">${d.count||'—'}</div></div>`; }).join('');
   $('#undatedWrap').innerHTML = DIARY.undated.length
     ? `<div class="undated-pill${selDate==='__undated'?' sel':''}" onclick="pickDay('__undated')">⚑ ${DIARY.undated.length} matter(s) with no next date — set one</div>` : '';
-  renderBoard();
+  renderPins(); renderRecents(); renderBoard();
 }
 function pickDay(d){ selDate=d; renderDiary(); }
 function dayItems(){ if(selDate==='__undated') return DIARY.undated;
@@ -450,7 +490,7 @@ function render(){
 $('#filter').addEventListener('input',render);
 
 /* ========================= FOLDER ========================= */
-async function openFolder(id){ switchViewToFolder();
+async function openFolder(id){ switchViewToFolder(); pushRecent(id);
   $('#viewFolder').innerHTML='<div class="paneempty" style="border:0">Loading folder…</div>';
   try{ const r=await fetch(`/api/cases/${id}/folder`,{headers:H()}); if(!r.ok) throw new Error('not found');
     FOLDER=await r.json(); folderTab='facts'; renderFolder();
@@ -477,6 +517,7 @@ function renderFolder(){
       <div style="text-align:right">
         ${c.next_hearing_date?`<div class="nx"><b>${esc(c.next_hearing_date)}</b><span>next hearing</span></div>`:''}
         <div class="fhead__acts" style="justify-content:flex-end;margin-top:10px">
+          <button class="star ${isPinned(c.id)?'on':''}" title="Pin to top" onclick="togglePin('${c.id}',event)" style="width:34px;height:34px;border:1px solid var(--line);border-radius:6px;display:inline-flex;align-items:center;justify-content:center">${STAR}</button>
           ${sug[0]?`<button class="btn btn--primary" onclick="draftFor('${c.id}','${sug[0].story_id}')">Draft ${esc(sug[0].label)}</button>`:''}
           <button class="kebab" onclick="toggleMenu('f',event)">⋯</button>
           <div class="menu" id="menu-f">
@@ -561,22 +602,89 @@ async function refreshDate(id){ toast('Checking source…');
   }catch(e){ toast(e.message,'error'); }
 }
 
-/* ---- lawyer-centric: import the whole docket by Bar enrolment number ---- */
-function openEnroll(){ $('#enrollCard').style.display='block'; $('#i_advname').focus(); window.scrollTo(0,0); }
-async function importByAdvocate(){
+/* ---- onboarding: find advocate's cases → tick which are yours → confirm ---- */
+let CANDS=[];
+function openEnroll(){ $('#enrollCard').style.display='block'; $('#candWrap').style.display='none'; CANDS=[]; $('#i_advname').focus(); window.scrollTo(0,0); }
+function closeEnroll(){ $('#enrollCard').style.display='none'; $('#candWrap').style.display='none'; CANDS=[]; }
+async function searchAdvocate(){
   const name=$('#i_advname').value.trim();
   if(!name){ toast('Enter the advocate name (as on the cause list)','error'); return; }
-  const b=$('#enrolBtn'); b.disabled=true; b.textContent='Fetching…';
+  const b=$('#enrolBtn'); b.disabled=true; b.textContent='Searching…';
   try{
-    const r=await fetch('/api/cases/import/advocate',{method:'POST',headers:H(true),
+    const r=await fetch('/api/cases/import/advocate/search',{method:'POST',headers:H(true),
       body:JSON.stringify({advocate_name:name, court_code:$('#i_court').value.trim()})});
-    const d=await r.json(); if(!r.ok) throw new Error(d.detail||'import failed');
-    toast(`Imported ${d.imported} case(s) into your diary`,'success');
-    $('#enrollCard').style.display='none'; await loadAll();
-  }catch(e){ toast(e.message,'error'); } finally{ b.disabled=false; b.textContent='Fetch my cases'; }
+    const d=await r.json(); if(!r.ok) throw new Error(d.detail||'search failed');
+    CANDS=(d.candidates||[]).map(c=>({...c,_sel:true}));
+    renderCandidates(); $('#candWrap').style.display=CANDS.length?'block':'none';
+    if(!CANDS.length) toast('No pending cases for that name/court — check spelling or drop the court code','error');
+  }catch(e){ toast(e.message,'error'); } finally{ b.disabled=false; b.textContent='Find my cases'; }
 }
-function openPhoto(){ toast('Diary-photo import is next — for now, fetch by Bar number or add one by CNR.'); }
+function renderCandidates(){
+  const q=($('#candFilter').value||'').toLowerCase().trim();
+  const rows=CANDS.map((c,i)=>({c,i})).filter(({c})=>!q||JSON.stringify(c).toLowerCase().includes(q));
+  $('#candList').innerHTML=rows.map(({c,i})=>{
+    const meta=[c.case_number?c.case_number+'/'+(c.case_year||''):null, shortCourt(c.court_name), (c.sections||[]).join(', '), c.stage].filter(Boolean).join(' · ');
+    const adv=(c.advocates||[]).slice(0,3).join(', ');
+    return `<label class="cand">
+      <input type="checkbox" ${c._sel?'checked':''} onchange="candToggle(${i},this.checked)">
+      <div style="min-width:0;flex:1">
+        <div class="hi" style="font-size:13.5px;font-weight:600">${esc(c.case_title||c.cnr)}</div>
+        <div class="mono" style="font-size:11px;color:var(--ink-3);margin-top:2px">${esc(meta)}</div>
+        ${adv?`<div class="mono" style="font-size:10.5px;color:var(--ink-3);margin-top:2px">adv: ${esc(adv)}</div>`:''}
+      </div>
+      ${c.next_hearing_date?`<span class="mono" style="font-size:11px;color:var(--ink-2);white-space:nowrap">${esc(c.next_hearing_date)}</span>`:''}
+    </label>`;
+  }).join('') || '<div style="color:var(--ink-3);font-size:13px;padding:12px 4px">No match in this list.</div>';
+  updateConfirmCount();
+}
+function candToggle(i,v){ if(CANDS[i]) CANDS[i]._sel=v; updateConfirmCount(); }
+function candSelectAll(v){ CANDS.forEach(c=>c._sel=v); renderCandidates(); }
+function updateConfirmCount(){ const n=CANDS.filter(c=>c._sel).length; $('#confirmBtn').textContent=`Add ${n} selected`; }
+async function confirmSelected(){
+  const cnrs=CANDS.filter(c=>c._sel).map(c=>c.cnr);
+  if(!cnrs.length){ toast('Tick the cases that are yours','error'); return; }
+  const b=$('#confirmBtn'); b.disabled=true; b.textContent='Adding…';
+  try{
+    const r=await fetch('/api/cases/import/advocate/confirm',{method:'POST',headers:H(true),body:JSON.stringify({cnrs})});
+    const d=await r.json(); if(!r.ok) throw new Error(d.detail||'add failed');
+    toast(`Added ${d.imported} case(s) to your diary`,'success'); closeEnroll(); await loadAll();
+  }catch(e){ toast(e.message,'error'); } finally{ b.disabled=false; updateConfirmCount(); }
+}
+$('#candFilter')&&$('#candFilter').addEventListener('input',renderCandidates);
+function openPhoto(){ toast('Diary-photo import is next — for now, find by name or add one by CNR.'); }
 $('#importBtn')&&$('#importBtn').addEventListener('click',openEnroll);
+
+/* ---- global search (by client / party / case no.) ---- */
+function globalSearch(){
+  const q=($('#gsearch').value||'').toLowerCase().trim(), box=$('#gsResults');
+  if(!q){ box.style.display='none'; return; }
+  const hits=CASES.filter(c=>JSON.stringify(c).toLowerCase().includes(q)).slice(0,8);
+  box.innerHTML = hits.length
+    ? hits.map(c=>`<div class="gsitem" onmousedown="openFolder('${c.id}')"><span class="hi" style="font-weight:600">${esc(partyName(c))}</span><span class="mono" style="color:var(--ink-3);font-size:11px">${esc(c.cnr)}${c.next_hearing_date?' · '+esc(c.next_hearing_date):''}</span></div>`).join('')
+    : '<div class="gsitem" style="color:var(--ink-3)">No matter matches that.</div>';
+  box.style.display='block';
+}
+$('#gsearch')&&$('#gsearch').addEventListener('input',globalSearch);
+$('#gsearch')&&$('#gsearch').addEventListener('blur',()=>setTimeout(()=>{const b=$('#gsResults'); if(b) b.style.display='none';},160));
+
+/* ---- pinned + recents (client-side, per browser) ---- */
+function getPins(){ try{ return JSON.parse(localStorage.getItem('hn_pins')||'[]'); }catch(e){ return []; } }
+function togglePin(id,ev){ if(ev) ev.stopPropagation(); let p=getPins(); p = p.includes(id)? p.filter(x=>x!==id) : [id,...p].slice(0,12); localStorage.setItem('hn_pins',JSON.stringify(p));
+  if(FOLDER&&FOLDER.case.id===id) renderFolder(); else renderDiary(); }
+function isPinned(id){ return getPins().includes(id); }
+function getRecents(){ try{ return JSON.parse(localStorage.getItem('hn_recents')||'[]'); }catch(e){ return []; } }
+function pushRecent(id){ let r=getRecents().filter(x=>x!==id); r.unshift(id); localStorage.setItem('hn_recents',JSON.stringify(r.slice(0,8))); }
+const STAR=`<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M12 2l3 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.9 21l1.2-6.8-5-4.9 6.9-1z"/></svg>`;
+function renderPins(){
+  const pins=getPins().map(id=>CASES.find(c=>c.id===id)).filter(Boolean);
+  $('#pinnedWrap').innerHTML = pins.length
+    ? `<div class="lbl2">Pinned</div><div class="pinrow">${pins.map(c=>`<span class="pinchip" onclick="openFolder('${c.id}')"><button class="star on" title="Unpin" onclick="togglePin('${c.id}',event)">${STAR}</button><span class="hi">${esc(partyName(c))}</span></span>`).join('')}</div>` : '';
+}
+function renderRecents(){
+  const rec=getRecents().map(id=>CASES.find(c=>c.id===id)).filter(Boolean).slice(0,5);
+  $('#recentsWrap').innerHTML = rec.length
+    ? `<div class="lbl2">Recently opened</div>${rec.map(c=>`<div class="recent" onclick="openFolder('${c.id}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="hi">${esc(partyName(c))}</span>${c.next_hearing_date?`<span class="rz">${esc(c.next_hearing_date)}</span>`:''}</div>`).join('')}` : '';
+}
 
 /* ---- boot ---- */
 async function loadAll(){
