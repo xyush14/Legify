@@ -156,6 +156,16 @@ def list_cases(*, user_id: Optional[str], limit: int = 100) -> list[dict]:
     return [_row(r) for r in rows]
 
 
+def delete_all_cases(*, user_id: Optional[str]) -> int:
+    """Wipe every matter + hearing log for a user. Used by the testing-mode reset
+    so the onboarding flow restarts clean on each refresh."""
+    with _conn() as c:
+        cur = c.execute("DELETE FROM cases WHERE user_id IS ?", (user_id,))
+        c.execute("DELETE FROM hearing_logs WHERE user_id IS ?", (user_id,))
+        c.commit()
+    return cur.rowcount
+
+
 def delete_case(case_id: str, *, user_id: Optional[str]) -> bool:
     with _conn() as c:
         cur = c.execute(

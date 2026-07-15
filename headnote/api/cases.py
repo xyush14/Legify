@@ -236,6 +236,14 @@ def advocate_confirm(body: AdvocateConfirmBody,
     return {"ok": True, "imported": len(stored), "items": stored}
 
 
+@router.post("/_reset", summary="[testing] wipe this user's matters so the flow restarts fresh")
+def reset_cases(user: CurrentUser = Depends(get_current_user)) -> dict:
+    """Testing-mode only: clears the signed-in user's matters + hearing logs so a
+    page refresh restarts the onboarding flow from empty. Remove before GA."""
+    n = cases_storage.delete_all_cases(user_id=user.id)
+    return {"ok": True, "cleared": n}
+
+
 @router.get("/_probe", summary="[temporary] raw vendor probe to lock the live shape")
 def probe(key: str, path: str = "", cnr: str = "", enrolment: str = "",
           user: CurrentUser = Depends(get_current_user)) -> dict:

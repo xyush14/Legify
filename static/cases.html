@@ -192,6 +192,7 @@
         <button class="on" data-v="diary" onclick="switchView('diary')">Diary</button>
         <button data-v="list" onclick="switchView('list')">All matters</button>
       </div>
+      <div class="mono" style="font-size:10px;letter-spacing:.06em;color:var(--ink-3);margin:-12px 0 16px">testing mode · your matters reset every time you refresh</div>
 
       <!-- add / edit panel (shared) -->
       <div class="case-card panel" id="panel">
@@ -693,7 +694,16 @@ async function loadAll(){
   await loadDiary(weekAnchor);
   if(curView==='list') render(); else if(curView==='folder'&&FOLDER) {/* keep */} else renderDiary();
 }
-loadAll();
+
+/* TESTING MODE: wipe matters + pins/recents on every page load so the onboarding
+   flow starts fresh on each refresh. Remove this block (call loadAll directly)
+   before going live. */
+async function boot(){
+  try{ await fetch('/api/cases/_reset',{method:'POST',headers:H()}); }catch(e){}
+  try{ localStorage.removeItem('hn_pins'); localStorage.removeItem('hn_recents'); }catch(e){}
+  await loadAll();
+}
+boot();
 </script>
 </body>
 </html>
