@@ -161,6 +161,19 @@
   .cand{display:flex;gap:10px;align-items:flex-start;padding:10px 4px;border-bottom:1px solid var(--line-2);cursor:pointer;}
   .cand:last-child{border-bottom:0;}
   .cand input{margin-top:3px;flex:0 0 auto;}
+  /* register (diary) view */
+  .regrow{display:grid;grid-template-columns:28px minmax(0,1fr) 84px 96px 84px auto;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line-2);}
+  .regrow:last-child{border-bottom:0;}
+  .reghead{background:#fbfbf8;font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);}
+  .lrow.regrow:hover{background:#fbfbf8;}
+  .rc-mono{font-family:'Geist Mono',monospace;font-size:11.5px;color:var(--ink-2);min-width:0;overflow:hidden;text-overflow:ellipsis;}
+  .rc-title{min-width:0;cursor:pointer;}
+  .rc-title:hover .rc-name{text-decoration:underline;text-underline-offset:2px;}
+  .rc-name{font-size:14px;font-weight:600;letter-spacing:-.01em;}
+  @media(max-width:640px){
+    .regrow{grid-template-columns:24px minmax(0,1fr) 70px auto;gap:8px;}
+    .reg-hidem{display:none;}
+  }
 </style>
 </head>
 <body class="auth-ready">
@@ -409,23 +422,29 @@ function renderBoard(){
   let items=dayItems();
   if(q) items=items.filter(c=>JSON.stringify(c).toLowerCase().includes(q));
   if(!items.length){ $('#board').innerHTML=`<div class="paneempty" style="border:0">Nothing listed for ${selDate==='__undated'?'undated matters':fmtDay(selDate||DIARY.today)}.</div>`; return; }
-  $('#board').innerHTML=items.map((c,i)=>lrow(c,i)).join('');
+  $('#board').innerHTML=REGHEAD + items.map((c,i)=>lrow(c,i)).join('');
 }
+const REGHEAD=`<div class="regrow reghead"><div>#</div><div>शीर्षक · title</div><div class="reg-hidem">न्याया.</div><div class="reg-hidem">प्र. क्र.</div><div>आगे दि.</div><div></div></div>`;
 function lrow(c,i){
   const cj=c.case_json||{}, cl=cj.client||{};
-  const meta=[c.case_number?esc(c.case_number)+'/'+esc(c.case_year||''):null, shortCourt(c.court_name||cj.court_name), (cj.sections||[]).join(', '), c.stage].filter(Boolean);
+  const court=shortCourt(c.court_name||cj.court_name)||'—';
+  const cno=c.case_number?esc(c.case_number)+(c.case_year?'/'+esc(c.case_year):''):'—';
+  const title=partyName(c);
+  const sub=[ (c.case_title&&c.case_title!==title)?c.case_title:null, (cj.sections||[]).join(', '), c.stage ].filter(Boolean).join(' · ');
   const call = cl.mobile ? `<a class="iconbtn" title="Call ${esc(cl.name||'')}" href="tel:${esc(cl.mobile)}">${CALL}</a>` : '';
-  return `<div class="lrow" id="row${i}">
+  return `<div class="lrow regrow" id="row${i}">
     <div class="lrow__sl">${String(i+1).padStart(2,'0')}</div>
-    <div class="lrow__main">
-      <div class="lrow__name hi" onclick="openFolder('${c.id}')">${esc(partyName(c))}${cl.role?`<span class="tag">${esc(cl.role)}</span>`:''}</div>
-      ${c.case_title?`<div class="lrow__cite hi">${esc(c.case_title)}</div>`:''}
-      <div class="lrow__meta hi">${esc(meta.join(' · '))}</div>
+    <div class="rc-title" onclick="openFolder('${c.id}')">
+      <div class="rc-name hi">${esc(title)}${cl.role?` <span class="tag">${esc(cl.role)}</span>`:''}</div>
+      ${sub?`<div class="hi" style="font-size:11px;color:var(--ink-3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(sub)}</div>`:''}
     </div>
-    <div class="lrow__right">
+    <div class="rc-mono hi reg-hidem">${esc(court)}</div>
+    <div class="rc-mono reg-hidem">${cno}</div>
+    <div class="rc-mono">${c.next_hearing_date?esc(c.next_hearing_date):'—'}</div>
+    <div class="lrow__right" style="justify-content:flex-end">
       ${call}
       <button class="iconbtn" title="Open case folder" onclick="openFolder('${c.id}')">${OPEN}</button>
-      <button class="btn-log" onclick="toggleLog(${i})">Log hearing</button>
+      <button class="btn-log" onclick="toggleLog(${i})">Log</button>
     </div>
     <div class="log" id="log${i}">
       <div class="fld fld--grow"><label>What happened today</label><input class="input" id="lw${i}" placeholder="e.g. witness examined, statement recorded"></div>
@@ -642,7 +661,7 @@ async function confirmSelected(){
   try{
     let d;
     if(sel.some(c=>c._diary)){
-      const rows=sel.map(c=>({client:c.client,case_no:c.case_no,court:c.court,next_date:c.next_date}));
+      const rows=sel.map(c=>({client:c.client,case_no:c.case_no,court:c.court,title:c.title,last_date:c.last_date,next_date:c.next_date}));
       const r=await fetch('/api/cases/import/diary-confirm',{method:'POST',headers:H(true),body:JSON.stringify({rows})});
       d=await r.json(); if(!r.ok) throw new Error(d.detail||'add failed');
     } else {
@@ -665,9 +684,9 @@ $('#diaryFile')&&$('#diaryFile').addEventListener('change', async (e)=>{
     if(!(d.rows||[]).length){ toast("Couldn't read case rows — try a clearer photo",'error'); return; }
     $('#enrollCard').style.display='block';
     CANDS=d.rows.map(row=>({_diary:true,_sel:true,cnr:null,
-      case_title:row.client||row.case_no, case_number:row.case_no, court_name:row.court,
+      case_title:row.title||row.client||row.case_no, case_number:row.case_no, court_name:row.court,
       next_hearing_date:row.next_date, sections:[], advocates:[],
-      client:row.client, case_no:row.case_no, court:row.court, next_date:row.next_date}));
+      client:row.client, case_no:row.case_no, court:row.court, title:row.title, last_date:row.last_date, next_date:row.next_date}));
     renderCandidates(); $('#candWrap').style.display='block'; window.scrollTo(0,0);
     toast(`Read ${CANDS.length} case(s) — tick the ones to add`,'success');
   }catch(e){ toast(e.message,'error'); }

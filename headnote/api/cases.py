@@ -239,12 +239,22 @@ def advocate_confirm(body: AdvocateConfirmBody,
 
 
 _DIARY_OCR_PROMPT = (
-    "You are reading a page from an Indian advocate's court diary / cause list. "
-    "Each line is usually one case. Extract EVERY case row you can see. "
-    "Return ONLY a JSON array, no prose, each item like: "
-    '{"client":"party or client name","case_no":"case number/year","court":"court or judge","next_date":"date if written, else empty"}. '
-    "Preserve the original script (Hindi/English) for names. If a field is not present, use an empty string. "
-    "Do not invent rows or fields."
+    "You are reading one page of an Indian advocate's handwritten court diary "
+    "(म.प्र. जिला न्यायालय 'विधि वार्षिकी' cause-list register). It is a ruled table. "
+    "The printed column headers, LEFT to RIGHT, are:\n"
+    "1. गत दि. — the PREVIOUS hearing date\n"
+    "2. न्याया. — the court number / judge\n"
+    "3. प्र. क्र. (प्रकरण क्रमांक) — the CASE NUMBER, e.g. '5677/24', '33CH/25', '223/22'\n"
+    "4. शीर्षक — the CAUSE TITLE / parties, usually 'State <section> <name>' e.g. 'State 297 Vedprakash Tiwari'\n"
+    "5. कार्यवाही / आगे दि. — the stage/proceeding and the NEXT hearing date\n"
+    "The far-LEFT margin often has the lawyer's short nickname for the client (e.g. 'Rgub', 'Swati', 'GM').\n"
+    "Read EVERY row, top to bottom, including the right-hand 'अतिरिक्त पृष्ठ' (additional) column if present. "
+    "Return ONLY a JSON array (no prose). Each item exactly: "
+    '{"client":"<margin nickname, else the non-State party name>","case_no":"<प्र.क्र.>",'
+    '"court":"<न्याया. court/judge>","title":"<शीर्षक cause title>",'
+    '"last_date":"<गत दि.>","next_date":"<कार्यवाही/आगे दि.>"}. '
+    "Preserve the original script (Hindi/English) for names. Use an empty string for any blank cell. "
+    "Do not invent rows or values you cannot see."
 )
 
 
@@ -281,10 +291,12 @@ async def import_diary_photo(file: UploadFile = File(...),
         try:
             parsed = _json.loads(m.group(0))
             for r in parsed if isinstance(parsed, list) else []:
-                if isinstance(r, dict) and (r.get("client") or r.get("case_no")):
+                if isinstance(r, dict) and (r.get("client") or r.get("case_no") or r.get("title")):
                     rows.append({"client": (r.get("client") or "").strip(),
                                  "case_no": (r.get("case_no") or "").strip(),
                                  "court": (r.get("court") or "").strip(),
+                                 "title": (r.get("title") or "").strip(),
+                                 "last_date": (r.get("last_date") or "").strip(),
                                  "next_date": (r.get("next_date") or "").strip()})
         except Exception:  # noqa: BLE001
             pass
@@ -306,14 +318,16 @@ def import_diary_confirm(body: DiaryConfirmBody,
         if not (client or case_no):
             continue
         # no CNR from a photo → deterministic pseudo-key so re-import updates in place
+        title = (r.get("title") or "").strip()
         key = hashlib.md5(f"{user.id}|{client}|{case_no}|{r.get('court','')}".encode()).hexdigest()[:12]
         case = {
             "cnr": "DY" + key.upper(),
             "source": "diary",
-            "case_title": client or case_no,
+            "case_title": title or client or case_no,
             "case_number": case_no, "case_year": "",
             "court_name": (r.get("court") or "").strip(),
             "next_hearing_date": (r.get("next_date") or "").strip(),
+            "last_listed_date": (r.get("last_date") or "").strip(),
             "sections": [],
             "client": {"name": client} if client else {},
         }
