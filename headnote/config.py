@@ -131,6 +131,18 @@ DRAFTER_AUTHOR_MODEL = os.environ.get("DRAFTER_AUTHOR_MODEL", "claude-sonnet-4-6
 # that surfaced as "1 case returned" or "0 cases" downstream.
 MAX_TOKENS = int(os.environ.get("MAX_TOKENS", "6000"))
 
+# --- Gemini (Matters-diary handwriting vision OCR) ---------------------------
+# A photographed handwritten cause-list page (म.प्र. विधि वार्षिकी) is a ruled table
+# whose columns collapse into one run-on line when OCR'd to flat text — which is
+# exactly why the earlier Sarvam-DI-text → parse path mis-slotted court/case/party.
+# Gemini Flash reads the image directly (columns preserved) and returns structured
+# rows in one vision call: cheaper AND more accurate on Devanagari handwriting. When
+# GEMINI_API_KEY is unset, diary OCR falls back to Sarvam + DeepSeek automatically.
+GEMINI_API_KEY: Optional[str] = (
+    os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+)
+GEMINI_VISION_MODEL: str = os.environ.get("GEMINI_VISION_MODEL", "gemini-2.0-flash")
+
 
 # ----------------------------------------------------------------- IK / retrieval
 

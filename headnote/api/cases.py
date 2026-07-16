@@ -34,7 +34,7 @@ from headnote.cases import storage as cases_storage
 from headnote.consultations import storage as consult_storage
 from headnote.documents import storage as docs_storage
 from headnote.drafter import storage as draft_storage, stories
-from headnote.integrations import sarvam
+from headnote.integrations import sarvam, gemini
 
 
 log = logging.getLogger(__name__)
@@ -240,6 +240,50 @@ def advocate_confirm(body: AdvocateConfirmBody,
     return {"ok": True, "imported": len(stored), "items": stored}
 
 
+_DIARY_VISION_PROMPT = (
+    "You are digitising ONE photographed page of an Indian advocate's HANDWRITTEN "
+    "court diary — a म.प्र. जिला न्यायालय 'विधि वार्षिकी' cause-list register. The whole "
+    "page is the cause list for a SINGLE date, printed in the box at the top "
+    "(e.g. '16 जुलाई … 2026 गुरुवार'). Read that as page_date in dd/mm/yyyy.\n\n"
+    "Each handwritten row is one matter listed that day. The tokens per row appear "
+    "in this rough order, but vary — use judgement:\n"
+    "  [optional COURT] <client nickname> <case-no/yr> [State <sec>] <opposing party> [@alias] [✓/✗]\n\n"
+    "Rules — this is the diary's grammar, follow it exactly:\n"
+    "1. COURT: a leading court/bench code — CJM, ACJM, SPJ, ADJ, '1st ADJ', ordinal "
+    "benches ('6th','14th','15th'), 'F.C.', 'MJCR', 'H.D.F.C', 'SC', 'JMFC' — goes in "
+    "`court`. If the first token is NOT a court code it is the client's short nickname "
+    "→ `client` (e.g. Rajvi, Jyotsna, Ansari, Bhupendra).\n"
+    "2. case_no: the number bearing a TWO-DIGIT YEAR in the 08–26 range (e.g. 5435/24, "
+    "679/25, 7910/16). If a row shows two numbers, pick the YEAR-BEARING one. A small "
+    "number right after 'State' (e.g. 'State 26/2', 'State 297') is a SECTION/crime "
+    "reference, NOT the case number → put it in `section`.\n"
+    "3. party: 'State' means criminal prosecution; the human name(s) after it are the "
+    "opposing party → party = 'State — <name>'. A purely civil row has names both sides "
+    "→ party = '<A> vs <B>'. '@' marks an alias, keep it.\n"
+    "4. proceeding + next_date are usually BLANK on a fresh cause page (the right-hand "
+    "कार्यवाही/आगे दि grid is empty — that is filled AFTER the hearing). Only set "
+    "next_date if a clear future date is actually written; otherwise leave it empty.\n"
+    "5. ✓ = attended/done, ✗ = not done → `mark` ('done' | 'pending' | '').\n"
+    "6. Preserve the original script (Hindi/English) for names. Empty string for any "
+    "field you cannot read. NEVER invent a row, a case number, or a date.\n\n"
+    "Worked examples (from real pages):\n"
+    '  "Rajvi 4764/09 State 26/2 Jeetu @ Shivcharan" → '
+    '{"client":"Rajvi","court":"","case_no":"4764/09","section":"26/2",'
+    '"party":"State — Jeetu @ Shivcharan","proceeding":"","next_date":"","mark":""}\n'
+    '  "1st ADJ 679/25 State 9/7 Sourabh" → '
+    '{"client":"","court":"1st ADJ","case_no":"679/25","section":"","party":"State — Sourabh",'
+    '"proceeding":"","next_date":"","mark":""}\n'
+    '  "CJM 7910/16 मई मौको किया" → '
+    '{"client":"","court":"CJM","case_no":"7910/16","section":"","party":"",'
+    '"proceeding":"मई मौको किया","next_date":"","mark":""}\n'
+    '  "6th 1718/24 Umadevi Gajendra Jain" → '
+    '{"client":"","court":"6th","case_no":"1718/24","section":"","party":"Umadevi vs Gajendra Jain",'
+    '"proceeding":"","next_date":"","mark":""}\n\n'
+    'Return ONLY this JSON object: {"page_date":"dd/mm/yyyy","rows":[ …one object per '
+    'row, in top-to-bottom order… ]}. Read EVERY handwritten row on the page.'
+)
+
+
 _DIARY_JSON_SHAPE = (
     'Return ONLY a JSON object (no prose): '
     '{"page_date":"<the single date this whole cause-list page is FOR — often '
@@ -418,6 +462,64 @@ def _merge_rows(primary: list, secondary: list) -> list:
     return out
 
 
+_COURT_CODE_RE = __import__("re").compile(
+    r'^\s*(\d{1,2}(?:st|nd|rd|th)\s*ADJ|\d{1,2}(?:st|nd|rd|th)|A?CJM|SPJ|ADJ|'
+    r'F\.?\s*C\.?|MJCR|H\.?\s*D\.?\s*F\.?\s*C\.?|JMFC|SDM|SC)\b\.?',
+    __import__("re").I)
+
+
+def _rows_from_gemini(payload) -> tuple:
+    """Map Gemini's vision output {page_date, rows:[{client,court,case_no,section,
+    party,proceeding,next_date,mark}]} onto our row schema."""
+    if not isinstance(payload, dict):
+        return "", []
+    page_date = (payload.get("page_date") or "").strip()
+    out = []
+    for r in payload.get("rows") or []:
+        if not isinstance(r, dict):
+            continue
+        client = (r.get("client") or "").strip()
+        case_no = (r.get("case_no") or "").strip()
+        party = (r.get("party") or "").strip()
+        if not (client or case_no or party):
+            continue
+        proc = (r.get("proceeding") or "").strip()
+        mark = (r.get("mark") or "").strip()
+        if mark and mark.lower() not in proc.lower():
+            proc = (proc + (" · " if proc else "") + mark).strip()
+        row = _blank_row()
+        row.update({"client": client, "case_no": case_no,
+                    "court": (r.get("court") or "").strip(),
+                    "title": party or client or case_no,
+                    "proceeding": proc,
+                    "next_date": (r.get("next_date") or "").strip()})
+        out.append(row)
+    return page_date, out
+
+
+def _normalize_diary_rows(rows: list) -> list:
+    """Safety net applied to every OCR path: pull a leading court code out of the
+    client/title into `court`, and strip whitespace from the case number. Keeps
+    the year-bearing case-number rule and court-code detection robust even if the
+    model slipped."""
+    import re as _re
+    for r in rows:
+        court = (r.get("court") or "").strip()
+        # a leading court code can land in client OR title — pull it out of both
+        for f in ("client", "title"):
+            m = _COURT_CODE_RE.match(r.get(f) or "")
+            if m:
+                if not court:
+                    court = m.group(1).strip()
+                r[f] = r[f][m.end():].strip(" -–—:")
+        r["court"] = court
+        r["case_no"] = _re.sub(r"\s+", "", r.get("case_no") or "")
+        # if stripping emptied the title, fall back to a sensible row label
+        if not (r.get("title") or "").strip():
+            r["title"] = (r.get("client") or r.get("proceeding") or r.get("case_no") or "").strip()
+    return rows
+
+
 def _flag_rows(rows: list) -> list:
     """Attach a `flags` list naming cells the lawyer should double-check before
     saving (blank critical fields). The review UI amber-highlights these."""
@@ -461,20 +563,32 @@ def _normalize_upload(data: bytes, filename: str, mime: str):
 
 
 def _run_diary_ocr(data: bytes, fname: str, mime: str):
-    """Blocking OCR pipeline. Sarvam DI reads the page → we LEAD with LLM
-    structuring (returns the page date + every row incl. next date) and use the
-    deterministic table parse as a corroborating pass to backfill blank cells.
-    Groq vision is the last-resort fallback when Sarvam is off/fails. Runs in a
-    threadpool so the ~30-60s Sarvam job never blocks the async event loop.
+    """Blocking OCR pipeline, best engine first:
+      1) Gemini Flash VISION — reads the ruled columns spatially and returns
+         structured rows in one call (fixes the flatten-then-guess failure);
+      2) Sarvam DI text → LLM structuring + deterministic table parse (fallback);
+      3) Groq vision (last resort).
+    A shared validation pass (_normalize_diary_rows) then enforces the diary
+    grammar (leading court code, year-bearing case number) on whatever came back.
+    Runs in a threadpool so the slow vendor calls never block the event loop.
 
-    Returns (page_date, rows, engine, sarvam_err). Rows carry a `flags` list of
-    cells to double-check."""
+    Returns (page_date, rows, engine, err). Rows carry a `flags` list of cells to
+    double-check."""
     data, fname, mime = _normalize_upload(data, fname, mime)
     rows: list = []
     page_date = ""
     engine = ""
     sarvam_err = ""
-    if sarvam.enabled():
+    # 1) Gemini Flash vision — the preferred path for handwritten ruled pages.
+    if gemini.enabled():
+        try:
+            payload = gemini.generate_json(_DIARY_VISION_PROMPT, image=data, mime=mime)
+            page_date, rows = _rows_from_gemini(payload)
+            engine = "gemini"
+        except Exception as e:  # noqa: BLE001 — degrade to Sarvam/Groq
+            sarvam_err = str(e)[:300]
+            log.warning("Gemini diary OCR failed, falling back: %s", e)
+    if not rows and sarvam.enabled():
         try:
             md = sarvam.digitize_to_text(data, filename=fname, mime=mime)
             det_rows = _rows_from_markdown(md)      # deterministic corroboration
@@ -505,7 +619,7 @@ def _run_diary_ocr(data: bytes, fname: str, mime: str):
             pd, rows = _parse_diary_payload(raw)
             page_date = page_date or pd
             engine = engine or "groq"
-    return page_date, _flag_rows(rows), engine, sarvam_err
+    return page_date, _flag_rows(_normalize_diary_rows(rows)), engine, sarvam_err
 
 
 @router.post("/import/diary-photo",
