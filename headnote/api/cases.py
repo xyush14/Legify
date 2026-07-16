@@ -271,6 +271,38 @@ _DIARY_STRUCT_SYS = (
 )
 
 
+def _rows_from_markdown(md: str) -> list:
+    """Parse Sarvam's OCR'd diary TABLE directly (deterministic, no LLM). Each data
+    row is pipe-delimited: <न्याया.> | <प्र.क्र.> | <शीर्षक> | … . The date embedded
+    in शीर्षक ('State 26/2 Jeetu') is the PREVIOUS date → last_date; the title keeps
+    only the parties; next_date stays blank (filled in court)."""
+    import re as _re
+    case_re = _re.compile(r'\d{1,4}\s*/\s*\d{2,4}')
+    dmy_re = _re.compile(r'\b(\d{1,2}/\d{1,2})\b')
+    skip = ("न्याया", "शीर्षक", "कार्यवाही", "आगे", "thead", "tbody", "<table", "प्र. क्र", "प्र.क्र")
+    out = []
+    for line in (md or "").splitlines():
+        if line.count("|") < 2:
+            continue
+        low = line.lower()
+        if any(s.lower() in low for s in skip):
+            continue
+        cells = [c.strip(" *✓|") for c in line.split("|")]
+        cells = [c for c in cells if c != ""]
+        ci = next((i for i, c in enumerate(cells) if case_re.search(c)), None)
+        if ci is None:
+            continue
+        case_no = case_re.search(cells[ci]).group(0).replace(" ", "")
+        client = cells[ci - 1] if ci - 1 >= 0 else ""
+        title = cells[ci + 1] if ci + 1 < len(cells) else ""
+        m = dmy_re.search(title)
+        last_date = m.group(1) if m else ""
+        clean_title = _re.sub(r'\s{2,}', ' ', dmy_re.sub("", title)).strip() if m else title.strip()
+        out.append({"client": client, "case_no": case_no, "court": "",
+                    "title": clean_title, "last_date": last_date, "next_date": ""})
+    return out
+
+
 def _parse_diary_rows(raw_text: str) -> list:
     import json as _json, re as _re
     m = _re.search(r"\[.*\]", (raw_text or "").strip(), _re.S)
@@ -340,9 +372,13 @@ async def import_diary_photo(file: UploadFile = File(...),
     if sarvam.enabled():
         try:
             md = sarvam.digitize_to_text(data, filename=fname, mime=mime)
-            from headnote.llm.client import _call_deepseek_or_groq
-            structured, _m = _call_deepseek_or_groq(_DIARY_STRUCT_SYS, md, max_tokens=3000, json_mode=True)
-            rows = _parse_diary_rows(structured)
+            # 1a) parse the OCR'd table directly (deterministic, honours prev-date rule)
+            rows = _rows_from_markdown(md)
+            # 1b) only if the table shape was unexpected, ask an LLM to structure it
+            if not rows:
+                from headnote.llm.client import _call_deepseek_or_groq
+                structured, _m = _call_deepseek_or_groq(_DIARY_STRUCT_SYS, md, max_tokens=3000, json_mode=True)
+                rows = _parse_diary_rows(structured)
             engine = "sarvam"
         except Exception as e:  # noqa: BLE001 — degrade to Groq vision, never hard-fail
             sarvam_err = str(e)[:300]
