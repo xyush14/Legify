@@ -245,42 +245,51 @@ _DIARY_VISION_PROMPT = (
     "court diary — a म.प्र. जिला न्यायालय 'विधि वार्षिकी' cause-list register. The whole "
     "page is the cause list for a SINGLE date, printed in the box at the top "
     "(e.g. '16 जुलाई … 2026 गुरुवार'). Read that as page_date in dd/mm/yyyy.\n\n"
-    "Each handwritten row is one matter listed that day. The tokens per row appear "
-    "in this rough order, but vary — use judgement:\n"
-    "  [optional COURT] <client nickname> <case-no/yr> [State <sec>] <opposing party> [@alias] [✓/✗]\n\n"
-    "Rules — this is the diary's grammar, follow it exactly:\n"
-    "1. COURT: a leading court/bench code — CJM, ACJM, SPJ, ADJ, '1st ADJ', ordinal "
-    "benches ('6th','14th','15th'), 'F.C.', 'MJCR', 'H.D.F.C', 'SC', 'JMFC' — goes in "
-    "`court`. If the first token is NOT a court code it is the client's short nickname "
-    "→ `client` (e.g. Rajvi, Jyotsna, Ansari, Bhupendra).\n"
-    "2. case_no: the number bearing a TWO-DIGIT YEAR in the 08–26 range (e.g. 5435/24, "
-    "679/25, 7910/16). If a row shows two numbers, pick the YEAR-BEARING one. A small "
-    "number right after 'State' (e.g. 'State 26/2', 'State 297') is a SECTION/crime "
-    "reference, NOT the case number → put it in `section`.\n"
-    "3. party: 'State' means criminal prosecution; the human name(s) after it are the "
-    "opposing party → party = 'State — <name>'. A purely civil row has names both sides "
-    "→ party = '<A> vs <B>'. '@' marks an alias, keep it.\n"
-    "4. proceeding + next_date are usually BLANK on a fresh cause page (the right-hand "
-    "कार्यवाही/आगे दि grid is empty — that is filled AFTER the hearing). Only set "
-    "next_date if a clear future date is actually written; otherwise leave it empty.\n"
-    "5. ✓ = attended/done, ✗ = not done → `mark` ('done' | 'pending' | '').\n"
-    "6. Preserve the original script (Hindi/English) for names. Empty string for any "
-    "field you cannot read. NEVER invent a row, a case number, or a date.\n\n"
+    "The register has ruled COLUMNS, left→right: [गत दि.] [न्याया. = COURT/JUDGE] "
+    "[प्र.क्र. = CASE No.] [शीर्षक = PARTIES]. Each handwritten row is one matter. Use "
+    "the COLUMN POSITION to decide what each token is — not just word order.\n\n"
+    "Rules — the diary's grammar, follow exactly:\n"
+    "1. COURT (न्याया. column, just LEFT of the case number): the court is named EITHER "
+    "by a bench code — CJM, ACJM, SPJ, ADJ, '1st ADJ', ordinal benches ('6th','8th',"
+    "'22nd'), 'JM', 'F.C.', 'MJCR', 'H.D.F.C', 'SC', 'JMFC' — OR, VERY COMMONLY in "
+    "Sessions/District courts, by the PRESIDING JUDGE'S PERSONAL NAME (an individual's "
+    "name written in the न्याया. column). Either way put it in `court`. CRITICAL: a "
+    "personal name in this न्याया. position is the JUDGE — it is NOT a party. Never put "
+    "a judge's name in `party`, and never put a party's name in `court`.\n"
+    "2. CLIENT: the lawyer's own short tag in the far-LEFT margin (before the court "
+    "column), e.g. Rajvi, Jyotsna, Ansari, Bhupendra → `client`. Distinct from the judge.\n"
+    "3. case_no: the number bearing a TWO-DIGIT YEAR in the 08–26 range (e.g. 5435/24, "
+    "679/25, 7910/16). If a row shows two numbers, pick the YEAR-BEARING one.\n"
+    "4. PARTY (शीर्षक column): the contesting parties. Format ALWAYS as '<A> Vs <B>' — "
+    "criminal is 'State Vs <accused>'; civil is '<plaintiff> Vs <defendant>'. '@' marks "
+    "an alias, keep it (e.g. 'State Vs Jeetu @ Shivcharan').\n"
+    "5. PREVIOUS DATE: the शीर्षक text usually embeds the PREVIOUS hearing date (गत दि.) "
+    "as a DD/MM token BETWEEN the two party names, e.g. 'State 26/2 Jeetu' → parties "
+    "'State Vs Jeetu', prev_date '26/2'. Pull that DD/MM into `prev_date` and keep it OUT "
+    "of the party names. (A lone number with NO slash, e.g. '297', is an IPC/BNS section "
+    "→ put it in `section`, it is NOT a date.)\n"
+    "6. proceeding + next_date are usually BLANK on a fresh cause page (the right-hand "
+    "कार्यवाही/आगे दि grid is empty — filled AFTER the hearing). Only set next_date if a "
+    "future date is actually written.\n"
+    "7. ✓ = attended/done, ✗ = not done → `mark` ('done' | 'pending' | '').\n"
+    "8. Preserve the original script (Hindi/English). Empty string for anything "
+    "unreadable. NEVER invent a row, name, case number or date.\n\n"
     "Worked examples (from real pages):\n"
     '  "Rajvi 4764/09 State 26/2 Jeetu @ Shivcharan" → '
-    '{"client":"Rajvi","court":"","case_no":"4764/09","section":"26/2",'
-    '"party":"State — Jeetu @ Shivcharan","proceeding":"","next_date":"","mark":""}\n'
+    '{"client":"Rajvi","court":"","case_no":"4764/09","section":"",'
+    '"party":"State Vs Jeetu @ Shivcharan","prev_date":"26/2","proceeding":"","next_date":"","mark":""}\n'
     '  "1st ADJ 679/25 State 9/7 Sourabh" → '
-    '{"client":"","court":"1st ADJ","case_no":"679/25","section":"","party":"State — Sourabh",'
-    '"proceeding":"","next_date":"","mark":""}\n'
-    '  "CJM 7910/16 मई मौको किया" → '
-    '{"client":"","court":"CJM","case_no":"7910/16","section":"","party":"",'
-    '"proceeding":"मई मौको किया","next_date":"","mark":""}\n'
-    '  "6th 1718/24 Umadevi Gajendra Jain" → '
-    '{"client":"","court":"6th","case_no":"1718/24","section":"","party":"Umadevi vs Gajendra Jain",'
-    '"proceeding":"","next_date":"","mark":""}\n\n'
+    '{"client":"","court":"1st ADJ","case_no":"679/25","section":"","party":"State Vs Sourabh",'
+    '"prev_date":"9/7","proceeding":"","next_date":"","mark":""}\n'
+    '  (Sessions court, JUDGE name in न्याया.) "Devendra Sharma 2073/21 State 8/7 Amit" → '
+    '{"client":"","court":"Devendra Sharma","case_no":"2073/21","section":"",'
+    '"party":"State Vs Amit","prev_date":"8/7","proceeding":"","next_date":"","mark":""}\n'
+    '  (civil) "Pallavi 2601/26 Madhu Rattan 4/7 Ashish Rathore" → '
+    '{"client":"Pallavi","court":"","case_no":"2601/26","section":"",'
+    '"party":"Madhu Rattan Vs Ashish Rathore","prev_date":"4/7","proceeding":"","next_date":"","mark":""}\n\n'
     'Return ONLY this JSON object: {"page_date":"dd/mm/yyyy","rows":[ …one object per '
-    'row, in top-to-bottom order… ]}. Read EVERY handwritten row on the page.'
+    'row, top-to-bottom, with keys client, court, case_no, section, party, prev_date, '
+    'proceeding, next_date, mark… ]}. Read EVERY handwritten row on the page.'
 )
 
 
@@ -492,6 +501,7 @@ def _rows_from_gemini(payload) -> tuple:
                     "court": (r.get("court") or "").strip(),
                     "title": party or client or case_no,
                     "proceeding": proc,
+                    "last_date": (r.get("prev_date") or r.get("last_date") or "").strip(),
                     "next_date": (r.get("next_date") or "").strip()})
         out.append(row)
     return page_date, out
@@ -682,9 +692,9 @@ def import_diary_confirm(body: DiaryConfirmBody,
         title = (r.get("title") or "").strip()
         court = (r.get("court") or "").strip()
         next_date = (r.get("next_date") or "").strip()
-        # the previous date for a row is the page's own date (this cause list) or,
-        # failing that, the per-row गत दि. the lawyer wrote.
-        last_date = page_date or (r.get("last_date") or "").strip()
+        # previous hearing date: prefer the per-row गत दि. the OCR pulled out, else
+        # fall back to the page's own date.
+        last_date = (r.get("last_date") or "").strip() or page_date
         proceeding = (r.get("proceeding") or "").strip()
         if not (client or case_no):
             continue
