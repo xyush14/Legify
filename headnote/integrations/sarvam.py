@@ -91,9 +91,11 @@ def digitize_to_text(data: bytes, *, filename: str = "page.jpg",
             z.writestr(filename, data)
         upload_bytes, zip_name, put_ctype = zbuf.getvalue(), "diary.zip", "application/zip"
 
-    # 1) initialise (note: field is `language`, format `md` — per Sarvam docs)
+    # 1) initialise — body wraps the config under `job_parameters` (per the API's
+    #    400 "body.job_parameters : Field required"); field is `language`, format `md`.
     r = httpx.post(f"{_BASE}{_DI}", headers=_hdr(True),
-                   json={"language": language, "output_format": "md"}, timeout=30.0)
+                   json={"job_parameters": {"language": language, "output_format": "md"}},
+                   timeout=30.0)
     if r.status_code not in (200, 201):
         raise RuntimeError(f"Sarvam init {r.status_code}: {r.text[:300]}")
     j = r.json() or {}
