@@ -20,6 +20,7 @@ CNR never has the client's phone) and power both autofill and reminders.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Optional
 
@@ -353,58 +354,60 @@ def _normalize_upload(data: bytes, filename: str, mime: str):
                             detail=f"Couldn't read that image format ({mime}). Try JPG, PNG, PDF or HEIC. ({e})")
 
 
+def _run_diary_ocr(data: bytes, fname: str, mime: str):
+    """Blocking OCR pipeline — Sarvam DI → deterministic table parse; Groq vision
+    only as last resort. Runs in a threadpool so the ~30-60s Sarvam job never
+    blocks the async event loop (which on prod caused silent fallbacks)."""
+    data, fname, mime = _normalize_upload(data, fname, mime)
+    rows: list = []
+    engine = ""
+    sarvam_err = ""
+    if sarvam.enabled():
+        try:
+            md = sarvam.digitize_to_text(data, filename=fname, mime=mime)
+            rows = _rows_from_markdown(md)          # deterministic table parse
+            if not rows:                            # unexpected shape → LLM structuring
+                from headnote.llm.client import _call_deepseek_or_groq
+                structured, _m = _call_deepseek_or_groq(_DIARY_STRUCT_SYS, md, max_tokens=3000, json_mode=True)
+                rows = _parse_diary_rows(structured)
+            engine = "sarvam"
+        except Exception as e:  # noqa: BLE001 — degrade, never hard-fail
+            sarvam_err = str(e)[:300]
+            log.warning("Sarvam diary OCR failed, falling back to Groq: %s", e)
+    if not rows:
+        from headnote.drafter.ocr import ocr_text_pages, _rasterize_pdfs
+        from headnote.drafter import office
+        media_pages, _o = office.collect_uploads([(data, mime, fname)], max_bytes=20 * 1024 * 1024)
+        pages: list = []
+        for d, mt in media_pages:
+            pages.extend(_rasterize_pdfs([(d, mt)]) if mt == "application/pdf" else [(d, mt)])
+        if pages:
+            raw = ocr_text_pages(pages, prompt=_DIARY_OCR_PROMPT)
+            rows = _parse_diary_rows(raw)
+            engine = engine or "groq"
+    return rows, engine, sarvam_err
+
+
 @router.post("/import/diary-photo",
              summary="OCR a photo of the paper diary/cause-list into case rows (candidates)")
 async def import_diary_photo(file: UploadFile = File(...),
                             user: CurrentUser = Depends(get_current_user)) -> dict:
     """Read a diary-page photo → parsed rows for the lawyer to review + confirm.
-    Nothing is stored here. Uses Sarvam Document Intelligence (Indic-native, best on
-    Devanagari handwriting) when configured, else falls back to Groq vision OCR."""
+    Nothing is stored. Sarvam Document Intelligence (Indic-native) → deterministic
+    table parse; Groq vision only as a last-resort fallback."""
     data = await file.read()
     if not data:
         raise HTTPException(status_code=400, detail="empty upload")
     fname = file.filename or "diary.jpg"
     mime = (file.content_type or "").split(";")[0].strip() or "image/jpeg"
-    data, fname, mime = _normalize_upload(data, fname, mime)
-
-    rows: list = []
-    engine = ""
-    sarvam_err = ""
-    # 1) Sarvam DI (OCR → Markdown) then an LLM structuring pass → rows
-    if sarvam.enabled():
-        try:
-            md = sarvam.digitize_to_text(data, filename=fname, mime=mime)
-            # 1a) parse the OCR'd table directly (deterministic, honours prev-date rule)
-            rows = _rows_from_markdown(md)
-            # 1b) only if the table shape was unexpected, ask an LLM to structure it
-            if not rows:
-                from headnote.llm.client import _call_deepseek_or_groq
-                structured, _m = _call_deepseek_or_groq(_DIARY_STRUCT_SYS, md, max_tokens=3000, json_mode=True)
-                rows = _parse_diary_rows(structured)
-            engine = "sarvam"
-        except Exception as e:  # noqa: BLE001 — degrade to Groq vision, never hard-fail
-            sarvam_err = str(e)[:300]
-            log.warning("Sarvam diary OCR failed, falling back to Groq: %s", e)
-
-    # 2) fallback: Groq vision OCR (weaker on handwriting)
-    if not rows:
-        from headnote.drafter.ocr import ocr_text_pages, _rasterize_pdfs
-        from headnote.drafter import office
-        try:
-            media_pages, _o = office.collect_uploads([(data, mime, fname)], max_bytes=20 * 1024 * 1024)
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
-        pages: list = []
-        for d, mt in media_pages:
-            pages.extend(_rasterize_pdfs([(d, mt)]) if mt == "application/pdf" else [(d, mt)])
-        if pages:
-            try:
-                raw = ocr_text_pages(pages, prompt=_DIARY_OCR_PROMPT)
-                rows = _parse_diary_rows(raw)
-                engine = engine or "groq"
-            except Exception as e:  # noqa: BLE001
-                raise HTTPException(status_code=502, detail=f"OCR failed: {e}")
-
+    try:
+        rows, engine, sarvam_err = await asyncio.to_thread(_run_diary_ocr, data, fname, mime)
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"OCR failed: {e}")
     return {"count": len(rows), "rows": rows, "engine": engine, "sarvam_error": sarvam_err}
 
 
