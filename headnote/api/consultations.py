@@ -49,9 +49,10 @@ async def transcribe_chunk(
     Audio is read into memory, sent to Groq, and discarded — never written to
     disk (matches our 'voice data not retained' privacy claim)."""
     import os
-    if not os.environ.get("GROQ_API_KEY"):
+    from headnote.integrations import sarvam
+    if not sarvam.enabled() and not os.environ.get("GROQ_API_KEY"):
         raise HTTPException(status_code=503,
-                            detail="Transcription requires GROQ_API_KEY on the server.")
+                            detail="Transcription requires SARVAM_API_KEY or GROQ_API_KEY on the server.")
 
     base_mt = (file.content_type or "").lower().split(";")[0].strip()
     if base_mt not in _AUDIO_ALLOWED_MIME:
@@ -67,6 +68,19 @@ async def transcribe_chunk(
 
     lang = (language or "").lower().strip()[:2] or "hi"
     with check_and_record(user.id, "draft", endpoint="consult_transcribe", email=user.email) as _record:
+        # Sarvam Saarika (Indic-native) first — better on Hindi than Whisper.
+        if sarvam.enabled():
+            try:
+                res = sarvam.transcribe(
+                    data, filename=f"audio.{base_mt.split('/')[-1] or 'webm'}", mime=base_mt,
+                    language_code=(f"{lang}-IN" if lang == "hi" else "unknown"))
+                if res.get("text"):
+                    _record(cost_paise=0, model="sarvam/saarika")
+                    return {"ok": True, "text": res["text"],
+                            "language": res.get("language") or lang,
+                            "segments": res.get("segments") or []}
+            except Exception as _se:  # noqa: BLE001 — fall back to Groq Whisper
+                pass
         try:
             from groq import Groq
             client = Groq(api_key=os.environ["GROQ_API_KEY"])

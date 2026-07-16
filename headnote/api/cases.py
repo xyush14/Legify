@@ -33,6 +33,7 @@ from headnote.cases import storage as cases_storage
 from headnote.consultations import storage as consult_storage
 from headnote.documents import storage as docs_storage
 from headnote.drafter import storage as draft_storage, stories
+from headnote.integrations import sarvam
 
 
 log = logging.getLogger(__name__)
@@ -258,49 +259,87 @@ _DIARY_OCR_PROMPT = (
 )
 
 
+_DIARY_STRUCT_SYS = (
+    "You are given OCR'd text/markdown of ONE page of an Indian advocate's court "
+    "diary register (म.प्र. जिला न्यायालय 'विधि वार्षिकी'). Its columns are: गत दि. "
+    "(the PREVIOUS hearing date) · न्याया. (court/judge) · प्र. क्र. (case number, e.g. "
+    "'5677/24') · शीर्षक (cause title, e.g. 'State <section> <name>') · कार्यवाही/आगे दि. "
+    "(next date). The far-left margin may carry the lawyer's client nickname. Convert "
+    "the page to a JSON array; each item exactly: "
+    '{"client":"","case_no":"","court":"","title":"","last_date":"","next_date":""}. '
+    "Preserve the original script. Empty string for any blank cell. Return ONLY the JSON array."
+)
+
+
+def _parse_diary_rows(raw_text: str) -> list:
+    import json as _json, re as _re
+    m = _re.search(r"\[.*\]", (raw_text or "").strip(), _re.S)
+    if not m:
+        return []
+    try:
+        parsed = _json.loads(m.group(0))
+    except Exception:  # noqa: BLE001
+        return []
+    out = []
+    for r in parsed if isinstance(parsed, list) else []:
+        if isinstance(r, dict) and (r.get("client") or r.get("case_no") or r.get("title")):
+            out.append({"client": (r.get("client") or "").strip(),
+                        "case_no": (r.get("case_no") or "").strip(),
+                        "court": (r.get("court") or "").strip(),
+                        "title": (r.get("title") or "").strip(),
+                        "last_date": (r.get("last_date") or "").strip(),
+                        "next_date": (r.get("next_date") or "").strip()})
+    return out
+
+
 @router.post("/import/diary-photo",
              summary="OCR a photo of the paper diary/cause-list into case rows (candidates)")
 async def import_diary_photo(file: UploadFile = File(...),
                             user: CurrentUser = Depends(get_current_user)) -> dict:
     """Read a diary-page photo → parsed rows for the lawyer to review + confirm.
-    Nothing is stored here. Reuses the Groq vision OCR (same as the document vault)."""
-    from headnote.drafter.ocr import ocr_text_pages, _rasterize_pdfs
-    from headnote.drafter import office
-    import json as _json, re as _re
+    Nothing is stored here. Uses Sarvam Document Intelligence (Indic-native, best on
+    Devanagari handwriting) when configured, else falls back to Groq vision OCR."""
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="empty upload")
+    fname = file.filename or "diary.jpg"
+    mime = (file.content_type or "").split(";")[0].strip() or "image/jpeg"
 
-    entries = [(await file.read(), file.content_type or "", file.filename or "diary")]
-    try:
-        media_pages, _office = office.collect_uploads(entries, max_bytes=20 * 1024 * 1024)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    pages: list = []
-    for data, mt in media_pages:
-        pages.extend(_rasterize_pdfs([(data, mt)]) if mt == "application/pdf" else [(data, mt)])
-    if not pages:
-        raise HTTPException(status_code=400, detail="no readable image in the upload")
-    try:
-        raw = ocr_text_pages(pages, prompt=_DIARY_OCR_PROMPT)
-    except Exception as e:  # noqa: BLE001
-        raise HTTPException(status_code=502, detail=f"OCR failed: {e}")
-
-    # pull the JSON array out of the model's response
-    txt = (raw or "").strip()
-    m = _re.search(r"\[.*\]", txt, _re.S)
-    rows = []
-    if m:
+    rows: list = []
+    engine = ""
+    sarvam_err = ""
+    # 1) Sarvam DI (OCR → Markdown) then an LLM structuring pass → rows
+    if sarvam.enabled():
         try:
-            parsed = _json.loads(m.group(0))
-            for r in parsed if isinstance(parsed, list) else []:
-                if isinstance(r, dict) and (r.get("client") or r.get("case_no") or r.get("title")):
-                    rows.append({"client": (r.get("client") or "").strip(),
-                                 "case_no": (r.get("case_no") or "").strip(),
-                                 "court": (r.get("court") or "").strip(),
-                                 "title": (r.get("title") or "").strip(),
-                                 "last_date": (r.get("last_date") or "").strip(),
-                                 "next_date": (r.get("next_date") or "").strip()})
-        except Exception:  # noqa: BLE001
-            pass
-    return {"count": len(rows), "rows": rows}
+            md = sarvam.digitize_to_text(data, filename=fname, mime=mime)
+            from headnote.llm.client import _call_deepseek_or_groq
+            structured, _m = _call_deepseek_or_groq(_DIARY_STRUCT_SYS, md, max_tokens=3000, json_mode=True)
+            rows = _parse_diary_rows(structured)
+            engine = "sarvam"
+        except Exception as e:  # noqa: BLE001 — degrade to Groq vision, never hard-fail
+            sarvam_err = str(e)[:300]
+            log.warning("Sarvam diary OCR failed, falling back to Groq: %s", e)
+
+    # 2) fallback: Groq vision OCR (weaker on handwriting)
+    if not rows:
+        from headnote.drafter.ocr import ocr_text_pages, _rasterize_pdfs
+        from headnote.drafter import office
+        try:
+            media_pages, _o = office.collect_uploads([(data, mime, fname)], max_bytes=20 * 1024 * 1024)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        pages: list = []
+        for d, mt in media_pages:
+            pages.extend(_rasterize_pdfs([(d, mt)]) if mt == "application/pdf" else [(d, mt)])
+        if pages:
+            try:
+                raw = ocr_text_pages(pages, prompt=_DIARY_OCR_PROMPT)
+                rows = _parse_diary_rows(raw)
+                engine = engine or "groq"
+            except Exception as e:  # noqa: BLE001
+                raise HTTPException(status_code=502, detail=f"OCR failed: {e}")
+
+    return {"count": len(rows), "rows": rows, "engine": engine, "sarvam_error": sarvam_err}
 
 
 class DiaryConfirmBody(BaseModel):
