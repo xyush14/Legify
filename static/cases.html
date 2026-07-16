@@ -161,6 +161,14 @@
   .cand{display:flex;gap:10px;align-items:flex-start;padding:10px 4px;border-bottom:1px solid var(--line-2);cursor:pointer;}
   .cand:last-child{border-bottom:0;}
   .cand input{margin-top:3px;flex:0 0 auto;}
+  /* loading overlay for the long OCR / fetch jobs */
+  .overlay{position:fixed;inset:0;background:rgba(250,249,246,.82);backdrop-filter:blur(2px);z-index:200;display:none;align-items:center;justify-content:center;}
+  .overlay.on{display:flex;}
+  .overlay__box{text-align:center;}
+  .overlay__t{font-size:15px;font-weight:600;margin-top:16px;letter-spacing:-.01em;}
+  .overlay__s{font-size:12.5px;color:var(--ink-3);margin-top:4px;}
+  .spinner{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--ink);border-radius:50%;margin:0 auto;animation:spin .8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg)}}
   /* register (diary) view */
   .regrow{display:grid;grid-template-columns:28px minmax(0,1fr) 84px 96px 84px auto;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line-2);}
   .regrow:last-child{border-bottom:0;}
@@ -195,7 +203,7 @@
   </aside>
 
   <main id="main" class="main">
-    <section style="max-width:880px">
+    <section style="max-width:860px;margin:0 auto;width:100%">
       <header class="topbar">
         <div class="topbar__title">matters</div>
         <div class="topbar__hint mono" id="hint">your diary, self-updating</div>
@@ -309,6 +317,13 @@
   </main>
 </div>
 
+<div class="overlay" id="overlay">
+  <div class="overlay__box">
+    <div class="spinner"></div>
+    <div class="overlay__t" id="overlayT">Working…</div>
+    <div class="overlay__s" id="overlayS">This can take up to a minute.</div>
+  </div>
+</div>
 <div class="toasts" id="toasts"></div>
 
 <script>
@@ -328,6 +343,8 @@ function authToken(){ try{ for(let i=0;i<localStorage.length;i++){ const k=local
 function H(json){ const h=json?{'Content-Type':'application/json'}:{}; const t=authToken(); if(t) h.Authorization='Bearer '+t; return h; }
 function esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function toast(m,kind){ const t=document.createElement('div'); t.className='toast'+(kind?' toast--'+kind:''); t.textContent=m; $('#toasts').appendChild(t); setTimeout(()=>t.remove(),3200); }
+function showOverlay(t,s){ $('#overlayT').textContent=t||'Working…'; $('#overlayS').textContent=s||'This can take up to a minute.'; $('#overlay').classList.add('on'); }
+function hideOverlay(){ $('#overlay').classList.remove('on'); }
 const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function parseISO(s){ const [y,m,d]=(s||'').split('-').map(Number); return new Date(y,(m||1)-1,d||1); }
 function fmtDay(iso){ const d=parseISO(iso); return `${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}`; }
@@ -624,6 +641,7 @@ async function searchAdvocate(){
   const name=$('#i_advname').value.trim();
   if(!name){ toast('Enter the advocate name (as on the cause list)','error'); return; }
   const b=$('#enrolBtn'); b.disabled=true; b.textContent='Searching…';
+  showOverlay('Finding your cases…','Searching the cause lists — up to a minute.');
   try{
     const r=await fetch('/api/cases/import/advocate/search',{method:'POST',headers:H(true),
       body:JSON.stringify({advocate_name:name, city:$('#i_court').value.trim()})});
@@ -631,7 +649,7 @@ async function searchAdvocate(){
     CANDS=(d.candidates||[]).map(c=>({...c,_sel:true}));
     renderCandidates(); $('#candWrap').style.display=CANDS.length?'block':'none';
     if(!CANDS.length) toast('No pending cases for that name/court — check spelling or drop the court code','error');
-  }catch(e){ toast(e.message,'error'); } finally{ b.disabled=false; b.textContent='Find my cases'; }
+  }catch(e){ toast(e.message,'error'); } finally{ b.disabled=false; b.textContent='Find my cases'; hideOverlay(); }
 }
 function renderCandidates(){
   const q=($('#candFilter').value||'').toLowerCase().trim();
@@ -658,6 +676,7 @@ async function confirmSelected(){
   const sel=CANDS.filter(c=>c._sel);
   if(!sel.length){ toast('Tick the cases that are yours','error'); return; }
   const b=$('#confirmBtn'); b.disabled=true; b.textContent='Adding…';
+  showOverlay('Adding to your diary…','Fetching case details.');
   try{
     let d;
     if(sel.some(c=>c._diary)){
@@ -670,13 +689,13 @@ async function confirmSelected(){
       d=await r.json(); if(!r.ok) throw new Error(d.detail||'add failed');
     }
     toast(`Added ${d.imported} case(s) to your diary`,'success'); closeEnroll(); await loadAll();
-  }catch(e){ toast(e.message,'error'); } finally{ b.disabled=false; updateConfirmCount(); }
+  }catch(e){ toast(e.message,'error'); } finally{ b.disabled=false; updateConfirmCount(); hideOverlay(); }
 }
 $('#candFilter')&&$('#candFilter').addEventListener('input',renderCandidates);
 function openPhoto(){ const el=$('#diaryFile'); if(el){ el.value=''; el.click(); } }
 $('#diaryFile')&&$('#diaryFile').addEventListener('change', async (e)=>{
   const f=e.target.files&&e.target.files[0]; if(!f) return;
-  toast('Reading your diary photo…');
+  showOverlay('Reading your diary…','Transcribing the page — this can take up to a minute.');
   const fd=new FormData(); fd.append('file',f);
   try{
     const r=await fetch('/api/cases/import/diary-photo',{method:'POST',headers:H(),body:fd});
@@ -688,9 +707,9 @@ $('#diaryFile')&&$('#diaryFile').addEventListener('change', async (e)=>{
       next_hearing_date:row.next_date, sections:[], advocates:[],
       client:row.client, case_no:row.case_no, court:row.court, title:row.title, last_date:row.last_date, next_date:row.next_date}));
     renderCandidates(); $('#candWrap').style.display='block'; window.scrollTo(0,0);
-    toast(`Read ${CANDS.length} case(s) via ${d.engine||'ocr'} — tick the ones to add`,'success');
-    if(d.sarvam_error) toast('Sarvam fell back to Groq: '+d.sarvam_error,'error');
-  }catch(e){ toast(e.message,'error'); }
+    toast(`Read ${CANDS.length} case(s) — tick the ones to add`,'success');
+    if(d.sarvam_error) toast('OCR note: '+d.sarvam_error,'error');
+  }catch(e){ toast(e.message,'error'); } finally{ hideOverlay(); }
 });
 $('#importBtn')&&$('#importBtn').addEventListener('click',openEnroll);
 

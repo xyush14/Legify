@@ -293,12 +293,14 @@ def _rows_from_markdown(md: str) -> list:
         if ci is None:
             continue
         case_no = case_re.search(cells[ci]).group(0).replace(" ", "")
-        client = cells[ci - 1] if ci - 1 >= 0 else ""
+        # column BEFORE the case number is न्याया. (court/judge) — NOT the party.
+        court = cells[ci - 1] if ci - 1 >= 0 else ""
+        # column AFTER is शीर्षक — the actual cause title / parties.
         title = cells[ci + 1] if ci + 1 < len(cells) else ""
         m = dmy_re.search(title)
         last_date = m.group(1) if m else ""
         clean_title = _re.sub(r'\s{2,}', ' ', dmy_re.sub("", title)).strip() if m else title.strip()
-        out.append({"client": client, "case_no": case_no, "court": "",
+        out.append({"client": "", "case_no": case_no, "court": court,
                     "title": clean_title, "last_date": last_date, "next_date": ""})
     return out
 
