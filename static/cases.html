@@ -688,7 +688,8 @@ $('#diaryFile')&&$('#diaryFile').addEventListener('change', async (e)=>{
       next_hearing_date:row.next_date, sections:[], advocates:[],
       client:row.client, case_no:row.case_no, court:row.court, title:row.title, last_date:row.last_date, next_date:row.next_date}));
     renderCandidates(); $('#candWrap').style.display='block'; window.scrollTo(0,0);
-    toast(`Read ${CANDS.length} case(s) — tick the ones to add`,'success');
+    toast(`Read ${CANDS.length} case(s) via ${d.engine||'ocr'} — tick the ones to add`,'success');
+    if(d.sarvam_error) toast('Sarvam fell back to Groq: '+d.sarvam_error,'error');
   }catch(e){ toast(e.message,'error'); }
 });
 $('#importBtn')&&$('#importBtn').addEventListener('click',openEnroll);
