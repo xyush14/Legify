@@ -571,7 +571,7 @@ async function saveQuickAdd(){
   showOverlay('Adding…','Filing this on your board.');
   try{
     const r=await fetch('/api/cases/import/diary-confirm',{method:'POST',headers:H(true),
-      body:JSON.stringify({rows:[{client:title,case_no,court,title,next_date:next}]})});
+      body:JSON.stringify({rows:[{case_no,court,title,next_date:next}]})});
     const d=await r.json(); if(!r.ok) throw new Error(d.detail||'add failed');
     toast('Added to your diary','success'); toggleQuickAdd(); await loadAll();
   }catch(e){ toast(e.message,'error'); } finally{ hideOverlay(); }
@@ -839,7 +839,7 @@ $('#diaryFile')&&$('#diaryFile').addEventListener('change', async (e)=>{
     const d=await r.json(); if(!r.ok) throw new Error(d.detail||'read failed');
     if(!(d.rows||[]).length){ toast("Couldn't read case rows — try a clearer photo",'error'); return; }
     DROWS=d.rows.map(row=>({court:row.court||'',case_no:row.case_no||'',
-      title:row.title||'',client:row.client||'',proceeding:row.proceeding||'',
+      title:row.title||'',proceeding:row.proceeding||'',
       last_date:row.last_date||'',next_date:row.next_date||'',flags:row.flags||[]}));
     $('#dpage').value=d.page_date||'';
     const eng=(d.engine||'').toLowerCase();
@@ -851,37 +851,36 @@ $('#diaryFile')&&$('#diaryFile').addEventListener('change', async (e)=>{
     toast(`Read ${DROWS.length} case(s) via ${eng||'fallback'} — check and save`, eng==='gemini'?'success':'error');
   }catch(e){ toast(e.message,'error'); } finally{ hideOverlay(); }
 });
-const DRHEAD=`<thead><tr><th>Client</th><th>Court / judge</th><th>Case no.</th><th>Party (A Vs B)</th><th>Prev date</th><th>Next date</th><th></th></tr></thead>`;
+const DRHEAD=`<thead><tr><th>Court / judge</th><th>Case no.</th><th>Party (A Vs B)</th><th>Prev date</th><th>Next date</th><th></th></tr></thead>`;
 function drInput(i,field,val,flag){ return `<td><input class="input${flag?' flagd':''}" value="${esc(val)}" oninput="drEdit(${i},'${field}',this.value)"></td>`; }
 function renderReview(){
   const t=$('#drtable'); if(!t) return;
   t.innerHTML=DRHEAD+'<tbody>'+DROWS.map((r,i)=>{
     const fl=f=>(r.flags||[]).includes(f);
     return `<tr>
-      ${drInput(i,'client',r.client,false)}
-      ${drInput(i,'court',r.court,false)}
+      ${drInput(i,'court',r.court,fl('court'))}
       ${drInput(i,'case_no',r.case_no,fl('case_no'))}
       ${drInput(i,'title',r.title,fl('title'))}
       ${drInput(i,'last_date',r.last_date,false)}
-      ${drInput(i,'next_date',r.next_date,fl('next_date'))}
+      ${drInput(i,'next_date',r.next_date,false)}
       <td style="text-align:center"><button class="iconbtn" title="Remove row" onclick="delReviewRow(${i})">✕</button></td>
     </tr>`;
   }).join('')+'</tbody>';
 }
-function drEdit(i,field,val){ if(DROWS[i]){ DROWS[i][field]=val; if(field==='title') DROWS[i].client=DROWS[i].client||val;
+function drEdit(i,field,val){ if(DROWS[i]){ DROWS[i][field]=val;
   DROWS[i].flags=(DROWS[i].flags||[]).filter(f=>f!==field); } }
-function addReviewRow(){ DROWS.push({court:'',case_no:'',title:'',client:'',proceeding:'',last_date:'',next_date:'',flags:[]}); renderReview(); }
+function addReviewRow(){ DROWS.push({court:'',case_no:'',title:'',proceeding:'',last_date:'',next_date:'',flags:[]}); renderReview(); }
 function delReviewRow(i){ DROWS.splice(i,1); renderReview(); }
 function cancelReview(){ DROWS=[]; $('#diaryReview').style.display='none'; }
 async function saveDiaryReview(){
-  const rows=DROWS.filter(r=>(r.case_no||'').trim()||(r.title||'').trim()||(r.client||'').trim());
+  const rows=DROWS.filter(r=>(r.case_no||'').trim()||(r.title||'').trim());
   if(!rows.length){ toast('Nothing to save','error'); return; }
   const b=$('#drSave'); b.disabled=true; b.textContent='Saving…';
   showOverlay('Saving to your diary…','Filing these under their matters.');
   try{
     const r=await fetch('/api/cases/import/diary-confirm',{method:'POST',headers:H(true),
       body:JSON.stringify({page_date:$('#dpage').value.trim()||null,
-        rows:rows.map(x=>({client:x.client||x.title,case_no:x.case_no,court:x.court,title:x.title,proceeding:x.proceeding,last_date:x.last_date,next_date:x.next_date}))})});
+        rows:rows.map(x=>({case_no:x.case_no,court:x.court,title:x.title,proceeding:x.proceeding,last_date:x.last_date,next_date:x.next_date}))})});
     const d=await r.json(); if(!r.ok) throw new Error(d.detail||'save failed');
     const extra=d.logged?` · ${d.logged} added to existing matters`:'';
     toast(`Saved ${d.imported} case(s)${extra}`,'success');
