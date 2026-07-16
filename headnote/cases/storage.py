@@ -156,6 +156,74 @@ def list_cases(*, user_id: Optional[str], limit: int = 100) -> list[dict]:
     return [_row(r) for r in rows]
 
 
+def find_case_by_number(*, user_id: Optional[str], case_number: Optional[str],
+                        case_year: Optional[str] = None,
+                        court_name: Optional[str] = None) -> Optional[dict]:
+    """Best-effort lookup of an existing matter by case number (+ optional year
+    and court).
+
+    Used to dedup diary re-imports: re-photographing a page that already has a
+    matter should append to its history, not create a duplicate. Case-number
+    match ignores whitespace; a year (last two digits) must agree when both
+    sides carry one; when a court is given and one candidate's court matches
+    exactly we prefer it, else the most recently touched candidate."""
+    cn = (case_number or "").replace(" ", "").strip()
+    if not cn:
+        return None
+    with _conn() as c:
+        rows = c.execute(
+            f"SELECT {_COLS} FROM cases WHERE user_id IS ? "
+            "AND REPLACE(COALESCE(case_number,''), ' ', '') = ? "
+            "ORDER BY updated_at DESC",
+            (user_id, cn),
+        ).fetchall()
+    cands = [_row(r) for r in rows]
+    yr = (case_year or "").strip()[-2:]
+    if yr:
+        cands = [r for r in cands
+                 if not (r.get("case_year") or "") or (r.get("case_year") or "")[-2:] == yr]
+    if not cands:
+        return None
+    if court_name:
+        court = court_name.strip().lower()
+        exact = [r for r in cands if (r.get("court_name") or "").strip().lower() == court]
+        if exact:
+            return exact[0]
+    return cands[0]
+
+
+def replace_case_identity(case_id: str, *, user_id: Optional[str], case: dict) -> Optional[dict]:
+    """Overwrite a matter's identity + fields from a fresh eCourts case dict while
+    keeping the SAME row id, its hearing logs, and any lawyer-entered client.
+
+    Used when a diary-sourced matter (pseudo 'DY…' CNR) is resolved to a real
+    eCourts CNR — the matter becomes API-refreshable without losing its folder.
+    If the resolved CNR already belongs to another of this user's rows the unique
+    index would trip, so we degrade gracefully and leave the matter untouched."""
+    row = get_case(case_id, user_id=user_id)
+    if row is None:
+        return None
+    cj = row["case_json"] or {}
+    merged = dict(case)
+    if cj.get("client"):
+        merged["client"] = {**(case.get("client") or {}), **cj["client"]}
+    try:
+        with _conn() as c:
+            c.execute(
+                "UPDATE cases SET cnr=?, case_title=?, court_name=?, case_number=?, "
+                "case_year=?, stage=?, next_hearing_date=?, case_json=?, source=?, "
+                "updated_at=? WHERE id=? AND user_id IS ?",
+                (merged.get("cnr"), merged.get("case_title"), merged.get("court_name"),
+                 merged.get("case_number"), merged.get("case_year"), merged.get("stage"),
+                 merged.get("next_hearing_date"), json.dumps(merged, ensure_ascii=False),
+                 merged.get("source"), _now(), case_id, user_id),
+            )
+            c.commit()
+    except sqlite3.IntegrityError:
+        return row
+    return get_case(case_id, user_id=user_id)
+
+
 def delete_all_cases(*, user_id: Optional[str]) -> int:
     """Wipe every matter + hearing log for a user. Used by the testing-mode reset
     so the onboarding flow restarts clean on each refresh."""

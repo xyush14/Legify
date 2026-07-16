@@ -333,6 +333,54 @@ def _import_by_advocate_mock(seed: str) -> list[dict]:
     return out
 
 
+def _caseno_key(s) -> str:
+    """Normalise a case number for matching: '5677/24' and '5677/2024' → '5677/24';
+    a bare '5677' → '5677'. Lets a hand-written diary number match an eCourts row."""
+    m = re.search(r"(\d{1,6})\s*[/\-]\s*(\d{2,4})", str(s or ""))
+    if m:
+        return f"{int(m.group(1))}/{m.group(2)[-2:]}"
+    m = re.search(r"(\d{2,6})", str(s or ""))
+    return str(int(m.group(1))) if m else ""
+
+
+def resolve_cnr(*, case_number: str, advocate_name: str = "", city: str = "",
+                court_code: str = "", state: str = "", court_name: str = "") -> list[dict]:
+    """Best-effort: find the real eCourts CNR for a diary-sourced matter.
+
+    The lawyer is on record in all their own matters and the vendor indexes by
+    advocate name, so we pull the advocate's pending docket and match the diary
+    row's case number against it. Returns candidate normalised cases (usually 0
+    or 1). Mock mode synthesises one deterministic candidate so the resolve →
+    upgrade flow is demoable without a key."""
+    target = _caseno_key(case_number)
+    if not target:
+        return []
+    try:
+        cases = import_by_advocate("", advocate_name=advocate_name, city=city,
+                                   court_code=court_code, state=state)
+    except Exception:  # noqa: BLE001 — network / vendor errors → no match
+        cases = []
+    hits = [c for c in cases
+            if _caseno_key(f"{c.get('case_number')}/{c.get('case_year')}") == target
+            or _caseno_key(c.get("case_number")) == target]
+    if hits:
+        return hits
+    if config.CNR_API_MODE != "live":
+        # Demo fallback: fabricate a plausible real CNR carrying the typed number,
+        # so the diary → resolve → auto-refresh path is testable with no vendor key.
+        num, _, yr = str(case_number or "").partition("/")
+        seed = re.sub(r"\D", "", num) or "1"
+        cnr = f"MPGW01{int(seed) % 1000000:06d}20{(yr[-2:] or '24')}"
+        c = _fetch_mock(cnr)
+        c["case_number"] = re.sub(r"\D", "", num) or c["case_number"]
+        c["case_year"] = ("20" + yr[-2:]) if yr else c["case_year"]
+        if court_name:
+            c["court_name"] = court_name
+        c["source"] = "mock"
+        return [c]
+    return []
+
+
 def probe_raw(path: str, params: dict) -> dict:
     """Temporary: fire a raw GET at the vendor (with auth + UA) and return the
     status + a body snippet, so we can lock the real response shape from prod.

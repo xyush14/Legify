@@ -169,8 +169,8 @@
   .overlay__s{font-size:12.5px;color:var(--ink-3);margin-top:4px;}
   .spinner{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--ink);border-radius:50%;margin:0 auto;animation:spin .8s linear infinite;}
   @keyframes spin{to{transform:rotate(360deg)}}
-  /* register (diary) view */
-  .regrow{display:grid;grid-template-columns:28px minmax(0,1fr) 84px 96px 84px auto;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line-2);}
+  /* register (diary) view — columns mirror the paper diary: # · Court · Case no. · Party · Next date */
+  .regrow{display:grid;grid-template-columns:28px 104px 96px minmax(0,1fr) 108px auto;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line-2);}
   .regrow:last-child{border-bottom:0;}
   .reghead{background:#fbfbf8;font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);}
   .lrow.regrow:hover{background:#fbfbf8;}
@@ -178,9 +178,30 @@
   .rc-title{min-width:0;cursor:pointer;}
   .rc-title:hover .rc-name{text-decoration:underline;text-underline-offset:2px;}
   .rc-name{font-size:14px;font-weight:600;letter-spacing:-.01em;}
+  /* inline next-date edit */
+  .nxcell{display:flex;align-items:center;gap:6px;}
+  .nxcell .setnx{background:none;border:1px dashed var(--line);border-radius:6px;color:var(--ink-3);font-size:11px;padding:3px 7px;cursor:pointer;font-family:'Geist Mono',monospace;}
+  .nxcell .setnx:hover{border-color:var(--ink-3);color:var(--ink-2);}
+  .nxcell input{width:96px;font-family:'Geist Mono',monospace;font-size:11.5px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;}
+  /* OCR review table */
+  .drtable{width:100%;border-collapse:collapse;font-size:13px;}
+  .drtable th{text-align:left;font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);padding:4px 6px;border-bottom:1px solid var(--line-2);}
+  .drtable td{padding:4px 6px;vertical-align:middle;}
+  .drtable .input{width:100%;min-width:90px;font-size:12.5px;padding:6px 8px;}
+  .drtable .input.flagd{background:#fff8e6;border-color:#e6c65c;}
+  /* quick add-to-day form */
+  .quickadd{display:grid;grid-template-columns:104px 96px minmax(0,1fr) 108px auto;gap:10px;align-items:end;padding:14px 16px;border-top:1px dashed var(--line-2);background:#fbfbf8;}
+  .quickadd .fld label{font-size:9.5px;}
+  /* coming-up agenda peek */
+  .agrow{display:grid;grid-template-columns:150px minmax(0,1fr);gap:14px;align-items:baseline;padding:11px 14px;border:1px solid var(--line-2);border-radius:10px;margin-bottom:8px;cursor:pointer;background:var(--surface);transition:border-color .12s ease;}
+  .agrow:hover{border-color:var(--line);}
+  .agrow__d{display:flex;flex-direction:column;gap:2px;font-size:13px;}
+  .agrow__d span{font-family:'Geist Mono',monospace;font-size:10px;color:var(--ink-3);}
+  .agrow__p{font-size:12.5px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   @media(max-width:640px){
-    .regrow{grid-template-columns:24px minmax(0,1fr) 70px auto;gap:8px;}
+    .regrow{grid-template-columns:24px minmax(0,1fr) 96px auto;gap:8px;}
     .reg-hidem{display:none;}
+    .quickadd{grid-template-columns:1fr 1fr;}
   }
 </style>
 </head>
@@ -213,7 +234,10 @@
         <button class="on" data-v="diary" onclick="switchView('diary')">Diary</button>
         <button data-v="list" onclick="switchView('list')">All matters</button>
       </div>
-      <div class="mono" style="font-size:10px;letter-spacing:.06em;color:var(--ink-3);margin:-12px 0 16px">testing mode · your matters reset every time you refresh</div>
+      <div class="mono" style="font-size:10px;letter-spacing:.06em;color:var(--ink-3);margin:-12px 0 16px;display:flex;gap:10px;align-items:center">
+        <span>your diary — saved and kept between visits</span>
+        <button onclick="resetDemo()" style="background:none;border:0;color:var(--ink-3);text-decoration:underline;cursor:pointer;font:inherit;letter-spacing:inherit">reset demo data</button>
+      </div>
 
       <!-- add / edit panel (shared) -->
       <div class="case-card panel" id="panel">
@@ -271,6 +295,23 @@
           </div>
         </div>
 
+        <!-- editable OCR review — the trust gate before anything is saved -->
+        <div class="case-card" id="diaryReview" style="display:none;margin-bottom:18px;padding:18px 20px">
+          <div style="font-size:15px;font-weight:600;letter-spacing:-.01em;margin-bottom:4px">Check the page before it's saved</div>
+          <div style="font-size:13px;color:var(--ink-2);line-height:1.55;margin-bottom:14px">We read your diary page. <b>Amber</b> cells are ones to double-check. Fix anything the OCR misread, then save — nothing is added until you do.</div>
+          <div class="pgrid" style="margin-bottom:12px">
+            <div class="fld"><label>Date of this page (गत/peshi date)</label><input id="dpage" class="input mono" placeholder="dd/mm/yyyy" style="max-width:180px" /></div>
+          </div>
+          <div style="overflow-x:auto"><table class="drtable" id="drtable"></table></div>
+          <div class="panel-foot" style="justify-content:space-between">
+            <button class="btn" onclick="addReviewRow()">+ Add a row</button>
+            <div style="display:flex;gap:10px">
+              <button class="btn" onclick="cancelReview()">Cancel</button>
+              <button class="btn btn--primary" id="drSave" onclick="saveDiaryReview()">Save to diary</button>
+            </div>
+          </div>
+        </div>
+
         <div class="gsearch">
           <svg class="gi" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>
           <input id="gsearch" class="input" placeholder="Find any matter — client, party or case no." autocomplete="off" />
@@ -288,11 +329,15 @@
         <div id="undatedWrap"></div>
         <div class="actbar">
           <input class="input" id="dfilter" placeholder="Search this day — client, case no. or court…" />
-          <button class="btn btn--primary" onclick="openEnroll()">Fetch my cases</button>
-          <button class="btn" onclick="openAdd()">Add one by CNR</button>
+          <button class="btn" onclick="toggleQuickAdd()">+ Add to this day</button>
           <button class="btn" onclick="openPhoto()">Add from photo</button>
+          <button class="btn" onclick="openEnroll()">Fetch my cases</button>
+          <button class="btn" onclick="openAdd()">Add by CNR</button>
+          <button class="btn" title="Re-fetch next dates for matters with a real CNR" onclick="refreshAll()">Refresh all dates</button>
         </div>
         <div class="ledger" id="board"></div>
+        <div id="quickAddWrap"></div>
+        <div id="agendaWrap"></div>
         <div id="recentsWrap"></div>
       </section>
 
@@ -428,7 +473,18 @@ function renderDiary(){ if(!DIARY) return;
       <div class="week__cnt">${d.count||'—'}</div></div>`; }).join('');
   $('#undatedWrap').innerHTML = DIARY.undated.length
     ? `<div class="undated-pill${selDate==='__undated'?' sel':''}" onclick="pickDay('__undated')">⚑ ${DIARY.undated.length} matter(s) with no next date — set one</div>` : '';
-  renderPins(); renderRecents(); renderBoard();
+  renderPins(); renderRecents(); renderBoard(); renderAgenda();
+}
+function renderAgenda(){
+  const w=$('#agendaWrap'); if(!w) return;
+  if(!DIARY){ w.innerHTML=''; return; }
+  const upcoming=DIARY.days.filter(d=>d.count>0 && d.date!==selDate).slice(0,6);
+  if(!upcoming.length){ w.innerHTML=''; return; }
+  w.innerHTML=`<div class="lbl2">Coming up</div>`+
+    upcoming.map(d=>`<div class="agrow" onclick="pickDay('${d.date}')">
+      <div class="agrow__d"><b>${fmtDay(d.date)}${d.date===DIARY.today?' · today':''}</b><span>${d.count} matter(s)</span></div>
+      <div class="agrow__p hi">${d.items.slice(0,4).map(it=>esc(partyName(it))).join(' · ')}${d.count>4?' …':''}</div>
+    </div>`).join('');
 }
 function pickDay(d){ selDate=d; renderDiary(); }
 function dayItems(){ if(selDate==='__undated') return DIARY.undated;
@@ -441,7 +497,7 @@ function renderBoard(){
   if(!items.length){ $('#board').innerHTML=`<div class="paneempty" style="border:0">Nothing listed for ${selDate==='__undated'?'undated matters':fmtDay(selDate||DIARY.today)}.</div>`; return; }
   $('#board').innerHTML=REGHEAD + items.map((c,i)=>lrow(c,i)).join('');
 }
-const REGHEAD=`<div class="regrow reghead"><div>#</div><div>शीर्षक · title</div><div class="reg-hidem">न्याया.</div><div class="reg-hidem">प्र. क्र.</div><div>आगे दि.</div><div></div></div>`;
+const REGHEAD=`<div class="regrow reghead"><div>#</div><div class="reg-hidem">Court · न्याया.</div><div class="reg-hidem">Case no. · प्र.क्र.</div><div>Party · शीर्षक</div><div>Next date · आगे दि.</div><div></div></div>`;
 function lrow(c,i){
   const cj=c.case_json||{}, cl=cj.client||{};
   const court=shortCourt(c.court_name||cj.court_name)||'—';
@@ -449,15 +505,18 @@ function lrow(c,i){
   const title=partyName(c);
   const sub=[ (c.case_title&&c.case_title!==title)?c.case_title:null, (cj.sections||[]).join(', '), c.stage ].filter(Boolean).join(' · ');
   const call = cl.mobile ? `<a class="iconbtn" title="Call ${esc(cl.name||'')}" href="tel:${esc(cl.mobile)}">${CALL}</a>` : '';
+  const nx = c.next_hearing_date
+    ? `<span class="rc-mono hi" onclick="editNx('${c.id}',${i})" style="cursor:pointer" title="Click to change">${esc(c.next_hearing_date)}</span>`
+    : `<button class="setnx" onclick="editNx('${c.id}',${i})">+ set date</button>`;
   return `<div class="lrow regrow" id="row${i}">
     <div class="lrow__sl">${String(i+1).padStart(2,'0')}</div>
+    <div class="rc-mono hi reg-hidem">${esc(court)}</div>
+    <div class="rc-mono reg-hidem">${cno}</div>
     <div class="rc-title" onclick="openFolder('${c.id}')">
       <div class="rc-name hi">${esc(title)}${cl.role?` <span class="tag">${esc(cl.role)}</span>`:''}</div>
       ${sub?`<div class="hi" style="font-size:11px;color:var(--ink-3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(sub)}</div>`:''}
     </div>
-    <div class="rc-mono hi reg-hidem">${esc(court)}</div>
-    <div class="rc-mono reg-hidem">${cno}</div>
-    <div class="rc-mono">${c.next_hearing_date?esc(c.next_hearing_date):'—'}</div>
+    <div class="nxcell" id="nx${i}">${nx}</div>
     <div class="lrow__right" style="justify-content:flex-end">
       ${call}
       <button class="iconbtn" title="Open case folder" onclick="openFolder('${c.id}')">${OPEN}</button>
@@ -471,6 +530,59 @@ function lrow(c,i){
   </div>`;
 }
 function toggleLog(i){ $('#log'+i).classList.toggle('open'); }
+/* inline next-date edit (manual fallback for matters with no fetchable CNR) */
+function editNx(id,i){
+  const cell=$('#nx'+i); if(!cell) return;
+  const cur=(dayItems().find(c=>c.id===id)||{}).next_hearing_date||'';
+  cell.innerHTML=`<input class="mono" id="nxi${i}" value="${esc(cur)}" placeholder="dd/mm/yyyy"><button class="iconbtn" title="Save" onclick="saveNx('${id}',${i})">✓</button>`;
+  const el=$('#nxi'+i); el.focus(); el.select();
+  el.addEventListener('keydown',ev=>{ if(ev.key==='Enter') saveNx(id,i); });
+}
+async function saveNx(id,i){
+  const v=($('#nxi'+i)&&$('#nxi'+i).value.trim())||'';
+  if(!v){ renderBoard(); return; }
+  try{ const r=await fetch(`/api/cases/${id}/set-next-date`,{method:'POST',headers:H(true),body:JSON.stringify({next_hearing_date:v})});
+    if(!r.ok) throw new Error((await r.json()).detail||'save failed');
+    toast('Next date set · '+v,'success'); await loadAll();
+  }catch(e){ toast(e.message,'error'); }
+}
+function isoToDMY(iso){ const d=parseISO(iso); const p=n=>String(n).padStart(2,'0'); return `${p(d.getDate())}/${p(d.getMonth()+1)}/${d.getFullYear()}`; }
+/* quick-add a matter straight onto the selected day (no CNR needed) */
+function toggleQuickAdd(){
+  const w=$('#quickAddWrap');
+  if(w.dataset.open==='1'){ w.dataset.open=''; w.innerHTML=''; return; }
+  w.dataset.open='1';
+  const prefill=(selDate&&selDate!=='__undated')?isoToDMY(selDate):'';
+  w.innerHTML=`<div class="case-card" style="margin-top:12px;padding:0;overflow:hidden">
+    <div class="quickadd">
+      <div class="fld"><label>Court · न्याया.</label><input class="input" id="qa_court" placeholder="Court 9 / judge"></div>
+      <div class="fld"><label>Case no.</label><input class="input mono" id="qa_no" placeholder="5677/24"></div>
+      <div class="fld"><label>Party · शीर्षक</label><input class="input" id="qa_title" placeholder="State v. Ramesh"></div>
+      <div class="fld"><label>Next date</label><input class="input mono" id="qa_next" value="${prefill}" placeholder="dd/mm/yyyy"></div>
+      <button class="btn btn--primary" onclick="saveQuickAdd()">Add</button>
+    </div></div>`;
+  $('#qa_court').focus();
+}
+async function saveQuickAdd(){
+  const g=k=>($('#qa_'+k)&&$('#qa_'+k).value.trim())||'';
+  const case_no=g('no'), title=g('title'), court=g('court'), next=g('next');
+  if(!case_no && !title){ toast('Enter a case number or party','error'); return; }
+  showOverlay('Adding…','Filing this on your board.');
+  try{
+    const r=await fetch('/api/cases/import/diary-confirm',{method:'POST',headers:H(true),
+      body:JSON.stringify({rows:[{client:title,case_no,court,title,next_date:next}]})});
+    const d=await r.json(); if(!r.ok) throw new Error(d.detail||'add failed');
+    toast('Added to your diary','success'); toggleQuickAdd(); await loadAll();
+  }catch(e){ toast(e.message,'error'); } finally{ hideOverlay(); }
+}
+async function refreshAll(){
+  showOverlay('Refreshing dates…','Checking eCourts for every matter with a CNR.');
+  try{ const r=await fetch('/api/cases/refresh-all-dates',{method:'POST',headers:H()});
+    const d=await r.json(); if(!r.ok) throw new Error(d.detail||'refresh failed');
+    const tail=d.skipped?` · ${d.skipped} need a manual date`:'';
+    toast(`Refreshed ${d.refreshed} matter(s)${tail}`,'success'); await loadAll();
+  }catch(e){ toast(e.message,'error'); } finally{ hideOverlay(); }
+}
 async function saveLog(id,i){
   const body={ hearing_date:(selDate&&selDate!=='__undated')?selDate:null,
     what_happened:$('#lw'+i).value.trim(), next_hearing_date:$('#ln'+i).value.trim()||null };
@@ -554,7 +666,9 @@ function renderFolder(){
           <button class="star ${isPinned(c.id)?'on':''}" title="Pin to top" onclick="togglePin('${c.id}',event)" style="width:34px;height:34px;border:1px solid var(--line);border-radius:6px;display:inline-flex;align-items:center;justify-content:center">${STAR}</button>
           <button class="kebab" onclick="toggleMenu('f',event)">⋯</button>
           <div class="menu" id="menu-f">
-            <button onclick="refreshDate('${c.id}')">Refresh next date</button>
+            ${(c.source==='diary'||(c.cnr||'').startsWith('DY'))
+              ? `<button onclick="resolveCnr('${c.id}')">Find on eCourts (auto-update dates)</button>`
+              : `<button onclick="refreshDate('${c.id}')">Refresh next date</button>`}
             <button onclick="editClient('${c.id}')">${cl.name?'Edit':'Add'} client</button>
             <button class="danger" onclick="removeCase('${c.id}')">Remove matter</button>
           </div>
@@ -632,6 +746,26 @@ async function refreshDate(id){ toast('Checking source…');
     toast(d.ok?'Next date refreshed':(d.reason||'nothing to refresh')); await loadAll(); if(FOLDER) openFolder(id);
   }catch(e){ toast(e.message,'error'); }
 }
+/* resolve a diary/manual matter to a real eCourts CNR so its dates auto-update */
+async function resolveCnr(id){
+  const name=prompt('Your name as it appears on the cause list (to find this case on eCourts):','');
+  if(name===null) return;
+  const city=(prompt('City / district — optional, narrows the search:','')||'').trim();
+  showOverlay('Searching eCourts…','Matching this case number to your docket.');
+  try{
+    const r=await fetch(`/api/cases/${id}/resolve-cnr`,{method:'POST',headers:H(true),body:JSON.stringify({advocate_name:name.trim(),city})});
+    const d=await r.json(); if(!r.ok) throw new Error(d.detail||'search failed');
+    hideOverlay();
+    const cands=d.candidates||[];
+    if(!cands.length){ toast('No eCourts match — keep tracking it manually','error'); return; }
+    const c=cands[0];
+    if(!confirm(`Found: ${c.case_title||c.cnr}\nCNR ${c.cnr}\n${c.court_name||''}\nNext hearing: ${c.next_hearing_date||'—'}\n\nLink this matter to that CNR so its dates auto-update?`)) return;
+    showOverlay('Linking…','Fetching the full case.');
+    const r2=await fetch(`/api/cases/${id}/resolve-cnr/confirm`,{method:'POST',headers:H(true),body:JSON.stringify({cnr:c.cnr})});
+    const d2=await r2.json(); if(!r2.ok) throw new Error(d2.detail||'link failed');
+    toast('Linked to eCourts — dates now auto-update','success'); await loadAll(); openFolder(id);
+  }catch(e){ toast(e.message,'error'); } finally{ hideOverlay(); }
+}
 
 /* ---- onboarding: find advocate's cases → tick which are yours → confirm ---- */
 let CANDS=[];
@@ -693,6 +827,8 @@ async function confirmSelected(){
 }
 $('#candFilter')&&$('#candFilter').addEventListener('input',renderCandidates);
 function openPhoto(){ const el=$('#diaryFile'); if(el){ el.value=''; el.click(); } }
+/* ---- diary-photo OCR → editable review (the trust gate) ---- */
+let DROWS=[];
 $('#diaryFile')&&$('#diaryFile').addEventListener('change', async (e)=>{
   const f=e.target.files&&e.target.files[0]; if(!f) return;
   showOverlay('Reading your diary…','Transcribing the page — this can take up to a minute.');
@@ -701,16 +837,52 @@ $('#diaryFile')&&$('#diaryFile').addEventListener('change', async (e)=>{
     const r=await fetch('/api/cases/import/diary-photo',{method:'POST',headers:H(),body:fd});
     const d=await r.json(); if(!r.ok) throw new Error(d.detail||'read failed');
     if(!(d.rows||[]).length){ toast("Couldn't read case rows — try a clearer photo",'error'); return; }
-    $('#enrollCard').style.display='block';
-    CANDS=d.rows.map(row=>({_diary:true,_sel:true,cnr:null,
-      case_title:row.title||row.client||row.case_no, case_number:row.case_no, court_name:row.court,
-      next_hearing_date:row.next_date, sections:[], advocates:[],
-      client:row.client, case_no:row.case_no, court:row.court, title:row.title, last_date:row.last_date, next_date:row.next_date}));
-    renderCandidates(); $('#candWrap').style.display='block'; window.scrollTo(0,0);
-    toast(`Read ${CANDS.length} case(s) — tick the ones to add`,'success');
+    DROWS=d.rows.map(row=>({court:row.court||'',case_no:row.case_no||'',
+      title:row.title||'',client:row.client||'',proceeding:row.proceeding||'',
+      last_date:row.last_date||'',next_date:row.next_date||'',flags:row.flags||[]}));
+    $('#dpage').value=d.page_date||'';
+    closeEnroll();
+    $('#diaryReview').style.display='block'; renderReview(); window.scrollTo(0,0);
+    toast(`Read ${DROWS.length} case(s) — check and save`,'success');
     if(d.sarvam_error) toast('OCR note: '+d.sarvam_error,'error');
   }catch(e){ toast(e.message,'error'); } finally{ hideOverlay(); }
 });
+const DRHEAD=`<thead><tr><th>Court</th><th>Case no.</th><th>Party / title</th><th>Proceeding</th><th>Next date</th><th></th></tr></thead>`;
+function drInput(i,field,val,flag){ return `<td><input class="input${flag?' flagd':''}" value="${esc(val)}" oninput="drEdit(${i},'${field}',this.value)"></td>`; }
+function renderReview(){
+  const t=$('#drtable'); if(!t) return;
+  t.innerHTML=DRHEAD+'<tbody>'+DROWS.map((r,i)=>{
+    const fl=f=>(r.flags||[]).includes(f);
+    return `<tr>
+      ${drInput(i,'court',r.court,false)}
+      ${drInput(i,'case_no',r.case_no,fl('case_no'))}
+      ${drInput(i,'title',r.title||r.client,fl('title'))}
+      ${drInput(i,'proceeding',r.proceeding,false)}
+      ${drInput(i,'next_date',r.next_date,fl('next_date'))}
+      <td style="text-align:center"><button class="iconbtn" title="Remove row" onclick="delReviewRow(${i})">✕</button></td>
+    </tr>`;
+  }).join('')+'</tbody>';
+}
+function drEdit(i,field,val){ if(DROWS[i]){ DROWS[i][field]=val; if(field==='title') DROWS[i].client=DROWS[i].client||val;
+  DROWS[i].flags=(DROWS[i].flags||[]).filter(f=>f!==field); } }
+function addReviewRow(){ DROWS.push({court:'',case_no:'',title:'',client:'',proceeding:'',last_date:'',next_date:'',flags:[]}); renderReview(); }
+function delReviewRow(i){ DROWS.splice(i,1); renderReview(); }
+function cancelReview(){ DROWS=[]; $('#diaryReview').style.display='none'; }
+async function saveDiaryReview(){
+  const rows=DROWS.filter(r=>(r.case_no||'').trim()||(r.title||'').trim()||(r.client||'').trim());
+  if(!rows.length){ toast('Nothing to save','error'); return; }
+  const b=$('#drSave'); b.disabled=true; b.textContent='Saving…';
+  showOverlay('Saving to your diary…','Filing these under their matters.');
+  try{
+    const r=await fetch('/api/cases/import/diary-confirm',{method:'POST',headers:H(true),
+      body:JSON.stringify({page_date:$('#dpage').value.trim()||null,
+        rows:rows.map(x=>({client:x.client||x.title,case_no:x.case_no,court:x.court,title:x.title,proceeding:x.proceeding,last_date:x.last_date,next_date:x.next_date}))})});
+    const d=await r.json(); if(!r.ok) throw new Error(d.detail||'save failed');
+    const extra=d.logged?` · ${d.logged} added to existing matters`:'';
+    toast(`Saved ${d.imported} case(s)${extra}`,'success');
+    cancelReview(); await loadAll();
+  }catch(e){ toast(e.message,'error'); } finally{ b.disabled=false; b.textContent='Save to diary'; hideOverlay(); }
+}
 $('#importBtn')&&$('#importBtn').addEventListener('click',openEnroll);
 
 /* ---- global search (by client / party / case no.) ---- */
@@ -753,14 +925,17 @@ async function loadAll(){
   if(curView==='list') render(); else if(curView==='folder'&&FOLDER) {/* keep */} else renderDiary();
 }
 
-/* TESTING MODE: wipe matters + pins/recents on every page load so the onboarding
-   flow starts fresh on each refresh. Remove this block (call loadAll directly)
-   before going live. */
-async function boot(){
+/* The diary now PERSISTS between visits (a real diary). Demo data can be wiped
+   on demand from the "reset demo data" link. */
+async function resetDemo(){
+  if(!confirm('Clear every matter and start fresh? This cannot be undone.')) return;
+  showOverlay('Clearing your diary…','One moment.');
   try{ await fetch('/api/cases/_reset',{method:'POST',headers:H()}); }catch(e){}
   try{ localStorage.removeItem('hn_pins'); localStorage.removeItem('hn_recents'); }catch(e){}
-  await loadAll();
+  await loadAll(); switchView('diary'); toast('Diary cleared','success');
+  hideOverlay();
 }
+async function boot(){ await loadAll(); }
 boot();
 </script>
 </body>

@@ -240,10 +240,25 @@ def advocate_confirm(body: AdvocateConfirmBody,
     return {"ok": True, "imported": len(stored), "items": stored}
 
 
+_DIARY_JSON_SHAPE = (
+    'Return ONLY a JSON object (no prose): '
+    '{"page_date":"<the single date this whole cause-list page is FOR — often '
+    'written at the top/header of the page, e.g. \'दिनांक 14/07/2026\' or a date '
+    'heading; empty string if none is visible>",'
+    '"rows":[{"client":"<margin nickname, else the non-State party name>",'
+    '"case_no":"<प्र.क्र. case number, e.g. 5677/24>","court":"<न्याया. court/judge>",'
+    '"title":"<शीर्षक cause title / parties>","proceeding":"<कार्यवाही stage / what '
+    'is listed for>","last_date":"<गत दि. previous hearing date>",'
+    '"next_date":"<आगे दि. the next hearing date, if written>"}]}. '
+    "Preserve the original script (Hindi/English) for names. Use an empty string for "
+    "any blank cell. Do NOT invent rows or values you cannot see."
+)
+
 _DIARY_OCR_PROMPT = (
     "You are reading one page of an Indian advocate's handwritten court diary "
-    "(म.प्र. जिला न्यायालय 'विधि वार्षिकी' cause-list register). It is a ruled table. "
-    "The printed column headers, LEFT to RIGHT, are:\n"
+    "(म.प्र. जिला न्यायालय 'विधि वार्षिकी' cause-list register). It is a ruled table, and "
+    "the WHOLE page is the cause list for ONE hearing date (that date is usually "
+    "written at the very top of the page). The printed column headers, LEFT to RIGHT, are:\n"
     "1. गत दि. — the PREVIOUS hearing date\n"
     "2. न्याया. — the court number / judge\n"
     "3. प्र. क्र. (प्रकरण क्रमांक) — the CASE NUMBER, e.g. '5677/24', '33CH/25', '223/22'\n"
@@ -251,35 +266,59 @@ _DIARY_OCR_PROMPT = (
     "5. कार्यवाही / आगे दि. — the stage/proceeding and the NEXT hearing date\n"
     "The far-LEFT margin often has the lawyer's short nickname for the client (e.g. 'Rgub', 'Swati', 'GM').\n"
     "Read EVERY row, top to bottom, including the right-hand 'अतिरिक्त पृष्ठ' (additional) column if present. "
-    "Return ONLY a JSON array (no prose). Each item exactly: "
-    '{"client":"<margin nickname, else the non-State party name>","case_no":"<प्र.क्र.>",'
-    '"court":"<न्याया. court/judge>","title":"<शीर्षक cause title>",'
-    '"last_date":"<गत दि.>","next_date":"<कार्यवाही/आगे दि.>"}. '
-    "Preserve the original script (Hindi/English) for names. Use an empty string for any blank cell. "
-    "Do not invent rows or values you cannot see."
+    + _DIARY_JSON_SHAPE
 )
 
 
 _DIARY_STRUCT_SYS = (
     "You are given OCR'd text/markdown of ONE page of an Indian advocate's court "
-    "diary register (म.प्र. जिला न्यायालय 'विधि वार्षिकी'). Its columns are: गत दि. "
+    "diary register (म.प्र. जिला न्यायालय 'विधि वार्षिकी'). The whole page is the cause "
+    "list for ONE hearing date, usually printed at the top. Its columns are: गत दि. "
     "(the PREVIOUS hearing date) · न्याया. (court/judge) · प्र. क्र. (case number, e.g. "
     "'5677/24') · शीर्षक (cause title, e.g. 'State <section> <name>') · कार्यवाही/आगे दि. "
-    "(next date). The far-left margin may carry the lawyer's client nickname. Convert "
-    "the page to a JSON array; each item exactly: "
-    '{"client":"","case_no":"","court":"","title":"","last_date":"","next_date":""}. '
-    "Preserve the original script. Empty string for any blank cell. Return ONLY the JSON array."
+    "(stage + next date). The far-left margin may carry the lawyer's client nickname. "
+    + _DIARY_JSON_SHAPE
 )
+
+
+_ROW_FIELDS = ("client", "case_no", "court", "title", "proceeding", "last_date", "next_date")
+
+
+def _blank_row() -> dict:
+    return {k: "" for k in _ROW_FIELDS}
+
+
+def _detect_page_date(md: str) -> str:
+    """Find the single date this whole cause-list page is FOR — usually written at
+    the top ('दिनांक 14/07/2026', 'Date: 14/7/26', or a bare date heading). Scans the
+    first ~12 non-empty lines and returns the first date-looking token, else ''."""
+    import re as _re
+    date_re = _re.compile(r'(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4})')
+    seen = 0
+    for line in (md or "").splitlines():
+        s = line.strip().strip("#*| ")
+        if not s:
+            continue
+        seen += 1
+        if seen > 12:
+            break
+        # skip obvious table data rows (many pipes) — the header date sits above them
+        if line.count("|") >= 3:
+            continue
+        m = date_re.search(s)
+        if m:
+            return m.group(1)
+    return ""
 
 
 def _rows_from_markdown(md: str) -> list:
     """Parse Sarvam's OCR'd diary TABLE directly (deterministic, no LLM). Each data
-    row is pipe-delimited: <न्याया.> | <प्र.क्र.> | <शीर्षक> | … . The date embedded
-    in शीर्षक ('State 26/2 Jeetu') is the PREVIOUS date → last_date; the title keeps
-    only the parties; next_date stays blank (filled in court)."""
+    row is pipe-delimited: <न्याया.> | <प्र.क्र.> | <शीर्षक> | <कार्यवाही/आगे दि.> … . The
+    date embedded in शीर्षक ('State 26/2 Jeetu') is the PREVIOUS date → last_date; the
+    title keeps only the parties; a date in a later cell is read as the next_date."""
     import re as _re
     case_re = _re.compile(r'\d{1,4}\s*/\s*\d{2,4}')
-    dmy_re = _re.compile(r'\b(\d{1,2}/\d{1,2})\b')
+    dmy_re = _re.compile(r'\b(\d{1,2}[/.\-]\d{1,2}(?:[/.\-]\d{2,4})?)\b')
     skip = ("न्याया", "शीर्षक", "कार्यवाही", "आगे", "thead", "tbody", "<table", "प्र. क्र", "प्र.क्र")
     out = []
     for line in (md or "").splitlines():
@@ -296,35 +335,102 @@ def _rows_from_markdown(md: str) -> list:
         case_no = case_re.search(cells[ci]).group(0).replace(" ", "")
         # column BEFORE the case number is न्याया. (court/judge) — NOT the party.
         court = cells[ci - 1] if ci - 1 >= 0 else ""
+        # anything further left is the गत दि. (previous date) column — grab a date.
+        last_date = ""
+        for lc in cells[:max(ci - 1, 0)]:
+            lm = dmy_re.search(lc)
+            if lm:
+                last_date = lm.group(1)
+                break
         # column AFTER is शीर्षक — the actual cause title / parties.
         title = cells[ci + 1] if ci + 1 < len(cells) else ""
-        m = dmy_re.search(title)
-        last_date = m.group(1) if m else ""
+        if not last_date:
+            m = dmy_re.search(title)
+            last_date = m.group(1) if m else ""
         clean_title = _re.sub(r'\s{2,}', ' ', dmy_re.sub("", title)).strip() if m else title.strip()
-        out.append({"client": "", "case_no": case_no, "court": court,
-                    "title": clean_title, "last_date": last_date, "next_date": ""})
+        # anything past the title is कार्यवाही / आगे दि. — pull a date out as next_date.
+        tail = " ".join(cells[ci + 2:]) if ci + 2 < len(cells) else ""
+        nm = dmy_re.search(tail)
+        next_date = nm.group(1) if nm else ""
+        proceeding = _re.sub(r'\s{2,}', ' ', dmy_re.sub("", tail)).strip()
+        row = _blank_row()
+        row.update({"case_no": case_no, "court": court, "title": clean_title,
+                    "proceeding": proceeding, "last_date": last_date, "next_date": next_date})
+        out.append(row)
     return out
 
 
-def _parse_diary_rows(raw_text: str) -> list:
+def _clean_row(r: dict) -> dict:
+    row = _blank_row()
+    for k in _ROW_FIELDS:
+        row[k] = (r.get(k) or "").strip()
+    return row
+
+
+def _parse_diary_payload(raw_text: str) -> tuple:
+    """Parse an LLM/vision reply into (page_date, rows). Accepts the new
+    {"page_date","rows":[…]} object AND a bare [ … ] array (back-compat)."""
     import json as _json, re as _re
-    m = _re.search(r"\[.*\]", (raw_text or "").strip(), _re.S)
-    if not m:
-        return []
-    try:
-        parsed = _json.loads(m.group(0))
-    except Exception:  # noqa: BLE001
-        return []
-    out = []
-    for r in parsed if isinstance(parsed, list) else []:
+    txt = (raw_text or "").strip()
+    parsed = None
+    obj = _re.search(r"\{.*\}", txt, _re.S)
+    if obj:
+        try:
+            parsed = _json.loads(obj.group(0))
+        except Exception:  # noqa: BLE001
+            parsed = None
+    if not isinstance(parsed, dict):
+        arr = _re.search(r"\[.*\]", txt, _re.S)
+        if arr:
+            try:
+                parsed = {"rows": _json.loads(arr.group(0))}
+            except Exception:  # noqa: BLE001
+                parsed = None
+    if not isinstance(parsed, dict):
+        return "", []
+    page_date = (parsed.get("page_date") or "").strip()
+    rows = []
+    for r in parsed.get("rows") or []:
         if isinstance(r, dict) and (r.get("client") or r.get("case_no") or r.get("title")):
-            out.append({"client": (r.get("client") or "").strip(),
-                        "case_no": (r.get("case_no") or "").strip(),
-                        "court": (r.get("court") or "").strip(),
-                        "title": (r.get("title") or "").strip(),
-                        "last_date": (r.get("last_date") or "").strip(),
-                        "next_date": (r.get("next_date") or "").strip()})
+            rows.append(_clean_row(r))
+    return page_date, rows
+
+
+def _merge_rows(primary: list, secondary: list) -> list:
+    """Fill empty cells of the primary (LLM) rows from the deterministic rows,
+    matched on case number. Deterministic-only rows the LLM missed are appended."""
+    def key(r):
+        return (r.get("case_no") or "").replace(" ", "")
+    sec_by_no = {key(r): r for r in secondary if key(r)}
+    used = set()
+    out = []
+    for r in primary:
+        s = sec_by_no.get(key(r))
+        if s:
+            used.add(key(r))
+            for f in _ROW_FIELDS:
+                if not r.get(f) and s.get(f):
+                    r[f] = s[f]
+        out.append(r)
+    for s in secondary:
+        if key(s) and key(s) not in used:
+            out.append(s)
     return out
+
+
+def _flag_rows(rows: list) -> list:
+    """Attach a `flags` list naming cells the lawyer should double-check before
+    saving (blank critical fields). The review UI amber-highlights these."""
+    for r in rows:
+        flags = []
+        if not r.get("case_no"):
+            flags.append("case_no")
+        if not (r.get("title") or r.get("client")):
+            flags.append("title")
+        if not r.get("next_date"):
+            flags.append("next_date")
+        r["flags"] = flags
+    return rows
 
 
 def _normalize_upload(data: bytes, filename: str, mime: str):
@@ -355,21 +461,34 @@ def _normalize_upload(data: bytes, filename: str, mime: str):
 
 
 def _run_diary_ocr(data: bytes, fname: str, mime: str):
-    """Blocking OCR pipeline — Sarvam DI → deterministic table parse; Groq vision
-    only as last resort. Runs in a threadpool so the ~30-60s Sarvam job never
-    blocks the async event loop (which on prod caused silent fallbacks)."""
+    """Blocking OCR pipeline. Sarvam DI reads the page → we LEAD with LLM
+    structuring (returns the page date + every row incl. next date) and use the
+    deterministic table parse as a corroborating pass to backfill blank cells.
+    Groq vision is the last-resort fallback when Sarvam is off/fails. Runs in a
+    threadpool so the ~30-60s Sarvam job never blocks the async event loop.
+
+    Returns (page_date, rows, engine, sarvam_err). Rows carry a `flags` list of
+    cells to double-check."""
     data, fname, mime = _normalize_upload(data, fname, mime)
     rows: list = []
+    page_date = ""
     engine = ""
     sarvam_err = ""
     if sarvam.enabled():
         try:
             md = sarvam.digitize_to_text(data, filename=fname, mime=mime)
-            rows = _rows_from_markdown(md)          # deterministic table parse
-            if not rows:                            # unexpected shape → LLM structuring
+            det_rows = _rows_from_markdown(md)      # deterministic corroboration
+            try:
                 from headnote.llm.client import _call_deepseek_or_groq
-                structured, _m = _call_deepseek_or_groq(_DIARY_STRUCT_SYS, md, max_tokens=3000, json_mode=True)
-                rows = _parse_diary_rows(structured)
+                structured, _m = _call_deepseek_or_groq(
+                    _DIARY_STRUCT_SYS, md, max_tokens=3500, json_mode=True)
+                page_date, llm_rows = _parse_diary_payload(structured)
+            except Exception as e:  # noqa: BLE001 — LLM hiccup → lean on deterministic
+                log.warning("diary LLM structuring failed: %s", e)
+                llm_rows = []
+            rows = _merge_rows(llm_rows, det_rows) if llm_rows else det_rows
+            if not page_date:
+                page_date = _detect_page_date(md)
             engine = "sarvam"
         except Exception as e:  # noqa: BLE001 — degrade, never hard-fail
             sarvam_err = str(e)[:300]
@@ -383,9 +502,10 @@ def _run_diary_ocr(data: bytes, fname: str, mime: str):
             pages.extend(_rasterize_pdfs([(d, mt)]) if mt == "application/pdf" else [(d, mt)])
         if pages:
             raw = ocr_text_pages(pages, prompt=_DIARY_OCR_PROMPT)
-            rows = _parse_diary_rows(raw)
+            pd, rows = _parse_diary_payload(raw)
+            page_date = page_date or pd
             engine = engine or "groq"
-    return rows, engine, sarvam_err
+    return page_date, _flag_rows(rows), engine, sarvam_err
 
 
 @router.post("/import/diary-photo",
@@ -401,48 +521,98 @@ async def import_diary_photo(file: UploadFile = File(...),
     fname = file.filename or "diary.jpg"
     mime = (file.content_type or "").split(";")[0].strip() or "image/jpeg"
     try:
-        rows, engine, sarvam_err = await asyncio.to_thread(_run_diary_ocr, data, fname, mime)
+        page_date, rows, engine, sarvam_err = await asyncio.to_thread(
+            _run_diary_ocr, data, fname, mime)
     except HTTPException:
         raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"OCR failed: {e}")
-    return {"count": len(rows), "rows": rows, "engine": engine, "sarvam_error": sarvam_err}
+    return {"count": len(rows), "page_date": page_date, "rows": rows,
+            "engine": engine, "sarvam_error": sarvam_err}
 
 
 class DiaryConfirmBody(BaseModel):
     rows: list[dict] = Field(..., description="reviewed diary rows to save")
+    page_date: Optional[str] = Field(
+        None, description="the single hearing date this cause-list page is FOR")
+
+
+def _split_caseno(case_no: str) -> tuple:
+    """'5677/24' → ('5677', '24'); bare '5677' → ('5677', '')."""
+    import re as _re
+    m = _re.match(r"\s*(\d{1,6})\s*[/\-]\s*(\d{2,4})", case_no or "")
+    if m:
+        return m.group(1), m.group(2)
+    m = _re.match(r"\s*(\d{2,6})", case_no or "")
+    return (m.group(1) if m else ""), ""
 
 
 @router.post("/import/diary-confirm", summary="Save reviewed diary-photo rows as matters")
 def import_diary_confirm(body: DiaryConfirmBody,
                          user: CurrentUser = Depends(get_current_user)) -> dict:
+    """Save reviewed rows. Each page is ONE hearing date's cause list, so:
+      • an existing matter (matched on case number + court) gets a hearing-log
+        entry (page_date → next_date) instead of a duplicate — re-importing
+        successive days builds the case history automatically;
+      • a new matter is created with the page's date as its last-listed date and
+        the written next date as its next hearing.
+    """
     import hashlib
-    stored = []
+    page_date = (body.page_date or "").strip()
+    stored, logged = [], 0
     for r in body.rows:
         client = (r.get("client") or "").strip()
         case_no = (r.get("case_no") or "").strip()
+        title = (r.get("title") or "").strip()
+        court = (r.get("court") or "").strip()
+        next_date = (r.get("next_date") or "").strip()
+        # the previous date for a row is the page's own date (this cause list) or,
+        # failing that, the per-row गत दि. the lawyer wrote.
+        last_date = page_date or (r.get("last_date") or "").strip()
+        proceeding = (r.get("proceeding") or "").strip()
         if not (client or case_no):
             continue
-        # no CNR from a photo → deterministic pseudo-key so re-import updates in place
-        title = (r.get("title") or "").strip()
-        key = hashlib.md5(f"{user.id}|{client}|{case_no}|{r.get('court','')}".encode()).hexdigest()[:12]
+
+        num, yr = _split_caseno(case_no)
+        existing = cases_storage.find_case_by_number(
+            user_id=user.id, case_number=num or case_no, case_year=yr,
+            court_name=court) if (num or case_no) else None
+        if existing:
+            # this page records another hearing of a matter we already track
+            cases_storage.log_hearing(
+                existing["id"], user_id=user.id,
+                hearing_date=last_date or None,
+                what_happened=proceeding or "listed (from diary page)",
+                next_hearing_date=next_date or None, stage=proceeding or None)
+            logged += 1
+            stored.append(_diary_item(cases_storage.get_case(existing["id"], user_id=user.id)))
+            continue
+
+        key = hashlib.md5(f"{user.id}|{client}|{case_no}|{court}".encode()).hexdigest()[:12]
         case = {
             "cnr": "DY" + key.upper(),
             "source": "diary",
             "case_title": title or client or case_no,
-            "case_number": case_no, "case_year": "",
-            "court_name": (r.get("court") or "").strip(),
-            "next_hearing_date": (r.get("next_date") or "").strip(),
-            "last_listed_date": (r.get("last_date") or "").strip(),
+            "case_number": num or case_no, "case_year": yr,
+            "court_name": court,
+            "stage": proceeding,
+            "next_hearing_date": next_date,
+            "last_listed_date": last_date,
             "sections": [],
             "client": {"name": client} if client else {},
         }
         row = cases_storage.add_case(user_id=user.id, case=case)
+        if row and last_date:
+            # seed the history with this page's listing so the folder timeline shows it
+            cases_storage.log_hearing(
+                row["id"], user_id=user.id, hearing_date=last_date,
+                what_happened=proceeding or "listed (from diary page)",
+                next_hearing_date=next_date or None, stage=proceeding or None)
         if row:
-            stored.append(_diary_item(row))
-    return {"ok": True, "imported": len(stored), "items": stored}
+            stored.append(_diary_item(cases_storage.get_case(row["id"], user_id=user.id)))
+    return {"ok": True, "imported": len(stored), "logged": logged, "items": stored}
 
 
 @router.post("/_reset", summary="[testing] wipe this user's matters so the flow restarts fresh")
@@ -579,6 +749,109 @@ def refresh_next_date(case_id: str, user: CurrentUser = Depends(get_current_user
         next_hearing_date=fresh.get("next_hearing_date"), stage=fresh.get("stage"),
     )
     return {"ok": True, "case": _diary_item(updated)}
+
+
+class NextDateBody(BaseModel):
+    next_hearing_date: str = Field(..., description="the next hearing date to set (any common format)")
+    stage: Optional[str] = Field(None, max_length=200)
+
+
+@router.post("/{case_id}/set-next-date",
+             summary="Manually set/edit a matter's next hearing date (no outcome log)")
+def set_next_date(case_id: str, body: NextDateBody,
+                  user: CurrentUser = Depends(get_current_user)) -> dict:
+    """The manual fallback for matters with no fetchable CNR (photo/manual): the
+    lawyer types the next date the judge gave and it's saved against the matter,
+    re-grouping it onto that day's board. Use hearing-log when there's also an
+    outcome to record; this is the quick date-only edit."""
+    row = cases_storage.set_next_date(
+        case_id, user_id=user.id,
+        next_hearing_date=body.next_hearing_date.strip() or None, stage=body.stage)
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"no case with id={case_id!r}")
+    return {"ok": True, "case": _diary_item(row)}
+
+
+@router.post("/refresh-all-dates",
+             summary="Re-fetch next dates for every matter with a fetchable CNR")
+def refresh_all_dates(user: CurrentUser = Depends(get_current_user)) -> dict:
+    """One tap to roll the whole docket forward: refresh next dates for all
+    matters that have a real eCourts CNR. Photo/manual matters (no CNR) are
+    skipped and reported so the lawyer knows to set those by hand."""
+    refreshed, skipped, failed = 0, 0, 0
+    for r in cases_storage.list_cases(user_id=user.id, limit=500):
+        cnr = r.get("cnr") or ""
+        if not ecourts_client.is_valid_cnr(cnr):
+            skipped += 1
+            continue
+        try:
+            fresh = ecourts_client.fetch_cnr(cnr)
+            cases_storage.set_next_date(
+                r["id"], user_id=user.id,
+                next_hearing_date=fresh.get("next_hearing_date"), stage=fresh.get("stage"))
+            refreshed += 1
+        except Exception as e:  # noqa: BLE001 — one bad CNR shouldn't sink the batch
+            log.warning("refresh-all: %s failed: %s", cnr, e)
+            failed += 1
+    return {"ok": True, "refreshed": refreshed, "skipped": skipped, "failed": failed}
+
+
+class ResolveCnrBody(BaseModel):
+    advocate_name: str = Field("", max_length=120, description="lawyer's name as on the cause list")
+    city:          str = Field("", max_length=80)
+    court_code:    str = Field("", max_length=60)
+    state:         str = Field("", max_length=60)
+
+
+@router.post("/{case_id}/resolve-cnr",
+             summary="Find the real eCourts CNR for a diary/manual matter (candidates)")
+def resolve_cnr_candidates(case_id: str, body: ResolveCnrBody,
+                           user: CurrentUser = Depends(get_current_user)) -> dict:
+    """Best-effort: match this matter's case number against the lawyer's eCourts
+    docket to recover a real CNR, so the next date becomes API-refreshable.
+    Returns candidates for the lawyer to confirm — nothing is changed yet."""
+    row = cases_storage.get_case(case_id, user_id=user.id)
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"no case with id={case_id!r}")
+    case_no = row.get("case_number") or ""
+    if row.get("case_year"):
+        case_no = f"{case_no}/{row['case_year']}"
+    try:
+        cands = ecourts_client.resolve_cnr(
+            case_number=case_no, advocate_name=body.advocate_name, city=body.city,
+            court_code=body.court_code, state=body.state,
+            court_name=row.get("court_name") or "")
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"resolve failed: {e}")
+    out = [{"cnr": c.get("cnr"), "case_title": c.get("case_title"),
+            "court_name": c.get("court_name"),
+            "case_number": c.get("case_number"), "case_year": c.get("case_year"),
+            "next_hearing_date": c.get("next_hearing_date"), "stage": c.get("stage"),
+            "petitioner_name": c.get("petitioner_name"),
+            "respondent_name": c.get("respondent_name")} for c in cands]
+    return {"count": len(out), "candidates": out}
+
+
+class ResolveConfirmBody(BaseModel):
+    cnr: str = Field(..., min_length=1, max_length=32)
+
+
+@router.post("/{case_id}/resolve-cnr/confirm",
+             summary="Upgrade a diary/manual matter to a confirmed real CNR")
+def resolve_cnr_confirm(case_id: str, body: ResolveConfirmBody,
+                        user: CurrentUser = Depends(get_current_user)) -> dict:
+    """Apply the CNR the lawyer picked: re-fetch the full case and replace the
+    matter's identity in place (same folder, logs and client preserved)."""
+    if cases_storage.get_case(case_id, user_id=user.id) is None:
+        raise HTTPException(status_code=404, detail=f"no case with id={case_id!r}")
+    try:
+        fresh = ecourts_client.fetch_cnr(body.cnr)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"CNR lookup failed: {e}")
+    row = cases_storage.replace_case_identity(case_id, user_id=user.id, case=fresh)
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"no case with id={case_id!r}")
+    return {"ok": True, "case": _diary_item(row)}
 
 
 # ---------------------------------------------------------------- the folder

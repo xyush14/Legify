@@ -1499,6 +1499,8 @@ def payment_failed_page():
                         headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
+@app.get("/matters", include_in_schema=False)
+@app.get("/matters/", include_in_schema=False)
 @app.get("/testmatter", include_in_schema=False)
 @app.get("/testmatter/", include_in_schema=False)
 @app.get("/cases", include_in_schema=False)
