@@ -141,7 +141,12 @@ MAX_TOKENS = int(os.environ.get("MAX_TOKENS", "6000"))
 GEMINI_API_KEY: Optional[str] = (
     os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
 )
-GEMINI_VISION_MODEL: str = os.environ.get("GEMINI_VISION_MODEL", "gemini-2.0-flash")
+# Default to the flash-LITE alias: it runs on the FREE tier (no billing / prepay),
+# reads the ruled diary columns well enough that the editable review gate mops up
+# the rest, and the `-latest` alias won't 404 as Google retires point versions.
+# Bump to a full flash tier (GEMINI_VISION_MODEL=gemini-flash-latest) once billing
+# is on, for higher accuracy on messy handwriting.
+GEMINI_VISION_MODEL: str = os.environ.get("GEMINI_VISION_MODEL", "gemini-flash-lite-latest")
 
 
 # ----------------------------------------------------------------- IK / retrieval
