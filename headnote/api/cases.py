@@ -679,16 +679,20 @@ def import_diary_confirm(body: DiaryConfirmBody,
         the written next date as its next hearing.
     """
     import hashlib
-    page_date = (body.page_date or "").strip()
+    page_default = (body.page_date or "").strip()
     stored, logged = [], 0
     for r in body.rows:
         case_no = (r.get("case_no") or "").strip()
         title = (r.get("title") or "").strip()      # the party / cause title
         court = (r.get("court") or "").strip()       # the judge / court
         next_date = (r.get("next_date") or "").strip()
-        # previous hearing date: prefer the per-row गत दि. the OCR pulled out, else
-        # fall back to the page's own date.
-        last_date = (r.get("last_date") or "").strip() or page_date
+        prev_date = (r.get("last_date") or r.get("prev_date") or "").strip()  # गत दि.
+        # each page is ONE day's cause list; a row may carry its own page date (batch
+        # uploads mix dates), else the shared default.
+        page_dt = (r.get("page_date") or "").strip() or page_default
+        # the date this matter SITS ON in the diary = its written आगे दि. if present,
+        # otherwise the page's own date (so "16 July's photo" lands on the 16 July list).
+        hearing_on = next_date or page_dt
         proceeding = (r.get("proceeding") or "").strip()
         if not (case_no or title):
             continue
@@ -700,14 +704,14 @@ def import_diary_confirm(body: DiaryConfirmBody,
         if existing:
             # this page records another hearing of a matter we already track —
             # refresh court/title from the (newer) read so a fixed OCR corrects the
-            # board, then log the hearing
+            # board, then log the hearing and roll it onto this page's date
             cases_storage.update_matter_basics(
                 existing["id"], user_id=user.id, court_name=court, case_title=title)
             cases_storage.log_hearing(
                 existing["id"], user_id=user.id,
-                hearing_date=last_date or None,
+                hearing_date=prev_date or page_dt or None,
                 what_happened=proceeding or "listed (from diary page)",
-                next_hearing_date=next_date or None, stage=proceeding or None)
+                next_hearing_date=hearing_on or None, stage=proceeding or None)
             logged += 1
             stored.append(_diary_item(cases_storage.get_case(existing["id"], user_id=user.id)))
             continue
@@ -720,18 +724,18 @@ def import_diary_confirm(body: DiaryConfirmBody,
             "case_number": num or case_no, "case_year": yr,
             "court_name": court,          # the judge / court from the leftmost column
             "stage": proceeding,
-            "next_hearing_date": next_date,
-            "last_listed_date": last_date,
+            "next_hearing_date": hearing_on,   # → lands on this page's date's list
+            "last_listed_date": prev_date,
             "sections": [],
             "client": {},                 # diary rows carry no client; add later in the folder
         }
         row = cases_storage.add_case(user_id=user.id, case=case)
-        if row and last_date:
-            # seed the history with this page's listing so the folder timeline shows it
+        if row and (prev_date or page_dt):
+            # seed the history with this listing so the folder timeline shows it
             cases_storage.log_hearing(
-                row["id"], user_id=user.id, hearing_date=last_date,
+                row["id"], user_id=user.id, hearing_date=prev_date or page_dt,
                 what_happened=proceeding or "listed (from diary page)",
-                next_hearing_date=next_date or None, stage=proceeding or None)
+                next_hearing_date=hearing_on or None, stage=proceeding or None)
         if row:
             stored.append(_diary_item(cases_storage.get_case(row["id"], user_id=user.id)))
     return {"ok": True, "imported": len(stored), "logged": logged, "items": stored}

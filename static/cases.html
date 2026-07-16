@@ -266,7 +266,7 @@
 
       <!-- ============ DIARY ============ -->
       <section class="view on" id="viewDiary">
-        <input type="file" id="diaryFile" accept="image/*,.heic,.heif,.webp,.tiff,.pdf,application/pdf" style="display:none" />
+        <input type="file" id="diaryFile" accept="image/*,.heic,.heif,.webp,.tiff,.pdf,application/pdf" multiple style="display:none" />
 
         <!-- lawyer-centric onboarding: fetch the whole docket by Bar number -->
         <div class="case-card" id="enrollCard" style="display:none;margin-bottom:18px;padding:18px 20px">
@@ -299,9 +299,9 @@
         <div class="case-card" id="diaryReview" style="display:none;margin-bottom:18px;padding:18px 20px">
           <div style="font-size:15px;font-weight:600;letter-spacing:-.01em;margin-bottom:4px">Check the page before it's saved</div>
           <div id="drEngine" class="mono" style="font-size:10.5px;letter-spacing:.04em;margin-bottom:8px"></div>
-          <div style="font-size:13px;color:var(--ink-2);line-height:1.55;margin-bottom:14px">We read your diary page. <b>Amber</b> cells are ones to double-check. Fix anything the OCR misread, then save — nothing is added until you do.</div>
+          <div style="font-size:13px;color:var(--ink-2);line-height:1.55;margin-bottom:14px">We read your diary page(s). Each row lands on its own <b>page date</b>, so a 16 July photo fills your 16 July list. You can upload several photos at once. <b>Amber</b> cells are ones to double-check — fix anything the OCR misread, then save. Nothing is added until you do.</div>
           <div class="pgrid" style="margin-bottom:12px">
-            <div class="fld"><label>Date of this page (गत/peshi date)</label><input id="dpage" class="input mono" placeholder="dd/mm/yyyy" style="max-width:180px" /></div>
+            <div class="fld"><label>Default date (applies to rows with no page date)</label><input id="dpage" class="input mono" placeholder="dd/mm/yyyy" style="max-width:220px" /></div>
           </div>
           <div style="overflow-x:auto"><table class="drtable" id="drtable"></table></div>
           <div class="panel-foot" style="justify-content:space-between">
@@ -331,7 +331,8 @@
         <div class="actbar">
           <input class="input" id="dfilter" placeholder="Search this day — client, case no. or court…" />
           <button class="btn" onclick="toggleQuickAdd()">+ Add to this day</button>
-          <button class="btn" onclick="openPhoto()">Add from photo</button>
+          <button class="btn" onclick="openPhoto()">Add from photo(s)</button>
+          <button class="btn" title="Download this day's cause list as a PDF" onclick="downloadDayPDF()">⬇ Download list</button>
           <button class="btn" onclick="openEnroll()">Fetch my cases</button>
           <button class="btn" onclick="openAdd()">Add by CNR</button>
           <button class="btn" title="Re-fetch next dates for matters with a real CNR" onclick="refreshAll()">Refresh all dates</button>
@@ -584,6 +585,36 @@ async function refreshAll(){
     toast(`Refreshed ${d.refreshed} matter(s)${tail}`,'success'); await loadAll();
   }catch(e){ toast(e.message,'error'); } finally{ hideOverlay(); }
 }
+/* per-date cause-list PDF (browser Save-as-PDF) with Headnote logo watermark */
+function downloadDayPDF(){
+  const items=dayItems();
+  const dayLabel = selDate==='__undated' ? 'Undated matters' : fmtDay(selDate||DIARY.today);
+  if(!items.length){ toast('Nothing to download for this day','error'); return; }
+  const rowsHtml=items.map((c,i)=>{
+    const court=shortCourt(c.court_name||'')||'—';
+    const cno=c.case_number?esc(c.case_number)+(c.case_year?'/'+esc(c.case_year):''):'—';
+    return `<tr><td>${i+1}</td><td>${esc(court)}</td><td class="m">${cno}</td><td>${esc(partyName(c))}</td><td class="m">${c.next_hearing_date?esc(c.next_hearing_date):'—'}</td></tr>`;
+  }).join('');
+  const logo=location.origin+'/static/headnote-logo.svg';
+  const html=`<!doctype html><html><head><meta charset="utf-8"><title>Cause list — ${esc(dayLabel)}</title><style>
+   @page{margin:16mm 14mm;} *{box-sizing:border-box;} body{font-family:Georgia,serif;color:#1a1a1a;margin:0;}
+   .wm{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-24deg);opacity:.06;width:72%;z-index:0;pointer-events:none;}
+   .hd{display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1a1a1a;padding-bottom:10px;margin-bottom:16px;position:relative;z-index:1;}
+   .hd img{height:24px;} .hd .t{text-align:right;} .hd .t b{font-size:16px;} .hd .t span{display:block;font-size:11px;color:#555;font-family:monospace;margin-top:2px;}
+   table{width:100%;border-collapse:collapse;position:relative;z-index:1;font-size:12.5px;}
+   th{text-align:left;font-family:monospace;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:#555;border-bottom:1px solid #999;padding:7px 8px;}
+   td{padding:8px;border-bottom:1px solid #e6e6e6;vertical-align:top;} td:first-child{color:#999;width:26px;} .m{font-family:monospace;font-size:11.5px;}
+   .ft{margin-top:20px;font-size:10px;color:#999;font-family:monospace;text-align:center;position:relative;z-index:1;}
+  </style></head><body>
+   <img class="wm" src="${logo}" alt="">
+   <div class="hd"><img src="${logo}" alt="headnote"><div class="t"><b>Cause List</b><span>${esc(dayLabel)} · ${items.length} matter(s)</span></div></div>
+   <table><thead><tr><th>#</th><th>Court / Judge</th><th>Case No.</th><th>Party</th><th>Next Date</th></tr></thead><tbody>${rowsHtml}</tbody></table>
+   <div class="ft">Generated by headnote · headnote.in</div>
+   <scr`+`ipt>window.onload=function(){setTimeout(function(){window.print();},400);};<\/scr`+`ipt>
+  </body></html>`;
+  const w=window.open('','_blank'); if(!w){ toast('Allow pop-ups to download the PDF','error'); return; }
+  w.document.open(); w.document.write(html); w.document.close();
+}
 async function saveLog(id,i){
   const body={ hearing_date:(selDate&&selDate!=='__undated')?selDate:null,
     what_happened:$('#lw'+i).value.trim(), next_hearing_date:$('#ln'+i).value.trim()||null };
@@ -829,35 +860,45 @@ async function confirmSelected(){
 $('#candFilter')&&$('#candFilter').addEventListener('input',renderCandidates);
 function openPhoto(){ const el=$('#diaryFile'); if(el){ el.value=''; el.click(); } }
 /* ---- diary-photo OCR → editable review (the trust gate) ---- */
+/* Multi-page: each photo is one day's cause list. We OCR every selected file,
+   stamp each row with ITS page's date, and every matter lands on that date's
+   list. Different pages can carry different dates in the same batch. */
 let DROWS=[];
 $('#diaryFile')&&$('#diaryFile').addEventListener('change', async (e)=>{
-  const f=e.target.files&&e.target.files[0]; if(!f) return;
-  showOverlay('Reading your diary…','Transcribing the page — this can take up to a minute.');
-  const fd=new FormData(); fd.append('file',f);
+  const files=[...(e.target.files||[])]; if(!files.length) return;
+  showOverlay('Reading your diary…', files.length>1?`Transcribing ${files.length} pages — up to a minute each.`:'Transcribing the page — this can take up to a minute.');
+  DROWS=[]; const engs=new Set(); const errs=[]; let pages=0;
   try{
-    const r=await fetch('/api/cases/import/diary-photo',{method:'POST',headers:H(),body:fd});
-    const d=await r.json(); if(!r.ok) throw new Error(d.detail||'read failed');
-    if(!(d.rows||[]).length){ toast("Couldn't read case rows — try a clearer photo",'error'); return; }
-    DROWS=d.rows.map(row=>({court:row.court||'',case_no:row.case_no||'',
-      title:row.title||'',proceeding:row.proceeding||'',
-      last_date:row.last_date||'',next_date:row.next_date||'',flags:row.flags||[]}));
-    $('#dpage').value=d.page_date||'';
-    const eng=(d.engine||'').toLowerCase();
+    for(const f of files){
+      const fd=new FormData(); fd.append('file',f);
+      const r=await fetch('/api/cases/import/diary-photo',{method:'POST',headers:H(),body:fd});
+      const d=await r.json(); if(!r.ok) throw new Error(d.detail||'read failed');
+      const pd=d.page_date||'';
+      (d.rows||[]).forEach(row=>DROWS.push({page_date:pd,court:row.court||'',case_no:row.case_no||'',
+        title:row.title||'',proceeding:row.proceeding||'',last_date:row.last_date||'',
+        next_date:row.next_date||'',flags:row.flags||[]}));
+      engs.add((d.engine||'').toLowerCase()); if(d.sarvam_error) errs.push(d.sarvam_error); pages++;
+    }
+    if(!DROWS.length){ toast("Couldn't read case rows — try clearer photos",'error'); return; }
+    const eng=engs.has('gemini')?'gemini':([...engs][0]||'fallback');
     $('#drEngine').innerHTML = eng==='gemini'
-      ? '<span style="color:#1a7f4b">● read by Gemini vision</span>'
-      : `<span style="color:#c0392b">⚠ Gemini NOT active — used "${esc(eng||'fallback')}" OCR${d.sarvam_error?' ('+esc(d.sarvam_error)+')':''}. Set GEMINI_API_KEY on the server.</span>`;
+      ? `<span style="color:#1a7f4b">● read by Gemini vision — ${pages} page(s)</span>`
+      : `<span style="color:#c0392b">⚠ Gemini NOT active — used "${esc(eng)}"${errs[0]?' ('+esc(errs[0])+')':''}. Set GEMINI_API_KEY on the server.</span>`;
+    const dts=[...new Set(DROWS.map(r=>r.page_date).filter(Boolean))];
+    $('#dpage').value = dts.length===1 ? dts[0] : '';   // shared default when all pages share a date
     closeEnroll();
     $('#diaryReview').style.display='block'; renderReview(); window.scrollTo(0,0);
-    toast(`Read ${DROWS.length} case(s) via ${eng||'fallback'} — check and save`, eng==='gemini'?'success':'error');
+    toast(`Read ${DROWS.length} case(s) from ${pages} page(s) via ${eng} — check and save`, eng==='gemini'?'success':'error');
   }catch(e){ toast(e.message,'error'); } finally{ hideOverlay(); }
 });
-const DRHEAD=`<thead><tr><th>Court / judge</th><th>Case no.</th><th>Party (A Vs B)</th><th>Prev date</th><th>Next date</th><th></th></tr></thead>`;
+const DRHEAD=`<thead><tr><th>Page date</th><th>Court / judge</th><th>Case no.</th><th>Party (A Vs B)</th><th>Prev date</th><th>Next date</th><th></th></tr></thead>`;
 function drInput(i,field,val,flag){ return `<td><input class="input${flag?' flagd':''}" value="${esc(val)}" oninput="drEdit(${i},'${field}',this.value)"></td>`; }
 function renderReview(){
   const t=$('#drtable'); if(!t) return;
   t.innerHTML=DRHEAD+'<tbody>'+DROWS.map((r,i)=>{
     const fl=f=>(r.flags||[]).includes(f);
     return `<tr>
+      ${drInput(i,'page_date',r.page_date||'',false)}
       ${drInput(i,'court',r.court,fl('court'))}
       ${drInput(i,'case_no',r.case_no,fl('case_no'))}
       ${drInput(i,'title',r.title,fl('title'))}
@@ -869,18 +910,19 @@ function renderReview(){
 }
 function drEdit(i,field,val){ if(DROWS[i]){ DROWS[i][field]=val;
   DROWS[i].flags=(DROWS[i].flags||[]).filter(f=>f!==field); } }
-function addReviewRow(){ DROWS.push({court:'',case_no:'',title:'',proceeding:'',last_date:'',next_date:'',flags:[]}); renderReview(); }
+function addReviewRow(){ DROWS.push({page_date:$('#dpage').value.trim()||'',court:'',case_no:'',title:'',proceeding:'',last_date:'',next_date:'',flags:[]}); renderReview(); }
 function delReviewRow(i){ DROWS.splice(i,1); renderReview(); }
 function cancelReview(){ DROWS=[]; $('#diaryReview').style.display='none'; }
 async function saveDiaryReview(){
   const rows=DROWS.filter(r=>(r.case_no||'').trim()||(r.title||'').trim());
   if(!rows.length){ toast('Nothing to save','error'); return; }
+  const dflt=$('#dpage').value.trim()||null;
   const b=$('#drSave'); b.disabled=true; b.textContent='Saving…';
-  showOverlay('Saving to your diary…','Filing these under their matters.');
+  showOverlay('Saving to your diary…','Filing these onto their dates.');
   try{
     const r=await fetch('/api/cases/import/diary-confirm',{method:'POST',headers:H(true),
-      body:JSON.stringify({page_date:$('#dpage').value.trim()||null,
-        rows:rows.map(x=>({case_no:x.case_no,court:x.court,title:x.title,proceeding:x.proceeding,last_date:x.last_date,next_date:x.next_date}))})});
+      body:JSON.stringify({page_date:dflt,
+        rows:rows.map(x=>({case_no:x.case_no,court:x.court,title:x.title,proceeding:x.proceeding,last_date:x.last_date,next_date:x.next_date,page_date:(x.page_date||'').trim()||dflt}))})});
     const d=await r.json(); if(!r.ok) throw new Error(d.detail||'save failed');
     const extra=d.logged?` · ${d.logged} added to existing matters`:'';
     toast(`Saved ${d.imported} case(s)${extra}`,'success');
