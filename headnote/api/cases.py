@@ -292,6 +292,33 @@ def _parse_diary_rows(raw_text: str) -> list:
     return out
 
 
+def _normalize_upload(data: bytes, filename: str, mime: str):
+    """Accept any phone-photo format. PDF/JPEG/PNG pass through; everything else
+    (HEIC/HEIF from iPhones, WebP, TIFF, GIF, BMP) is converted to JPEG so both
+    Sarvam and Groq accept it."""
+    import io as _io
+    m, f = (mime or "").lower(), (filename or "").lower()
+    if m == "application/pdf" or f.endswith(".pdf"):
+        return data, (filename or "doc.pdf"), "application/pdf"
+    if m in ("image/jpeg", "image/png") or f.endswith((".jpg", ".jpeg", ".png")):
+        return data, (filename or "page.jpg"), ("image/png" if f.endswith(".png") else "image/jpeg")
+    try:
+        from PIL import Image
+        try:
+            import pillow_heif
+            pillow_heif.register_heif_opener()
+        except Exception:  # noqa: BLE001 — non-HEIC formats still work via PIL
+            pass
+        img = Image.open(_io.BytesIO(data)).convert("RGB")
+        buf = _io.BytesIO()
+        img.save(buf, "JPEG", quality=90)
+        base = filename.rsplit(".", 1)[0] if "." in (filename or "") else "page"
+        return buf.getvalue(), base + ".jpg", "image/jpeg"
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=400,
+                            detail=f"Couldn't read that image format ({mime}). Try JPG, PNG, PDF or HEIC. ({e})")
+
+
 @router.post("/import/diary-photo",
              summary="OCR a photo of the paper diary/cause-list into case rows (candidates)")
 async def import_diary_photo(file: UploadFile = File(...),
@@ -304,6 +331,7 @@ async def import_diary_photo(file: UploadFile = File(...),
         raise HTTPException(status_code=400, detail="empty upload")
     fname = file.filename or "diary.jpg"
     mime = (file.content_type or "").split(";")[0].strip() or "image/jpeg"
+    data, fname, mime = _normalize_upload(data, fname, mime)
 
     rows: list = []
     engine = ""

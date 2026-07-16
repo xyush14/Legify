@@ -24,7 +24,7 @@ import httpx
 _BASE = os.environ.get("SARVAM_BASE_URL", "https://api.sarvam.ai").rstrip("/")
 _STT_MODEL = os.environ.get("SARVAM_STT_MODEL", "saarika:v2.5")
 _DI = "/doc-digitization/job/v1"
-_DONE = {"success", "partialsuccess", "completed", "complete"}
+_DONE = {"completed", "partiallycompleted", "success", "partialsuccess", "complete"}
 _FAIL = {"failed", "error"}
 
 
@@ -105,7 +105,7 @@ def digitize_to_text(data: bytes, *, filename: str = "page.jpg",
 
     # 2) upload links
     r = httpx.post(f"{_BASE}{_DI}/upload-files", headers=_hdr(True),
-                   json={"job_id": job_id, "files": [{"file_name": zip_name}]}, timeout=30.0)
+                   json={"job_id": job_id, "files": [zip_name]}, timeout=30.0)
     if r.status_code != 200:
         raise RuntimeError(f"Sarvam upload-links {r.status_code}: {r.text[:300]}")
     up = r.json() or {}
