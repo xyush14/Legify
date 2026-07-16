@@ -298,6 +298,7 @@
         <!-- editable OCR review — the trust gate before anything is saved -->
         <div class="case-card" id="diaryReview" style="display:none;margin-bottom:18px;padding:18px 20px">
           <div style="font-size:15px;font-weight:600;letter-spacing:-.01em;margin-bottom:4px">Check the page before it's saved</div>
+          <div id="drEngine" class="mono" style="font-size:10.5px;letter-spacing:.04em;margin-bottom:8px"></div>
           <div style="font-size:13px;color:var(--ink-2);line-height:1.55;margin-bottom:14px">We read your diary page. <b>Amber</b> cells are ones to double-check. Fix anything the OCR misread, then save — nothing is added until you do.</div>
           <div class="pgrid" style="margin-bottom:12px">
             <div class="fld"><label>Date of this page (गत/peshi date)</label><input id="dpage" class="input mono" placeholder="dd/mm/yyyy" style="max-width:180px" /></div>
@@ -841,10 +842,13 @@ $('#diaryFile')&&$('#diaryFile').addEventListener('change', async (e)=>{
       title:row.title||'',client:row.client||'',proceeding:row.proceeding||'',
       last_date:row.last_date||'',next_date:row.next_date||'',flags:row.flags||[]}));
     $('#dpage').value=d.page_date||'';
+    const eng=(d.engine||'').toLowerCase();
+    $('#drEngine').innerHTML = eng==='gemini'
+      ? '<span style="color:#1a7f4b">● read by Gemini vision</span>'
+      : `<span style="color:#c0392b">⚠ Gemini NOT active — used "${esc(eng||'fallback')}" OCR${d.sarvam_error?' ('+esc(d.sarvam_error)+')':''}. Set GEMINI_API_KEY on the server.</span>`;
     closeEnroll();
     $('#diaryReview').style.display='block'; renderReview(); window.scrollTo(0,0);
-    toast(`Read ${DROWS.length} case(s) — check and save`,'success');
-    if(d.sarvam_error) toast('OCR note: '+d.sarvam_error,'error');
+    toast(`Read ${DROWS.length} case(s) via ${eng||'fallback'} — check and save`, eng==='gemini'?'success':'error');
   }catch(e){ toast(e.message,'error'); } finally{ hideOverlay(); }
 });
 const DRHEAD=`<thead><tr><th>Court</th><th>Case no.</th><th>Party / title</th><th>Proceeding</th><th>Next date</th><th></th></tr></thead>`;

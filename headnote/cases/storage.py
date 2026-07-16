@@ -192,6 +192,36 @@ def find_case_by_number(*, user_id: Optional[str], case_number: Optional[str],
     return cands[0]
 
 
+def update_matter_basics(case_id: str, *, user_id: Optional[str],
+                         court_name: Optional[str] = None,
+                         case_title: Optional[str] = None) -> Optional[dict]:
+    """Patch a matter's court / cause-title from a fresh diary re-read (only when a
+    non-empty value is supplied). Lets a re-imported page correct an earlier OCR
+    misread on the board instead of leaving the stale row. Mirrors into case_json."""
+    row = get_case(case_id, user_id=user_id)
+    if row is None:
+        return None
+    court_name = (court_name or "").strip() or None
+    case_title = (case_title or "").strip() or None
+    if not (court_name or case_title):
+        return row
+    cj = row["case_json"] or {}
+    if court_name:
+        cj["court_name"] = court_name
+    if case_title:
+        cj["case_title"] = case_title
+    with _conn() as c:
+        c.execute(
+            "UPDATE cases SET court_name = COALESCE(?, court_name), "
+            "case_title = COALESCE(?, case_title), case_json = ?, updated_at = ? "
+            "WHERE id = ? AND user_id IS ?",
+            (court_name, case_title, json.dumps(cj, ensure_ascii=False), _now(),
+             case_id, user_id),
+        )
+        c.commit()
+    return get_case(case_id, user_id=user_id)
+
+
 def replace_case_identity(case_id: str, *, user_id: Optional[str], case: dict) -> Optional[dict]:
     """Overwrite a matter's identity + fields from a fresh eCourts case dict while
     keeping the SAME row id, its hearing logs, and any lawyer-entered client.

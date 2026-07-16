@@ -704,7 +704,11 @@ def import_diary_confirm(body: DiaryConfirmBody,
             user_id=user.id, case_number=num or case_no, case_year=yr,
             court_name=court) if (num or case_no) else None
         if existing:
-            # this page records another hearing of a matter we already track
+            # this page records another hearing of a matter we already track —
+            # refresh court/title from the (newer) read so a fixed OCR corrects the
+            # board, then log the hearing
+            cases_storage.update_matter_basics(
+                existing["id"], user_id=user.id, court_name=court, case_title=title)
             cases_storage.log_hearing(
                 existing["id"], user_id=user.id,
                 hearing_date=last_date or None,
