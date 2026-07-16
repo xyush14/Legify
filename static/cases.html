@@ -851,17 +851,18 @@ $('#diaryFile')&&$('#diaryFile').addEventListener('change', async (e)=>{
     toast(`Read ${DROWS.length} case(s) via ${eng||'fallback'} — check and save`, eng==='gemini'?'success':'error');
   }catch(e){ toast(e.message,'error'); } finally{ hideOverlay(); }
 });
-const DRHEAD=`<thead><tr><th>Court</th><th>Case no.</th><th>Party / title</th><th>Proceeding</th><th>Next date</th><th></th></tr></thead>`;
+const DRHEAD=`<thead><tr><th>Client</th><th>Court / judge</th><th>Case no.</th><th>Party (A Vs B)</th><th>Prev date</th><th>Next date</th><th></th></tr></thead>`;
 function drInput(i,field,val,flag){ return `<td><input class="input${flag?' flagd':''}" value="${esc(val)}" oninput="drEdit(${i},'${field}',this.value)"></td>`; }
 function renderReview(){
   const t=$('#drtable'); if(!t) return;
   t.innerHTML=DRHEAD+'<tbody>'+DROWS.map((r,i)=>{
     const fl=f=>(r.flags||[]).includes(f);
     return `<tr>
+      ${drInput(i,'client',r.client,false)}
       ${drInput(i,'court',r.court,false)}
       ${drInput(i,'case_no',r.case_no,fl('case_no'))}
-      ${drInput(i,'title',r.title||r.client,fl('title'))}
-      ${drInput(i,'proceeding',r.proceeding,false)}
+      ${drInput(i,'title',r.title,fl('title'))}
+      ${drInput(i,'last_date',r.last_date,false)}
       ${drInput(i,'next_date',r.next_date,fl('next_date'))}
       <td style="text-align:center"><button class="iconbtn" title="Remove row" onclick="delReviewRow(${i})">✕</button></td>
     </tr>`;
