@@ -96,7 +96,7 @@ def digitize_to_text(data: bytes, *, filename: str = "page.jpg",
     r = httpx.post(f"{_BASE}{_DI}", headers=_hdr(True),
                    json={"job_parameters": {"language": language, "output_format": "md"}},
                    timeout=30.0)
-    if r.status_code not in (200, 201):
+    if r.status_code not in (200, 201, 202):
         raise RuntimeError(f"Sarvam init {r.status_code}: {r.text[:300]}")
     j = r.json() or {}
     job_id = j.get("job_id") or j.get("jobId") or j.get("id")
@@ -106,7 +106,7 @@ def digitize_to_text(data: bytes, *, filename: str = "page.jpg",
     # 2) upload links
     r = httpx.post(f"{_BASE}{_DI}/upload-files", headers=_hdr(True),
                    json={"job_id": job_id, "files": [zip_name]}, timeout=30.0)
-    if r.status_code != 200:
+    if r.status_code not in (200, 201, 202):
         raise RuntimeError(f"Sarvam upload-links {r.status_code}: {r.text[:300]}")
     up = r.json() or {}
     put_url = _first_url(up.get("upload_urls") or up.get("urls") or {}, prefer=zip_name)
@@ -114,8 +114,10 @@ def digitize_to_text(data: bytes, *, filename: str = "page.jpg",
         raise RuntimeError(f"Sarvam upload-links: no url in {r.text[:300]}")
 
     # 3) PUT the zip to the presigned URL
+    # presigned target is Azure Blob → requires the x-ms-blob-type header
     pr = httpx.put(put_url, content=upload_bytes,
-                   headers={"Content-Type": put_ctype}, timeout=90.0)
+                   headers={"Content-Type": put_ctype, "x-ms-blob-type": "BlockBlob"},
+                   timeout=90.0)
     if pr.status_code not in (200, 201, 204):
         raise RuntimeError(f"Sarvam upload PUT {pr.status_code}: {pr.text[:200]}")
 
@@ -141,7 +143,7 @@ def digitize_to_text(data: bytes, *, filename: str = "page.jpg",
 
     # 6) download links
     r = httpx.post(f"{_BASE}{_DI}/{job_id}/download-files", headers=_hdr(True), json={}, timeout=30.0)
-    if r.status_code != 200:
+    if r.status_code not in (200, 201, 202):
         raise RuntimeError(f"Sarvam download-links {r.status_code}: {r.text[:300]}")
     dl = (r.json() or {}).get("download_urls") or {}
 
