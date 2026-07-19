@@ -1285,7 +1285,16 @@ def _warm_embedding_model():
     threading.Thread(target=_warm, name="warm-embeddings", daemon=True).start()
 
 
-_warm_embedding_model()
+# COST GUARD (2026-07-18): warming the embedding model at boot pins ~500MB of
+# RAM (fastembed + onnxruntime + bge-small) resident 24/7 — even overnight with
+# zero traffic. On Railway that idle RAM is billed by the hour and was the bulk
+# of a surprise $31 month. The model is ALREADY lazy-loaded on first real search
+# (get_embedding_model / EmbeddingIndex._get_model), so skipping the warm-up only
+# costs a one-time ~5-10s latency on the first semantic search after a cold start
+# — not on drafting, chat, or any other path. Set WARM_EMBEDDINGS_ON_BOOT=1 to
+# restore the old always-warm behaviour if you move to a flat-price host.
+if os.environ.get("WARM_EMBEDDINGS_ON_BOOT", "0") == "1":
+    _warm_embedding_model()
 
 
 @app.get("/auth-test", include_in_schema=False)
