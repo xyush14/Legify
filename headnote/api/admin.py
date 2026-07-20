@@ -654,6 +654,24 @@ def cron_send_renewal_nudges(
     )
 
 
+@router.post("/cron/send-daily-causelist",
+             summary="Send each lawyer their daily cause-list link (WhatsApp + email)")
+def cron_send_daily_causelist(
+    authorization: Optional[str] = Header(default=None),
+    slot: str = Query("morning", description="'morning' (print) or 'evening' (upload) copy"),
+    dry_run: bool = Query(False, description="Return the recipient list without sending"),
+    user_id: Optional[str] = Query(None, description="Send to just this user (testing)"),
+) -> dict:
+    """Wire to two daily crons with the ADMIN_TOKEN — e.g. morning 07:30 IST and
+    evening 18:30 IST:
+      curl -X POST 'https://headnote.in/admin/cron/send-daily-causelist?slot=morning' \\
+           -H "Authorization: Bearer $ADMIN_TOKEN"
+    Only lawyers with cases listed for today are messaged. dry_run previews first."""
+    _require_admin(authorization)
+    from headnote.cases.daily_send import send_daily_causelists
+    return send_daily_causelists(slot=slot, dry_run=dry_run, only_user_id=user_id)
+
+
 # ---------------------------------------------------------------- by-email diagnostics + Supabase-backed grant
 # The original /admin/access/invite path writes to ephemeral SQLite
 # (access_grants table in feedback.db). On Railway, this gets wiped on

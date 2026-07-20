@@ -140,6 +140,26 @@ def diary_day(date: str, user: CurrentUser = Depends(get_current_user)) -> dict:
     return {"date": target, "count": len(items), "items": items}
 
 
+@router.get("/needs-settling",
+            summary="Past-due matters grouped by date — the settlement ledger")
+def needs_settling(user: CurrentUser = Depends(get_current_user)) -> dict:
+    """Every matter whose next hearing date is in the PAST: it was listed, the date
+    passed, and no new date came back (that day's sheet wasn't uploaded / no date
+    was written). Grouped by that past date so the lawyer can upload the missing
+    sheet or set the dates by hand. This is the 'nothing gets lost' account —
+    a matter stays here until it's settled (rolled to a new date) or disposed."""
+    today = case_dates.today_iso()
+    groups: dict[str, list] = {}
+    for r in cases_storage.list_cases(user_id=user.id, limit=500):
+        it = _diary_item(r)
+        iso = it.get("next_iso")
+        if iso and iso < today:
+            groups.setdefault(iso, []).append(it)
+    days = [{"date": d, "count": len(groups[d]), "items": groups[d]}
+            for d in sorted(groups, reverse=True)]
+    return {"today": today, "days": days, "total": sum(d["count"] for d in days)}
+
+
 class AdvocateImportBody(BaseModel):
     enrolment_number: str = Field("", max_length=60, description="Bar enrolment/registration number, e.g. MP/1234/2010")
     advocate_name:    str = Field("", max_length=120, description="Fallback if no enrolment number")
@@ -668,20 +688,18 @@ def _split_caseno(case_no: str) -> tuple:
     return (m.group(1) if m else ""), ""
 
 
-@router.post("/import/diary-confirm", summary="Save reviewed diary-photo rows as matters")
-def import_diary_confirm(body: DiaryConfirmBody,
-                         user: CurrentUser = Depends(get_current_user)) -> dict:
-    """Save reviewed rows. Each page is ONE hearing date's cause list, so:
-      • an existing matter (matched on case number + court) gets a hearing-log
-        entry (page_date → next_date) instead of a duplicate — re-importing
-        successive days builds the case history automatically;
-      • a new matter is created with the page's date as its last-listed date and
-        the written next date as its next hearing.
-    """
+def settle_rows(user_id, rows: list, page_default: str = "") -> dict:
+    """Shared core: save/settle reviewed diary rows for one lawyer. Each page is ONE
+    hearing date's cause list, so:
+      • an existing matter (matched on case number + court) gets a hearing-log entry
+        (page/prev date → next date) instead of a duplicate — successive days build
+        the case history automatically and the case rolls onto its new next date;
+      • a new matter is created, landing on that page's date's list.
+    Used by both the authed review-save endpoint and the tokenised daily-link upload."""
     import hashlib
-    page_default = (body.page_date or "").strip()
+    page_default = (page_default or "").strip()
     stored, logged = [], 0
-    for r in body.rows:
+    for r in rows:
         case_no = (r.get("case_no") or "").strip()
         title = (r.get("title") or "").strip()      # the party / cause title
         court = (r.get("court") or "").strip()       # the judge / court
@@ -699,24 +717,24 @@ def import_diary_confirm(body: DiaryConfirmBody,
 
         num, yr = _split_caseno(case_no)
         existing = cases_storage.find_case_by_number(
-            user_id=user.id, case_number=num or case_no, case_year=yr,
+            user_id=user_id, case_number=num or case_no, case_year=yr,
             court_name=court) if (num or case_no) else None
         if existing:
             # this page records another hearing of a matter we already track —
             # refresh court/title from the (newer) read so a fixed OCR corrects the
             # board, then log the hearing and roll it onto this page's date
             cases_storage.update_matter_basics(
-                existing["id"], user_id=user.id, court_name=court, case_title=title)
+                existing["id"], user_id=user_id, court_name=court, case_title=title)
             cases_storage.log_hearing(
-                existing["id"], user_id=user.id,
+                existing["id"], user_id=user_id,
                 hearing_date=prev_date or page_dt or None,
                 what_happened=proceeding or "listed (from diary page)",
                 next_hearing_date=hearing_on or None, stage=proceeding or None)
             logged += 1
-            stored.append(_diary_item(cases_storage.get_case(existing["id"], user_id=user.id)))
+            stored.append(_diary_item(cases_storage.get_case(existing["id"], user_id=user_id)))
             continue
 
-        key = hashlib.md5(f"{user.id}|{case_no}|{court}|{title}".encode()).hexdigest()[:12]
+        key = hashlib.md5(f"{user_id}|{case_no}|{court}|{title}".encode()).hexdigest()[:12]
         case = {
             "cnr": "DY" + key.upper(),
             "source": "diary",
@@ -729,16 +747,22 @@ def import_diary_confirm(body: DiaryConfirmBody,
             "sections": [],
             "client": {},                 # diary rows carry no client; add later in the folder
         }
-        row = cases_storage.add_case(user_id=user.id, case=case)
+        row = cases_storage.add_case(user_id=user_id, case=case)
         if row and (prev_date or page_dt):
             # seed the history with this listing so the folder timeline shows it
             cases_storage.log_hearing(
-                row["id"], user_id=user.id, hearing_date=prev_date or page_dt,
+                row["id"], user_id=user_id, hearing_date=prev_date or page_dt,
                 what_happened=proceeding or "listed (from diary page)",
                 next_hearing_date=hearing_on or None, stage=proceeding or None)
         if row:
-            stored.append(_diary_item(cases_storage.get_case(row["id"], user_id=user.id)))
+            stored.append(_diary_item(cases_storage.get_case(row["id"], user_id=user_id)))
     return {"ok": True, "imported": len(stored), "logged": logged, "items": stored}
+
+
+@router.post("/import/diary-confirm", summary="Save reviewed diary-photo rows as matters")
+def import_diary_confirm(body: DiaryConfirmBody,
+                         user: CurrentUser = Depends(get_current_user)) -> dict:
+    return settle_rows(user.id, body.rows, (body.page_date or "").strip())
 
 
 @router.post("/_reset", summary="[testing] wipe this user's matters so the flow restarts fresh")

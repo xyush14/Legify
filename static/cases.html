@@ -192,6 +192,13 @@
   /* quick add-to-day form */
   .quickadd{display:grid;grid-template-columns:104px 96px minmax(0,1fr) 108px auto;gap:10px;align-items:end;padding:14px 16px;border-top:1px dashed var(--line-2);background:#fbfbf8;}
   .quickadd .fld label{font-size:9.5px;}
+  /* needs-settling ledger */
+  .settle-card{border:1px solid #e6c65c;background:#fffdf3;border-radius:12px;padding:14px 16px;margin-bottom:16px;}
+  .settle-hd{font-size:14px;font-weight:600;letter-spacing:-.01em;color:#8a6d16;}
+  .settle-sub{font-size:12px;color:var(--ink-2);line-height:1.5;margin:4px 0 10px;}
+  .settle-row{display:flex;align-items:center;justify-content:space-between;padding:9px 11px;border:1px solid #eddfae;border-radius:8px;background:#fff;margin-bottom:7px;cursor:pointer;font-size:13px;}
+  .settle-row:last-child{margin-bottom:0;} .settle-row:hover{border-color:#e6c65c;}
+  .settle-go{font-family:'Geist Mono',monospace;font-size:11px;color:#8a6d16;}
   /* coming-up agenda peek */
   .agrow{display:grid;grid-template-columns:150px minmax(0,1fr);gap:14px;align-items:baseline;padding:11px 14px;border:1px solid var(--line-2);border-radius:10px;margin-bottom:8px;cursor:pointer;background:var(--surface);transition:border-color .12s ease;}
   .agrow:hover{border-color:var(--line);}
@@ -319,6 +326,7 @@
           <div class="gsresults" id="gsResults"></div>
         </div>
         <div id="pinnedWrap"></div>
+        <div id="settleWrap"></div>
 
         <div class="stats" id="stats"></div>
         <div class="datenav">
@@ -404,7 +412,7 @@ function partyName(item){ const cj=item.case_json||{}, cl=cj.client||{};
   return item.case_title || item.cnr; }
 
 /* ---- view router ---- */
-function switchView(v){ curView=v; if(v!=='folder') FOLDER=null;
+function switchView(v){ curView=v; if(v!=='folder'){ FOLDER=null; setFolderHash(''); }
   document.querySelectorAll('#vtabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
   ['viewDiary','viewList','viewFolder'].forEach(id=>$('#'+id).classList.toggle('on', id.toLowerCase().includes(v)));
   $('#vtabs').style.display = v==='folder' ? 'none' : '';
@@ -477,6 +485,24 @@ function renderDiary(){ if(!DIARY) return;
     ? `<div class="undated-pill${selDate==='__undated'?' sel':''}" onclick="pickDay('__undated')">⚑ ${DIARY.undated.length} matter(s) with no next date — set one</div>` : '';
   renderPins(); renderRecents(); renderBoard(); renderAgenda();
 }
+let NEEDS=null;
+async function loadNeedsSettling(){
+  try{ const r=await fetch('/api/cases/needs-settling',{headers:H()}); NEEDS=await r.json(); }
+  catch(e){ NEEDS=null; }
+  renderNeedsSettling();
+}
+function renderNeedsSettling(){
+  const w=$('#settleWrap'); if(!w) return;
+  if(!NEEDS || !NEEDS.total){ w.innerHTML=''; return; }
+  w.innerHTML=`<div class="settle-card">
+    <div class="settle-hd">⚑ ${NEEDS.total} matter(s) awaiting their next date</div>
+    <div class="settle-sub">These dates passed with no next date recorded — the sheet wasn't uploaded, or a date wasn't written. Open a day to set dates by hand or add from the sheet. Nothing is lost until you settle it.</div>
+    ${NEEDS.days.map(d=>`<div class="settle-row" onclick="gotoDate('${d.date}')">
+      <span class="hi"><b>${fmtDay(d.date)}</b> · ${d.count} matter(s)</span>
+      <span class="settle-go">settle ›</span></div>`).join('')}
+  </div>`;
+}
+function gotoDate(iso){ selDate=iso; loadDiary(iso); window.scrollTo(0,0); }
 function renderAgenda(){
   const w=$('#agendaWrap'); if(!w) return;
   if(!DIARY){ w.innerHTML=''; return; }
@@ -677,7 +703,7 @@ function render(){
 $('#filter').addEventListener('input',render);
 
 /* ========================= FOLDER ========================= */
-async function openFolder(id){ switchViewToFolder(); pushRecent(id);
+async function openFolder(id){ switchViewToFolder(); pushRecent(id); setFolderHash(id);
   $('#viewFolder').innerHTML='<div class="paneempty" style="border:0">Loading folder…</div>';
   try{ const r=await fetch(`/api/cases/${id}/folder`,{headers:H()}); if(!r.ok) throw new Error('not found');
     FOLDER=await r.json(); folderTab='facts'; renderFolder();
@@ -737,7 +763,7 @@ function renderPane(){
       ${f.hearing_logs.length?`<div class="info"><h3>Hearing history</h3><div class="tl">${f.hearing_logs.map(h=>`<div class="tl__i"><div class="tl__d">${esc(h.hearing_date||h.created_at.slice(0,10))}${h.next_hearing_date?' → next '+esc(h.next_hearing_date):''}</div><div class="tl__w">${esc(h.what_happened||'—')}</div></div>`).join('')}</div></div>`:''}
     `;
   } else if(folderTab==='recordings'){
-    el.innerHTML = listPane(f.recordings.map(r=>({t:r.title||'Consultation',s:[(r.matter_type||''),r.created_at?r.created_at.slice(0,10):''].filter(Boolean).join(' · '),href:'/recorder'})),
+    el.innerHTML = listPane(f.recordings.map(r=>({t:r.title||'Consultation',s:[(r.matter_type||''),r.created_at?r.created_at.slice(0,10):''].filter(Boolean).join(' · '),href:'/recorder#'+r.id})),
       'No recordings filed here yet.', 'recording');
     loadLinkOptions('recording');
   } else if(folderTab==='drafts'){
@@ -972,11 +998,30 @@ function renderRecents(){
     ? `<div class="lbl2">Recently opened</div>${rec.map(c=>`<div class="recent" onclick="openFolder('${c.id}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="hi">${esc(partyName(c))}</span>${c.next_hearing_date?`<span class="rz">${esc(c.next_hearing_date)}</span>`:''}</div>`).join('')}` : '';
 }
 
+/* ---- deep-linking: /matters#m/<caseId> opens that matter's folder directly,
+   so the recorder / diary / a shared link can jump straight to one folder ---- */
+function folderIdFromHash(){ const m=(location.hash||'').match(/^#m\/(.+)$/); return m?decodeURIComponent(m[1]):''; }
+let _hashLock=false;
+function setFolderHash(id){
+  const want=id?('#m/'+id):'';
+  if((location.hash||'')===want || (!id && !location.hash)) return;
+  _hashLock=true;
+  if(id) location.hash='m/'+id;
+  else history.replaceState(null,'',location.pathname+location.search);
+  setTimeout(()=>{ _hashLock=false; },0);
+}
+window.addEventListener('hashchange',()=>{ if(_hashLock) return;
+  const id=folderIdFromHash();
+  if(id){ if(!FOLDER||FOLDER.case.id!==id) openFolder(id); }
+  else if(curView==='folder'){ switchView('diary'); }
+});
+
 /* ---- boot ---- */
 async function loadAll(){
   try{ const r=await fetch('/api/cases',{headers:H()}); CASES=(await r.json()).items||[]; }
   catch(e){ toast('Could not load matters','error'); CASES=[]; }
   await loadDiary(weekAnchor);
+  loadNeedsSettling();
   if(curView==='list') render(); else if(curView==='folder'&&FOLDER) {/* keep */} else renderDiary();
 }
 
@@ -990,7 +1035,7 @@ async function resetDemo(){
   await loadAll(); switchView('diary'); toast('Diary cleared','success');
   hideOverlay();
 }
-async function boot(){ await loadAll(); }
+async function boot(){ await loadAll(); const id=folderIdFromHash(); if(id) openFolder(id); }
 boot();
 </script>
 </body>

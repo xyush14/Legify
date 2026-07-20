@@ -1136,6 +1136,12 @@ from headnote.cases.storage import init_cases_db as _init_cases_db
 app.include_router(_cases_router)
 _init_cases_db()
 
+# Daily cause-list — public, token-scoped (no login): a lawyer's WhatsApp/email
+# link opens their cause list for one date, prints it, and uploads the marked
+# sheet back in the evening. See headnote/api/daily.py + headnote/cases/daily_links.py.
+from headnote.api.daily import router as _daily_router
+app.include_router(_daily_router)
+
 # Document Vault — OCR + searchable scanned case documents: /api/documents/*
 # (SQLite, next to drafts/cases; reuses the Groq vision OCR + the shared
 # fastembed model for hybrid keyword + semantic search — see headnote/documents/.)
@@ -1510,6 +1516,15 @@ def payment_success_page():
 @app.get("/payment-failed", include_in_schema=False)
 def payment_failed_page():
     return FileResponse(config.STATIC_DIR / "payment-failed.html",
+                        headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
+@app.get("/d/{token}", include_in_schema=False)
+def daily_link_page(token: str):
+    """Public daily cause-list page (no login). The lawyer's WhatsApp/email link
+    lands here; the page reads the token from the URL and talks to /api/daily/*
+    to show that date's list (Print) and accept the marked-sheet upload (Settle)."""
+    return FileResponse(config.STATIC_DIR / "daily.html",
                         headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
