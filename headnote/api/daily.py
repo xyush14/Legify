@@ -17,6 +17,7 @@ import logging
 from datetime import date as _date, timedelta
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
+from pydantic import BaseModel, Field
 
 from headnote.cases import daily_links
 from headnote.cases import storage as cases_storage
@@ -85,3 +86,36 @@ async def daily_settle(token: str, file: UploadFile = File(...)) -> dict:
     return {"ok": True, "engine": engine, "read": len(rows),
             "settled": res.get("logged", 0), "added": res.get("imported", 0) - res.get("logged", 0),
             "engine_error": err}
+
+
+class _DateUpdate(BaseModel):
+    case_id:   str = Field(..., min_length=1, max_length=64)
+    next_date: str = Field("", max_length=40)
+    stage:     str = Field("", max_length=200)
+
+
+class _SetDatesBody(BaseModel):
+    updates: list[_DateUpdate] = Field(default_factory=list)
+
+
+@router.post("/{token}/set-dates",
+             summary="Manually set next dates for a daily link (no login, no OCR)")
+def daily_set_dates(token: str, body: _SetDatesBody) -> dict:
+    """The manual alternative to uploading a photo: the lawyer types each case's next
+    date on the link page. Each update rolls that matter onto its new date and logs
+    the hearing. Only the token's own matters can be touched (set_next_date/log_hearing
+    are scoped to the token's user_id)."""
+    user_id, date = _resolve(token)
+    hearing_on = case_dates.to_iso(date) or date
+    updated = 0
+    for u in body.updates:
+        nd = (u.next_date or "").strip()
+        if not nd:
+            continue
+        row = cases_storage.log_hearing(
+            u.case_id, user_id=user_id, hearing_date=hearing_on,
+            what_happened="settled (manual)", next_hearing_date=nd,
+            stage=(u.stage or None))
+        if row:
+            updated += 1
+    return {"ok": True, "updated": updated}

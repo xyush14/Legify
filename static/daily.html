@@ -27,6 +27,8 @@
   .msg{padding:12px 14px;border-radius:10px;font-size:13px;margin-top:14px;display:none;}
   .msg--ok{background:#eaf6ee;color:#1a7f4b;} .msg--err{background:#fdecea;color:#c0392b;}
   .empty{color:var(--ink-3);font-size:13px;padding:14px 0;}
+  .ndin{width:104px;font-family:'Geist Mono',monospace;font-size:12px;padding:6px 7px;border:1px solid var(--line);border-radius:7px;}
+  .ndin:focus{outline:none;border-color:var(--ink);}
   .spin{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:s .8s linear infinite;vertical-align:-3px;margin-right:6px;}
   @keyframes s{to{transform:rotate(360deg)}}
   .foot{text-align:center;color:var(--ink-3);font-size:11px;font-family:'Geist Mono',monospace;margin-top:26px;}
@@ -45,11 +47,12 @@
       <div class="sub" id="settleSub"></div>
       <div id="settleTable" style="overflow-x:auto"></div>
       <div class="acts">
-        <button class="btn btn--primary" onclick="pickFile()">📸 Upload today's marked sheet</button>
+        <button class="btn btn--primary" onclick="saveDates(event)">💾 Save typed dates</button>
+        <button class="btn" onclick="pickFile()">📸 Upload photo instead</button>
         <input type="file" id="file" accept="image/*,.heic,.heif,.webp,.pdf,application/pdf" style="display:none" />
       </div>
       <div class="msg" id="msg"></div>
-      <div class="note">Photograph the sheet you used in court (next dates written in the blank column). We'll read the dates and roll each case onto its next hearing date automatically.</div>
+      <div class="note">Two ways to settle: <b>type</b> each next date in the last column and tap <b>Save typed dates</b>, or <b>photograph</b> the sheet you marked in court and we'll read the dates for you. Either way, each case rolls onto its next hearing date automatically.</div>
 
       <hr style="border:0;border-top:1px solid var(--line);margin:24px 0" />
 
@@ -87,23 +90,34 @@ async function load(){
     $('#loading').textContent = e.message;
   }
 }
-function tableHtml(items){
+function rowCells(c,i){
+  const court=shortCourt(c.court_name||'')||'—';
+  const cno=c.case_number?esc(c.case_number)+(c.case_year?'/'+esc(c.case_year):''):'—';
+  const prev=((c.case_json||{}).last_listed_date)||'';
+  return {court,cno,prev,party:esc(partyName(c))};
+}
+function tableHtml(items){   // read-only (tomorrow's list)
   if(!items.length) return '<div class="empty">Nothing listed.</div>';
-  const rows = items.map((c,i)=>{
-    const court=shortCourt(c.court_name||'')||'—';
-    const cno=c.case_number?esc(c.case_number)+(c.case_year?'/'+esc(c.case_year):''):'—';
-    const prev=((c.case_json||{}).last_listed_date)||'';
-    return `<tr><td>${i+1}</td><td>${esc(court)}</td><td class="m">${cno}</td><td>${esc(partyName(c))}</td><td class="m">${esc(prev)||'—'}</td><td class="m">—</td></tr>`;
+  const rows = items.map((c,i)=>{ const x=rowCells(c,i);
+    return `<tr><td>${i+1}</td><td>${x.court}</td><td class="m">${x.cno}</td><td>${x.party}</td><td class="m">${x.prev||'—'}</td><td class="m">—</td></tr>`;
   }).join('');
   return `<table><thead><tr><th>#</th><th>Court / Judge</th><th>Case No.</th><th>Party</th><th>Prev Date</th><th>Next Date</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function settleTableHtml(items){   // editable Next Date (type to settle)
+  if(!items.length) return '<div class="empty">Nothing listed for this date.</div>';
+  const rows = items.map((c,i)=>{ const x=rowCells(c,i);
+    return `<tr><td>${i+1}</td><td>${x.court}</td><td class="m">${x.cno}</td><td>${x.party}</td><td class="m">${x.prev||'—'}</td>`
+      +`<td><input class="ndin" data-id="${esc(c.id)}" inputmode="numeric" placeholder="dd/mm/yyyy"></td></tr>`;
+  }).join('');
+  return `<table><thead><tr><th>#</th><th>Court / Judge</th><th>Case No.</th><th>Party</th><th>Prev Date</th><th>Next Date ✍</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 function render(){
   $('#loading').style.display='none'; $('#content').style.display='';
   $('#settleBadge').textContent = fmtDay(DATA.settle_date);
   $('#settleSub').textContent = DATA.settle_count
-    ? `${DATA.settle_count} matter(s) were listed — upload the sheet you marked in court.`
+    ? `${DATA.settle_count} matter(s) were listed — type each next date, or upload the sheet you marked in court.`
     : 'Nothing was listed for this date. If you have a sheet anyway, upload it to add them.';
-  $('#settleTable').innerHTML = tableHtml(DATA.settle_items||[]);
+  $('#settleTable').innerHTML = settleTableHtml(DATA.settle_items||[]);
   $('#prepBadge').textContent = fmtDay(DATA.prep_date);
   $('#prepSub').textContent = DATA.prep_count
     ? `${DATA.prep_count} matter(s) listed for tomorrow — print and carry this.`
@@ -148,6 +162,21 @@ function printList(){
   w.document.open(); w.document.write(html); w.document.close();
 }
 
+/* Manual settle — type the next dates, no OCR */
+async function saveDates(ev){
+  const updates=[...document.querySelectorAll('#settleTable .ndin')]
+    .map(el=>({case_id:el.dataset.id, next_date:(el.value||'').trim()}))
+    .filter(u=>u.case_id && u.next_date);
+  if(!updates.length){ showMsg('Type at least one next date, or use “Upload photo instead”.','err'); return; }
+  const btn=ev&&ev.target; const orig=btn?btn.innerHTML:''; if(btn){ btn.innerHTML='<span class="spin"></span>Saving…'; btn.disabled=true; }
+  try{
+    const r=await fetch('/api/daily/'+encodeURIComponent(TOKEN)+'/set-dates',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({updates})});
+    const d=await r.json(); if(!r.ok) throw new Error(d.detail||'Could not save.');
+    showMsg(`Saved — ${d.updated} case(s) rolled to their next date. Your diary is settled for this day.`,'ok');
+    await load();
+  }catch(e){ showMsg(e.message,'err'); }
+  finally{ if(btn){ btn.innerHTML=orig; btn.disabled=false; } }
+}
 function pickFile(){ const el=$('#file'); el.value=''; el.click(); }
 $('#file').addEventListener('change', async (e)=>{
   const f=e.target.files&&e.target.files[0]; if(!f) return;
