@@ -92,6 +92,75 @@ def _upload_media(path: Path, *, mime: str) -> str:
     return media_id
 
 
+# ---------------------------------------------------------------- media download
+
+def download_media(url: str) -> tuple[bytes, str]:
+    """Fetch inbound media from Meta and normalise its content-type so the OCR
+    layer always sees a format it accepts.
+
+    Meta's webhook gives us a media *id*, not a URL. parse_webhook() encodes it
+    as "media_id:<id>". Resolving it is a two-step Graph API dance:
+
+      1. GET /{media_id}                -> JSON {url, mime_type, ...}
+      2. GET <that url> (Bearer token)  -> the binary bytes
+
+    Both calls require the WA_ACCESS_TOKEN bearer. The lookup URL is
+    short-lived and host-locked, so we fetch immediately.
+
+    Returns (bytes, content_type). Mirrors twilio.download_media()'s
+    HEIC→JPEG normalisation so iPhone photos survive.
+    """
+    api_version = os.getenv("WA_API_VERSION", "v20.0")
+    token = os.environ["WA_ACCESS_TOKEN"]
+    auth = {"Authorization": f"Bearer {token}"}
+
+    media_id = url[len("media_id:"):] if url.startswith("media_id:") else url
+
+    # Step 1 — resolve the id to a signed, short-lived download URL.
+    meta_resp = requests.get(
+        f"https://graph.facebook.com/{api_version}/{media_id}",
+        headers=auth,
+        timeout=20,
+    )
+    if not meta_resp.ok:
+        raise WAClientError(meta_resp.status_code, meta_resp.text)
+    info = meta_resp.json()
+    dl_url = info.get("url")
+    mime = (info.get("mime_type") or "").split(";", 1)[0].strip()
+    if not dl_url:
+        raise WAClientError(meta_resp.status_code, "no media url in Graph response")
+
+    # Step 2 — download the bytes (Bearer required even on the CDN URL).
+    bin_resp = requests.get(dl_url, headers=auth, timeout=30, allow_redirects=True)
+    if not bin_resp.ok:
+        raise WAClientError(bin_resp.status_code, bin_resp.text)
+    data = bin_resp.content
+    if not data:
+        raise WAClientError(204, "Meta returned an empty media body")
+
+    # Fall back to the response header if Graph didn't report a mime.
+    if not mime:
+        mime = (bin_resp.headers.get("content-type") or "").split(";", 1)[0].strip()
+
+    # Normalise HEIC/HEIF (iPhone default) to JPEG so OCR/vision accepts it.
+    if mime in ("image/heic", "image/heif") or data[4:12] in (b"ftypheic", b"ftypheix", b"ftyphevc", b"ftypmif1"):
+        try:
+            import io
+            import pillow_heif  # type: ignore
+            from PIL import Image
+
+            pillow_heif.register_heif_opener()
+            img = Image.open(io.BytesIO(data)).convert("RGB")
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=90)
+            data = buf.getvalue()
+            mime = "image/jpeg"
+        except Exception:  # noqa: BLE001 — keep raw bytes; caller sniffs
+            log.warning("HEIC->JPEG conversion failed; passing raw meta media through")
+
+    return data, (mime or "application/octet-stream")
+
+
 # ---------------------------------------------------------------- inbound
 
 def verify_signature(raw: bytes, headers: dict, url: str) -> None:

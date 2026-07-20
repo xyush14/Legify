@@ -767,7 +767,7 @@ async def _ocr_and_advance(session: dict, msg: InboundMessage,
     variant = answers.get("__variant", "sessions")
 
     try:
-        new_fields = await wa_drafting.ocr_for_draft(msg.media_urls, variant=variant)
+        new_fields = await wa_drafting.ocr_for_draft(msg.media_urls, variant=variant, provider=provider_name)
     except Exception:
         log.exception("OCR bg crashed for %s", wa_phone)
         new_fields = {}

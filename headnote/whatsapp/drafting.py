@@ -497,33 +497,10 @@ def gap_prompt(missing_keys: list[str]) -> str:
 
 # ════════════════════════════════════════════════════════════════ OCR mapping
 
-def _fir_ocr_to_bail_slots(extracted: dict) -> dict[str, Any]:
-    """Map an FIR OCR result (from ocr_fir_pages) → bail-template slot dict."""
-    out: dict[str, Any] = {}
-    accused = (extracted.get("accused_details") or [])
-    if accused:
-        first = accused[0] if isinstance(accused[0], dict) else {}
-        if first.get("name"):
-            out["applicant_name"] = first["name"]
-        if first.get("relative"):
-            out["applicant_father"] = first["relative"]
-        if first.get("address"):
-            out["applicant_address"] = first["address"]
-    if extracted.get("police_station"):
-        out["police_station"] = extracted["police_station"]
-    if extracted.get("district"):
-        out["district"] = extracted["district"]
-    if extracted.get("state"):
-        out["state_name"] = extracted["state"]
-    full_fir = extracted.get("fir_number_full") or extracted.get("fir_number")
-    if full_fir:
-        out["fir_number"] = str(full_fir)
-    secs = extracted.get("sections")
-    if secs:
-        out["sections"] = secs if isinstance(secs, list) else [secs]
-    if extracted.get("arrest_date"):
-        out["arrest_date"] = extracted["arrest_date"]
-    return out
+# The FIR→bail-slot mapper now lives in the shared drafter.fir_intake module so
+# the web "Draft from FIR" flow and this bot fill a bail application from ONE
+# copy of the logic. Imported under the old private name for call-site parity.
+from headnote.drafter.fir_intake import fir_ocr_to_bail_slots as _fir_ocr_to_bail_slots
 
 
 def _bail_order_ocr_to_bail_slots(extracted: dict) -> dict[str, Any]:
@@ -552,22 +529,30 @@ def _bail_order_ocr_to_bail_slots(extracted: dict) -> dict[str, Any]:
     return out
 
 
-async def ocr_for_draft(media_urls: list[str], *, variant: str = "sessions") -> dict[str, Any]:
-    """Download Twilio media + run the right OCR + map to bail slots.
+async def ocr_for_draft(media_urls: list[str], *, variant: str = "sessions",
+                        provider: str = "twilio") -> dict[str, Any]:
+    """Download inbound media (Twilio or Meta) + run the right OCR + map to
+    bail slots.
+
+    `provider` selects the download backend so Meta media_ids resolve via the
+    Graph API and Twilio URLs resolve via Basic-auth GET. Both return
+    (bytes, content_type).
 
     Returns the extracted slot dict (possibly empty on failure).
     """
     if not media_urls:
         return {}
-    from headnote.whatsapp.providers import twilio as _twi
+    from headnote.whatsapp.client import provider_for
     from headnote.drafter.ocr import ocr_fir_pages, ocr_bail_order_pages
     from headnote.drafter import office
+
+    _dl = provider_for(provider).download_media
 
     pages: list[tuple[bytes, str]] = []
     office_texts: list[str] = []
     for u in media_urls[:6]:                       # cap pages
         try:
-            data, ct = await asyncio.to_thread(_twi.download_media, u)
+            data, ct = await asyncio.to_thread(_dl, u)
             # Word/Excel attachments carry a distinctive MIME — extract their
             # text directly (no vision OCR) instead of treating them as images.
             if office.office_kind(ct, "") is not None:
@@ -580,7 +565,7 @@ async def ocr_for_draft(media_urls: list[str], *, variant: str = "sessions") -> 
                 ct = "image/jpeg"                  # WhatsApp images
             pages.append((data, ct))
         except Exception:
-            log.exception("twilio download_media failed for %s", u[:80])
+            log.exception("%s download_media failed for %s", provider, u[:80])
     office_text = "\n\n".join(t for t in office_texts if t and t.strip())
     if not pages and not office_text:
         return {}
