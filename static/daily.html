@@ -14,7 +14,8 @@
   .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 18px 20px;box-shadow:0 1px 2px rgba(0,0,0,.03);}
   h1{font-size:18px;letter-spacing:-.01em;margin:0 0 2px;}
   .date{display:inline-block;margin-top:6px;background:#ffe58a;padding:3px 12px;border-radius:5px;font-weight:600;font-size:14px;font-family:'Geist Mono',monospace;}
-  .sub{font-size:12.5px;color:var(--ink-2);margin-top:10px;line-height:1.55;}
+  .step{font-size:15px;font-weight:600;letter-spacing:-.01em;margin-top:6px;}
+  .sub{font-size:12.5px;color:var(--ink-2);margin-top:8px;line-height:1.55;}
   table{width:100%;border-collapse:collapse;margin-top:16px;font-size:13px;}
   th{text-align:left;font-family:'Geist Mono',monospace;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);border-bottom:1px solid #cfcfca;padding:7px 6px;}
   td{padding:9px 6px;border-bottom:1px solid var(--line-2);vertical-align:top;}
@@ -37,17 +38,29 @@
   <div class="card" id="card">
     <div class="empty" id="loading">Loading your cause list…</div>
     <div id="content" style="display:none">
-      <h1>Your cause list</h1>
-      <span class="date" id="dateBadge"></span>
-      <div class="sub" id="sub"></div>
-      <div id="tableWrap" style="overflow-x:auto"></div>
+      <h1>Your court diary</h1>
+
+      <!-- ① Settle today -->
+      <div class="step">① Settle today &nbsp;<span class="date" id="settleBadge"></span></div>
+      <div class="sub" id="settleSub"></div>
+      <div id="settleTable" style="overflow-x:auto"></div>
       <div class="acts">
-        <button class="btn" onclick="printList()">🖨 Print sheet</button>
-        <button class="btn btn--primary" onclick="pickFile()">📸 Upload marked sheet</button>
+        <button class="btn btn--primary" onclick="pickFile()">📸 Upload today's marked sheet</button>
         <input type="file" id="file" accept="image/*,.heic,.heif,.webp,.pdf,application/pdf" style="display:none" />
       </div>
       <div class="msg" id="msg"></div>
-      <div class="note">Print the sheet and write each case's next hearing date by hand in the blank <b>Next Date</b> column. After court, photograph it and tap <b>Upload marked sheet</b> — we'll read the dates and roll each case onto its next date automatically.</div>
+      <div class="note">Photograph the sheet you used in court (next dates written in the blank column). We'll read the dates and roll each case onto its next hearing date automatically.</div>
+
+      <hr style="border:0;border-top:1px solid var(--line);margin:24px 0" />
+
+      <!-- ② Print tomorrow -->
+      <div class="step">② Print tomorrow's list &nbsp;<span class="date" id="prepBadge"></span></div>
+      <div class="sub" id="prepSub"></div>
+      <div id="prepTable" style="overflow-x:auto"></div>
+      <div class="acts">
+        <button class="btn" onclick="printList()">🖨 Print tomorrow's sheet</button>
+      </div>
+      <div class="note">Print this and carry it to court tomorrow — write each next date by hand, then upload it here tomorrow evening.</div>
     </div>
   </div>
   <div class="foot">headnote · your diary, self-updating</div>
@@ -74,26 +87,36 @@ async function load(){
     $('#loading').textContent = e.message;
   }
 }
-function render(){
-  $('#loading').style.display='none'; $('#content').style.display='';
-  $('#dateBadge').textContent = fmtDay(DATA.date);
-  const n = DATA.count;
-  $('#sub').textContent = n ? `${n} matter(s) listed on this date.` : 'No matters recorded for this date yet — upload the sheet to add them.';
-  const rows = (DATA.items||[]).map((c,i)=>{
+function tableHtml(items){
+  if(!items.length) return '<div class="empty">Nothing listed.</div>';
+  const rows = items.map((c,i)=>{
     const court=shortCourt(c.court_name||'')||'—';
     const cno=c.case_number?esc(c.case_number)+(c.case_year?'/'+esc(c.case_year):''):'—';
     const prev=((c.case_json||{}).last_listed_date)||'';
     return `<tr><td>${i+1}</td><td>${esc(court)}</td><td class="m">${cno}</td><td>${esc(partyName(c))}</td><td class="m">${esc(prev)||'—'}</td><td class="m">—</td></tr>`;
   }).join('');
-  $('#tableWrap').innerHTML = n
-    ? `<table><thead><tr><th>#</th><th>Court / Judge</th><th>Case No.</th><th>Party</th><th>Prev Date</th><th>Next Date</th></tr></thead><tbody>${rows}</tbody></table>`
-    : '<div class="empty">Nothing to print yet.</div>';
+  return `<table><thead><tr><th>#</th><th>Court / Judge</th><th>Case No.</th><th>Party</th><th>Prev Date</th><th>Next Date</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function render(){
+  $('#loading').style.display='none'; $('#content').style.display='';
+  $('#settleBadge').textContent = fmtDay(DATA.settle_date);
+  $('#settleSub').textContent = DATA.settle_count
+    ? `${DATA.settle_count} matter(s) were listed — upload the sheet you marked in court.`
+    : 'Nothing was listed for this date. If you have a sheet anyway, upload it to add them.';
+  $('#settleTable').innerHTML = tableHtml(DATA.settle_items||[]);
+  $('#prepBadge').textContent = fmtDay(DATA.prep_date);
+  $('#prepSub').textContent = DATA.prep_count
+    ? `${DATA.prep_count} matter(s) listed for tomorrow — print and carry this.`
+    : 'Nothing listed for tomorrow yet.';
+  $('#prepTable').innerHTML = tableHtml(DATA.prep_items||[]);
 }
 
-/* Print → the same client-side cause-list PDF, blank Next Date + blank rows + watermark */
+/* Print → the same client-side cause-list PDF, blank Next Date + blank rows + watermark.
+   Prints TOMORROW's list (the one they'll carry to court). */
 function printList(){
-  const items = DATA.items||[];
-  const dayLabel = fmtDay(DATA.date);
+  const items = DATA.prep_items||[];
+  const dayLabel = fmtDay(DATA.prep_date);
+  if(!items.length){ showMsg("Nothing listed for tomorrow to print yet.",'err'); return; }
   const body = items.map((c,i)=>{
     const court=shortCourt(c.court_name||'')||'—';
     const cno=c.case_number?esc(c.case_number)+(c.case_year?'/'+esc(c.case_year):''):'—';

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import date as _date, timedelta
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
@@ -33,6 +34,14 @@ def _resolve(token: str):
     return ctx["user_id"], ctx["date"]
 
 
+def _next_day(iso: str) -> str:
+    try:
+        y, m, d = (int(x) for x in iso.split("-"))
+        return (_date(y, m, d) + timedelta(days=1)).strftime("%Y-%m-%d")
+    except Exception:  # noqa: BLE001
+        return iso
+
+
 def _day_items(user_id, date_iso: str) -> list:
     target = case_dates.to_iso(date_iso) or date_iso
     rows = cases_storage.list_cases(user_id=user_id, limit=500)
@@ -41,11 +50,18 @@ def _day_items(user_id, date_iso: str) -> list:
 
 @router.get("/{token}", summary="Cause list for a daily link (no login)")
 def daily_view(token: str) -> dict:
+    """One evening touchpoint: settle the token's date (upload the marked sheet) AND
+    print the NEXT day's list (ready for tomorrow morning)."""
     user_id, date = _resolve(token)
-    target = case_dates.to_iso(date) or date
-    items = _day_items(user_id, target)
-    return {"ok": True, "date": target, "count": len(items), "items": items,
-            "today": case_dates.today_iso()}
+    settle_date = case_dates.to_iso(date) or date
+    prep_date = _next_day(settle_date)
+    settle_items = _day_items(user_id, settle_date)
+    prep_items = _day_items(user_id, prep_date)
+    return {"ok": True, "today": case_dates.today_iso(),
+            "settle_date": settle_date, "settle_items": settle_items,
+            "settle_count": len(settle_items),
+            "prep_date": prep_date, "prep_items": prep_items,
+            "prep_count": len(prep_items)}
 
 
 @router.post("/{token}/settle", summary="Upload the marked sheet for a daily link (no login)")

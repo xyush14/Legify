@@ -13,6 +13,7 @@ returns the recipient list without sending, so you can preview safely.
 
 from __future__ import annotations
 
+import datetime as _dt
 import logging
 import os
 
@@ -70,20 +71,17 @@ def _day_count(user_id, date_iso: str) -> int:
                if case_dates.to_iso(r.get("next_hearing_date")) == date_iso)
 
 
-def _copy(slot: str, name: str, date_label: str, link: str):
+def _copy(name: str, date_label: str, link: str):
+    """One evening message: settle today + print tomorrow, from the same link."""
     hi = f" {name}" if name else ""
-    if slot == "evening":
-        wa = (f"🌙 Back from court{hi}? Upload today's marked cause list so we settle "
-              f"your diary and roll each case to its next date:\n{link}")
-        subj = f"Settle your diary — {date_label}"
-    else:
-        wa = (f"🌅 Good morning{hi}. Your cause list for {date_label} is ready. Print it, "
-              f"and in court write each case's next date in the blank column:\n{link}")
-        subj = f"Your cause list — {date_label}"
+    wa = (f"🌙 Good evening{hi}. Time to settle your diary for {date_label} — upload the "
+          f"cause list you marked in court, and print tomorrow's list to carry. Both here:\n{link}")
+    subj = f"Settle today & print tomorrow — {date_label}"
     html = (f"<div style='font-family:Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a'>"
-            f"<p>{wa.split(chr(10))[0]}</p>"
+            f"<p>Good evening{hi}. Settle your diary for {date_label} — upload the marked "
+            f"cause list, and print tomorrow's list to carry to court.</p>"
             f"<p><a href='{link}' style='display:inline-block;background:#1a1a1a;color:#fff;"
-            f"text-decoration:none;padding:12px 20px;border-radius:8px'>Open your cause list</a></p>"
+            f"text-decoration:none;padding:12px 20px;border-radius:8px'>Open your court diary</a></p>"
             f"<p style='color:#888;font-size:12px'>headnote · your diary, self-updating</p></div>")
     return wa, subj, html
 
@@ -115,31 +113,42 @@ def _send_whatsapp(to: str, body: str) -> bool:
         return False
 
 
-def send_daily_causelists(*, slot: str = "morning", dry_run: bool = False,
+def _next_day(iso: str) -> str:
+    try:
+        y, m, d = (int(x) for x in iso.split("-"))
+        return (_dt.date(y, m, d) + _dt.timedelta(days=1)).strftime("%Y-%m-%d")
+    except Exception:  # noqa: BLE001
+        return iso
+
+
+def send_daily_causelists(*, slot: str = "evening", dry_run: bool = False,
                           only_user_id=None, date_iso=None) -> dict:
-    """Send the daily link to every reachable lawyer who has cases listed for the
-    target date (default: today). `slot` = 'morning' | 'evening' (copy only)."""
-    date_iso = date_iso or case_dates.today_iso()
-    date_label = case_dates.to_iso(date_iso) or date_iso
+    """One evening send per lawyer: settle today + print tomorrow, via one link.
+    Messages every reachable lawyer who has cases TODAY (to settle) or TOMORROW (to
+    print). `slot` is accepted for cron compatibility but the copy is unified."""
+    settle_date = date_iso or case_dates.today_iso()
+    prep_date = _next_day(settle_date)
+    date_label = settle_date
     sent_wa = sent_email = skipped = 0
     preview = []
     for uid, phone, email, name in _recipients(only_user_id):
-        count = _day_count(uid, date_iso)
-        if count == 0 and not only_user_id:
+        c_today = _day_count(uid, settle_date)
+        c_tomorrow = _day_count(uid, prep_date)
+        if c_today == 0 and c_tomorrow == 0 and not only_user_id:
             skipped += 1
-            continue                       # don't nudge lawyers with nothing listed
-        token = daily_links.make_token(uid, date_iso)
+            continue                       # nothing to settle or print → don't nudge
+        token = daily_links.make_token(uid, settle_date)   # page derives tomorrow
         link = f"{APP_BASE_URL}/d/{token}"
-        wa_body, subj, html = _copy(slot, name, date_label, link)
+        wa_body, subj, html = _copy(name, date_label, link)
         if dry_run:
             preview.append({"user_id": uid, "phone": phone, "email": email,
-                            "count": count, "link": link})
+                            "settle_today": c_today, "print_tomorrow": c_tomorrow, "link": link})
             continue
         if _send_whatsapp(phone, wa_body):
             sent_wa += 1
         if _send_email(email, subj, html, wa_body):
             sent_email += 1
-    return {"ok": True, "slot": slot, "date": date_label, "dry_run": dry_run,
+    return {"ok": True, "date": settle_date, "prep_date": prep_date, "dry_run": dry_run,
             "whatsapp_sent": sent_wa, "email_sent": sent_email,
             "skipped_no_cases": skipped,
             **({"preview": preview} if dry_run else {})}
