@@ -1209,6 +1209,11 @@ app.include_router(_assist_router)
 from headnote.api.lawyer_profile import router as _lawyer_profile_router
 app.include_router(_lawyer_profile_router)
 
+# Draft DNA — per-advocate drafting personalization: /api/draft-dna
+# (GET read, PATCH save/clear, POST /analyze upload→proposed profile).
+from headnote.api.draft_dna import router as _draft_dna_router
+app.include_router(_draft_dna_router)
+
 # Saved case-law library: /api/saved-caselaw (POST save, GET list, PATCH note,
 # DELETE unsave). Per-user shelf of research hits the lawyer wants to keep. We
 # snapshot the full situation-specific card as JSONB so it re-renders later

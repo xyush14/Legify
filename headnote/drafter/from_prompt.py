@@ -34,8 +34,22 @@ def _finalize(result: dict) -> dict:
     """Add `page_hi` / `page_en` — the draft wrapped in a standalone A4 page (canonical
     header CSS + print CSS + Devanagari font) so the frontend can drop it straight into
     an iframe. The draft's own title becomes the page title (it is what the browser's
-    print header shows)."""
+    print header shows).
+
+    Also the single chokepoint for Draft DNA's FORMAT ENFORCEMENT: if the firing path
+    stashed a `_style` (a loaded StyleProfile), the deterministic `apply_format` pass
+    rewrites the boilerplate to the advocate's own tokens here — after render, before
+    the page wrap — so every path (authored, canonical floor, skeleton) is covered in
+    one place. `apply_format(html, None)` is the identity function, so no-DNA is a no-op.
+    Mirror/reference results never set `_style` (reference beats DNA — §3b precedence)."""
     from headnote.drafter.templates._doc_header import doc_page
+    style = result.pop("_style", None)
+    if style:
+        from headnote.drafter import style_profile as SP
+        if result.get("html_hi"):
+            result["html_hi"] = SP.apply_format(result["html_hi"], style, "hi")
+        if result.get("html_en"):
+            result["html_en"] = SP.apply_format(result["html_en"], style, "en")
     hi = (result.get("html_hi") or "").strip()
     en = (result.get("html_en") or "").strip()
     title = (result.get("title") or "").strip()
@@ -642,7 +656,8 @@ def _last_resort(dt: str, lang: str, matter: str, warnings: list[str]) -> dict:
     }
 
 
-def draft_from_prompt(matter: str, lang: str = "auto", reference_text: str = "") -> dict:
+def draft_from_prompt(matter: str, lang: str = "auto", reference_text: str = "",
+                      user_id: str | None = None) -> dict:
     """Freeform prompt (+ optional OCR'd case papers merged in, + optional style
     reference) → court-ready draft. Returns a unified result:
       {ok, mode: "authored"|"canonical"|"skeleton", doc_type, court, confidence,
@@ -666,7 +681,7 @@ def draft_from_prompt(matter: str, lang: str = "auto", reference_text: str = "")
     if not matter and not reference_text:
         return {"ok": False, "error": "empty prompt"}
     try:
-        return _draft(matter, lang, reference_text)
+        return _draft(matter, lang, reference_text, user_id)
     except Exception:
         # the absolute backstop — a drafting request must never surface a stack trace
         log.exception("draft_from_prompt: unexpected failure — returning skeleton floor")
@@ -674,7 +689,7 @@ def draft_from_prompt(matter: str, lang: str = "auto", reference_text: str = "")
         return _finalize(_last_resort("other_criminal", rl, matter, []))
 
 
-def _draft(matter: str, lang: str, reference_text: str) -> dict:
+def _draft(matter: str, lang: str, reference_text: str, user_id: str | None = None) -> dict:
     requested_lang = lang
     cls = classify(matter or reference_text, lang)
     dt = cls["doc_type"]
@@ -734,6 +749,14 @@ def _draft(matter: str, lang: str, reference_text: str) -> dict:
         if not matter:
             return _finalize(_last_resort(dt, lang, matter, extra_warnings))
 
+    # Draft DNA — load the advocate's saved StyleProfile now that the reference path
+    # has resolved. Precedence (§3b): an attached reference beats DNA, and the mirror
+    # branch above returns early, so we only reach here with NO active reference —
+    # DNA legitimately applies (incl. when a reference was attached but failed to
+    # apply). `load_style` returns None for anon / no-profile → the untouched path.
+    from headnote.drafter import style_profile as _SP
+    style = _SP.load_style(user_id) if user_id else None
+
     # warnings every path shares: the FIR-date/code gate + low classifier confidence
     shared_warnings: list[str] = list(extra_warnings)
     gate = _code_gate_warning(matter, dt, lang)
@@ -755,7 +778,9 @@ def _draft(matter: str, lang: str, reference_text: str) -> dict:
     # escape hatch: one env var restores the old canonical-first routing exactly
     if det and os.environ.get("DRAFTER_CANONICAL_FIRST", "").strip().lower() in ("1", "true", "yes", "on"):
         try:
-            return _finalize(_canonical_result(dt, key, court, bail_type, matter, lang, cls, shared_warnings))
+            _cr = _canonical_result(dt, key, court, bail_type, matter, lang, cls, shared_warnings)
+            _cr["_style"] = style
+            return _finalize(_cr)
         except Exception as e:
             cls["reason"] = f"canonical render failed ({type(e).__name__}); authored instead"
 
@@ -783,7 +808,7 @@ def _draft(matter: str, lang: str, reference_text: str) -> dict:
     result = None
     try:
         result = author.author_document(matter, author_type, lang, court=a_court,
-                                        format_exemplar=exemplar)
+                                        format_exemplar=exemplar, style=style)
     except Exception:
         log.exception("authoring path failed for doc_type=%s — falling to canonical floor", dt)
         result = None
@@ -825,6 +850,7 @@ def _draft(matter: str, lang: str, reference_text: str) -> dict:
                 except Exception:
                     pass
         result["warnings"] = shared_warnings + list(result.get("warnings") or [])
+        result["_style"] = style
         return _finalize(result)
 
     # --- FLOOR 1: LLM chain down → the deterministic canonical template render ---
@@ -843,9 +869,12 @@ def _draft(matter: str, lang: str, reference_text: str) -> dict:
                 if lang != "en" else
                 "AI drafting was temporarily unavailable — this is the standard canonical format; "
                 "fill the blanks in the editor."]
+            floor["_style"] = style
             return _finalize(floor)
         except Exception:
             log.exception("canonical floor failed for doc_type=%s — returning skeleton", dt)
 
     # --- FLOOR 2: pure-python standard shape (cannot fail) ---
-    return _finalize(_last_resort(dt, lang, matter, shared_warnings))
+    _lr = _last_resort(dt, lang, matter, shared_warnings)
+    _lr["_style"] = style
+    return _finalize(_lr)

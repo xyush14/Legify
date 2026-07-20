@@ -452,9 +452,10 @@
   // ---- format: reference (attach / attached) + Draft DNA (members, soon) ----
   function renderFormat(){
     var box=$("format-box");
-    var soon='<div class="fmt-soon"><div class="i">◈</div><div class="tx"><b>Apply my Draft DNA</b>'+
-             '<div class="sub">Your letterhead, numbering & voice on every draft — learned from your past filings.</div>'+
-             '<span class="soon-tag">Coming soon · Members</span></div></div>';
+    var soon='<a class="fmt-soon" href="/settings" style="text-decoration:none;opacity:1">'+
+             '<div class="i">◈</div><div class="tx"><b>Your Draft DNA</b>'+
+             '<div class="sub">Drafts you generate come out in your own format, numbering & voice — learned from your filings. Set it up or edit it in Settings.</div>'+
+             '<span class="soon-tag">Manage in Settings →</span></div></a>';
     if(A.mirrored){
       box.innerHTML='<div class="fmt-on"><div class="i">✦</div><div class="tx"><b>Reference attached</b>'+
         '<div class="sub">This draft mirrors the format of your uploaded document.</div>'+

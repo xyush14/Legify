@@ -1,6 +1,13 @@
 # Draft DNA — per-advocate drafting personalization
 
-**Status:** design, not built. Confirmed direction 2026-07-05.
+**Status:** BUILT end-to-end (Phases 1–3), 2026-07-20. Ships dark — engages only for an
+account with a saved profile; no-DNA output is byte-identical (§7 golden-master test green).
+Code: `headnote/drafter/style_profile.py` (StyleProfile, format_slots, apply_format, analyze_style,
+load/save), parameterized `HOUSE_STYLE` + `style=` thread in `author.py`, `user_id` + apply_format
+chokepoint in `from_prompt.py`, `/api/draft-dna` router (`headnote/api/draft_dna.py`), Phase-2
+reveal/confirm UI in `static/settings.html`, live chip in `static/draft-editor.html`,
+`migrations/010_draft_dna.sql`, tests in `tests/test_draft_dna.py`. Phase 4 (continuous
+learning from /refine + hand-edit diffs) and the v2 DNA-as-synthetic-reference path remain.
 **Owner:** Ayush · reviewer: Vishnu ji
 **One line:** an advocate drops 2–3 of their filed drafts in the **Profile** section; Headnote
 learns their court, format and voice, and thereafter *every* draft it produces — including

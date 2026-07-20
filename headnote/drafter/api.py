@@ -205,18 +205,21 @@ def _persist_editor_draft(result: dict) -> dict:
 
 
 @router.post("/from-prompt", summary="Prompt-first drafting → best court-ready draft (authored-primary, never fails)")
-def draft_from_prompt_route(body: FromPromptBody):
+def draft_from_prompt_route(body: FromPromptBody,
+                            user: Optional[CurrentUser] = Depends(optional_user)):
     """One freeform description → the LLM authors the draft from the WHOLE input, with the
     matching canonical template injected as the PRESCRIBED FORMAT and every guard in force
     (verified-citation whitelist, fact-grounding, section pairs, input coverage). Never-fail
     ladder inside: authored → canonical floor → pure-python skeleton.
+    Signed-in advocates with a saved Draft DNA get the draft in their own house format.
     See headnote/drafter/from_prompt.py."""
     from fastapi.responses import JSONResponse
     from headnote.drafter.from_prompt import draft_from_prompt
     if not (body.prompt or "").strip():
         return JSONResponse({"ok": False, "error": "empty prompt"}, status_code=400)
     try:
-        return _persist_editor_draft(draft_from_prompt(body.prompt, body.lang))
+        return _persist_editor_draft(
+            draft_from_prompt(body.prompt, body.lang, user_id=(user.id if user else None)))
     except Exception as e:  # draft_from_prompt never raises — this is a belt-and-braces backstop
         import logging
         logging.getLogger("headnote.drafter").exception("from-prompt backstop hit")
@@ -290,6 +293,7 @@ async def draft_from_document(
     role: str = Form("facts"),
     file: Optional[UploadFile] = File(None),
     files: Optional[List[UploadFile]] = File(None),
+    user: Optional[CurrentUser] = Depends(optional_user),
 ):
     """One upload endpoint, TWO intents chosen by `role`:
 
@@ -347,18 +351,22 @@ async def draft_from_document(
             result.setdefault("warnings", []).insert(0, ocr_warning)
         return _persist_editor_draft(result)
 
+    uid = user.id if user else None
     # role="reference": the document is a STYLE reference to mirror; the typed prompt carries the facts.
     if role == "reference":
         if not doc_text.strip():
             if (prompt or "").strip():
                 # reference unreadable but the matter is typed — draft it anyway
-                res = await run_in_threadpool(draft_from_prompt, (prompt or "").strip(), lang)
+                res = await run_in_threadpool(draft_from_prompt, (prompt or "").strip(), lang,
+                                              user_id=uid)
                 return _with_ocr_warning(res)
             return JSONResponse({"ok": False, "error":
                                  "रेफरेंस दस्तावेज़ पढ़ा नहीं जा सका — साफ़ फोटो/PDF के साथ दोबारा कोशिश करें। "
                                  "(Could not read the reference document — try a clearer photo/PDF.)"})
+        # A reference is attached → it governs the format (beats saved DNA, §3b). We still
+        # pass user_id so the draft falls back to DNA if the reference itself fails to apply.
         res = await run_in_threadpool(draft_from_prompt, (prompt or "").strip(), lang,
-                                      reference_text=doc_text.strip())
+                                      reference_text=doc_text.strip(), user_id=uid)
         return _with_ocr_warning(res)
 
     # role="facts" (default): the document is the source of facts; a typed prompt adds intent.
@@ -371,7 +379,7 @@ async def draft_from_document(
                              "दस्तावेज़ पढ़ा नहीं जा सका और कोई विवरण भी नहीं लिखा गया — मामला टाइप करें या साफ़ "
                              "फोटो अपलोड करें। (Could not read the document and nothing was typed — describe "
                              "the matter or upload a clearer photo.)"})
-    res = await run_in_threadpool(draft_from_prompt, matter, lang)
+    res = await run_in_threadpool(draft_from_prompt, matter, lang, user_id=uid)
     return _with_ocr_warning(res)
 
 

@@ -831,10 +831,10 @@ HOUSE STYLE — follow exactly:
   Orissa, J&K & Ladakh, HP, Uttarakhand, Jharkhand, Chhattisgarh, Sikkim, Manipur, Meghalaya — each its own HC.
   English HC form "In the High Court of <Name> at <Seat>". If you cannot tell the State, write ____ — NEVER
   write "Madhya Pradesh"/"मध्यप्रदेश" for a matter that is not from MP.
-• BODY: every numbered paragraph BEGINS with "यह कि" (you may write "यहकि"). Facts first, then grounds —
+• BODY: every numbered paragraph BEGINS with "{para_prefix}" (you may write "यहकि"). Facts first, then grounds —
   one discrete point per paragraph, in formal register, justified prose. After the last ground, ALWAYS add
-  the closer: "यह कि, अन्य तर्क वक्त बहस मौखिक रुप से निवेदित किये जावेंगे।"
-• PRAYER: open with "अतः श्रीमान न्यायालय से प्रार्थना है कि …" and end with "… करने की कृपा करें।"
+  the closer: "{closer}"
+• PRAYER: open with "{prayer_open} …" and end with "{prayer_close}"
 • Use court idiom, not literal translation: मिथ्या आधारों पर आरोपी बनाया, न्यायिक अभिरक्षा में निरुद्ध,
   स्थायी निवासी, साक्ष्य को प्रभावित किये जाने की कोई संभावना नहीं, समानता के सिद्धान्त, युक्तियुक्त आशंका.
 
@@ -953,10 +953,14 @@ _CIVIL_NOTE = """CIVIL DRAFTING ADDENDUM (this is a CIVIL matter — CPC discipl
 
 
 def _author_system(doc_type: str, lang: str, format_exemplar: str = "",
-                   inject_skill: bool = True) -> str:
+                   inject_skill: bool = True, style: dict | None = None) -> str:
     b = brief_for(doc_type)
     fam = family_for(doc_type)
     skeleton = "\n".join(f"  {i+1}. {s}" for i, s in enumerate(b.get("skeleton", [])))
+    # Draft DNA slots — each defaults to today's exact literal (style=None →
+    # character-identical prompt; see style_profile.FORMAT_DEFAULTS + §7).
+    from headnote.drafter import style_profile as SP
+    slots = SP.format_slots(style)
     system = (HOUSE_STYLE
               .replace("{section_map}", _SECTION_MAP_NOTE)
               .replace("{verified}", _verified_block(fam))
@@ -964,7 +968,17 @@ def _author_system(doc_type: str, lang: str, format_exemplar: str = "",
               .replace("{label}", f'{b["label_hi"]} ({b["label_en"]})')
               .replace("{brief}", b.get("brief", ""))
               .replace("{skeleton}", skeleton or "  (compose a sensible order: facts → grounds → prayer)")
+              .replace("{para_prefix}", slots["para_prefix"])
+              .replace("{closer}", slots["closer"])
+              .replace("{prayer_open}", slots["prayer_open"])
+              .replace("{prayer_close}", slots["prayer_close"])
               .replace("{lang}", "Hindi" if lang == "hi" else "English"))
+    # The advocate's style overlay is PREPENDED (never a stray blank line) so the
+    # no-DNA path is untouched — same pattern as the CIVIL_NOTE / SPECIMEN blocks.
+    overlay = SP.overlay_block(style, lang)
+    if overlay:
+        system = system.replace("HOUSE STYLE — follow exactly:",
+                                overlay + "HOUSE STYLE — follow exactly:")
     if doc_type in CIVIL_TYPES:
         system = system.replace("THE MATTER TYPE:", _CIVIL_NOTE + "THE MATTER TYPE:")
     if (format_exemplar or "").strip():
@@ -2012,20 +2026,25 @@ def revise_mirrored(prior_html: str, instruction: str, doc_type: str = "other_cr
 
 
 def author_payload(matter: str, doc_type: str, lang: str = "hi", *, court: str = "",
-                   reference_skeleton: str = "", format_exemplar: str = "") -> dict:
+                   reference_skeleton: str = "", format_exemplar: str = "",
+                   style: dict | None = None) -> dict:
     """Call the runtime LLM (DeepSeek → Groq; never Claude) and return the parsed,
     schema-shaped payload. Raises on LLM/parse failure (caller decides fallback).
     If `reference_skeleton` is given, the draft is authored to MIRROR that structure/voice.
     If `format_exemplar` is given (the canonical template rendered blank), the draft is
-    authored INTO that prescribed format — templates as curriculum, not cage."""
+    authored INTO that prescribed format — templates as curriculum, not cage.
+    If `style` (a Draft DNA StyleProfile) is given, the prompt is steered toward the
+    advocate's own house style; format is still ENFORCED downstream by apply_format."""
     from headnote.llm.client import _call_deepseek_or_groq, parse_json_response
-    system = _author_system(doc_type, lang, format_exemplar=format_exemplar)
+    from headnote.drafter import style_profile as SP
+    system = _author_system(doc_type, lang, format_exemplar=format_exemplar, style=style)
     b = brief_for(doc_type)
     user = (
         f"MATTER (the advocate's instructions / facts — use ONLY these facts):\n{matter.strip()}\n\n"
         f"Court level (use if sensible, else infer): {court or b.get('court')}\n"
         f"Draft the {b['label_en']} now, in {'Hindi' if lang == 'hi' else 'English'}, as JSON per the schema."
     )
+    user += SP.exemplar_block(style, doc_type, lang)
     if reference_skeleton:
         user += _mirror_instruction(reference_skeleton)
     # Authoring routes through DRAFTER_AUTHOR_MODEL (default Sonnet→DeepSeek R1) so the
@@ -2040,18 +2059,22 @@ def author_payload(matter: str, doc_type: str, lang: str = "hi", *, court: str =
         # free-tier fallback (Groq 12K TPM); (b) broken/truncated JSON; (c) the model
         # drifted into CJK glyphs instead of Devanagari. A fresh roll usually lands; a
         # skill-less authored draft beats no draft; every guard still applies.
-        slim = _author_system(doc_type, lang, format_exemplar=format_exemplar, inject_skill=False)
+        slim = _author_system(doc_type, lang, format_exemplar=format_exemplar, inject_skill=False, style=style)
         raw, meta = _call_deepseek_or_groq(slim, user, max_tokens=9000, claude_model=config.DRAFTER_AUTHOR_MODEL, json_mode=True)
         payload = parse_json_response(raw)
     return _shape_payload(payload, doc_type, b, meta)
 
 
 def author_document(matter: str, doc_type: str, lang: str = "hi", *, court: str = "",
-                    reference_skeleton: str = "", format_exemplar: str = "") -> dict:
+                    reference_skeleton: str = "", format_exemplar: str = "",
+                    style: dict | None = None) -> dict:
     """End-to-end authoring: prompt → house-style court-ready HTML + flagged extras.
-    Returns {ok, mode, doc_type, html, cite_at_hearing, companions, warnings, meta}."""
+    Returns {ok, mode, doc_type, html, cite_at_hearing, companions, warnings, meta}.
+    `style` (Draft DNA) steers the prompt; format is enforced by apply_format in
+    the caller (from_prompt._finalize), the one place every path funnels through."""
     payload = author_payload(matter, doc_type, lang, court=court,
-                             reference_skeleton=reference_skeleton, format_exemplar=format_exemplar)
+                             reference_skeleton=reference_skeleton,
+                             format_exemplar=format_exemplar, style=style)
     # ground every fact in the output against the advocate's own brief (the matter)
     rendered = render_authored(payload, lang, source=matter)
     # …and the mirror duty: everything concrete the advocate GAVE must be in the draft

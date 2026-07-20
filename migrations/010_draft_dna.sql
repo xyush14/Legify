@@ -1,0 +1,32 @@
+-- migrations/010_draft_dna.sql
+--
+-- "Draft DNA" — per-advocate drafting personalization.
+--
+-- An advocate drops 2–3 of their own filed drafts in Settings; we distil a
+-- StyleProfile (their numbering idiom, prayer/verification framing, signature
+-- block, font, a short style-prose description and 2–3 anonymised exemplars)
+-- and thereafter every draft comes out in their exact format. We store ONLY the
+-- abstracted profile as JSONB — never the uploaded files (extract-then-discard,
+-- lowest PII risk). Facts are NEVER learned or reused: DNA is format-side only.
+--
+-- One nested column (not N discrete ones) because the shape is variable/nested
+-- (exemplars list, directives list, per-field confidence). Mirrors the
+-- saved_caselaw jsonb-snapshot pattern.
+--
+-- Shape (see headnote/drafter/style_profile.py :: StyleProfile):
+--   { format: {para_prefix, closer, prayer_open, prayer_close, verification,
+--              party_labels, font, advocate_block[...]},
+--     style_prose: "...", directives: [...], exemplars: [...],
+--     source_meta: {n_drafts, extracted_at, confidence} }
+--
+-- Used by:
+--   GET   /api/draft-dna           (headnote/api/draft_dna.py — read for the confirm/edit UI)
+--   PATCH /api/draft-dna           (save the confirmed/edited profile)
+--   POST  /api/draft-dna/analyze   (OCR uploads → analyze_style → proposed profile)
+--   style_profile.load_style(user_id) at draft time (from_prompt.draft_from_prompt)
+--
+-- Idempotent — safe to run multiple times via the `if not exists` guard.
+-- Run in: Supabase dashboard → SQL Editor → paste → Run.
+
+alter table public.user_profiles
+  add column if not exists draft_style jsonb;
