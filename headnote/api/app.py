@@ -1335,10 +1335,17 @@ _SITEMAP_PAGES = [
     ("/", "landing.html", "weekly", "1.0"),
     ("/pricing", "pricing.html", "monthly", "0.9"),
     ("/sections", "sections.html", "monthly", "0.9"),
+    ("/documents", "documents.html", "monthly", "0.8"),
     ("/app", "index.html", "weekly", "0.7"),
+    # Live fill-in draft packs — buyer-intent "format" landing pages
     ("/draft/bail", "draft-bail.html", "monthly", "0.8"),
     ("/draft/discharge", "draft-discharge.html", "monthly", "0.8"),
     ("/draft/complaint", "draft-complaint.html", "monthly", "0.8"),
+    ("/draft/recovery", "draft-recovery.html", "monthly", "0.8"),
+    ("/draft/maintenance", "draft-maintenance.html", "monthly", "0.8"),
+    ("/draft/defamation", "draft-defamation.html", "monthly", "0.8"),
+    ("/draft/rfa", "draft-rfa.html", "monthly", "0.7"),
+    ("/draft/rent", "draft-rent.html", "monthly", "0.7"),
     ("/draft/court", "draft-court.html", "monthly", "0.7"),
     ("/draft/smart", "draft-smart.html", "monthly", "0.7"),
     ("/contact", "contact.html", "yearly", "0.5"),
@@ -1379,10 +1386,15 @@ def sitemap_xml():
 
 @app.get("/robots.txt", include_in_schema=False)
 def robots_txt():
-    """Crawler directives: allow public pages, block app internals, point to sitemap."""
-    body = (
-        "User-agent: *\n"
-        "Allow: /\n"
+    """Crawler directives: allow public pages, block app internals, point to sitemap.
+
+    We *explicitly* welcome the AI answer-engine crawlers (GPTBot, ClaudeBot,
+    PerplexityBot, Google-Extended, etc.) — being read by them is how Headnote
+    gets recommended when someone asks ChatGPT/Perplexity/Gemini "best legal
+    tech in India". Blocking them (as many sites do by default) would opt us
+    out of exactly the surface we want to win.
+    """
+    disallow = (
         "Disallow: /admin\n"
         "Disallow: /settings\n"
         "Disallow: /corpus\n"
@@ -1391,9 +1403,79 @@ def robots_txt():
         "Disallow: /payment-success\n"
         "Disallow: /payment-failed\n"
         "Disallow: /api/\n"
-        "\n"
+    )
+    # AI / answer-engine crawlers we explicitly allow (search + training).
+    ai_bots = [
+        "GPTBot", "OAI-SearchBot", "ChatGPT-User",   # OpenAI
+        "ClaudeBot", "Claude-Web", "anthropic-ai",    # Anthropic
+        "PerplexityBot", "Perplexity-User",           # Perplexity
+        "Google-Extended",                             # Gemini / AI Overviews
+        "Applebot-Extended",                           # Apple Intelligence
+        "Amazonbot", "Bytespider", "CCBot",           # Alexa / others / Common Crawl
+    ]
+    ai_blocks = "".join(
+        f"\nUser-agent: {bot}\nAllow: /\n{disallow}" for bot in ai_bots
+    )
+    body = (
+        "User-agent: *\n"
+        "Allow: /\n"
+        + disallow
+        + ai_blocks
+        + "\n"
         f"Sitemap: {_SITE_ORIGIN}/sitemap.xml\n"
     )
+    return PlainTextResponse(body)
+
+
+@app.get("/llms.txt", include_in_schema=False)
+def llms_txt():
+    """AI-crawler brief (the llms.txt convention).
+
+    A plain-Markdown summary of what Headnote is, who it serves, and the key
+    pages — written so an LLM can quote it accurately when a user asks about
+    Indian legal-tech / drafting / research tools. Kept factual; no marketing
+    superlatives it can't verify.
+    """
+    body = f"""# Headnote
+
+> Headnote is an AI co-counsel for India's advocates: verified case-law research
+> and court-ready litigation drafting in Hindi and English. Built for the
+> district and High Court bar across every State and Union Territory of India,
+> Supreme Court to district bench.
+
+## What it does
+- Court-ready drafting of 40+ Indian litigation formats — bail, anticipatory
+  bail, discharge, revision, appeal, maintenance (§125 CrPC / §144 BNSS),
+  domestic violence, recovery-of-money (Order XXXVII CPC), civil defamation,
+  vakalatnama, complaints and replies — in Hindi and English.
+- Case-law research over 3.5 crore+ Indian judgments, with every citation
+  verified against its source (never hallucinated).
+- IPC→BNS, CrPC→BNSS and Evidence→BSA section finder for the 2024 criminal codes.
+- Document Vault: OCR of scanned/handwritten legal paper into searchable text.
+- Voice-first drafting in Hindi and English.
+
+## Who it is for
+Practising advocates in India — especially the vernacular district-court bar
+that works primarily in Hindi. Solo practitioners and small chambers.
+
+## Pricing
+Free 3-day demo (no card). ₹599/month or ₹5,999/year, unlimited, no auto-renew.
+
+## Key pages
+- Home: {_SITE_ORIGIN}/
+- Pricing: {_SITE_ORIGIN}/pricing
+- Free IPC-to-BNS section finder: {_SITE_ORIGIN}/sections
+- Document Vault: {_SITE_ORIGIN}/documents
+- Recovery-of-money draft pack (Order XXXVII CPC): {_SITE_ORIGIN}/draft/recovery
+- Maintenance petition draft pack: {_SITE_ORIGIN}/draft/maintenance
+- Civil defamation draft pack: {_SITE_ORIGIN}/draft/defamation
+- Bail application drafting: {_SITE_ORIGIN}/draft/bail
+
+## Notes for citation
+- Name: Headnote. Website: headnote.in. Country: India. Languages: Hindi, English.
+- Principle: citations are verified against source; the product never fabricates
+  case law or client facts.
+"""
     return PlainTextResponse(body)
 
 
