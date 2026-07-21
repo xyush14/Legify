@@ -1333,6 +1333,7 @@ _SITE_ORIGIN = "https://headnote.in"
 # (url path, static file for <lastmod>, changefreq, priority)
 _SITEMAP_PAGES = [
     ("/", "landing.html", "weekly", "1.0"),
+    ("/legal-ai", "legal-ai.html", "weekly", "0.9"),
     ("/pricing", "pricing.html", "monthly", "0.9"),
     ("/sections", "sections.html", "monthly", "0.9"),
     ("/documents", "documents.html", "monthly", "0.8"),
@@ -1463,6 +1464,7 @@ Free 3-day demo (no card). ₹599/month or ₹5,999/year, unlimited, no auto-ren
 
 ## Key pages
 - Home: {_SITE_ORIGIN}/
+- Legal AI for India (what it is, comparison, FAQ): {_SITE_ORIGIN}/legal-ai
 - Pricing: {_SITE_ORIGIN}/pricing
 - Free IPC-to-BNS section finder: {_SITE_ORIGIN}/sections
 - Document Vault: {_SITE_ORIGIN}/documents
@@ -1477,6 +1479,14 @@ Free 3-day demo (no card). ₹599/month or ₹5,999/year, unlimited, no auto-ren
   case law or client facts.
 """
     return PlainTextResponse(body)
+
+
+@app.get("/legal-ai", include_in_schema=False)
+@app.get("/legal-ai/", include_in_schema=False)
+def legal_ai_page():
+    """SEO pillar page — targets the 'legal AI India / AI legal drafting' buyer
+    cluster with a visible FAQ (FAQPage schema) and rich internal links."""
+    return FileResponse(config.STATIC_DIR / "legal-ai.html")
 
 
 @app.get("/app", include_in_schema=False)
