@@ -341,6 +341,7 @@
           <button class="btn" onclick="toggleQuickAdd()">+ Add to this day</button>
           <button class="btn" onclick="openPhoto()">Add from photo(s)</button>
           <button class="btn" title="Download this day's cause list as a PDF" onclick="downloadDayPDF()">⬇ Download list</button>
+          <button class="btn" title="Copy a no-login link to send this day to the lawyer" onclick="copyDayLink()">🔗 Copy share link</button>
           <button class="btn" onclick="openEnroll()">Fetch my cases</button>
           <button class="btn" onclick="openAdd()">Add by CNR</button>
           <button class="btn" title="Re-fetch next dates for matters with a real CNR" onclick="refreshAll()">Refresh all dates</button>
@@ -602,6 +603,19 @@ async function saveQuickAdd(){
     const d=await r.json(); if(!r.ok) throw new Error(d.detail||'add failed');
     toast('Added to your diary','success'); toggleQuickAdd(); await loadAll();
   }catch(e){ toast(e.message,'error'); } finally{ hideOverlay(); }
+}
+/* manual share: mint a no-login link for the selected day and copy it */
+async function copyDayLink(){
+  const date=(selDate&&selDate!=='__undated')?selDate:(DIARY&&DIARY.today);
+  if(!date){ toast('Pick a day first','error'); return; }
+  try{
+    const r=await fetch('/api/cases/day-link?date='+encodeURIComponent(date),{headers:H()});
+    const d=await r.json(); if(!r.ok) throw new Error(d.detail||'failed');
+    let copied=false;
+    try{ await navigator.clipboard.writeText(d.url); copied=true; }catch(e){}
+    if(copied) toast('Link copied — paste it to the lawyer (WhatsApp/SMS/email)','success');
+    else prompt('Copy this link and send it to the lawyer:', d.url);
+  }catch(e){ toast(e.message||'Could not make link','error'); }
 }
 async function refreshAll(){
   showOverlay('Refreshing dates…','Checking eCourts for every matter with a CNR.');

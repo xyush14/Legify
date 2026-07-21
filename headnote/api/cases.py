@@ -35,6 +35,7 @@ from headnote.consultations import storage as consult_storage
 from headnote.documents import storage as docs_storage
 from headnote.drafter import storage as draft_storage, stories
 from headnote.integrations import sarvam, gemini
+from headnote.cases import daily_links
 
 
 log = logging.getLogger(__name__)
@@ -138,6 +139,19 @@ def diary_day(date: str, user: CurrentUser = Depends(get_current_user)) -> dict:
     rows = cases_storage.list_cases(user_id=user.id, limit=500)
     items = [it for it in (_diary_item(r) for r in rows) if it.get("next_iso") == target]
     return {"date": target, "count": len(items), "items": items}
+
+
+@router.get("/day-link",
+            summary="A shareable no-login link to one day's cause list (manual share)")
+def day_link(date: str, user: CurrentUser = Depends(get_current_user)) -> dict:
+    """Mint the tokenised /d/<token> link for one date so the lawyer can be sent it
+    by hand (paste into WhatsApp/SMS/email). No auto-send — this is the manual path.
+    The link opens the no-login page to settle that day + print the next."""
+    import os
+    iso = case_dates.to_iso(date) or date
+    token = daily_links.make_token(user.id, iso)
+    base = (os.environ.get("APP_BASE_URL") or "https://headnote.in").rstrip("/")
+    return {"ok": True, "date": iso, "url": f"{base}/d/{token}"}
 
 
 @router.get("/needs-settling",
