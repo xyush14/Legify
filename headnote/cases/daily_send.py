@@ -101,8 +101,20 @@ def _send_email(to: str, subject: str, html: str, text: str) -> bool:
         return False
 
 
+def _wa_configured() -> bool:
+    """Meta WhatsApp is only usable when a verified number + token are set. NOTE:
+    proactive daily messages ALSO require a Meta-approved message TEMPLATE — free-form
+    send_text is blocked outside the 24h window. Until that's in place, we don't
+    pretend to send over WhatsApp."""
+    return bool(os.environ.get("WA_ACCESS_TOKEN") and os.environ.get("WA_PHONE_NUMBER_ID"))
+
+
+def _email_configured() -> bool:
+    return bool(os.environ.get("RESEND_API_KEY"))
+
+
 def _send_whatsapp(to: str, body: str) -> bool:
-    if not to:
+    if not (to and _wa_configured()):
         return False
     try:
         from headnote.whatsapp import client as wa
@@ -149,6 +161,10 @@ def send_daily_causelists(*, slot: str = "evening", dry_run: bool = False,
         if _send_email(email, subj, html, wa_body):
             sent_email += 1
     return {"ok": True, "date": settle_date, "prep_date": prep_date, "dry_run": dry_run,
+            "channels": {
+                "whatsapp": "configured" if _wa_configured() else "NOT configured (needs verified number + token + approved template)",
+                "email": "configured" if _email_configured() else "NOT configured (set RESEND_API_KEY)",
+            },
             "whatsapp_sent": sent_wa, "email_sent": sent_email,
             "skipped_no_cases": skipped,
             **({"preview": preview} if dry_run else {})}
