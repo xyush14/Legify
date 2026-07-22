@@ -64,6 +64,9 @@
 }
 </script>
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+<link href="https://assets.calendly.com/assets/external/widget.css" rel="stylesheet" />
+<script src="https://assets.calendly.com/assets/external/widget.js" async></script>
+<script src="/static/site.js?v=1" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="preconnect" href="https://api.fontshare.com" crossorigin />
@@ -527,7 +530,7 @@
   <div class="nav-in">
     <a href="#" class="brand" aria-label="Headnote"><img src="/static/headnote-logo.svg" alt="Headnote" /></a>
     <div class="nav-mid"><a href="#features">Product</a><a href="#pricing">Pricing</a><a href="#fits">Integrations</a><a href="#footer">Company</a></div>
-    <div class="nav-right"><a href="/app" class="login">Login</a><a href="/contact" class="btn btn--dark">Book a Demo</a></div>
+    <div class="nav-right"><a href="/app" class="login">Login</a><a href="/contact" class="btn btn--dark" onclick="return bookDemo(event)">Book a Demo</a></div>
   </div>
 </nav>
 
@@ -538,7 +541,7 @@
     <h1 data-hero>AI for legal work</h1>
     <p data-hero>Research, draft, and manage your matters in minutes, built for India's advocates.</p>
     <div class="hero-cta" data-hero>
-      <a href="/contact" class="btn btn--dark">Book a Demo</a>
+      <a href="/contact" class="btn btn--dark" onclick="return bookDemo(event)">Book a Demo</a>
       <a href="/app" class="btn btn--ghost">Get Started</a>
     </div>
     <div class="hero-note" data-hero>3-day demo · no card · first matter working in under a minute</div>
@@ -918,7 +921,7 @@
   <div class="callband" data-reveal>
     <div class="callband-in">
       <div><h3>Still have questions?</h3><p>Talk to us. We'll show you Headnote on one of your own matters.</p></div>
-      <a href="/contact" class="btn btn--light">Book a call</a>
+      <a href="/contact" class="btn btn--light" onclick="return bookDemo(event)">Book a call</a>
     </div>
   </div>
 </section>
@@ -929,7 +932,7 @@
     <div class="cb-text">
       <h2>find your best junior</h2>
       <p>AI that understands law, so you can focus on winning.</p>
-      <div class="cb-cta"><a href="/contact" class="btn btn--dark">Book a Demo</a><a href="/app" class="btn btn--ghost">Try Headnote</a></div>
+      <div class="cb-cta"><a href="/contact" class="btn btn--dark" onclick="return bookDemo(event)">Book a Demo</a><a href="/app" class="btn btn--ghost">Try Headnote</a></div>
     </div>
     <div class="cb-art"><img src="/static/hero-art.png" alt="" onerror="this.style.display='none';this.closest('.close-band').classList.add('noimg');" /></div>
   </div>
