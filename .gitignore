@@ -69,3 +69,8 @@ headnote/drafter/i18n/machine/
 
 # Pytest cache
 .pytest_cache/
+.mcp.json
+Demo_Users_Followup.csv
+.preview_tmp/
+.agents/
+.codex/
