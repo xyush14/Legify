@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Offline — Headnote</title>
+  <style>
+    :root { color-scheme: light; }
+    body {
+      margin: 0; min-height: 100vh; display: flex; align-items: center;
+      justify-content: center; background: #ffffff; color: #111111;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      text-align: center; padding: 24px;
+    }
+    .card { max-width: 360px; }
+    img { width: 72px; height: 72px; border-radius: 18px; margin-bottom: 20px; }
+    h1 { font-size: 20px; margin: 0 0 8px; font-weight: 600; }
+    p { font-size: 15px; line-height: 1.5; color: #555; margin: 0 0 20px; }
+    button {
+      font: inherit; font-weight: 600; color: #fff; background: #111;
+      border: 0; border-radius: 10px; padding: 12px 22px; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <img src="/static/icons/icon-512.png" alt="Headnote" />
+    <h1>You're offline</h1>
+    <p>Headnote needs an internet connection to research case law and draft. Check your connection and try again.</p>
+    <button onclick="location.reload()">Retry</button>
+  </div>
+</body>
+</html>

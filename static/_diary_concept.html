@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Diary concept — Headnote</title>
+<meta name="robots" content="noindex" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --paper:#ffffff; --canvas:#eceae4; --ink:#111110; --ink2:#5b5b57; --ink3:#98988f;
+    --line:#e7e7e4; --line2:#f1f1ef; --soft:#f6f6f4;
+    --amber-bg:#fbf1dd; --amber-ink:#8a5a12; --amber-line:#eddbb4;
+    --green:#2d6a2d; --green-bg:#e9f3e9; --green-line:#cfe6cf;
+    --sans:'Geist',system-ui,sans-serif; --mono:'Geist Mono',ui-monospace,monospace; --hi:'Noto Sans Devanagari','Geist',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  body{background:var(--canvas);font-family:var(--sans);color:var(--ink);min-height:100vh;
+       display:flex;align-items:center;justify-content:center;padding:24px 12px;line-height:1.45;
+       -webkit-font-smoothing:antialiased;}
+  .hi{font-family:var(--hi);} .mono{font-family:var(--mono);}
+
+  /* phone frame */
+  .phone{width:100%;max-width:412px;height:min(860px,94vh);background:var(--paper);border-radius:32px;
+         position:relative;overflow:hidden;box-shadow:0 30px 70px -30px rgba(0,0,0,.4),0 0 0 1px rgba(0,0,0,.06);
+         display:flex;flex-direction:column;}
+  @media(max-width:460px){ body{padding:0;} .phone{max-width:none;height:100vh;border-radius:0;box-shadow:none;} }
+
+  /* header */
+  .hdr{padding:20px 18px 12px;flex:0 0 auto;}
+  .hdr__top{display:flex;align-items:flex-end;justify-content:space-between;}
+  .hdr__title{font-size:26px;font-weight:600;letter-spacing:-.02em;line-height:1;}
+  .hdr__date{font-size:13px;color:var(--ink2);margin-top:5px;}
+  .hdr__nav{display:flex;align-items:center;gap:6px;}
+  .navbtn{width:34px;height:34px;border-radius:9px;border:1px solid var(--line);background:var(--paper);
+          color:var(--ink2);font-size:17px;cursor:pointer;display:grid;place-items:center;}
+  .navbtn:active{transform:scale(.94);}
+  .today-btn{height:34px;border:1px solid var(--line);background:var(--paper);border-radius:9px;
+             font:inherit;font-size:12px;color:var(--ink2);padding:0 12px;cursor:pointer;}
+  .today-btn:active{transform:scale(.96);}
+  .iconb{width:34px;height:34px;border-radius:9px;border:1px solid var(--line);background:var(--paper);
+         color:var(--ink2);cursor:pointer;display:grid;place-items:center;}
+
+  /* week strip */
+  .week{display:flex;gap:6px;margin-top:14px;}
+  .wd{flex:1;border:1px solid var(--line);border-radius:12px;padding:8px 2px 7px;text-align:center;cursor:pointer;
+      background:var(--paper);transition:transform .12s ease,border-color .12s ease;}
+  .wd:active{transform:translateY(-1px);}
+  .wd.sel{background:var(--ink);border-color:var(--ink);}
+  .wd__dow{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);}
+  .wd.sel .wd__dow{color:rgba(255,255,255,.6);}
+  .wd__n{font-size:15px;font-weight:600;margin-top:2px;}
+  .wd.sel .wd__n{color:#fff;}
+  .wd.today .wd__n{color:var(--amber-ink);} .wd.sel.today .wd__n{color:#fff;}
+  .wd__dot{width:5px;height:5px;border-radius:50%;background:var(--ink3);margin:4px auto 0;opacity:0;}
+  .wd__dot.on{opacity:1;} .wd.sel .wd__dot{background:rgba(255,255,255,.7);}
+
+  /* loose ends */
+  .loose{margin:12px 18px 0;display:flex;align-items:center;gap:9px;background:var(--amber-bg);
+         border:1px solid var(--amber-line);color:var(--amber-ink);border-radius:11px;padding:10px 12px;
+         font-size:13px;cursor:pointer;}
+  .loose b{font-weight:600;} .loose .arw{margin-left:auto;opacity:.7;}
+
+  /* body / board */
+  .body{flex:1;overflow-y:auto;padding:8px 18px 120px;}
+  .grp{margin-top:16px;}
+  .grp__h{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink3);margin-bottom:2px;padding:0 2px;}
+  .grp__h .ct{font-weight:500;color:var(--ink2);} .grp__h .num{margin-left:auto;font-family:var(--mono);font-size:11px;}
+  .row{display:flex;align-items:center;gap:12px;padding:13px 2px;border-bottom:1px solid var(--line2);
+       transition:opacity .3s ease,transform .3s ease,max-height .3s ease;}
+  .row__main{min-width:0;flex:1;}
+  .row__party{font-size:15px;font-weight:500;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .row__meta{font-family:var(--mono);font-size:11px;color:var(--ink3);margin-top:3px;}
+  .set-btn{flex:0 0 auto;border:1px solid var(--ink);background:var(--paper);color:var(--ink);font:inherit;
+           font-size:12.5px;font-weight:500;padding:7px 13px;border-radius:9px;cursor:pointer;}
+  .set-btn:active{transform:scale(.96);}
+  .done{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--green);
+        background:var(--green-bg);border:1px solid var(--green-line);border-radius:9px;padding:6px 11px;}
+  .done .ck{width:16px;height:16px;border-radius:50%;background:var(--green);color:#fff;display:grid;place-items:center;font-size:10px;}
+  .row.flew{opacity:0;transform:translateX(40px);max-height:0;padding-top:0;padding-bottom:0;overflow:hidden;}
+  .empty{text-align:center;color:var(--ink3);font-size:13px;padding:48px 20px;}
+  .empty .big{font-size:15px;color:var(--ink2);margin-bottom:4px;}
+
+  /* FAB */
+  .fab{position:absolute;right:16px;bottom:18px;display:flex;align-items:center;gap:9px;background:var(--ink);
+       color:#fff;border:none;border-radius:26px;padding:13px 18px;font:inherit;font-size:14px;font-weight:500;
+       cursor:pointer;box-shadow:0 12px 26px -10px rgba(0,0,0,.5);z-index:20;}
+  .fab:active{transform:scale(.96);}
+  .fab svg{width:18px;height:18px;}
+
+  /* bottom sheet */
+  .scrim{position:absolute;inset:0;background:rgba(15,15,12,.34);opacity:0;pointer-events:none;
+         transition:opacity .28s ease;z-index:30;}
+  .scrim.on{opacity:1;pointer-events:auto;}
+  .sheet{position:absolute;left:0;right:0;bottom:0;background:var(--paper);border-radius:22px 22px 0 0;
+         padding:10px 20px 24px;transform:translateY(105%);visibility:hidden;
+         transition:transform .3s cubic-bezier(.2,.8,.2,1),visibility 0s linear .3s;
+         z-index:40;max-height:88%;overflow-y:auto;box-shadow:0 -20px 50px -24px rgba(0,0,0,.3);}
+  .sheet.on{transform:translateY(0);visibility:visible;transition:transform .3s cubic-bezier(.2,.8,.2,1),visibility 0s;}
+  .grab{width:38px;height:4px;border-radius:2px;background:var(--line);margin:2px auto 16px;}
+  .sh__title{font-size:17px;font-weight:600;letter-spacing:-.01em;}
+  .sh__sub{font-family:var(--mono);font-size:11.5px;color:var(--ink3);margin-top:3px;margin-bottom:18px;}
+  .sh__lbl{font-size:13px;color:var(--ink2);margin-bottom:10px;}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;}
+  .chip{font-size:13px;padding:8px 14px;border-radius:22px;border:1px solid var(--line);background:var(--paper);
+        color:var(--ink);cursor:pointer;transition:all .12s ease;}
+  .chip:active{transform:scale(.96);}
+  .chip.on{background:var(--ink);border-color:var(--ink);color:#fff;}
+  .note{display:flex;align-items:center;gap:10px;margin:20px 0 4px;border:1px solid var(--line);border-radius:11px;
+        padding:11px 13px;color:var(--ink3);font-size:13px;cursor:pointer;}
+  .note.rec{border-color:var(--ink);color:var(--ink2);}
+  .note svg{width:18px;height:18px;flex:0 0 auto;}
+  .go{width:100%;margin-top:20px;border:none;background:var(--ink);color:#fff;font:inherit;font-size:15px;font-weight:600;
+      padding:15px;border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;}
+  .go:disabled{background:var(--ink3);} .go:active:not(:disabled){transform:scale(.99);}
+  .go svg{width:17px;height:17px;}
+
+  /* sync rows */
+  .synrow{display:flex;justify-content:space-between;gap:10px;padding:11px 2px;border-bottom:1px solid var(--line2);}
+  .synrow .p{font-size:14px;font-weight:500;} .synrow .m{font-family:var(--mono);font-size:11px;color:var(--ink3);margin-top:2px;}
+  .synrow .amber{color:var(--amber-ink);}
+  .eng{font-family:var(--mono);font-size:10.5px;color:var(--green);margin-bottom:10px;}
+
+  /* search */
+  .search{position:absolute;inset:0;background:var(--paper);z-index:50;transform:translateY(-100%);
+          transition:transform .26s ease;display:flex;flex-direction:column;}
+  .search.on{transform:translateY(0);}
+  .search__bar{display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid var(--line);}
+  .search__bar input{flex:1;border:none;font:inherit;font-size:16px;color:var(--ink);outline:none;background:none;}
+  .search__list{flex:1;overflow-y:auto;padding:6px 18px;}
+  .sres{padding:14px 2px;border-bottom:1px solid var(--line2);cursor:pointer;}
+  .sres .p{font-size:15px;font-weight:500;} .sres .m{font-family:var(--mono);font-size:11.5px;color:var(--ink3);margin-top:3px;}
+  .sres .nd{color:var(--green);}
+
+  /* toast */
+  .toast{position:absolute;left:50%;bottom:92px;transform:translateX(-50%) translateY(16px);background:var(--ink);
+         color:#fff;font-size:13px;padding:11px 17px;border-radius:22px;opacity:0;pointer-events:none;
+         transition:all .24s ease;z-index:60;white-space:nowrap;box-shadow:0 12px 26px -12px rgba(0,0,0,.5);
+         display:flex;align-items:center;gap:8px;}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
+  .toast svg{width:15px;height:15px;}
+
+  .caption{position:fixed;bottom:10px;left:0;right:0;text-align:center;font-family:var(--mono);font-size:10.5px;
+           color:#a9a9a1;letter-spacing:.04em;}
+  @media(max-width:460px){ .caption{display:none;} }
+</style>
+</head>
+<body>
+<div class="phone" id="phone">
+  <!-- header -->
+  <div class="hdr">
+    <div class="hdr__top">
+      <div>
+        <div class="hdr__title" id="hTitle">Today</div>
+        <div class="hdr__date" id="hDate">Sat 25 Jul</div>
+      </div>
+      <div class="hdr__nav">
+        <button class="iconb" onclick="openSearch()" aria-label="find a matter">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>
+        </button>
+        <button class="navbtn" onclick="shiftDay(-1)" aria-label="previous day">‹</button>
+        <button class="navbtn" onclick="shiftDay(1)" aria-label="next day">›</button>
+      </div>
+    </div>
+    <div class="week" id="week"></div>
+  </div>
+
+  <div class="loose" id="loose" style="display:none" onclick="jumpLoose()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+    <span id="looseTxt"></span>
+    <span class="arw">›</span>
+  </div>
+
+  <div class="body" id="board"></div>
+
+  <button class="fab" onclick="openSync()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L8 6H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-4l-1.5-2Z"/><circle cx="12" cy="13" r="3.2"/></svg>
+    Sync page
+  </button>
+
+  <!-- scrim + settle sheet -->
+  <div class="scrim" id="scrim" onclick="closeSheet()"></div>
+  <div class="sheet" id="settle">
+    <div class="grab"></div>
+    <div class="sh__title" id="stParty"></div>
+    <div class="sh__sub" id="stSub"></div>
+
+    <div class="sh__lbl">What happened?</div>
+    <div class="chips" id="outChips"></div>
+
+    <div class="sh__lbl" style="margin-top:20px">Next date</div>
+    <div class="chips" id="dateChips"></div>
+
+    <div class="note" id="noteBox" onclick="toggleRec()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></svg>
+      <span id="noteTxt">Add a note — or speak it</span>
+    </div>
+
+    <button class="go" id="goBtn" onclick="settle()">
+      <span id="goTxt">Pick an outcome</span>
+    </button>
+  </div>
+
+  <!-- sync sheet -->
+  <div class="sheet" id="sync">
+    <div class="grab"></div>
+    <div class="sh__title">Read from your page</div>
+    <div class="sh__sub">Photo of today's cause-list · check and add</div>
+    <div class="eng">● read by vision — 1 page</div>
+    <div id="synRows"></div>
+    <button class="go" onclick="addSync()"><span>Add 3 to today</span></button>
+  </div>
+
+  <!-- search -->
+  <div class="search" id="search">
+    <div class="search__bar">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>
+      <input id="sInput" placeholder="Find any matter — party or case no." oninput="renderSearch()" />
+      <button class="iconb" style="border:none" onclick="closeSearch()" aria-label="close">✕</button>
+    </div>
+    <div class="search__list" id="sList"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+<div class="caption">Concept prototype · mock data · tap a matter to settle it</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const TODAY='2026-07-25';
+function d2(n){return String(n).padStart(2,'0');}
+function parseISO(s){const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d);}
+function toISO(dt){return `${dt.getFullYear()}-${d2(dt.getMonth()+1)}-${d2(dt.getDate())}`;}
+function addDays(iso,n){const dt=parseISO(iso);dt.setDate(dt.getDate()+n);return toISO(dt);}
+function addMonth(iso){const dt=parseISO(iso);dt.setMonth(dt.getMonth()+1);return toISO(dt);}
+function lbl(iso){const dt=parseISO(iso);return `${dt.getDate()} ${MON[dt.getMonth()]}`;}
+function dowLbl(iso){const dt=parseISO(iso);return `${DOW[dt.getDay()]} ${dt.getDate()} ${MON[dt.getMonth()]}`;}
+
+let uid=100;
+function M(court,caseNo,party,date,lastDate,opt){return Object.assign({id:++uid,court,caseNo,party,date,lastDate,settled:false,nextLabel:''},opt||{});}
+let MATTERS=[
+  M('Court 9 · Sh. Verma','5677/24','State v. Ramesh Kumar',TODAY,'16 Jul'),
+  M('Court 9 · Sh. Verma','441/24','M/s Sona Traders v. Union Bank',TODAY,'9 Jul'),
+  M('Court 3 · JMFC','882/25','Jeetu @ Shivcharan v. State',TODAY,'16 Jul'),
+  M('II ADJ · Sh. Gupta','1123/23','Dulari Bai v. Ramratan',TODAY,'2 Jul'),
+  M('Court 9 · Sh. Verma','204/25','Imran Khan v. State',addDays(TODAY,1),'18 Jul'),
+  M('Family Court','305/24','Rekha v. Mahesh',addDays(TODAY,1),'11 Jul'),
+  M('Court 6 · Sh. Rao','77/25','Anita v. Suresh',addDays(TODAY,2),'4 Jul'),
+  M('Court 3 · JMFC','990/25','State v. Bablu',addDays(TODAY,-3),'8 Jul'),
+  M('II ADJ · Sh. Gupta','1201/22','Nafisa v. LIC',addDays(TODAY,-3),'1 Jul'),
+];
+
+let selDate=TODAY, sheetMatter=null, selOut=null, selDate2=null, recNote=false;
+
+function loose(){ return MATTERS.filter(m=>m.date<TODAY && !m.settled); }
+
+function renderWeek(){
+  const dt=parseISO(selDate); const dow=(dt.getDay()+6)%7; const mon=new Date(dt); mon.setDate(dt.getDate()-dow);
+  let h='';
+  for(let i=0;i<7;i++){ const day=new Date(mon); day.setDate(mon.getDate()+i); const iso=toISO(day);
+    const cnt=MATTERS.filter(m=>m.date===iso).length;
+    h+=`<div class="wd${iso===selDate?' sel':''}${iso===TODAY?' today':''}" onclick="pick('${iso}')">
+      <div class="wd__dow">${DOW[day.getDay()]}</div><div class="wd__n">${day.getDate()}</div>
+      <div class="wd__dot${cnt?' on':''}"></div></div>`;
+  }
+  $('#week').innerHTML=h;
+}
+function renderHeader(){
+  $('#hTitle').textContent = selDate===TODAY?'Today':(selDate===addDays(TODAY,1)?'Tomorrow':dowLbl(selDate).split(' ')[0]);
+  $('#hDate').textContent = dowLbl(selDate);
+  const L=loose();
+  $('#loose').style.display=L.length?'flex':'none';
+  $('#looseTxt').innerHTML=`<b>${L.length}</b> matter${L.length>1?'s':''} from earlier need a next date`;
+}
+function renderBoard(){
+  const items=MATTERS.filter(m=>m.date===selDate);
+  const board=$('#board');
+  if(!items.length){ board.innerHTML=`<div class="empty"><div class="big">Nothing listed for ${lbl(selDate)}.</div>Tap “Sync page” to read this day from your diary.</div>`; return; }
+  const courts=[...new Set(items.map(m=>m.court))];
+  board.innerHTML=courts.map(ct=>{
+    const rows=items.filter(m=>m.court===ct);
+    return `<div class="grp">
+      <div class="grp__h"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M6 21V10M18 21V10M4 10h16L12 3 4 10z"/></svg><span class="ct">${ct}</span><span class="num">${rows.length}</span></div>
+      ${rows.map(m=>rowHtml(m)).join('')}
+    </div>`;
+  }).join('');
+}
+function rowHtml(m){
+  const right = m.settled
+    ? `<span class="done"><span class="ck">✓</span> to ${m.nextLabel}</span>`
+    : `<button class="set-btn" onclick="openSettle(${m.id})">Set outcome</button>`;
+  return `<div class="row" id="row${m.id}">
+    <div class="row__main">
+      <div class="row__party hi">${m.party}</div>
+      <div class="row__meta">${m.caseNo} · last ${m.lastDate}</div>
+    </div>${right}</div>`;
+}
+function render(){ renderWeek(); renderHeader(); renderBoard(); }
+
+function pick(iso){ selDate=iso; render(); }
+function shiftDay(n){ selDate=addDays(selDate,n); render(); }
+function jumpLoose(){ const L=loose(); if(L.length){ selDate=L[0].date; render(); toast('Oldest unsettled day'); } }
+
+/* ---- settle sheet ---- */
+const OUTCOMES=['Adjourned','Evidence','Arguments','Order','Not reached','Filed'];
+function openSettle(id){
+  sheetMatter=MATTERS.find(m=>m.id===id); selOut=null; selDate2=null; recNote=false;
+  $('#stParty').textContent=sheetMatter.party;
+  $('#stParty').className='sh__title hi';
+  $('#stSub').textContent=`${sheetMatter.caseNo} · ${sheetMatter.court}`;
+  $('#outChips').innerHTML=OUTCOMES.map(o=>`<span class="chip" onclick="pickOut('${o}',this)">${o}</span>`).join('');
+  const opts=[['+1 week',addDays(selDate,7)],['+2 weeks',addDays(selDate,14)],['+1 month',addMonth(selDate)]];
+  $('#dateChips').innerHTML=opts.map(([t,iso])=>`<span class="chip" onclick="pickDate('${iso}',this)">${t} · ${lbl(iso)}</span>`).join('')
+    + `<span class="chip" onclick="pickCustom(this)">＋ pick</span>`;
+  $('#noteBox').classList.remove('rec'); $('#noteTxt').textContent='Add a note — or speak it';
+  updateGo();
+  $('#scrim').classList.add('on'); $('#settle').classList.add('on');
+}
+function pickOut(o,el){ selOut=o; document.querySelectorAll('#outChips .chip').forEach(c=>c.classList.remove('on')); el.classList.add('on'); updateGo(); }
+function pickDate(iso,el){ selDate2=iso; document.querySelectorAll('#dateChips .chip').forEach(c=>c.classList.remove('on')); el.classList.add('on'); updateGo(); }
+function pickCustom(el){ const v=prompt('Next date (dd/mm/yyyy)'); if(!v) return;
+  const p=v.split(/[\/\-]/); if(p.length===3){ const iso=`${p[2].length===2?'20'+p[2]:p[2]}-${d2(+p[1])}-${d2(+p[0])}`; selDate2=iso;
+    document.querySelectorAll('#dateChips .chip').forEach(c=>c.classList.remove('on')); el.classList.add('on'); el.textContent='＋ '+lbl(iso); updateGo(); } }
+function toggleRec(){ recNote=!recNote; const b=$('#noteBox');
+  if(recNote){ b.classList.add('rec'); $('#noteTxt').textContent='Listening…'; setTimeout(()=>{ if(recNote){ $('#noteTxt').textContent='“IO absent, next PW to be examined”'; } },900); }
+  else { b.classList.remove('rec'); $('#noteTxt').textContent='Add a note — or speak it'; } }
+function updateGo(){ const b=$('#goBtn'), t=$('#goTxt');
+  if(selOut && selDate2){ b.disabled=false; t.innerHTML=`Settle &nbsp;→&nbsp; rolls to ${lbl(selDate2)}`; }
+  else { b.disabled=true; t.textContent = !selOut?'Pick an outcome':'Pick a next date'; } }
+function settle(){
+  if(!selOut||!selDate2) return;
+  const m=sheetMatter; m.settled=true; m.nextLabel=lbl(selDate2); m.outcome=selOut;
+  MATTERS.push(M(m.court,m.caseNo,m.party,selDate2,lbl(selDate),{}));
+  closeSheet();
+  const el=$('#row'+m.id); if(el){ el.classList.add('flew'); }
+  setTimeout(()=>{ render(); toast('Rolled to '+lbl(selDate2)+' · nothing lost'); },320);
+}
+function closeSheet(){ $('#scrim').classList.remove('on'); $('#settle').classList.remove('on'); $('#sync').classList.remove('on'); }
+
+/* ---- sync ---- */
+const SYN=[
+  {party:'State v. Ramesh Kumar',meta:'5677/24 · Court 9',amber:false},
+  {party:'Dulari Bai v. Ramratan',meta:'1123/23 · II ADJ',amber:true},
+  {party:'Jeetu @ Shivcharan v. State',meta:'882/25 · Court 3',amber:false},
+];
+function openSync(){
+  $('#synRows').innerHTML=SYN.map(r=>`<div class="synrow"><div><div class="p hi">${r.party}</div><div class="m ${r.amber?'amber':''}">${r.meta}${r.amber?' · check':''}</div></div></div>`).join('');
+  $('#scrim').classList.add('on'); $('#sync').classList.add('on');
+}
+function addSync(){ closeSheet(); toast('Added 3 from the page'); setTimeout(render,150); }
+
+/* ---- search ---- */
+function openSearch(){ $('#search').classList.add('on'); $('#sInput').value=''; renderSearch(); setTimeout(()=>$('#sInput').focus(),200); }
+function closeSearch(){ $('#search').classList.remove('on'); }
+function renderSearch(){
+  const q=($('#sInput').value||'').toLowerCase().trim();
+  const seen={}, list=[];
+  MATTERS.slice().sort((a,b)=>a.date<b.date?-1:1).forEach(m=>{ if(seen[m.caseNo]&&m.settled) return; if(!seen[m.caseNo]) seen[m.caseNo]=1;
+    if(!q || (m.party+m.caseNo).toLowerCase().includes(q)){ if(!list.find(x=>x.caseNo===m.caseNo)) list.push(m); } });
+  $('#sList').innerHTML = list.length ? list.slice(0,10).map(m=>{
+    const next=MATTERS.filter(x=>x.caseNo===m.caseNo && x.date>=TODAY && !x.settled).sort((a,b)=>a.date<b.date?-1:1)[0];
+    return `<div class="sres" onclick="fromSearch('${next?next.date:m.date}')"><div class="p hi">${m.party}</div>
+      <div class="m">${m.caseNo}${next?` · <span class="nd">next ${dowLbl(next.date)}</span>`:' · no upcoming date'}</div></div>`;
+  }).join('') : `<div class="empty">No matter matches that.</div>`;
+}
+function fromSearch(iso){ closeSearch(); selDate=iso; render(); }
+
+/* ---- toast ---- */
+let tt; function toast(msg){ const t=$('#toast'); t.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>${msg}`; t.classList.add('on'); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove('on'),2200); }
+
+render();
+</script>
+</body>
+</html>

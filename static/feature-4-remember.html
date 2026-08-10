@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Feature 4 — Remember</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preconnect" href="https://api.fontshare.com" crossorigin />
+<link href="https://api.fontshare.com/v2/css?f[]=zodiak@400,500&f[]=satoshi@400,500,700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --paper:#fdfbf4; --ink:#181b17; --grey:#5f665e; --grey-2:#8a8f88;
+    --line:#e9e7dd; --line-2:#f1efe7; --green:#7bd66a; --green-ink:#2f8f57; --amber:#b8791f; --btn:#0c0d0f;
+    --serif:'Zodiak',Georgia,serif; --sans:'Satoshi',system-ui,sans-serif; --mono:'Geist Mono',monospace; --hi:'Noto Sans Devanagari',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;line-height:1.5;}
+
+  .row{max-width:1120px;margin:0 auto;padding:110px 32px;display:grid;grid-template-columns:1.05fr 1fr;gap:60px;align-items:center;}
+
+  .copy .lab{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--grey-2);}
+  .copy h2{font-family:var(--serif);font-weight:400;font-size:clamp(34px,4vw,52px);line-height:1.04;letter-spacing:-0.03em;margin-top:18px;}
+  .copy p{margin-top:20px;font-size:19px;line-height:1.55;color:var(--grey);max-width:430px;}
+  .copy .proof{margin-top:26px;display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;color:var(--green-ink);background:#e9f6ee;border:1px solid #c7e8d3;border-radius:999px;padding:6px 13px;}
+  .copy .proof i{width:6px;height:6px;border-radius:50%;background:var(--green);}
+
+  .tile{position:relative;border-radius:24px;padding:30px;background:linear-gradient(135deg,#e9dcf1 0%,#eef4ee 52%,#cdeef2 100%);box-shadow:0 40px 90px -46px rgba(30,60,80,.4);overflow:hidden;}
+  .tile::after{content:"";position:absolute;inset:0;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='t'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23t)'/%3E%3C/svg%3E");opacity:.28;mix-blend-mode:overlay;pointer-events:none;}
+
+  /* recording strip */
+  .rec{position:relative;z-index:2;display:flex;align-items:center;gap:12px;background:#fff;border:1px solid rgba(24,27,23,.06);border-radius:12px;padding:12px 16px;box-shadow:0 14px 30px -18px rgba(20,30,50,.28);}
+  .rec .live{width:9px;height:9px;border-radius:50%;background:#d64c4c;box-shadow:0 0 0 0 rgba(214,76,76,.5);animation:pulse 1.4s infinite;}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(214,76,76,.5)}70%{box-shadow:0 0 0 7px rgba(214,76,76,0)}100%{box-shadow:0 0 0 0 rgba(214,76,76,0)}}
+  .wave{display:flex;align-items:center;gap:2.5px;height:26px;flex:1;}
+  .wave span{flex:1;background:linear-gradient(180deg,#a98fe0,#7c9ad1);border-radius:2px;height:40%;animation:vu 1.1s ease-in-out infinite;}
+  @keyframes vu{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1)}}
+  .rec .t{font-family:var(--mono);font-size:11px;color:#7c828a;}
+
+  .note{position:relative;z-index:2;margin-top:14px;background:#fff;border:1px solid rgba(24,27,23,.06);border-radius:14px;padding:18px 20px;box-shadow:0 22px 48px -22px rgba(20,30,50,.3);}
+  .note-h{font-size:13px;font-weight:600;letter-spacing:-0.01em;padding-bottom:12px;border-bottom:1px solid var(--line-2);}
+  .sec{margin-top:12px;}
+  .sec-l{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:#a6abb2;}
+  .it{display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:#3a3e44;line-height:1.5;margin-top:6px;}
+  .it .b{color:#c3c8ce;}
+  .tag{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:9px;border-radius:999px;padding:2px 7px;margin-left:6px;white-space:nowrap;vertical-align:1px;}
+  .tag.ok{color:var(--green-ink);background:#e9f6ee;border:1px solid #c7e8d3;}
+  .tag.warn{color:var(--amber);background:#fbf1df;border:1px solid #eeddba;}
+
+  @media (max-width:860px){ .row{grid-template-columns:1fr;gap:36px;padding:70px 22px;} .copy{order:-1;} .copy p{max-width:none;} }
+</style>
+</head>
+<body>
+  <div class="row">
+    <!-- animation left -->
+    <div class="tile">
+      <div class="rec">
+        <span class="live"></span>
+        <div class="wave"><span style="animation-delay:0s"></span><span style="animation-delay:.1s"></span><span style="animation-delay:.25s"></span><span style="animation-delay:.15s"></span><span style="animation-delay:.35s"></span><span style="animation-delay:.05s"></span><span style="animation-delay:.3s"></span><span style="animation-delay:.2s"></span><span style="animation-delay:.4s"></span><span style="animation-delay:.12s"></span><span style="animation-delay:.28s"></span><span style="animation-delay:.18s"></span><span style="animation-delay:.36s"></span><span style="animation-delay:.08s"></span></div>
+        <span class="t">04:12</span>
+      </div>
+      <div class="note">
+        <div class="note-h" data-seq>Consultation note · State v. Rajesh Kumar</div>
+        <div class="sec" data-seq>
+          <div class="sec-l">Facts</div>
+          <div class="it"><span class="b">•</span><span>Arrested night of 12 June; no §41A notice served. <span class="tag ok">✓ grounded</span></span></div>
+          <div class="it"><span class="b">•</span><span>No prior criminal record.</span></div>
+        </div>
+        <div class="sec" data-seq>
+          <div class="sec-l">Issues</div>
+          <div class="it"><span class="b">•</span><span>Custody not warranted; §41A non-compliance (Arnesh Kumar).</span></div>
+        </div>
+        <div class="sec" data-seq>
+          <div class="sec-l">Next steps</div>
+          <div class="it"><span class="b">•</span><span>Draft regular bail application, §483 BNSS.</span></div>
+          <div class="it"><span class="b">•</span><span>Confirm exact date of arrest <span class="tag warn">⚠ verify</span></span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- copy right -->
+    <div class="copy">
+      <div class="lab">04 — Remember</div>
+      <h2>Never lose what the client said.</h2>
+      <p>Record the consultation. Headnote turns it into a clean work-product note: facts, issues, next steps, with anything unverified clearly flagged.</p>
+      <span class="proof"><i></i>grounded, and flagged</span>
+    </div>
+  </div>
+
+<script src="/static/vendor/gsap.min.js"></script>
+<script>
+(function(){
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(reduce || !window.gsap) return;
+  var seq=gsap.utils.toArray('[data-seq]');
+  gsap.set(seq,{opacity:0,y:12});
+  var tl=gsap.timeline({repeat:-1, repeatDelay:2.4});
+  tl.call(function(){ gsap.set(seq,{opacity:0,y:12}); })
+    .to(seq,{opacity:1,y:0,duration:.45,stagger:.28,ease:'power2.out'},'+=1.2')
+    .to({},{duration:2.4});
+})();
+</script>
+</body>
+</html>

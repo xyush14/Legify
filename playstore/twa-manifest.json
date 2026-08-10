@@ -1,0 +1,61 @@
+{
+  "packageId": "in.headnote.app",
+  "host": "headnote.in",
+  "name": "Headnote",
+  "launcherName": "Headnote",
+  "display": "standalone",
+  "orientation": "portrait",
+  "themeColor": "#ffffff",
+  "themeColorDark": "#111111",
+  "navigationColor": "#ffffff",
+  "navigationColorDark": "#111111",
+  "navigationDividerColor": "#e5e5e5",
+  "navigationDividerColorDark": "#222222",
+  "backgroundColor": "#ffffff",
+  "enableNotifications": true,
+  "startUrl": "/app?utm_source=twa",
+  "iconUrl": "https://headnote.in/static/icons/icon-512.png",
+  "maskableIconUrl": "https://headnote.in/static/icons/icon-maskable-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "headnote"
+  },
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [
+    {
+      "name": "New draft",
+      "shortName": "Draft",
+      "url": "/app?view=drafting&utm_source=twa_shortcut",
+      "chosenIconUrl": "https://headnote.in/static/icons/icon-192.png"
+    },
+    {
+      "name": "Research",
+      "shortName": "Research",
+      "url": "/app?view=research&utm_source=twa_shortcut",
+      "chosenIconUrl": "https://headnote.in/static/icons/icon-192.png"
+    },
+    {
+      "name": "My cases",
+      "shortName": "Cases",
+      "url": "/cases?utm_source=twa_shortcut",
+      "chosenIconUrl": "https://headnote.in/static/icons/icon-192.png"
+    }
+  ],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://headnote.in/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://headnote.in/",
+  "minSdkVersion": 23,
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "appVersion": "1.0.0"
+}

@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Feature 2 — Draft</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preconnect" href="https://api.fontshare.com" crossorigin />
+<link href="https://api.fontshare.com/v2/css?f[]=zodiak@400,500&f[]=satoshi@400,500,700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --paper:#fdfbf4; --ink:#181b17; --grey:#5f665e; --grey-2:#8a8f88;
+    --line:#e9e7dd; --line-2:#f1efe7; --green:#7bd66a; --green-ink:#2f8f57; --btn:#0c0d0f;
+    --serif:'Zodiak',Georgia,serif; --sans:'Satoshi',system-ui,sans-serif; --mono:'Geist Mono',monospace; --hi:'Noto Sans Devanagari',sans-serif;
+    --doc:Georgia,'Times New Roman',serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;line-height:1.5;}
+
+  .row{max-width:1120px;margin:0 auto;padding:110px 32px;display:grid;grid-template-columns:1.05fr 1fr;gap:60px;align-items:center;}
+
+  /* copy (right) */
+  .copy .lab{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--grey-2);}
+  .copy h2{font-family:var(--serif);font-weight:400;font-size:clamp(34px,4vw,52px);line-height:1.04;letter-spacing:-0.03em;margin-top:18px;}
+  .copy p{margin-top:20px;font-size:19px;line-height:1.55;color:var(--grey);max-width:430px;}
+  .copy .proof{margin-top:26px;display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;color:var(--green-ink);background:#e9f6ee;border:1px solid #c7e8d3;border-radius:999px;padding:6px 13px;}
+  .copy .proof i{width:6px;height:6px;border-radius:50%;background:var(--green);}
+
+  /* animation tile (left) */
+  .tile{position:relative;border-radius:24px;padding:30px;background:linear-gradient(135deg,#f8e8da 0%,#eef4ee 50%,#cdeef2 100%);box-shadow:0 40px 90px -46px rgba(30,60,80,.4);overflow:hidden;}
+  .tile::after{content:"";position:absolute;inset:0;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='t'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23t)'/%3E%3C/svg%3E");opacity:.28;mix-blend-mode:overlay;pointer-events:none;}
+
+  /* the court document page */
+  .page{position:relative;z-index:2;background:#fff;border:1px solid rgba(24,27,23,.06);border-radius:8px;padding:30px 34px 26px;box-shadow:0 26px 54px -24px rgba(20,30,50,.34);font-family:var(--doc);color:#232622;}
+  .p-tab{position:absolute;top:-11px;right:18px;z-index:3;font-family:var(--mono);font-size:9.5px;letter-spacing:.05em;color:#6b7077;background:#fff;border:1px solid var(--line);border-radius:999px;padding:3px 10px;}
+  .p-court{text-align:center;font-size:11px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;}
+  .p-rule{width:46px;height:1px;background:#c9cabf;margin:7px auto 0;}
+  .p-caseno{text-align:center;font-size:10px;font-style:italic;color:#54585f;margin-top:9px;}
+  .p-parties{margin-top:12px;font-size:10.5px;}
+  .pty{display:flex;justify-content:space-between;gap:8px;}
+  .pty .role{font-style:italic;color:#54585f;white-space:nowrap;}
+  .p-vs{text-align:center;font-size:9.5px;letter-spacing:.24em;color:#8a8f88;margin:4px 0;}
+  .p-title{text-align:center;font-size:11px;font-weight:700;text-decoration:underline;text-underline-offset:3px;margin:14px auto 0;max-width:88%;line-height:1.4;}
+  .p-open{font-family:var(--hi);font-size:11px;margin-top:14px;color:#2c3030;}
+  .p-ground{font-family:var(--hi);font-size:11px;line-height:1.7;color:#2c3030;margin-top:7px;padding-left:4px;}
+  .p-prayer{font-family:var(--hi);font-size:11px;line-height:1.7;color:#2c3030;margin-top:11px;}
+  .p-sign{display:flex;justify-content:space-between;align-items:flex-end;margin-top:18px;font-family:var(--hi);font-size:10px;color:#54585f;}
+  .p-sign .r{text-align:right;color:#2c3030;}
+  .ready{position:absolute;z-index:4;right:16px;bottom:14px;display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;color:var(--green-ink);background:#e9f6ee;border:1px solid #bfe6cd;border-radius:999px;padding:4px 10px;box-shadow:0 10px 24px -12px rgba(47,143,87,.5);}
+  .ready::before{content:"✓";font-weight:700;}
+
+  @media (max-width:860px){ .row{grid-template-columns:1fr;gap:36px;padding:70px 22px;} .copy{order:-1;} .copy p{max-width:none;} }
+</style>
+</head>
+<body>
+  <div class="row">
+    <!-- animation: a court document assembling, section by section -->
+    <div class="tile">
+      <div class="page">
+        <span class="p-tab" data-seq>MP Sessions · format</span>
+        <div class="p-court" data-seq>In the Court of the Sessions Judge, Bhopal (M.P.)</div>
+        <div class="p-rule" data-seq></div>
+        <div class="p-caseno" data-seq>Criminal Bail Application No. ______ of 2026</div>
+        <div class="p-parties" data-seq>
+          <div class="pty"><span>Rajesh Kumar s/o Mohan Lal, R/o Bhopal</span><span class="role">…Applicant</span></div>
+          <div class="p-vs">V E R S U S</div>
+          <div class="pty"><span>State of Madhya Pradesh (P.S. Kohefiza)</span><span class="role">…Respondent</span></div>
+        </div>
+        <div class="p-title" data-seq>Application for Regular Bail under §483 of BNSS, 2023</div>
+        <div class="p-open hi" data-seq>श्रीमान जी, सविनय निवेदन है कि —</div>
+        <div class="p-ground hi" data-seq>1. यह कि आवेदक को उक्त अपराध में झूठा फँसाया गया है।</div>
+        <div class="p-ground hi" data-seq>2. यह कि आवेदक का कोई आपराधिक इतिहास नहीं है।</div>
+        <div class="p-ground hi" data-seq>3. यह कि आवेदक के फरार होने की कोई आशंका नहीं है।</div>
+        <div class="p-prayer hi" data-seq>अतः प्रार्थना है कि आवेदक को नियमित जमानत का लाभ प्रदान करने की कृपा करें।</div>
+        <div class="p-sign" data-seq>
+          <span>स्थान: भोपाल<br>दिनांक: __/__/2026</span>
+          <span class="r">आवेदक<br>द्वारा अधिवक्ता</span>
+        </div>
+        <span class="ready" data-ready>ready to file · .docx</span>
+      </div>
+    </div>
+
+    <!-- copy right -->
+    <div class="copy">
+      <div class="lab">02 — Draft</div>
+      <h2>A filing-ready draft in a minute.</h2>
+      <p>Choose the application, add your facts. Headnote builds the whole document — cause-title, grounds, prayer, verification — in your court's exact format.</p>
+      <span class="proof"><i></i>40+ court formats · हिं / EN</span>
+    </div>
+  </div>
+
+<script src="/static/vendor/gsap.min.js"></script>
+<script>
+(function(){
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(reduce || !window.gsap) return;
+  var seq = gsap.utils.toArray('[data-seq]');
+  gsap.set(seq, {opacity:0, y:12});
+  gsap.set('[data-ready]', {opacity:0, scale:.7});
+
+  var tl = gsap.timeline({repeat:-1, repeatDelay:2.2});
+  tl.call(function(){ gsap.set(seq,{opacity:0,y:12}); gsap.set('[data-ready]',{opacity:0,scale:.7}); })
+    .to(seq, {opacity:1, y:0, duration:.4, stagger:0.13, ease:'power2.out'}, '+=0.3')
+    .to('[data-ready]', {opacity:1, scale:1, duration:.45, ease:'back.out(2.2)'}, '+=0.15')
+    .to({}, {duration:2.2});
+})();
+</script>
+</body>
+</html>

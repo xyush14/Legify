@@ -1,0 +1,723 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>Headnote — ecosystem mockup (v2)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Noto+Sans+Devanagari:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#ffffff; --surface:#ffffff; --ink:#0c0c0a; --ink-2:#4b4b48; --ink-3:#8a8a82;
+  --line:#e7e7e4; --line-2:#f1f1ef; --soft:#f5f5f4;
+  --accent:#d4ff3a; --warn:#b7791f; --bad:#9b2c2c; --good:#2d6a2d; --navy:#1e3a5f;
+  --radius:6px; --radius-lg:10px;
+  --shadow-card:0 1px 2px rgba(12,12,10,.04);
+  --shadow-lift:0 12px 28px -14px rgba(12,12,10,.18);
+  --ease:cubic-bezier(.16,1,.3,1);
+  --sidebar-w:238px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:'Geist',-apple-system,BlinkMacSystemFont,'Inter',sans-serif;font-size:15px;line-height:1.55;color:var(--ink);background:var(--soft);-webkit-font-smoothing:antialiased}
+.mono{font-family:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,monospace}
+.hi{font-family:'Noto Sans Devanagari','Geist',sans-serif}
+button{font-family:inherit;cursor:pointer}
+h1,h2,h3,h4{margin:0;font-weight:600;letter-spacing:-.01em}
+p{margin:0}
+a{color:inherit}
+
+/* ---------- shell ---------- */
+.shell{display:grid;grid-template-columns:var(--sidebar-w) 1fr;min-height:100vh}
+.sidebar{background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:18px 14px;position:sticky;top:0;height:100vh}
+.brand{display:flex;align-items:center;gap:9px;padding:4px 8px 14px}
+.brand__dot{width:22px;height:22px;border-radius:50%;background:var(--ink);display:inline-block}
+.brand__name{font-weight:700;font-size:17px;letter-spacing:-.02em}
+.nav-group-label{font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);padding:14px 8px 6px}
+.navitem{display:flex;align-items:center;gap:11px;width:100%;border:0;background:transparent;text-align:left;padding:9px 10px;border-radius:var(--radius);color:var(--ink-2);font-size:14.5px;font-weight:500;transition:background .16s var(--ease),color .16s var(--ease)}
+.navitem:hover{background:var(--soft);color:var(--ink)}
+.navitem.is-active{background:var(--ink);color:#fff}
+.navitem.is-active .navicon{stroke:#fff}
+.navitem .sub{margin-left:auto;font-size:11px;color:var(--ink-3);font-family:'Geist Mono',monospace}
+.navitem.is-active .sub{color:rgba(255,255,255,.55)}
+.navitem .cap{margin-left:auto;font-size:10px;color:var(--ink-3);font-family:'Geist Mono',monospace}
+.navicon{width:18px;height:18px;flex:0 0 18px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.sidebar__foot{margin-top:auto;padding-top:14px;border-top:1px solid var(--line-2)}
+.acct{display:flex;align-items:center;gap:10px;padding:8px}
+.acct__av{width:30px;height:30px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600}
+.acct__meta{line-height:1.2}
+.acct__name{font-size:13.5px;font-weight:600}
+.acct__plan{font-size:11px;color:var(--ink-3);font-family:'Geist Mono',monospace}
+
+/* ---------- main ---------- */
+.main{padding:0;overflow-x:hidden}
+.wrap{max-width:940px;margin:0 auto;padding:40px 40px 96px}
+.view{display:none;animation:fade .3s var(--ease)}
+.view.is-active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+.eyebrow{font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3);margin-bottom:10px}
+.page-h{font-size:27px;font-weight:700;letter-spacing:-.025em;margin-bottom:6px}
+.page-sub{color:var(--ink-2);font-size:15px;max-width:60ch}
+.sec-label{font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin:34px 0 13px}
+
+/* home hero */
+.greet{font-family:'Newsreader',serif;font-size:30px;font-weight:500;letter-spacing:-.01em}
+.greet .day{color:var(--ink-3);font-family:'Geist Mono',monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;display:block;margin-bottom:6px;font-weight:400}
+
+/* today strip */
+.today{margin:24px 0 4px;border:1px solid var(--line);background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-card);overflow:hidden}
+.today__head{display:flex;align-items:center;justify-content:space-between;padding:13px 18px;border-bottom:1px solid var(--line-2)}
+.today__title{font-size:13px;font-weight:600}
+.today__title .mono{color:var(--ink-3);font-size:11px;margin-left:8px}
+.today__all{font-size:12.5px;color:var(--ink-2);text-decoration:none;font-weight:500;background:none;border:0}
+.today__all:hover{color:var(--ink)}
+.hrow{display:flex;align-items:center;gap:14px;padding:12px 18px;border-bottom:1px solid var(--line-2);transition:background .16s;width:100%;background:none;border-left:0;border-right:0;border-top:0;text-align:left}
+.hrow:last-child{border-bottom:0}
+.hrow:hover{background:var(--soft)}
+.hrow__time{font-family:'Geist Mono',monospace;font-size:12px;color:var(--ink);font-weight:500;width:70px;flex:0 0 70px}
+.hrow__party{font-weight:600;font-size:14.5px}
+.hrow__court{font-size:12.5px;color:var(--ink-3)}
+.hrow__cta{margin-left:auto;font-size:12.5px;color:var(--ink-2);border:1px solid var(--line);padding:5px 12px;border-radius:20px;background:#fff;font-weight:500}
+.hrow__cta:hover{border-color:var(--ink);color:var(--ink)}
+
+/* action cards */
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:8px}
+.card{border:1px solid var(--line);background:var(--surface);border-radius:var(--radius-lg);padding:22px 20px 20px;text-align:left;transition:border-color .18s var(--ease),box-shadow .18s var(--ease),transform .18s var(--ease);display:flex;flex-direction:column;gap:10px;min-height:170px}
+.card:hover{border-color:var(--ink);box-shadow:var(--shadow-lift);transform:translateY(-2px)}
+.card__ic{width:38px;height:38px;border-radius:9px;background:var(--soft);display:flex;align-items:center;justify-content:center;margin-bottom:2px}
+.card__ic svg{width:20px;height:20px;stroke:var(--ink);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.card__t{font-size:16.5px;font-weight:650}
+.card__d{font-size:13.5px;color:var(--ink-2);line-height:1.5}
+.card__go{margin-top:auto;font-size:13px;font-weight:600;color:var(--ink);display:flex;align-items:center;gap:6px}
+.card__go svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8}
+
+/* resume rail */
+.resume{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.rcard{border:1px solid var(--line);background:var(--surface);border-radius:var(--radius);padding:14px 15px;text-align:left;transition:.16s;display:flex;flex-direction:column;gap:6px}
+.rcard:hover{border-color:var(--ink);box-shadow:var(--shadow-card)}
+.rcard__k{display:flex;align-items:center;gap:7px;font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+.rcard__k svg{width:13px;height:13px;stroke:var(--ink-3);fill:none;stroke-width:1.7}
+.rcard__t{font-weight:600;font-size:14px;line-height:1.35}
+.rcard__m{font-size:12px;color:var(--ink-3)}
+
+/* segmented */
+.seg{display:inline-flex;background:var(--soft);border:1px solid var(--line);border-radius:24px;padding:3px;margin:22px 0 26px}
+.seg button{border:0;background:transparent;padding:8px 20px;border-radius:20px;font-size:13.5px;font-weight:600;color:var(--ink-2);transition:.16s}
+.seg button.is-active{background:var(--surface);color:var(--ink);box-shadow:var(--shadow-card)}
+
+/* composer */
+.composer{border:1px solid var(--line);background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-card);padding:6px;transition:border-color .16s,box-shadow .16s}
+.composer:focus-within{border-color:var(--ink);box-shadow:var(--shadow-lift)}
+.composer textarea{width:100%;border:0;outline:0;resize:none;font-family:inherit;font-size:15.5px;line-height:1.55;padding:14px 14px 6px;color:var(--ink);background:transparent}
+.composer textarea::placeholder{color:var(--ink-3)}
+.composer__bar{display:flex;align-items:center;gap:8px;padding:8px 10px 10px}
+.ghost-btn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:#fff;border-radius:20px;padding:7px 13px;font-size:12.5px;color:var(--ink-2);font-weight:500}
+.ghost-btn:hover{border-color:var(--ink-3);color:var(--ink)}
+.ghost-btn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.7}
+.spacer{margin-left:auto}
+.hint-mini{font-size:11px;color:var(--ink-3);font-family:'Geist Mono',monospace;margin-right:4px}
+.primary-btn{display:inline-flex;align-items:center;gap:8px;background:var(--ink);color:#fff;border:0;border-radius:22px;padding:10px 20px;font-size:14px;font-weight:600;transition:.16s}
+.primary-btn:hover{background:#000;transform:translateY(-1px)}
+.primary-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
+
+/* matter-context chip (the ecosystem tell) */
+.mctx{display:inline-flex;align-items:center;gap:9px;border:1px dashed var(--line);background:var(--surface);border-radius:22px;padding:6px 8px 6px 14px;font-size:12.5px;color:var(--ink-2);margin-bottom:18px}
+.mctx.is-set{border-style:solid;border-color:var(--ink);color:var(--ink)}
+.mctx__dot{width:7px;height:7px;border-radius:50%;background:var(--ink-3)}
+.mctx.is-set .mctx__dot{background:var(--good)}
+.mctx b{font-weight:600}
+.mctx__x{border:0;background:var(--soft);border-radius:50%;width:20px;height:20px;color:var(--ink-3);font-size:12px;line-height:1;display:inline-flex;align-items:center;justify-content:center}
+.mctx__x:hover{color:var(--ink)}
+
+.helper{font-size:12.5px;color:var(--ink-3);margin-top:12px;display:flex;align-items:center;gap:7px}
+.helper svg{width:14px;height:14px;stroke:var(--ink-3);fill:none;stroke-width:1.6;flex:0 0 14px}
+
+/* example chips */
+.examples{margin-top:22px}
+.examples__label{font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin-bottom:11px}
+.chips{display:flex;flex-wrap:wrap;gap:9px}
+.chip{border:1px solid var(--line);background:#fff;border-radius:8px;padding:11px 14px;font-size:13.5px;color:var(--ink-2);text-align:left;max-width:280px;transition:.16s;line-height:1.4}
+.chip:hover{border-color:var(--ink);color:var(--ink);background:var(--soft)}
+.chip b{display:block;color:var(--ink);font-weight:600;margin-bottom:1px}
+
+/* result cards */
+.result{border:1px solid var(--line);background:var(--surface);border-radius:var(--radius-lg);padding:18px 20px;box-shadow:var(--shadow-card);margin-bottom:14px}
+.result__top{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+.badge{font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.05em;padding:3px 9px;border-radius:5px;font-weight:500}
+.badge--verified{background:var(--accent);color:#1a2b00}
+.badge--ai{background:#fdf3e2;color:var(--warn)}
+.badge--type{background:var(--ink);color:#fff}
+.result__cite{font-weight:650;font-size:15.5px}
+.result__court{font-size:12.5px;color:var(--ink-3);margin-left:auto;font-family:'Geist Mono',monospace}
+.result__hn{font-family:'Newsreader',serif;font-size:15.5px;color:var(--ink-2);line-height:1.6}
+.result__acts{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}
+.mini-btn{border:1px solid var(--line);background:#fff;border-radius:18px;padding:5px 12px;font-size:12px;color:var(--ink-2);font-weight:500;display:inline-flex;align-items:center;gap:6px}
+.mini-btn:hover{border-color:var(--ink);color:var(--ink)}
+.mini-btn svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.7}
+.mini-btn.is-filed{border-color:var(--good);color:var(--good);background:#f2f8f2}
+
+/* draft type grid */
+.type-sec{margin-top:38px}
+.type-sec__h{display:flex;align-items:baseline;gap:10px;margin-bottom:14px}
+.type-sec__h h3{font-size:15px;font-weight:650}
+.type-sec__h .mono{font-size:11px;color:var(--ink-3)}
+.type-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.type-card{border:1px solid var(--line);background:var(--surface);border-radius:var(--radius);padding:15px 16px;text-align:left;transition:.16s}
+.type-card:hover{border-color:var(--ink);box-shadow:var(--shadow-card)}
+.type-card__t{font-weight:600;font-size:14px;margin-bottom:3px}
+.type-card__c{font-size:12px;color:var(--ink-3);font-family:'Geist Mono',monospace}
+
+/* capture */
+.cap-modes{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:24px 0 8px}
+.cap-mode{border:1px solid var(--line);background:var(--surface);border-radius:var(--radius-lg);padding:24px 22px;text-align:left;transition:.18s var(--ease);display:flex;gap:16px;align-items:flex-start}
+.cap-mode:hover{border-color:var(--ink);box-shadow:var(--shadow-lift);transform:translateY(-2px)}
+.cap-mode__ic{width:44px;height:44px;border-radius:11px;background:var(--soft);display:flex;align-items:center;justify-content:center;flex:0 0 44px}
+.cap-mode__ic svg{width:22px;height:22px;stroke:var(--ink);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.cap-mode__t{font-size:16px;font-weight:650;margin-bottom:3px}
+.cap-mode__d{font-size:13px;color:var(--ink-2);line-height:1.5}
+
+/* my cases list */
+.case-toolbar{display:flex;align-items:center;gap:12px;margin:22px 0 18px}
+.search{flex:1;display:flex;align-items:center;gap:9px;border:1px solid var(--line);background:var(--surface);border-radius:22px;padding:9px 16px}
+.search svg{width:16px;height:16px;stroke:var(--ink-3);fill:none;stroke-width:1.7}
+.search input{border:0;outline:0;font-family:inherit;font-size:14px;width:100%;background:transparent}
+.case-card{border:1px solid var(--line);background:var(--surface);border-radius:var(--radius-lg);padding:16px 20px;box-shadow:var(--shadow-card);margin-bottom:12px;display:flex;align-items:center;gap:18px;transition:.16s;text-align:left;width:100%}
+.case-card:hover{border-color:var(--ink);box-shadow:var(--shadow-lift);transform:translateY(-1px)}
+.case-card__date{text-align:center;flex:0 0 58px;border-right:1px solid var(--line-2);padding-right:16px}
+.case-card__date .d{font-size:20px;font-weight:700;line-height:1}
+.case-card__date .m{font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);margin-top:3px}
+.case-card__body{flex:1}
+.case-card__party{font-weight:650;font-size:15.5px}
+.case-card__meta{font-size:12.5px;color:var(--ink-3);font-family:'Geist Mono',monospace;margin-top:2px}
+.case-card__tags{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
+.ctag{font-size:11px;color:var(--ink-2);background:var(--soft);border-radius:5px;padding:3px 8px;display:inline-flex;align-items:center;gap:5px}
+.ctag svg{width:12px;height:12px;stroke:var(--ink-3);fill:none;stroke-width:1.7}
+.case-card__go{color:var(--ink-3)}
+.case-card__go svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.6}
+
+/* case folder */
+.folder-head{display:flex;align-items:flex-start;gap:16px;margin-bottom:4px}
+.back-link{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-2);border:0;background:none;font-weight:500;margin-bottom:16px}
+.back-link svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8}
+.back-link:hover{color:var(--ink)}
+.folder-meta{font-family:'Geist Mono',monospace;font-size:12px;color:var(--ink-3);margin-top:4px}
+.next-badge{margin-left:auto;text-align:right;background:var(--soft);border:1px solid var(--line);border-radius:var(--radius);padding:8px 14px}
+.next-badge .l{font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3)}
+.next-badge .v{font-weight:650;font-size:14px}
+.inline-actions{display:flex;gap:10px;margin:18px 0 22px;flex-wrap:wrap}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin:20px 0 20px;flex-wrap:wrap}
+.tab{border:0;background:none;padding:10px 13px;font-size:13.5px;font-weight:500;color:var(--ink-3);border-bottom:2px solid transparent;margin-bottom:-1px;display:flex;align-items:center;gap:7px}
+.tab .n{font-size:10px;background:var(--soft);border-radius:10px;padding:1px 7px;color:var(--ink-2);font-family:'Geist Mono',monospace}
+.tab:hover{color:var(--ink)}
+.tab.is-active{color:var(--ink);border-bottom-color:var(--ink);font-weight:600}
+.tabpane{display:none}
+.tabpane.is-active{display:block;animation:fade .25s var(--ease)}
+.artifact{border:1px solid var(--line);background:var(--surface);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:13px}
+.artifact__ic{width:34px;height:34px;border-radius:8px;background:var(--soft);display:flex;align-items:center;justify-content:center;flex:0 0 34px}
+.artifact__ic svg{width:17px;height:17px;stroke:var(--ink-2);fill:none;stroke-width:1.6}
+.artifact__t{font-weight:600;font-size:14px}
+.artifact__m{font-size:12px;color:var(--ink-3);font-family:'Geist Mono',monospace;margin-top:1px}
+.artifact__act{margin-left:auto}
+.filed-pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-family:'Geist Mono',monospace;color:var(--good);background:#f2f8f2;border:1px solid #d6ecd6;border-radius:6px;padding:3px 9px}
+.filed-pill svg{width:12px;height:12px;stroke:var(--good);fill:none;stroke-width:1.9}
+
+/* toast */
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;border-radius:24px;padding:11px 20px;font-size:13.5px;font-weight:500;box-shadow:var(--shadow-lift);opacity:0;pointer-events:none;transition:.28s var(--ease);z-index:80;display:flex;align-items:center;gap:9px}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast svg{width:16px;height:16px;stroke:var(--accent);fill:none;stroke-width:2}
+
+/* mock chrome */
+.note{position:fixed;bottom:16px;right:16px;max-width:290px;background:var(--ink);color:#fff;border-radius:var(--radius-lg);padding:14px 16px;box-shadow:var(--shadow-lift);font-size:12.5px;line-height:1.5;z-index:90}
+.note b{color:var(--accent)}
+.note button{margin-top:8px;background:rgba(255,255,255,.14);border:0;color:#fff;border-radius:6px;padding:5px 10px;font-size:11.5px;font-weight:600}
+
+/* mobile bottom nav */
+.botnav{display:none}
+@media(max-width:820px){
+  .shell{grid-template-columns:1fr}
+  .sidebar{display:none}
+  .cards,.type-grid,.resume,.cap-modes{grid-template-columns:1fr}
+  .wrap{padding:22px 18px 96px}
+  .botnav{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;bottom:0;left:0;right:0;background:rgba(255,255,255,.92);backdrop-filter:blur(12px);border-top:1px solid var(--line);z-index:40;padding:8px 4px calc(8px + env(safe-area-inset-bottom))}
+  .botnav button{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:4px;padding:5px 2px;color:var(--ink-3);font-size:10px;font-weight:600}
+  .botnav button.is-active{color:var(--ink)}
+  .botnav svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+  .note{max-width:none;left:12px;right:12px;bottom:88px}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar">
+    <div class="brand"><span class="brand__dot"></span><span class="brand__name">Headnote</span></div>
+    <nav>
+      <button class="navitem is-active" data-view="home">
+        <svg class="navicon" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
+        <span>Home</span>
+      </button>
+      <div class="nav-group-label">Your junior can…</div>
+      <button class="navitem" data-view="research">
+        <svg class="navicon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>
+        <span>Ask &amp; Research</span>
+      </button>
+      <button class="navitem" data-view="draft">
+        <svg class="navicon" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+        <span>Draft</span>
+      </button>
+      <button class="navitem" data-view="capture">
+        <svg class="navicon" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+        <span>Capture</span><span class="cap">rec · scan</span>
+      </button>
+      <div class="nav-group-label">Your practice</div>
+      <button class="navitem" data-view="cases">
+        <svg class="navicon" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        <span>My Cases</span><span class="sub">14</span>
+      </button>
+    </nav>
+    <div class="sidebar__foot">
+      <a class="ghost-btn" style="width:100%;justify-content:flex-start;border-radius:8px;margin-bottom:10px;border-color:var(--line-2)" href="#" onclick="return false">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        IPC → BNS finder <span class="mono" style="margin-left:auto;font-size:10px;color:var(--ink-3)">free</span>
+      </a>
+      <div class="acct">
+        <span class="acct__av">VS</span>
+        <span class="acct__meta"><span class="acct__name">Vishnu Sharma</span><span class="acct__plan">Pro · Gwalior bar</span></span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="main">
+
+    <!-- ---------- HOME ---------- -->
+    <section class="view is-active" id="view-home"><div class="wrap">
+      <div class="greet"><span class="day">Sunday · 19 July 2026</span>Good morning, Vishnu ji.</div>
+
+      <!-- Zone 1: today in court -->
+      <div class="today">
+        <div class="today__head">
+          <div class="today__title">Today in court <span class="mono">3 hearings</span></div>
+          <button class="today__all" onclick="go('cases')">Open diary →</button>
+        </div>
+        <button class="hrow" onclick="openFolder()">
+          <span class="hrow__time">10:30 AM</span>
+          <span><span class="hrow__party">Ramesh Yadav v. State of M.P.</span><br><span class="hrow__court">Sessions Court, Gwalior · Bail</span></span>
+          <span class="hrow__cta">Open case</span>
+        </button>
+        <button class="hrow">
+          <span class="hrow__time">11:15 AM</span>
+          <span><span class="hrow__party">Sunita Verma — maintenance</span><br><span class="hrow__court">Family Court, Gwalior · §144 BNSS</span></span>
+          <span class="hrow__cta">Open case</span>
+        </button>
+        <button class="hrow">
+          <span class="hrow__time">02:00 PM</span>
+          <span><span class="hrow__party">M/s Agrawal Traders — recovery</span><br><span class="hrow__court">District Court · O.XXXVII suit</span></span>
+          <span class="hrow__cta">Open case</span>
+        </button>
+      </div>
+
+      <!-- Zone 2: start something (loose) -->
+      <div class="sec-label">Start something</div>
+      <div class="cards">
+        <button class="card" onclick="go('research')">
+          <span class="card__ic"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg></span>
+          <span class="card__t">Ask &amp; Research</span>
+          <span class="card__d">Ask a legal question or find case law — plain answers with verified citations.</span>
+          <span class="card__go">Start <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+        </button>
+        <button class="card" onclick="go('draft')">
+          <span class="card__ic"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></span>
+          <span class="card__t">Draft a document</span>
+          <span class="card__d">Bail, civil suit, notice, affidavit — court-ready in minutes, in your house style.</span>
+          <span class="card__go">Start <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+        </button>
+        <button class="card" onclick="go('capture')">
+          <span class="card__ic"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg></span>
+          <span class="card__t">Record or scan</span>
+          <span class="card__d">Record a client consultation or scan an FIR / order — I read it and pull out the facts.</span>
+          <span class="card__go">Start <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+        </button>
+      </div>
+
+      <!-- Zone 3: pick up where you left off (spine) -->
+      <div class="sec-label">Pick up where you left off</div>
+      <div class="resume">
+        <button class="rcard" onclick="go('draft')">
+          <span class="rcard__k"><svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Draft · edited 2h ago</span>
+          <span class="rcard__t">Regular bail — Ramesh Yadav</span>
+          <span class="rcard__m">Sessions, Gwalior · ready to file</span>
+        </button>
+        <button class="rcard" onclick="openFolder()">
+          <span class="rcard__k"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>Recording · yesterday</span>
+          <span class="rcard__t">Surety discussion — Ramesh Yadav</span>
+          <span class="rcard__m">6 min · memo ready</span>
+        </button>
+        <button class="rcard" onclick="go('research')">
+          <span class="rcard__k"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>Research · 3 days ago</span>
+          <span class="rcard__t">Bail after chargesheet — §420</span>
+          <span class="rcard__m">4 saved authorities</span>
+        </button>
+      </div>
+    </div></section>
+
+    <!-- ---------- ASK & RESEARCH ---------- -->
+    <section class="view" id="view-research"><div class="wrap">
+      <div class="eyebrow">Ask &amp; Research</div>
+      <h1 class="page-h">What can I look into for you?</h1>
+      <p class="page-sub">Ask a question in plain words, or search for judgments. Every case law is checked against the source — I flag anything I can't verify.</p>
+
+      <div class="mctx" id="rctx"><span class="mctx__dot"></span><span>Working loose — <b>not tied to a case</b></span></div>
+
+      <div class="seg" id="rseg">
+        <button class="is-active" onclick="rseg('ask',this)">Ask a question</button>
+        <button onclick="rseg('find',this)">Find case law</button>
+      </div>
+
+      <!-- ASK mode -->
+      <div id="r-ask">
+        <div class="composer">
+          <textarea rows="3" placeholder="e.g. Can I get anticipatory bail after a §420 FIR if the money is already returned?"></textarea>
+          <div class="composer__bar">
+            <button class="ghost-btn"><svg viewBox="0 0 24 24" fill="none"><path d="m21.44 11.05-9.19 9.19a5 5 0 0 1-7.07-7.07l9.19-9.19a3 3 0 0 1 4.24 4.24l-9.2 9.19a1 1 0 0 1-1.41-1.41l8.49-8.49"/></svg>Attach FIR / order</button>
+            <span class="spacer"></span>
+            <span class="hint-mini">हिं / EN — auto</span>
+            <button class="primary-btn">Ask <svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+          </div>
+        </div>
+        <div class="helper"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>Answers cite real judgments. Verify authorities before filing — I flag anything unconfirmed.</div>
+
+        <div class="examples">
+          <div class="examples__label">Try one of these</div>
+          <div class="chips">
+            <button class="chip"><b>Bail after chargesheet</b>Grounds when the chargesheet is already filed</button>
+            <button class="chip"><b>Anticipatory bail — §438</b>When custodial interrogation isn't needed</button>
+            <button class="chip"><b>Cheque bounce §138</b>Limitation &amp; the 30-day notice</button>
+            <button class="chip"><b>Maintenance §144 BNSS</b>Interim maintenance for a wife &amp; child</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- FIND mode -->
+      <div id="r-find" style="display:none">
+        <div class="search" style="border-radius:var(--radius-lg);padding:12px 18px">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>
+          <input placeholder="Search judgments — topic, statute, citation or party name"/>
+        </div>
+        <div class="helper" style="justify-content:space-between">
+          <span style="display:flex;align-items:center;gap:7px"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>Supreme Court + all High Courts. Free with every plan.</span>
+          <button class="ghost-btn" style="padding:6px 12px">+ Add filters (court, year, judge)</button>
+        </div>
+        <div style="margin-top:22px">
+          <div class="examples__label">2 verified results</div>
+          <div class="result">
+            <div class="result__top"><span class="badge badge--verified">✓ verified</span><span class="result__cite">Sanjay Chandra v. CBI</span><span class="result__court">(2012) 1 SCC 40</span></div>
+            <p class="result__hn">Bail is the rule, jail the exception. Economic offences do not, by themselves, justify pre-trial detention where the accused is cooperating and roots in society are established.</p>
+            <div class="result__acts"><button class="mini-btn">★ Save</button><button class="mini-btn">Read judgment</button><button class="mini-btn" onclick="fileToCase(this)"><svg viewBox="0 0 24 24" fill="none"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>File to a case</button></div>
+          </div>
+          <div class="result">
+            <div class="result__top"><span class="badge badge--verified">✓ verified</span><span class="result__cite">Arnesh Kumar v. State of Bihar</span><span class="result__court">(2014) 8 SCC 273</span></div>
+            <p class="result__hn">Automatic arrest for offences up to 7 years is impermissible; police must justify necessity under the §41 checklist.</p>
+            <div class="result__acts"><button class="mini-btn">★ Save</button><button class="mini-btn">Read judgment</button><button class="mini-btn" onclick="fileToCase(this)"><svg viewBox="0 0 24 24" fill="none"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>File to a case</button></div>
+          </div>
+        </div>
+      </div>
+    </div></section>
+
+    <!-- ---------- DRAFT ---------- -->
+    <section class="view" id="view-draft"><div class="wrap">
+      <div class="eyebrow">Draft a document</div>
+      <h1 class="page-h">What do you need to draft?</h1>
+      <p class="page-sub">Describe the matter in one or two lines — Hindi or English. I'll pick the right format and draft it. Never fabricates case law.</p>
+
+      <div class="mctx" id="dctx"><span class="mctx__dot"></span><span>Working loose — <b>not tied to a case</b></span></div>
+
+      <div id="draft-compose">
+        <div class="composer">
+          <textarea class="hi" rows="3" placeholder="e.g. सत्र न्यायालय ग्वालियर में नियमित जमानत — FIR 123/2025, थाना पड़ाव, धारा 420/406 — आवेदक 40 दिन से हिरासत में"></textarea>
+          <div class="composer__bar">
+            <button class="ghost-btn"><svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14"/></svg>Add case papers or a reference</button>
+            <span class="spacer"></span>
+            <span class="hint-mini">हिं / EN — auto</span>
+            <button class="primary-btn" onclick="draftResult()">Draft it <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+          </div>
+        </div>
+        <div class="helper"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>Anything I can't confirm from your input, I highlight — no invented dates, names or citations.</div>
+
+        <div class="type-sec">
+          <div class="type-sec__h"><h3>Or start from a type</h3><span class="mono">35 court-ready formats</span></div>
+          <div class="type-grid">
+            <button class="type-card" onclick="draftResult()"><div class="type-card__t">Regular bail</div><div class="type-card__c">Sessions · §483 BNSS</div></button>
+            <button class="type-card" onclick="draftResult()"><div class="type-card__t">Anticipatory bail</div><div class="type-card__c">Sessions / HC · §482</div></button>
+            <button class="type-card" onclick="draftResult()"><div class="type-card__t">Discharge application</div><div class="type-card__c">§262 BNSS</div></button>
+            <button class="type-card" onclick="draftResult()"><div class="type-card__t">Recovery suit</div><div class="type-card__c">Order XXXVII CPC</div></button>
+            <button class="type-card" onclick="draftResult()"><div class="type-card__t">Maintenance</div><div class="type-card__c">§144 BNSS</div></button>
+            <button class="type-card" onclick="draftResult()"><div class="type-card__t">Legal notice</div><div class="type-card__c">§138 NI Act</div></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- draft result -->
+      <div id="draft-out" style="display:none">
+        <button class="back-link" onclick="draftReset()"><svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6"/></svg>New draft</button>
+        <div class="result" style="padding:22px 24px">
+          <div class="result__top" style="margin-bottom:14px">
+            <span class="badge badge--ai">AI-authored · review before filing</span>
+            <span class="result__court">Regular bail · Sessions, Gwalior</span>
+          </div>
+          <div class="hi" style="font-size:16px;line-height:1.85;color:var(--ink)">
+            <div style="text-align:center;font-weight:600;margin-bottom:14px">सत्र न्यायालय, ग्वालियर (म.प्र.) के समक्ष<br>धारा 483 भा.ना.सु.सं. के अंतर्गत जमानत आवेदन</div>
+            <p style="margin-bottom:10px">1. यह कि आवेदक उपरोक्त प्रकरण में दिनांक <mark style="background:#fdf3e2;color:var(--warn)">[गिरफ्तारी दिनांक — जोड़ें]</mark> से न्यायिक अभिरक्षा में है।</p>
+            <p style="margin-bottom:10px">2. यह कि आवेदक निर्दोष है एवं उसे उक्त अपराध में झूठा फँसाया गया है।</p>
+            <p>3. यह कि जमानत नियम है और कारावास अपवाद — <i>संजय चंद्रा बनाम सी.बी.आई.</i> <span class="badge badge--verified" style="font-size:9px">✓ verified</span></p>
+          </div>
+          <div class="result__acts" style="margin-top:18px">
+            <button class="primary-btn" style="padding:9px 18px">✎ Edit this draft</button>
+            <button class="mini-btn">Print / PDF</button>
+            <button class="mini-btn" onclick="fileToCase(this)"><svg viewBox="0 0 24 24" fill="none"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>File to a case</button>
+          </div>
+        </div>
+        <div class="helper"><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>Amber highlights = details I couldn't find in your input. Fill them before you file.</div>
+      </div>
+    </div></section>
+
+    <!-- ---------- CAPTURE ---------- -->
+    <section class="view" id="view-capture"><div class="wrap">
+      <div class="eyebrow">Capture</div>
+      <h1 class="page-h">Get the real material in</h1>
+      <p class="page-sub">Record a client consultation or scan a document. I transcribe, read it, and pull out the facts — then you file it to a case, or keep it here.</p>
+
+      <div class="cap-modes">
+        <button class="cap-mode">
+          <span class="cap-mode__ic"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg></span>
+          <span><span class="cap-mode__t">Record a consultation</span><span class="cap-mode__d">Client sits with you — record the conversation. I make a work-product memo: facts, issues, next steps.</span></span>
+        </button>
+        <button class="cap-mode">
+          <span class="cap-mode__ic"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 15h6"/></svg></span>
+          <span><span class="cap-mode__t">Scan a document</span><span class="cap-mode__d">FIR, order, notice, handwritten paper. I OCR it — Hindi or English — and it becomes searchable.</span></span>
+        </button>
+      </div>
+
+      <div class="sec-label">Recently captured</div>
+      <div class="artifact">
+        <span class="artifact__ic"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg></span>
+        <div><div class="artifact__t">Surety discussion</div><div class="artifact__m">6 min · yesterday · memo ready</div></div>
+        <span class="artifact__act"><span class="filed-pill"><svg viewBox="0 0 24 24" fill="none"><path d="M20 6 9 17l-5-5"/></svg>Ramesh Yadav</span></span>
+      </div>
+      <div class="artifact">
+        <span class="artifact__ic"><svg viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span>
+        <div><div class="artifact__t">FIR 214/2025</div><div class="artifact__m">4 pages · OCR read · Hindi</div></div>
+        <span class="artifact__act"><span class="filed-pill"><svg viewBox="0 0 24 24" fill="none"><path d="M20 6 9 17l-5-5"/></svg>Ramesh Yadav</span></span>
+      </div>
+      <div class="artifact">
+        <span class="artifact__ic"><svg viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span>
+        <div><div class="artifact__t">Property sale deed (scanned)</div><div class="artifact__m">9 pages · OCR read · not yet filed</div></div>
+        <span class="artifact__act"><button class="mini-btn" onclick="fileToCase(this)"><svg viewBox="0 0 24 24" fill="none"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>File to a case</button></span>
+      </div>
+    </div></section>
+
+    <!-- ---------- MY CASES (list) ---------- -->
+    <section class="view" id="view-cases"><div class="wrap">
+      <div id="cases-list">
+        <div class="eyebrow">My Cases</div>
+        <h1 class="page-h">Your matters, all in one place</h1>
+        <p class="page-sub">Each case holds its hearings, client notes, recordings, scanned papers and drafts together — so you never hunt across the app again.</p>
+
+        <div class="case-toolbar">
+          <div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg><input placeholder="Search by party, CNR or court"/></div>
+          <button class="primary-btn" style="padding:10px 18px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M12 5v14M5 12h14"/></svg> New case</button>
+        </div>
+
+        <button class="case-card" onclick="openFolder()">
+          <div class="case-card__date"><div class="d">19</div><div class="m">Jul</div></div>
+          <div class="case-card__body">
+            <div class="case-card__party">Ramesh Yadav v. State of M.P.</div>
+            <div class="case-card__meta">Sessions Court, Gwalior · Cr. 214/2025 · Bail</div>
+            <div class="case-card__tags">
+              <span class="ctag"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/></svg>2 recordings</span>
+              <span class="ctag"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>5 documents</span>
+              <span class="ctag"><svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>1 draft</span>
+            </div>
+          </div>
+          <span class="case-card__go"><svg viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6"/></svg></span>
+        </button>
+
+        <button class="case-card">
+          <div class="case-card__date"><div class="d">19</div><div class="m">Jul</div></div>
+          <div class="case-card__body">
+            <div class="case-card__party">Sunita Verma — maintenance</div>
+            <div class="case-card__meta">Family Court, Gwalior · §144 BNSS</div>
+            <div class="case-card__tags">
+              <span class="ctag"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/></svg>1 recording</span>
+              <span class="ctag"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>3 documents</span>
+            </div>
+          </div>
+          <span class="case-card__go"><svg viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6"/></svg></span>
+        </button>
+
+        <button class="case-card">
+          <div class="case-card__date"><div class="d">21</div><div class="m">Jul</div></div>
+          <div class="case-card__body">
+            <div class="case-card__party">M/s Agrawal Traders — recovery</div>
+            <div class="case-card__meta">District Court, Gwalior · O.XXXVII suit</div>
+            <div class="case-card__tags">
+              <span class="ctag"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>7 documents</span>
+              <span class="ctag"><svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>2 drafts</span>
+            </div>
+          </div>
+          <span class="case-card__go"><svg viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6"/></svg></span>
+        </button>
+      </div>
+
+      <!-- CASE FOLDER -->
+      <div id="cases-folder" style="display:none">
+        <button class="back-link" onclick="closeFolder()"><svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6"/></svg>All cases</button>
+        <div class="folder-head">
+          <div>
+            <h1 class="page-h" style="margin-bottom:2px">Ramesh Yadav v. State of M.P.</h1>
+            <div class="folder-meta">Sessions Court, Gwalior · Cr. 214/2025 · CNR MPGW01-002145-2025</div>
+          </div>
+          <div class="next-badge"><div class="l">Next hearing</div><div class="v">Today, 10:30 AM</div></div>
+        </div>
+
+        <!-- the ecosystem: every action here is pre-scoped to THIS matter -->
+        <div class="inline-actions">
+          <button class="ghost-btn" onclick="scopedTo('capture')"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>Record a consultation</button>
+          <button class="ghost-btn" onclick="scopedTo('capture')"><svg viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>Scan a document</button>
+          <button class="ghost-btn" onclick="scopedTo('research')"><svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>Research for this case</button>
+          <button class="primary-btn" style="padding:9px 16px" onclick="scopedTo('draft')">✎ Draft from this case</button>
+        </div>
+
+        <div class="tabs">
+          <button class="tab is-active" onclick="ftab('ov',this)">Overview</button>
+          <button class="tab" onclick="ftab('rec',this)">Recordings <span class="n">2</span></button>
+          <button class="tab" onclick="ftab('doc',this)">Documents <span class="n">5</span></button>
+          <button class="tab" onclick="ftab('dr',this)">Drafts <span class="n">1</span></button>
+          <button class="tab" onclick="ftab('res',this)">Research <span class="n">4</span></button>
+          <button class="tab" onclick="ftab('hr',this)">Hearings</button>
+        </div>
+
+        <div class="tabpane is-active" id="fp-ov">
+          <div class="result">
+            <div class="eyebrow" style="margin-bottom:8px">Client &amp; facts</div>
+            <p class="hi" style="font-size:15.5px;color:var(--ink-2);line-height:1.7">Ramesh Yadav, 40, resident of Thatipur, Gwalior. Arrested 8 June 2026 in FIR 214/2025, PS Padav, under §§420/406 BNS. In custody 41 days. Money allegedly misappropriated already returned per client. Cooperating with investigation; deep roots in the community.</p>
+          </div>
+          <div class="artifact">
+            <span class="artifact__ic"><svg viewBox="0 0 24 24" fill="none"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
+            <div><div class="artifact__t">Next steps</div><div class="artifact__m">3 open · file bail reply · collect surety papers</div></div>
+          </div>
+        </div>
+
+        <div class="tabpane" id="fp-rec">
+          <div class="artifact">
+            <span class="artifact__ic"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg></span>
+            <div><div class="artifact__t">First consultation — 14 Jul</div><div class="artifact__m">18 min · memo ready · 4 action items</div></div>
+            <span class="artifact__act"><button class="mini-btn">Open memo</button></span>
+          </div>
+          <div class="artifact">
+            <span class="artifact__ic"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg></span>
+            <div><div class="artifact__t">Surety discussion — 17 Jul</div><div class="artifact__m">6 min · memo ready</div></div>
+            <span class="artifact__act"><button class="mini-btn">Open memo</button></span>
+          </div>
+        </div>
+
+        <div class="tabpane" id="fp-doc">
+          <div class="artifact"><span class="artifact__ic"><svg viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span><div><div class="artifact__t">FIR 214/2025</div><div class="artifact__m">4 pages · OCR read · Hindi</div></div><span class="artifact__act"><button class="mini-btn">Read</button></span></div>
+          <div class="artifact"><span class="artifact__ic"><svg viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span><div><div class="artifact__t">Remand order</div><div class="artifact__m">2 pages · OCR read</div></div><span class="artifact__act"><button class="mini-btn">Read</button></span></div>
+          <div class="artifact"><span class="artifact__ic"><svg viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span><div><div class="artifact__t">Surety affidavit (draft)</div><div class="artifact__m">1 page</div></div><span class="artifact__act"><button class="mini-btn">Read</button></span></div>
+        </div>
+
+        <div class="tabpane" id="fp-dr">
+          <div class="artifact"><span class="artifact__ic"><svg viewBox="0 0 24 24" fill="none"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></span><div><div class="artifact__t">Regular bail application</div><div class="artifact__m">AI-authored · edited 17 Jul · ready to file</div></div><span class="artifact__act"><button class="mini-btn">Open</button></span></div>
+        </div>
+
+        <div class="tabpane" id="fp-res">
+          <div class="artifact"><span class="artifact__ic"><svg viewBox="0 0 24 24" fill="none"><path d="M9 11l3 3L22 4"/></svg></span><div><div class="artifact__t">Sanjay Chandra v. CBI <span class="badge badge--verified" style="font-size:9px;margin-left:4px">✓</span></div><div class="artifact__m">(2012) 1 SCC 40 · bail is the rule</div></div><span class="artifact__act"><button class="mini-btn">Read</button></span></div>
+          <div class="artifact"><span class="artifact__ic"><svg viewBox="0 0 24 24" fill="none"><path d="M9 11l3 3L22 4"/></svg></span><div><div class="artifact__t">Arnesh Kumar v. State of Bihar <span class="badge badge--verified" style="font-size:9px;margin-left:4px">✓</span></div><div class="artifact__m">(2014) 8 SCC 273 · §41 checklist</div></div><span class="artifact__act"><button class="mini-btn">Read</button></span></div>
+        </div>
+
+        <div class="tabpane" id="fp-hr">
+          <div class="artifact"><span class="artifact__ic"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><div><div class="artifact__t">Next hearing — Today, 10:30 AM</div><div class="artifact__m">Bail argument · Sessions, Gwalior</div></div><span class="artifact__act"><button class="mini-btn">Log outcome</button></span></div>
+          <div class="artifact"><span class="artifact__ic"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><div><div class="artifact__t">10 Jul — arguments heard, part-heard</div><div class="artifact__m">Rolled to today</div></div></div>
+        </div>
+      </div>
+    </div></section>
+
+  </main>
+</div>
+
+<!-- ============ MOBILE BOTTOM NAV ============ -->
+<nav class="botnav">
+  <button class="is-active" data-view="home"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Home</button>
+  <button data-view="research"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>Ask</button>
+  <button data-view="draft"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Draft</button>
+  <button data-view="capture"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>Capture</button>
+  <button data-view="cases"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Cases</button>
+</nav>
+
+<div class="toast" id="toast"><svg viewBox="0 0 24 24" fill="none"><path d="M20 6 9 17l-5-5"/></svg><span id="toast-msg">Filed to case</span></div>
+
+<div class="note" id="note">
+  <b>Ecosystem mockup v2 — clickable.</b> Try: open a hearing on Home → the case folder → the scoped actions (blue "Draft from this case"). Then start Draft or Research loose and hit "File to a case." Structure, not final pixels.
+  <br><button onclick="document.getElementById('note').style.display='none'">Got it</button>
+</div>
+
+<script>
+function go(v){
+  document.querySelectorAll('.view').forEach(e=>e.classList.remove('is-active'));
+  document.getElementById('view-'+v).classList.add('is-active');
+  document.querySelectorAll('.navitem').forEach(n=>n.classList.toggle('is-active',n.dataset.view===v));
+  document.querySelectorAll('.botnav button').forEach(n=>n.classList.toggle('is-active',n.dataset.view===v));
+  if(v==='cases'){closeFolder();}
+  if(v==='draft'){draftReset();}
+  if(v!=='draft'){resetCtx('dctx');}
+  if(v!=='research'){resetCtx('rctx');}
+  window.scrollTo(0,0);
+}
+document.querySelectorAll('.navitem, .botnav button').forEach(n=>n.addEventListener('click',()=>{if(n.dataset.view)go(n.dataset.view)}));
+
+function rseg(m,btn){
+  document.querySelectorAll('#rseg button').forEach(b=>b.classList.remove('is-active'));
+  btn.classList.add('is-active');
+  document.getElementById('r-ask').style.display = m==='ask'?'block':'none';
+  document.getElementById('r-find').style.display = m==='find'?'block':'none';
+}
+function draftResult(){document.getElementById('draft-compose').style.display='none';document.getElementById('draft-out').style.display='block';window.scrollTo(0,0);}
+function draftReset(){document.getElementById('draft-compose').style.display='block';document.getElementById('draft-out').style.display='none';}
+function openFolder(){go('cases');document.getElementById('cases-list').style.display='none';document.getElementById('cases-folder').style.display='block';window.scrollTo(0,0);}
+function closeFolder(){document.getElementById('cases-list').style.display='block';document.getElementById('cases-folder').style.display='none';}
+function ftab(t,btn){document.querySelectorAll('#cases-folder .tab').forEach(b=>b.classList.remove('is-active'));btn.classList.add('is-active');document.querySelectorAll('#cases-folder .tabpane').forEach(p=>p.classList.remove('is-active'));document.getElementById('fp-'+t).classList.add('is-active');}
+
+/* ---- ecosystem glue: scoped entry sets the matter-context chip ---- */
+function setCtx(id){
+  var c=document.getElementById(id); if(!c) return;
+  c.classList.add('is-set');
+  c.innerHTML='<span class="mctx__dot"></span><span>For case: <b>Ramesh Yadav v. State of M.P.</b> — I\'ve pulled in the client, court &amp; facts</span><button class="mctx__x" onclick="resetCtx(\''+id+'\')">✕</button>';
+}
+function resetCtx(id){
+  var c=document.getElementById(id); if(!c) return;
+  c.classList.remove('is-set');
+  c.innerHTML='<span class="mctx__dot"></span><span>Working loose — <b>not tied to a case</b></span>';
+}
+function scopedTo(v){
+  go(v);
+  if(v==='draft'){setCtx('dctx');draftResult();}
+  if(v==='research'){setCtx('rctx');}
+  if(v==='capture'){toast('Recording will be filed to Ramesh Yadav');}
+}
+
+/* ---- loose-first: attach any result to a case ---- */
+function fileToCase(btn){
+  btn.classList.add('is-filed');
+  btn.innerHTML='<svg viewBox="0 0 24 24" fill="none"><path d="M20 6 9 17l-5-5"/></svg>Filed · Ramesh Yadav';
+  toast('Filed to Ramesh Yadav v. State of M.P.');
+}
+function toast(msg){
+  var t=document.getElementById('toast');document.getElementById('toast-msg').textContent=msg;
+  t.classList.add('show');clearTimeout(window._tt);window._tt=setTimeout(()=>t.classList.remove('show'),2200);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Headnote — hero comp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+<style>
+  :root{
+    --ink:#171a17; --ink-soft:#33383a; --grey:#5a6067; --grey-2:#818891;
+    --line:#e7e9ec; --line-2:#eef0f2; --btn:#0c0d0f; --paper:#fdfbf4;
+    --green:#2f8f57; --green-dot:#57b877;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--paper);font-family:'Geist',system-ui,-apple-system,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;line-height:1.5;}
+
+  .btn{display:inline-flex;align-items:center;gap:8px;font-size:15px;font-weight:500;letter-spacing:-0.01em;padding:13px 24px;border-radius:999px;text-decoration:none;cursor:pointer;border:1px solid transparent;transition:transform .16s ease,background .16s ease,border-color .16s ease;}
+  .btn--dark{background:var(--btn);color:#fafafa;box-shadow:0 1px 2px rgba(12,13,15,.16),0 10px 28px rgba(12,13,15,.14);}
+  .btn--dark:hover{background:#1c1e22;transform:translateY(-1px);}
+  .btn--ghost{background:transparent;color:var(--ink);border-color:rgba(23,26,23,.18);}
+  .btn--ghost:hover{border-color:var(--ink);}
+
+  .stage{position:relative;
+    background-color:#fdfbf4;
+    background-image:
+      linear-gradient(180deg, #a9e4ec 0%, #c8ecf1 11%, rgba(224,244,246,0.55) 30%, rgba(253,251,244,0) 48%),
+      linear-gradient(180deg, rgba(253,251,244,0) 56%, #f6f0e1 100%),
+      radial-gradient(64% 46% at 8% 0%, rgba(150,224,233,0.60) 0%, rgba(150,224,233,0) 58%),
+      radial-gradient(64% 46% at 92% 2%, rgba(246,240,222,0.75) 0%, rgba(246,240,222,0) 58%);
+  }
+  .stage::before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity:0.55;mix-blend-mode:overlay;}
+
+  /* nav */
+  .nav{position:relative;z-index:5;max-width:1400px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:24px 44px;}
+  .brand img{height:22px;width:auto;display:block;}
+  .nav-mid{display:flex;gap:46px;}
+  .nav-mid a{color:var(--ink-soft);text-decoration:none;font-size:15.5px;font-weight:500;letter-spacing:-0.01em;}
+  .nav-mid a:hover{color:var(--ink);}
+  .nav-right{display:flex;align-items:center;gap:22px;}
+  .nav-right .login{color:var(--ink);text-decoration:none;font-size:15.5px;font-weight:500;}
+  .nav-right .btn{padding:9px 19px;font-size:14.5px;}
+
+  /* hero */
+  .hero{position:relative;z-index:2;text-align:center;padding:78px 24px 0;}
+  .hero .kicker{display:inline-flex;align-items:center;gap:8px;font-family:'Geist Mono',monospace;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--green);background:rgba(87,184,119,.1);border:1px solid rgba(87,184,119,.25);padding:6px 13px;border-radius:999px;}
+  .hero h1{font-family:'Fraunces',Georgia,serif;font-optical-sizing:auto;font-weight:400;font-size:clamp(46px,6.2vw,78px);line-height:1.02;letter-spacing:-0.025em;color:var(--ink);margin-top:24px;}
+  .hero p{margin:24px auto 0;max-width:500px;font-size:19px;line-height:1.55;color:var(--grey);letter-spacing:-0.01em;}
+  .hero-cta{display:flex;align-items:center;justify-content:center;gap:13px;margin-top:34px;flex-wrap:wrap;}
+  .hero-note{margin-top:18px;font-family:'Geist Mono',monospace;font-size:12px;color:var(--grey-2);}
+
+  /* product-as-hero frame */
+  .shot-wrap{position:relative;z-index:2;max-width:1080px;margin:66px auto 0;padding:0 32px 130px;}
+  .shot-shell{position:relative;}
+  /* floating trust annotation */
+  .annot{position:absolute;z-index:6;right:-6px;top:214px;display:flex;align-items:center;gap:10px;background:#0f1f18;color:#eafaf0;border-radius:12px;padding:11px 15px;box-shadow:0 18px 40px -16px rgba(15,31,24,.6);font-size:13px;font-weight:500;letter-spacing:-0.01em;}
+  .annot .dot{width:8px;height:8px;border-radius:50%;background:var(--green-dot);box-shadow:0 0 0 4px rgba(87,184,119,.25);}
+  .annot .sub{font-family:'Geist Mono',monospace;font-size:10.5px;color:#8fbfa4;display:block;margin-top:2px;letter-spacing:.02em;}
+
+  .shot{border:1px solid rgba(23,26,23,.08);border-radius:18px;background:#fff;box-shadow:0 2px 4px rgba(20,30,50,.04),0 44px 90px -34px rgba(20,40,60,.34);overflow:hidden;display:flex;height:500px;}
+  .sb{width:212px;flex:0 0 212px;border-right:1px solid var(--line-2);padding:24px 16px;display:flex;flex-direction:column;font-size:13px;}
+  .sb .sb-brand{margin:2px 6px 24px;}
+  .sb .sb-brand img{height:15px;width:auto;display:block;}
+  .sb-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;color:#54585f;font-size:13px;}
+  .sb-item svg{width:15px;height:15px;stroke:#8b9098;stroke-width:1.6;fill:none;flex:0 0 auto;}
+  .sb-item.active{background:var(--btn);color:#fff;}
+  .sb-item.active svg{stroke:#fff;}
+  .sb-label{font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.08em;color:#a6abb2;margin:22px 10px 8px;text-transform:uppercase;}
+  .sb-new{display:inline-flex;align-self:flex-start;align-items:center;gap:6px;background:var(--btn);color:#fff;font-size:12px;font-weight:500;padding:8px 13px;border-radius:8px;margin:0 6px 12px;}
+  .sb-recent{color:#9aa0a7;font-size:12.5px;padding:6px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .sb-recent.hi{font-family:'Noto Sans Devanagari',sans-serif;}
+  .mn{flex:1;min-width:0;padding:24px 28px;overflow:hidden;}
+  .mn-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px;}
+  .mn-title{font-size:16px;font-weight:600;letter-spacing:-0.01em;}
+  .mn-hint{font-family:'Geist Mono',monospace;font-size:10.5px;color:#a6abb2;}
+  .qbox{border:1px solid var(--line);border-radius:12px;padding:16px 16px 12px;}
+  .qbox .qtext{font-size:13.5px;color:#3a3e44;line-height:1.5;min-height:40px;}
+  .caret{display:inline-block;width:1.5px;height:14px;margin-left:1px;background:#3a3e44;vertical-align:-2px;opacity:0;}
+  .caret.on{animation:blink 1s steps(1) infinite;}
+  @keyframes blink{50%{opacity:0}0%,100%{opacity:1}}
+  .qbox .qfoot{display:flex;align-items:center;justify-content:space-between;margin-top:16px;}
+  .qbox .qdetect{font-family:'Geist Mono',monospace;font-size:10.5px;color:#a6abb2;}
+  .qbox .qbtn{background:var(--btn);color:#fff;font-size:12.5px;font-weight:500;padding:8px 16px;border-radius:8px;}
+  .res-head{display:flex;align-items:center;justify-content:space-between;margin:18px 2px 12px;}
+  .res-head .cnt{font-size:13px;color:#54585f;}
+  .toggle{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;font-size:11.5px;}
+  .toggle span{padding:5px 12px;color:#8b9098;}
+  .toggle span.on{background:var(--btn);color:#fff;}
+  .rcard{border:1px solid var(--line);border-radius:12px;padding:15px 18px;}
+  .rcard + .rcard{margin-top:10px;}
+  .rcard .rtop{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .rcard .rname{font-size:14px;font-weight:600;letter-spacing:-0.01em;}
+  .rcard .rrank{font-family:'Geist Mono',monospace;font-size:11px;color:#a6abb2;}
+  .rcard .rmeta{font-family:'Geist Mono',monospace;font-size:11px;color:#9aa0a7;margin-top:5px;display:flex;align-items:center;gap:8px;}
+  .vbadge{display:inline-flex;align-items:center;gap:5px;font-family:'Geist Mono',monospace;font-size:9.5px;letter-spacing:.03em;color:#2f7d4f;background:#e9f6ee;border:1px solid #c7e8d3;border-radius:999px;padding:2px 8px;}
+  .vbadge::before{content:"✓";font-weight:700;}
+  .rcard .rrow{display:flex;gap:12px;margin-top:12px;}
+  .rcard .rkey{font-size:11px;color:#3f7dd6;font-weight:500;flex:0 0 auto;width:24px;padding-top:2px;}
+  .rcard .rwhy{background:#eef4fd;border-left:2px solid #9cc0f2;border-radius:6px;padding:8px 11px;font-size:12px;color:#3a4a63;line-height:1.5;}
+  .rghost{opacity:.5;}
+  .rghost .gline{height:9px;border-radius:5px;background:#eef1f4;margin:7px 0;}
+</style>
+</head>
+<body>
+<div class="stage">
+  <nav class="nav">
+    <a href="#" class="brand" aria-label="Headnote"><img src="/static/headnote-logo.svg" alt="Headnote" /></a>
+    <div class="nav-mid"><a href="#">Product</a><a href="#">Pricing</a><a href="#">Integrations</a><a href="#">Company</a></div>
+    <div class="nav-right"><a href="/app" class="login">Login</a><a href="/app" class="btn btn--dark">Start free</a></div>
+  </nav>
+
+  <header class="hero">
+    <span class="kicker"><span style="width:6px;height:6px;border-radius:50%;background:var(--green-dot);display:inline-block"></span>Citations verified, never invented</span>
+    <h1>AI for legal work</h1>
+    <p>Research, draft, and manage your matters in minutes — built for India's advocates.</p>
+    <div class="hero-cta">
+      <a href="/app" class="btn btn--dark">Start free — no card</a>
+      <a href="#" class="btn btn--ghost">See pricing</a>
+    </div>
+    <div class="hero-note">3-day demo · no card · first matter working in under a minute</div>
+  </header>
+
+  <div class="shot-wrap">
+    <div class="shot-shell">
+      <div class="annot"><span class="dot"></span><div>Verified<span class="sub">source-anchored · in-judgment</span></div></div>
+      <div class="shot">
+        <aside class="sb">
+          <div class="sb-brand"><img src="/static/headnote-logo.svg" alt="Headnote" /></div>
+          <div class="sb-item"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>ask</div>
+          <div class="sb-item active"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>research</div>
+          <div class="sb-item"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>drafting</div>
+          <div class="sb-item"><svg viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>saved</div>
+          <div class="sb-item"><svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 19v3"/></svg>recorder</div>
+          <div class="sb-item"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>documents</div>
+          <div class="sb-label">Recent</div>
+          <div class="sb-new">+ new chat</div>
+          <div class="sb-recent hi">एक संपत्ति के 9 हिस्सेदारों से जो…</div>
+          <div class="sb-recent hi">पीड़िता स्वयं अभिभावक के साथ पर…</div>
+          <div class="sb-recent">find a precedent on hash v…</div>
+        </aside>
+        <section class="mn">
+          <div class="mn-head"><div class="mn-title">research</div><div class="mn-hint">describe the matter · paste a judgment · or type a topic</div></div>
+          <div class="qbox">
+            <div class="qtext"><span class="qt">police investigation powers for cognizable offences and the magistrate's jurisdiction under s.156(3) CrPC / s.175(3) BNSS.</span><span class="caret" aria-hidden="true"></span></div>
+            <div class="qfoot"><div class="qdetect">detected: factual situation → ranked precedents</div><span class="qbtn">research →</span></div>
+          </div>
+          <div class="res-head"><div class="cnt">5 precedents returned</div><div class="toggle"><span class="on">cards</span><span>table</span></div></div>
+          <div class="rcard">
+            <div class="rtop"><div class="rname">Posist Technologies Pvt Ltd v. State (NCT of Delhi)</div><div class="rrank">#1</div></div>
+            <div class="rmeta"><span class="vbadge">verified</span>Delhi High Court · 2025</div>
+            <div class="rrow"><div class="rkey">Why</div><div class="rwhy">Directly interprets s.156(3) discretion — the HC held the magistrate 'may' (not 'shall') direct investigation, applying judicial mind to whether police investigation is necessary.</div></div>
+          </div>
+          <div class="rcard rghost">
+            <div class="rtop"><div class="rname">Lalita Kumari v. Govt. of U.P.</div><div class="rrank">#2</div></div>
+            <div class="gline" style="width:60%"></div><div class="gline" style="width:88%"></div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script>
+(function(){
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var qt = document.querySelector('.qt');
+  var caret = document.querySelector('.caret');
+  var fullQ = qt.textContent;
+
+  // final-state helper (also the reduced-motion path)
+  function showFinal(){
+    qt.textContent = fullQ;
+    gsap.set(['.res-head','.rcard'], {opacity:1, y:0});
+    gsap.set('.annot', {opacity:1, scale:1});
+    caret.classList.remove('on');
+  }
+
+  if (reduce || !window.gsap){ showFinal(); return; }
+
+  // hidden starting state
+  gsap.set(['.kicker','.hero h1','.hero p','.hero-cta','.hero-note'], {opacity:0, y:18});
+  gsap.set('.shot-shell', {opacity:0, y:36});
+  gsap.set(['.res-head','.rcard'], {opacity:0, y:14});
+  gsap.set('.annot', {opacity:0, scale:.85});
+  qt.textContent = '';
+
+  // the product "demoing itself" — loops
+  var demo = gsap.timeline({repeat:-1, repeatDelay:2.4, paused:true});
+  demo.call(function(){                       // reset each loop
+        qt.textContent=''; caret.classList.add('on');
+        gsap.set(['.res-head','.rcard'], {opacity:0, y:14});
+        gsap.set('.annot', {opacity:0, scale:.85});
+      })
+      .to({i:0}, {i:fullQ.length, duration:1.7, ease:'none',
+        onUpdate:function(){ qt.textContent = fullQ.slice(0, Math.round(this.targets()[0].i)); }}, '+=0.3')
+      .call(function(){ caret.classList.remove('on'); })
+      .to('.qbtn', {scale:.93, duration:.09, yoyo:true, repeat:1, ease:'power1.inOut'}, '+=0.35')
+      .to('.res-head', {opacity:1, y:0, duration:.4, ease:'power2.out'}, '+=0.15')
+      .to('.rcard', {opacity:1, y:0, duration:.5, stagger:.16, ease:'power2.out'}, '-=0.1')
+      .to('.annot', {opacity:1, scale:1, duration:.45, ease:'back.out(2)'}, '-=0.2');
+
+  // staggered entrance, then kick off the demo loop
+  var intro = gsap.timeline({defaults:{ease:'power3.out'}, onComplete:function(){ demo.play(); }});
+  intro.to('.kicker', {opacity:1, y:0, duration:.5})
+       .to('.hero h1', {opacity:1, y:0, duration:.65}, '-=0.28')
+       .to('.hero p', {opacity:1, y:0, duration:.5}, '-=0.42')
+       .to('.hero-cta', {opacity:1, y:0, duration:.5}, '-=0.36')
+       .to('.hero-note', {opacity:1, y:0, duration:.4}, '-=0.34')
+       .to('.shot-shell', {opacity:1, y:0, duration:.85}, '-=0.15');
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Integrations — ecosystem (vibrant)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preconnect" href="https://api.fontshare.com" crossorigin />
+<link href="https://api.fontshare.com/v2/css?f[]=zodiak@400,500&f[]=satoshi@400,500,700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --paper:#fdfbf4; --ink:#181b17; --grey:#5f665e; --grey-2:#8a8f88;
+    --serif:'Zodiak',Georgia,serif; --sans:'Satoshi',system-ui,sans-serif; --mono:'Geist Mono',monospace; --hi:'Noto Sans Devanagari',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;line-height:1.5;}
+  .sec{max-width:1100px;margin:0 auto;padding:100px 32px;}
+  .sec-head{text-align:center;max-width:620px;margin:0 auto 44px;}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--grey-2);}
+  .sec-head h2{font-family:var(--serif);font-weight:400;font-size:clamp(30px,4.2vw,48px);line-height:1.06;letter-spacing:-0.025em;margin-top:14px;}
+  .sec-head p{margin-top:16px;font-size:18px;line-height:1.55;color:var(--grey);}
+
+  /* dark vibrant panel */
+  .panel{position:relative;border-radius:28px;overflow:hidden;padding:0;
+    background:
+      radial-gradient(42% 55% at 18% 16%, rgba(74,163,255,.20), transparent 62%),
+      radial-gradient(40% 52% at 84% 24%, rgba(55,224,138,.18), transparent 62%),
+      radial-gradient(46% 56% at 78% 96%, rgba(185,140,255,.18), transparent 62%),
+      radial-gradient(40% 50% at 14% 92%, rgba(88,224,232,.14), transparent 62%),
+      #0c130f;
+    box-shadow:0 40px 90px -40px rgba(10,20,15,.7);}
+  .panel::after{content:"";position:absolute;inset:0;pointer-events:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");opacity:.05;mix-blend-mode:overlay;}
+
+  .eco{position:relative;width:100%;aspect-ratio:820 / 500;}
+  .eco svg.wires{position:absolute;inset:0;width:100%;height:100%;z-index:1;overflow:visible;}
+  .base{fill:none;stroke:rgba(255,255,255,.09);stroke-width:1.5;}
+  .flow{fill:none;stroke-width:2.4;stroke-linecap:round;stroke-dasharray:18 260;stroke-dashoffset:278;animation:flow 2s linear infinite;}
+  @keyframes flow{to{stroke-dashoffset:0;}}
+  .flow.w{stroke:#4aa3ff;filter:drop-shadow(0 0 5px #4aa3ff);animation-delay:0s;}
+  .flow.g{stroke:#37e08a;filter:drop-shadow(0 0 5px #37e08a);animation-delay:.4s;}
+  .flow.v{stroke:#b98cff;filter:drop-shadow(0 0 5px #b98cff);animation-delay:.8s;}
+  .flow.a{stroke:#ffcf5c;filter:drop-shadow(0 0 5px #ffcf5c);animation-delay:1.2s;}
+  .flow.c{stroke:#58e0e8;filter:drop-shadow(0 0 5px #58e0e8);animation-delay:1.6s;}
+
+  .node{position:absolute;transform:translate(-50%,-50%);z-index:3;display:flex;flex-direction:column;align-items:center;gap:9px;}
+  .node .ic{width:60px;height:60px;border-radius:16px;background:#fff;display:flex;align-items:center;justify-content:center;}
+  .node .ic svg{width:30px;height:30px;}
+  .node.w .ic{box-shadow:0 0 0 1px rgba(74,163,255,.4),0 0 28px -2px rgba(74,163,255,.6);}
+  .node.g .ic{box-shadow:0 0 0 1px rgba(55,224,138,.4),0 0 28px -2px rgba(55,224,138,.6);}
+  .node.v .ic{box-shadow:0 0 0 1px rgba(185,140,255,.4),0 0 28px -2px rgba(185,140,255,.6);}
+  .node.a .ic{box-shadow:0 0 0 1px rgba(255,207,92,.4),0 0 28px -2px rgba(255,207,92,.55);}
+  .node.c .ic{box-shadow:0 0 0 1px rgba(88,224,232,.4),0 0 28px -2px rgba(88,224,232,.6);}
+  .node .nl{font-family:var(--mono);font-size:10.5px;color:#aeb9b2;white-space:nowrap;}
+
+  /* central client folder (glass, glowing) */
+  .folder{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:4;width:256px;border-radius:16px;overflow:hidden;
+    background:rgba(255,255,255,.055);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.14);
+    box-shadow:0 0 0 1px rgba(123,214,106,.12),0 24px 60px -20px rgba(0,0,0,.6),0 0 46px -6px rgba(123,214,106,.22);}
+  .folder .top{height:3px;background:linear-gradient(90deg,#4aa3ff,#37e08a,#b98cff,#ffcf5c,#58e0e8);}
+  .fh{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .ftab{width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .ftab svg{width:16px;height:16px;stroke:#eafaf0;stroke-width:1.7;fill:none;}
+  .fname{font-size:13.5px;font-weight:600;letter-spacing:-0.01em;color:#f4f7f4;}
+  .fsub{font-family:var(--mono);font-size:9.5px;color:#8fa89a;margin-top:1px;}
+  .frows{padding:8px 10px;}
+  .fr{display:flex;align-items:center;justify-content:space-between;padding:6px 6px;font-size:11.5px;color:#c7d3cc;}
+  .fr .k{display:flex;align-items:center;gap:7px;} .fr .k i{width:5px;height:5px;border-radius:50%;background:#7bd66a;box-shadow:0 0 6px #7bd66a;}
+  .fr .v{font-family:var(--mono);font-size:10.5px;color:#8fa89a;}
+
+  /* mobile vertical stream (desktop: hidden) */
+  .m-beam{display:none;}
+  @keyframes drip{0%{top:-18px;opacity:0}12%{opacity:1}88%{opacity:1}100%{top:100%;opacity:0}}
+  @media (max-width:720px){
+    .sec{padding:70px 18px;}
+    .eco{aspect-ratio:auto;display:grid;grid-template-columns:repeat(5,1fr);gap:16px 6px;padding:30px 16px 32px;align-items:start;}
+    .eco svg.wires{display:none;}
+    .node{position:static;transform:none;order:1;justify-self:center;gap:0;}
+    .node .ic{width:46px;height:46px;border-radius:12px;} .node .ic svg{width:24px;height:24px;}
+    .node .nl{display:none;}
+    .m-beam{display:flex;order:2;grid-column:1 / -1;justify-content:center;gap:34px;height:60px;margin:2px 0;}
+    .m-beam i{position:relative;width:2px;height:100%;background:rgba(255,255,255,.09);border-radius:2px;overflow:hidden;}
+    .m-beam i::after{content:"";position:absolute;left:-2px;width:6px;height:18px;border-radius:6px;top:-18px;}
+    .m-beam i.w::after{background:#4aa3ff;box-shadow:0 0 10px #4aa3ff;animation:drip 1.7s linear infinite;animation-delay:0s;}
+    .m-beam i.g::after{background:#37e08a;box-shadow:0 0 10px #37e08a;animation:drip 1.7s linear infinite;animation-delay:.34s;}
+    .m-beam i.v::after{background:#b98cff;box-shadow:0 0 10px #b98cff;animation:drip 1.7s linear infinite;animation-delay:.68s;}
+    .m-beam i.a::after{background:#ffcf5c;box-shadow:0 0 10px #ffcf5c;animation:drip 1.7s linear infinite;animation-delay:1.02s;}
+    .m-beam i.c::after{background:#58e0e8;box-shadow:0 0 10px #58e0e8;animation:drip 1.7s linear infinite;animation-delay:1.36s;}
+    .folder{position:static;transform:none;width:100%;max-width:340px;justify-self:center;grid-column:1 / -1;order:3;}
+  }
+</style>
+</head>
+<body>
+  <section class="sec">
+    <div class="sec-head">
+      <div class="eyebrow">The Headnote ecosystem</div>
+      <h2>Every client, one connected folder.</h2>
+      <p>Word, WhatsApp, your voice, the court's own records: they all feed one place. The client's folder in Headnote, where every draft, precedent, note and date lives together.</p>
+    </div>
+
+    <div class="panel">
+      <div class="eco">
+        <svg class="wires" viewBox="0 0 820 500" preserveAspectRatio="none">
+          <path class="base" d="M175 100 L410 250"></path>
+          <path class="base" d="M645 100 L410 250"></path>
+          <path class="base" d="M120 330 L410 250"></path>
+          <path class="base" d="M700 330 L410 250"></path>
+          <path class="base" d="M410 450 L410 250"></path>
+          <path class="flow w" d="M175 100 L410 250"></path>
+          <path class="flow g" d="M645 100 L410 250"></path>
+          <path class="flow v" d="M120 330 L410 250"></path>
+          <path class="flow a" d="M700 330 L410 250"></path>
+          <path class="flow c" d="M410 450 L410 250"></path>
+        </svg>
+
+        <!-- central client folder -->
+        <div class="folder">
+          <div class="top"></div>
+          <div class="fh">
+            <div class="ftab"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>
+            <div><div class="fname">Rajesh Kumar</div><div class="fsub">Regular bail · Sessions Court</div></div>
+          </div>
+          <div class="frows">
+            <div class="fr"><span class="k"><i></i>Drafts</span><span class="v">3 files</span></div>
+            <div class="fr"><span class="k"><i></i>Precedents</span><span class="v">5 verified</span></div>
+            <div class="fr"><span class="k"><i></i>Notes</span><span class="v">2 recorded</span></div>
+            <div class="fr"><span class="k"><i></i>Next hearing</span><span class="v">02 Aug</span></div>
+          </div>
+        </div>
+
+        <!-- mobile-only: vertical light streams into the folder -->
+        <div class="m-beam" aria-hidden="true"><i class="w"></i><i class="g"></i><i class="v"></i><i class="a"></i><i class="c"></i></div>
+
+        <!-- nodes -->
+        <div class="node w" style="left:21.3%;top:20%">
+          <div class="ic"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="18" rx="3" fill="#2b579a"/><text x="12" y="16.5" text-anchor="middle" font-size="12" font-weight="700" fill="#fff" font-family="Arial, sans-serif">W</text></svg></div>
+          <div class="nl">Word add-in</div>
+        </div>
+        <div class="node g" style="left:78.7%;top:20%">
+          <div class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#25d366"/><path d="M8.4 7.2c-.5 0-1 .4-1 1 0 4 3.4 7.4 7.4 7.4.6 0 1-.5 1-1v-1.3c0-.35-.25-.65-.6-.75l-1.7-.5c-.3-.09-.6 0-.8.22l-.5.55c-1.3-.6-2.35-1.65-2.95-2.95l.55-.5c.22-.2.3-.5.22-.8l-.5-1.7c-.1-.35-.4-.6-.75-.6z" fill="#fff"/></svg></div>
+          <div class="nl">WhatsApp</div>
+        </div>
+        <div class="node v" style="left:14.6%;top:66%">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="#6b3fb0" stroke-width="1.8"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 19v3"/></svg></div>
+          <div class="nl">Voice · Hindi</div>
+        </div>
+        <div class="node a" style="left:85.4%;top:66%">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="#a9781f" stroke-width="1.7"><path d="M3 10h18L12 4z"/><path d="M5 10v9M9.5 10v9M14.5 10v9M19 10v9M3.5 20h17"/></svg></div>
+          <div class="nl">eCourts / CNR</div>
+        </div>
+        <div class="node c" style="left:50%;top:90%">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="#1a8f97" stroke-width="1.8"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></div>
+          <div class="nl">On your phone</div>
+        </div>
+      </div>
+    </div>
+  </section>
+</body>
+</html>

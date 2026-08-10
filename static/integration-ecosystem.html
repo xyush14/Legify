@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Integrations — ecosystem</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preconnect" href="https://api.fontshare.com" crossorigin />
+<link href="https://api.fontshare.com/v2/css?f[]=zodiak@400,500&f[]=satoshi@400,500,700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --paper:#fdfbf4; --ink:#181b17; --grey:#5f665e; --grey-2:#8a8f88;
+    --line:#e9e7dd; --line-2:#f1efe7; --green:#7bd66a; --green-ink:#2f8f57; --forest:#13251c;
+    --serif:'Zodiak',Georgia,serif; --sans:'Satoshi',system-ui,sans-serif; --mono:'Geist Mono',monospace; --hi:'Noto Sans Devanagari',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;line-height:1.5;}
+
+  .sec{max-width:1000px;margin:0 auto;padding:110px 32px;}
+  .sec-head{text-align:center;max-width:620px;margin:0 auto 20px;}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--grey-2);}
+  .sec-head h2{font-family:var(--serif);font-weight:400;font-size:clamp(30px,4.2vw,48px);line-height:1.06;letter-spacing:-0.025em;margin-top:14px;}
+  .sec-head p{margin-top:16px;font-size:18px;line-height:1.55;color:var(--grey);}
+
+  /* diagram */
+  .eco{position:relative;width:100%;max-width:780px;margin:44px auto 0;aspect-ratio:780 / 470;}
+  .eco svg.wires{position:absolute;inset:0;width:100%;height:100%;z-index:1;overflow:visible;}
+  .wire{fill:none;stroke:#d9d5c8;stroke-width:1.5;}
+  .pulse{position:absolute;width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px rgba(123,214,106,.25);transform:translate(-50%,-50%);z-index:2;opacity:0;}
+
+  .node{position:absolute;transform:translate(-50%,-50%);z-index:3;display:flex;flex-direction:column;align-items:center;gap:8px;}
+  .node .ic{width:60px;height:60px;border-radius:16px;background:#fff;border:1px solid var(--line);box-shadow:0 14px 30px -16px rgba(20,30,50,.3);display:flex;align-items:center;justify-content:center;}
+  .node .ic svg{width:30px;height:30px;}
+  .node .nl{font-family:var(--mono);font-size:10.5px;letter-spacing:.02em;color:#6b7077;white-space:nowrap;}
+
+  /* central client folder */
+  .folder{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:4;width:250px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 30px 60px -26px rgba(20,30,50,.4);overflow:hidden;}
+  .folder .fh{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line-2);}
+  .folder .ftab{width:30px;height:30px;border-radius:8px;background:var(--forest);display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .folder .ftab svg{width:16px;height:16px;stroke:#eafaf0;stroke-width:1.7;fill:none;}
+  .folder .fname{font-size:13.5px;font-weight:600;letter-spacing:-0.01em;}
+  .folder .fsub{font-family:var(--mono);font-size:9.5px;color:#9aa0a7;margin-top:1px;}
+  .folder .frows{padding:8px 10px;}
+  .folder .fr{display:flex;align-items:center;justify-content:space-between;padding:6px 6px;font-size:11.5px;color:#54585f;}
+  .folder .fr .k{display:flex;align-items:center;gap:7px;}
+  .folder .fr .k i{width:5px;height:5px;border-radius:50%;background:var(--green);}
+  .folder .fr .v{font-family:var(--mono);font-size:10.5px;color:#9aa0a7;}
+
+  @media (max-width:720px){
+    .sec{padding:70px 20px;}
+    .eco{max-width:none;aspect-ratio:auto;display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:32px;}
+    .eco svg.wires,.pulse{display:none;}
+    .node{position:static;transform:none;flex-direction:row;justify-content:center;gap:10px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;}
+    .node .ic{width:40px;height:40px;border-radius:10px;box-shadow:none;} .node .ic svg{width:22px;height:22px;}
+    .folder{position:static;transform:none;width:auto;grid-column:1 / -1;order:-1;margin-bottom:6px;}
+  }
+</style>
+</head>
+<body>
+  <section class="sec">
+    <div class="sec-head">
+      <div class="eyebrow">The Headnote ecosystem</div>
+      <h2>Every client, one connected folder.</h2>
+      <p>Word, WhatsApp, your voice, the court's own records: they all feed one place. The client's folder in Headnote, where every draft, precedent, note and date lives together.</p>
+    </div>
+
+    <div class="eco" id="eco">
+      <svg class="wires" viewBox="0 0 780 470" preserveAspectRatio="none">
+        <path class="wire" data-wire d="M390 235 L165 95"></path>
+        <path class="wire" data-wire d="M390 235 L615 95"></path>
+        <path class="wire" data-wire d="M390 235 L110 310"></path>
+        <path class="wire" data-wire d="M390 235 L670 310"></path>
+        <path class="wire" data-wire d="M390 235 L390 425"></path>
+      </svg>
+
+      <!-- pulses (data flowing into the folder) -->
+      <div class="pulse" data-pulse data-from="21.2,20.2"></div>
+      <div class="pulse" data-pulse data-from="78.8,20.2"></div>
+      <div class="pulse" data-pulse data-from="14.1,66"></div>
+      <div class="pulse" data-pulse data-from="85.9,66"></div>
+      <div class="pulse" data-pulse data-from="50,90.4"></div>
+
+      <!-- central client folder -->
+      <div class="folder" data-folder>
+        <div class="fh">
+          <div class="ftab"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>
+          <div><div class="fname">Rajesh Kumar</div><div class="fsub">Regular bail · Sessions Court</div></div>
+        </div>
+        <div class="frows">
+          <div class="fr"><span class="k"><i></i>Drafts</span><span class="v">3 files</span></div>
+          <div class="fr"><span class="k"><i></i>Precedents</span><span class="v">5 verified</span></div>
+          <div class="fr"><span class="k"><i></i>Notes</span><span class="v">2 recorded</span></div>
+          <div class="fr"><span class="k"><i></i>Next hearing</span><span class="v">02 Aug</span></div>
+        </div>
+      </div>
+
+      <!-- nodes (real tools) -->
+      <div class="node" data-node style="left:21.2%;top:20.2%">
+        <div class="ic"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="18" rx="3" fill="#2b579a"/><text x="12" y="16.5" text-anchor="middle" font-size="12" font-weight="700" fill="#fff" font-family="Arial, sans-serif">W</text></svg></div>
+        <div class="nl">Word add-in</div>
+      </div>
+      <div class="node" data-node style="left:78.8%;top:20.2%">
+        <div class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#25d366"/><path d="M8.4 7.2c-.5 0-1 .4-1 1 0 4 3.4 7.4 7.4 7.4.6 0 1-.5 1-1v-1.3c0-.35-.25-.65-.6-.75l-1.7-.5c-.3-.09-.6 0-.8.22l-.5.55c-1.3-.6-2.35-1.65-2.95-2.95l.55-.5c.22-.2.3-.5.22-.8l-.5-1.7c-.1-.35-.4-.6-.75-.6z" fill="#fff"/></svg></div>
+        <div class="nl">WhatsApp</div>
+      </div>
+      <div class="node" data-node style="left:14.1%;top:66%">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="#3a3f3b" stroke-width="1.7"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 19v3"/></svg></div>
+        <div class="nl">Voice · Hindi</div>
+      </div>
+      <div class="node" data-node style="left:85.9%;top:66%">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="#3a3f3b" stroke-width="1.6"><path d="M3 10h18L12 4z"/><path d="M5 10v9M9.5 10v9M14.5 10v9M19 10v9M3.5 20h17"/></svg></div>
+        <div class="nl">eCourts / CNR</div>
+      </div>
+      <div class="node" data-node style="left:50%;top:90.4%">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="#3a3f3b" stroke-width="1.7"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></div>
+        <div class="nl">On your phone</div>
+      </div>
+    </div>
+  </section>
+
+<script src="/static/vendor/gsap.min.js"></script>
+<script>
+(function(){
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var mobile = matchMedia('(max-width:720px)').matches;
+  if(reduce || !window.gsap || mobile) return;
+  var eco=document.getElementById('eco');
+  var wires=[].slice.call(eco.querySelectorAll('[data-wire]'));
+  var nodes=[].slice.call(eco.querySelectorAll('[data-node]'));
+  var ics=[].slice.call(eco.querySelectorAll('[data-node] .ic'));
+  var pulses=[].slice.call(eco.querySelectorAll('[data-pulse]'));
+
+  // wire draw setup
+  wires.forEach(function(w){ var len=w.getTotalLength(); w.style.strokeDasharray=len; w.style.strokeDashoffset=len; });
+  // opacity only on translate-centered elements; scale lives on the icon
+  gsap.set('[data-folder]',{opacity:0});
+  gsap.set('[data-folder] .fh, [data-folder] .fr',{opacity:0,y:6});
+  gsap.set(nodes,{opacity:0});
+  gsap.set(ics,{scale:.6, transformOrigin:'50% 50%'});
+  gsap.set(pulses,{opacity:0});
+
+  var tl=gsap.timeline({delay:.2});
+  tl.to('[data-folder]',{opacity:1,duration:.4})
+    .to('[data-folder] .fh, [data-folder] .fr',{opacity:1,y:0,duration:.4,stagger:.06},'-=0.1')
+    .to(wires,{strokeDashoffset:0,duration:.7,stagger:.09,ease:'power2.inOut'},'-=0.15')
+    .to(nodes,{opacity:1,duration:.35,stagger:.09},'-=0.4')
+    .to(ics,{scale:1,duration:.4,stagger:.09,ease:'back.out(2.4)'},'<')
+    .add(startPulses,'-=0.1');
+
+  function startPulses(){
+    pulses.forEach(function(p,i){
+      var fr=p.getAttribute('data-from').split(',');
+      function run(){
+        gsap.killTweensOf(p);
+        gsap.set(p,{left:fr[0]+'%',top:fr[1]+'%',opacity:0});
+        gsap.to(p,{opacity:1,duration:.25});
+        gsap.to(p,{left:'50%',top:'50%',duration:1.6,ease:'power1.inOut',
+          onComplete:function(){ gsap.to(p,{opacity:0,duration:.2}); }});
+      }
+      setTimeout(function(){ run(); setInterval(run, 2800); }, i*420);
+    });
+  }
+
+  // safety: if rAF is throttled and the ticker never advances, reveal statically
+  setTimeout(function(){
+    if(gsap.ticker.frame < 3){
+      var f=document.querySelector('[data-folder]'); if(f) f.style.opacity=1;
+      document.querySelectorAll('[data-folder] .fh,[data-folder] .fr').forEach(function(e){e.style.opacity=1;e.style.transform='none';});
+      nodes.forEach(function(n){n.style.opacity=1;});
+      ics.forEach(function(e){e.style.transform='scale(1)';});
+      wires.forEach(function(w){w.style.strokeDashoffset=0;});
+    }
+  }, 3500);
+})();
+</script>
+</body>
+</html>

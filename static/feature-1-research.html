@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Feature 1 — Research</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preconnect" href="https://api.fontshare.com" crossorigin />
+<link href="https://api.fontshare.com/v2/css?f[]=zodiak@400,500&f[]=satoshi@400,500,700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --paper:#fdfbf4; --ink:#181b17; --grey:#5f665e; --grey-2:#8a8f88;
+    --line:#e9e7dd; --line-2:#f1efe7; --green:#7bd66a; --green-ink:#2f8f57;
+    --serif:'Zodiak',Georgia,serif; --sans:'Satoshi',system-ui,sans-serif; --mono:'Geist Mono',monospace; --hi:'Noto Sans Devanagari',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;line-height:1.5;}
+
+  .row{max-width:1120px;margin:0 auto;padding:120px 32px;display:grid;grid-template-columns:1fr 1.05fr;gap:64px;align-items:center;}
+
+  /* left: copy */
+  .copy .lab{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--grey-2);}
+  .copy h2{font-family:var(--serif);font-weight:400;font-size:clamp(34px,4vw,52px);line-height:1.04;letter-spacing:-0.03em;margin-top:18px;}
+  .copy p{margin-top:20px;font-size:19px;line-height:1.55;color:var(--grey);max-width:420px;}
+  .copy .proof{margin-top:26px;display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;color:var(--green-ink);background:#e9f6ee;border:1px solid #c7e8d3;border-radius:999px;padding:6px 13px;}
+  .copy .proof i{width:6px;height:6px;border-radius:50%;background:var(--green);}
+
+  /* right: animation tile */
+  .tile{position:relative;border-radius:24px;padding:34px;background:linear-gradient(135deg,#cdeef2 0%,#eaf4ee 48%,#f8e8da 100%);box-shadow:0 40px 90px -46px rgba(30,60,80,.4);overflow:hidden;}
+  .tile::after{content:"";position:absolute;inset:0;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='t'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23t)'/%3E%3C/svg%3E");opacity:.3;mix-blend-mode:overlay;pointer-events:none;}
+
+  /* input */
+  .inp{position:relative;z-index:2;background:#fff;border:1px solid rgba(24,27,23,.06);border-radius:14px;padding:16px 18px;box-shadow:0 12px 30px -18px rgba(20,30,50,.25);}
+  .inp .il{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#a6abb2;margin-bottom:9px;}
+  .inp .it{font-family:var(--hi);font-size:15px;color:#2c3030;line-height:1.6;min-height:48px;}
+  .caret{display:inline-block;width:2px;height:16px;margin-left:1px;background:#2c3030;vertical-align:-3px;opacity:0;}
+  .caret.on{animation:blink 1s steps(1) infinite;} @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+  .arrow{position:relative;z-index:2;display:flex;justify-content:center;margin:14px 0;color:#7f9a90;}
+  .arrow svg{width:22px;height:22px;stroke:currentColor;stroke-width:1.6;fill:none;}
+
+  /* result */
+  .rescard{position:relative;z-index:2;background:#fff;border:1px solid rgba(24,27,23,.06);border-radius:14px;padding:18px 20px;box-shadow:0 20px 44px -22px rgba(20,30,50,.3);}
+  .rescard{padding-top:40px;}
+  .rescard .rn{font-size:16px;font-weight:600;letter-spacing:-0.01em;}
+  .stamp{top:16px;left:20px;right:auto;}
+  .rescard .rm{font-family:var(--mono);font-size:11px;color:#9aa0a7;margin-top:6px;}
+  .rescard .rw{margin-top:12px;font-size:13px;color:#54585f;line-height:1.55;}
+  .stamp{position:absolute;top:14px;right:14px;display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;font-weight:500;color:var(--green-ink);background:#e9f6ee;border:1px solid #bfe6cd;border-radius:999px;padding:5px 11px;}
+  .stamp::before{content:"✓";font-weight:700;}
+
+  @media (max-width:860px){ .row{grid-template-columns:1fr;gap:40px;padding:70px 22px;} .copy p{max-width:none;} }
+  @media (prefers-reduced-motion:reduce){.caret{display:none;}}
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="copy">
+      <div class="lab">01 — Research</div>
+      <h2>Find the precedent that wins.</h2>
+      <p>Type your matter in plain Hindi or English. Headnote finds the leading judgments — and proves every citation is real.</p>
+      <span class="proof"><i></i>0 fabricated citations</span>
+    </div>
+
+    <div class="tile">
+      <div class="inp">
+        <div class="il">your words</div>
+        <div class="it"><span class="qt">मेरे मुवक्किल को 41A का नोटिस दिए बिना गिरफ्तार किया गया।</span><span class="caret" aria-hidden="true"></span></div>
+      </div>
+      <div class="arrow" data-arrow><svg viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg></div>
+      <div class="rescard" data-res>
+        <span class="stamp" data-stamp>verified · in judgment</span>
+        <div class="rn">Arnesh Kumar v. State of Bihar</div>
+        <div class="rm">Supreme Court · 2014 · §41A CrPC</div>
+        <div class="rw">Arrest is not automatic — police must record reasons and serve a §41A notice first. Directly on your facts.</div>
+      </div>
+    </div>
+  </div>
+
+<script src="/static/vendor/gsap.min.js"></script>
+<script>
+(function(){
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var qt=document.querySelector('.qt'), caret=document.querySelector('.caret');
+  var full=qt.textContent;
+  if(reduce || !window.gsap){ return; }
+
+  gsap.set('[data-arrow]',{opacity:0,y:-6});
+  gsap.set('[data-res]',{opacity:0,y:16});
+  gsap.set('[data-stamp]',{opacity:0,scale:.7});
+  qt.textContent='';
+
+  var tl=gsap.timeline({repeat:-1, repeatDelay:2.2});
+  tl.call(function(){ qt.textContent=''; caret.classList.add('on'); gsap.set('[data-arrow]',{opacity:0,y:-6}); gsap.set('[data-res]',{opacity:0,y:16}); gsap.set('[data-stamp]',{opacity:0,scale:.7}); })
+    .to({i:0},{i:full.length,duration:1.5,ease:'none',onUpdate:function(){qt.textContent=full.slice(0,Math.round(this.targets()[0].i));}},'+=0.4')
+    .call(function(){ caret.classList.remove('on'); })
+    .to('[data-arrow]',{opacity:1,y:0,duration:.4,ease:'power2.out'},'+=0.25')
+    .to('[data-res]',{opacity:1,y:0,duration:.55,ease:'power3.out'},'-=0.1')
+    .to('[data-stamp]',{opacity:1,scale:1,duration:.5,ease:'back.out(2.2)'},'+=0.15')
+    .to({},{duration:2});
+})();
+</script>
+</body>
+</html>

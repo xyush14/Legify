@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Feature 5 — Draft DNA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preconnect" href="https://api.fontshare.com" crossorigin />
+<link href="https://api.fontshare.com/v2/css?f[]=zodiak@400,500&f[]=satoshi@400,500,700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --paper:#fdfbf4; --ink:#181b17; --grey:#5f665e; --grey-2:#8a8f88;
+    --line:#e9e7dd; --line-2:#f1efe7; --green:#7bd66a; --green-ink:#2f8f57; --btn:#0c0d0f;
+    --serif:'Zodiak',Georgia,serif; --sans:'Satoshi',system-ui,sans-serif; --mono:'Geist Mono',monospace; --hi:'Noto Sans Devanagari',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;line-height:1.5;}
+
+  .row{max-width:1120px;margin:0 auto;padding:110px 32px;display:grid;grid-template-columns:1fr 1.05fr;gap:60px;align-items:center;}
+
+  .copy .lab{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--grey-2);}
+  .copy h2{font-family:var(--serif);font-weight:400;font-size:clamp(34px,4vw,52px);line-height:1.04;letter-spacing:-0.03em;margin-top:18px;}
+  .copy p{margin-top:20px;font-size:19px;line-height:1.55;color:var(--grey);max-width:420px;}
+  .copy .proof{margin-top:26px;display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;color:var(--green-ink);background:#e9f6ee;border:1px solid #c7e8d3;border-radius:999px;padding:6px 13px;}
+  .copy .proof i{width:6px;height:6px;border-radius:50%;background:var(--green);}
+
+  .tile{position:relative;border-radius:24px;padding:34px 30px;background:linear-gradient(135deg,#f7e6da 0%,#eef1ea 50%,#dfe9f5 100%);box-shadow:0 40px 90px -46px rgba(30,60,80,.4);overflow:hidden;}
+  .tile::after{content:"";position:absolute;inset:0;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='t'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23t)'/%3E%3C/svg%3E");opacity:.28;mix-blend-mode:overlay;pointer-events:none;}
+
+  .stack{position:relative;z-index:2;height:74px;}
+  .doc{position:absolute;top:0;width:60px;height:74px;background:#fff;border:1px solid rgba(24,27,23,.08);border-radius:6px;box-shadow:0 10px 22px -12px rgba(20,30,50,.3);padding:8px 7px;}
+  .doc .l{height:4px;background:#edeef1;border-radius:2px;margin-bottom:4px;}
+  .doc .l.s{width:60%;}
+  .doc:nth-child(1){left:calc(50% - 92px);transform:rotate(-8deg);}
+  .doc:nth-child(2){left:calc(50% - 30px);transform:rotate(1deg);top:-4px;}
+  .doc:nth-child(3){left:calc(50% + 32px);transform:rotate(9deg);}
+  .stack-l{position:relative;z-index:2;text-align:center;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#7c828a;margin-top:14px;}
+
+  .flow{position:relative;z-index:2;display:flex;justify-content:center;color:#8a8f88;margin:10px 0 2px;}
+  .flow svg{width:20px;height:20px;stroke:currentColor;stroke-width:1.6;fill:none;}
+
+  .dna{position:relative;z-index:2;background:#fff;border:1px solid rgba(24,27,23,.06);border-radius:14px;padding:16px 18px;box-shadow:0 22px 48px -22px rgba(20,30,50,.3);}
+  .dna-h{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;letter-spacing:-0.01em;padding-bottom:11px;border-bottom:1px solid var(--line-2);}
+  .dna-h .dot{width:7px;height:7px;border-radius:50%;background:var(--green);}
+  .trait{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line-2);font-size:12px;}
+  .trait:last-child{border-bottom:none;}
+  .trait .k{color:#7c828a;font-family:var(--mono);font-size:10px;letter-spacing:.03em;text-transform:uppercase;}
+  .trait .v{color:var(--ink);font-weight:500;display:flex;align-items:center;gap:6px;}
+  .trait .v.hi{font-family:var(--hi);}
+  .trait .v .ck{color:var(--green-ink);font-weight:700;}
+
+  .out{position:relative;z-index:2;margin-top:14px;display:flex;align-items:center;gap:10px;background:var(--btn);color:#eafaf0;border-radius:12px;padding:12px 15px;box-shadow:0 18px 40px -18px rgba(12,13,15,.5);}
+  .out .ic{width:26px;height:26px;border-radius:7px;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:14px;}
+  .out .ot{font-size:12.5px;font-weight:600;}
+  .out .os{font-family:var(--mono);font-size:9.5px;color:#8fbfa4;margin-top:2px;}
+
+  @media (max-width:860px){ .row{grid-template-columns:1fr;gap:36px;padding:70px 22px;} .copy p{max-width:none;} }
+</style>
+</head>
+<body>
+  <div class="row">
+    <!-- copy left -->
+    <div class="copy">
+      <div class="lab">05 — Draft DNA</div>
+      <h2>It drafts in your voice.</h2>
+      <p>Add a few of your past drafts. Headnote learns your format, your phrasing, your letterhead, and writes every new draft the way you would.</p>
+      <span class="proof"><i></i>learns from your own drafts</span>
+    </div>
+
+    <!-- animation right -->
+    <div class="tile">
+      <div class="stack">
+        <div class="doc" data-doc><div class="l"></div><div class="l"></div><div class="l s"></div></div>
+        <div class="doc" data-doc><div class="l"></div><div class="l"></div><div class="l s"></div></div>
+        <div class="doc" data-doc><div class="l"></div><div class="l"></div><div class="l s"></div></div>
+      </div>
+      <div class="stack-l" data-doc>your past filings</div>
+
+      <div class="flow" data-flow><svg viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg></div>
+
+      <div class="dna">
+        <div class="dna-h" data-dna><span class="dot"></span>Draft DNA · learned</div>
+        <div class="trait" data-trait><span class="k">Cause-title</span><span class="v"><span class="ck">✓</span>your format</span></div>
+        <div class="trait" data-trait><span class="k">Salutation</span><span class="v hi"><span class="ck">✓</span>श्रीमान जी</span></div>
+        <div class="trait" data-trait><span class="k">Letterhead</span><span class="v"><span class="ck">✓</span>Sharma &amp; Associates</span></div>
+        <div class="trait" data-trait><span class="k">Phrasing</span><span class="v"><span class="ck">✓</span>your voice</span></div>
+      </div>
+
+      <div class="out" data-out>
+        <div class="ic">✓</div>
+        <div><div class="ot">New draft, written in your voice</div><div class="os">your format · your letterhead · your words</div></div>
+      </div>
+    </div>
+  </div>
+
+<script src="/static/vendor/gsap.min.js"></script>
+<script>
+(function(){
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(reduce || !window.gsap) return;
+  var docs=gsap.utils.toArray('[data-doc]'), traits=gsap.utils.toArray('[data-trait]');
+  gsap.set(docs,{opacity:0,y:10}); gsap.set('[data-flow]',{opacity:0}); gsap.set('[data-dna]',{opacity:0}); gsap.set(traits,{opacity:0,x:-8}); gsap.set('[data-out]',{opacity:0,y:14});
+
+  var tl=gsap.timeline({repeat:-1, repeatDelay:2.2});
+  tl.call(function(){ gsap.set(docs,{opacity:0,y:10}); gsap.set('[data-flow]',{opacity:0}); gsap.set('[data-dna]',{opacity:0}); gsap.set(traits,{opacity:0,x:-8}); gsap.set('[data-out]',{opacity:0,y:14}); })
+    .to(docs,{opacity:1,y:0,duration:.4,stagger:.12,ease:'power2.out'},'+=0.3')
+    .to('[data-flow]',{opacity:1,duration:.35},'+=0.2')
+    .to('[data-dna]',{opacity:1,duration:.35})
+    .to(traits,{opacity:1,x:0,duration:.35,stagger:.18,ease:'power2.out'})  // learning, trait by trait
+    .to('[data-out]',{opacity:1,y:0,duration:.5,ease:'back.out(1.7)'},'+=0.25')
+    .to({},{duration:2});
+})();
+</script>
+</body>
+</html>
