@@ -15,6 +15,14 @@ Endpoints
 
 Stored as one `draft_style` jsonb column on public.user_profiles
 (migrations/010_draft_dna.sql). Facts are never learned — DNA is format-side only.
+
+V2 beta gating
+--------------
+GET / PATCH /api/draft-dna and /analyze stay on plain `get_current_user`: the
+LIVE /settings page calls them today, and gating them would break existing
+users. The layout-mirroring endpoints (/layout, /capture, /template, /generate,
+/render) are new and reachable only from /draft-dna, so they use `require_beta`.
+Check static/settings.html before moving anything between those two groups.
 """
 
 from __future__ import annotations
@@ -22,13 +30,18 @@ from __future__ import annotations
 import logging
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from headnote.drafter import office, style_profile
-from headnote.entitlements import CurrentUser, check_and_record, get_current_user
+from headnote.entitlements import (
+    CurrentUser,
+    check_and_record,
+    get_current_user,
+    require_beta,
+)
 
 log = logging.getLogger("headnote.api.draft_dna")
 router = APIRouter(prefix="/api/draft-dna", tags=["draft-dna"])
@@ -106,3 +119,154 @@ async def analyze_draft_dna(
         profile = await run_in_threadpool(style_profile.analyze_style, texts, "hi")
 
     return {"ok": True, "draft_style": profile}
+
+
+# ===========================================================================
+# LAYOUT DNA — exact-layout mirroring (page/margins/indents/tabs/tables/font).
+# Capture the advocate's .docx layout, save it under his id, and render new
+# drafts into it in his own font. Works for any advocate / language.
+# ===========================================================================
+def _layout_summary(tpl: Optional[dict]) -> dict:
+    """What the Draft DNA screen needs to show — and to DRAW the advocate's page:
+    page geometry, each block's real format, and the per-signal confidence."""
+    if not tpl:
+        return {"has_layout": False}
+    from headnote.drafter import layout_template as LT
+    return {
+        "has_layout": True,
+        "font": LT.template_primary_font(tpl),
+        "page": tpl.get("page", {}),
+        "roles": sorted((tpl.get("roles") or {}).keys()),
+        "role_formats": tpl.get("roles", {}),
+        "tables": tpl.get("tables") or [],
+        "n_drafts": tpl.get("n_drafts"),
+        "confidence": tpl.get("confidence", {}),
+        # his own page, block by block — shown on the confirm screen so he can see
+        # a faithful reproduction rather than a mock-up. Not persisted.
+        "preview_blocks": tpl.get("preview_blocks") or [],
+        # which document types he has an EXACT template for (his own file reused)
+        "skeletons": (tpl.get("skeletons") or {}),
+    }
+
+
+@router.get("/layout", summary="The advocate's saved LAYOUT template (summary)")
+def get_layout(user: CurrentUser = Depends(require_beta)) -> dict:
+    return {"ok": True, **_layout_summary(style_profile.load_layout(user.id))}
+
+
+@router.post("/capture", summary="Upload filed .docx drafts → learn + SAVE the advocate's format (his id)")
+async def capture_layout_dna(
+    files: Optional[List[UploadFile]] = File(None),
+    file: Optional[UploadFile] = File(None),
+    doc_type: str = Form("general"),
+    user: CurrentUser = Depends(require_beta),
+) -> dict:
+    """Read the advocate's own .docx filings and persist his format under his id.
+
+    Two drafts of the SAME type give the exact path: his own file becomes the
+    template and only case-specific values are swapped. A single draft still gives
+    his measured geometry + font. Needs real .docx — a scan has no layout inside."""
+    from headnote.drafter import dna_layout
+
+    uploads: List[UploadFile] = list(files or [])
+    if file:
+        uploads.append(file)
+    if not uploads:
+        return JSONResponse({"ok": False, "error": "attach at least one filed .docx draft"}, status_code=400)
+    if len(uploads) > _MAX_FILES:
+        return JSONResponse({"ok": False, "error": f"too many files; max {_MAX_FILES}"}, status_code=400)
+
+    payload: list = []
+    for up in uploads:
+        name = up.filename or ""
+        if not name.lower().endswith(".docx"):
+            continue
+        data = await up.read()
+        if data and len(data) <= _MAX_BYTES:
+            payload.append((data, name))
+    if not payload:
+        return JSONResponse({"ok": False, "error":
+                             "your format is read from Word files (.docx) — a scan or PDF has no "
+                             "layout stored inside it"}, status_code=400)
+
+    with check_and_record(user.id, "draft", endpoint="draft_dna_capture", email=user.email):
+        try:
+            tpl = await run_in_threadpool(dna_layout.capture_and_save, user.id, payload,
+                                          doc_type=doc_type)
+        except Exception as e:
+            log.exception("format capture failed for %.8s", user.id)
+            raise HTTPException(status_code=502, detail=f"could not save your format: {e}")
+    if not tpl.get("roles") and not tpl.get("exact_for"):
+        return JSONResponse({"ok": False, "error":
+                             "could not read the structure of these drafts — try your standard filed format"})
+    return {"ok": True, **_layout_summary(tpl),
+            "exact_for": tpl.get("exact_for"),
+            "skeletons": tpl.get("skeletons") or {},
+            "template_preview": tpl.get("template_preview") or [],
+            "fields": tpl.get("fields") or []}
+
+
+@router.get("/template/{doc_type}", summary="The advocate's extracted template for one type")
+def get_template(doc_type: str, user: CurrentUser = Depends(require_beta)) -> dict:
+    """What Headnote will reuse verbatim from his own filing, and which values it
+    will fill — so he can see the template before trusting it."""
+    from headnote.drafter import dna_layout, doc_skeleton
+
+    spine, skel = dna_layout.load_skeleton(user.id, doc_type)
+    if not (spine and skel):
+        return {"ok": True, "has_template": False, "doc_type": doc_type}
+    return {"ok": True, "has_template": True, "doc_type": doc_type,
+            "n_docs": skel.get("n_docs"), "coverage": skel.get("coverage"),
+            "blocks": len(skel.get("blocks") or []),
+            "slots": doc_skeleton.slot_count(skel),
+            "fields": doc_skeleton.slot_fields(skel),
+            "template_preview": dna_layout.template_preview(skel)}
+
+
+class GenerateBody(BaseModel):
+    doc_type: str = Field("general")
+    values: dict = Field(default_factory=dict,
+                         description="field_label → value (or '<block>.<slot>' → value)")
+    blocks: Optional[list] = Field(None, description="fallback content when there is no template")
+    lang: str = Field("hi")
+
+
+@router.post("/generate", summary="A draft in the advocate's own format → .docx")
+async def generate_in_format(body: GenerateBody,
+                             user: CurrentUser = Depends(require_beta)) -> dict:
+    """Fills his own filing (exact) when he has one for this type; otherwise renders
+    into his measured geometry. `how` says which path produced it."""
+    from headnote.drafter import dna_layout
+
+    data, how = await run_in_threadpool(
+        dna_layout.generate, user.id, doc_type=body.doc_type,
+        values=body.values, blocks=body.blocks, lang=body.lang)
+    if not data:
+        return JSONResponse({"ok": False, "error":
+                             "no saved format yet — add a couple of your filed drafts first"},
+                            status_code=400)
+    import base64
+    return {"ok": True, "how": how, "filename": f"{body.doc_type or 'draft'}.docx",
+            "docx_base64": base64.b64encode(data).decode("ascii")}
+
+
+class RenderLayoutBody(BaseModel):
+    blocks: Optional[list] = Field(None, description="[[role, text], …] already tagged")
+    lines: Optional[List[str]] = Field(None, description="[text, …] — labelled server-side")
+    lang: str = Field("hi")
+
+
+@router.post("/render", summary="Render content INTO the advocate's saved layout (his font) → .docx")
+async def render_in_layout(body: RenderLayoutBody, user: CurrentUser = Depends(require_beta)) -> dict:
+    from headnote.drafter import dna_layout
+
+    src = body.blocks if body.blocks else (body.lines or [])
+    if not src:
+        return JSONResponse({"ok": False, "error": "nothing to render"}, status_code=400)
+    if not dna_layout.has_layout(user.id):
+        return JSONResponse({"ok": False, "error": "no saved layout — upload your drafts first"}, status_code=400)
+    data = await run_in_threadpool(dna_layout.apply_layout, user.id, src, lang=body.lang)
+    if not data:
+        return JSONResponse({"ok": False, "error": "could not render into your layout"}, status_code=502)
+    import base64
+    return {"ok": True, "filename": "draft.docx", "docx_base64": base64.b64encode(data).decode("ascii")}

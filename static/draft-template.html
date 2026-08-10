@@ -577,6 +577,29 @@
   <!-- LEFT: form -->
   <div class="form-pane" id="form-pane">
     <div id="form-container"><!-- sections rendered by JS --></div>
+    <!-- Verified case-law rail — bail family. /suggest (deterministic, ₹0): sections
+         check, verified authorities, limitation. "add to grounds" drops a citation
+         line into custom_grounds for the advocate to complete. -->
+    <style>
+      .auth-rail{margin:16px 0 4px;border:1px solid var(--line,#e6e2d9);border-radius:10px;background:var(--panel,#fff);padding:12px 14px}
+      .auth-rail__h{font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted,#888);margin-bottom:8px}
+      #auth-rail-tag{font-size:9px;border:1px solid var(--line,#ddd);border-radius:4px;padding:1px 5px;margin-left:4px;text-transform:none}
+      .ar-row{display:flex;gap:8px;align-items:baseline;font-size:12.5px;padding:3px 0}
+      .ar-row small{display:block;color:var(--muted,#999);font-size:11px}
+      .ar-pip{width:7px;height:7px;border-radius:50%;flex:0 0 auto;margin-top:5px;background:var(--line,#ccc)}
+      .ar-row--ok .ar-pip{background:#2e9e5b}.ar-row--flag .ar-pip{background:#c0392b}.ar-row--info .ar-pip{background:#e0a800}
+      .ar-sub{font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted,#999);margin:10px 0 4px}
+      .ar-auth{display:flex;gap:7px;align-items:baseline;font-size:12.5px;padding:4px 0;border-top:1px dotted var(--line,#eee)}
+      .ar-auth__t{flex:1}
+      .ar-v{font-size:11px}.ar-v--x{opacity:.55}
+      .ar-add{flex:0 0 auto;font-size:10.5px;border:1px solid var(--line-strong,#ccc);background:var(--panel,#fff);border-radius:5px;padding:2px 7px;cursor:pointer;font-family:inherit;color:var(--ink,#222)}
+      .ar-add:hover{background:var(--soft,#f4f2ec)}.ar-add:disabled{opacity:.6;cursor:default}
+      .ar-lim{margin-top:9px;font-size:11.5px;color:var(--muted,#7a6a2a);background:var(--soft,#fbf7ec);border-radius:6px;padding:6px 9px}
+    </style>
+    <div id="auth-rail" class="auth-rail" hidden>
+      <div class="auth-rail__h mono">सुझाव · authorities <span id="auth-rail-tag"></span></div>
+      <div id="auth-rail-body"></div>
+    </div>
     <div class="form-cta">
       <button class="btn btn--primary" id="btn-generate">
         <span id="gen-label" data-en="✨ Refresh Draft" data-hi="✨ दस्तावेज़ ताज़ा करें">✨ दस्तावेज़ ताज़ा करें</span>
@@ -622,6 +645,8 @@
 
 <script src="/static/auth.js?v=20260527a"></script>
 <script src="/static/voice.js?v=20260626a"></script>
+<!-- ⌘K statute quick-look — a section check without leaving the draft -->
+<script src="/static/statute-palette.js?v=20260803a" defer></script>
 <!-- PDFs now render server-side via POST /api/draft/pdf (replaced html2pdf.js) -->
 <script>
 // =========================================================================
@@ -1009,6 +1034,7 @@ async function loadTemplate() {
     // advocate's OWN profile (chamber/enrolment) is re-applied below — never
     // client-entered data.
     clearAllSavedDrafts();
+    consumeFirPrefill();          // one-shot FIR confirm-step fields (survives the clear)
     await prefillFromPersona();
     maybeRenderInitial();
   } catch (e) {
@@ -1049,6 +1075,29 @@ async function prefillFromPersona() {
       if (input) input.value = val;
     });
   } catch (e) { /* non-fatal */ }
+}
+
+// One-shot pre-fill from the "Draft from FIR" confirm step (index.html). The
+// advocate has already reviewed every value there, so we trust it into the form.
+// Stashed in sessionStorage under a key clearAllSavedDrafts() does NOT purge;
+// consumed once (removed after read) so a later manual visit starts blank.
+function consumeFirPrefill() {
+  try {
+    const raw = sessionStorage.getItem('hn_fir_prefill');
+    if (!raw) return;
+    const pre = JSON.parse(raw);
+    // Only apply to the template it was built for — never leak onto another type.
+    if (!pre || pre.docType !== state.docType || !pre.fields) return;
+    sessionStorage.removeItem('hn_fir_prefill');
+    state.fields = state.fields || {};
+    if (pre.lang === 'hi' || pre.lang === 'en') state.lang = pre.lang;
+    Object.entries(pre.fields).forEach(([key, val]) => {
+      if (val == null || String(val).trim() === '') return;
+      state.fields[key] = val;
+      const input = document.querySelector(`[name="${key}"]`);
+      if (input) input.value = val;
+    });
+  } catch (e) { /* non-fatal — form just opens blank */ }
 }
 function showError(msg) {
   hideBootLoader();
@@ -2056,6 +2105,92 @@ function renderDocument() {
   // tabs let them switch when they're ready.
   fitDocToWidth();
   requestAnimationFrame(fitDocToWidth);   // re-measure once fonts/layout settle
+  maybeAuthRail();                        // refresh the verified case-law rail (bail family)
+}
+
+// ---- Verified case-law rail (bail family) --------------------------------
+// Deterministic /suggest (llm:false, ₹0): sections check + verified authorities
+// + limitation, beside the form. "add to grounds" appends a citation line to
+// custom_grounds for the advocate to complete — never auto-writes legal facts.
+function _authFamily() {
+  const d = state.docType || '';
+  if (/^anticipatory/.test(d)) return 'anticipatory_bail';
+  if (d === 'default_bail') return 'default_bail';
+  if (/^bail_/.test(d)) return 'bail';
+  return null;   // rail is scoped to bail-family templates
+}
+let _authTimer = null, _authKey = '';
+function maybeAuthRail() {
+  if (!_authFamily()) return;
+  clearTimeout(_authTimer);
+  _authTimer = setTimeout(renderAuthRail, 700);
+}
+async function renderAuthRail() {
+  const fam = _authFamily();
+  const rail = document.getElementById('auth-rail');
+  if (!fam || !rail) return;
+  const tmp = document.createElement('div');
+  tmp.innerHTML = (typeof state.document === 'string') ? state.document : '';
+  const text = (tmp.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 6000);
+  const key = fam + '|' + state.lang + '|' + text.length;
+  if (key === _authKey) return;   // nothing material changed → skip the fetch
+  _authKey = key;
+  try {
+    const r = await fetch('/api/draft/suggest', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ doc_type: fam, text: text || 'जमानत आवेदन', lang: state.lang === 'en' ? 'en' : 'hi', llm: false }),
+    });
+    const s = await r.json();
+    if (!s || s.ok === false) { rail.hidden = true; return; }
+    paintAuthRail(s);
+  } catch (e) { rail.hidden = true; }
+}
+function paintAuthRail(s) {
+  const en = state.lang === 'en';
+  const rail = document.getElementById('auth-rail');
+  const body = document.getElementById('auth-rail-body');
+  const tag = document.getElementById('auth-rail-tag');
+  if (!rail || !body) return;
+  tag.textContent = en ? 'verified only' : 'सत्यापित';
+  let h = '';
+  (s.sections || []).forEach(x => {
+    const cls = x.state === 'ok' ? 'ok' : (x.state === 'flag' ? 'flag' : 'info');
+    h += `<div class="ar-row ar-row--${cls}"><span class="ar-pip"></span><span>${esc(x.text)}${x.detail ? `<small>${esc(x.detail)}</small>` : ''}</span></div>`;
+  });
+  const auths = (s.authorities || []);
+  if (auths.length) {
+    h += `<div class="ar-sub mono">${en ? 'authorities' : 'न्यायदृष्टान्त'}</div>`;
+    auths.slice(0, 6).forEach((a, i) => {
+      const v = a.verified
+        ? `<span class="ar-v" title="${en ? 'verified against source' : 'स्रोत से सत्यापित'}">✓</span>`
+        : `<span class="ar-v ar-v--x" title="${en ? 'verify before use' : 'प्रयोग से पूर्व सत्यापित करें'}">⚠</span>`;
+      h += `<div class="ar-auth">${v}<span class="ar-auth__t"><strong>${esc(a.case || '')}</strong>${a.point ? ` — ${esc(a.point)}` : ''}</span>` +
+           `<button type="button" class="ar-add" data-i="${i}">${en ? '＋ grounds' : '＋ आधार'}</button></div>`;
+    });
+  }
+  if (s.limitation) h += `<div class="ar-lim">⏱ ${esc(s.limitation)}</div>`;
+  if (!h) h = `<div class="ar-row ar-row--ok"><span class="ar-pip"></span><span>${en ? 'Sections and structure look right.' : 'धाराएँ व ढाँचा सही दिख रहे हैं।'}</span></div>`;
+  body.innerHTML = h;
+  rail.hidden = false;
+  body.querySelectorAll('.ar-add').forEach(btn => {
+    btn.addEventListener('click', () => addAuthorityToGrounds(auths[+btn.dataset.i], btn));
+  });
+}
+// Append a verified citation as a fresh custom-grounds line. We add a citation
+// reference the advocate then completes — we never fabricate the legal argument.
+function addAuthorityToGrounds(a, btn) {
+  if (!a) return;
+  const en = state.lang === 'en';
+  const line = en
+    ? `Reliance is placed on ${a.case}${a.point ? ` (${a.point})` : ''}.`
+    : `${a.case} में प्रतिपादित विधि${a.point ? ` (${a.point})` : ''} पर विश्वास किया जाता है।`;
+  const cur = String(state.fields.custom_grounds || '').trim();
+  const next = cur ? (cur + '\n' + line) : line;
+  state.fields.custom_grounds = next;
+  const ta = document.querySelector('[name="custom_grounds"]');
+  if (ta) ta.value = next;
+  if (typeof _commit === 'function') _commit('custom_grounds', next);
+  if (btn) { btn.textContent = en ? '✓ added' : '✓ जोड़ा'; btn.disabled = true; }
 }
 
 // The canonical draft is a fixed 210mm A4 sheet (.doc-a4). On a screen narrower

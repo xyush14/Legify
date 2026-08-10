@@ -35,6 +35,7 @@ import re
 from typing import Optional
 
 from headnote import config
+from headnote.drafter import dna_blocks as _dna_blocks
 from headnote.drafter.templates._doc_header import render_header, compose_court_name
 
 
@@ -2094,6 +2095,9 @@ def author_document(matter: str, doc_type: str, lang: str = "hi", *, court: str 
         "ungrounded": rendered.get("ungrounded") or [],
         "title": payload.get("title_line") or brief_for(doc_type)["label_hi"],
         "meta": payload.get("_meta"),
+        # role-tagged blocks for Draft DNA — the same document as `html`, but as
+        # raw text the advocate's own layout can be rendered around (dna_blocks)
+        "blocks": _dna_blocks.from_authored(payload, lang),
     }
 
 
@@ -2137,4 +2141,5 @@ def revise_document(prior_text: str, instruction: str, doc_type: str = "other_cr
         "ungrounded": rendered.get("ungrounded") or [],
         "title": payload.get("title_line") or brief_for(doc_type)["label_hi"],
         "meta": payload.get("_meta"),
+        "blocks": _dna_blocks.from_authored(payload, lang),
     }

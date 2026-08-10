@@ -1,9 +1,29 @@
 # Court format rules
 
-Format is taken from Vishnu ji's real filed documents — these rules describe what
-those documents already do, so authored grounds slot in without disturbing layout.
+## SCOPE — read this before anything below
 
-## ★ THE CANONICAL HEADER — pixel-exact, EVERY application (the "60% win")
+Everything in this file describes **COURT FILINGS ONLY**, and the measurements come
+from **ONE advocate's practice** (an MP district / Gwalior-bench criminal practice,
+Hindi, Kruti Dev). It is a worked example of what a good filing looks like, **not the
+universal law of Indian drafting**. Two limits are hard:
+
+1. **It does not apply to a document that is not filed in a court.** An application to
+   a police station or an executive officer, a legal notice, an agreement or deed, and
+   a standalone affidavit have **no court name, no case number, no विरुद्ध and no
+   opposing-party block**. Their shapes live in `headnote/drafter/doctypes.py` and are
+   rendered by `author_parts.py`. Never impose a cause-title on one of them.
+2. **It does not override the advocate you are drafting for.** Where the advocate has
+   Draft DNA (their own filed `.docx`, captured), THEIR page size, margins, font and
+   per-block formatting govern — that is the whole point of Draft DNA. Where they have
+   none, use the standard court format for their State and forum, in their language and
+   script. Never carry Hindi wording, Kruti Dev, legal-size paper or an MP cause-title
+   into a matter from another State.
+
+Read "EVERY application" below as "every court filing **in this one advocate's
+practice**". Headnote is built for lakhs of advocates across every State — this file is
+the specimen, not the rule.
+
+## ★ THE CANONICAL HEADER for a court filing — pixel-exact in this practice (the "60% win")
 
 Ayush's rule: the **first part of every application is a pixel-exact mirror** of
 `legal_petition_template.docx`; only the variables change; then the body begins
@@ -41,11 +61,13 @@ append the body; the HTML render (`_doc_header.HEADER_CSS`) is the on-screen rev
 
 ---
 
-## Standard top-section — EVERY application (the uniform header) — *(superseded by the canonical header above; kept for the per-forum cause-title defaults)*
+## Standard top-section — every COURT FILING in this practice — *(superseded by the canonical header above; kept for the per-forum cause-title defaults)*
 
-Reproduced from Vishnu Ji's filings; confirmed by him. Identical on every draft —
-only the court line and case-type label change per forum. ~20% of drafting errors
-come from an inconsistent top, so this is fixed and enforced.
+Reproduced from one advocate's filings and confirmed by him. Within a court filing it
+is consistent — only the court line and case-type label change per forum. ~20% of
+drafting errors come from an inconsistent top, so it is worth getting right.
+
+**This does not apply to a non-court document.** See SCOPE at the top of this file.
 
 1. **Side-line** — *centered*, small: who the draft is on behalf of —
    `बंदी की ओर से` / `आवेदक की ओर से`. In English **`बंदी` → "Applicant"**, never
@@ -68,8 +90,9 @@ come from an inconsistent top, so this is fixed and enforced.
    ```
 
 No other header line (no court address, no coram). Enforced centrally in
-`headnote/drafter/compose.py::_generate_document` (mandatory header block that
-overrides any per-spec header) + the bail/discharge/complaint canvases' CSS.
+`headnote/drafter/compose.py::_generate_document` (a header block that overrides any
+per-spec header **for a court filing**, and is skipped for every non-court family) +
+the bail/discharge/complaint canvases' CSS.
 
 ## MP district / sessions (`mp_district_krutidev`)  — the current default
 - Font: **Kruti Dev 010** (legacy ASCII-mapped; not Unicode). Values are

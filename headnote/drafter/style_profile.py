@@ -402,11 +402,75 @@ def load_style(user_id: Optional[str]) -> Optional[dict]:
 
 def save_style(user_id: str, profile: Optional[dict]) -> Optional[dict]:
     """Persist (or clear, when profile is None) the StyleProfile. Returns what was
-    stored. Raises on a hard DB error so the API surfaces a 502."""
+    stored. Raises on a hard DB error so the API surfaces a 502.
+
+    The advocate's LAYOUT template lives in the same jsonb column but is not part
+    of the (sanitised) StyleProfile shape, so it is carried across explicitly —
+    otherwise saving the text-style half would silently destroy the layout half.
+    The read is strict: a failed read aborts rather than overwriting blind.
+    """
     from headnote.entitlements import _supabase
-    payload = {"draft_style": sanitize_profile(profile) if profile is not None else None}
-    _supabase.update("user_profiles", payload, params={"id": f"eq.{user_id}"})
-    return payload["draft_style"]
+    existing_layout = _load_raw(user_id, strict=True).get("layout")
+    if profile is None:
+        # clearing the text style keeps a saved layout (they are separate DNA)
+        stored = {"layout": existing_layout} if isinstance(existing_layout, dict) else None
+    else:
+        stored = sanitize_profile(profile)
+        if isinstance(existing_layout, dict):
+            stored["layout"] = existing_layout
+    _supabase.update("user_profiles", {"draft_style": stored}, params={"id": f"eq.{user_id}"})
+    return stored
+
+
+def _load_raw(user_id: Optional[str], *, strict: bool = False) -> dict:
+    """The advocate's full draft_style row as-is (unfiltered), or {}.
+
+    `strict=True` RE-RAISES a read error instead of returning {} — required by
+    the read-modify-write in `save_layout`: silently treating a failed read as
+    "no existing record" would overwrite (and destroy) the advocate's saved
+    text-style DNA.
+    """
+    if not user_id:
+        return {}
+    try:
+        from headnote.entitlements import _supabase
+        rows = _supabase.select(
+            "user_profiles",
+            params={"id": f"eq.{user_id}", "select": "draft_style", "limit": "1"},
+        )
+    except Exception as e:
+        log.warning("draft_style read failed for %.8s: %s", user_id, e)
+        if strict:
+            raise
+        return {}
+    ds = (rows[0].get("draft_style") if rows else None)
+    return ds if isinstance(ds, dict) else {}
+
+
+def load_layout(user_id: Optional[str]) -> Optional[dict]:
+    """The advocate's saved LAYOUT template (page geometry + per-role format),
+    or None. Stored under `draft_style["layout"]`, keyed by their user id."""
+    layout = _load_raw(user_id).get("layout")
+    return layout if isinstance(layout, dict) and layout.get("roles") else None
+
+
+def save_layout(user_id: str, layout: Optional[dict]) -> Optional[dict]:
+    """Persist the advocate's layout template under their own id, merged into the
+    same one-row-per-user draft_style record so their text-style DNA is preserved.
+    Pass None to clear. Raises on a hard DB error (surfaces as 502).
+
+    The read is STRICT on purpose: this is a read-modify-write of one jsonb
+    column, so a failed read must abort the write — otherwise a transient network
+    error would blow away the advocate's saved style profile.
+    """
+    from headnote.entitlements import _supabase
+    ds = _load_raw(user_id, strict=True)
+    if layout is None:
+        ds.pop("layout", None)
+    else:
+        ds["layout"] = layout
+    _supabase.update("user_profiles", {"draft_style": ds or None}, params={"id": f"eq.{user_id}"})
+    return ds.get("layout")
 
 
 def _is_meaningful(style: dict) -> bool:
@@ -427,5 +491,11 @@ def _is_meaningful(style: dict) -> bool:
     if [d for d in (style.get("directives") or []) if isinstance(d, dict) and d.get("value")]:
         return True
     if [e for e in (style.get("exemplars") or []) if isinstance(e, dict) and (e.get("text") or "").strip()]:
+        return True
+    # a saved LAYOUT template is DNA in its own right (an advocate can have layout
+    # mirroring with no text-style overrides) — otherwise such a user reads as
+    # "no DNA" and the UI shows the wrong state.
+    lay = style.get("layout")
+    if isinstance(lay, dict) and lay.get("roles"):
         return True
     return False

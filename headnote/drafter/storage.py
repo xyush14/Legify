@@ -24,6 +24,9 @@ from pathlib import Path
 from typing import Iterator, Optional
 
 from headnote.config import KANOON_CACHE_PATH
+from headnote import pgstore
+
+_PG = "drafts"  # public.drafts — the durable backend (migration 012)
 
 
 def _init_schema(conn: sqlite3.Connection) -> None:
@@ -87,6 +90,18 @@ class Draft:
     case_id: Optional[str] = None
 
     @staticmethod
+    def _from_pg(d: dict) -> "Draft":
+        """Postgres returns named columns (and real JSON); SQLite returns a tuple."""
+        return Draft(
+            id=d["id"], user_id=d.get("user_id"), story_id=d.get("story_id"),
+            template_version=d.get("template_version") or 1,
+            lang=d.get("lang") or "en", answers=pgstore.parse_json(d.get("answers_json")),
+            title=d.get("title"), created_at=d.get("created_at"),
+            updated_at=d.get("updated_at"), exported_at=d.get("exported_at"),
+            exported_format=d.get("exported_format"), case_id=d.get("case_id"),
+        )
+
+    @staticmethod
     def _row_to(d) -> "Draft":
         return Draft(
             id=d[0], user_id=d[1], story_id=d[2], template_version=d[3],
@@ -126,6 +141,14 @@ def create_draft(
     now = datetime.now(timezone.utc).isoformat()
     draft_id = uuid.uuid4().hex
     answers_json = json.dumps(answers or {}, ensure_ascii=False)
+    if pgstore.ready(_PG):
+        row = pgstore.insert(_PG, {
+            "id": draft_id, "user_id": user_id, "case_id": case_id,
+            "story_id": story_id, "template_version": template_version,
+            "lang": lang, "answers_json": answers or {}, "title": title,
+        }, json_cols=("answers_json",))
+        if row:
+            return Draft._from_pg(row)
     with _conn() as c:
         c.execute(
             "INSERT INTO drafts (id, user_id, story_id, template_version, lang, answers_json, title, created_at, updated_at, case_id) "
@@ -142,6 +165,10 @@ def create_draft(
 
 
 def get_draft(draft_id: str) -> Optional[Draft]:
+    if pgstore.ready(_PG):
+        row = pgstore.get(_PG, draft_id)
+        if row:
+            return Draft._from_pg(row)
     with _conn() as c:
         row = c.execute(
             "SELECT id, user_id, story_id, template_version, lang, answers_json, "
@@ -170,6 +197,12 @@ def update_draft(
     new_title   = title   if title   is not None else existing.title
     now = datetime.now(timezone.utc).isoformat()
 
+    if pgstore.ready(_PG):
+        row = pgstore.update(_PG, draft_id, {
+            "answers_json": new_answers, "lang": new_lang, "title": new_title,
+        }, json_cols=("answers_json",))
+        return Draft._from_pg(row) if row else None
+
     with _conn() as c:
         c.execute(
             "UPDATE drafts SET answers_json = ?, lang = ?, title = ?, updated_at = ? WHERE id = ?",
@@ -196,6 +229,10 @@ def list_drafts(*, user_id: Optional[str] = None, limit: int = 20,
     """Return the user's recent drafts (most-recently-updated first).
     Pass user_id=None to list anonymous drafts (development only).
     Pass case_id to return only drafts filed under that matter."""
+    if pgstore.ready(_PG):
+        rows = pgstore.listing(_PG, user_id=user_id, limit=limit, case_id=case_id,
+                               order="updated_at.desc")
+        return [Draft._from_pg(r) for r in rows]
     where = ["user_id IS NULL"] if user_id is None else ["user_id = ?"]
     params: list = [] if user_id is None else [user_id]
     if case_id is not None:
@@ -214,6 +251,8 @@ def list_drafts(*, user_id: Optional[str] = None, limit: int = 20,
 def set_draft_case(draft_id: str, *, case_id: Optional[str], user_id: Optional[str]) -> bool:
     """Attach (or, with case_id=None, detach) a draft to a case folder.
     Ownership-scoped: only the owning user can re-file their draft."""
+    if pgstore.ready(_PG):
+        return pgstore.set_field(_PG, draft_id, "case_id", case_id, user_id=user_id)
     with _conn() as c:
         cur = c.execute(
             "UPDATE drafts SET case_id = ? WHERE id = ? AND user_id IS ?",
@@ -224,6 +263,8 @@ def set_draft_case(draft_id: str, *, case_id: Optional[str], user_id: Optional[s
 
 
 def delete_draft(draft_id: str) -> bool:
+    if pgstore.ready(_PG):
+        return pgstore.remove(_PG, draft_id)
     with _conn() as c:
         cur = c.execute("DELETE FROM drafts WHERE id = ?", (draft_id,))
         c.commit()

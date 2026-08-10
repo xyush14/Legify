@@ -30,6 +30,8 @@
   .saved{margin-left:auto;display:flex;align-items:center;gap:6px;color:var(--ink-3);font-size:12px;white-space:nowrap}
   .saved .dot{width:6px;height:6px;border-radius:50%;background:#5aa84b}
   .saved.saving .dot{background:var(--warn-mark)}
+  .saved.failed{color:#b4232a;font-weight:560}
+  .saved.failed .dot{background:#b4232a}
   .langtog{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;font-family:var(--mono);font-size:11px}
   .langtog button{padding:5px 10px;color:var(--ink-3)}
   .langtog button.on{background:var(--ink);color:#fff}
@@ -316,19 +318,27 @@
 
   function setSaved(state){
     var s=$("saved"), tx=$("saved-tx");
-    if(state==="saving"){s.classList.add("saving");tx.textContent="Saving…";}
-    else{s.classList.remove("saving");tx.textContent="Saved";}
+    s.classList.toggle("saving", state==="saving");
+    s.classList.toggle("failed", state==="failed");
+    tx.textContent = state==="saving" ? "Saving…"
+                   : state==="failed" ? "Not saved" : "Saved";
   }
 
   function save(){
     var body=currentBody(), page=currentPage();
     if(body==null){ setSaved("saved"); return; }
     if(lang==="en"){ A.html_en=body; A.page_en=page; } else { A.html_hi=body; A.page_hi=page; }
+    // Only a 2xx may print "Saved". This reported success on every outcome
+    // including a 500, so a save the server rejected looked exactly like one
+    // that worked — and dirty=false dropped the beforeunload retry as well,
+    // taking the edit with it.
     fetch("/api/draft/"+encodeURIComponent(DRAFT_ID),{
       method:"PATCH",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({answers:A})
-    }).then(function(r){ setSaved("saved"); dirty=false; })
-      .catch(function(){ setSaved("saved"); });
+    }).then(function(r){
+      if(!r.ok) throw new Error("HTTP "+r.status);
+      setSaved("saved"); dirty=false;
+    }).catch(function(){ setSaved("failed"); dirty=true; });
   }
   // save on leave if a pending edit exists
   window.addEventListener("beforeunload",function(){ if(dirty){ try{ save(); }catch(e){} } });

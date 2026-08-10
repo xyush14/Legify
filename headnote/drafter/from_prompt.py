@@ -3,8 +3,16 @@
 One freeform prompt (Hindi / English / Hinglish) → a court-ready draft, the best we
 can produce:
 
-  1. CLASSIFY  — a cheap LLM call maps the prompt to a doc_type (+ court + bail_type).
+  1. CLASSIFY  — a cheap LLM call maps the prompt to a doc_type (+ court + bail_type)
+     AND to the two axes that decide the document's SHAPE: who it is addressed to
+     (forum_type) and what instrument it is. Those resolve to a FAMILY (doctypes.py).
   2. ROUTE:
+       • a NON-COURT family (an application to a police station or an executive
+         officer, a notice, a standalone affidavit, a deed) → the parts engine
+         (author_parts.py). These documents have no cause-title, no opposing party
+         and no prayer, so forcing them through the court renderer produced a
+         document the advocate could not send. Reviewed canonical templates still
+         win where one exists for the type.
        • a DETERMINISTIC type we have a template for (the moat — bail, anticipatory,
          discharge, revision, appeal, maintenance, dv, quashing, §138, vakalatnama,
          parivad) → extract the fields from the prompt and render the VERBATIM,
@@ -26,6 +34,7 @@ import logging
 import os
 
 from headnote.drafter import author
+from headnote.drafter import doctypes as DT
 
 log = logging.getLogger("headnote.drafter")
 
@@ -92,7 +101,36 @@ CLASSIFY_SYSTEM = """You are the intake router for a pan-India litigation drafti
 tribunals and High Courts across ALL Indian States and Union Territories). Read the advocate's description of
 what they want to draft — it may be in Hindi, English or Hinglish — and classify it. Output ONLY valid JSON,
 no prose:
-{"doc_type": "<one key below>", "court": "magistrate"|"sessions"|"hc"|"family"|"civil"|"consumer"|"", "bail_type": "regular"|"anticipatory"|"", "language": "hi"|"en", "confidence": 0.0-1.0, "reason": "<short>"}
+{"doc_type": "<one key below>", "court": "magistrate"|"sessions"|"hc"|"family"|"civil"|"consumer"|"", "bail_type": "regular"|"anticipatory"|"", "forum_type": "<see FORUM below>", "instrument": "<see INSTRUMENT below>", "forum_name": "<the office/court the advocate named, verbatim; \"\" if none>", "language": "hi"|"en", "confidence": 0.0-1.0, "reason": "<short>"}
+
+FORUM — WHO IS THIS DOCUMENT ADDRESSED TO? This decides the document's SHAPE and matters as much
+as doc_type. A court filing has a cause-title, an opposing party and a prayer; a letter to an officer
+has none of those. Getting this wrong produces a document the advocate cannot file or send.
+  court          a judge — Magistrate, Sessions, District Judge, Family, High Court, Supreme Court
+  tribunal       NCLT, DRT, MACT, Consumer Commission, CAT, appellate authorities
+  police         a police officer — थाना प्रभारी / SHO / Inspector / SP / Commissioner
+  executive      a revenue or executive officer — Collector, SDM, Tahsildar, RTO, municipal, excise
+  registrar      Sub-Registrar, Registrar of Firms/Societies/Companies, university registrar
+  institution    a bank, insurer, employer, school/university, utility company
+  private_party  the other side directly (a notice, or a reply to their notice)
+  none           addressed to nobody — a standalone affidavit, a deed, an agreement
+DEFAULT TO "court". Choose another value ONLY on a clear signal — the advocate naming a थाना, an
+officer, an office, or saying the document is to be SENT/SUBMITTED rather than filed.
+
+INSTRUMENT — WHAT KIND OF DOCUMENT IS IT?
+  petition | application | complaint | notice | reply | affidavit | deed | representation
+  "deed" covers an agreement, sale deed, rent/lease agreement, partnership deed, MoU, power of
+  attorney — anything executed BETWEEN parties rather than filed or sent.
+
+Forum examples, so the distinction is concrete:
+  • "थाना कोतवाली में गाड़ी छुड़ाने का आवेदन" / "application to the police station"
+        → forum_type "police", instrument "application"   (NOT a court filing)
+  • "धारा 457 में सुपुर्दगी आवेदन" / "supurdgi application before the Magistrate"
+        → forum_type "court", instrument "application"
+  • "SDM को अतिक्रमण की शिकायत" → forum_type "executive", instrument "complaint"
+  • "किरायानामा बनाना है" / "draft a rent agreement" → forum_type "none", instrument "deed"
+  • "वसूली का नोटिस भेजना है" → forum_type "private_party", instrument "notice"
+  • "बैंक को लोन सेटलमेंट का पत्र" → forum_type "institution", instrument "representation"
 
 "language" = the language the DRAFT should be written in, inferred from how the advocate wrote:
   • Devanagari (Hindi) text → "hi".
@@ -143,6 +181,12 @@ doc_type keys (pick the SINGLE best fit):
   eviction_suit      landlord's suit to evict a tenant / arrears of rent (MP Accommodation Control Act §12; बेदखली)
   written_statement  the DEFENDANT's written statement / जवाबदावा in reply to a plaint (Order VIII CPC)
   consumer_complaint consumer complaint — defective goods / deficient service (CPA 2019; उपभोक्ता परिवाद)
+  authority_application  an application, representation or complaint addressed to an OFFICE rather than
+                     a court — a police station, Collector/SDM/Tahsildar/RTO, a Registrar, a bank,
+                     an employer, a university. Use this whenever the advocate is writing TO an
+                     officer, even if a court could also be moved on the same facts.
+  deed               a document executed BETWEEN parties — agreement, sale deed, rent/lease agreement,
+                     partnership deed, MoU, power of attorney, gift deed, relinquishment
   other_criminal     any OTHER criminal application/petition with no specific key
   other_civil        any OTHER civil matter with no specific key above — probate, succession, execution, misc. civil application
 
@@ -173,7 +217,10 @@ Rules:
 - §138 cheque matters: the PAYEE filing a complaint → cheque_138; if the client IS the accused/summoned
   (director, signatory, drawer — any defence posture) → ni_138_dismiss, never cheque_138.
 - Police refusing/not registering the FIR → complaint_156, NOT parivad.
-- Release of a seized vehicle / phone / goods → supurdgi.
+- Release of a seized vehicle / phone / goods: if it is to be moved BEFORE THE COURT → supurdgi,
+  forum_type "court". If the advocate says the application goes TO THE THANA / to the police →
+  authority_application, forum_type "police". Draft what the advocate asked for; do not silently
+  convert a letter to an officer into a court application.
 - Civil: pick the SPECIFIC civil key when the relief is clear (recovery_suit / injunction_suit /
   specific_performance / declaration_suit / partition_suit / eviction_suit / written_statement /
   consumer_complaint); other_civil ONLY when none fits. A suit combining declaration AND injunction →
@@ -207,12 +254,18 @@ def resolve_lang(requested: str, text: str, cls_language: str = "") -> str:
 
 
 def classify(matter: str, lang: str = "hi") -> dict:
-    """Map a freeform matter description to {doc_type, court, bail_type, language, confidence}.
-    Falls back to a safe heuristic if the LLM is unavailable."""
+    """Map a freeform matter description to
+    {doc_type, court, bail_type, forum_type, instrument, forum_name, family, language, confidence}.
+
+    `family` (from doctypes.resolve_family) is what decides the document's SHAPE — a court
+    cause-title, a letter to an officer, a notice, an affidavit or a deed. It defaults to
+    the court filing, so a classifier that says nothing about the forum changes nothing.
+    Falls back to a safe heuristic if the LLM is unavailable.
+    """
     from headnote.llm.client import _call_deepseek_or_groq, parse_json_response
     try:
         raw, _meta = _call_deepseek_or_groq(
-            CLASSIFY_SYSTEM, matter.strip(), max_tokens=200, claude_model="claude-haiku-4-5", json_mode=True)
+            CLASSIFY_SYSTEM, matter.strip(), max_tokens=280, claude_model="claude-haiku-4-5", json_mode=True)
         out = parse_json_response(raw)
         dt = (out.get("doc_type") or "").strip()
         if dt not in _VOCAB:
@@ -220,18 +273,150 @@ def classify(matter: str, lang: str = "hi") -> dict:
         language = (out.get("language") or "").strip().lower()
         if language not in ("hi", "en"):
             language = _detect_lang(matter)
+        forum, instrument = _resolve_shape_axes(out, matter, dt)
         return {
             "doc_type": dt,
             "court": (out.get("court") or "").strip(),
             "bail_type": (out.get("bail_type") or "").strip(),
+            "forum_type": forum,
+            "instrument": instrument,
+            "forum_name": (out.get("forum_name") or "").strip(),
+            "family": DT.resolve_family(forum, instrument),
             "language": language,
             "confidence": float(out.get("confidence") or 0.5),
             "reason": out.get("reason") or "",
         }
     except Exception:
-        return {"doc_type": _heuristic_type(matter), "court": "", "bail_type": "",
+        dt = _heuristic_type(matter)
+        forum, instrument = _resolve_shape_axes({}, matter, dt)
+        return {"doc_type": dt, "court": "", "bail_type": "",
+                "forum_type": forum, "instrument": instrument, "forum_name": "",
+                "family": DT.resolve_family(forum, instrument),
                 "language": _detect_lang(matter),
                 "confidence": 0.3, "reason": "heuristic (LLM unavailable)"}
+
+
+# doc_type keys whose shape is settled regardless of what the model says about the
+# forum — a vakalatnama is always a court document, a deed never is.
+_TYPE_FORUM: dict[str, tuple[str, str]] = {
+    "authority_application": ("executive", "application"),
+    "deed":                  ("none", "deed"),
+    "legal_notice":          ("private_party", "notice"),
+    "general_affidavit":     ("none", "affidavit"),
+}
+
+
+# doc_type keys that can only ever be filed in a court. Used ONLY to settle a forum
+# the classifier left blank — if the model explicitly says "police", we believe it and
+# draft the letter the advocate asked for (with `_forum_mismatch_warning` saying what
+# the court can also do). This guard exists so a missing field can never silently turn
+# a bail application into a letter to the SHO.
+_NON_COURT_CAPABLE = {"authority_application", "deed", "legal_notice",
+                      "general_affidavit", "other_criminal", "other_civil"}
+
+
+def _resolve_shape_axes(out: dict, matter: str, doc_type: str) -> tuple[str, str]:
+    """(forum_type, instrument), validated. Unknown or absent values resolve to the
+    court filing — the pre-existing behaviour — so this can only ever ADD shapes."""
+    pinned = _TYPE_FORUM.get(doc_type)
+    forum = (out.get("forum_type") or "").strip().lower()
+    instrument = (out.get("instrument") or "").strip().lower()
+    if forum not in DT.FORUM_TYPES:
+        forum = ""
+    if instrument not in DT.INSTRUMENTS:
+        instrument = ""
+    if not forum and doc_type not in _NON_COURT_CAPABLE and not pinned:
+        # a court-only application whose forum the classifier didn't state
+        return "court", instrument or "application"
+    if not forum or not instrument:
+        h_forum, h_instrument = _heuristic_shape(matter)
+        forum = forum or (pinned[0] if pinned else h_forum)
+        instrument = instrument or (pinned[1] if pinned else h_instrument)
+    return forum or "court", instrument or "application"
+
+
+# Zero-cost keyword floor for the two shape axes, used when the LLM is unavailable or
+# returned nothing usable. Deliberately CONSERVATIVE, and it earns that adjective the
+# hard way: a police station or an officer is named as a FACT in most criminal filings
+# ("FIR 123/2025, thana Kotwali"), so merely spotting the word routed bail and
+# discharge applications to the wrong shape. Two guards fix that:
+#   1. a COURT VETO — a request naming court-only relief is a court filing, full stop;
+#   2. ADDRESSING PHRASES, not office names — the office must be the thing written TO.
+# A wrongly-shaped court filing is a worse failure than a court filing the advocate has
+# to re-point, so anything ambiguous stays on the court path.
+
+# relief only a judge can grant — seeing any of these ends the enquiry
+_COURT_VETO = (
+    "जमानत", "अग्रिम जमानत", "बेल", "bail", "उन्मोचन", "discharge", "आरोपमुक्त",
+    "पुनरीक्षण", "revision", "अपील", "appeal", "निरस्त", "quash", "quashing",
+    "वाद", "suit", "plaint", "याचिका", "petition", "writ", "रिट", "परिवाद",
+    "भरण-पोषण", "भरण पोषण", "maintenance", "वकालतनामा", "vakalatnama",
+    "जवाबदावा", "written statement", "charge sheet", "चार्जशीट", "आरोप पत्र",
+    "trial", "विचारण", "sessions", "सत्र न्यायालय", "मजिस्ट्रेट", "magistrate",
+    "high court", "उच्च न्यायालय", "supreme court", "सर्वोच्च न्यायालय",
+)
+
+# the office must be ADDRESSED, not merely mentioned. These are directional.
+_POLICE_ADDRESSED = (
+    "थाना प्रभारी को", "थाना प्रभारी महोदय", "थानाध्यक्ष को", "थाने को", "थाने में आवेदन",
+    "पुलिस अधीक्षक को", "पुलिस को आवेदन", "पुलिस थाने में आवेदन", "आरक्षी केन्द्र को",
+    "to the police", "to police station", "to the police station", "to the sho",
+    "to sho", "to the station house officer", "to the superintendent of police",
+    "police station ko", "thana prabhari ko", "thane me aavedan", "addressed to the police",
+)
+_EXEC_ADDRESSED = (
+    "कलेक्टर को", "कलेक्टर महोदय", "एसडीएम को", "तहसीलदार को", "आरटीओ को",
+    "नगर निगम को", "जिलाधिकारी को", "आबकारी", "अनुविभागीय अधिकारी को",
+    "to the collector", "to collector", "to the sdm", "to the tahsildar",
+    "to the rto", "to the municipal", "to the district magistrate",
+    "collector ko", "sdm ko", "tahsildar ko",
+)
+_REGISTRAR_ADDRESSED = (
+    "रजिस्ट्रार को", "उप पंजीयक को", "पंजीयक को",
+    "to the registrar", "to registrar", "to the sub-registrar", "to the sub registrar",
+)
+_INSTITUTION_ADDRESSED = (
+    "बैंक को", "बीमा कंपनी को", "नियोक्ता को", "विश्वविद्यालय को", "विद्यालय को",
+    "to the bank", "to the insurance", "to the employer", "to the university",
+    "to the principal", "bank ko",
+)
+_DEED_WORDS = ("किरायानामा", "इकरारनामा", "अनुबंध", "विलेख", "agreement", "rent agreement",
+               "lease deed", "sale deed", "partnership deed", " mou", "power of attorney",
+               "मुख्तारनामा", "दानपत्र", "gift deed", "बैनामा", "relinquishment deed")
+_NOTICE_WORDS = ("नोटिस भेज", "legal notice", "demand notice", "विधिक सूचना", "सूचना पत्र भेज",
+                 "notice bhejna", "नोटिस देना है")
+_AFFIDAVIT_WORDS = ("शपथ पत्र", "शपथपत्र", "affidavit", "हलफनामा")
+
+
+def _heuristic_shape(matter: str) -> tuple[str, str]:
+    p = (matter or "").lower()
+
+    def has(words) -> bool:
+        return any(w in p for w in words)
+
+    # a deed is a deed even in a matter that also mentions a court
+    if has(_DEED_WORDS):
+        return "none", "deed"
+    if has(_NOTICE_WORDS):
+        return "private_party", "notice"
+
+    # court-only relief ends the enquiry — the office in the text is a fact, not an
+    # addressee (this is what kept "bail application … thana kotwali" a court filing)
+    if has(_COURT_VETO):
+        return "court", "application"
+
+    if has(_POLICE_ADDRESSED):
+        return "police", "application"
+    if has(_EXEC_ADDRESSED):
+        return "executive", "application"
+    if has(_REGISTRAR_ADDRESSED):
+        return "registrar", "application"
+    if has(_INSTITUTION_ADDRESSED):
+        return "institution", "representation"
+
+    if has(_AFFIDAVIT_WORDS):
+        return "none", "affidavit"
+    return "court", "application"
 
 
 _VOCAB = {
@@ -244,6 +429,8 @@ _VOCAB = {
     "general_affidavit", "legal_notice",
     "recovery_suit", "injunction_suit", "specific_performance", "declaration_suit",
     "partition_suit", "eviction_suit", "written_statement", "consumer_complaint",
+    # non-court shapes (see doctypes.py) — these have no court cause-title
+    "authority_application", "deed",
     "other_criminal", "other_civil",
 }
 
@@ -324,7 +511,10 @@ def _heuristic_type(matter: str) -> str:
         return "general_affidavit"
     if has("reply", "जवाब ", "जबाव"):
         return "reply"
-    if has("bail", "जमानत", "483", "480", "439", "437"):
+    # "जामीन" (mr) / "જામીન" (gu) / "ஜாமீன்" (ta) / "জামিন" (bn) sit here too: this
+    # ladder is the zero-cost path the instant skeleton uses, and a Pune or Chennai
+    # advocate should not have to write in Hindi or English to get the right shape.
+    if has("bail", "जमानत", "जामीन", "જામીન", "ஜாமீன்", "জামিন", "483", "480", "439", "437"):
         return "bail"
     if has("specific performance", "विनिर्दिष्ट अनुपालन", "agreement to sell", "इकरारनामा", "बयनामा"):
         return "specific_performance"
@@ -689,6 +879,148 @@ def draft_from_prompt(matter: str, lang: str = "auto", reference_text: str = "",
         return _finalize(_last_resort("other_criminal", rl, matter, []))
 
 
+# doc_types whose relief only a COURT can grant. When the advocate addresses one of
+# these to an officer we still draft what they asked for — but we say so, the way a
+# junior would. Silently converting the letter into a court application (what the
+# engine used to do) is worse: the advocate files something they did not ask for.
+_COURT_ONLY_RELIEF: dict[str, tuple[str, str]] = {
+    "supurdgi": ("अंतरिम सुपुर्दगी का आदेश न्यायालय देता है (बी.एन.एस.एस. §497/§503) — थाना केवल "
+                 "अभिरक्षा में रखता है। यह आवेदन थाने को संबोधित है; वाहन/माल की सुपुर्दगी के लिए "
+                 "संबंधित मजिस्ट्रेट के समक्ष भी आवेदन देना होगा।",
+                 "Interim custody of a seized article is ordered by the Magistrate (BNSS §497/§503); "
+                 "the police only hold it. This application is addressed to the police station — a "
+                 "separate application before the Magistrate will also be needed for release."),
+    "complaint_156": ("पुलिस द्वारा एफ.आई.आर. दर्ज न करने पर निर्देश मजिस्ट्रेट देता है "
+                      "(बी.एन.एस.एस. §175(3)) — यह पत्र थाने/पुलिस अधीक्षक को है, जो §173(4) की "
+                      "पूर्व-शर्त पूरी करता है, स्वयं उपचार नहीं है।",
+                      "A direction to register an FIR comes from the Magistrate (BNSS §175(3)). "
+                      "This letter to the police/SP satisfies the precondition under §173(4); it is "
+                      "not itself the remedy."),
+    "bail": ("जमानत न्यायालय देता है, थाना नहीं। यह पत्र थाने को संबोधित है।",
+             "Bail is granted by a court, not by a police station. This letter is addressed to the police."),
+    "anticipatory_bail": ("अग्रिम जमानत सत्र न्यायालय/उच्च न्यायालय देता है, थाना नहीं।",
+                          "Anticipatory bail is granted by the Sessions Court or High Court, not by the police."),
+}
+
+
+# The same relief, detected from what the advocate actually described rather than from
+# the doc_type key. Found by running the real thing against production: for "थाना प्रभारी
+# को … जब्त मोटरसाइकिल … सुपुर्दगी", the classifier correctly returns
+# doc_type=`authority_application` (it IS a letter to an office), so keying the note on
+# doc_type alone meant the note NEVER fired on the very case it was written for.
+_RELIEF_SIGNALS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("supurdgi", ("सुपुर्दगी", "supurdgi", "supurdagi", "अंतरिम अभिरक्षा",
+                  "जब्त वाहन", "जब्त मोटरसाइकिल", "जब्त गाड़ी", "गाड़ी छुड़ा", "वाहन छुड़ा",
+                  "release of vehicle", "vehicle release", "seized vehicle",
+                  "451", "457", "497", "503")),
+    ("complaint_156", ("एफ.आई.आर. दर्ज नहीं", "एफआईआर दर्ज नहीं", "रिपोर्ट दर्ज नहीं",
+                       "प्राथमिकी दर्ज नहीं", "फरियाद दर्ज नहीं", "दर्ज करने से मना",
+                       "refusing to register", "refused to register", "not registering the fir",
+                       "156(3)", "175(3)")),
+    ("bail", ("जमानत", "bail")),
+    ("anticipatory_bail", ("अग्रिम जमानत", "anticipatory bail", "गिरफ्तारी की आशंका")),
+)
+
+
+# "seizure of a thing" stated the long way round — the advocate rarely writes the word
+# सुपुर्दगी; they describe what happened ("मोटरसाइकिल … जब्त की गई है").
+_SEIZED = ("जब्त", "ज़ब्त", "seized", "seizure")
+_SEIZABLE = ("वाहन", "मोटरसाइकिल", "गाड़ी", "कार", "ट्रक", "मोबाइल", "माल", "सामान",
+             "vehicle", "motorcycle", "bike", "car", "truck", "mobile", "goods", "articles")
+
+
+def _relief_from_text(matter: str) -> str:
+    """Which court-only relief the advocate is actually asking for, read from their own
+    words. Most specific first — 'अग्रिम जमानत' must beat 'जमानत'."""
+    p = (matter or "").lower()
+    signals = dict(_RELIEF_SIGNALS)
+    for key in ("anticipatory_bail", "supurdgi", "complaint_156", "bail"):
+        if any(w in p for w in signals[key]):
+            return key
+    if any(w in p for w in _SEIZED) and any(w in p for w in _SEIZABLE):
+        return "supurdgi"
+    return ""
+
+
+def _forum_mismatch_warning(dt: str, family: str, lang: str, matter: str = "") -> str:
+    """The junior's note when the requested relief needs a court but the document is
+    addressed to an office. Keyed on the doc_type first, then on what the advocate
+    described. Returns "" when there is nothing to say."""
+    if family != DT.AUTHORITY_APPLICATION:
+        return ""
+    pair = _COURT_ONLY_RELIEF.get(dt) or _COURT_ONLY_RELIEF.get(_relief_from_text(matter))
+    if not pair:
+        return ""
+    return pair[1] if lang == "en" else pair[0]
+
+
+def _draft_non_court(family: str, dt: str, det, key: str, court: str, bail_type: str,
+                     matter: str, lang: str, cls: dict, shared_warnings: list[str],
+                     style: dict | None) -> dict:
+    """Route a non-court document. Ladder, in order of how much advocate review is
+    behind each rung:
+
+      1. A REVIEWED canonical template for this exact type (legal_notice,
+         general_affidavit, vakalatnama). An advocate has signed these off, so they
+         beat anything generated — this is the one family where canonical goes first.
+      2. The parts engine (author_parts) — authored into this family's own grammar.
+      3. The parts FLOOR — deterministic, zero-LLM, and still the right shape. Never
+         `_last_resort`, which emits a court skeleton and would reintroduce the bug.
+
+    Never raises: the floor is pure Python.
+    """
+    from headnote.drafter import author_parts as AP
+
+    warnings = list(shared_warnings)
+
+    def _wrap(result: dict, reason: str) -> dict:
+        # The junior's note is decided AFTER drafting, on the brief PLUS the document's
+        # own subject line. Deciding it beforehand missed the real case in production:
+        # the advocate wrote "मोटरसाइकिल … जब्त की गई है" and never used the word
+        # सुपुर्दगी — the engine did, in the subject it composed. The subject is the
+        # document's own statement of the relief, so it is the better signal.
+        result.setdefault("warnings", [])
+        note = _forum_mismatch_warning(
+            dt, family, lang, f'{matter} {result.get("title") or ""}')
+        result["warnings"] = warnings + ([note] if note else []) + list(result["warnings"])
+        result.update({
+            "court": "",
+            "family": family,
+            "confidence": cls.get("confidence", 0.5),
+            "html_hi": result.get("html", "") if lang != "en" else "",
+            "html_en": result.get("html", "") if lang == "en" else "",
+            "reason": reason,
+            "classified_as": dt,
+            "forum_type": cls.get("forum_type", ""),
+            "instrument": cls.get("instrument", ""),
+            "_style": style,
+        })
+        return result
+
+    # 1) advocate-reviewed template for this exact type
+    if det:
+        try:
+            reviewed = _canonical_result(dt, key, court, bail_type, matter, lang, cls, warnings)
+            reviewed["family"] = family
+            reviewed["_style"] = style
+            return reviewed
+        except Exception:
+            log.exception("canonical render failed for non-court type=%s — authoring instead", dt)
+
+    # 2) authored into this family's parts grammar
+    try:
+        result = AP.author_parts_document(matter, family, lang, doc_type=dt,
+                                          forum_name=cls.get("forum_name", ""),
+                                          style=style)
+        return _wrap(result, f"drafted as a {family.replace('_', ' ')}")
+    except Exception:
+        log.exception("parts authoring failed for family=%s — falling to the parts floor", family)
+
+    # 3) the floor — correct shape, the advocate's own words kept verbatim
+    result = AP.floor_document(family, lang, matter)
+    return _wrap(result, "drafting engines unavailable — the correct blank shape was returned")
+
+
 def _draft(matter: str, lang: str, reference_text: str, user_id: str | None = None) -> dict:
     requested_lang = lang
     cls = classify(matter or reference_text, lang)
@@ -774,6 +1106,18 @@ def _draft(matter: str, lang: str, reference_text: str, user_id: str | None = No
     if det:
         key, def_court, bail_type = det
         court = _FORCE_COURT.get(dt) or cls.get("court") or def_court
+
+    # --- NON-COURT SHAPES: an application to a police station or an executive
+    # officer, a notice, a standalone affidavit, a deed. These have no cause-title,
+    # no opposing party and no prayer-to-a-court, so they cannot go through the court
+    # renderer — that is exactly how "application to the police station" used to come
+    # back as a court application. A reference upload keeps the mirror path (the
+    # uploaded document IS the format, whatever family it belongs to).
+    family = cls.get("family") or DT.COURT_FILING
+    if not DT.is_court_family(family) and not reference_text:
+        return _finalize(_draft_non_court(
+            family, dt, det, key, court, bail_type, matter, lang, cls,
+            shared_warnings, style))
 
     # escape hatch: one env var restores the old canonical-first routing exactly
     if det and os.environ.get("DRAFTER_CANONICAL_FIRST", "").strip().lower() in ("1", "true", "yes", "on"):

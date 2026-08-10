@@ -175,14 +175,22 @@ class FromPromptBody(BaseModel):
     lang:   Literal["hi", "en", "auto"] = "auto"  # 'auto' → intent-aware detect from the prompt
 
 
-def _persist_editor_draft(result: dict) -> dict:
+def _persist_editor_draft(result: dict, user_id: Optional[str] = None,
+                          case_id: Optional[str] = None) -> dict:
     """Persist a from-prompt/from-document result so it opens in the Draft Studio
     editor at /draft/editor/<id>, and stamp `draft_id` onto the returned dict. The
     full editor payload (body HTML both langs + the trust data) lives in the draft's
     `answers` blob — no schema change. Best-effort: a storage failure never breaks
-    the draft response (the inline fallback still renders)."""
+    the draft response (the inline fallback still renders).
+
+    `user_id` MUST be threaded through: it is what makes the draft the advocate's own
+    (his Recent-drafts list, and the ownership check on the .docx export). `blocks` is
+    the role-tagged form of the same document — persisted, but never sent to the
+    browser, because only the server-side .docx render consumes it (see
+    /api/draft/{id}/docx)."""
     if not isinstance(result, dict) or not result.get("ok"):
         return result
+    blocks = result.pop("blocks", None)
     try:
         payload = {k: result.get(k) for k in (
             "doc_type", "court", "bail_type", "lang", "title", "mode",
@@ -190,18 +198,34 @@ def _persist_editor_draft(result: dict) -> dict:
             "cite_at_hearing", "companions", "editor_id", "editor_fields",
             "data", "mirrored", "confidence", "reason", "classified_as",
         )}
+        if blocks:
+            payload["blocks"] = blocks
         d = storage.create_draft(
             story_id=(result.get("doc_type") or "other_criminal"),
             template_version=1,
+            user_id=user_id,
+            case_id=case_id,
             lang=(result.get("lang") or "hi"),
             answers=payload,
             title=(result.get("title") or result.get("doc_type") or "Draft"),
         )
         result["draft_id"] = d.id
+        # the screen needs to know whether "Download .docx" will land in HIS format
+        result["docx_in_own_format"] = bool(blocks) and _has_dna_layout(user_id)
     except Exception:
         import logging
         logging.getLogger("headnote.drafter").warning("draft persist failed", exc_info=True)
     return result
+
+
+def _has_dna_layout(user_id: Optional[str]) -> bool:
+    if not user_id:
+        return False
+    try:
+        from headnote.drafter import dna_layout
+        return dna_layout.has_layout(user_id)
+    except Exception:
+        return False
 
 
 @router.post("/from-prompt", summary="Prompt-first drafting → best court-ready draft (authored-primary, never fails)")
@@ -218,8 +242,9 @@ def draft_from_prompt_route(body: FromPromptBody,
     if not (body.prompt or "").strip():
         return JSONResponse({"ok": False, "error": "empty prompt"}, status_code=400)
     try:
+        uid = user.id if user else None
         return _persist_editor_draft(
-            draft_from_prompt(body.prompt, body.lang, user_id=(user.id if user else None)))
+            draft_from_prompt(body.prompt, body.lang, user_id=uid), user_id=uid)
     except Exception as e:  # draft_from_prompt never raises — this is a belt-and-braces backstop
         import logging
         logging.getLogger("headnote.drafter").exception("from-prompt backstop hit")
@@ -346,12 +371,12 @@ async def draft_from_document(
                            "Could not read the uploaded document — the draft was made from your typed "
                            "description. Try again with a clearer photo.")
 
+    uid = user.id if user else None
+
     def _with_ocr_warning(result):
         if ocr_warning and isinstance(result, dict):
             result.setdefault("warnings", []).insert(0, ocr_warning)
-        return _persist_editor_draft(result)
-
-    uid = user.id if user else None
+        return _persist_editor_draft(result, user_id=uid)
     # role="reference": the document is a STYLE reference to mirror; the typed prompt carries the facts.
     if role == "reference":
         if not doc_text.strip():
@@ -446,6 +471,47 @@ def update_draft(draft_id: str, body: UpdateDraftBody):
     if d is None:
         raise HTTPException(status_code=404, detail=f"no draft with id={draft_id!r}")
     return d.to_dict()
+
+
+class BlocksBody(BaseModel):
+    blocks: list = []
+
+
+@router.post("/{draft_id}/blocks", summary="Save edited field blocks (keeps the .docx in step)")
+def save_blocks(draft_id: str, body: BlocksBody,
+                user: Optional[CurrentUser] = Depends(optional_user)):
+    """Persist the role-tagged blocks after the advocate edits a field in the
+    document view's left column.
+
+    This exists so the field column cannot create the worst bug available here: the
+    page showing his edit while `GET /{id}/docx` — which renders from the PERSISTED
+    blocks — still hands him the text he just changed. Canvas and the .docx have to
+    be one document, so an edit must land on the server before it can be downloaded.
+
+    MERGES into `answers` rather than replacing it: `answers` also carries html_hi /
+    html_en / data / editor_fields, and a wholesale PATCH from the browser would drop
+    whichever of those the client did not happen to know about.
+    """
+    d = storage.get_draft(draft_id)
+    if d is None:
+        raise HTTPException(status_code=404, detail=f"no draft with id={draft_id!r}")
+    # a draft that belongs to somebody is only theirs to edit
+    if d.user_id and (user is None or user.id != d.user_id):
+        raise HTTPException(status_code=403, detail="not your draft")
+
+    clean: list = []
+    for b in (body.blocks or []):
+        if isinstance(b, (list, tuple)) and len(b) >= 2:
+            # a table block's content is a dict — keep it; text blocks stringify
+            clean.append([str(b[0] or "text"), b[1] if isinstance(b[1], dict) else str(b[1] or "")])
+    if not clean:
+        raise HTTPException(status_code=400, detail="no usable blocks to save")
+
+    answers = dict(d.answers or {})
+    answers["blocks"] = clean
+    if storage.update_draft(draft_id, answers=answers) is None:
+        raise HTTPException(status_code=404, detail=f"no draft with id={draft_id!r}")
+    return {"ok": True, "saved": len(clean)}
 
 
 @router.delete("/{draft_id}", summary="Delete a draft")
@@ -553,6 +619,47 @@ def render_draft(draft_id: str, lang: Optional[str] = None):
         "template_version": d.template_version,
         "html": html,
     }
+
+
+@router.get("/{draft_id}/docx", summary="Download the draft as .docx — in the advocate's own layout and font")
+def draft_docx(draft_id: str, user: Optional[CurrentUser] = Depends(optional_user)):
+    """The Draft DNA payoff: the authored draft, rendered into the advocate's OWN
+    captured page geometry, indents and typeface (Kruti Dev included) as a real Word
+    file he can file. Falls back to standard court format when he has no DNA yet —
+    the action is never dead, only less personal.
+
+    Reads the role-tagged `blocks` persisted with the draft (see
+    _persist_editor_draft): raw text, so none of the HTML preview's grounding markers
+    or citation flags can leak into a filed document."""
+    from fastapi.responses import Response
+    from headnote.drafter import dna_layout
+
+    d = storage.get_draft(draft_id)
+    if d is None:
+        raise HTTPException(status_code=404, detail=f"no draft with id={draft_id!r}")
+    # a draft that belongs to somebody is only theirs to download
+    if d.user_id and (user is None or user.id != d.user_id):
+        raise HTTPException(status_code=403, detail="this draft belongs to another account")
+
+    blocks = (d.answers or {}).get("blocks")
+    if not blocks:
+        raise HTTPException(
+            status_code=409,
+            detail="this draft has no layout blocks — open it in the editor and export from there")
+    try:
+        data, how = dna_layout.render_blocks(d.user_id, blocks, lang=(d.lang or "hi"))
+    except Exception as e:
+        import logging
+        logging.getLogger("headnote.drafter").exception("docx render failed for draft=%s", draft_id)
+        raise HTTPException(status_code=502, detail=f"could not build the .docx ({type(e).__name__})") from e
+
+    name = re.sub(r"[^A-Za-z0-9_.-]+", "_", (d.title or d.story_id or "draft")).strip("_")[:60] or "draft"
+    return Response(
+        content=data,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{name}.docx"',
+                 "X-Headnote-Format": how},   # "own" | "standard" — the UI says which
+    )
 
 
 @router.get("/", summary="List recent drafts (for the FE drafts panel)")
@@ -1227,26 +1334,26 @@ async def transcribe(
     language: str = "hi",  # 'hi' | 'en' | 'mr' | 'ta' | 'te' | 'bn' | ...
     user: CurrentUser = Depends(get_current_user),
 ):
-    """Server-side speech-to-text via Groq's hosted Whisper.
+    """Server-side speech-to-text: Sarvam Saarika (Indic-native) first, Groq
+    Whisper fallback — the same engine order the consultation Recorder uses,
+    because Saarika is markedly better on Hindi/Hinglish dictation.
 
     Used as the fallback path when the browser's built-in SpeechRecognition
     isn't available (Firefox mobile, some embedded webviews). The primary
     voice path is the Web Speech API on the client — free, real-time, and
     avoids round-trips.
 
-    Whisper handles Hindi + code-mixed Hinglish natively. We pass `language`
-    as a hint to lower latency and improve accuracy.
-
-    Audio is NEVER persisted on disk — read into memory, sent to Groq,
-    discarded. Compliant with our "voice data not retained" privacy claim.
+    Audio is NEVER persisted on disk — read into memory, sent to the STT
+    provider, discarded. Compliant with our "voice data not retained" claim.
 
     Gated as a 'draft' feature (counts toward quota).
     """
     import os
-    if not os.environ.get("GROQ_API_KEY"):
+    from headnote.integrations import sarvam as _sarvam
+    if not os.environ.get("GROQ_API_KEY") and not _sarvam.enabled():
         raise HTTPException(
             status_code=503,
-            detail="Voice transcription requires GROQ_API_KEY on the server.",
+            detail="Voice transcription requires SARVAM_API_KEY or GROQ_API_KEY on the server.",
         )
 
     mt = (file.content_type or "").lower()
@@ -1264,10 +1371,29 @@ async def transcribe(
     if len(data) > _AUDIO_MAX_BYTES:
         raise HTTPException(status_code=400, detail="audio too large; max 25 MB")
 
-    # Normalise language to ISO-639-1 (Whisper's expected format)
-    lang = (language or "").lower().strip()[:2] or "hi"
+    # Normalise language to ISO-639-1 (Whisper's expected format).
+    # 'auto' = detect on the server — a Hindi-locked recognizer types English
+    # speech as Devanagari, so mixed-language chambers should always use auto.
+    raw_lang = (language or "").lower().strip()
+    auto = raw_lang in ("auto", "unknown", "")
+    lang = "hi" if auto else raw_lang[:2]
 
     with check_and_record(user.id, "draft", endpoint="transcribe", email=user.email) as _record:
+        # Sarvam Saarika first — Indic-native, better on Hindi dictation, and
+        # 'unknown' asks it to detect the language itself.
+        if _sarvam.enabled():
+            try:
+                res = _sarvam.transcribe(
+                    data, filename=f"audio.{base_mt.split('/')[-1] or 'webm'}", mime=base_mt,
+                    language_code=("unknown" if auto or lang != "hi" else f"{lang}-IN"))
+                if res.get("text"):
+                    _record(cost_paise=0, model="sarvam/saarika")
+                    return {"ok": True, "text": res["text"].strip(),
+                            "language": res.get("language") or ("auto" if auto else lang)}
+            except Exception:  # noqa: BLE001 — fall back to Groq Whisper
+                pass
+        if not os.environ.get("GROQ_API_KEY"):
+            raise HTTPException(status_code=502, detail="Transcription failed: no STT provider reachable.")
         try:
             from groq import Groq
             client = Groq(api_key=os.environ["GROQ_API_KEY"])
@@ -1278,12 +1404,13 @@ async def transcribe(
                 "audio/x-wav": "wav", "audio/mp4": "m4a", "audio/m4a": "m4a",
                 "audio/mpeg": "mp3", "audio/mp3": "mp3", "audio/flac": "flac",
             }.get(base_mt, "webm")
+            kwargs = {} if auto else {"language": lang}   # no hint → Whisper detects
             resp = client.audio.transcriptions.create(
                 file=(f"audio.{ext}", data, base_mt),
                 model=os.environ.get("GROQ_STT_MODEL", "whisper-large-v3-turbo"),
-                language=lang,
                 response_format="json",
                 temperature=0.0,
+                **kwargs,
             )
             text = (resp.text or "").strip()
         except Exception as e:

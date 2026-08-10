@@ -1,0 +1,1633 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<meta name="robots" content="noindex">
+<title>Draft — Headnote</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;450;500;600;700&family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================================
+   V2 Draft — one screen, one action.
+
+   The palette and chrome are lifted verbatim from home.html / research.html so
+   the three V2 surfaces read as one product: a WHITE, dense, quiet work surface.
+   Monochrome, with semantic colour only — green = ready/verified, amber = needs
+   attention, red = recording/overdue — and near-black for primary actions.
+   No gold: the cream/aurora language in landing.html is marketing only.
+   ========================================================================== */
+:root{
+  --bg:#ffffff;--surface:#ffffff;--raise:#fcfcfb;
+  --ink:#0c0c0a;--ink-2:#4b4b48;--ink-3:#8a8a82;--ink-4:#b8b6ae;
+  --line:#e7e7e4;--line-2:#f1f1ef;--soft:#f6f6f4;
+  --amber:#b7791f;--amber-soft:#fdf5e6;--amber-line:#eddcb8;
+  --red:#b0392b;--red-soft:#fbeeec;--green:#2f8f57;--green-soft:#ecf6ef;--green-line:#cfe8d8;
+  --r:10px;--r-lg:16px;--r-sm:8px;
+  --shadow:0 1px 2px rgba(12,12,10,.05);--shadow-card:0 1px 2px rgba(12,12,10,.05),0 1px 1px rgba(12,12,10,.03);
+  --lift:0 16px 34px -22px rgba(12,12,10,.26);--ease:cubic-bezier(.16,1,.3,1);
+  --sans:'Geist',-apple-system,'Segoe UI',sans-serif;--mono:'Geist Mono',ui-monospace,monospace;--hi:'Noto Sans Devanagari','Geist',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer;border:0;background:none;color:inherit}
+input,textarea,select{font-family:inherit}
+.mono{font-family:var(--mono)}.hi{font-family:var(--hi)}
+::selection{background:#eaeae4}
+.hidden{display:none!important}
+.btn{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:500;padding:9px 14px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--surface);color:var(--ink);transition:.14s var(--ease);white-space:nowrap}
+.btn:hover{border-color:#d4d2cb;background:var(--raise)}
+.btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.7}
+.btn--primary{background:var(--ink);color:#fff;border-color:var(--ink)}.btn--primary:hover{background:#000}
+.btn--sm{padding:7px 11px;font-size:12.5px}
+.btn[disabled]{opacity:.45;cursor:default}
+
+/* ---- shell: identical to home.html / research.html ---- */
+.app{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+.sb{border-right:1px solid var(--line);padding:20px 12px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;background:var(--raise)}
+.sb .brand{display:flex;align-items:center;gap:9px;padding:4px 8px 20px}
+.sbtog{margin-left:auto;width:28px;height:28px;border-radius:7px;display:grid;place-items:center;color:var(--ink-4);transition:.14s}
+.sbtog:hover{background:#eeece5;color:var(--ink-2)}
+.sbtog svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.7}
+body.sb-min .app{grid-template-columns:66px 1fr}
+body.sb-min .sb{padding:20px 9px}
+body.sb-min .sb .brand{padding:4px 0 20px;justify-content:center;position:relative}
+body.sb-min .sb .brand .wm,body.sb-min .sb .lbl,body.sb-min .nvt,body.sb-min .sb .user>div:not(.av){display:none}
+body.sb-min .sb .brand .mk{display:grid}
+body.sb-min .sbtog{position:absolute;left:0;right:0;top:34px;margin:0 auto}
+body.sb-min .navi{justify-content:center;padding:10px 0}
+body.sb-min .kbtn{justify-content:center;padding:10px 0;width:100%}
+body.sb-min .sb .user{justify-content:center;padding:8px 0}
+body.sb-min .sb .brand{margin-bottom:26px}
+body.sb-min .rct{justify-content:center}
+/* The wordmark is the brand in the expanded rail; the monogram takes over at
+   66px, where a 91x16 wordmark would be illegible. */
+.sb .brand .mk{width:25px;height:25px;border-radius:7px;background:var(--ink);color:#fff;display:none;place-items:center;font-weight:700;font-size:14px}
+.sb .brand .wm{height:17px;width:auto;display:block}
+.sb .lbl{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-4);margin:10px 10px 6px}
+.navi{display:flex;align-items:center;gap:11px;padding:8px 11px;border-radius:var(--r-sm);color:var(--ink-2);font-size:13.5px;font-weight:500;width:100%;text-align:left;transition:.14s}
+.navi svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;flex:none}
+.navi:hover{background:#eeece5;color:var(--ink)}.navi.on{background:var(--ink);color:#fff}.navi.on svg{stroke:#fff}
+.navi .nvt{flex:1;text-align:left}
+.sb .kbtn{display:flex;align-items:center;gap:8px;margin:14px 4px 4px;padding:9px 11px;border:1px solid var(--line);border-radius:var(--r-sm);color:var(--ink-3);font-size:12.5px;background:var(--surface);width:calc(100% - 8px)}
+.sb .kbtn:hover{border-color:#d4d2cb;color:var(--ink-2)}
+.sb .kbtn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.7}
+.sb .kbtn .k{margin-left:auto;font-family:var(--mono);font-size:10px;border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+.rct{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:7px 9px;border-radius:8px;color:var(--ink-2);transition:.13s}
+.rct:hover{background:#eeece5;color:var(--ink)}
+.rct svg{width:13px;height:13px;stroke:var(--ink-4);fill:none;stroke-width:1.7;flex:none}
+.rct .rt-t{flex:1;min-width:0;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sb .grow{flex:1}
+.sb .user{display:flex;align-items:center;gap:9px;padding:8px;border-radius:var(--r-sm);border-top:1px solid var(--line-2);margin-top:8px}
+.sb .user .av{width:29px;height:29px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:600;flex:none}
+.sb .user .u{font-size:13px;font-weight:500;line-height:1.15}.sb .user .r{font-size:10.5px;color:var(--ink-3);font-family:var(--mono)}
+.main{min-width:0}.mtop{display:none}
+.wrap{padding:24px 32px 90px;max-width:1360px}
+
+/* ---- the heading, and the ONE composer ---- */
+.h-row{display:flex;align-items:baseline;justify-content:space-between;gap:14px;margin-bottom:16px}
+.h1{font-size:20px;font-weight:650;letter-spacing:-.025em}
+.h1 span{font-weight:400;color:var(--ink-3);font-size:14px;margin-left:10px;letter-spacing:0}
+.composer{border:1px solid var(--line);border-radius:18px;background:var(--surface);box-shadow:0 1px 2px rgba(12,12,10,.04),0 10px 30px -18px rgba(12,12,10,.18);overflow:hidden;transition:.16s var(--ease)}
+.composer.focus{border-color:#c4c2ba;box-shadow:0 1px 2px rgba(12,12,10,.04),0 14px 38px -18px rgba(12,12,10,.24)}
+.ta{width:100%;border:0;outline:0;resize:none;display:block;padding:18px 20px 6px;font-size:16px;line-height:1.65;min-height:92px;font-family:var(--hi);background:transparent;color:var(--ink)}
+.ta::placeholder{color:var(--ink-4)}
+.crow{display:flex;align-items:center;gap:8px;padding:8px 12px 12px 15px;flex-wrap:wrap}
+.cbtn{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:500;color:var(--ink-2);border:1px solid var(--line);border-radius:999px;padding:7px 12px;background:var(--surface);transition:.14s}
+.cbtn:hover{border-color:var(--ink-3);color:var(--ink)}
+.cbtn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.7;flex:none}
+.cbtn.dash{border-style:dashed;border-color:#d4d2cb;color:var(--ink-3)}
+.cbtn.rec{border-color:var(--red);color:var(--red);background:var(--red-soft)}
+.cspace{flex:1}
+.go{display:inline-flex;align-items:center;gap:8px;background:var(--ink);color:#fff;font-size:13px;font-weight:550;padding:9px 16px;border-radius:var(--r-sm);transition:.14s}
+.go:hover{background:#000}
+.go svg{width:15px;height:15px;stroke:#fff;fill:none;stroke-width:1.9}
+.go.off{background:var(--soft);color:var(--ink-4);border:1px solid var(--line);cursor:default}
+.go.off svg{stroke:var(--ink-4)}
+
+/* matter pill */
+.pill{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:500;background:var(--ink);color:#fff;border-radius:999px;padding:6px 8px 6px 12px;max-width:280px}
+.pill .pt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pill .x{width:17px;height:17px;border-radius:50%;background:rgba(255,255,255,.18);display:grid;place-items:center;font-size:10px;flex:none;cursor:pointer}
+.pill.soft{background:var(--soft);color:var(--ink);border:1px solid var(--line)}
+.pill.soft .x{background:#e4e2db;color:var(--ink-2)}
+
+/* ---- attachment rows: one decision per file, in words ---- */
+.atts{border-top:1px solid var(--line-2);padding:4px 15px 0}
+.att{display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid var(--line-2)}
+.att:last-child{border-bottom:0}
+.att .ic{width:29px;height:29px;border-radius:7px;background:var(--soft);display:grid;place-items:center;flex:none}
+.att .ic svg{width:14px;height:14px;stroke:var(--ink-3);fill:none;stroke-width:1.7}
+.att .fb{min-width:0}
+.att .fn{font-size:13px;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.att .fm{font-family:var(--mono);font-size:10.5px;color:var(--ink-4);margin-top:2px}
+.att .sp{flex:1}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;flex:none}
+.seg button{font-size:11.5px;font-weight:500;padding:6px 11px;color:var(--ink-3);background:var(--surface);transition:.13s}
+.seg button:hover{color:var(--ink)}
+.seg button.on{background:var(--ink);color:#fff}
+.att .rm{width:24px;height:24px;border-radius:6px;display:grid;place-items:center;color:var(--ink-4);font-size:12px;flex:none}
+.att .rm:hover{background:var(--soft);color:var(--red)}
+
+/* ---- the DNA line: a felt state, never an advert ---- */
+.dna{display:flex;align-items:center;gap:9px;margin-top:12px;padding:9px 13px;border-radius:10px;font-size:12.5px;flex-wrap:wrap}
+.dna.ok{background:var(--green-soft);border:1px solid var(--green-line);color:#1f6b41}
+.dna.no{background:var(--amber-soft);border:1px solid var(--amber-line);color:#7d5514}
+.dna svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;flex:none}
+.dna .sp{flex:1;min-width:10px}
+.dna a{color:inherit;font-weight:600;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+.dna code{font-family:var(--mono);font-size:11px;background:rgba(255,255,255,.6);padding:1px 5px;border-radius:4px}
+.browse{font-size:12.5px;color:var(--ink-3);text-decoration:none;cursor:pointer}
+.browse b{color:var(--ink-2);font-weight:500;border-bottom:1px solid var(--line)}
+
+/* ---- recent drafts shelf ---- */
+.shelf{margin-top:30px;max-width:820px}
+.shl{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-4);margin-bottom:9px}
+.dr{display:flex;align-items:center;gap:12px;padding:11px 13px;border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-bottom:7px;width:100%;text-align:left;transition:.14s var(--ease)}
+.dr:hover{border-color:var(--ink-3);box-shadow:var(--shadow-card)}
+.dr .t{font-size:13.5px;font-weight:500;letter-spacing:-.01em}
+.dr .m{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:3px}
+.dr .sp{flex:1}
+.chip{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;padding:3px 7px;border-radius:5px;background:var(--soft);color:var(--ink-2);border:1px solid var(--line);white-space:nowrap}
+.chip.g{background:var(--green-soft);border-color:var(--green-line);color:#1f6b41}
+.chip.a{background:var(--amber-soft);border-color:var(--amber-line);color:#7d5514}
+.shempty{border:1.5px dashed var(--line);border-radius:12px;background:var(--soft);padding:22px;text-align:center;color:var(--ink-3);font-size:12.5px}
+
+/* ---- the mic: ALWAYS available, never in the way ----
+   It used to be a 74px hero that replaced the text box. Now it sits inside the
+   composer at the bottom-right of the textarea: still the first thing your thumb
+   finds, but the box you can type in is never hidden behind it. */
+.briefwrap{position:relative}
+.briefwrap .ta{padding-right:64px}
+.mic{position:absolute;right:10px;bottom:10px;width:46px;height:46px;flex:none;display:grid;place-items:center;cursor:pointer;z-index:3}
+.mic .core{width:38px;height:38px;border-radius:50%;background:var(--ink);display:grid;place-items:center;position:relative;z-index:2;box-shadow:0 6px 18px -6px rgba(12,12,10,.45);transition:.16s var(--ease)}
+.mic:hover .core{transform:scale(1.04)}
+.mic .core svg{width:23px;height:23px;stroke:#fff;fill:none;stroke-width:1.7}
+.mic .ring{position:absolute;inset:0;border-radius:50%;border:1.5px solid var(--ink);opacity:0;animation:glory 2.6s var(--ease) infinite}
+.mic .ring:nth-child(2){animation-delay:.65s}
+.mic .ring:nth-child(3){animation-delay:1.3s}
+@keyframes glory{0%{transform:scale(.72);opacity:.34}70%{opacity:.06}100%{transform:scale(1.5);opacity:0}}
+.mic.live .core{background:var(--red)}
+.mic.live .ring{border-color:var(--red);animation-duration:1.25s}
+/* the rings breathe to the REAL input level, so he can see he is being heard */
+.mic.live .ring{transform:scale(var(--lvl,.8))}
+/* the listening strip — only on screen while the mic is live */
+.vbar{display:flex;align-items:center;gap:10px;padding:9px 14px;border-top:1px solid var(--line);
+  background:var(--soft);flex-wrap:wrap}
+.vbar .vt{font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;color:var(--red);white-space:nowrap}
+/* what is being heard RIGHT NOW — deliberately outside his text until it is final,
+   so a word he types is never overwritten by the recogniser */
+.vbar .vlive{font-size:12.5px;color:var(--ink-3);font-style:italic;flex:1;min-width:120px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vbar .vstop{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;
+  padding:5px 12px;border-radius:999px;border:1px solid var(--red);background:transparent;
+  color:var(--red);cursor:pointer}
+.vbar .vstop:hover{background:var(--red);color:#fff}
+.lvl{display:flex;align-items:flex-end;gap:2.5px;height:20px}
+.lvl i{width:2.5px;background:var(--red);border-radius:2px;height:100%;transform-origin:bottom;transform:scaleY(.2);transition:transform .09s linear}
+.langchip{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;letter-spacing:.05em;padding:4px 9px;border-radius:999px;background:var(--soft);border:1px solid var(--line);color:var(--ink-2);cursor:pointer}
+.langchip:hover{border-color:var(--ink-3)}
+.langchip select{border:0;background:transparent;font-family:var(--mono);font-size:10px;color:var(--ink);outline:0;cursor:pointer}
+
+/* ---- the one follow-up: a card, never a wizard ---- */
+.ask{border:1px solid var(--line);border-radius:14px;background:var(--raise);margin-top:14px;overflow:hidden;max-width:820px}
+.ask .ah{padding:12px 15px;border-bottom:1px solid var(--line-2);display:flex;align-items:center;gap:9px}
+.ask .ah svg{width:15px;height:15px;stroke:var(--ink-3);fill:none;stroke-width:1.7;flex:none}
+.ask .ah .t{font-size:13.5px;font-weight:600}
+.ask .ah .n{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--ink-4)}
+.ask .q{padding:12px 15px;border-bottom:1px solid var(--line-2)}
+.ask .q:last-of-type{border-bottom:0}
+.ask .ql{font-size:13px;margin-bottom:3px}
+.ask .qw{font-size:11.5px;color:var(--ink-3);margin-bottom:8px}
+.ask .qo{display:flex;gap:7px;flex-wrap:wrap}
+.ask .qo button{font-size:12.5px;padding:7px 13px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink-2);transition:.13s}
+.ask .qo button:hover{border-color:var(--ink-3)}
+.ask .qo button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.ask .qo input{font-size:12.5px;padding:7px 12px;border:1px solid var(--line);border-radius:999px;outline:0;width:200px}
+.ask .qo input:focus{border-color:var(--ink)}
+.ask .af{display:flex;align-items:center;gap:10px;padding:11px 15px;background:var(--surface);border-top:1px solid var(--line);flex-wrap:wrap}
+.ask .af .sk{font-size:12.5px;color:var(--ink-3);margin-left:auto;text-decoration:underline;text-underline-offset:2px}
+.ask .af .sk:hover{color:var(--ink)}
+
+/* ---- result: the paper left, the junior's note right ---- */
+.etop{display:flex;align-items:center;gap:12px;padding:11px 2px 13px;flex-wrap:wrap}
+.etop .en{font-size:15px;font-weight:600;letter-spacing:-.015em}
+.seg3{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;margin-left:auto}
+.seg3 button{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;padding:7px 13px;color:var(--ink-3);background:var(--surface);border-right:1px solid var(--line);transition:.13s}
+.seg3 button:last-child{border-right:0}
+.seg3 button:hover{color:var(--ink)}
+.seg3 button.on{background:var(--ink);color:#fff}
+.seg3 svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.8;flex:none}
+/* fields · document · junior's note — the V1 three-column reading order, restored.
+   V2 dropped the left field column, so the only way to change a value inside an
+   open document was to retype it in the page itself. */
+.res{display:grid;grid-template-columns:336px minmax(0,1fr) 316px;gap:22px;align-items:start}
+.fields{border:1px solid var(--line);border-radius:12px;background:var(--raise);
+  position:sticky;top:16px;max-height:calc(100vh - 32px);overflow-y:auto}
+.fields .fh{padding:13px 15px 11px;border-bottom:1px solid var(--line);background:var(--soft);
+  position:sticky;top:0;z-index:2}
+.fields .ft{font-size:13.5px;font-weight:600;letter-spacing:-.01em}
+.fields .fs{font-size:11.5px;color:var(--ink-3);margin-top:3px;line-height:1.5}
+.fsec{padding:13px 15px;border-bottom:1px solid var(--line)}
+.fsec:last-child{border-bottom:0}
+.fsec .fl{font-family:var(--mono);font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--ink-4);margin-bottom:9px}
+.fld{margin-bottom:10px}
+.fld:last-child{margin-bottom:0}
+.fld label{display:block;font-size:11.5px;color:var(--ink-3);margin-bottom:3px}
+.fld textarea{width:100%;border:1px solid var(--line);border-radius:7px;padding:7px 9px;
+  font-family:inherit;font-size:12.5px;line-height:1.5;background:var(--bg);color:var(--ink);
+  outline:0;resize:vertical;min-height:32px}
+.fld textarea:focus{border-color:var(--ink-3)}
+.fld.num label{font-weight:600;color:var(--ink-2)}
+.fsave{padding:9px 15px;font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--ink-4);border-top:1px solid var(--line);background:var(--soft);
+  position:sticky;bottom:0}
+@media(max-width:1400px){.res{grid-template-columns:290px minmax(0,1fr) 290px;gap:16px}}
+.paper-wrap{border:1px solid var(--line);border-radius:12px;background:var(--soft);padding:16px;overflow:hidden}
+.pmeta{display:flex;align-items:center;gap:9px;margin-bottom:12px;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);flex-wrap:wrap}
+.pmeta .d{width:4px;height:4px;border-radius:50%;background:var(--green);flex:none}
+.pmeta .d.a{background:var(--amber)}
+/* HIS page. Width/height/margins/indents/sizes all come from the captured
+   layout, scaled to the pane — so what he sees is what Word opens. */
+.page{background:#fff;border:1px solid var(--line);border-radius:3px;box-shadow:0 2px 10px -6px rgba(12,12,10,.2);margin:0 auto;overflow:hidden}
+.page p{margin:0}
+.page .sk{background:linear-gradient(90deg,#f1f1ef 25%,#e7e7e4 50%,#f1f1ef 75%);background-size:200% 100%;border-radius:3px;animation:sh 1.3s linear infinite;color:transparent}
+@keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.writing{display:flex;align-items:center;gap:8px;margin-top:13px;font-size:12.5px;color:var(--ink-2)}
+.spin{width:12px;height:12px;border:1.6px solid var(--line);border-top-color:var(--ink);border-radius:50%;animation:sp .7s linear infinite;flex:none}
+@keyframes sp{to{transform:rotate(360deg)}}
+.edoc{background:#fff;border:1px solid var(--line);border-radius:8px;padding:22px 26px;font-family:var(--hi);font-size:14px;line-height:1.9;outline:0;min-height:320px}
+.edoc:focus{border-color:#c4c2ba}
+.edoc .ph{background:var(--amber-soft);border-bottom:1px dashed var(--amber-line);padding:0 2px}
+
+.rail{border:1px solid var(--line);border-radius:12px;background:var(--raise);overflow:hidden;position:sticky;top:16px}
+.rh{padding:13px 15px;border-bottom:1px solid var(--line-2)}
+.rh .rt{font-size:13.5px;font-weight:600;letter-spacing:-.015em}
+.rh .rs{font-size:11.5px;color:var(--ink-3);margin-top:3px;line-height:1.5}
+.grp{padding:11px 15px;border-bottom:1px solid var(--line-2)}
+.grp:last-of-type{border-bottom:0}
+.gl{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-4);margin-bottom:8px}
+.ck{display:flex;gap:9px;align-items:flex-start;padding:5px 0;font-size:12.5px;line-height:1.5}
+.ck .m{width:14px;height:14px;flex:none;margin-top:2px;display:grid;place-items:center;font-size:10px;font-weight:700}
+.ck .m.g{color:var(--green)}.ck .m.a{color:var(--amber)}
+.ck .tx{min-width:0;word-wrap:break-word}
+.ck .tx i{display:block;font-style:normal;font-size:11.5px;color:var(--ink-3);margin-top:2px;line-height:1.45}
+.rfoot{padding:13px 15px;background:var(--surface);border-top:1px solid var(--line)}
+.dl{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--ink);color:#fff;font-size:13px;font-weight:550;padding:11px 14px;border-radius:var(--r-sm);width:100%;transition:.14s}
+.dl:hover{background:#000}
+.dl[disabled]{background:var(--soft);color:var(--ink-4);border:1px solid var(--line);cursor:default}
+.dl[disabled] svg{stroke:var(--ink-4)}
+.dl svg{width:15px;height:15px;stroke:#fff;fill:none;stroke-width:1.8;flex:none}
+.dlm{font-family:var(--mono);font-size:10px;color:var(--ink-3);text-align:center;margin-top:8px;line-height:1.5}
+.sec{display:flex;gap:7px;margin-top:9px}
+.sec button{flex:1;font-size:12px;font-weight:500;padding:8px;border:1px solid var(--line);border-radius:7px;color:var(--ink-2);background:var(--surface);transition:.13s}
+.sec button:hover{border-color:var(--ink);color:var(--ink)}
+
+/* ---- Reform ---- */
+.rfrow{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+.rfin{flex:1;border:1px solid var(--line);border-radius:9px;padding:10px 12px;font-size:13px;outline:0;background:var(--surface)}
+.rfin:focus{border-color:var(--ink)}
+.rfq{font-size:12.5px;padding:7px 11px;border:1px dashed #d4d2cb;border-radius:999px;color:var(--ink-2);background:var(--surface);margin:0 5px 6px 0;transition:.13s}
+.rfq:hover{border-style:solid;border-color:var(--ink);color:var(--ink)}
+.rfnote{font-size:12px;color:var(--ink-3);line-height:1.55;margin-top:12px;padding-left:11px;border-left:2px solid var(--line)}
+
+/* ---- palette / picker / gate / toasts ---- */
+.pal{position:fixed;inset:0;background:rgba(12,12,10,.28);backdrop-filter:blur(3px);z-index:100;display:none;align-items:flex-start;justify-content:center;padding-top:11vh}
+.pal.on{display:flex}
+.palbox{width:min(600px,92vw);background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 30px 70px -20px rgba(12,12,10,.4);overflow:hidden}
+.palin{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line-2)}
+.palin svg{width:17px;height:17px;stroke:var(--ink-3);fill:none;stroke-width:1.8;flex:none}
+.palin input{border:0;outline:0;font-size:15px;width:100%;background:transparent}
+.palres{max-height:360px;overflow:auto}
+.palg{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-4);padding:10px 16px 5px;background:var(--raise)}
+.palr{display:flex;align-items:center;gap:11px;padding:10px 16px;cursor:pointer;width:100%;text-align:left}
+.palr.sel,.palr:hover{background:var(--raise)}
+.palr .nm{font-size:13.5px;font-weight:500}.palr .mt{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:1px}
+.palempty{padding:22px 16px;text-align:center;color:var(--ink-3);font-size:13px}
+.palfoot{padding:10px 16px;border-top:1px solid var(--line-2);font-size:11.5px;color:var(--ink-3);background:var(--raise)}
+.signin-gate{border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--shadow-card);text-align:center;padding:56px 24px;max-width:520px;margin:40px auto}
+.signin-gate .ic{width:48px;height:48px;border-radius:14px;background:var(--soft);border:1px solid var(--line);display:grid;place-items:center;margin:0 auto 16px}
+.signin-gate .ic svg{width:22px;height:22px;stroke:var(--ink-2);fill:none;stroke-width:1.6}
+.signin-gate h2{font-size:19px;font-weight:600;letter-spacing:-.02em}
+.signin-gate p{color:var(--ink-2);font-size:13.5px;margin:8px auto 20px;max-width:380px;line-height:1.6}
+.toasts{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);display:flex;flex-direction:column;gap:8px;z-index:120;align-items:center}
+.toast{background:var(--ink);color:#fff;font-size:13px;font-weight:500;padding:10px 16px;border-radius:999px;box-shadow:var(--lift);animation:fin .25s var(--ease)}
+.toast--success{background:#1c6b40}.toast--error{background:var(--red)}
+@keyframes fin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.fin{animation:fin .35s var(--ease) both}
+
+@media(max-width:1080px){.res{grid-template-columns:1fr}.rail,.fields{position:static;max-height:none}}
+@media(max-width:720px){
+  .app{grid-template-columns:1fr}.sb{display:none}
+  .mtop{display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40;background:rgba(255,255,255,.86);backdrop-filter:blur(14px);border-bottom:1px solid var(--line);padding:12px 16px}
+  .mtop .brand{display:flex;align-items:center;gap:8px}.mtop .wm{height:16px;width:auto;display:block}
+  .mtop .msr{display:flex;gap:8px}
+  .mtop .mib{width:34px;height:34px;border-radius:9px;border:1px solid var(--line);display:grid;place-items:center;background:var(--surface)}
+  .mtop .mib svg{width:16px;height:16px;stroke:var(--ink-2);fill:none;stroke-width:1.8}
+  .wrap{padding:14px 16px 90px}
+  .h1{font-size:18px}.h1 span{display:block;margin:4px 0 0}
+  .vhero{gap:12px;padding:16px 16px 12px}
+  .crow{padding:8px 10px 10px 12px}
+  .toasts{bottom:78px}
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside class="sb">
+    <div class="brand"><div class="mk">H</div><img class="wm" src="/static/headnote-logo.svg" alt="Headnote" />
+      <button class="sbtog" id="sbtog" onclick="toggleSb()" title="Collapse sidebar" aria-label="Collapse sidebar"><svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="M9 4.5v15"/></svg></button>
+    </div>
+    <div class="lbl">Chamber</div>
+    <button class="navi" title="Home" onclick="location.href='/home'"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg><span class="nvt">Home</span></button>
+    <button class="navi" title="Research" onclick="location.href='/research'"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg><span class="nvt">Research</span></button>
+    <button class="navi on" title="Draft"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg><span class="nvt">Draft</span></button>
+    <button class="kbtn" onclick="openPal()" title="Browse by court (⌘K)"><svg viewBox="0 0 24 24"><path d="M4 19V5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1-2-2Zm0 0a2 2 0 0 1 2-2h13"/></svg><span class="nvt">Browse by court</span><span class="k nvt">⌘K</span></button>
+    <div class="lbl" style="margin-top:16px">Personalisation</div>
+    <button class="navi" title="Draft DNA" onclick="location.href='/draft-dna'"><svg viewBox="0 0 24 24" stroke-linecap="round"><path d="M12 3v18"/><path d="M8 5.5v13"/><path d="M16 5.5v13"/><path d="M4.5 9v6"/><path d="M19.5 9v6"/></svg><span class="nvt">Draft DNA</span></button>
+    <div class="lbl" id="rcl" style="margin-top:16px">Recent drafts</div>
+    <div id="rcList"></div>
+    <div class="grow"></div>
+    <div class="user"><div class="av" id="uav">·</div><div><div class="u" id="unm">Signed in</div><div class="r" id="url">Headnote</div></div></div>
+  </aside>
+
+  <main class="main">
+    <div class="mtop"><div class="brand"><img class="wm" src="/static/headnote-logo.svg" alt="Headnote" /></div>
+      <div class="msr">
+        <button class="mib" onclick="location.href='/home'" aria-label="Home"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></button>
+        <button class="mib" onclick="openPal()" aria-label="Browse by court"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg></button>
+      </div></div>
+
+    <div class="wrap">
+
+      <!-- =============== COMPOSE: states 1,2,3 (typed) + 6,7 (voice) + 8 (ask) -->
+      <div id="composeView">
+        <div class="h-row">
+          <div class="h1">Draft<span id="hsub">Tell the junior what you need.</span></div>
+        </div>
+
+        <div class="composer" id="composer" style="max-width:820px">
+
+          <!-- ONE box, and the mic sits BESIDE it — never in front of it.
+               Voice used to be a MODE that hid this textarea until you found
+               "or type". That is the rigidity: an advocate who wants to type
+               landed on a screen with no box to type in, and an advocate who
+               was dictating could not safely correct a word. Both inputs are
+               live at the same time now; the mic only ever APPENDS. -->
+          <div class="briefwrap">
+            <textarea class="ta hi" id="brief" rows="3" spellcheck="false"
+              placeholder="Type here, or tap the mic and just talk — the matter, the section, the dates, in any order. Hindi, English, Marathi, Gujarati: whatever you speak in court."></textarea>
+            <div class="mic" id="mic" role="button" tabindex="0" aria-label="Tap to dictate" title="Tap to dictate (Esc to stop)">
+              <span class="ring"></span><span class="ring"></span><span class="ring"></span>
+              <span class="core" id="micCore"><svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span>
+            </div>
+          </div>
+
+          <!-- appears ONLY while listening: the timer, what is being heard right
+               now (kept OUT of his text until it is final), and the language as a
+               fact he can correct mid-sentence without losing a word. -->
+          <div class="vbar hidden" id="vbar">
+            <span class="vt" id="vt">Listening — 0:00</span>
+            <div class="lvl" id="lvl"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <span class="vlive" id="vlive"></span>
+            <div class="cspace"></div>
+            <div class="langchip" id="langchip">
+              <span id="langDet">—</span>
+              <select id="langSel" aria-label="Spoken language">
+                <option value="hi-IN">हिन्दी</option><option value="en-IN">English</option>
+                <option value="mr-IN">मराठी</option><option value="gu-IN">ગુજરાતી</option>
+                <option value="bn-IN">বাংলা</option><option value="ta-IN">தமிழ்</option>
+                <option value="te-IN">తెలుగు</option><option value="kn-IN">ಕನ್ನಡ</option>
+                <option value="pa-IN">ਪੰਜਾਬੀ</option><option value="ml-IN">മലയാളം</option>
+                <option value="or-IN">ଓଡ଼ିଆ</option>
+              </select>
+            </div>
+            <button class="vstop" onclick="stopVoice()">Stop</button>
+          </div>
+
+          <div class="atts hidden" id="atts"></div>
+
+          <div class="crow" id="crow"></div>
+        </div>
+
+        <div id="dnaLine"></div>
+
+        <!-- state 8 — at most ONE round, and 'draft it anyway' is always here -->
+        <div id="askCard"></div>
+
+        <div class="shelf" id="shelf"></div>
+      </div>
+
+      <!-- =============== RESULT: states 4,5 + 9 (Editor · Canvas · Reform) ---- -->
+      <div id="resultView" class="hidden">
+        <div class="etop">
+          <button class="cbtn" onclick="backToCompose()"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>New draft</button>
+          <div class="en" id="rTitle">Draft</div>
+          <span class="chip hidden" id="rCourt"></span>
+          <span class="chip hidden" id="rMatter"></span>
+          <div class="seg3" id="seg3">
+            <button data-mode="editor"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h12M4 17h9"/></svg>Editor</button>
+            <button data-mode="canvas" class="on"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="1.5"/></svg>Canvas</button>
+            <button data-mode="reform"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 13.7-5.6M20 12a8 8 0 0 1-13.7 5.6"/><path d="M17 3v4h-4M7 21v-4h4"/></svg>Reform</button>
+          </div>
+        </div>
+        <div class="res">
+        <aside class="fields" id="fields"></aside>
+          <div id="pane"></div>
+          <aside class="rail" id="rail"></aside>
+        </div>
+      </div>
+
+      <div id="gate" class="signin-gate hidden">
+        <div class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+        <h2>Sign in to open your chamber</h2>
+        <p>Your drafts, your matters and your own filing format live on your Headnote account, so only you can see them.</p>
+        <a class="btn btn--primary" href="/app">Sign in</a>
+      </div>
+    </div>
+  </main>
+</div>
+
+<input type="file" id="fileIn" multiple style="display:none"
+       accept="image/*,.heic,.heif,.webp,.pdf,.docx,.doc,.xlsx,application/pdf">
+
+<div class="pal" id="pal"><div class="palbox">
+  <div class="palin"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>
+    <input id="palq" placeholder="What are you drafting, or which court…"></div>
+  <div class="palres" id="palres"></div>
+  <div class="palfoot" id="palfoot">Picking one just writes it into the brief box — the box is still the way in.</div>
+</div></div>
+
+<div class="toasts" id="toasts"></div>
+
+<script src="/static/auth.js"></script>
+<script src="/static/v2-beta.js"></script>
+<script>
+/* ============================================================================
+   V2 Draft — one screen, one action.
+
+   The whole screen is ONE brief box. There is no template grid, no court cards
+   and no mode picker, because the choice a lawyer currently has to make before
+   he can start is the thing being deleted — not rearranged.
+
+   Endpoints (all of the drafting ones are the SINGLE door):
+     POST /api/draft/skeleton    the court skeleton, instantly, free
+     POST /api/draft/questions   at most one round, free
+     POST /api/draft/one         brief + attachments + matter → the draft (NDJSON)
+     POST /api/draft/transcribe  voice fallback when the browser has no recogniser
+     GET  /api/draft/{id}/docx   the payoff: his layout, his font
+     GET  /api/draft-dna/layout  whether "his format" is a fact or an amber line
+     GET  /api/draft/?limit=     the recent-drafts shelf
+     GET  /api/cases             matters, for the ⊕ Matter chip
+
+   Two rules this file must never break:
+     • FACTS and FORMAT are separate sources. A file is a format source only when
+       the advocate says so in words, and the default is always Facts.
+     • Hindi is a CAPABILITY, never the interface voice. Every label here is
+       professional English; Hindi/Marathi/Gujarati appear only as HIS content.
+
+   ?demo=1 (or opening the file directly) runs the whole flow on sample data, so
+   the screen can be reviewed without an account. ?matter=<id> binds the draft.
+   ========================================================================== */
+const $  = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const DEMO = /[?&]demo=1/.test(location.search) || location.protocol==='file:';
+
+function toast(m,k){const t=document.createElement('div');t.className='toast'+(k?' toast--'+k:'');t.textContent=m;$('#toasts').appendChild(t);setTimeout(()=>t.remove(),3600);}
+
+/* ---------------- auth (same contract as /home and /research) ---------------- */
+/* The token MUST come through the Supabase client (auth.js -> headnoteAuth):
+   a stored access token expires after about an hour and only the client
+   refreshes it. A raw localStorage read is why the same account looked empty
+   on a second browser - the stale token 401'd. The scan stays as a fallback. */
+let _tok=null;
+function storedToken(){
+  try{
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i);
+      if(/sb-.*-auth-token/.test(k)){
+        const v=JSON.parse(localStorage.getItem(k));
+        if(v&&v.access_token) return v.access_token;
+        if(Array.isArray(v)&&v[0]) return v[0];
+      }
+    }
+  }catch(e){}
+  return null;
+}
+async function freshToken(){
+  try{
+    if(window.headnoteAuth&&typeof window.headnoteAuth.getAccessToken==='function'){
+      const t=await window.headnoteAuth.getAccessToken();
+      if(t){ _tok=t; return t; }
+    }
+  }catch(e){}
+  _tok=storedToken();
+  return _tok;
+}
+function authToken(){ return _tok||storedToken(); }
+async function H(json){
+  const h = json ? {'Content-Type':'application/json'} : {};
+  const t = await freshToken(); if(t) h.Authorization='Bearer '+t;
+  return h;
+}
+/* A FormData body must keep the browser's OWN Content-Type, because that is what
+   carries the multipart boundary. Deriving the JSON header from !!body alone made
+   the server parse no files at all: every upload arrived as file=None and failed
+   silently, as if nothing had been attached. Every upload on this page goes
+   through here. */
+async function rawFetch(path, opts){
+  const body=(opts||{}).body;
+  const isForm = typeof FormData!=='undefined' && body instanceof FormData;
+  return fetch(path, {...(opts||{}), headers:{...(await H(!!body && !isForm)), ...((opts||{}).headers||{})}});
+}
+async function api(path, opts){
+  if(DEMO) return demoApi(path, opts);
+  const r = await rawFetch(path, opts);
+  let d=null; try{ d = await r.json(); }catch(e){}
+  if(r.status===401){ gate(); throw new Error('Please sign in again'); }
+  if(r.status===403 && d && d.detail && d.detail.code==='not_in_beta') throw new Error('This is a private beta.');
+  if(r.status===402){ const e=new Error(errMsg(d)||"Your plan's draft quota is used up — upgrade to keep drafting."); e.quota=true; throw e; }
+  if(!r.ok) throw new Error(errMsg(d)||('Request failed ('+r.status+')'));
+  return d;
+}
+const errMsg = d => { if(!d) return null; const x=d.detail||d.error; if(!x) return null; return typeof x==='string'?x:(x.message||JSON.stringify(x)); };
+function gate(){ $('#gate').classList.remove('hidden'); $('#composeView').classList.add('hidden'); $('#resultView').classList.add('hidden'); }
+
+async function readNdjson(resp, onEvt){
+  const reader = resp.body.getReader(), dec = new TextDecoder();
+  let buf='';
+  for(;;){
+    const {value, done} = await reader.read();
+    if(done) break;
+    buf += dec.decode(value,{stream:true});
+    let nl;
+    while((nl = buf.indexOf('\n')) >= 0){
+      const line = buf.slice(0,nl).trim(); buf = buf.slice(nl+1);
+      if(!line) continue;
+      let evt; try{ evt = JSON.parse(line); }catch(e){ continue; }
+      onEvt(evt);
+    }
+  }
+}
+
+/* ---------------- state ---------------- */
+let ATT=[];            /* [{file, name, role:'facts'|'format', meta}] */
+let MATTER=null;       /* {id,label} — the draft is filed into this matter */
+let MATTERS=null;
+let DNA=null;          /* {has_layout, font, page, n_drafts} */
+let LANG='auto';       /* what the ENGINE drafts in; 'auto' unless he picks */
+let SLANG=null;        /* the language he speaks, from the mic chip */
+let ANSWERS={};        /* the one round's answers */
+let ASKED=false;       /* one round, and one only */
+let QS=[];
+let RESULT=null;       /* the finished draft */
+let SKEL=null;         /* the instant skeleton — page geometry + blocks */
+let MODE='canvas';     /* editor | canvas | reform */
+let BUSY=false;
+let COURTS=null;
+
+const briefText = () => ($('#brief').value||'').trim();
+
+/* ---------------- sidebar ---------------- */
+function toggleSb(){
+  const on=document.body.classList.toggle('sb-min');
+  try{ localStorage.setItem('hn_sb',on?'1':'0'); }catch(e){}
+  const b=$('#sbtog'); if(b){ b.title=on?'Expand sidebar':'Collapse sidebar'; b.setAttribute('aria-label',b.title); }
+}
+try{ if(localStorage.getItem('hn_sb')==='1') document.body.classList.add('sb-min'); }catch(e){}
+
+function whoami(){
+  try{
+    const t=authToken(); if(!t) return;
+    const p=JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
+    const em=p.email||''; const nm=em.split('@')[0]||'You';
+    $('#unm').textContent=nm.length>18?nm.slice(0,18)+'…':nm;
+    $('#uav').textContent=(nm[0]||'·').toUpperCase();
+    $('#url').textContent=em.length>22?em.slice(0,22)+'…':em;
+  }catch(e){}
+}
+
+/* ============================================================================
+   THE COMPOSER — states 1,2,3,6,7
+   ========================================================================== */
+const IC = {
+  clip:'<svg viewBox="0 0 24 24"><path d="M21.4 11.05 12.2 20.3a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.6 1.6 0 0 1-2.3-2.3l7.8-7.8"/></svg>',
+  mic:'<svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
+  type:'<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h9"/></svg>',
+  arrow:'<svg viewBox="0 0 24 24"><path d="M5 12h13m-5-6 6 6-6 6"/></svg>',
+  doc:'<svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h6M9 16h4"/></svg>',
+  down:'<svg viewBox="0 0 24 24"><path d="M12 4v11m-4-4 4 4 4-4M5 20h14"/></svg>',
+  stop:'<svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/></svg>',
+};
+
+function renderCrow(){
+  const has = !!briefText() || ATT.length>0;
+  const parts=[];
+  if(MATTER) parts.push('<span class="pill"><span class="pt">'+esc(MATTER.label)+'</span><span class="x" onclick="clearMatter()" title="Detach">✕</span></span>');
+  parts.push('<button class="cbtn" onclick="pickFiles()">'+IC.clip+(ATT.length?'Attach more':'Attach papers')+'</button>');
+  if(REC.on) parts.push('<button class="cbtn rec" onclick="stopVoice()">'+IC.stop+'<span id="recT">0:00</span> — listening</button>');
+  if(!MATTER) parts.push('<button class="cbtn dash" onclick="openMatterPicker()">⊕ Matter</button>');
+  parts.push('<div class="cspace"></div>');
+  parts.push('<button class="go'+(has&&!BUSY?'':' off')+'" id="goBtn" '+(has&&!BUSY?'onclick="draftIt()"':'')+'>'+IC.arrow+(BUSY?'Drafting…':'Draft it')+'</button>');
+  $('#crow').innerHTML = parts.join('');
+}
+
+/* ---- attachments: one explicit, worded decision per file ---- */
+function pickFiles(){ $('#fileIn').click(); }
+function addFiles(list){
+  for(const f of list){
+    if(ATT.length>=8){ toast('Eight papers is the limit for one draft.','error'); break; }
+    /* Facts is ALWAYS the default. A document can only become a format source
+       when the advocate says so — guessing would let a stranger's draft govern
+       the shape of a filed document, and would blur the two-source rule that
+       keeps facts and format apart. */
+    ATT.push({file:f, name:f.name||'document', role:'facts',
+              meta:(f.size?Math.max(1,Math.round(f.size/1024))+' KB':'')+(/\.docx?$/i.test(f.name||'')?' · Word':'')});
+  }
+  renderAtts(); renderCrow(); renderDna();
+}
+function renderAtts(){
+  const box=$('#atts');
+  box.classList.toggle('hidden', ATT.length===0);
+  box.innerHTML = ATT.map((a,i)=>
+    '<div class="att"><div class="ic">'+IC.doc+'</div>'+
+    '<div class="fb"><div class="fn">'+esc(a.name)+'</div><div class="fm">'+esc(a.meta)+'</div></div>'+
+    '<div class="sp"></div>'+
+    '<div class="seg">'+
+      '<button class="'+(a.role==='facts'?'on':'')+'" onclick="setRole('+i+',\'facts\')">Facts from this</button>'+
+      '<button class="'+(a.role==='format'?'on':'')+'" onclick="setRole('+i+',\'format\')">Format from this</button>'+
+    '</div>'+
+    '<button class="rm" onclick="dropFile('+i+')" aria-label="Remove">✕</button></div>').join('');
+}
+function setRole(i,role){
+  if(!ATT[i]) return;
+  ATT[i].role=role;
+  /* Only ONE document can be the format. Mirroring two references at once has no
+     meaning, so the previous one is demoted out loud rather than silently. */
+  if(role==='format'){
+    const others = ATT.filter((a,j)=>j!==i && a.role==='format');
+    if(others.length){ others.forEach(a=>a.role='facts');
+      toast('Only one paper can set the format — '+others[0].name+' is back to facts.'); }
+  }
+  renderAtts(); renderDna();
+}
+function dropFile(i){ ATT.splice(i,1); renderAtts(); renderCrow(); renderDna(); }
+
+/* ---- the DNA line: state 3. An honest status, not an upsell modal. ---- */
+function renderDna(){
+  const ref = ATT.find(a=>a.role==='format');
+  const box=$('#dnaLine');
+  const tick='<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>';
+  const warn='<svg viewBox="0 0 24 24"><path d="M12 8v5M12 16.5v.5"/><circle cx="12" cy="12" r="9"/></svg>';
+  if(ref){
+    /* An advocate attaching a document is saying "match THIS one, this time" — a
+       notice on office letterhead formats differently from a Sessions bail. So the
+       reference always beats the saved profile, and the screen says so out loud
+       instead of deciding silently. */
+    box.innerHTML='<div class="dna ok" style="max-width:820px">'+tick+
+      '<span>This draft follows the attached <b>'+esc(ref.name)+'</b> — an attached reference always beats your saved format.</span>'+
+      '<span class="sp"></span>'+
+      (DNA&&DNA.has_layout?'<a onclick="useSavedFormat()">Use my saved format instead</a>':'')+'</div>';
+    return;
+  }
+  if(DNA&&DNA.has_layout){
+    const bits=[];
+    if(DNA.font) bits.push('<code>'+esc(DNA.font)+'</code>');
+    const p=DNA.page||{};
+    if(p.width&&p.height) bits.push(esc((+p.width).toFixed(2).replace(/\.?0+$/,''))+'×'+esc((+p.height).toFixed(2).replace(/\.?0+$/,''))+'in');
+    bits.push('your margins and indents');
+    box.innerHTML='<div class="dna ok" style="max-width:820px">'+tick+
+      '<span>Drafts come out in <b>your format</b> — '+bits.join(' · ')+
+      (DNA.n_drafts?', learned from '+esc(DNA.n_drafts)+' of your filed drafts':'')+'.</span>'+
+      '<span class="sp"></span><a onclick="location.href=\'/draft-dna\'">Change</a></div>';
+  }else{
+    box.innerHTML='<div class="dna no" style="max-width:820px">'+warn+
+      '<span>Your format isn\'t set up — drafts will come out in standard court format, not yours.</span>'+
+      '<span class="sp"></span><a onclick="location.href=\'/draft-dna\'">Set it up — drop 2 filed drafts, 2 minutes</a></div>';
+  }
+}
+function useSavedFormat(){
+  ATT.forEach(a=>{ if(a.role==='format') a.role='facts'; });
+  renderAtts(); renderDna(); toast('Using your saved format.');
+}
+
+/* ---- matters: the ⊕ chip. Attach one and the draft lands in its file. ---- */
+async function loadMatters(){
+  if(MATTERS) return MATTERS;
+  try{
+    const d = await api('/api/cases');
+    MATTERS=(d.items||[]).map(c=>{
+      const cj=c.case_json||{};
+      return {id:String(c.id),
+        label:(cj.client&&cj.client.name)||c.case_title||('Matter '+(c.case_number||c.id)),
+        sub:[c.case_number&&(c.case_number+(c.case_year?'/'+c.case_year:'')), c.court_name].filter(Boolean).join(' · ')};
+    });
+  }catch(e){ MATTERS=[]; toast('Could not load your matters: '+e.message,'error'); }
+  return MATTERS;
+}
+function clearMatter(){ MATTER=null; renderCrow(); }
+
+/* ============================================================================
+   VOICE — states 6 and 7. The mic is the hero of the screen.
+
+   Most of these advocates will not type Devanagari, and none of them will fill a
+   form standing in a corridor. So: one tap, then talk roughly, in any order,
+   mixing Hindi and English.
+
+   Two engines, in this order:
+     1. the browser's own SpeechRecognition — free, real-time, no round-trip;
+     2. MediaRecorder → POST /api/draft/transcribe (Sarvam Saarika, Indic-native,
+        Whisper fallback) for browsers that have no recogniser.
+   The server path is charged as a draft credit, so it fires ONCE per recording,
+   never per utterance: metering a rambling brief five times over is severe enough
+   to be a reason not to speak, and speaking is the whole point.
+
+   The transcript lands as he speaks and stays HIS editable text. The detected
+   language is shown as a fact he can correct, because a Hindi-locked recogniser
+   quietly typing a Marathi advocate's words as Hindi is the worst failure
+   available here.
+   ========================================================================== */
+const REC={on:false,rec:null,sr:null,media:null,chunks:[],t0:0,timer:null,ac:null,an:null,raf:0,base:''};
+const LANG_NAMES={'hi-IN':'हिन्दी','en-IN':'English','mr-IN':'मराठी','gu-IN':'ગુજરાતી','bn-IN':'বাংলা','ta-IN':'தமிழ்','te-IN':'తెలుగు','kn-IN':'ಕನ್ನಡ','pa-IN':'ਪੰਜਾਬੀ','ml-IN':'മലയാളം','or-IN':'ଓଡ଼ିଆ'};
+
+function speechCtor(){ return window.SpeechRecognition || window.webkitSpeechRecognition || null; }
+function voiceAvailable(){ return !!(speechCtor() || (navigator.mediaDevices && navigator.mediaDevices.getUserMedia)); }
+
+function micLang(){ return $('#langSel').value || 'hi-IN'; }
+
+/* Dictation only ever APPENDS to whatever is in the box right now. It never
+   rewrites the whole value from a snapshot taken when recording started — that
+   was the bug that silently threw away anything he typed or corrected while the
+   mic was live. Interim (not-yet-final) words go to #vlive, never into his text. */
+function commitSpeech(t){
+  t=(t||'').trim(); if(!t) return;
+  const ta=$('#brief');
+  const cur=ta.value.replace(/\s+$/,'');
+  ta.value = (cur ? cur+' ' : '') + t + ' ';
+  autoGrow(ta); renderCrow();
+}
+function showInterim(t){ const el=$('#vlive'); if(el) el.textContent=(t||'').trim(); }
+
+async function startVoice(){
+  if(REC.on) return stopVoice();
+  REC.on=true; REC.t0=Date.now(); REC.heard=Date.now();
+  $('#mic').classList.add('live');
+  $('#micCore').innerHTML=IC.stop;
+  $('#vbar').classList.remove('hidden');
+  $('#composer').classList.add('focus');
+  showInterim('');
+  $('#langDet').textContent=(LANG_NAMES[micLang()]||micLang())+' ·';
+  REC.timer=setInterval(()=>{ const s=Math.floor((Date.now()-REC.t0)/1000);
+    const m=Math.floor(s/60), ss=String(s%60).padStart(2,'0');
+    /* say out loud when nothing is being picked up, instead of sitting on a red
+       mic that silently auto-restarts and looks identical to one that is working */
+    const quiet=(Date.now()-REC.heard)>6000;
+    $('#vt').textContent=(quiet?'Still listening — ':'Listening — ')+m+':'+ss;
+    const rt=$('#recT'); if(rt) rt.textContent=m+':'+ss; },500);
+  renderCrow();
+  try{ await meter(); }catch(e){}
+  const SR=speechCtor();
+  if(SR){
+    const sr=new SR(); REC.sr=sr;
+    sr.lang=micLang(); sr.continuous=true; sr.interimResults=true;
+    sr.onresult=e=>{
+      let interim='', finals='';
+      for(let i=e.resultIndex;i<e.results.length;i++){
+        const r=e.results[i];
+        if(r.isFinal) finals += r[0].transcript+' '; else interim += r[0].transcript;
+      }
+      REC.heard=Date.now();
+      if(finals) commitSpeech(finals);   /* append — never overwrite his edits */
+      showInterim(interim);              /* provisional words stay out of his text */
+    };
+    sr.onerror=e=>{
+      const err=e.error||'';
+      if(err==='not-allowed'||err==='service-not-allowed'){
+        toast('Microphone blocked in the browser — you can type instead.','error');
+        stopVoice(); return;
+      }
+      /* 'no-speech' and 'aborted' are just a pause — onend restarts. Anything
+         else (network, audio-capture, language-not-supported) means this
+         browser's recogniser is not going to work, and silently retrying it
+         forever would leave him talking to a mic that is recording nothing. So
+         hand over to the server path (Sarvam Saarika → Whisper), out loud. */
+      if(err==='no-speech'||err==='aborted') return;
+      try{ sr.onend=null; sr.stop(); }catch(x){}
+      REC.sr=null;
+      toast('Using Headnote to write it down instead of the browser.');
+      serverVoice();
+    };
+    sr.onend=()=>{ if(REC.on && REC.sr){ try{ sr.start(); }catch(e){} } };  /* pauses are fine */
+    try{ sr.start(); }catch(e){ REC.sr=null; }
+    if(REC.sr) return;
+  }
+  await serverVoice();
+}
+
+/* The fallback engine: record, then transcribe ONCE on the server (Sarvam
+   Saarika, Indic-native, Whisper behind it). One call per recording, never per
+   utterance — see the metering note above. */
+async function serverVoice(){
+  if(!REC.on) return;
+  try{
+    const stream = REC.media || await navigator.mediaDevices.getUserMedia({audio:true});
+    REC.media=stream; REC.chunks=[];
+    const mr=new MediaRecorder(stream); REC.rec=mr;
+    mr.ondataavailable=e=>{ if(e.data&&e.data.size) REC.chunks.push(e.data); };
+    mr.onstop=()=>transcribeOnce();
+    mr.start();
+  }catch(e){
+    toast('No microphone available — you can type instead.','error');
+    stopVoice();
+    $('#brief').focus();
+  }
+}
+
+function stopVoice(){
+  if(!REC.on) return;
+  REC.on=false;
+  clearInterval(REC.timer); REC.timer=null;
+  cancelAnimationFrame(REC.raf);
+  if(REC.sr){ try{ REC.sr.onend=null; REC.sr.stop(); }catch(e){} REC.sr=null; }
+  if(REC.rec && REC.rec.state!=='inactive'){ try{ REC.rec.stop(); }catch(e){} }
+  if(REC.media){ REC.media.getTracks().forEach(t=>t.stop()); REC.media=null; }
+  if(REC.ac){ try{ REC.ac.close(); }catch(e){} REC.ac=null; }
+  $('#mic').classList.remove('live');
+  $('#micCore').innerHTML=IC.mic;
+  $('#mic').style.removeProperty('--lvl');
+  /* anything still provisional when he stops is his — commit it rather than
+     drop the last half-sentence on the floor */
+  const tail=$('#vlive') ? $('#vlive').textContent : '';
+  if(tail) commitSpeech(tail);
+  showInterim('');
+  $('#vbar').classList.add('hidden');
+  $$('#lvl i').forEach(b=>b.style.transform='scaleY(.2)');
+  renderCrow();
+  $('#brief').focus();
+}
+
+/* the rings and bars breathe to the REAL input level: it is how he knows he is
+   being heard, and a dead meter is how he learns the mic is muted */
+async function meter(){
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+  const stream = REC.media || await navigator.mediaDevices.getUserMedia({audio:true});
+  REC.media=stream;
+  const AC = window.AudioContext||window.webkitAudioContext; if(!AC) return;
+  const ac=new AC(); REC.ac=ac;
+  const an=ac.createAnalyser(); an.fftSize=512; ac.createMediaStreamSource(stream).connect(an);
+  const buf=new Uint8Array(an.frequencyBinCount);
+  const bars=$$('#lvl i');
+  (function tick(){
+    if(!REC.on) return;
+    an.getByteFrequencyData(buf);
+    let sum=0; for(let i=0;i<buf.length;i++) sum+=buf[i];
+    const lvl=Math.min(1, (sum/buf.length)/70);
+    $('#mic').style.setProperty('--lvl', (0.78+lvl*0.5).toFixed(3));
+    bars.forEach((b,i)=>{ const j=Math.floor(buf.length*(i+1)/(bars.length+2));
+      b.style.transform='scaleY('+Math.max(.18, Math.min(1, buf[j]/150)).toFixed(2)+')'; });
+    REC.raf=requestAnimationFrame(tick);
+  })();
+}
+
+async function transcribeOnce(){
+  const blob=new Blob(REC.chunks,{type:(REC.chunks[0]&&REC.chunks[0].type)||'audio/webm'});
+  REC.chunks=[];
+  if(!blob.size) return;
+  const fd=new FormData();
+  fd.append('file', blob, 'dictation.webm');
+  showInterim('Writing down what you said…');
+  try{
+    const code=(SLANG||micLang()).slice(0,2);
+    const d=await api('/api/draft/transcribe?language='+encodeURIComponent(code), {method:'POST', body:fd});
+    if(d&&d.text){
+      commitSpeech(d.text);            /* append, same contract as the live path */
+      if(d.language){ SLANG=d.language;
+        $('#langDet').textContent=(LANG_NAMES[d.language+'-IN']||d.language)+' ·'; }
+    }
+  }catch(e){ toast('Could not write down the recording: '+e.message,'error'); }
+  showInterim('');
+}
+
+function autoGrow(el){ el.style.height='auto'; el.style.height=Math.min(420, el.scrollHeight)+'px'; }
+
+/* ============================================================================
+   DRAFT IT — state 8, then the one door
+   ========================================================================== */
+async function draftIt(){
+  if(BUSY) return;
+  if(REC.on) stopVoice();
+  if(!briefText() && !ATT.length){ toast('Say or type what you need first.'); return; }
+  /* Ask ONCE, and only for what genuinely changes the section, the cause title or
+     the grounds. A free-running conversation is where drafting tools die: every
+     unanswered turn is an abandoned draft. */
+  if(!ASKED){
+    ASKED=true;
+    try{
+      const d=await api('/api/draft/questions',{method:'POST',
+        body:JSON.stringify({brief:briefText(), lang:LANG, answers:ANSWERS})});
+      QS=(d&&d.questions)||[];
+    }catch(e){ QS=[]; }
+    if(QS.length){ renderAsk(); return; }
+  }
+  runDraft();
+}
+
+function renderAsk(){
+  const n = QS.length===1 ? 'One thing before I draft' : QS.length+' things before I draft';
+  $('#askCard').innerHTML =
+    '<div class="ask fin"><div class="ah">'+
+      '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v.5M12 11v5"/></svg>'+
+      '<div class="t">'+esc(n)+'</div><div class="n" id="askMeta"></div></div>'+
+    QS.map((q,i)=>
+      '<div class="q"><div class="ql">'+esc(q.label)+'</div>'+
+      (q.why?'<div class="qw">'+esc(q.why)+'</div>':'')+
+      '<div class="qo" data-q="'+i+'">'+
+        q.options.map(o=>o.free
+          ? '<input placeholder="Type the court…" oninput="freeAns('+i+',this.value)">'
+          : '<button onclick="pickAns('+i+',this)" data-v="'+esc(o.value)+'">'+esc(o.label)+'</button>'
+        ).join('')+
+      '</div></div>').join('')+
+    '<div class="af">'+
+      '<button class="go" onclick="runDraft()">'+IC.arrow+'Draft it</button>'+
+      '<button class="cbtn" onclick="answerByVoice()">'+IC.mic+'Answer by voice</button>'+
+      /* Always present. Anything skipped becomes an amber line on the finished
+         draft, never a blocker — a lawyer walking into court will not finish a
+         ten-question wizard. */
+      '<button class="sk" onclick="runDraft()">Skip — draft it anyway, I\'ll fix it after</button>'+
+    '</div></div>';
+  $('#askCard').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function pickAns(i,btn){
+  const q=QS[i]; if(!q) return;
+  const row=btn.parentElement;
+  row.querySelectorAll('button').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  ANSWERS[q.id]=btn.dataset.v;
+  const inp=row.querySelector('input'); if(inp) inp.value='';
+}
+function freeAns(i,v){
+  const q=QS[i]; if(!q) return;
+  ANSWERS[q.id]=(v||'').trim();
+  const row=document.querySelector('.qo[data-q="'+i+'"]');
+  if(row) row.querySelectorAll('button').forEach(b=>b.classList.remove('on'));
+}
+function answerByVoice(){
+  /* the answers are one or two words: the brief box is already the transcript
+     surface, so route back through it rather than inventing a second mic */
+  $('#askCard').innerHTML=''; startVoice();
+  toast('Say the court, then tap Draft it.');
+}
+
+async function runDraft(){
+  if(BUSY) return;
+  BUSY=true; renderCrow();
+  $('#askCard').innerHTML='';
+  const brief=briefText();
+  const fd=new FormData();
+  fd.append('brief', brief);
+  fd.append('lang', LANG);
+  fd.append('answers', JSON.stringify(ANSWERS));
+  fd.append('roles', JSON.stringify(ATT.map(a=>a.role)));
+  if(MATTER) fd.append('matter_id', MATTER.id);
+  ATT.forEach(a=>fd.append('files', a.file, a.name));
+
+  showResult();
+  paintPane();      /* nothing yet — the skeleton lands in milliseconds */
+  paintRail(null);
+  paintFields();
+
+  try{
+    if(DEMO){ await demoDraft(brief); return; }
+    const r = await rawFetch('/api/draft/one', {method:'POST', body:fd});
+    if(r.status===401){ gate(); throw new Error('Please sign in again'); }
+    if(!r.ok || !r.body){
+      let d=null; try{ d=await r.json(); }catch(e){}
+      throw new Error(errMsg(d)||('Drafting failed ('+r.status+')'));
+    }
+    await readNdjson(r, evt=>{
+      if(evt.type==='skeleton'){ SKEL=evt; onSkeleton(); }
+      else if(evt.type==='result'){ onResult(evt); }
+      else if(evt.type==='error'){ toast(evt.message||'Drafting failed','error'); onFailed(); }
+    });
+    if(!RESULT) onFailed();
+  }catch(e){
+    toast(e.message,'error'); onFailed();
+    if(/private beta|sign in/i.test(e.message)) return;
+  }finally{ BUSY=false; renderCrow(); }
+}
+
+/* the paper is NEVER blank: the skeleton is deterministic Python, so it is on
+   screen before the model has written a word */
+function onSkeleton(){
+  const t=$('#rTitle');
+  t.textContent = SKEL.title || 'Draft';
+  if(ANSWERS.court){ $('#rCourt').textContent=ANSWERS.court; $('#rCourt').classList.remove('hidden'); }
+  if(MATTER){ $('#rMatter').textContent='in '+MATTER.label; $('#rMatter').classList.remove('hidden'); }
+  MODE='canvas'; syncSeg();
+  paintPane(); paintRail(null); paintFields();
+}
+
+function onResult(evt){
+  const r={...evt}; delete r.type;
+  if(!r.ok){ toast(errMsg(r)||'Drafting failed','error'); onFailed(); return; }
+  RESULT=r;
+  $('#rTitle').textContent = r.title || SKEL&&SKEL.title || 'Draft';
+  if(r.court){ $('#rCourt').textContent=r.court; $('#rCourt').classList.remove('hidden'); }
+  paintPane(); paintRail(r.preflight); paintFields();
+  loadRecent();
+}
+
+function onFailed(){
+  RESULT=null;
+  paintRail(null, true); paintFields();
+}
+
+function showResult(){ $('#composeView').classList.add('hidden'); $('#resultView').classList.remove('hidden'); window.scrollTo({top:0}); }
+function backToCompose(){
+  $('#resultView').classList.add('hidden'); $('#composeView').classList.remove('hidden');
+  RESULT=null; SKEL=null; ASKED=false; QS=[]; ANSWERS={};
+  $('#brief').value=''; ATT=[]; renderAtts(); renderCrow(); renderDna();
+  $('#rCourt').classList.add('hidden'); $('#rMatter').classList.add('hidden');
+  loadRecent();
+}
+
+/* ============================================================================
+   EDITOR · CANVAS · REFORM — state 9. One control, permanently visible.
+   ========================================================================== */
+function syncSeg(){ $$('#seg3 button').forEach(b=>b.classList.toggle('on', b.dataset.mode===MODE)); }
+$$('#seg3 button').forEach(b=>b.onclick=()=>{ MODE=b.dataset.mode; syncSeg(); paintPane(); });
+
+/* Legacy Indian legal fonts are 8-bit glyph hacks: the TEXT here is Unicode, so
+   naming Kruti Dev on screen would render mojibake on a machine that HAS it. The
+   .docx gets his real font (and the real encoding); the screen uses a Unicode
+   stand-in and the meta line still names what he will open in Word. */
+const LEGACY=/kruti|dev\s*lys|devlys|chanakya|shree|shivaji|walkman|agra|ajay|amar|kundli|richa|shusha|krishna|yogesh/i;
+function screenFont(f){
+  if(!f) return 'var(--hi)';
+  if(LEGACY.test(f)) return "'Noto Sans Devanagari','Geist',sans-serif";
+  return "'"+f.replace(/'/g,'')+"',"+"'Noto Sans Devanagari','Geist',sans-serif";
+}
+const ALIGN={LEFT:'left',CENTER:'center',RIGHT:'right',JUSTIFY:'justify',DISTRIBUTE:'justify'};
+
+/* HIS page, to scale, from the captured geometry — this is where Draft DNA stops
+   being a claim and becomes something he can see. */
+function paintCanvas(blocks, skeletonRows){
+  const S=SKEL||{}; const page=S.page||{};
+  const W=+page.width||8.27, HH=+page.height||11.69;
+  const host=$('#pane');
+  const avail=Math.max(280, (host.clientWidth||760)-34);
+  const scale=Math.min(1, avail/(W*96));
+  const px=n=>Math.round(n*96*scale);
+  const pt=n=>(n*1.3333*scale);
+  const roles=S.roles||{};
+  const primary=screenFont(S.font);
+  const psize=+S.size||14;
+  const rows=(blocks||[]).map(b=>{
+    const role=b[0], text=String(b[1]==null?'':b[1]);
+    const f=roles[role]||{};
+    const st=[
+      'text-align:'+(ALIGN[(f.align||'LEFT').toUpperCase()]||'left'),
+      'font-family:'+(f.font&&!LEGACY.test(f.font)?screenFont(f.font):primary),
+      'font-size:'+pt(+f.size||psize).toFixed(2)+'px',
+      'line-height:'+(+f.line_spacing||1.5),
+      'font-weight:'+(f.bold?600:400),
+      'margin-left:'+px(+f.left_indent||0)+'px',
+      'margin-right:'+px(+f.right_indent||0)+'px',
+      'text-indent:'+px(+f.first_line_indent||0)+'px',
+      'margin-top:'+pt(+f.space_before||0).toFixed(2)+'px',
+      'margin-bottom:'+pt(+f.space_after||0).toFixed(2)+'px',
+    ].join(';');
+    const blank=/^[_.…\s]+$/.test(text);
+    return '<p class="'+(blank&&skeletonRows?'sk':'')+'" style="'+st+'">'+esc(text)+'</p>';
+  }).join('');
+  const pageStyle='width:'+px(W)+'px;min-height:'+px(HH)+'px;'
+    +'padding:'+px(+page.margin_top||1)+'px '+px(+page.margin_right||1)+'px '
+    +px(+page.margin_bottom||1)+'px '+px(+page.margin_left||1)+'px;';
+  const own=S.format==='own';
+  const meta='<div class="pmeta"><span class="d'+(own?'':' a')+'"></span>'
+    +(own?'Your page':'Standard court format')+' · '
+    +esc((+W).toFixed(2).replace(/\.?0+$/,''))+'×'+esc((+HH).toFixed(2).replace(/\.?0+$/,''))+'in · '
+    +esc(S.font||'—')
+    +(own?' · margins '+esc((+page.margin_left||1).toFixed(2).replace(/\.?0+$/,''))+' / '+esc((+page.margin_right||1).toFixed(2).replace(/\.?0+$/,''))+'in':'')
+    +'</div>';
+  return '<div class="paper-wrap">'+meta+'<div class="page" style="'+pageStyle+'">'+rows+'</div>'
+    +(skeletonRows?'<div class="writing"><span class="spin"></span>Writing the grounds — the junior is reading your brief…</div>':'')
+    +'</div>';
+}
+
+function paintPane(){
+  const host=$('#pane');
+  if(!SKEL){ host.innerHTML='<div class="paper-wrap"><div class="page" style="width:100%;min-height:360px;padding:26px"></div></div>'; return; }
+  if(MODE==='canvas'){
+    const blocks=(RESULT&&RESULT.canvas_blocks)||SKEL.blocks||[];
+    host.innerHTML=paintCanvas(blocks, !RESULT);
+    return;
+  }
+  if(MODE==='editor'){
+    if(!RESULT){ host.innerHTML=paintCanvas(SKEL.blocks||[], true); return; }
+    const html=RESULT.html_hi||RESULT.html_en||'';
+    host.innerHTML='<div class="pmeta"><span class="d"></span>Editor · your text, edit anything</div>'
+      +'<div class="edoc hi" id="edoc" contenteditable="true" spellcheck="false">'+html+'</div>';
+    return;
+  }
+  /* Reform — redrafting by instruction, typed or spoken */
+  host.innerHTML=
+    '<div class="paper-wrap" style="background:var(--raise)">'
+    +'<div class="gl" style="margin-bottom:9px">Reform — say what to change</div>'
+    +'<div class="rfrow"><input class="rfin" id="rfin" placeholder="Make ground 2 stronger on parity…"'
+    +' onkeydown="if(event.key===\'Enter\')reform()">'
+    +'<button class="cbtn" onclick="reformByVoice()">'+IC.mic+'</button>'
+    +'<button class="go" onclick="reform()">'+IC.arrow+'Redraft</button></div>'
+    +'<div>'+['Add the triple test','Shorten it','Add a parity ground','More formal','Add the prayer for interim relief']
+        .map(q=>'<button class="rfq" onclick="reform(this.textContent)">'+esc(q)+'</button>').join('')+'</div>'
+    +'<div class="rfnote">Reform <b>redrafts</b> the document with your instruction added to the brief, '
+    +'so the text, this page and the .docx stay the same document. Nothing goes stale behind your back.</div>'
+    +'</div>';
+  setTimeout(()=>{ const i=$('#rfin'); if(i) i.focus(); },0);
+}
+
+function reformByVoice(){
+  toast('Reform by voice: dictate into the brief box, then Redraft.');
+  backToComposeKeepBrief();
+}
+function backToComposeKeepBrief(){
+  $('#resultView').classList.add('hidden'); $('#composeView').classList.remove('hidden');
+  startVoice();
+}
+async function reform(text){
+  const ins=(text||($('#rfin')&&$('#rfin').value)||'').trim();
+  if(!ins){ toast('Say what to change.'); return; }
+  /* Appended as a labelled instruction rather than a fact, so the fact-grounding
+     guard does not read "make it shorter" as something to plead. */
+  $('#brief').value = briefText().replace(/\n*\[Change requested][\s\S]*$/,'')
+    + '\n\n[Change requested] ' + ins;
+  ASKED=true;  /* already past the one round — never ask twice */
+  RESULT=null;
+  await runDraft();
+}
+
+/* ============================================================================
+   THE FIELD COLUMN — V1's left form, back inside the open document.
+
+   V2 shipped the document with only a preview and the junior's note, so to change
+   a party's name or a ground you had to retype it inside the page itself. This
+   puts the labelled fields back on the left, in V1's sectioned style.
+
+   It is driven by the DOCUMENT'S OWN PARTS (the role-tagged blocks), not by a
+   template's field spec. That matters: a spec exists only for the ~41 canonical
+   types, so a spec-driven column would be EMPTY for every authored draft and for
+   every one of the new non-court families. Blocks exist for all of them.
+
+   An edit writes through to the server (POST /api/draft/{id}/blocks), because the
+   .docx renders from the PERSISTED blocks. Editing here and then downloading the
+   pre-edit text would be worse than having no field column at all.
+   ========================================================================== */
+const FSECS=[
+  {label:'Addressed to', roles:['addressee','subject','reference','salutation']},
+  {label:'Court & case', roles:['side_label','court','caseno','section_heading']},
+  {label:'Parties',      roles:['applicant','versus','respondent']},
+  {label:'Body',         roles:['intro','fact_head','ground_head','ground']},
+  {label:'Prayer',       roles:['prayer']},
+  {label:'Signature',    roles:['dateline','sig_party','sig_by','advocate','witness','enclosures']},
+];
+const FLABEL={addressee:'Addressed to',subject:'Subject',reference:'Reference',salutation:'Salutation',
+  side_label:'On behalf of',court:'Court',caseno:'Case number',section_heading:'Heading',
+  applicant:'Applicant',versus:'Versus',respondent:'Respondent',intro:'Opening',
+  fact_head:'Facts heading',ground_head:'Grounds heading',ground:'Para',prayer:'Prayer',
+  dateline:'Place & date',sig_party:'Signed by',sig_by:'Through',advocate:'Advocate',
+  witness:'Witness',enclosures:'Enclosure',text:'Text'};
+let FSAVE=null;   /* debounce handle for the write-through */
+
+function fieldBlocks(){ return (RESULT&&RESULT.canvas_blocks)||(SKEL&&SKEL.blocks)||[]; }
+
+function paintFields(){
+  const host=$('#fields'); if(!host) return;
+  const blocks=fieldBlocks();
+  if(!blocks.length){
+    host.innerHTML='<div class="fh"><div class="ft">The fields</div>'
+      +'<div class="fs">They appear here as soon as the draft lands.</div></div>';
+    return;
+  }
+  const editable = !!(RESULT&&RESULT.canvas_blocks);
+  const seen={}, byRole={};
+  blocks.forEach((b,i)=>{ if(!b || typeof b[1]==='object') return;   /* tables are not text fields */
+    const r=b[0]||'text'; (byRole[r]=byRole[r]||[]).push({i, text:String(b[1]||'')}); });
+
+  const row=(role,item,n)=>{
+    const lbl=(FLABEL[role]||role)+(n?' '+n:'');
+    const big=['ground','intro','prayer','applicant','respondent'].indexOf(role)>=0;
+    return '<div class="fld'+(role==='ground'?' num':'')+'">'
+      +'<label for="f'+item.i+'">'+esc(lbl)+'</label>'
+      +'<textarea id="f'+item.i+'" rows="'+(big?3:1)+'" spellcheck="false"'
+      +(editable?'':' readonly')+' oninput="fieldEdit('+item.i+',this.value)">'
+      +esc(item.text)+'</textarea></div>';
+  };
+
+  let html='<div class="fh"><div class="ft">The fields</div>'
+    +'<div class="fs">'+(editable?'Change anything here — the page and the .docx follow.'
+                                 :'The draft is still being written.')+'</div></div>';
+  FSECS.forEach(sec=>{
+    const rows=[];
+    sec.roles.forEach(role=>{
+      const list=byRole[role]||[];
+      list.forEach((item,k)=>{ seen[item.i]=1; rows.push(row(role,item,list.length>1?k+1:0)); });
+    });
+    if(rows.length) html+='<div class="fsec"><div class="fl">'+esc(sec.label)+'</div>'+rows.join('')+'</div>';
+  });
+  /* any role without a section still gets an editable row, so a new part can
+     never be silently un-editable */
+  const rest=[];
+  blocks.forEach((b,i)=>{ if(seen[i]||!b||typeof b[1]==='object') return;
+    rest.push(row(b[0]||'text',{i,text:String(b[1]||'')},0)); });
+  if(rest.length) html+='<div class="fsec"><div class="fl">Other</div>'+rest.join('')+'</div>';
+
+  html+='<div class="fsave" id="fsave">'+(editable?'Saved with the draft':'')+'</div>';
+  host.innerHTML=html;
+}
+
+function fieldEdit(i, val){
+  if(!RESULT||!RESULT.canvas_blocks||!RESULT.canvas_blocks[i]) return;
+  RESULT.canvas_blocks[i][1]=val;
+  const s=$('#fsave'); if(s) s.textContent='Saving…';
+  clearTimeout(FSAVE);
+  FSAVE=setTimeout(async ()=>{
+    if(MODE==='canvas') paintPane();          /* the page follows the field */
+    if(DEMO){ if(s) s.textContent='Demo mode — not saved'; return; }
+    if(!RESULT.draft_id){ if(s) s.textContent='Not saved — no draft id'; return; }
+    try{
+      await api('/api/draft/'+encodeURIComponent(RESULT.draft_id)+'/blocks',
+                {method:'POST', body:JSON.stringify({blocks:RESULT.canvas_blocks})});
+      if(s) s.textContent='Saved · the .docx matches';
+    }catch(e){
+      /* never claim a save that did not happen — that is exactly how a lawyer
+         downloads the pre-edit text at the counter */
+      if(s) s.textContent='NOT saved — '+(e.message||'try again');
+      toast('Could not save that edit: '+e.message,'error');
+    }
+  }, 500);
+}
+
+/* ---- the junior's note: deterministic checks, no model, no latency ---- */
+function paintRail(pre, failed){
+  const rail=$('#rail');
+  if(failed){
+    rail.innerHTML='<div class="rh"><div class="rt">The junior\'s note</div>'
+      +'<div class="rs">The draft did not come back. Your brief is safe — press New draft and try again.</div></div>'
+      +'<div class="rfoot"><button class="dl" disabled>'+IC.down+'Download .docx</button>'
+      +'<div class="dlm">nothing to download yet</div></div>';
+    return;
+  }
+  if(!pre){
+    rail.innerHTML='<div class="rh"><div class="rt">The junior\'s note</div>'
+      +'<div class="rs">What he checked, and what he wants you to look at.</div></div>'
+      +'<div class="grp"><div class="gl">Checking</div>'
+      +'<div class="ck"><span class="m"><span class="spin" style="width:10px;height:10px"></span></span>'
+      +'<div class="tx" style="color:var(--ink-3)">Reading your brief, then the sections, the prayer and the closer…</div></div></div>'
+      +'<div class="rfoot"><button class="dl" disabled>'+IC.down+'Download .docx</button>'
+      +'<div class="dlm">ready in a moment</div></div>';
+    return;
+  }
+  const amber=(pre.checks||[]).filter(c=>c.severity==='amber');
+  const okc=(pre.checks||[]).filter(c=>c.severity==='ok');
+  const row=c=>'<div class="ck"><span class="m '+(c.severity==='amber'?'a">!':'g">✓')+'</span>'
+    +'<div class="tx">'+esc(c.title)+(c.detail?'<i>'+esc(c.detail)+'</i>':'')+'</div></div>';
+  const own = RESULT && RESULT.docx_in_own_format;
+  const fmt = (SKEL&&SKEL.format==='own') || own;
+  rail.innerHTML=
+    '<div class="rh"><div class="rt">The junior\'s note</div><div class="rs">'
+      +okc.length+' check'+(okc.length===1?'':'s')+' passed'
+      +(amber.length?' · '+amber.length+' for you to look at':' · nothing to flag')+'</div></div>'
+    +(amber.length?'<div class="grp"><div class="gl">Look at this</div>'+amber.map(row).join('')+'</div>':'')
+    +(okc.length?'<div class="grp"><div class="gl">Checked</div>'+okc.map(row).join('')+'</div>':'')
+    +'<div class="rfoot">'
+      +'<button class="dl" onclick="downloadDocx()">'+IC.down+'Download .docx</button>'
+      +'<div class="dlm">'+(fmt?'in your format'+(SKEL&&SKEL.font?' · '+esc(SKEL.font):''):'standard court format — <a onclick="location.href=\'/draft-dna\'" style="color:inherit">set up your own</a>')+'</div>'
+      +'<div class="sec">'
+        +'<button onclick="openEditor()">Open in editor</button>'
+        +'<button onclick="MODE=\'reform\';syncSeg();paintPane()">Reform</button>'
+      +'</div>'
+      +'<div class="dlm" style="margin-top:9px">'+(RESULT&&RESULT.matter_id
+          ? 'Filed to '+esc((MATTER&&MATTER.label)||'this matter')+'’s case folder.'
+          : 'Not filed to a matter. Attach one with ⊕ Matter before drafting to put it in a case folder.')+'</div>'
+    +'</div>';
+}
+
+function openEditor(){
+  if(!RESULT||!RESULT.draft_id){ toast('This draft was not saved, so there is nothing to open.','error'); return; }
+  location.href='/draft/editor/'+encodeURIComponent(RESULT.draft_id);
+}
+
+/* Download .docx is the PRIMARY action: the point of the whole screen is a file he
+   can file. It is never a dead action — without Draft DNA he gets standard court
+   format, and the note says which he got. */
+async function downloadDocx(){
+  if(DEMO){ toast('Demo mode — the .docx comes from your real account.'); return; }
+  if(!RESULT||!RESULT.draft_id){ toast('Nothing to download yet.','error'); return; }
+  try{
+    const r=await rawFetch('/api/draft/'+encodeURIComponent(RESULT.draft_id)+'/docx');
+    if(!r.ok){ let d=null; try{ d=await r.json(); }catch(e){}
+      throw new Error(errMsg(d)||('Could not build the .docx ('+r.status+')')); }
+    const how=r.headers.get('X-Headnote-Format')||'';
+    const blob=await r.blob();
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=((RESULT.title||'draft').replace(/[^\wऀ-ॿ .-]+/g,'_').trim()||'draft')+'.docx';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+    toast(how==='own'?'Downloaded in your format.':'Downloaded in standard court format.','success');
+  }catch(e){ toast(e.message,'error'); }
+}
+
+/* ============================================================================
+   RECENT DRAFTS, the ⌘K palette, the matter picker
+   ========================================================================== */
+async function loadRecent(){
+  let rows=[];
+  try{ const d=await api('/api/draft/?limit=8'); rows=(d&&d.drafts)||[]; }
+  catch(e){ rows=[]; }
+  const side=$('#rcList');
+  side.innerHTML = rows.slice(0,4).map(d=>
+    '<button class="rct" onclick="location.href=\'/draft/editor/'+encodeURIComponent(d.id)+'\'" title="'+esc(d.title||'Draft')+'">'
+    +'<svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/></svg>'
+    +'<span class="rt-t nvt">'+esc(d.title||'Draft')+'</span></button>').join('');
+  $('#rcl').classList.toggle('hidden', rows.length===0);
+
+  const shelf=$('#shelf');
+  if(!rows.length){
+    shelf.innerHTML='<div class="shl">Recent drafts</div>'
+      +'<div class="shempty">Nothing yet. Say what you need in the box above — the junior takes it from there.</div>'
+      +'<div style="margin-top:11px"><a class="browse" onclick="openPal()">Want to know what we cover? <b>Browse by court</b> &nbsp;⌘K</a></div>';
+    return;
+  }
+  shelf.innerHTML='<div class="shl">Recent drafts</div>'
+    + rows.map(d=>{
+        const when=d.updated_at||d.created_at||'';
+        const a=(d.answers||{});
+        const flagged=((a.warnings||[]).length)+((a.ungrounded||[]).length);
+        return '<button class="dr" onclick="location.href=\'/draft/editor/'+encodeURIComponent(d.id)+'\'">'
+          +'<div><div class="t">'+esc(d.title||'Draft')+'</div>'
+          +'<div class="m">'+esc([a.court||'', d.story_id||'', when?rel(when):''].filter(Boolean).join(' · '))+'</div></div>'
+          +'<div class="sp"></div>'
+          +(flagged?'<span class="chip a">'+flagged+' to check</span>':'<span class="chip g">Checked</span>')
+          +'<span class="chip">'+esc((d.lang||'hi').toUpperCase())+'</span></button>';
+      }).join('')
+    + '<div style="margin-top:11px"><a class="browse" onclick="openPal()">Looking for something specific? <b>Browse by court</b> &nbsp;⌘K</a></div>';
+}
+function rel(iso){
+  try{
+    const t=new Date(iso).getTime(); const m=Math.round((Date.now()-t)/60000);
+    if(m<2) return 'just now';
+    if(m<60) return m+' minutes ago';
+    const h=Math.round(m/60); if(h<24) return h+' hour'+(h===1?'':'s')+' ago';
+    const d=Math.round(h/24); return d===1?'yesterday':d+' days ago';
+  }catch(e){ return ''; }
+}
+
+/* Browse by court survives as ONE text link into the palette — for the lawyer who
+   wants to know what we cover, never as the way in. Picking one writes the words
+   into the brief box; it does not open a form. */
+async function openPal(){
+  $('#pal').classList.add('on'); $('#palq').value=''; $('#palq').focus();
+  if(!COURTS){
+    $('#palres').innerHTML='<div class="palempty">Loading what we cover…</div>';
+    try{ const d=await api('/api/draft/courts'); COURTS=(d&&d.courts)||[]; }
+    catch(e){ COURTS=[]; }
+  }
+  palPaint('');
+}
+function closePal(){ $('#pal').classList.remove('on'); }
+function palPaint(q){
+  q=(q||'').toLowerCase();
+  const out=[];
+  (COURTS||[]).forEach(g=>{
+    const ts=(g.templates||[]).filter(t=>!q
+      || (t.name_en||'').toLowerCase().includes(q)
+      || (t.name_hi||'').toLowerCase().includes(q)
+      || (g.label_en||'').toLowerCase().includes(q));
+    if(!ts.length) return;
+    out.push('<div class="palg">'+esc(g.label_en||g.id)+' · '+ts.length+'</div>');
+    /* The label is bound as a data attribute and the handler is attached below,
+       never inlined: a template name carries quotes and brackets ("§138 (S.138
+       NI Act)") that break straight out of an onclick="…" attribute. */
+    ts.forEach(t=>out.push('<button class="palr" data-name="'+esc(t.name_en||t.id)+'">'
+      +'<div><div class="nm">'+esc(t.name_en||t.id)+'</div>'
+      +'<div class="mt">'+esc(t.name_hi||'')+'</div></div></button>'));
+  });
+  $('#palres').innerHTML = out.length?out.join(''):'<div class="palempty">Nothing matches. Describe it in your own words instead — that always works.</div>';
+  $$('#palres .palr').forEach(b=>b.onclick=()=>palPick(b.dataset.name));
+}
+function palPick(name){
+  closePal();
+  const cur=briefText();
+  $('#brief').value = cur ? cur+'\n\n'+name : name;
+  autoGrow($('#brief')); $('#brief').focus(); renderCrow();
+}
+
+async function openMatterPicker(){
+  await loadMatters();
+  $('#pal').classList.add('on'); $('#palq').value=''; $('#palq').placeholder='Which matter — client, case no. or court…';
+  $('#palfoot').textContent='The draft is filed into this matter’s case folder.';
+  const paint=q=>{
+    q=(q||'').toLowerCase();
+    const ms=(MATTERS||[]).filter(m=>!q||m.label.toLowerCase().includes(q)||(m.sub||'').toLowerCase().includes(q));
+    $('#palres').innerHTML = ms.length
+      ? ms.map(m=>'<button class="palr" data-m="'+esc(m.id)+'"><div><div class="nm">'+esc(m.label)+'</div>'
+          +'<div class="mt">'+esc(m.sub||'')+'</div></div></button>').join('')
+      : '<div class="palempty">No matter matches. You can draft without one.</div>';
+    $$('#palres .palr').forEach(b=>b.onclick=()=>{
+      MATTER=(MATTERS||[]).find(m=>m.id===b.dataset.m)||null;
+      closePal(); resetPal(); renderCrow();
+    });
+  };
+  $('#palq').oninput=e=>paint(e.target.value);
+  paint('');
+}
+function resetPal(){
+  $('#palq').placeholder='What are you drafting, or which court…';
+  $('#palfoot').textContent='Picking one just writes it into the brief box — the box is still the way in.';
+  $('#palq').oninput=e=>palPaint(e.target.value);
+}
+
+/* ============================================================================
+   DEMO MODE — ?demo=1 or opening the file directly. Sample data only, so the
+   screen is reviewable (and emailable) without an account. Nothing here ever
+   runs in live mode: `api()` branches on DEMO at the top.
+   ========================================================================== */
+const D_SKEL={type:'skeleton',ok:true,doc_type:'bail',title:'जमानत आवेदन पत्र',lang:'hi',script_lang:'hi',
+  format:'own',font:'Kruti Dev 010',size:14,
+  page:{width:8.5,height:14,margin_left:1.0,margin_right:0.8,margin_top:0.9,margin_bottom:0.9},
+  n_drafts:132,
+  roles:{side_label:{align:'RIGHT',size:13,space_after:6,line_spacing:1.4},
+    court:{align:'CENTER',size:16,bold:true,space_after:10,line_spacing:1.4},
+    caseno:{align:'CENTER',size:14,space_after:10,line_spacing:1.4},
+    applicant:{align:'LEFT',size:14,space_after:4,line_spacing:1.6},
+    versus:{align:'CENTER',size:14,bold:true,space_after:4,line_spacing:1.4},
+    respondent:{align:'LEFT',size:14,space_after:10,line_spacing:1.6},
+    section_heading:{align:'CENTER',size:14,bold:true,space_before:8,space_after:10,line_spacing:1.4},
+    intro:{align:'JUSTIFY',size:14,space_after:6,line_spacing:1.8},
+    ground:{align:'JUSTIFY',size:14,first_line_indent:0.3,space_after:6,line_spacing:1.8},
+    prayer:{align:'JUSTIFY',size:14,space_before:8,space_after:6,line_spacing:1.8},
+    dateline:{align:'LEFT',size:14,space_after:2,line_spacing:1.4},
+    sig_party:{align:'RIGHT',size:14,space_before:14,space_after:2,line_spacing:1.4},
+    sig_by:{align:'RIGHT',size:14,space_after:2,line_spacing:1.4},
+    advocate:{align:'RIGHT',size:14,space_after:2,line_spacing:1.4}},
+  blocks:[['side_label','बन्दी की ओर से'],['court','__________________________________'],
+    ['caseno','प्रकरण क्रमांक– __________ / ____'],['applicant','आवेदक ——'],
+    ['applicant','______________________________________'],['versus','विरुद्ध'],
+    ['respondent','अनावेदक ——'],['respondent','______________________________________'],
+    ['section_heading','धारा 483 बी.एन.एस.एस. (439 दं.प्र.सं.)'],
+    ['ground','________________________________________________________'],
+    ['ground','________________________________________________________'],
+    ['ground','________________________________________________________'],
+    ['prayer','________________________________________________________'],
+    ['dateline','स्थान: __________'],['dateline','दिनांक: __/__/____'],
+    ['sig_party','आवेदक'],['sig_by','द्वारा अभिभाषक'],['advocate','(________) — एडवोकेट']]};
+
+const D_BLOCKS=[['side_label','बन्दी की ओर से'],
+  ['court','न्यायालय श्रीमान अपर सत्र न्यायाधीश महोदय, भोपाल (म.प्र.)'],
+  ['caseno','जमानत आवेदन क्रमांक– ............... / 2026'],
+  ['applicant','आवेदक ——'],
+  ['applicant','रमेश वर्मा पुत्र श्री मोहनलाल वर्मा, आयु 34 वर्ष, निवासी 14, शिवाजी नगर, भोपाल (म.प्र.)'],
+  ['versus','विरुद्ध'],['respondent','अनावेदक ——'],
+  ['respondent','म.प्र. राज्य द्वारा थाना कोतवाली, जिला भोपाल'],
+  ['section_heading','धारा 483 बी.एन.एस.एस. (439 दं.प्र.सं.) के अंतर्गत जमानत आवेदन'],
+  ['ground','1. यह कि आवेदक उपरोक्त अपराध क्रमांक 214/2025, थाना कोतवाली, जिला भोपाल में दिनांक 12.03.2026 से न्यायिक अभिरक्षा में निरुद्ध है।'],
+  ['ground','2. यह कि आवेदक का कोई पूर्व आपराधिक रिकॉर्ड नहीं है तथा वह प्रतिष्ठित नागरिक है।'],
+  ['ground','3. यह कि सह-अभियुक्त सुरेश को इसी अपराध में इस न्यायालय द्वारा जमानत का लाभ प्रदान किया जा चुका है, अतः समानता के सिद्धांत पर आवेदक भी जमानत का अधिकारी है।'],
+  ['ground','4. यह कि आवेदक अपने परिवार का एकमात्र कमाने वाला सदस्य है।'],
+  ['ground','5. यह कि, अन्य तर्क वक्त बहस मौखिक रुप से निवेदित किये जावेंगे।'],
+  ['prayer','अतः श्रीमान न्यायालय से प्रार्थना है कि आवेदक को जमानत का लाभ प्रदान करने की कृपा करें।'],
+  ['dateline','स्थान: भोपाल'],['dateline','दिनांक: __/__/____'],
+  ['sig_party','आवेदक'],['sig_by','द्वारा अभिभाषक'],['advocate','(________) — एडवोकेट']];
+
+function demoApi(path, opts){
+  const wait=(v,ms)=>new Promise(r=>setTimeout(()=>r(v),ms||140));
+  if(path.startsWith('/api/draft-dna/layout'))
+    return wait({ok:true,has_layout:true,font:'Kruti Dev 010',n_drafts:132,
+                 page:D_SKEL.page,roles:D_SKEL.roles});
+  if(path.startsWith('/api/draft/?limit'))
+    return wait({drafts:[
+      {id:'d1',title:'Bail application — Ramesh Verma',story_id:'bail',lang:'hi',
+       updated_at:new Date(Date.now()-7.2e6).toISOString(),answers:{court:'Sessions, Bhopal',warnings:['x'],ungrounded:['सुरेश']}},
+      {id:'d2',title:'§138 NI Act complaint — Agrawal Traders',story_id:'cheque_138',lang:'hi',
+       updated_at:new Date(Date.now()-8.6e7).toISOString(),answers:{court:'JMFC, Bhopal'}},
+      {id:'d3',title:'Discharge application — Sunil Yadav',story_id:'discharge',lang:'hi',
+       updated_at:new Date(Date.now()-2.6e8).toISOString(),answers:{court:'Sessions, Vidisha'}}]});
+  if(path.startsWith('/api/cases'))
+    return wait({items:[
+      {id:'m1',case_title:'State v. Ramesh Verma',case_number:'214',case_year:'2025',court_name:'Sessions Court, Bhopal',case_json:{client:{name:'Ramesh Verma'}}},
+      {id:'m2',case_title:'Agrawal Traders v. Khan',case_number:'88',case_year:'2025',court_name:'JMFC, Bhopal',case_json:{client:{name:'Agrawal Traders'}}}]});
+  if(path.startsWith('/api/draft/questions')){
+    const body=JSON.parse((opts&&opts.body)||'{}');
+    const t=(body.brief||'').toLowerCase();
+    const qs=[];
+    if(!/court|न्यायालय|sessions|सत्र|मजिस्ट्रेट/.test(t)) qs.push({id:'court',label:'Which court is this going to?',
+      why:'It sets the cause title, and for bail it sets the section.',
+      options:[{value:'Sessions Court, Bhopal',label:'Sessions Court, Bhopal'},{value:'JMFC, Bhopal',label:'JMFC, Bhopal'},
+               {value:'MP High Court',label:'MP High Court'},{value:'',label:'Other…',free:true}]});
+    if(!/first|successive|खारिज|प्रथम/.test(t)) qs.push({id:'bail_stage',label:'First bail application, or a successive one?',
+      why:'A successive application must disclose the earlier rejection.',
+      options:[{value:'first',label:'First'},{value:'successive',label:'Successive — rejected before'}]});
+    return wait({ok:true,questions:qs.slice(0,2),skippable:true},120);
+  }
+  if(path.startsWith('/api/draft/courts'))
+    return wait({courts:[{id:'sessions',label_en:'Sessions Court',templates:[
+        {id:'bail',name_en:'Regular Bail (S.483 BNSS / S.439 CrPC)',name_hi:'जमानत आवेदन'},
+        {id:'discharge',name_en:'Discharge (S.250 BNSS / S.227 CrPC)',name_hi:'उन्मोचन आवेदन'}]},
+      {id:'magistrate',label_en:'Magistrate',templates:[
+        {id:'cheque_138',name_en:'§138 NI Act complaint',name_hi:'परिवाद धारा 138'}]}]});
+  return wait({ok:true});
+}
+
+async function demoDraft(brief){
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  SKEL={...D_SKEL}; onSkeleton();
+  await sleep(1200);
+  const html='<div class="cb-doc">'+D_BLOCKS.map(b=>{
+    const c=b[0]==='court'||b[0]==='caseno'||b[0]==='versus'||b[0]==='section_heading';
+    return '<p style="'+(c?'text-align:center;':'')+(b[0]==='section_heading'?'font-weight:600;text-decoration:underline':'')+'">'+esc(b[1])+'</p>';
+  }).join('')+'</div>';
+  onResult({type:'result',ok:true,doc_type:'bail',mode:'authored',lang:'hi',
+    title:'Bail application — Ramesh Verma',court:'Sessions Court, Bhopal',draft_id:'demo1',
+    html_hi:html,canvas_blocks:D_BLOCKS,docx_in_own_format:true,matter_id:MATTER?MATTER.id:null,
+    preflight:{ok:true,counts:{ok:5,amber:3},checks:[
+      {id:'ungrounded',severity:'amber',title:'"सुरेश" is not in anything you gave me',
+       detail:'Taken from your brief as spoken. Confirm the spelling before filing.'},
+      {id:'cite_at_hearing',severity:'amber',title:'Cite at hearing — not in the document',
+       detail:'Satender Kumar Antil v. CBI (2022) — category-B parity. Verified authority, kept out of the body.'},
+      {id:'companions',severity:'amber',title:'This filing needs companion papers',
+       detail:'Not filed on its own: शपथ पत्र (supporting affidavit — Zeba Khan); vakalatnama'},
+      {id:'code_date',severity:'ok',title:'Sections keyed to the FIR date',
+       detail:'FIR 12.03.2026 → post-01.07.2024, so BNSS/BNS numbering leads with CrPC in brackets'},
+      {id:'cause_title',severity:'ok',title:'Cause-title consistent on every page',detail:''},
+      {id:'prayer',severity:'ok',title:'Prayer matches the relief pleaded',detail:''},
+      {id:'closer',severity:'ok',title:'Oral-arguments closer present',detail:''},
+      {id:'blanks',severity:'ok',title:'No blanks left unfilled',detail:''}]}});
+}
+
+/* ============================================================================
+   BOOT
+   ========================================================================== */
+(async function boot(){
+  const p=new URLSearchParams(location.search);
+  if(!DEMO && !(await freshToken())){ gate(); return; }
+  /* V2 private beta — see static/v2-beta.js. DEMO skips it so the page stays
+     reviewable without an account; the server gates the data either way. */
+  if(!DEMO && !(await hnBetaGate())) return;
+  if(DEMO){ $('#unm').textContent='Demo mode'; $('#url').textContent='sample data'; $('#uav').textContent='D'; }
+  else whoami();
+
+  $('#fileIn').addEventListener('change',e=>{ addFiles([...e.target.files]); e.target.value=''; });
+  $('#brief').addEventListener('input',e=>{ autoGrow(e.target); renderCrow(); });
+  $('#brief').addEventListener('focus',()=>$('#composer').classList.add('focus'));
+  $('#brief').addEventListener('blur',()=>{ if(!REC.on) $('#composer').classList.remove('focus'); });
+  $('#brief').addEventListener('keydown',e=>{ if((e.metaKey||e.ctrlKey)&&e.key==='Enter') draftIt(); });
+  $('#mic').addEventListener('click',startVoice);
+  $('#mic').addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); startVoice(); } });
+  $('#langSel').addEventListener('change',e=>{
+    /* the detected language is a FACT HE CAN CORRECT: a Hindi-locked recogniser
+       silently transcribing a Marathi advocate is the worst failure available.
+       Re-arming mid-sentence is safe now — dictation only ever appends, so
+       everything already written down stays written down. */
+    SLANG=e.target.value.slice(0,2);
+    $('#langDet').textContent=(LANG_NAMES[e.target.value]||e.target.value)+' ·';
+    if(REC.on){ stopVoice(); startVoice(); }
+  });
+  $('#pal').addEventListener('click',e=>{ if(e.target.id==='pal'){ closePal(); resetPal(); } });
+  document.addEventListener('keydown',e=>{
+    if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){ e.preventDefault(); resetPal(); openPal(); }
+    /* Escape gets you out of the mic. There used to be no keyboard way to stop
+       a live recogniser at all, which is most of why it felt like a trap. */
+    if(e.key==='Escape'){ if(REC.on){ e.preventDefault(); stopVoice(); return; } closePal(); resetPal(); }
+  });
+  resetPal();
+  window.addEventListener('resize',()=>{ if(!$('#resultView').classList.contains('hidden') && MODE==='canvas') paintPane(); });
+
+  /* The box is always there and always focused. The mic sits in it — but only when
+     this browser can actually listen: offering a mic that cannot work is worse than
+     not offering one. */
+  if(!voiceAvailable()){
+    $('#mic').classList.add('hidden');
+    $('#brief').style.paddingRight='';
+  }
+  autoGrow($('#brief'));
+  renderCrow();
+  $('#brief').focus();
+
+  try{ const d=await api('/api/draft-dna/layout'); DNA=d||null; }catch(e){ DNA=null; }
+  renderDna();
+  loadRecent();
+
+  const mid=p.get('matter');
+  if(mid){ await loadMatters(); MATTER=(MATTERS||[]).find(m=>m.id===String(mid))||null; renderCrow(); }
+  const q=p.get('q'); if(q){ $('#brief').value=q; autoGrow($('#brief')); renderCrow(); }
+})();
+</script>
+</body>
+</html>
