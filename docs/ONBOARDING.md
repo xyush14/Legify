@@ -517,6 +517,97 @@ machine with any account, in minutes.
 
 > Append a dated line whenever something structural changes. Newest on top.
 
+- **2026-08-07** — **The Postgres child-table switch now has a backfill, a preflight, and no silent-failure writes
+  (flag still OFF).** `PG_CHILD_TABLES` moves drafts/consultations/documents from the SQLite volume to Postgres
+  (migration 012), and it had to stay off because the read path is Postgres-OR-SQLite and 012 creates those tables
+  EMPTY — flipping it would have blanked every paying lawyer's drafts, recordings and documents. Three things
+  changed. **(1) `scripts/backfill_child_tables.py`** copies the rows across: SQLite opened `mode=ro` (proven — an
+  INSERT/CREATE/ALTER on that connection raises, and it deliberately does *not* import the app's storage modules
+  because their `_conn()` runs DDL on connect), dry-run by default, `--commit` to write, per-table before/after
+  counts. It skips rows already in Postgres rather than upserting, so a re-run cannot stamp a lawyer's newer
+  Postgres edit with a stale SQLite value (`--overwrite` when you do want that). It handles the four things Postgres
+  would reject: JSON stored as TEXT → jsonb, `consent` 0/1 → boolean, a non-uuid `user_id` (local-dev ids like
+  `u_demo`) skipped rather than nulled into the anonymous listing, and a `case_id` pointing at a matter not in
+  `public.cases` cleared with a count — the FK link is worth less than the draft. Bad rows are isolated by retrying
+  a failed batch row-by-row, so one rejection costs one row, not fifty.
+  **(2) Two silent-failure bugs in `headnote/pgstore.py`, both fixed before the flag can ever go on.** `update()`
+  called `_supabase.update()`, which logs HTTP errors and returns `[]`, then returned `get()` — so a PATCH that
+  never reached the database was indistinguishable from one that matched nothing, the route answered **200 with the
+  pre-edit row**, and the draft editor printed "Saved" over a lost edit. It now returns the PATCH's own
+  representation and raises `WriteFailed`; `[]` means only "no row matched". `insert()` called `mark_absent()` on any
+  empty result, so **one 5s timeout** sent that row to SQLite, switched reads to SQLite for the rest of the process,
+  and orphaned every row already written to Postgres by that process. Writes now retry transient failures (new
+  `SupabaseError.transient`: no-response/408/429/5xx yes, 400/403/404/409 no) and `mark_absent` is reserved for a
+  genuine missing table — the one failure where Postgres cannot already hold rows, so the SQLite fallback is safe
+  there and nowhere else. New `_supabase.upsert_or_raise` / `update_or_raise` exist for this; the swallowing
+  variants stay unchanged for entitlements, where a miss and a failure both mean "no entitlement". Also fixed on the
+  way past: the client **printed "Saved" on every outcome including a 500** (`static/draft-editor.html` — and set
+  `dirty=false`, dropping the beforeunload retry too), and `documents.add_document` wrote page images to the local
+  cache *before* checking the durable row landed, so the SQLite fall-through re-inserted them and died on the
+  `(doc_id, page_idx)` primary key, losing the upload at the exact moment it was being saved.
+  **(3) `scripts/check_pg_child_tables.py`** is the preflight that must pass before the flag flips. It refuses on a
+  Postgres table that is empty while SQLite holds rows, and it checks `saved_caselaw.matter_id` — the nastiest trap
+  here, because `headnote/api/saved_caselaw.py` selects a fixed column list, PostgREST rejects the **whole** select
+  if one column is unknown, and the route catches that and returns `[]`, so the Saved library goes silently EMPTY
+  instead of erroring. Verified against the live Supabase project: all three tables exist, `documents.search_tsv`
+  and `saved_caselaw.matter_id` are applied, all three tables are empty. **`PG_CHILD_TABLES` default stays `"0"`** —
+  the backfill has not been run against the Fly volume yet, and `tests/test_pgstore_switch.py` is the tripwire.
+  Tests: 27 new across `tests/test_backfill_child_tables.py` (column sets pinned against BOTH the storage modules'
+  SELECT lists and migration 012, so a column added on one side and not the other fails a test instead of silently
+  not being copied) and `tests/test_pgstore_write_failures.py`; 49 green.
+
+- **2026-08-06** — **Draft DNA is now reachable from drafting — the seam is closed (UNSHIPPED).** Draft DNA could
+  reproduce an advocate's page geometry, indents and font, but the drafting engine returned HTML while the layout
+  engine consumes role-tagged blocks, so the two never met and no lawyer could ever get a draft in his own format.
+  New `headnote/drafter/dna_blocks.py::from_authored()` converts the **authored payload** (not the rendered HTML)
+  into `[(role, text)]` — deterministic, no LLM, and crucially raw text, so the preview's ungrounded-fact and
+  citation-flag `<span>` markers can never leak into a filed document. `author.author_document()` /
+  `revise_document()` now return `blocks`; `_persist_editor_draft` stores them (and at last passes **`user_id`** —
+  every authored draft was being saved anonymous, so it could never appear in its own author's list); new
+  `GET /api/draft/{id}/docx` renders them via `dna_layout.render_blocks()` into his captured layout, falling back
+  to `layout_template.standard_template()` so ".docx" is never a dead action (`X-Headnote-Format: own|standard`).
+  Capturing real filed .docx exposed three **role-detector** bugs, all fixed: numbered grounds (`1. यहकि,`) went
+  undetected and were then mis-tagged (one ground became the `court`, putting body format on the cause-title);
+  subordinate-court lines (`न्यायालय श्रीमान … महोदय`) were never matched at all since only "माननीय न्यायालय" was;
+  and any paragraph mentioning a date became the `dateline`. Roles the advocate's own drafts don't contain now fall
+  back to standard court format **in his typeface and size** instead of flat justified body text. Verified against
+  all 6 real .docx in the repo (every one now captures `court` + `ground`) and end-to-end on a Kruti Dev legal-size
+  template: 8.5×14in, his margins, text encoded to his glyphs, Latin/digits intact. Tests: 8 new
+  (`tests/test_dna_blocks.py`) + 5 new detector regressions; 46 DNA/layout tests green.
+  **Universality fix, same round (Ayush: "he is just a user, we need millions alike him").** `dna_blocks` had
+  `hi = lang != "en"`, so every non-English language got **Hindi** injected labels — a Madras filing with a Hindi
+  सत्यापन heading is defective. Injected wording now resolves **payload → the reviewed court glossary
+  (`headnote/drafter/i18n/glossary.py`, which already pinned these terms for mr/bn/gu) → English**, and never Hindi
+  as a fallback. `layout_template.default_font_for(lang)` replaces the fixed Devanagari default (en → Times New
+  Roman, Indic → Nirmala UI); `detect_role` gained mr/gu/bn/**en** ground openers so the zero-cost capture path
+  isn't Hindi-only. Verified with real output for five advocates: hi/Kruti Dev/legal · en/Times New Roman/letter ·
+  mr/Nirmala UI/A4 · gu/Shruti/A4 · ta/Latha/A4 (Tamil correctly falls back to English labels until a Tamil
+  advocate signs off the vocabulary). DNA confirmed sticky — set once, applies to every draft until changed.
+  **Still to wire:** the one-door `/draft` screen and its **voice-first** composer, the deterministic pre-flight
+  checks, streaming, and the voice-metering fix (a draft credit is charged per *utterance*, which becomes severe
+  once voice is the primary input). Design proof for all of it, incl. the glory-mic states, the bounded one-round
+  follow-up, and the Editor·Canvas·Reform control: `design-proof/Headnote_Draft_V2_Preview.html`.
+
+- **2026-08-04** — **V2 Research round 3 — the backend push (UNSHIPPED).** `POST /api/chat/message` accepts
+  `matter_id`: the server assembles the matter's whole file (identity, sections, stage, hearing history, saved
+  authorities, documents/recordings on file) into a bounded `# MATTER CONTEXT` system-prompt block
+  (`headnote/api/chat.py::_matter_context`) — attaching a matter now grounds the model in the real case, not a
+  one-line client prefix. `/api/draft/transcribe` is Sarvam Saarika-first (Groq Whisper fallback). Research page:
+  mic dictation (voice.js) + document/photo/PDF attachments (`/api/chat/attach`) on the Chamber, per-card
+  हिंदी toggle (`/api/translate`, court quotes never translated), "cited by N — see where" links to IK's citedby
+  search, colour-coded outcome tags, labelled why-this-matches, and a full mobile pass. The separate "Diary" nav
+  item is gone from home.html and research.html — the Matters diary IS Home.
+- **2026-08-03** — **V2 Research built (UNSHIPPED, like V2 Home).** New page `static/research.html` at route
+  `/research` collapses the Ask/Research nav split into one door with four **explicit** tabs — Find law · Ask ·
+  Statute · Saved — no intent classifier. It reuses the existing pipelines untouched (`/api/situation/stream`,
+  `/api/chat/message`, `/api/judgment/chat` inline under each card with its verify badge, `/api/mapping/lookup`);
+  verified-green / unverified-amber rendering follows `verification_status` strictly. Every result (case, statute
+  mapping, ask answer) saves to a matter: `saved_caselaw` now returns `matter_id` in the list and PATCH can re-file
+  (`headnote/api/saved_caselaw.py`), so saves appear in the case folder. `/research?matter=<id>` pre-seeds a
+  removable matter-context pill (Home's folder "Find law for this case" links here). New shared ⌘K statute
+  quick-look `static/statute-palette.js` included on `/app` and the draft editor (skips pages owning `#pal`, so
+  Home's matter-jump ⌘K is untouched). `?demo=1` / file-open runs on built-in sample data — emailable prototype at
+  `design-proof/Headnote_Research_V2_Preview.html`. Old `/app` Ask/Research views left as-is until V2 ships.
 - **2026-07-06** — **Draft mode rebuilt input-first: LLM-authored is now the PRIMARY path for ALL 41 types; canonical
   templates become the prescribed-format specimen + the never-fail floor.** The old routing sent every classified type
   through field-extraction → rigid template render, silently discarding every input fact outside the schema (the

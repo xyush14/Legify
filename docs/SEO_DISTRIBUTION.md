@@ -32,7 +32,7 @@ drafting software, case-law research, India, Indian advocates, Hindi
 **Pricing:** Free 3-day demo (no card) · ₹599/month · ₹5,999/year
 
 **One-liner (≤60 chars):**
-> AI co-counsel for India's advocates.
+> The smartest junior for India's advocates. Legal AI, in your court format.
 
 **Short description (≤160 chars):**
 > The AI legal assistant built for India — court-ready drafting and verified
@@ -45,7 +45,7 @@ drafting software, case-law research, India, Indian advocates, Hindi
 > — for every court from the Supreme Court to the district bench.
 
 **Long description (~120 words):**
-> Headnote is an AI co-counsel built specifically for India's advocates. Unlike
+> Headnote is the smartest junior for India's advocates — an AI legal assistant built specifically for them. Unlike
 > general chatbots or foreign legal-AI tools, it is grounded in Indian statutes
 > and judgments. It drafts 40+ court-ready litigation formats — bail, discharge,
 > maintenance, recovery, defamation, appeals and more — in Hindi and English and
@@ -82,7 +82,7 @@ which is what ties them together into a Google knowledge panel.
 
 ### Product Hunt
 - **Name:** Headnote
-- **Tagline (60 char max):** AI co-counsel for India's advocates
+- **Tagline (60 char max):** The smartest junior for India's advocates
 - **Description:** Headnote drafts court-ready legal applications and researches
   Indian case law with verified citations — in Hindi and English, for every court
   from the Supreme Court to the district bench. Built on the new BNS/BNSS/BSA codes.

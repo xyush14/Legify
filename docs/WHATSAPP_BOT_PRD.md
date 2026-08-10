@@ -15,6 +15,13 @@ This PRD is the contract for v1. It is written to be implementable by a
 solo founder + one contractor in **3–4 focused weeks** on a **₹0–₹2,500
 per month** operating budget at launch.
 
+> **Scope note (2026-08-06):** this doc covers the *outbound* bot — a
+> stranger asks a legal question, we answer. The **inbound capture**
+> channel (a paying lawyer WhatsApps their daily diary, expenses, order
+> sheets and it files into their own account) is a separate product on
+> the same webhook. Design lives in **`docs/WHATSAPP_CAPTURE.md`**.
+> Not built; scheduled after V2 ships.
+
 ---
 
 ## 1. Why this exists
