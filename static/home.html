@@ -73,7 +73,8 @@ body.sb-min .sb .brand{margin-bottom:26px}
 .sb .user .av{width:29px;height:29px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:600}
 .sb .user .u{font-size:13px;font-weight:500;line-height:1.15}.sb .user .r{font-size:10.5px;color:var(--ink-3);font-family:var(--mono)}
 .main{min-width:0}.mtop{display:none}
-.wrap{padding:24px 32px 90px;max-width:1560px}
+/* No max-width — same reason as /draft and /research. */
+.wrap{padding:24px 32px 90px}
 
 .hhead{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:18px}
 .hhead .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
@@ -243,6 +244,71 @@ body.sb-min .sb .brand{margin-bottom:26px}
 .nafter textarea:focus{border-color:var(--ink)}
 .nar{display:flex;gap:9px;margin-top:10px;flex-wrap:wrap;align-items:center}
 .nfoot{margin-top:28px;padding-top:16px;border-top:1px solid var(--line-2);font-size:11.5px;color:var(--ink-3);line-height:1.6}
+
+/* ── the working rail ──────────────────────────────────────────────────────
+   The note sheet and the case folder used to be an 880px column adrift in a
+   1560px page: on any desktop, a third of the screen was empty. The document
+   keeps a readable measure on the left; everything that is ABOUT the document
+   — what to do with it, how ready it is, where its sections are — moves to a
+   sticky rail on the right, where it stays in reach without scrolling. */
+.nsheet{max-width:1400px;display:grid;grid-template-columns:minmax(0,1fr) 296px;gap:34px;align-items:start}
+.nsheet>.nhead,.nsheet>.nempty{grid-column:1/-1}
+.ncol{min-width:0}
+.nrail{position:sticky;top:20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.nrb{border:1px solid var(--line);border-radius:13px;background:var(--surface);padding:14px}
+.nrb>.rk{font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-4);margin-bottom:10px}
+.nrb .btn{width:100%;justify-content:flex-start}
+.nrb .btn+.btn{margin-top:7px}
+/* jump-to-section nav — the answer to "long scrolled" on a document that
+   genuinely is a document and should not be paginated mid-argument */
+.njump{display:flex;flex-direction:column;gap:1px}
+.njump a{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12.5px;color:var(--ink-2);text-decoration:none;padding:6px 8px;border-radius:7px;cursor:pointer}
+.njump a:hover{background:var(--soft);color:var(--ink)}
+.njump a.on{background:var(--soft);color:var(--ink);font-weight:500}
+.njump .jn{font-family:var(--mono);font-size:9.5px;color:var(--ink-4);font-variant-numeric:tabular-nums}
+@media(max-width:1180px){
+  .nsheet{grid-template-columns:minmax(0,1fr);gap:22px}
+  .nrail{position:static;flex-direction:row;flex-wrap:wrap}
+  .nrail>.nrb{flex:1 1 240px}
+  .njump{flex-direction:row;flex-wrap:wrap}
+}
+
+/* ── editing ───────────────────────────────────────────────────────────────
+   Every part of a note sheet the advocate might disagree with is editable in
+   place. It is his sheet; the junior only ever writes the first draft. */
+.ed{outline:0;border-radius:5px;padding:1px 3px;margin:-1px -3px;transition:background .12s,box-shadow .12s;cursor:text;min-width:24px;display:inline-block}
+.ed:hover{background:var(--soft)}
+.ed:focus{background:var(--surface);box-shadow:0 0 0 2px var(--ink);position:relative;z-index:1}
+.ed:empty::before,.ed[data-empty]::before{content:attr(data-ph);color:var(--ink-4);pointer-events:none}
+.edb{display:block;width:100%}
+.nsec .secH{display:flex;align-items:center;gap:8px}
+.nsec .secH .grow{flex:1}
+.xr{opacity:0;border:0;background:0;color:var(--ink-4);cursor:pointer;font-size:14px;line-height:1;padding:3px 5px;border-radius:5px;flex:none;transition:opacity .12s}
+.xr:hover{background:var(--soft);color:var(--danger,#b42318)}
+.ntr:hover .xr,.nprov:hover .xr,.npts li:hover .xr,.pbr:hover .xr,.nask li:hover .xr{opacity:1}
+.addr{display:inline-flex;align-items:center;gap:6px;margin-top:9px;border:1px dashed var(--line);background:0;border-radius:8px;padding:6px 11px;font:inherit;font-size:12.5px;color:var(--ink-3);cursor:pointer}
+.addr:hover{border-color:var(--ink-3);color:var(--ink);border-style:solid}
+.npts li{position:relative}
+.npts li .row{display:flex;align-items:flex-start;gap:8px}
+.npts li .row .grow{flex:1;min-width:0}
+.pcite.ed{font-family:var(--mono);font-size:11px}
+.ntr{grid-template-columns:98px minmax(0,1fr) auto auto}
+.pbr{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--line-2)}
+.pbr:last-child{border-bottom:0}
+.pbr>span:first-child{flex:1;min-width:0}
+/* save state — quiet, and it never claims success it did not get */
+.nsv{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-4)}
+.nsv b{width:6px;height:6px;border-radius:50%;background:var(--ink-4);display:inline-block}
+.nsv.sav b{background:#c99a2e}.nsv.ok b{background:var(--ok,#2e7d51)}.nsv.err{color:#b42318}.nsv.err b{background:#b42318}
+
+/* case folder: the facts panel + the one "what can I add" strip */
+.cfact{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--line-2);font-size:12px}
+.cfact:last-of-type{border-bottom:0}
+.cfact span{color:var(--ink-3);flex:none}
+.cfact b{font-weight:500;text-align:right;min-width:0;word-break:break-word}
+.cfnote{margin-top:9px;padding-top:9px;border-top:1px solid var(--line-2);font-size:11px;color:var(--ink-3);line-height:1.5}
+.cadd{display:flex;flex-wrap:wrap;gap:7px}
+
 /* scan / OCR review */
 .scbox{width:min(660px,94vw);max-height:88vh;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 36px 80px -24px rgba(12,12,10,.44);display:flex;flex-direction:column;overflow:hidden}
 .schead{display:flex;align-items:flex-start;justify-content:space-between;padding:18px 20px 15px;border-bottom:1px solid var(--line-2)}
@@ -427,6 +493,11 @@ body.sb-min .sb .brand{margin-bottom:26px}
 .odue svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8;flex:none}
 .odue b{font-weight:600}
 .odue .gx{margin-left:auto;font-weight:500;white-space:nowrap}
+/* The overdue banner carries real actions now, so it is a group, not a button.
+   `cursor:pointer` on the whole strip would lie about what is clickable. */
+.odue[role=group]{cursor:default;flex-wrap:wrap}
+.odue .oact{margin-left:auto;display:flex;gap:7px;flex-wrap:wrap;flex:none}
+.odue .oact .btn{white-space:nowrap}
 .odue.link{background:var(--soft);border-color:var(--line);color:var(--ink-2)}
 .odue.link b{color:var(--ink)}
 .odue.link svg{stroke:var(--ink-3)}
@@ -653,11 +724,28 @@ body.sb-min .sb .brand{margin-bottom:26px}
   /* Today's list, printed. Rendered off-screen and revealed only to the printer
      so "Today's list" needs no popup and no server round-trip. */
   #daySheet{display:none}
+  @page{margin:16mm 14mm}
   @media print{
-    .sb,.mtop,.nacts,.fback,.nswitch,.toasts,.flag,.prep,.nsec:last-of-type{display:none!important}
+    /* Chrome only. `.nsec:last-of-type` used to be in this list to hide the
+       Preparation block — but it hides whatever section happens to come last,
+       so a sheet ending in Prayer printed WITHOUT its prayer. The rail now
+       carries Preparation, so hide the rail and never guess by position. */
+    .sb,.mtop,.nacts,.fback,.nswitch,.toasts,.flag,.prep,.nrail,
+    .addr,.xr,.nsv,.njump{display:none!important}
     .app{grid-template-columns:1fr}.wrap{padding:0}
-    .nsheet{max-width:none}body{background:#fff}
+    .nsheet{max-width:none;display:block}body{background:#fff}
     .nhead{border-bottom:2px solid #000}
+    /* A section split across a page break is unusable at the counter. */
+    .nsec,.cblk{break-inside:avoid;page-break-inside:avoid}
+    .nsec .nh,.cblk .nh{break-after:avoid;page-break-after:avoid}
+    .ntr,.nprov,.pbr,.npts li,.ctile{break-inside:avoid;page-break-inside:avoid}
+    /* Empty dashed boxes waste paper and read as if something failed. */
+    .aempty{display:none!important}
+    /* Editing chrome must leave no trace on paper. */
+    .ed{background:0!important;box-shadow:none!important;padding:0;margin:0}
+    /* A printed sheet leaves the app, so a bare link text is a dead end:
+       print the URL after it. */
+    .nsheet a[href^="http"]::after{content:" (" attr(href) ")";font-size:10px;color:#555;word-break:break-all}
     /* printing the day sheet: nothing else on the page comes with it */
     body.printing-day>*{display:none!important}
     body.printing-day #daySheet{display:block!important}
@@ -894,7 +982,10 @@ let HOME=null, selDate=null, weekAnchor=null, dMode='all', busy=false;
    CALC caches per-month hearing counts so paging the calendar is instant. */
 let dSpan=1, calMonth=null, CALC={};
 let noteId=null, noteDate=null, SHEET=null, SCAN=null;
-const JUNIORS=['Adv. Nikhil Jain','Adv. Priya Soni','Clerk'];
+// Who is in this chamber, learned from the names this advocate has actually
+// assigned work to. Never a hardcoded list — a sole practitioner must not be
+// shown two juniors he has never heard of.
+const roster=()=>((HOME&&HOME.roster)||[]);
 const board=()=>((HOME&&HOME.board)||[]);
 const byId=id=>board().find(m=>String(m.id)===String(id));
 const initials=n=>(n||'').replace(/\(.*\)/,'').trim().split(/\s+/).slice(-2).map(x=>x[0]).join('').toUpperCase().slice(0,2);
@@ -1035,9 +1126,12 @@ function renderBoard(){
        </div>
        <div class="dsearch">${S(IC.research)}<input id="dfilter" placeholder="Filter these hearings…" oninput="paintRows()"></div>
      </div>
-     ${od?`<button class="odue" onclick="showOverdue()">${S(IC.alert)}
+     ${od?`<div class="odue" role="group">${S(IC.alert)}
         <span><b>${od} matter${od>1?'s':''}</b> ${od>1?'have':'has'} a date that has passed with no new date.</span>
-        <span class="gx">Settle ${od>1?'them':'it'} ›</span></button>`:''}
+        <span class="oact">
+          <button class="btn btn--sm btn--primary" id="syncAllBtn" onclick="syncAllCourt()">Check the court for new dates</button>
+          <button class="btn btn--sm" onclick="showOverdue()">Review ${od>1?'them':'it'} ›</button>
+        </span></div>`:''}
      ${unl?`<button class="odue link" onclick="openLink()">${S(IC.folder)}
         <span><b>${unl} matter${unl>1?'s are':' is'} not linked to the court record.</b>
         ${unl>1?'They were':'It was'} added from a diary page, so ${unl>1?'their':'its'} dates can never update on ${unl>1?'their':'its'} own.</span>
@@ -1125,6 +1219,30 @@ function showOverdue(){
   const o=(HOME.overdue||[])[0];
   if(!o){ toast('Nothing is overdue'); return; }
   dSpan=1; goDay(o.next_hearing_iso);
+}
+
+/* One tap for the whole docket. Settling overdue matters one at a time is not
+   something anyone with 122 of them will ever finish, and for every matter the
+   court actually knows about, the new date is a lookup — not a decision. */
+async function syncAllCourt(){
+  const b=$('#syncAllBtn'); if(!b||b.disabled) return;
+  const was=b.textContent;
+  b.disabled=true; b.textContent='Checking the court…';
+  try{
+    const r=await api('/api/home/sync-court',{method:'POST'});
+    if(r.ok===false){ toast(r.reason||'The court service is not available right now','error'); return; }
+    // Say what actually happened, including the part we could not do. "0 dates
+    // updated" on its own reads as a broken button; the reason is that most of
+    // this docket has no CNR to look up.
+    const bits=[];
+    bits.push(r.changed?`${r.changed} date${r.changed>1?'s':''} updated`:'No dates had changed');
+    if(r.checked) bits.push(`${r.checked} checked against the court`);
+    if(r.no_cnr) bits.push(`${r.no_cnr} not linked to the court record — link them and they update on their own`);
+    if(r.failed) bits.push(`${r.failed} could not be read`);
+    toast(bits.join(' · '), r.changed?'ok':'');
+    if(r.changed) await load();
+  }catch(e){ toast(e.message,'error'); }
+  finally{ b.disabled=false; b.textContent=was; }
 }
 
 const REGHEAD=`<div class="regrow reghead"><div>#</div><div class="reg-hidem">Court · Judge</div><div class="reg-hidem">Case no.</div><div>Client · Party</div><div class="reg-hidem">Prev date</div><div>Next date</div><div class="prepcol">Prepared</div></div>`;
@@ -1300,7 +1418,8 @@ async function openLink(){
   $('#linkBody').innerHTML=`
     <div style="font-size:13.5px;color:var(--ink-2);line-height:1.6;margin-bottom:14px">
       Matters added from a diary photo carry no CNR, so the court can never update them.
-      Headnote reads your eCourts docket once and matches them by case number — you confirm each one.</div>
+      Headnote reads your eCourts docket once and matches them by <b>case number</b>, and where the
+      number is unreadable, by <b>party name</b> — you confirm each one.</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
       <div class="msbox" style="height:42px"><input id="lkName" placeholder="Your name as on the cause list" value="${esc(name)}"></div>
       <div class="msbox" style="height:42px"><input id="lkCity" placeholder="District / city (e.g. Gwalior)" value="${esc(city)}"></div>
@@ -1337,18 +1456,21 @@ async function runLink(){
       <div style="font-size:13.5px;color:var(--ink-2);margin-bottom:12px">
         Matched <b>${LINKP.length}</b> of ${r.unlinked} unlinked matter(s) against ${r.docket} case(s) in your docket.
         ${r.unmatched?`${r.unmatched} could not be matched and stay as they are.`:''}
-        Untick anything that is not yours.</div>
+        ${LINKP.some(p=>p.matched_by==='party name')?`<b>Name matches are not ticked</b> — check the two names agree before you link them.`:'Untick anything that is not yours.'}</div>
       <div class="ledger" style="max-height:340px;overflow:auto">
-        ${LINKP.map((p,i)=>`<label class="regrow" style="grid-template-columns:26px 1fr;padding:10px 12px;cursor:pointer">
-          <input type="checkbox" class="lkcb" data-i="${i}" checked>
+        ${LINKP.map((p,i)=>{const byName=p.matched_by==='party name'; return `
+          <label class="regrow" style="grid-template-columns:26px 1fr;padding:10px 12px;cursor:pointer">
+          <input type="checkbox" class="lkcb" data-i="${i}"${byName?'':' checked'}>
           <div>
-            <div style="font-size:13.5px;font-weight:500">${esc(p.proposed.case_title||p.current.party||'—')}</div>
+            <div style="font-size:13.5px;font-weight:500">${esc(p.proposed.case_title||p.current.party||'—')}
+              <span class="ncount" style="${byName?'background:var(--amber-soft);color:var(--amber)':''}">by ${esc(p.matched_by||'case number')}</span></div>
+            ${byName?`<div style="font-size:11.5px;color:var(--ink-3);margin-top:3px">your file says “${esc(p.current.party||'—')}”</div>`:''}
             <div class="rc-mono" style="font-size:11px;color:var(--ink-3);margin-top:3px">
               ${esc(p.proposed.case_number||'')}${p.proposed.case_year?'/'+esc(p.proposed.case_year):''}
               · ${esc(p.proposed.court_name||'')}
               ${p.proposed.next_hearing_date?' · next '+esc(p.proposed.next_hearing_date):''}</div>
             <div class="rc-mono" style="font-size:10.5px;color:var(--ink-4);margin-top:2px">CNR ${esc(p.proposed.cnr||'')}</div>
-          </div></label>`).join('')}
+          </div></label>`;}).join('')}
       </div>
       <div style="display:flex;gap:8px;margin-top:14px">
         <button class="btn btn--primary" id="lkSave" onclick="saveLink()">Link the ticked matters</button>
@@ -1500,8 +1622,8 @@ function prepBlock(m){
     <div class="asg">
       <div class="asgk">Assigned to</div>
       <div class="asgr">${m.assignee?`<span class="asgc"><span class="av2">${esc(initials(m.assignee))}</span>${esc(m.assignee)}<button onclick="assignJunior('${m.id}','')" title="Remove" aria-label="Remove">✕</button></span>`:'<span class="asgn">Nobody yet</span>'}</div>
-      <div class="asgp">${JUNIORS.filter(j=>j!==m.assignee).map(j=>`<button class="jchip" onclick="assignJunior('${m.id}','${esc(j)}')">${esc(j)}</button>`).join('')}</div>
-      <input class="asgi" placeholder="Or type a name + Enter" onkeydown="if(event.key==='Enter'){assignJunior('${m.id}',this.value)}">
+      <div class="asgp">${roster().filter(j=>j!==m.assignee).map(j=>`<button class="jchip" onclick="assignJunior('${m.id}','${esc(j)}')">${esc(j)}</button>`).join('')}</div>
+      <input class="asgi" placeholder="${roster().length?'Or type a name + Enter':'Type a name + Enter'}" onkeydown="if(event.key==='Enter'){assignJunior('${m.id}',this.value)}">
     </div>
   </div>`;
 }
@@ -1523,10 +1645,67 @@ function paintNote(){
   const src=SHEET.exists
     ? (SHEET.source==='hand'
         ? `<span class="nsrc hand">${S(IC.scan)} From your handwritten sheet</span>`
-        : `<span class="nsrc">${S(IC.note)} Prepared by your junior</span>`)
+        : SHEET.source==='mine'
+          ? `<span class="nsrc hand">${S(IC.note)} Written by you</span>`
+          : `<span class="nsrc">${S(IC.note)} Prepared by your junior</span>`)
     : `<span class="nsrc warn">${S(IC.alert)} No note sheet yet</span>`;
-  const sec=(t,ic,inner,n)=>`<section class="nsec"><div class="nh">${S(IC[ic])} ${t}${n!=null?` <span class="ncount">${n}</span>`:''}</div>${inner}</section>`;
+  // Sections carry an id so the rail can jump to them, and always render — a
+  // section that only appears once it has content is a section you can never
+  // add anything to, which is why there was no way to write a prayer.
+  const secs=[];
+  const sec=(id,t,ic,inner,n)=>{ secs.push({id,t,n});
+    return `<section class="nsec" id="ns-${id}"><div class="nh secH">${S(IC[ic])} <span class="grow">${t}</span>${n!=null?`<span class="ncount">${n}</span>`:''}</div>${inner}</section>`; };
   const judge=((m.court_name||'').split('/')[1]||'').trim();
+
+  // one editable cell. `k` is the sheet key — never `sec`, which is the
+  // section-builder above.
+  const E=(k,i,f,val,ph,cls)=>`<span class="ed ${cls||''}" contenteditable="plaintext-only" data-ph="${esc(ph||'')}"
+      oninput="nsEdit('${k}',${i},'${f}',this)" onblur="nsBlur(this)"
+      onkeydown="nsKey(event,'${k}',${i})">${esc(val||'')}</span>`;
+  const X=(k,i)=>`<button class="xr" onclick="nsDel('${k}',${i})" title="Remove" aria-label="Remove">✕</button>`;
+  const ADD=(k,label)=>`<button class="addr" onclick="nsAdd('${k}')">+ ${esc(label)}</button>`;
+  const A=k=>Array.isArray(s[k])?s[k]:[];
+
+  // Build the document FIRST — `sec()` fills `secs`, which the rail then reads.
+  const body=!SHEET.exists?'':`
+     ${sec('chron','Chronology','clock',
+        `<div class="ntab">${A('chronology').map((c,i)=>`<div class="ntr">
+            <span class="nd">${E('chronology',i,'date',c.date,'date')}</span>
+            <span class="nev">${E('chronology',i,'event',c.event,'what happened')}</span>
+            <span class="nsrc2 ${c.source==='court record'?'court':''}">${esc(c.source||'you')}</span>
+            ${X('chronology',i)}</div>`).join('')||
+          '<div class="ntr"><span class="nev" style="color:var(--ink-4)">Nothing dated on this file yet.</span></div>'}</div>
+         ${ADD('chronology','Add an event')}`, A('chronology').length)}
+
+     ${sec('pts','Points to argue','draft',
+        `<ol class="npts">${A('points').map((p,i)=>`<li><div class="row">
+            <span class="grow">${E('points',i,'text',p.text,'the point you will make')}</span>${X('points',i)}
+          </div>${E('points',i,'authority',p.authority,'authority, if any',' pcite'+(p.authority?' un':''))}</li>`).join('')}</ol>
+         ${ADD('points','Add a point')}
+         ${A('points').length?`<div class="nhint">${SHEET.source==='hand'?'Read from your own sheet.':SHEET.source==='mine'?'Your own pointers.':'Drafted by your junior — edit anything you disagree with.'}</div>`:''}`,
+        A('points').length)}
+
+     ${sec('prov','Provisions relied on','folder',
+        `${A('provisions').map((p,i)=>`<div class="nprov">
+            <span class="pv1">${E('provisions',i,'ref',p.ref,'s. / Art.')}</span>
+            <span class="pv2">${E('provisions',i,'note',p.note,'what it gives you')}</span>
+            ${p.status==='map'?'<span class="nflag">new code — check classification</span>':''}${X('provisions',i)}</div>`).join('')}
+         ${ADD('provisions','Add a provision')}`, A('provisions').length)}
+
+     ${sec('pb','Paper-book references','doc',
+        `<div class="npb">${A('paperbook').map((p,i)=>`<div class="pbr">
+            <span>${E('paperbook',i,'item',p.item,'document')}</span>
+            <span class="mono">${E('paperbook',i,'ref',p.ref,'page')}</span>${X('paperbook',i)}</div>`).join('')||
+          '<div class="pbr"><span style="color:var(--ink-4)">Nothing referenced yet.</span></div>'}</div>
+         ${ADD('paperbook','Add a reference')}`, A('paperbook').length)}
+
+     ${sec('pray','Prayer','check',
+        `<div class="nb">${E('prayer',-1,'','' + (s.prayer||''),'What you are asking the court to order — type it here.','edb')}</div>`)}
+
+     ${sec('ask','Ask the court','clock',
+        `<ul class="nask">${A('ask').map((a,i)=>`<li><div class="row" style="display:flex;gap:8px">
+            <span style="flex:1">${E('ask',i,'',a,'e.g. short adjournment')}</span>${X('ask',i)}</div></li>`).join('')}</ul>
+         ${ADD('ask','Add an ask')}`, A('ask').length)}`;
 
   $('#noteView').innerHTML=`
    <button class="fback" onclick="closeNote()">${S('<path d="m15 6-6 6 6 6"/>')} Back</button>
@@ -1556,24 +1735,122 @@ function paintNote(){
          <div style="font-size:12px;color:var(--ink-3);margin-top:8px">${esc(st.why)}</div>
        </div>
        <div class="nacts">
-         <button class="btn btn--primary" onclick="openScan()">${S(IC.scan)} Upload my handwritten sheet</button>
-         <button class="btn" onclick="window.print()">${S(IC.print)} Print</button>
-         <button class="btn" onclick="openFolder('${m.id}')">${S(IC.folder)} Open folder</button>
+         <span class="nsv" id="nsv"><b></b><span>Saved</span></span>
        </div>
      </div>
      ${!SHEET.exists?`<div class="nempty"><div class="ic">${S(IC.note)}</div><div class="et">No note sheet for this hearing yet</div>
-        <div class="es">Upload the sheet you wrote by hand and Headnote will read it, check the sections and citations, and set it out in standard form — or let your junior prepare a first draft from the file.</div>
-        <div class="eb"><button class="btn btn--primary" onclick="openScan()">Upload handwritten sheet</button><button class="btn" onclick="prepareSheet()">Let the junior prepare it</button></div></div>`:`
-     ${sec('Chronology','clock',(s.chronology||[]).length?`<div class="ntab">${s.chronology.map(c=>`<div class="ntr"><span class="nd">${esc(c.date)}</span><span class="nev">${esc(c.event)}</span><span class="nsrc2 ${c.source==='court record'?'court':''}">${esc(c.source||'from file')}</span></div>`).join('')}</div>`:'<div class="aempty">No dated events on file yet.</div>',(s.chronology||[]).length)}
-     ${sec('Points to argue','draft',(s.points||[]).length?`<ol class="npts">${s.points.map(p=>`<li><span class="pt">${esc(p.text)}</span>${p.authority?`<span class="pcite un">${esc(p.authority)}</span>`:''}</li>`).join('')}</ol><div class="nhint">${SHEET.source==='hand'?'Read from your own sheet.':'Drafted by your junior — edit before you rely on it.'}</div>`:'<div class="aempty">No pointers yet.</div>',(s.points||[]).length)}
-     ${(s.provisions||[]).length?sec('Provisions relied on','folder',s.provisions.map(p=>`<div class="nprov"><span class="pv1">${esc(p.ref)}</span><span class="pv2">${esc(p.note||'')}</span>${p.status==='map'?'<span class="nflag">new code — check classification</span>':''}</div>`).join(''),s.provisions.length):''}
-     ${(s.paperbook||[]).length?sec('Paper-book references','doc',`<div class="npb">${s.paperbook.map(p=>`<div class="pbr"><span>${esc(p.item)}</span><span class="mono">${esc(p.ref||'')}</span></div>`).join('')}</div>`,s.paperbook.length):''}
-     ${s.prayer?sec('Prayer','check',`<div class="nb">${esc(s.prayer)}</div>`):''}
-     ${(s.ask||[]).length?sec('Ask the court','clock',`<ul class="nask">${s.ask.map(a=>`<li>${esc(a)}</li>`).join('')}</ul>`):''}
-     ${sec('Preparation','check',`<div class="prapwrap">${prepBlock(m)}</div>`)}
-     `}
-     <div class="nfoot">Facts and dates trace to the file or the court record. Suggested points are your junior’s and are marked as such — nothing is invented.</div>
+        <div class="es">Write it yourself, upload the sheet you wrote by hand for Headnote to read and set out in standard form, or let your junior prepare a first draft from the file.</div>
+        <div class="eb"><button class="btn btn--primary" onclick="startSheet()">Write it myself</button><button class="btn" onclick="openScan()">Upload handwritten sheet</button><button class="btn" onclick="prepareSheet()">Let the junior prepare it</button></div></div>`:`
+     <div class="ncol">${body}
+       <div class="nfoot">Facts and dates trace to the file or the court record. Anything your junior suggested is marked as such — nothing is invented. Everything on this sheet is yours to edit.</div>
+     </div>
+     <aside class="nrail">
+       <div class="nrb">
+         <div class="rk">This hearing</div>
+         <button class="btn btn--primary" onclick="window.print()">${S(IC.print)} Print this sheet</button>
+         <button class="btn" onclick="openScan()">${S(IC.scan)} Upload handwritten</button>
+         <button class="btn" onclick="openFolder('${m.id}')">${S(IC.folder)} Open case folder</button>
+       </div>
+       <div class="nrb">
+         <div class="rk">Sections</div>
+         <nav class="njump">${secs.map(x=>`<a onclick="jumpTo('ns-${x.id}')">${esc(x.t)}${x.n?`<span class="jn">${x.n}</span>`:''}</a>`).join('')}</nav>
+       </div>
+       <div class="nrb"><div class="rk">Preparation</div><div class="prapwrap">${prepBlock(m)}</div></div>
+     </aside>`}
    </div>`;
+}
+function jumpTo(id){ const el=document.getElementById(id); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); }
+
+/* ── editing the note sheet ─────────────────────────────────────────────────
+   The sheet was entirely read-only: the junior's first draft was the last word,
+   and the only way to change a line was to re-scan a handwritten page. It is
+   the advocate's sheet — he must be able to type on it.
+
+   Text edits deliberately do NOT re-render: repainting on every keystroke would
+   throw the caret to the start of the field. They mutate the model and queue a
+   save. Only add/remove repaints. */
+const NS_BLANK={chronology:{date:'',event:'',source:'you'},points:{text:'',authority:''},
+                provisions:{ref:'',note:''},paperbook:{item:'',ref:''},ask:''};
+let nsTimer=null, nsSaving=false, nsAgain=false;
+
+function nsSheet(){ if(!SHEET.sheet||typeof SHEET.sheet!=='object') SHEET.sheet={};
+  ['chronology','points','provisions','paperbook','ask'].forEach(k=>{ if(!Array.isArray(SHEET.sheet[k])) SHEET.sheet[k]=[]; });
+  if(typeof SHEET.sheet.prayer!=='string') SHEET.sheet.prayer='';
+  return SHEET.sheet; }
+
+function nsEdit(k,i,f,el){
+  const s=nsSheet(), v=el.innerText.replace(/ /g,' ').trim();
+  if(k==='prayer') s.prayer=v;
+  else if(k==='ask') s.ask[i]=v;
+  else if(s[k]&&s[k][i]) s[k][i][f]=v;
+  // contenteditable leaves a stray <br> behind, so :empty stops matching and
+  // the placeholder disappears on a field the user has just cleared.
+  if(v) el.removeAttribute('data-empty'); else { el.innerHTML=''; el.setAttribute('data-empty',''); }
+  nsFlag('sav','Saving…'); nsQueue();
+}
+function nsBlur(el){ el.innerText=el.innerText.replace(/ /g,' ').trim(); }
+function nsKey(e,k,i){
+  // Enter commits and opens the next row rather than inserting a newline —
+  // these are list items, not paragraphs. Prayer is the exception: it is prose.
+  if(e.key==='Enter'&&!e.shiftKey&&k!=='prayer'){ e.preventDefault(); e.target.blur(); nsAdd(k); }
+  if(e.key==='Escape') e.target.blur();
+}
+function nsAdd(k){
+  const s=nsSheet(), b=NS_BLANK[k];
+  s[k].push(typeof b==='string'?'':{...b});
+  nsQueue(); paintNote();
+  // land the caret in the row just created, so "+ Add a point" is one gesture
+  const rows=document.querySelectorAll(`#ns-${({chronology:'chron',points:'pts',provisions:'prov',paperbook:'pb',ask:'ask'})[k]} .ed`);
+  const per={chronology:2,points:2,provisions:2,paperbook:2,ask:1}[k]||1;
+  const el=rows[(s[k].length-1)*per]; if(el) el.focus();
+}
+function nsDel(k,i){
+  const s=nsSheet();
+  const txt=k==='ask'?s.ask[i]:Object.values(s[k][i]||{}).filter(x=>x&&x!=='you'&&x!=='court record').join(' ');
+  if(txt&&txt.trim()&&!confirm('Remove this line?\n\n'+txt.trim().slice(0,140))) return;
+  s[k].splice(i,1); nsQueue(); paintNote();
+}
+function nsFlag(cls,txt){ const el=$('#nsv'); if(!el) return;
+  el.className='nsv '+(cls||''); el.lastElementChild.textContent=txt; }
+// nsTimer doubles as "there are unsaved keystrokes", so it MUST be cleared when
+// it fires — otherwise beforeunload warns forever after the first edit.
+function nsQueue(){ clearTimeout(nsTimer); nsTimer=setTimeout(()=>{ nsTimer=null; nsSave(); },800); }
+
+async function nsSave(){
+  if(!noteId||!SHEET) return;
+  if(nsSaving){ nsAgain=true; return; }          // never overlap writes to one sheet
+  nsSaving=true;
+  try{
+    const r=await api(`/api/matters/${noteId}/notesheet`,{method:'PUT',body:JSON.stringify({
+      hearing_date:noteDate, sheet:nsSheet(),
+      // once he has touched it, it is his sheet — not "drafted by your junior"
+      source:SHEET.source==='hand'?'hand':'mine'})});
+    // Keep the server's own view of source/updated_at, but do NOT swap in its
+    // `sheet`: he may have typed more while the request was in flight.
+    SHEET.exists=true; SHEET.source=r.source||'mine'; SHEET.updated_at=r.updated_at;
+    if(r.matter) SHEET.matter=r.matter;
+    nsFlag('ok','Saved');
+  }catch(e){
+    // A note sheet that says "Saved" when the write failed is how a lawyer
+    // walks into court with nothing. Say it plainly and keep the text on screen.
+    nsFlag('err','Not saved — '+(e.message||'try again'));
+  }finally{
+    nsSaving=false;
+    if(nsAgain){ nsAgain=false; nsQueue(); }
+  }
+}
+// A sheet half-typed and unsaved must not leave silently.
+window.addEventListener('beforeunload',e=>{ if(nsTimer){ e.preventDefault(); e.returnValue=''; } });
+
+async function startSheet(){
+  // "Write it myself" — create the sheet empty so every section is there to
+  // type into, rather than making him generate a draft he does not want.
+  SHEET.sheet={chronology:[],points:[{text:'',authority:''}],provisions:[],
+               paperbook:[],ask:[],prayer:''};
+  SHEET.exists=true; SHEET.source='mine';
+  paintNote();
+  const first=document.querySelector('#ns-pts .ed'); if(first) first.focus();
+  nsSave();
 }
 function noteDay(d){ selDate=d; weekAnchor=mondayOf(d);
   api(`/api/home?date=${d}&week_from=${weekAnchor}`).then(h=>{ HOME=h; noteDate=d;
@@ -1970,14 +2247,35 @@ function paintFolder(id){
   const f=FOLDER, c=f.case||{}, cl=f.client||{};
   const cj=(c.case_json&&typeof c.case_json==='object')?c.case_json:{};
   const m=byId(id)||{};
-  const tile=(icon,label,items,render,addLabel,addFn)=>`
-    <section class="cblk">
-      <div class="cbh">${S(IC[icon])} ${label} <span class="ncount">${items.length}</span></div>
-      ${items.length?`<div class="ctiles">${items.map(render).join('')}</div>`
-                    :`<div class="aempty">Nothing filed here yet.</div>`}
-      ${addLabel?`<button class="addnew" onclick="${addFn}">${S('<path d="M12 5v14M5 12h14"/>')} ${addLabel}</button>`:''}
-    </section>`;
+  /* Six identical dashed "Nothing filed here yet" boxes is not a folder, it is a
+     form with nothing in it. What IS on the file gets the document column, in
+     full. What is merely POSSIBLE collapses into one row of actions at the end,
+     so an empty folder is one screen instead of six. */
   const party=(c.case_json&&c.case_json.client&&c.case_json.client.name)||cl.name||c.case_title||'—';
+  const filed=[], empty=[], secs=[];
+  const tile=(id,icon,label,items,render,addLabel,addFn)=>{
+    if(!items.length){ if(addLabel) empty.push({label:addLabel,fn:addFn,icon}); return; }
+    secs.push({id,t:label,n:items.length});
+    filed.push(`<section class="cblk" id="cf-${id}">
+      <div class="cbh">${S(IC[icon])} ${label} <span class="ncount">${items.length}</span></div>
+      <div class="ctiles">${items.map(render).join('')}</div>
+      ${addLabel?`<button class="addnew" onclick="${addFn}">${S('<path d="M12 5v14M5 12h14"/>')} ${addLabel}</button>`:''}
+    </section>`);
+  };
+  // Build sections BEFORE the template, so the rail's nav knows what exists.
+  tile('drafts','draft','Drafts',f.drafts||[],d=>`<div class="ctile"><div class="ct">${esc(d.title||d.story_id||'Draft')}</div><div class="cm">${d.exported_at?'filed':'draft'}${d.updated_at?' · '+esc(String(d.updated_at).slice(0,10)):''}</div></div>`,'New draft from this case',`location.href='/draft?matter=${id}'`);
+  tile('recs','mic','Recordings',f.recordings||[],r=>`<div class="ctile"><div class="ct">${esc(r.title||'Consultation')}</div><div class="cm">${r.duration_sec?Math.round(r.duration_sec/60)+' min':''}${r.created_at?' · '+esc(String(r.created_at).slice(0,10)):''}</div></div>`,'New recording',`location.href='/recorder?case_id=${id}'`);
+  tile('docs','doc','Documents',f.documents||[],d=>`<div class="ctile"><div class="ct">${esc(d.title||'Document')}</div><div class="cm">${d.page_count||1} pp${d.doc_type?' · '+esc(d.doc_type):''}</div></div>`,'Upload document',`location.href='/documents?case_id=${id}'`);
+  tile('law','research','Saved research',f.caselaw||[],a=>`<div class="ctile"><div class="ct">${esc(a.title||a.case_id)}</div><div class="cm">${esc(a.court||'')}${a.citation?' · '+esc(a.citation):''}</div></div>`,'Find law for this case',`location.href='/research?matter=${id}'`);
+  if((f.hearing_logs||[]).length){
+    secs.push({id:'hear',t:'Hearings',n:f.hearing_logs.length});
+    filed.push(`<section class="cblk" id="cf-hear"><div class="cbh">${S(IC.clock)} Hearings <span class="ncount">${f.hearing_logs.length}</span></div>
+      <div class="ntab">${f.hearing_logs.map(h=>`<div class="ntr" style="grid-template-columns:98px minmax(0,1fr) auto"><span class="nd">${esc(h.hearing_date||'')}</span><span class="nev">${esc(h.what_happened||'')}</span><span class="nsrc2 court">court record</span></div>`).join('')}</div></section>`);
+  }
+  secs.push({id:'intake',t:'Client uploads'});
+
+  const fact=(k,v)=>v?`<div class="cfact"><span>${k}</span><b>${esc(v)}</b></div>`:'';
+
   $('#folderView').innerHTML=`
    <button class="fback" onclick="closeFolder()">${S('<path d="m15 6-6 6 6 6"/>')} Back to Home</button>
    <div class="nsheet">
@@ -1985,30 +2283,49 @@ function paintFolder(id){
        <div class="nhl">
          <div class="nk">Case folder</div>
          <h2 class="ntitle">${esc(party)}</h2>
-         <div class="nmeta">${c.case_number?`<span>${esc(c.case_number)}${c.case_year?'/'+esc(c.case_year):''}</span>`:''}${c.court_name?`<span>${esc(c.court_name)}</span>`:''}${c.cnr?`<span>CNR ${esc(c.cnr)}</span>`:''}${c.next_hearing_date?`<span>Next ${esc(c.next_hearing_date)}</span>`:''}</div>
-         ${cl.mobile?`<div class="npurpose" style="font-size:13px">${esc(cl.name||'')} · ${esc(cl.mobile)}</div>`:''}
+         <div class="nmeta">${c.case_number?`<span>${esc(c.case_number)}${c.case_year?'/'+esc(c.case_year):''}</span>`:''}${c.court_name?`<span>${esc(c.court_name)}</span>`:''}${c.next_hearing_date?`<span>Next ${esc(c.next_hearing_date)}</span>`:''}</div>
        </div>
-       <div class="nacts">
+       <div class="nacts"></div>
+     </div>
+
+     <div class="ncol">
+       ${filed.join('')||`<div class="aempty" style="margin-top:20px">Nothing is filed under this matter yet. Start with whichever of these you need — everything you add here stays on this file.</div>`}
+       ${empty.length?`<section class="cblk" id="cf-add">
+         <div class="cbh">${S('<path d="M12 5v14M5 12h14"/>')} Add to this folder</div>
+         <div class="cadd">${empty.map(e=>`<button class="btn" onclick="${e.fn}">${S(IC[e.icon])} ${esc(e.label)}</button>`).join('')}</div>
+       </section>`:''}
+       <div id="cf-intake">${intakeBlock(id)}</div>
+       <div class="nfoot">Everything filed under this matter. Drafts, recordings and documents are saved to your account, not this device.</div>
+     </div>
+
+     <aside class="nrail">
+       <div class="nrb">
+         <div class="rk">This matter</div>
          <button class="btn btn--primary" onclick="openNote('${id}')">${S(IC.note)} Note sheet</button>
          ${c.cnr?`<button class="btn" id="syncBtn" onclick="syncFolder('${id}')" title="Re-read this case from the court record">${S('<path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6"/>')} Sync with court</button>`:''}
-         <button class="btn" onclick="window.print()">${S(IC.print)} Print</button>
+         <button class="btn" onclick="window.print()">${S(IC.print)} Print this folder</button>
        </div>
-     </div>
-     <!-- Last contact with the court, stated plainly. A lawyer should never
-          have to guess whether what he is looking at is today's record. -->
-     <div class="nmeta" style="margin:-4px 0 14px">
-       ${c.cnr
-         ? `<span>${cj.synced_at?'Court record read '+esc(String(cj.synced_at).slice(0,10)):'Not yet re-read from the court'}</span>`
-         : `<span>No CNR on this matter — it cannot be synced with the court.</span>`}
-     </div>
-     ${tile('draft','Drafts',f.drafts||[],d=>`<div class="ctile"><div class="ct">${esc(d.title||d.story_id||'Draft')}</div><div class="cm">${d.exported_at?'filed':'draft'}${d.updated_at?' · '+esc(String(d.updated_at).slice(0,10)):''}</div></div>`,'New draft from this case',`location.href='/draft?matter=${id}'`)}
-     ${tile('mic','Recordings',f.recordings||[],r=>`<div class="ctile"><div class="ct">${esc(r.title||'Consultation')}</div><div class="cm">${r.duration_sec?Math.round(r.duration_sec/60)+' min':''}${r.created_at?' · '+esc(String(r.created_at).slice(0,10)):''}</div></div>`,'New recording',`location.href='/recorder?case_id=${id}'`)}
-     ${tile('doc','Documents',f.documents||[],d=>`<div class="ctile"><div class="ct">${esc(d.title||'Document')}</div><div class="cm">${d.page_count||1} pp${d.doc_type?' · '+esc(d.doc_type):''}</div></div>`,'Upload document',`location.href='/documents?case_id=${id}'`)}
-     ${intakeBlock(id)}
-     ${tile('research','Saved research',f.caselaw||[],a=>`<div class="ctile"><div class="ct">${esc(a.title||a.case_id)}</div><div class="cm">${esc(a.court||'')}${a.citation?' · '+esc(a.citation):''}</div></div>`,'Find law for this case',`location.href='/research?matter=${id}'`)}
-     ${(f.hearing_logs||[]).length?`<section class="cblk"><div class="cbh">${S(IC.clock)} Hearings <span class="ncount">${f.hearing_logs.length}</span></div>
-       <div class="ntab">${f.hearing_logs.map(h=>`<div class="ntr"><span class="nd">${esc(h.hearing_date||'')}</span><span class="nev">${esc(h.what_happened||'')}</span><span class="nsrc2 court">court record</span></div>`).join('')}</div></section>`:''}
-     <div class="nfoot">Everything filed under this matter. Drafts, recordings and documents are saved to your account, not this device.</div>
+       <div class="nrb">
+         <div class="rk">On the record</div>
+         ${fact('Court',c.court_name)}
+         ${fact('Case no.',c.case_number?`${c.case_number}${c.case_year?'/'+c.case_year:''}`:'')}
+         ${fact('CNR',c.cnr)}
+         ${fact('Next date',c.next_hearing_date)}
+         ${fact('Stage',c.stage)}
+         ${fact('Client',cl.name)}
+         ${fact('Mobile',cl.mobile)}
+         <!-- Last contact with the court, stated plainly. A lawyer should never
+              have to guess whether what he is looking at is today's record. -->
+         <div class="cfnote">${c.cnr
+           ? (cj.synced_at?'Court record read '+esc(String(cj.synced_at).slice(0,10)):'Not yet re-read from the court')
+           : 'No CNR on this matter — it cannot be synced with the court.'}</div>
+       </div>
+       <div class="nrb">
+         <div class="rk">In this folder</div>
+         <nav class="njump">${secs.map(x=>`<a onclick="jumpTo('cf-${x.id}')">${esc(x.t)}${x.n?`<span class="jn">${x.n}</span>`:''}</a>`).join('')}
+           ${empty.length?`<a onclick="jumpTo('cf-add')">Add to this folder<span class="jn">${empty.length}</span></a>`:''}</nav>
+       </div>
+     </aside>
    </div>`;
 }
 

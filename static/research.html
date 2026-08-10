@@ -86,7 +86,10 @@ body.sb-min .recent,body.sb-min #recent-lbl{display:none}
 .sb .user .av{width:29px;height:29px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:600}
 .sb .user .u{font-size:13px;font-weight:500;line-height:1.15}.sb .user .r{font-size:10.5px;color:var(--ink-3);font-family:var(--mono)}
 .main{min-width:0}.mtop{display:none}
-.wrap{padding:24px 32px 90px;max-width:1420px}
+/* No max-width — same reason as /draft: a capped wrap leaves a band of empty
+   white down the right of a normal 1920px screen. The results layout inside
+   has its own columns and uses whatever it is given. */
+.wrap{padding:24px 32px 90px}
 /* the right rail always earns its keep: the attached matter's file when one
    is attached, otherwise the lawyer's recent library — never dead space */
 .rgrid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:28px;align-items:start}
