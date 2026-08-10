@@ -68,3 +68,42 @@ def generate_json(prompt: str, *, image: bytes | None = None,
         if m:
             return json.loads(m.group(0))
         raise RuntimeError(f"Gemini: non-JSON response: {text[:200]}")
+
+
+def generate_text(prompt: str, *, images: list[tuple[bytes, str]] | None = None,
+                  system: str = "", model: str = "", max_tokens: int = 8192,
+                  temperature: float = 0.0) -> str:
+    """Call Gemini with optional inline images and return plain text.
+
+    The sibling of ``generate_json`` for work whose output is prose, not a
+    record: reading a page verbatim, or translating one. Multiple images go in
+    one call so a multi-page document keeps its reading order and the model can
+    resolve a word on page 2 from its use on page 1.
+    """
+    if not config.GEMINI_API_KEY:
+        raise RuntimeError("GEMINI_API_KEY not set")
+    model = model or config.GEMINI_VISION_MODEL
+    parts: list = []
+    for data, mime in (images or []):
+        parts.append({"inline_data": {"mime_type": mime,
+                                      "data": base64.b64encode(data).decode()}})
+    parts.append({"text": prompt})
+    body: dict = {
+        "contents": [{"role": "user", "parts": parts}],
+        "generationConfig": {"temperature": temperature, "maxOutputTokens": max_tokens},
+    }
+    if system:
+        body["system_instruction"] = {"parts": [{"text": system}]}
+    r = httpx.post(f"{_BASE}/models/{model}:generateContent",
+                   params={"key": config.GEMINI_API_KEY}, json=body, timeout=180.0)
+    if r.status_code != 200:
+        raise RuntimeError(f"Gemini {r.status_code}: {r.text[:300]}")
+    cands = (r.json() or {}).get("candidates") or []
+    if not cands:
+        raise RuntimeError("Gemini: no candidates returned")
+    out = "".join(p.get("text", "") for p in
+                  ((cands[0].get("content") or {}).get("parts") or [])
+                  if isinstance(p, dict)).strip()
+    if not out:
+        raise RuntimeError("Gemini: empty response")
+    return out

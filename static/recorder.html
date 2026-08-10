@@ -93,6 +93,13 @@
   .transcript.open{display:block;}
   .backlink{background:none;border:0;color:var(--ink-3);font:inherit;font-size:13px;cursor:pointer;padding:0;margin-bottom:16px;}
   .backlink:hover{color:var(--ink);}
+  /* inline-editable cells + matter bar */
+  .edx{outline:1px dashed var(--gold-line);border-radius:3px;padding:0 4px;min-width:16px;display:inline-block;background:#fffdf7;}
+  .edx:focus{outline:1.5px solid var(--gold-deep);background:#fff;}
+  .matterbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0 2px;padding:11px 13px;background:var(--soft);border:1px solid var(--line-2);border-radius:8px;}
+  .matterbar .lbl{margin:0;}
+  .matterbar select{flex:0 1 340px;}
+  .editnote{font-size:12px;color:var(--warn);margin-left:auto;}
   /* detailed-memo sections */
   .conf{font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--warn);border:1px solid var(--gold-line);border-radius:4px;padding:1px 6px;margin-left:8px;vertical-align:middle;}
   .cards2{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;}
@@ -135,6 +142,7 @@
       <a class="navitem" href="/app#research"><svg class="navicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg><span>research</span></a>
       <a class="navitem" href="/app#drafting"><svg class="navicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4z"/></svg><span>drafting</span></a>
       <a class="navitem" href="/app#saved"><svg class="navicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg><span>saved</span></a>
+      <a class="navitem" href="/matters"><svg class="navicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>matters</span></a>
       <button type="button" class="navitem is-active" aria-current="page"><svg class="navicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></svg><span>recorder</span></button>
       <a class="navitem" href="/documents"><svg class="navicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h6"/></svg><span>documents</span></a>
       <a class="navitem" href="/sections"><svg class="navicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span>IPC → BNS</span></a>
@@ -230,6 +238,7 @@
 <script>
 const $ = s => document.querySelector(s);
 let LIST = [], recLang = 'hi';
+let CUR = null, EDIT = false, MATTERS = null;   // current report row · edit mode · cached matters
 let mediaRec = null, chunks = [], startTs = 0, timerIv = null, audioCtx = null, rafId = 0;
 let armedStream = null, recBytes = 0, wakeLock = null;
 
@@ -242,7 +251,7 @@ function show(id){ document.querySelectorAll('.view').forEach(v=>v.classList.rem
 function fmt(sec){ sec=Math.max(0,Math.round(sec)); const m=Math.floor(sec/60), s=sec%60; return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0'); }
 
 /* ---------- navigation ---------- */
-function goList(){ disarmMic(); show('view-list'); load(); }
+function goList(){ disarmMic(); try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){} show('view-list'); load(); }
 function goRecord(){ resetRecord(); show('view-record'); }
 function resetRecord(){
   disarmMic();
@@ -414,13 +423,89 @@ async function finishRecording(){
 /* ---------- report ---------- */
 function draftHandoff(rep){
   const sd=(rep&&rep.suggested_draft)||{};
-  try{ sessionStorage.setItem('hn_seed_prompt', sd.prompt||''); }catch(e){}
+  try{
+    sessionStorage.setItem('hn_seed_prompt', sd.prompt||'');
+    if(CUR&&CUR.case_id) sessionStorage.setItem('hn_seed_case', CUR.case_id);
+    else sessionStorage.removeItem('hn_seed_case');
+  }catch(e){}
   window.open('/app#drafting','_blank');
 }
 
+/* deep-set 'a.0.b' → obj.a[0].b = val (creating arrays/objects as needed) */
+function setPath(obj,path,val){
+  const ks=path.split('.'); let c=obj;
+  for(let i=0;i<ks.length-1;i++){ const k=ks[i], nk=ks[i+1];
+    if(c[k]==null) c[k]=/^\d+$/.test(nk)?[]:{}; c=c[k]; }
+  c[ks[ks.length-1]]=val;
+}
+/* read every editable cell back into a clean copy of the report */
+function collectEdits(){
+  const rep=JSON.parse(JSON.stringify(CUR.report||{}));
+  document.querySelectorAll('#reportBody [data-e]').forEach(el=>setPath(rep, el.dataset.e, (el.innerText||'').trim()));
+  ['facts','chronology'].forEach(k=>{ if(Array.isArray(rep[k])) rep[k]=rep[k].filter(x=>x&&(x.text||'').trim()); });
+  ['key_admissions','issues','open_questions','unverified'].forEach(k=>{ if(Array.isArray(rep[k])) rep[k]=rep[k].filter(x=>(x||'').trim()); });
+  if(Array.isArray(rep.action_items)) rep.action_items=rep.action_items.filter(a=>a&&(a.text||'').trim());
+  return rep;
+}
+async function saveEdits(){
+  const rep=collectEdits();
+  try{
+    const r=await fetch('/api/consultations/'+CUR.id,{method:'PATCH',headers:H(true),body:JSON.stringify({title:rep.title,report:rep})});
+    const d=await r.json(); if(!r.ok) throw new Error(d.detail||'save failed');
+    EDIT=false; renderReport(d.consultation); toast('Saved','success');
+  }catch(e){ toast(e.message,'error'); }
+}
+function toggleEdit(on){ EDIT=on; renderReport(CUR); }
+function addItem(kind){
+  CUR.report=CUR.report||{}; CUR.report[kind]=CUR.report[kind]||[];
+  CUR.report[kind].push(kind==='action_items'?{text:'',deadline:'',done:false}:{text:'',grounded:true});
+  EDIT=true; renderReport(CUR);
+}
+/* action items persist the moment they're ticked — no edit mode needed */
+async function toggleDone(idx,checked){
+  try{ CUR.report.action_items[idx].done=checked;
+    await fetch('/api/consultations/'+CUR.id,{method:'PATCH',headers:H(true),body:JSON.stringify({report:CUR.report})});
+  }catch(e){ toast('Could not save that','error'); }
+}
+
+/* ---- file this recording under a matter (uses the existing case-folder spine) ---- */
+async function loadMatters(){
+  if(MATTERS) return MATTERS;
+  try{ const r=await fetch('/api/cases',{headers:H()}); MATTERS=(await r.json()).items||[]; }
+  catch(e){ MATTERS=[]; }
+  return MATTERS;
+}
+async function renderMatterBar(){
+  const el=$('#matterbar'); if(!el) return;
+  const list=await loadMatters(); const cur=CUR.case_id||'';
+  const label=(m)=>esc(m.case_title||m.cnr||'matter')+(m.next_hearing_date?' · '+esc(m.next_hearing_date):'');
+  const opts=['<option value="">— not filed under a matter —</option>']
+    .concat(list.map(m=>`<option value="${m.id}" ${m.id===cur?'selected':''}>${label(m)}</option>`)).join('');
+  el.innerHTML=`<span class="lbl">file under matter</span>
+    <select class="input" id="mattersel">${opts}</select>
+    ${list.length?'':'<a href="/matters" style="font-size:12px;border-bottom:1px solid var(--line)">add a matter first</a>'}
+    ${cur?`<a href="/matters#m/${cur}" class="editnote" style="text-decoration:none">↗ open the matter folder</a>`:''}`;
+  const sel=$('#mattersel'); if(sel) sel.onchange=()=>linkMatter(sel.value);
+}
+async function linkMatter(caseId){
+  const prev=CUR.case_id||null;
+  try{
+    if(caseId){
+      const r=await fetch('/api/cases/'+caseId+'/link',{method:'POST',headers:H(true),
+        body:JSON.stringify({artifact_type:'recording',artifact_id:CUR.id})});
+      if(!r.ok) throw new Error((await r.json()).detail||'could not file');
+    } else if(prev){
+      await fetch('/api/cases/'+prev+'/unlink',{method:'POST',headers:H(true),
+        body:JSON.stringify({artifact_type:'recording',artifact_id:CUR.id})});
+    }
+    CUR.case_id=caseId||null; toast(caseId?'Filed under the matter':'Removed from matter','success');
+    renderMatterBar();
+  }catch(e){ toast(e.message,'error'); renderMatterBar(); }
+}
+
 function renderReport(row){
+  CUR=row;
   const rep=(row&&row.report)||{}, hi=(rep.lang==='hi')||(recLang==='hi')||(row.lang==='hi');
-  const HI=hi?' hi':'';
   const sd=rep.suggested_draft||{};
   const dur=row.duration_sec?fmt(row.duration_sec):'';
   const dt=(row.created_at||'').slice(0,10);
@@ -431,8 +516,12 @@ function renderReport(row){
         uv=rep.unverified||[], others=(rep.parties||{}).others||[];
   const cl=(rep.parties||{}).client||{}, op=(rep.parties||{}).opponent||{};
 
-  // section helper — returns '' when there's no real content to show
-  const sec=(label,inner,warn)=> inner ? `<div class="sec"><div class="lbl"${warn?' style="color:var(--warn)"':''}>${warn?'⚠ ':''}${label}</div>${inner}</div>` : '';
+  // an editable cell in EDIT mode, plain escaped text otherwise
+  const cell=(path,text)=> EDIT
+    ? `<span class="edx" contenteditable="true" data-e="${path}">${esc(text==null?'':text)}</span>`
+    : esc(text==null?'':text);
+  // section helper — hidden when empty in view mode, always shown while editing
+  const sec=(label,inner,warn)=> (inner||EDIT) ? `<div class="sec"><div class="lbl"${warn?' style="color:var(--warn)"':''}>${warn?'⚠ ':''}${label}</div>${inner}</div>` : '';
 
   const metrics=[];
   if(rep.relief_sought) metrics.push(['relief sought',esc(rep.relief_sought)]);
@@ -447,15 +536,15 @@ function renderReport(row){
       ${p.detail?`<div class="det">${esc(p.detail)}</div>`:''}</div>` : '';
   const partiesInner = (pcard(cl,'client')||pcard(op,'opponent')) ? `<div class="cards2">${pcard(cl,'client')}${pcard(op,'opponent')}</div>${others.length?`<div class="c__sub ${hi?'hi':''}" style="margin-top:8px">Also named: ${others.map(esc).join(', ')}</div>`:''}` : '';
 
-  const chronoInner = chrono.length ? `<div class="tl ${hi?'hi':''}">${chrono.map(f=>{const uvf=!f.grounded;return `<div>
+  const chronoInner = chrono.length ? `<div class="tl ${hi?'hi':''}">${chrono.map((f,i)=>{const uvf=!f.grounded;return `<div>
       <div class="tl__date${uvf?' uv':''}">${f.date?esc(f.date):(uvf?'unverified':'&nbsp;')}</div>
-      <div class="tl__text${uvf?' uv':''}">${uvf?'<span class="flag">⚠ </span>':''}${esc(f.text)}</div></div>`;}).join('')}</div>` : '';
+      <div class="tl__text${uvf?' uv':''}">${uvf?'<span class="flag">⚠ </span>':''}${cell('chronology.'+i+'.text',f.text)}</div></div>`;}).join('')}</div>` : '';
 
-  const factsInner = facts.length ? `<ul class="pts ${hi?'hi':''}">${facts.map(f=>`<li>${f.grounded?'':'<span class="flag">⚠ </span>'}${esc(f.text)}</li>`).join('')}</ul>` : '';
+  const factsInner = facts.length ? `<ul class="pts ${hi?'hi':''}">${facts.map((f,i)=>`<li>${f.grounded?'':'<span class="flag">⚠ </span>'}${cell('facts.'+i+'.text',f.text)}</li>`).join('')}</ul>` : '';
 
-  const admInner = adm.length ? `<ul class="pts warn ${hi?'hi':''}">${adm.map(a=>`<li>${esc(a)}</li>`).join('')}</ul>` : '';
+  const admInner = adm.length ? `<ul class="pts warn ${hi?'hi':''}">${adm.map((a,i)=>`<li>${cell('key_admissions.'+i,a)}</li>`).join('')}</ul>` : '';
 
-  const issuesInner = issues.length ? `<ul class="pts ${hi?'hi':''}">${issues.map(i=>`<li>${esc(i)}</li>`).join('')}</ul>` : '';
+  const issuesInner = issues.length ? `<ul class="pts ${hi?'hi':''}">${issues.map((x,i)=>`<li>${cell('issues.'+i,x)}</li>`).join('')}</ul>` : '';
 
   const provsInner = provs.length ? `<div class="chips">${provs.map(p=>{const res=p.status!=='discussed';return `<span class="chip2${res?' res':''}">${esc(p.ref)}<span class="st">${res?'to research':'discussed'}</span></span>`;}).join('')}</div>` : '';
 
@@ -465,19 +554,21 @@ function renderReport(row){
       ${toGet.length?`<div><div class="doccol need">to collect</div>${toGet.map(d=>`<div class="docrow ${hi?'hi':''}"><span class="ico" style="color:var(--ink-3)">▢</span><span>${esc(d)}</span></div>`).join('')}</div>`:''}
     </div>` : '';
 
-  const itemsInner = items.length ? `<ul class="steps ${hi?'hi':''}">${items.map(a=>`<li><input type="checkbox"> <span>${esc(a.text)}${a.deadline?`<span class="dl">· ${esc(a.deadline)}</span>`:''}</span></li>`).join('')}</ul>` : '';
+  const itemsInner = items.length ? `<ul class="steps ${hi?'hi':''}">${items.map((a,i)=>`<li><input type="checkbox" ${a.done?'checked':''} onchange="toggleDone(${i},this.checked)"> <span${a.done?' style="text-decoration:line-through;color:var(--ink-3)"':''}>${cell('action_items.'+i+'.text',a.text)}${(a.deadline||EDIT)?`<span class="dl">· ${cell('action_items.'+i+'.deadline',a.deadline||'')}</span>`:''}</span></li>`).join('')}</ul>` : '';
 
-  const oqInner = oq.length ? oq.map(q=>`<div class="oq ${hi?'hi':''}"><span class="q">?</span><span>${esc(q)}</span></div>`).join('') : '';
+  const oqInner = oq.length ? oq.map((q,i)=>`<div class="oq ${hi?'hi':''}"><span class="q">?</span><span>${cell('open_questions.'+i,q)}</span></div>`).join('') : '';
 
   const quotesInner = quotes.length ? quotes.map(q=>`<div class="quote ${hi?'hi':''}">“${esc(q.text)}”${q.time?`<span class="t">${esc(q.time)}</span>`:''}</div>`).join('') : '';
 
-  const uvInner = uv.length ? `<div class="uvbox"><div class="lbl">confirm before pleading</div><ul>${uv.map(u=>`<li class="${hi?'hi':''}">${esc(u)}</li>`).join('')}</ul></div>` : '';
+  const uvInner = (uv.length||EDIT) ? `<div class="uvbox"><div class="lbl">confirm before pleading</div><ul>${uv.map((u,i)=>`<li class="${hi?'hi':''}">${cell('unverified.'+i,u)}</li>`).join('')||'<li style="color:var(--ink-3)">— nothing flagged —</li>'}</ul></div>` : '';
+
+  const summaryShown = rep.summary || EDIT;
 
   $('#reportBody').innerHTML = `
     <div class="rp__head">
       <div>
         <span class="lbl">consultation memorandum · privileged &amp; confidential</span>
-        <div class="rp__title ${hi?'hi':''}">${esc(rep.title||row.title||'Consultation')}</div>
+        <div class="rp__title ${hi?'hi':''}">${cell('title', rep.title||row.title||'Consultation')}</div>
         ${(rep.matter_label||rep.court)?`<div class="rp__label ${hi?'hi':''}">${[rep.matter_label,rep.court].filter(Boolean).map(esc).join(' · ')}</div>`:''}
       </div>
       <div class="rp__aside">
@@ -486,10 +577,12 @@ function renderReport(row){
       </div>
     </div>
 
+    <div class="matterbar" id="matterbar"></div>
+
     ${metrics.length?`<div class="metrics">${metrics.map(m=>`<div class="metric"><div class="lbl">${m[0]}</div><b>${m[1]}</b></div>`).join('')}</div>`:''}
 
     ${sec('parties',partiesInner)}
-    ${rep.summary?`<div class="sec"><div class="lbl">summary</div><div class="tl__text ${hi?'hi':''}" style="border:0;padding:0">${esc(rep.summary)}</div></div>`:''}
+    ${summaryShown?`<div class="sec"><div class="lbl">summary</div><div class="tl__text ${hi?'hi':''}" style="border:0;padding:0">${cell('summary',rep.summary)}</div></div>`:''}
     ${sec('chronology',chronoInner)}
     ${sec('key facts',factsInner)}
     ${sec('key admissions &amp; risk flags',admInner,true)}
@@ -502,13 +595,27 @@ function renderReport(row){
     ${uvInner}
 
     <div class="rp__foot">
-      <button class="btn btn--primary" id="rp-draft">✎ Draft ${esc(sd.label||'petition')} →</button>
-      <button class="btn" onclick="$('#rp-transcript').classList.toggle('open')">View transcript</button>
-      <button class="btn" onclick="window.print()">Export PDF</button>
+      ${EDIT
+        ? `<button class="btn btn--primary" id="rp-save">✓ Save changes</button>
+           <button class="btn" id="rp-cancel">Cancel</button>
+           <button class="btn" onclick="addItem('facts')">+ fact</button>
+           <button class="btn" onclick="addItem('action_items')">+ action item</button>
+           <span class="editnote">Correct anything mis-heard, then save.</span>`
+        : `<button class="btn btn--primary" id="rp-draft">✎ Draft ${esc(sd.label||'petition')} →</button>
+           <button class="btn" id="rp-edit">✎ Edit report</button>
+           <button class="btn" onclick="$('#rp-transcript').classList.toggle('open')">View transcript</button>
+           <button class="btn" onclick="window.print()">Export PDF</button>`}
     </div>
     <div class="transcript ${hi?'hi':''}" id="rp-transcript">${esc(row.transcript||'(transcript not loaded)')}</div>
   `;
-  $('#rp-draft').onclick=()=>draftHandoff(rep);
+  if(EDIT){
+    $('#rp-save').onclick=saveEdits;
+    $('#rp-cancel').onclick=()=>toggleEdit(false);
+  } else {
+    $('#rp-draft').onclick=()=>draftHandoff(rep);
+    $('#rp-edit').onclick=()=>toggleEdit(true);
+  }
+  renderMatterBar();
   show('view-report');
 }
 
@@ -537,14 +644,19 @@ function render(){
 async function openOne(id){
   try{ const r=await fetch('/api/consultations/'+id,{headers:H()}); const d=await r.json();
     if(!r.ok) throw new Error(d.detail||'load failed'); renderReport(d);
+    try{ history.replaceState(null,'','#'+id); }catch(e){}   // shareable / deep-linkable from the matter folder
   }catch(e){ toast(e.message,'error'); }
 }
+/* deep-link: /recorder#<consultId> (e.g. from a matter folder) opens that report directly */
+function openFromHash(){ const id=(location.hash||'').replace(/^#/,'').trim(); if(id) openOne(id); }
+window.addEventListener('hashchange',openFromHash);
 async function load(){
   try{ const r=await fetch('/api/consultations',{headers:H()}); LIST=(await r.json()).items||[]; render(); }
   catch(e){ toast('Could not load consultations: '+e.message,'error'); }
 }
 $('#filter').addEventListener('input',render);
 load();
+openFromHash();   // if arrived via /recorder#<id>, open that consultation straight away
 </script>
 </body>
 </html>

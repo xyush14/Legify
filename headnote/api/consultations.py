@@ -181,6 +181,24 @@ def get_consultation(consult_id: str, user: CurrentUser = Depends(get_current_us
     return row
 
 
+class UpdateBody(BaseModel):
+    title:  Optional[str] = Field(None, max_length=300)
+    report: Optional[dict] = Field(None, description="The full lawyer-edited report dict")
+
+
+@router.patch("/{consult_id}", summary="Save the lawyer's edits to a consultation report")
+def update_consultation(consult_id: str, body: UpdateBody,
+                        user: CurrentUser = Depends(get_current_user)) -> dict:
+    """Persist the lawyer's corrections to a machine-extracted memo (fixed facts,
+    party names, ticked action items, resolved risk flags). No LLM, no metering —
+    a plain save so the report becomes trustworthy work-product."""
+    row = consult_storage.update_consultation(
+        consult_id, user_id=user.id, title=body.title, report=body.report)
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"no consultation with id={consult_id!r}")
+    return {"ok": True, "consultation": row}
+
+
 @router.delete("/{consult_id}", summary="Remove a consultation")
 def delete_consultation(consult_id: str, user: CurrentUser = Depends(get_current_user)) -> dict:
     if not consult_storage.delete_consultation(consult_id, user_id=user.id):

@@ -39,7 +39,10 @@
 
   // -------------------------------------------------------------- language
   function srLang(lang) { return lang === 'en' ? 'en-IN' : 'hi-IN'; }
-  function whisperLang(lang) { return lang === 'en' ? 'en' : 'hi'; }
+  // 'auto' → let the server-side STT detect the language (Sarvam/Whisper both
+  // do this natively). The browser's SpeechRecognition CANNOT auto-detect —
+  // callers wanting auto must pair lang:'auto' with forceServer:true.
+  function whisperLang(lang) { return lang === 'auto' ? 'auto' : (lang === 'en' ? 'en' : 'hi'); }
 
   // ---------------------------------------------------------------- errors
   // Pull a human message out of FastAPI's {detail: ...} error shape.
@@ -326,7 +329,12 @@
     }
 
     // ---- start -----------------------------------------------------------
-    if (HAS_NATIVE) startNative();
+    // forceServer: skip the browser recognizer and go straight to the
+    // MediaRecorder → server STT path. Needed when lang is 'auto' — the Web
+    // Speech API transcribes English speech as Devanagari when locked to
+    // hi-IN, so language detection must happen server-side.
+    var preferServer = !!opts.forceServer && HAS_RECORDER;
+    if (HAS_NATIVE && !preferServer) startNative();
     else if (HAS_RECORDER) startRecorder();
     else { onError('unsupported', 'voice not supported in this browser'); finish(); }
 

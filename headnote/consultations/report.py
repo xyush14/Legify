@@ -372,6 +372,7 @@ def build_report(transcript: str, *, lang: str = "hi", hint: str = "",
             REPORT_SYSTEM, user,
             max_tokens=3000,
             claude_model="claude-haiku-4-5",
+            json_mode=True,
         )
         parsed = parse_json_response(raw)
         return _normalize(parsed, transcript, lang)

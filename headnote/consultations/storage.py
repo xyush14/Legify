@@ -24,6 +24,9 @@ from datetime import datetime, timezone
 from typing import Iterator, Optional
 
 from headnote.config import KANOON_CACHE_PATH
+from headnote import pgstore
+
+_PG = "consultations"  # public.consultations — durable backend (migration 012)
 
 
 _COLS = ("id, user_id, case_id, title, matter_type, parties, court, lang, "
@@ -105,6 +108,16 @@ def add_consultation(
     """Store a freshly-generated consultation report. Returns the stored row."""
     now = _now()
     cid = uuid.uuid4().hex
+    if pgstore.ready(_PG):
+        row = pgstore.insert(_PG, {
+            "id": cid, "user_id": user_id, "case_id": case_id, "title": title,
+            "matter_type": matter_type, "parties": parties, "court": court,
+            "lang": lang, "duration_sec": int(duration_sec or 0),
+            "consent": bool(consent), "transcript": transcript,
+            "report_json": report or {},
+        }, json_cols=("report_json",))
+        if row:
+            return _pg_row(row)
     with _conn() as c:
         c.execute(
             """INSERT INTO consultations
@@ -122,7 +135,20 @@ def add_consultation(
     return _row(row)
 
 
+def _pg_row(d: Optional[dict]) -> Optional[dict]:
+    """Normalise a Postgres row to the shape the SQLite path returns."""
+    if not d:
+        return None
+    out = dict(d)
+    out["report_json"] = pgstore.parse_json(out.get("report_json"))
+    out["report"] = out["report_json"]
+    out["consent"] = bool(out.get("consent"))
+    return out
+
+
 def get_consultation(consult_id: str, *, user_id: Optional[str]) -> Optional[dict]:
+    if pgstore.ready(_PG):
+        return _pg_row(pgstore.get(_PG, consult_id, user_id=user_id))
     with _conn() as c:
         row = c.execute(
             f"SELECT {_COLS} FROM consultations WHERE id = ? AND user_id IS ?",
@@ -135,6 +161,15 @@ def list_consultations(*, user_id: Optional[str], limit: int = 100,
                        case_id: Optional[str] = None) -> list[dict]:
     """Newest first. Drops the heavy transcript from list payloads (kept on GET).
     Pass case_id to return only recordings filed under that matter."""
+    if pgstore.ready(_PG):
+        out = []
+        for r in pgstore.listing(_PG, user_id=user_id, limit=limit, case_id=case_id,
+                                 order="created_at.desc"):
+            row = _pg_row(r)
+            if row:
+                row.pop("transcript", None)
+                out.append(row)
+        return out
     where = "user_id IS ?"
     params: list = [user_id]
     if case_id is not None:
@@ -156,9 +191,49 @@ def list_consultations(*, user_id: Optional[str], limit: int = 100,
     return out
 
 
+def update_consultation(
+    consult_id: str, *, user_id: Optional[str],
+    title: Optional[str] = None, report: Optional[dict] = None,
+) -> Optional[dict]:
+    """Patch a consultation's lawyer-edited fields and return the updated row.
+
+    The recorder's report is machine-extracted, so the lawyer MUST be able to
+    correct a mis-heard fact, fix a party name, tick off an action item, or
+    resolve a "confirm before pleading" flag — otherwise the memo is untrustable
+    work-product. The client sends back the whole edited `report` dict (already
+    the shape the UI renders); we store it and re-derive the denormalised
+    title/matter_type/court columns so the list view stays in sync.
+    """
+    row = get_consultation(consult_id, user_id=user_id)
+    if row is None:
+        return None
+    rep = report if isinstance(report, dict) else row.get("report") or {}
+    new_title = (title or rep.get("title") or row.get("title") or "Consultation").strip()
+    if pgstore.ready(_PG):
+        return _pg_row(pgstore.update(_PG, consult_id, {
+            "report_json": rep, "title": new_title,
+            "matter_type": rep.get("matter_type"), "court": rep.get("court"),
+        }, user_id=user_id, json_cols=("report_json",)))
+    with _conn() as c:
+        c.execute(
+            "UPDATE consultations SET title = ?, matter_type = ?, court = ?, "
+            "report_json = ?, updated_at = ? WHERE id = ? AND user_id IS ?",
+            (new_title, rep.get("matter_type") or row.get("matter_type"),
+             rep.get("court") or row.get("court"),
+             json.dumps(rep, ensure_ascii=False), _now(), consult_id, user_id),
+        )
+        c.commit()
+        stored = c.execute(
+            f"SELECT {_COLS} FROM consultations WHERE id = ?", (consult_id,)
+        ).fetchone()
+    return _row(stored)
+
+
 def set_consultation_case(consult_id: str, *, case_id: Optional[str],
                           user_id: Optional[str]) -> bool:
     """Attach (or detach) a consultation to a case folder."""
+    if pgstore.ready(_PG):
+        return pgstore.set_field(_PG, consult_id, "case_id", case_id, user_id=user_id)
     with _conn() as c:
         cur = c.execute(
             "UPDATE consultations SET case_id = ? WHERE id = ? AND user_id IS ?",
@@ -169,6 +244,8 @@ def set_consultation_case(consult_id: str, *, case_id: Optional[str],
 
 
 def delete_consultation(consult_id: str, *, user_id: Optional[str]) -> bool:
+    if pgstore.ready(_PG):
+        return pgstore.remove(_PG, consult_id, user_id=user_id)
     with _conn() as c:
         cur = c.execute(
             "DELETE FROM consultations WHERE id = ? AND user_id IS ?",

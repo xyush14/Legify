@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<meta name="robots" content="noindex, nofollow">
+<title>Send documents to your advocate — Headnote</title>
+<style>
+/* A client opens this on a phone, often on patchy data. No framework, no fonts
+   to download, one obvious button. Big targets, plain words, works offline-ish. */
+:root{
+  --ink:#0c0c0a;--ink-2:#4b4b48;--ink-3:#8a8a82;--line:#e7e7e4;--soft:#f6f6f4;
+  --green:#2f8f57;--green-soft:#ecf6ef;--green-line:#cfe8d8;
+  --red:#b0392b;--red-soft:#fbeeec;--amber:#b7791f;--amber-soft:#fdf5e6;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  background:#fff;color:var(--ink);line-height:1.55;font-size:16px}
+.wrap{max-width:520px;margin:0 auto;padding:22px 18px 60px}
+.brand{display:flex;align-items:center;gap:9px;padding-bottom:20px}
+.brand .mk{width:28px;height:28px;border-radius:8px;background:var(--ink);color:#fff;
+  display:grid;place-items:center;font-weight:700;font-size:15px}
+.brand .nm{font-weight:600;font-size:17px;letter-spacing:-.02em}
+h1{font-size:21px;font-weight:700;letter-spacing:-.02em;margin-bottom:6px}
+.sub{color:var(--ink-2);font-size:15px}
+.card{border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:18px}
+.card .k{font-size:12px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.07em}
+.card .v{font-size:17px;font-weight:600;margin-top:3px}
+.card .m{font-size:13.5px;color:var(--ink-2);margin-top:2px}
+label.fld{display:block;margin-top:16px}
+label.fld span{display:block;font-size:13.5px;color:var(--ink-2);margin-bottom:6px}
+input[type=text],input[type=tel],textarea{width:100%;border:1px solid var(--line);
+  border-radius:11px;padding:13px 14px;font:inherit;font-size:16px;outline:0;background:#fff}
+input:focus,textarea:focus{border-color:var(--ink)}
+textarea{min-height:76px;resize:vertical}
+.pick{margin-top:20px;border:2px dashed var(--line);border-radius:14px;padding:26px 18px;
+  text-align:center;background:var(--soft);cursor:pointer}
+.pick:active{background:#eeeeea}
+.pick .big{font-size:17px;font-weight:600}
+.pick .small{font-size:13.5px;color:var(--ink-3);margin-top:5px}
+.btn{display:block;width:100%;margin-top:18px;padding:16px;border:0;border-radius:12px;
+  background:var(--ink);color:#fff;font:inherit;font-size:17px;font-weight:600}
+.btn[disabled]{opacity:.5}
+.files{margin-top:14px;display:flex;flex-direction:column;gap:8px}
+.f{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:11px;padding:11px 13px}
+.f .n{flex:1;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.f .s{font-size:12px;color:var(--ink-3)}
+.f .x{width:26px;height:26px;border:0;background:none;color:var(--ink-3);font-size:15px}
+.f.done{border-color:var(--green-line);background:var(--green-soft)}
+.f.fail{border-color:#f0d4cf;background:var(--red-soft)}
+.f .tick{color:var(--green);font-weight:700}
+.note{margin-top:18px;font-size:13px;color:var(--ink-3);line-height:1.6;
+  border-top:1px solid var(--line);padding-top:14px}
+.ok{text-align:center;padding:40px 10px}
+.ok .ic{width:62px;height:62px;border-radius:50%;background:var(--green-soft);
+  border:1px solid var(--green-line);color:var(--green);display:grid;place-items:center;
+  font-size:30px;margin:0 auto 16px}
+.ok h2{font-size:20px;font-weight:700;margin-bottom:8px}
+.ok p{color:var(--ink-2);font-size:15px}
+.err{margin-top:16px;border:1px solid #f0d4cf;background:var(--red-soft);color:var(--red);
+  border-radius:11px;padding:13px 14px;font-size:14px}
+.gone{text-align:center;padding:52px 14px}
+.gone .ic{width:58px;height:58px;border-radius:50%;background:var(--amber-soft);
+  color:var(--amber);display:grid;place-items:center;font-size:27px;margin:0 auto 16px}
+.hide{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><div class="mk">H</div><div class="nm">Headnote</div></div>
+
+  <div id="gone" class="gone hide">
+    <div class="ic">!</div>
+    <h2 id="goneT" style="font-size:19px;font-weight:700;margin-bottom:8px">This link is no longer active</h2>
+    <p class="sub" id="goneS">Please ask your advocate to send you a new link.</p>
+  </div>
+
+  <div id="form" class="hide">
+    <h1>Send documents to your advocate</h1>
+    <div class="sub">Photograph each paper clearly, or attach a PDF.</div>
+
+    <div class="card">
+      <div class="k">Case</div>
+      <div class="v" id="party">—</div>
+      <div class="m" id="cmeta"></div>
+    </div>
+
+    <div class="pick" id="pick">
+      <div class="big">Choose photos or PDF</div>
+      <div class="small" id="limits">JPG, PNG, HEIC or PDF</div>
+    </div>
+    <input type="file" id="file" accept="image/*,.pdf,.heic,.heif" multiple capture="environment" class="hide">
+
+    <div class="files" id="files"></div>
+
+    <label class="fld"><span>What are these documents? (optional)</span>
+      <textarea id="note" placeholder="e.g. Aadhaar card and the rent agreement"></textarea></label>
+    <label class="fld"><span>Your name (optional)</span>
+      <input type="text" id="nm" autocomplete="name"></label>
+    <label class="fld"><span>Your mobile (optional)</span>
+      <input type="tel" id="ph" autocomplete="tel"></label>
+
+    <button class="btn" id="send" disabled>Send to my advocate</button>
+    <div id="err" class="err hide"></div>
+
+    <div class="note" id="consent"></div>
+  </div>
+
+  <div id="done" class="ok hide">
+    <div class="ic">✓</div>
+    <h2>Sent to your advocate</h2>
+    <p id="doneS">They will confirm what goes on the court file.</p>
+    <button class="btn" style="margin-top:22px" onclick="location.reload()">Send more documents</button>
+  </div>
+</div>
+
+<script>
+var TOKEN = location.pathname.split('/').filter(Boolean).pop();
+var $ = function(s){ return document.querySelector(s); };
+var picked = [];
+
+function show(id){ ['gone','form','done'].forEach(function(x){
+  $('#'+x).classList.toggle('hide', x!==id); }); }
+
+function human(n){ return n<1024*1024 ? Math.max(1,Math.round(n/1024))+' KB'
+                                      : (n/1048576).toFixed(1)+' MB'; }
+
+function paint(){
+  $('#files').innerHTML = picked.map(function(p,i){
+    var cls = p.state==='done' ? ' done' : (p.state==='fail' ? ' fail' : '');
+    return '<div class="f'+cls+'">'
+      + (p.state==='done' ? '<span class="tick">✓</span>' : '')
+      + '<span class="n">'+p.file.name.replace(/[<>&]/g,'')+'</span>'
+      + '<span class="s">'+(p.state==='fail' ? (p.msg||'failed') : human(p.file.size))+'</span>'
+      + (p.state ? '' : '<button class="x" data-i="'+i+'">✕</button>')
+      + '</div>';
+  }).join('');
+  $('#send').disabled = !picked.some(function(p){ return !p.state; });
+}
+
+$('#files').addEventListener('click', function(e){
+  var b = e.target.closest('.x'); if(!b) return;
+  picked.splice(+b.dataset.i, 1); paint();
+});
+$('#pick').addEventListener('click', function(){ $('#file').click(); });
+$('#file').addEventListener('change', function(e){
+  [].forEach.call(e.target.files || [], function(f){ picked.push({file:f, state:null}); });
+  e.target.value = ''; paint();
+});
+
+$('#send').addEventListener('click', async function(){
+  var btn = $('#send'); btn.disabled = true; btn.textContent = 'Sending…';
+  $('#err').classList.add('hide');
+  var note = $('#note').value, nm = $('#nm').value, ph = $('#ph').value;
+  var failed = 0, sent = 0;
+  for (var i=0; i<picked.length; i++){
+    var p = picked[i]; if (p.state) continue;
+    var fd = new FormData();
+    fd.append('file', p.file); fd.append('note', note);
+    fd.append('uploader_name', nm); fd.append('uploader_phone', ph);
+    try {
+      var r = await fetch('/api/intake/'+TOKEN+'/upload', {method:'POST', body:fd});
+      var d = await r.json().catch(function(){ return {}; });
+      if (r.ok) { p.state='done'; sent++; }
+      else { p.state='fail'; p.msg = (d.detail||'failed').slice(0,60); failed++; }
+    } catch(_) { p.state='fail'; p.msg='no network'; failed++; }
+    paint();
+  }
+  btn.textContent = 'Send to my advocate';
+  if (sent && !failed) { show('done'); return; }
+  btn.disabled = false;
+  if (failed) { $('#err').textContent = failed+' file(s) could not be sent. You can retry those.'; $('#err').classList.remove('hide'); }
+});
+
+(async function boot(){
+  try {
+    var r = await fetch('/api/intake/'+TOKEN);
+    var d = await r.json().catch(function(){ return {}; });
+    if (!r.ok) {
+      $('#goneT').textContent = (d.detail || 'This link is no longer active');
+      show('gone'); return;
+    }
+    $('#party').textContent = (d.case && d.case.party) || 'Your matter';
+    var bits = [];
+    if (d.case && d.case.case_number) bits.push(d.case.case_number);
+    if (d.case && d.case.court_name) bits.push(d.case.court_name);
+    $('#cmeta').textContent = bits.join(' · ');
+    $('#limits').textContent = 'JPG, PNG, HEIC or PDF · up to ' + (d.max_mb||25) + ' MB each';
+    $('#consent').textContent = d.consent || '';
+    show('form');
+  } catch(_) {
+    $('#goneT').textContent = 'Could not open this page';
+    $('#goneS').textContent = 'Please check your internet connection and try again.';
+    show('gone');
+  }
+})();
+</script>
+</body>
+</html>

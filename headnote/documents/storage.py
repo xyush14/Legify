@@ -32,7 +32,16 @@ from typing import Iterator, Optional
 
 import numpy as np
 
+import logging
+
 from headnote.config import KANOON_CACHE_PATH
+from headnote import pgstore
+
+log = logging.getLogger(__name__)
+
+_PG = "documents"  # public.documents — durable rows (migration 012). Page images,
+# embedding vectors and the FTS mirror stay in the local cache: they are derived
+# from full_text/the upload and are rebuilt, never the record of the lawyer's work.
 from headnote.retrieval.embeddings import EMBED_DIM, embed_texts
 
 
@@ -220,6 +229,34 @@ def add_document(*, user_id: Optional[str], title: str, full_text: str,
     meta = json.dumps(metadata or {}, ensure_ascii=False)
     pages = pages or []
     page_count = max(1, len(pages))
+    if pgstore.ready(_PG):
+        row = pgstore.insert(_PG, {
+            "id": did, "user_id": user_id, "case_id": case_id, "title": title,
+            "doc_type": doc_type, "original_filename": original_filename,
+            "mime": mime, "page_count": page_count, "full_text": full_text,
+            "metadata_json": metadata or {},
+        }, json_cols=("metadata_json",))
+        # Only once the durable row has landed: the cache write must not run on
+        # the fall-through path too, or the SQLite branch below re-inserts the
+        # same page rows and dies on the (doc_id, page_idx) primary key — losing
+        # the upload outright at the one moment we were trying to save it.
+        if row:
+            try:                 # the reader still needs page images + chunks locally
+                with _conn() as c:
+                    if pages:
+                        c.executemany(
+                            "INSERT INTO document_pages (doc_id, page_idx, mime, image) "
+                            "VALUES (?, ?, ?, ?)",
+                            [(did, i, mt or "image/png", sqlite3.Binary(b))
+                             for i, (b, mt) in enumerate(pages)])
+                    _index_chunks(c, doc_id=did, user_id=user_id, full_text=full_text)
+                    c.commit()
+            except Exception as e:  # noqa: BLE001 — cache is best-effort, the row is saved
+                log.warning("local document cache write failed for %s: %s", did, e)
+            return _pg_row(row)
+        # row is None only when public.documents does not exist yet (pgstore
+        # raises on every other failure), so SQLite below is the whole store.
+
     with _conn() as c:
         c.execute(
             """INSERT INTO documents
@@ -278,7 +315,19 @@ def set_translation(doc_id: str, *, user_id: Optional[str],
         c.commit()
 
 
+def _pg_row(d: Optional[dict]) -> Optional[dict]:
+    """Normalise a Postgres row to the shape the SQLite path returns."""
+    if not d:
+        return None
+    out = dict(d)
+    out["metadata"] = pgstore.parse_json(out.get("metadata_json"))
+    out["metadata_json"] = out["metadata"]
+    return out
+
+
 def get_document(doc_id: str, *, user_id: Optional[str]) -> Optional[dict]:
+    if pgstore.ready(_PG):
+        return _pg_row(pgstore.get(_PG, doc_id, user_id=user_id))
     with _conn() as c:
         row = c.execute(
             f"SELECT {_COLS} FROM documents WHERE id = ? AND user_id IS ?",
@@ -289,6 +338,17 @@ def get_document(doc_id: str, *, user_id: Optional[str]) -> Optional[dict]:
 
 def list_documents(*, user_id: Optional[str], limit: int = 200,
                    case_id: Optional[str] = None) -> list[dict]:
+    if pgstore.ready(_PG):
+        out = []
+        for r in pgstore.listing(_PG, user_id=user_id, limit=limit, case_id=case_id,
+                                 order="updated_at.desc"):
+            d = _pg_row(r)
+            if d:
+                d["preview"] = (d.get("full_text") or "")[:240]
+                d.pop("full_text", None)
+                d.pop("search_tsv", None)
+                out.append(d)
+        return out
     where = "user_id IS ?"
     params: list = [user_id]
     if case_id is not None:
@@ -314,6 +374,8 @@ def list_documents(*, user_id: Optional[str], limit: int = 200,
 
 def set_document_case(doc_id: str, *, case_id: Optional[str], user_id: Optional[str]) -> bool:
     """Attach (or detach, with case_id=None) a document to a case folder."""
+    if pgstore.ready(_PG):
+        return pgstore.set_field(_PG, doc_id, "case_id", case_id, user_id=user_id)
     with _conn() as c:
         cur = c.execute(
             "UPDATE documents SET case_id = ? WHERE id = ? AND user_id IS ?",
@@ -324,6 +386,18 @@ def set_document_case(doc_id: str, *, case_id: Optional[str], user_id: Optional[
 
 
 def delete_document(doc_id: str, *, user_id: Optional[str]) -> bool:
+    if pgstore.ready(_PG):
+        ok = pgstore.remove(_PG, doc_id, user_id=user_id)
+        try:                                   # drop the local cache copies too
+            with _conn() as c:
+                c.execute("DELETE FROM document_pages WHERE doc_id = ?", (doc_id,))
+                c.execute("DELETE FROM document_chunks WHERE doc_id = ?", (doc_id,))
+                c.execute("DELETE FROM documents_fts WHERE doc_id = ?", (doc_id,))
+                c.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
+                c.commit()
+        except Exception as e:  # noqa: BLE001
+            log.warning("local cache cleanup failed for %s: %s", doc_id, e)
+        return ok
     with _conn() as c:
         cur = c.execute(
             "DELETE FROM documents WHERE id = ? AND user_id IS ?",
