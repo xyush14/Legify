@@ -74,3 +74,34 @@ Demo_Users_Followup.csv
 .preview_tmp/
 .agents/
 .codex/
+
+# Working artefacts, not source. intake_files/ holds captured DNA spines and
+# skeletons derived from a real advocate's filed drafts; design-proof/ and the
+# root-level PDFs/DOCX are generated collateral. None of it is read at runtime.
+intake_files/
+design-proof/
+/*.pdf
+/*.docx
+/*.xlsx
+
+# THIS REPOSITORY IS PUBLIC on GitHub. Everything below is real-world material
+# that must never be published, for the same reason intake_files/ is ignored
+# above — it is other people's information, or ours but private:
+#
+#   ocr-bakeoff/   verbatim OCR of a real police gang-chart and charge-sheet.
+#                  Named accused, their fathers' names, villages, police
+#                  stations, FIR numbers. Publishing it would put identified
+#                  criminal-case parties on the open internet.
+#   campus-sales/  named placement officers with their direct phone numbers
+#                  and college email addresses.
+#   fundraise/     the investor target list, angel shortlist, sizing and the
+#                  pitch deck. Ours, but not for competitors to read.
+#   PERSONAL_ASSIST_CONTEXT.md
+#                  real advocates' personal email addresses.
+#
+# Keep these in the folder, out of git. If any of it ever needs versioning,
+# make the repository private FIRST — a public commit cannot be un-published.
+docs/ocr-bakeoff/
+docs/campus-sales/
+docs/fundraise/
+docs/PERSONAL_ASSIST_CONTEXT.md

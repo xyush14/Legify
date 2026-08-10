@@ -1,0 +1,140 @@
+# Fly.io deployment config for Headnote.
+#
+# Mirrors the Railway setup exactly so nothing user-visible changes:
+#   • same Dockerfile (no app code changes were needed for the move)
+#   • same /data mount point, so KANOON_CACHE_PATH / FEEDBACK_DB /
+#     JUDGMENTS_DB env vars keep working untouched
+#   • same domain (headnote.in), so every webhook already registered with
+#     Cashfree / OTPless / Twilio / WhatsApp keeps pointing at the right place
+#
+# Deploy:  fly deploy
+# Logs:    fly logs
+# Shell:   fly ssh console
+
+app = "headnote"
+
+# Mumbai. Railway ran this out of Asia; bom is the closest datacentre to the
+# district-court advocates who actually use the product, so page loads get
+# faster rather than slower as a side effect of the move.
+primary_region = "bom"
+
+[build]
+  dockerfile = "Dockerfile"
+
+# Swap is the safety net that makes the 1 GB machine below safe to run.
+# Steady-state memory is small, but OCR spikes hard for a few seconds when
+# PyMuPDF rasterises a multi-page PDF to PNGs, and WeasyPrint does the same on
+# PDF export. Without swap those spikes would OOM-kill the machine mid-request;
+# with it they page out briefly and the request completes. Cheaper than paying
+# for 2 GB of RAM that sits idle 99% of the time.
+swap_size_mb = 1024
+
+[env]
+  # main.py reads PORT and defaults to 8000; Fly does not inject it, so we set
+  # it explicitly and match internal_port below.
+  PORT = "8000"
+
+  # OFF, and it must stay off on this machine. Defaulting to ON is what took
+  # headnote.in down for two days from 2026-08-04: the corpus sits below the
+  # rebuild target, so every single boot spawned a ~90-minute harvest that
+  # delayed the port bind past the health-check grace period and then pegged
+  # the one shared vCPU, so /api/health could never answer inside its timeout.
+  # Fly marked the only machine unhealthy and 503'd everything, static assets
+  # included, while the process was alive. A plain restart did NOT recover it —
+  # the rebuild just started again.
+  #
+  # It is ALSO set as a Fly secret (belt and braces). It is repeated here
+  # because secrets and [env] are separate stores: a future `fly deploy` would
+  # carry this file but not a forgotten secret, and the flag is one careless
+  # deploy away from resurrecting the outage.
+  #
+  # Rebuilding the corpus is a deliberate, supervised operation — run it on a
+  # throwaway machine or via `fly ssh console`, never in the process serving
+  # advocates. See headnote/api/app.py -> _maybe_autorebuild_corpus_on_boot.
+  AUTO_REBUILD_CORPUS_ON_BOOT = "0"
+
+  # The app writes its SQLite databases under /data (see Dockerfile ENV).
+  # Repeated here so the paths are visible in one place when debugging.
+  KANOON_CACHE_PATH = "/data/kanoon_cache.sqlite"
+  FEEDBACK_DB = "/data/feedback.db"
+  JUDGMENTS_DB = "/data/judgments.sqlite"
+
+# One volume, one machine. The whole app is SQLite on a local disk, so two
+# machines would mean two divergent copies of every draft. Scaling out needs
+# Postgres first — see the storage-consolidation note in the project memory.
+[mounts]
+  source = "headnote_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8000
+
+  # force_https is deliberately OFF at Fly's edge. With it on, Fly 301s every
+  # port-80 request — including /.well-known/acme-challenge/ — so Let's Encrypt
+  # can never fetch its validation token and the certificate for headnote.in
+  # never issues. The app's own HTTPSRedirectMiddleware does the HTTP→HTTPS
+  # redirect instead, and it exempts /.well-known/, so visitors still land on
+  # HTTPS while cert issuance and renewal keep working.
+  force_https = false
+
+  # NEVER let Fly stop the machine. Two reasons this matters here:
+  #   1. Cold starts on a 2 GB image with embeddings are slow enough that a
+  #      lawyer mid-hearing would notice.
+  #   2. Boot kicks off the corpus rebuild + judgment bootstrap; suspending
+  #      mid-rebuild would leave it restarting that work forever.
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "requests"
+    # Uvicorn is single-process here. OCR and PDF rendering are slow and CPU
+    # bound, so we keep the queue shallow rather than letting hundreds of
+    # requests pile into one worker.
+    soft_limit = 40
+    hard_limit = 60
+
+# Health check. Points at an endpoint the HTTPS-redirect middleware explicitly
+# exempts, so a plain-HTTP internal probe is not bounced to HTTPS and misread
+# as a failure.
+#
+# The path is /api/live, NOT /api/health, and moving it back would re-arm an
+# outage that has now happened twice. /api/live is async and returns
+# {"ok": true} in constant time with no I/O, no imports and no locks, so it is
+# answered on the event loop and reports one fact only: is this process serving
+# HTTP? /api/health is a DIAGNOSTICS endpoint — it opens SQLite three times and
+# imports the LLM router, and measured 1.8s against /api/live's 0.58s on an
+# IDLE machine.
+#
+# That gap is the whole bug. On 2026-08-07 a drafting request put heavy LLM
+# work on the single shared vCPU and held a SQLite write lock ("database is
+# locked" in the logs). /api/health queued behind it, blew the 10s timeout, and
+# Fly read slow-but-alive as dead — so it pulled the ONE machine out of the
+# routing pool and every request to headnote.in failed at the edge with
+# "could not find a good candidate within 40 attempts at load balancing",
+# static assets included, while the app was serving fine. Same mechanism took
+# the site down for two days from 2026-08-04; only the trigger differed (that
+# one was the boot corpus rebuild).
+#
+# With one machine there is no second candidate to fail over to, so the health
+# check must answer "is the process up?" and nothing more. Anything it touches
+# is something that can take the whole site down while the app is healthy.
+[[http_service.checks]]
+  interval = "30s"
+  timeout = "10s"
+  # 300s, not 120s. Module import alone took ~1m43s on this machine during the
+  # 2026-08-04 outage (18.9s on a developer Mac — the shared vCPU is that much
+  # slower), and uvicorn cannot answer a probe before import finishes. At 120s
+  # Fly was knocking before the server existed. This is the margin for a slow
+  # cold boot, NOT permission to do heavy work at import time.
+  grace_period = "300s"
+  method = "GET"
+  path = "/api/live"
+
+# 1 GB, not 2. Measured footprint is ~90 MB idle and ~280 MB with the search
+# model loaded, so 1 GB is ~3.5x headroom on the steady state and halves the
+# bill ($6.99 vs $13.99/mo in bom).
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"
+  cpus = 1

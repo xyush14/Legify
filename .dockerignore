@@ -59,3 +59,15 @@ pyproject.toml
 .DS_Store
 Thumbs.db
 *.swp
+
+# Working artefacts that must never enter a production image.
+# These are real documents (a named advocate's certificate, client case briefs,
+# sample filings) plus design collateral. Nothing at runtime reads them — they
+# sit at the repo root only because they were generated here. Shipping them
+# would put a real person's paperwork inside every container.
+/*.pdf
+/*.docx
+/*.xlsx
+design-proof/
+intake_files/
+docs/
