@@ -412,6 +412,58 @@ def admin_import_corpus(
 
 
 # ===================================================================== #
+# Volume backup: pull the host-volume-only user data off the server.    #
+# ===================================================================== #
+
+@router.get("/backup/user-data", summary="Download a portable dump of volume-only user data")
+def admin_backup_user_data(authorization: Optional[str] = Header(default=None)):
+    """Export drafts + consultations + documents + access grants as one SQLite file.
+
+    This is the disaster-recovery / host-migration hatch. Everything in the dump
+    lives ONLY on the mounted volume — if the volume is destroyed there is no
+    other copy. Supabase-backed data (auth, cases, hearing_logs) is deliberately
+    excluded: it lives off-host and migrates on its own.
+
+    Derived data (IK cache, hf_judgments corpus, embeddings) is also excluded so
+    the download stays small; it rebuilds itself on boot.
+
+        curl -H "Authorization: Bearer $ADMIN_TOKEN" \\
+             https://headnote.in/admin/backup/user-data -o headnote_userdata.sqlite
+
+    Restore on the new host with:
+
+        python scripts/export_user_data.py --import-from headnote_userdata.sqlite
+    """
+    _require_admin(authorization)
+
+    import tempfile
+    from pathlib import Path as _Path
+
+    from scripts.export_user_data import export
+
+    # Written to the OS temp dir, not the volume: the dump can approach the size
+    # of the user tables and we don't want a backup to eat the disk we're backing up.
+    tmp_dir = _Path(tempfile.mkdtemp(prefix="hn-backup-"))
+    out = tmp_dir / "headnote_userdata.sqlite"
+    try:
+        export(out)
+    except Exception as e:
+        log.exception("backup export failed")
+        raise HTTPException(status_code=500, detail=f"Export failed: {e}") from e
+
+    # background=… deletes the temp copy only after the bytes are on the wire.
+    from starlette.background import BackgroundTask
+    import shutil as _shutil
+
+    return FileResponse(
+        out,
+        media_type="application/vnd.sqlite3",
+        filename="headnote_userdata.sqlite",
+        background=BackgroundTask(_shutil.rmtree, tmp_dir, ignore_errors=True),
+    )
+
+
+# ===================================================================== #
 # Access-grants: founder / partner whitelist management from the UI.    #
 # ===================================================================== #
 
@@ -513,6 +565,58 @@ def admin_remove_grant(
             status_code=404,
             detail=f"No DB-stored grant found for {email!r} "
                    "(hardcoded entries cannot be removed via this API)",
+        )
+    return {"ok": True}
+
+
+# ===================================================================== #
+# V2 private beta: who can see /home, /research and /draft-dna.         #
+# Separate from access-grants above — this never changes anyone's plan. #
+# ===================================================================== #
+
+@router.get("/beta-testers", summary="List V2 beta testers")
+def admin_list_beta(authorization: Optional[str] = Header(default=None)):
+    """Config entries (founders + BETA_EMAILS, read-only) plus DB rows
+    (source='db', deletable). Also reports whether V2 has gone public."""
+    _require_admin(authorization)
+    from headnote import config
+    from headnote.entitlements.beta import list_testers
+    return {"testers": list_testers(), "v2_public": config.V2_PUBLIC}
+
+
+@router.post("/beta-testers", summary="Add a V2 beta tester")
+def admin_add_beta(
+    payload: dict,
+    authorization: Optional[str] = Header(default=None),
+):
+    """Body: {"email": "...", "notes": "..."}. Takes effect on the tester's
+    next page load — no deploy, no restart, and their plan is untouched."""
+    _require_admin(authorization)
+    from headnote.entitlements.beta import add_tester
+    email = (payload or {}).get("email", "")
+    notes = (payload or {}).get("notes", "") or ""
+    try:
+        row = add_tester(email, notes=notes, added_by="admin")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"ok": True, "tester": row}
+
+
+@router.delete("/beta-testers/{email}", summary="Remove a V2 beta tester")
+def admin_remove_beta(
+    email: str,
+    authorization: Optional[str] = Header(default=None),
+):
+    """Revokes V2 access for `email`. Their subscription is not affected —
+    they simply go back to the /app surface. Config-tier entries (founders,
+    BETA_EMAILS) are not removable here; edit config/env for those."""
+    _require_admin(authorization)
+    from headnote.entitlements.beta import remove_tester
+    if not remove_tester(email):
+        raise HTTPException(
+            status_code=404,
+            detail=f"No DB-stored beta tester found for {email!r} "
+                   "(config entries cannot be removed via this API)",
         )
     return {"ok": True}
 
@@ -670,6 +774,58 @@ def cron_send_daily_causelist(
     _require_admin(authorization)
     from headnote.cases.daily_send import send_daily_causelists
     return send_daily_causelists(dry_run=dry_run, only_user_id=user_id)
+
+
+@router.post("/cron/sync-court-dates",
+             summary="Re-read every matter from the court (the daily sweep)")
+def cron_sync_court_dates(
+    authorization: Optional[str] = Header(default=None),
+    dry_run: bool = Query(False, description="Report what would be fetched, touch nothing"),
+    user_id: Optional[str] = Query(None, description="Sweep just this user (testing)"),
+    max_calls: int = Query(2000, ge=1, le=20000, description="Vendor-call ceiling for one run"),
+    background: bool = Query(False, description="Return at once and sweep in the background"),
+) -> dict:
+    """Wire to ONE cron at 18:00 IST (12:30 UTC) with the ADMIN_TOKEN — the hour
+    a lawyer is back from court and about to look at tomorrow.
+
+    Until this existed, a matter was read from the court ONCE at import and then
+    never again: new dates never arrived, and a matter whose date had passed
+    dropped out of the diary entirely (it groups by next hearing date). Run this
+    BEFORE send-daily-causelist so the evening list is built on fresh dates.
+
+      curl -X POST 'https://headnote.in/admin/cron/sync-court-dates' \\
+           -H "Authorization: Bearer $ADMIN_TOKEN"
+
+    Sequential and paced on purpose: the vendor is behind Cloudflare and this
+    shares one vCPU with uvicorn.
+    """
+    _require_admin(authorization)
+    from headnote.cases.daily_sync import sync_all_dockets
+    if background:
+        # A big docket takes minutes; a caller waiting on the HTTP response
+        # would time out and — worse — retry, doubling the vendor spend.
+        import threading
+        threading.Thread(
+            target=lambda: sync_all_dockets(dry_run=dry_run, only_user_id=user_id,
+                                            max_calls=max_calls),
+            daemon=True, name="court-sweep").start()
+        return {"ok": True, "started": True, "background": True,
+                "note": "running in the background — see `fly logs` or /admin/cron/sync-court-dates/status"}
+    return sync_all_dockets(dry_run=dry_run, only_user_id=user_id, max_calls=max_calls)
+
+
+@router.get("/cron/sync-court-dates/status",
+            summary="Is the daily court sweep armed, and when does it next run?")
+def cron_sync_status(authorization: Optional[str] = Header(default=None)) -> dict:
+    """Confirms the schedule is actually live. Without this the only way to know
+    whether the sweep is armed is to wait a day and see if dates moved."""
+    _require_admin(authorization)
+    from headnote.cases import sync_scheduler
+    from headnote import config as _cfg
+    st = sync_scheduler.status()
+    st["cnr_api_mode"] = _cfg.CNR_API_MODE
+    st["cnr_api_configured"] = bool(_cfg.CNR_API_TOKEN)
+    return st
 
 
 # ---------------------------------------------------------------- by-email diagnostics + Supabase-backed grant

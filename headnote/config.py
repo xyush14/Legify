@@ -319,6 +319,64 @@ MONTHLY_GRANT_EMAILS: frozenset[str] = frozenset(
     if e.strip()
 )
 
+# ----------------------------------------------------------------- V2 beta
+# Who can see the V2 surfaces (/home, /research, /draft-dna) while they are
+# still private. This is ORTHOGONAL to billing: being a beta tester does not
+# change anybody's plan, quota or price, and a paid user who is not in the
+# beta keeps the exact /app experience they have today.
+#
+# Two tiers, same shape as the access grants above:
+#   1. Hardcoded / env below  → root tier, survives a DB reset.
+#   2. The /admin "V2 beta" panel → SQLite table, add & revoke with no deploy.
+# Founders are always in the beta implicitly (see entitlements/beta.py), so
+# they do not need to be repeated here.
+#
+# BETA_EMAILS accepts a comma-separated list, e.g.
+#   fly secrets set BETA_EMAILS="a@x.com,b@y.com"
+_BETA_DEFAULT: tuple[str, ...] = (
+    # Add tester emails here, or (preferred) via the BETA_EMAILS env var so
+    # the list can change without a deploy.
+)
+_beta_env = os.environ.get("BETA_EMAILS", "")
+BETA_EMAILS: frozenset[str] = frozenset(
+    e.strip().lower()
+    for e in list(_BETA_DEFAULT) + _beta_env.split(",")
+    if e.strip()
+)
+
+# Master switch. "1" (default) = V2 is private, allowlist only.
+# Set V2_PUBLIC=1 on the day V2 ships to everyone — one env var, no code change,
+# and no need to empty the allowlist.
+V2_PUBLIC: bool = os.environ.get("V2_PUBLIC", "0").strip() == "1"
+
+# ------------------------------------------- durable child-table storage
+# drafts / consultations / documents / intake links can live in Postgres
+# instead of the SQLite volume (headnote/pgstore.py, migration 012).
+#
+# DEFAULT OFF, and it must stay off until the existing SQLite rows have been
+# copied across ON THE MACHINE THAT HOLDS THEM. The read path is
+# Postgres-OR-SQLite, never both: the moment `pgstore.ready("drafts")` is true,
+# list/get read from Postgres ONLY. Migration 012 creates those tables EMPTY, so
+# flipping this on before backfilling makes every draft, document and recording a
+# user already has disappear from their screen — the rows are still in SQLite, but
+# nothing reads them any more.
+#
+# Turning it on is a supervised operation, and each step has a script:
+#   1. fly ssh console                                  # the volume is the data
+#      python -m scripts.backfill_child_tables --db /data/kanoon_cache.sqlite
+#      python -m scripts.backfill_child_tables --db /data/kanoon_cache.sqlite --commit
+#   2. python -m scripts.check_pg_child_tables --db /data/kanoon_cache.sqlite
+#      Must print "All checks passed". It refuses on an empty table, and it also
+#      checks saved_caselaw.matter_id — absent, PostgREST rejects the whole
+#      select in headnote/api/saved_caselaw.py, which catches it and returns [],
+#      so the Saved library goes silently EMPTY rather than erroring.
+#   3. PG_CHILD_TABLES=1
+#
+# The backfill is read-only on SQLite and skips rows already in Postgres, so it is
+# safe to re-run and safe to rehearse. tests/test_pgstore_switch.py is the
+# tripwire on this default.
+PG_CHILD_TABLES: bool = os.environ.get("PG_CHILD_TABLES", "0").strip() == "1"
+
 # ----------------------------------------------------------------- Supabase auth
 # Public credentials (sent to the browser via /api/config).
 SUPABASE_URL: Optional[str] = os.environ.get("SUPABASE_URL")

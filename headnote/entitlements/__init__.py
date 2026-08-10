@@ -15,6 +15,7 @@ Internal modules:
 """
 
 from headnote.entitlements.auth import get_current_user, optional_user, CurrentUser
+from headnote.entitlements.beta import is_beta, require_beta
 from headnote.entitlements.gates import (
     check_and_record,
     require_feature,
@@ -36,4 +37,6 @@ __all__ = [
     "PlanLimit",
     "get_plan",
     "get_user_state",
+    "is_beta",
+    "require_beta",
 ]

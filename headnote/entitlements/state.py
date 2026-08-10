@@ -6,6 +6,7 @@ Shape returned (stable, breaks frontend if changed):
 {
   "user": {"id": "...", "email": "..."},
   "is_admin": false,
+  "beta": false,          # may see the V2 surfaces (/home, /research, /draft-dna)
   "subscription": {
     "plan": "monthly",
     "display_name": "Monthly",
@@ -32,6 +33,7 @@ Shape returned (stable, breaks frontend if changed):
 
 from __future__ import annotations
 
+from headnote.entitlements.beta import is_beta
 from headnote.entitlements.meters import get_user_meters
 from headnote.entitlements.plans import PLANS, get_plan
 from headnote.entitlements.subscription import (
@@ -49,6 +51,9 @@ def get_user_state(user_id: str, email: str | None = None) -> dict:
     return {
         "user": {"id": user_id, "email": email},
         "is_admin": is_admin(user_id),
+        # V2 private beta (/home, /research, /draft-dna). Orthogonal to plan:
+        # this never changes what the user pays or how much quota they get.
+        "beta": is_beta(email),
         # one-time ₹99 add-on OR bundled with monthly/yearly/founder/partner
         "sections_pro": has_sections_pro(user_id, plan_name),
         "subscription": {

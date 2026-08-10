@@ -38,6 +38,93 @@ def _headers() -> dict[str, str]:
     }
 
 
+class SupabaseError(RuntimeError):
+    """A request failed at the transport or HTTP level.
+
+    Raised ONLY by the *_or_raise helpers. The plain select/upsert/update/delete
+    below keep their log-and-return-[] behaviour, which is right for
+    entitlements: there, a miss and a failure both mean "assume no entitlement".
+
+    It is wrong for a write. `[]` from update() is indistinguishable from a
+    successful PATCH that matched no rows, so a save that never reached the
+    database looks exactly like a save with nothing to do. Callers that must
+    tell the difference use the raising variants.
+
+    `status` is None when there was no response at all (timeout, DNS, reset).
+    """
+
+    def __init__(self, message: str, *, status: int | None = None, body: str = "") -> None:
+        super().__init__(message)
+        self.status = status
+        self.body = body
+
+    @property
+    def transient(self) -> bool:
+        """Is a retry worth anything?
+
+        No response, a timeout, rate limiting or a server-side error can all
+        succeed on the next attempt. A 400/403/404/409 is a considered answer —
+        retrying just sends the same rejected request again.
+        """
+        if self.status is None:
+            return True
+        return self.status in (408, 425, 429) or self.status >= 500
+
+
+def _send(method: str, table: str, *, params: dict[str, str] | None = None,
+          payload: Any = None, headers: dict[str, str] | None = None,
+          timeout: float = 10.0) -> list[dict]:
+    """One REST call that raises on failure instead of logging it away."""
+    if not _enabled():
+        raise SupabaseError("SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not configured")
+    url = f"{SUPABASE_URL}/rest/v1/{table}"
+    try:
+        r = httpx.request(
+            method, url, headers=headers or _headers(), params=params,
+            content=None if payload is None else _json.dumps(payload),
+            timeout=timeout,
+        )
+    except Exception as e:  # noqa: BLE001 — httpx raises several unrelated types
+        raise SupabaseError(f"{method} {table}: {e}") from e
+    if r.status_code >= 400:
+        raise SupabaseError(
+            f"{method} {table}: HTTP {r.status_code}: {r.text[:300]}",
+            status=r.status_code, body=r.text[:2000],
+        )
+    try:
+        return r.json() or []
+    except ValueError:      # 204, or a body PostgREST didn't make JSON
+        return []
+
+
+def upsert_or_raise(table: str, payload: dict | list[dict], *,
+                    on_conflict: str | None = None,
+                    timeout: float = 10.0) -> list[dict]:
+    """upsert(), but a failed request raises SupabaseError.
+
+    Returns the stored row(s): `Prefer: return=representation` means a success
+    always echoes what landed, so an empty list back from a 2xx is a genuine
+    oddity rather than the usual shape of an error.
+    """
+    headers = _headers()
+    headers["Prefer"] = "return=representation,resolution=merge-duplicates"
+    params = {"on_conflict": on_conflict} if on_conflict else None
+    return _send("POST", table, params=params, payload=payload,
+                 headers=headers, timeout=timeout)
+
+
+def update_or_raise(table: str, payload: dict, *, params: dict[str, str],
+                    timeout: float = 10.0) -> list[dict]:
+    """update(), but a failed request raises SupabaseError.
+
+    So the return value carries exactly one meaning: the rows that changed.
+    Empty = the filter matched nothing. Anything else came back as an exception.
+    """
+    if not params:
+        raise SupabaseError("update needs a filter — refusing to PATCH every row")
+    return _send("PATCH", table, params=params, payload=payload, timeout=timeout)
+
+
 def select(table: str, *, params: dict[str, str] | None = None) -> list[dict]:
     """GET /rest/v1/<table>?<params> — returns parsed JSON list."""
     if not _enabled():
