@@ -175,6 +175,10 @@
     renderHistory();
     // Scroll to top on view switch (mobile UX)
     window.scrollTo({ top: 0, behavior: 'instant' });
+    // ✦ Draft DNA — offer the premium personalization the first time a paid
+    // user lands on drafting. No-op if the plan hasn't loaded yet; loadUserState
+    // retries this once /api/me resolves.
+    if (view === 'drafting') maybeAutoShowDna();
   }
 
   // -------------------------------------------------------------- mobile drawer
@@ -2282,6 +2286,7 @@
   function boot() {
     attachEvents();
     wireMobileChrome();
+    wireDraftDna();
     renderHistory();
     // Prime the saved-case-law set so result cards show the right ☆/★ state.
     // Best-effort: resolves once the auth token is ready, else stays empty and
@@ -2381,8 +2386,60 @@
       renderPlanBadge();
       renderPlanCard();   // sidebar upgrade card
       renderUsageBar();
+      renderBetaEntry();  // V2 private-beta door, allowlisted users only
+      // The plan is now known — if the user is already sitting on the drafting
+      // view as a paid member, surface the Draft DNA offer (once).
+      maybeAutoShowDna();
     } catch (e) { /* silent */ }
   }
+
+  // V2 private beta: reveal the sidebar link AND the corner introduction, but
+  // only for allowlisted users. Everything is hidden in the markup by default,
+  // so a failed /api/me leaves it hidden — nobody outside the beta can stumble
+  // into an unfinished surface.
+  //
+  // Corner has two states: the introduction the first time (it has to say we're
+  // testing, or a tester reads every rough edge as the product being broken),
+  // then a small chip once dismissed so the way back in is always visible.
+  const BETA_SEEN_KEY = 'hn_beta_intro_v1';
+
+  function renderBetaEntry() {
+    const isBeta = !!(userState && userState.beta);
+
+    const link = document.getElementById('v2-beta-entry');
+    if (link) link.style.display = isBeta ? '' : 'none';
+
+    const corner = document.getElementById('beta-corner');
+    if (!corner) return;
+    if (!isBeta) { corner.classList.remove('is-on'); return; }
+
+    let dismissed = false;
+    try { dismissed = localStorage.getItem(BETA_SEEN_KEY) === '1'; } catch (e) {}
+    showBetaState(dismissed ? 'chip' : 'intro');
+    corner.classList.add('is-on');
+  }
+
+  function showBetaState(state) {
+    const corner = document.getElementById('beta-corner');
+    const intro  = document.getElementById('beta-intro');
+    const chip   = document.getElementById('beta-chip');
+    if (!corner || !intro || !chip) return;
+    const asChip = state === 'chip';
+    intro.style.display = asChip ? 'none' : '';
+    chip.style.display  = asChip ? '' : 'none';
+    // The chip is a pill, not a panel — it must not stretch on mobile.
+    corner.classList.toggle('beta-corner--chip', asChip);
+  }
+
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('#beta-try'))  { window.location.href = '/home'; return; }
+    if (e.target.closest('#beta-later')) {
+      try { localStorage.setItem(BETA_SEEN_KEY, '1'); } catch (err) {}
+      showBetaState('chip');
+      return;
+    }
+    if (e.target.closest('#beta-chip')) { showBetaState('intro'); }
+  });
 
   // Sidebar plan-card: morphs based on current plan.
   // - demo  → "Demo · Upgrade for unlimited" → /pricing
@@ -2505,6 +2562,88 @@
     `;
     modal.classList.add('is-open');
   };
+
+  // ============================================================== ✦ DRAFT DNA
+  // Concierge personalization. Premium-gated. Auto-shows once on the drafting
+  // view for paid users; opens on demand from the #dna-banner for everyone
+  // (paid → the process, demo → the upgrade path). The template collection +
+  // tuning is a white-glove step the team runs off-app — this screen only
+  // explains it and registers intent. localStorage remembers a skip/request so
+  // we never nag the same user twice.
+  const DNA_SEEN_KEY = 'headnote.dna.seen';       // set on any close (skip)
+  const DNA_REQ_KEY  = 'headnote.dna.requested';  // set after "Set up my Draft DNA"
+
+  function isPaidUser() {
+    const plan = userState && userState.subscription && userState.subscription.plan;
+    return !!plan && plan !== 'demo';
+  }
+  function dnaFlag(key) { try { return localStorage.getItem(key) === '1'; } catch { return false; } }
+  function setDnaFlag(key) { try { localStorage.setItem(key, '1'); } catch {} }
+
+  function showDnaModal(mode) {
+    const modal = document.getElementById('dna-modal');
+    if (!modal) return;
+    const offer  = document.getElementById('dna-modal-offer');
+    const done   = document.getElementById('dna-modal-done');
+    const locked = document.getElementById('dna-modal-locked');
+    let show = mode || (isPaidUser() ? 'offer' : 'locked');
+    // A user who already requested always sees the confirmation, not the offer.
+    if (show === 'offer' && dnaFlag(DNA_REQ_KEY)) show = 'done';
+    if (offer)  offer.hidden  = show !== 'offer';
+    if (done)   done.hidden   = show !== 'done';
+    if (locked) locked.hidden = show !== 'locked';
+    modal.hidden = false;
+    modal.classList.add('is-open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeDnaModal() {
+    const modal = document.getElementById('dna-modal');
+    if (!modal) return;
+    modal.classList.remove('is-open');
+    modal.hidden = true;
+    document.body.style.overflow = '';
+    // Any close counts as "seen" so the auto-popup won't re-fire next visit.
+    setDnaFlag(DNA_SEEN_KEY);
+  }
+
+  // Auto-show once for paid users when they land on the drafting view. Called
+  // from switchView AND loadUserState (the plan arrives async, ~1.5s after boot,
+  // so the first drafting-view switch usually predates it).
+  function maybeAutoShowDna() {
+    if (state.activeView !== 'drafting') return;
+    if (!isPaidUser()) return;                                   // premium-only pop-up
+    if (dnaFlag(DNA_SEEN_KEY) || dnaFlag(DNA_REQ_KEY)) return;   // already shown once
+    const modal = document.getElementById('dna-modal');
+    if (!modal || modal.classList.contains('is-open')) return;
+    showDnaModal('offer');
+  }
+
+  function wireDraftDna() {
+    const banner = document.getElementById('dna-banner');
+    if (banner) banner.addEventListener('click', () => showDnaModal(isPaidUser() ? 'offer' : 'locked'));
+    const modal = document.getElementById('dna-modal');
+    if (modal) modal.addEventListener('click', (e) => {
+      if (e.target.closest('[data-dna-close]')) closeDnaModal();
+    });
+    const req = document.getElementById('dna-request');
+    if (req) req.addEventListener('click', () => {
+      setDnaFlag(DNA_REQ_KEY);
+      setDnaFlag(DNA_SEEN_KEY);
+      try {
+        if (window.hn && window.hn.capture) {
+          window.hn.capture('draft_dna_requested', {
+            plan: (userState && userState.subscription && userState.subscription.plan) || 'unknown',
+          });
+        }
+      } catch (e) { /* analytics is best-effort */ }
+      showDnaModal('done');
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      const m = document.getElementById('dna-modal');
+      if (m && m.classList.contains('is-open')) closeDnaModal();
+    });
+  }
 
   // ============================================================== ASK MODE
   // The "AI for lawyers" conversational surface. Additive: it does not touch
@@ -2650,12 +2789,47 @@
   function appendAskAnswer() {
     const thread = $('#ask-thread');
     const wrap = ce('div', { cls: 'answer' });
+    // Reasoning trace (R1 only) — a live "Analysing…" panel, hidden until the
+    // model actually reasons. Collapses to a toggle once the answer begins.
+    const reason = ce('div', { cls: 'answer__reason', attrs: { hidden: 'hidden' } });
     const body = ce('div', { cls: 'answer__body' });
     body.innerHTML = '<div class="askmsg__thinking" aria-label="Thinking"><span></span><span></span><span></span></div>';
+    wrap.appendChild(reason);
     wrap.appendChild(body);
     thread.appendChild(wrap);
     askScrollBottom();
-    return { wrap, body };
+    return { wrap, reason, body };
+  }
+
+  // The live reasoning panel: an open "Analysing…" box while R1 thinks, then a
+  // collapsed "Reasoned — show thinking" toggle once the answer starts.
+  function askReasonInit(el) {
+    el.hidden = false;
+    el.innerHTML =
+      '<button type="button" class="answer__reason-head" aria-expanded="true">' +
+        '<span class="answer__reason-spin"></span>' +
+        '<span class="answer__reason-title">Analysing…</span>' +
+        '<svg class="answer__reason-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>' +
+      '</button>' +
+      '<div class="answer__reason-body"></div>';
+    const head = el.querySelector('.answer__reason-head');
+    head.addEventListener('click', () => {
+      const open = el.classList.toggle('is-collapsed');
+      head.setAttribute('aria-expanded', open ? 'false' : 'true');
+    });
+  }
+  function askReasonAppend(el, text) {
+    const b = el.querySelector('.answer__reason-body');
+    if (b) { b.textContent += text; b.scrollTop = b.scrollHeight; }
+  }
+  function askReasonDone(el, seconds) {
+    el.classList.add('is-collapsed');
+    const t = el.querySelector('.answer__reason-title');
+    const spin = el.querySelector('.answer__reason-spin');
+    if (spin) spin.remove();
+    if (t) t.textContent = seconds ? `Analysed for ${seconds}s — show thinking` : 'Show thinking';
+    const head = el.querySelector('.answer__reason-head');
+    if (head) head.setAttribute('aria-expanded', 'false');
   }
 
   // A quiet one-line grounding footer — the real statute-concordance rows the
@@ -2805,9 +2979,11 @@
     const sendBtn = $('#ask-send');
     if (sendBtn) sendBtn.disabled = true;
 
-    const { wrap, body } = appendAskAnswer();
+    const { wrap, reason, body } = appendAskAnswer();
     let acc = '';
     let srcItems = [];
+    let reasonInited = false;
+    let reasonStart = 0;
     const paint = () => { body.innerHTML = askMarkdown(askStripRelatedTail(acc)) + '<span class="askmsg__cursor"></span>'; askScrollBottom(); };
 
     try {
@@ -2838,8 +3014,18 @@
           const dataLine = chunk.split('\n').find(l => l.startsWith('data:'));
           if (!dataLine) continue;
           let evt; try { evt = JSON.parse(dataLine.slice(5).trim()); } catch { continue; }
-          if (evt.type === 'sources') { srcItems = evt.items || []; }
-          else if (evt.type === 'delta') { acc += evt.text; paint(); }
+          if (evt.type === 'meta') {
+            if (evt.reasoning) { askReasonInit(reason); reasonInited = true; reasonStart = Date.now(); body.innerHTML = ''; }
+          }
+          else if (evt.type === 'sources') { srcItems = evt.items || []; }
+          else if (evt.type === 'reasoning') {
+            if (!reasonInited) { askReasonInit(reason); reasonInited = true; reasonStart = Date.now(); body.innerHTML = ''; }
+            askReasonAppend(reason, evt.text);
+          }
+          else if (evt.type === 'delta') {
+            if (reasonInited && !acc) askReasonDone(reason, Math.max(1, Math.round((Date.now() - reasonStart) / 1000)));
+            acc += evt.text; paint();
+          }
           else if (evt.type === 'error') { acc += (acc ? '\n\n' : '') + '_' + evt.message + '_'; paint(); }
         }
       }

@@ -2774,6 +2774,188 @@ body:not(.auth-ready) .shell { display: none !important; }
 .upgrade-modal__cta:hover { background: #1f1f1c; }
 
 /* ============================================================================
+   ✦ Draft DNA — premium personalization
+   Draft-home banner (entry point) + concierge explainer modal.
+   Calm work-surface language; the ✦ mark is the Draft DNA glyph.
+   ============================================================================ */
+.dna-banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  text-align: left;
+  padding: 16px 20px;
+  margin: 0 0 22px;
+  background: linear-gradient(135deg, #14130f 0%, #29251d 100%);
+  color: #faf8f3;
+  border: 0;
+  border-radius: 14px;
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow: 0 4px 16px rgba(20, 19, 15, 0.16);
+  transition: transform 0.18s var(--ease, ease), box-shadow 0.18s var(--ease, ease);
+}
+.dna-banner:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(20, 19, 15, 0.26); }
+.dna-banner__mark {
+  flex: none;
+  width: 40px; height: 40px;
+  display: grid; place-items: center;
+  border-radius: 10px;
+  background: rgba(250, 248, 243, 0.08);
+  border: 1px solid rgba(250, 248, 243, 0.14);
+  font-size: 20px;
+  color: #f2e7c9;
+}
+.dna-banner__body { flex: 1; min-width: 0; }
+.dna-banner__title {
+  display: flex; align-items: center; gap: 9px;
+  font-size: 16px; font-weight: 600; letter-spacing: -0.01em;
+  margin-bottom: 3px;
+}
+.dna-banner__chip {
+  font-size: 9.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  padding: 2px 7px; border-radius: 999px;
+  background: rgba(242, 231, 201, 0.16);
+  color: #f2e7c9;
+}
+.dna-banner__sub {
+  display: block;
+  font-size: 12.5px; line-height: 1.45;
+  color: rgba(250, 248, 243, 0.68);
+}
+.dna-banner__cta {
+  flex: none;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12.5px; font-weight: 500;
+  color: rgba(250, 248, 243, 0.9);
+}
+.dna-banner__arrow { transition: transform 0.18s var(--ease, ease); }
+.dna-banner:hover .dna-banner__arrow { transform: translateX(4px); }
+@media (max-width: 640px) {
+  .dna-banner { flex-wrap: wrap; gap: 12px 14px; padding: 14px 16px; }
+  .dna-banner__cta { width: 100%; justify-content: flex-end; }
+}
+
+/* ── concierge explainer modal ─────────────────────────────────────────────── */
+.dna-modal {
+  position: fixed; inset: 0;
+  display: none;
+  align-items: center; justify-content: center;
+  z-index: 10000;
+  padding: 20px;
+}
+.dna-modal.is-open { display: flex; }
+.dna-modal[hidden] { display: none; }
+.dna-modal__backdrop {
+  position: absolute; inset: 0;
+  background: rgba(12, 12, 10, 0.5);
+  backdrop-filter: blur(4px);
+  cursor: pointer;
+}
+.dna-modal__card {
+  position: relative;
+  width: min(92vw, 480px);
+  max-height: 92vh; overflow-y: auto;
+  background: #fdfcf9;
+  border-radius: 16px;
+  padding: 34px 32px 26px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  animation: dnaModalIn 0.32s var(--ease, cubic-bezier(0.16,1,0.3,1));
+}
+@keyframes dnaModalIn { from { opacity: 0; transform: translateY(10px) scale(0.99); } to { opacity: 1; transform: none; } }
+.dna-modal__close {
+  position: absolute; top: 12px; right: 14px;
+  background: none; border: none;
+  font-size: 26px; line-height: 1;
+  color: #918d80; cursor: pointer;
+}
+.dna-modal__close:hover { color: #0c0c0a; }
+.dna-modal__eyebrow {
+  font-size: 11px; letter-spacing: 0.06em;
+  color: var(--ink-3, #8a8a82);
+  margin-bottom: 10px;
+}
+.dna-modal__title {
+  font-size: 23px; font-weight: 700; letter-spacing: -0.02em;
+  color: #0c0c0a;
+  margin: 0 0 8px; line-height: 1.15;
+}
+.dna-modal__lead {
+  font-size: 14px; line-height: 1.55;
+  color: #5d5b54;
+  margin: 0 0 20px;
+}
+.dna-steps {
+  list-style: none; margin: 0 0 18px; padding: 0;
+  display: grid; gap: 2px;
+}
+.dna-step {
+  display: flex; gap: 14px; align-items: flex-start;
+  padding: 11px 0;
+  border-top: 1px solid var(--line, #e7e7e4);
+}
+.dna-step:first-child { border-top: 0; }
+.dna-step__n {
+  flex: none;
+  width: 26px; height: 26px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: #0c0c0a; color: #fdfcf9;
+  font-family: 'Geist Mono', monospace;
+  font-size: 12px; font-weight: 600;
+  margin-top: 1px;
+}
+.dna-step__t { display: flex; flex-direction: column; gap: 2px; }
+.dna-step__t b { font-size: 14px; font-weight: 600; color: #0c0c0a; }
+.dna-step__t span { font-size: 12.5px; line-height: 1.45; color: #6b6960; }
+.dna-modal__trust {
+  font-size: 11.5px; line-height: 1.5;
+  color: var(--ink-3, #8a8a82);
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 9px;
+  padding: 10px 13px;
+  margin-bottom: 20px;
+}
+.dna-modal__actions {
+  display: flex; align-items: center; gap: 8px;
+}
+.dna-modal__cta {
+  flex: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 13px 22px;
+  background: #0c0c0a; color: #fdfcf9;
+  border: 0; border-radius: 9px;
+  font-family: inherit; font-size: 14px; font-weight: 500;
+  text-decoration: none; cursor: pointer;
+  transition: background 0.15s;
+}
+.dna-modal__cta:hover { background: #1f1f1c; }
+.dna-modal__skip {
+  flex: none;
+  padding: 13px 16px;
+  background: none; border: 0;
+  color: var(--ink-3, #8a8a82);
+  font-family: inherit; font-size: 13.5px; cursor: pointer;
+}
+.dna-modal__skip:hover { color: #0c0c0a; }
+.dna-modal__check {
+  width: 46px; height: 46px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: #eef6ef; color: #2c6e34;
+  font-size: 24px; font-weight: 700;
+  margin: 4px 0 14px;
+}
+@media (max-width: 480px) {
+  .dna-modal__card { padding: 30px 22px 22px; }
+  .dna-modal__title { font-size: 21px; }
+  .dna-modal__actions { flex-direction: column-reverse; align-items: stretch; gap: 4px; }
+  .dna-modal__cta { width: 100%; }
+  .dna-modal__skip { width: 100%; }
+}
+
+/* ============================================================================
    Personal-assist CTA — "Not satisfied? Our team will help personally."
    Appears below every research response (and on the draft screen).
    Designed to feel warm + premium, not desperate — gold accent + cream panel.
@@ -3032,6 +3214,17 @@ body:not(.auth-ready) .shell { display: none !important; }
 .askcite { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 10px; font-weight: 500; color: var(--ink-3); vertical-align: super; margin: 0 1px; }
 .askmsg__err { color: var(--bad); font-family: var(--font-read); font-style: italic; }
 
+/* Reasoning trace (R1) — a live "Analysing…" panel that collapses to a toggle */
+.answer__reason[hidden] { display: none; }
+.answer__reason { margin: 0 0 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--soft); overflow: hidden; }
+.answer__reason-head { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; padding: 10px 13px; border: none; background: transparent; cursor: pointer; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-2); }
+.answer__reason-title { flex: 1 1 auto; }
+.answer__reason-chev { width: 15px; height: 15px; color: var(--ink-3); transition: transform var(--t-fast) var(--ease); }
+.answer__reason.is-collapsed .answer__reason-chev { transform: rotate(-90deg); }
+.answer__reason-spin { width: 12px; height: 12px; flex: 0 0 auto; border: 2px solid var(--line-2); border-top-color: var(--ink-2); border-radius: 50%; animation: askspin 0.7s linear infinite; }
+.answer__reason-body { padding: 0 14px 13px; max-height: 260px; overflow-y: auto; font-family: var(--font-read); font-size: 13.5px; line-height: 1.6; color: var(--ink-3); white-space: pre-wrap; }
+.answer__reason.is-collapsed .answer__reason-body { display: none; }
+
 /* No-bluff caveat — a quiet italic aside, monochrome (gold reserved for drafts) */
 .askmd-caveat { display: flex; gap: 10px; align-items: flex-start; border-left: 2px solid var(--ink-3); padding: 3px 0 3px 16px; margin: 18px 0; color: var(--ink-2); font-family: var(--font-read); font-style: italic; font-size: 15.5px; line-height: 1.55; }
 .askmd-caveat svg { width: 15px; height: 15px; flex: 0 0 auto; margin-top: 4px; color: var(--ink-3); }
@@ -3127,4 +3320,85 @@ body:not(.auth-ready) .shell { display: none !important; }
 }
 @media (max-width: 420px) {
   .ask-empty__title { font-size: 23px; }
+}
+
+/* ============================================================================
+   V2 private beta — the corner
+   ----------------------------------------------------------------------------
+   Shown ONLY to allowlisted testers (app.js reveals it when /api/me says
+   beta:true). Two states: an introduction card the first time, then a small
+   persistent chip once dismissed, so a tester can always find the way back in.
+
+   Sits clear of both things that already own the bottom of the screen: toasts
+   (z-index 1000, so a toast passes over this rather than being hidden by it)
+   and the 60px mobile .botnav.
+   ============================================================================ */
+.beta-corner {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 60;
+  display: none;
+  width: min(320px, calc(100vw - 32px));
+}
+.beta-corner.is-on { display: block; }
+
+.beta-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(12, 12, 10, 0.10), 0 2px 6px rgba(12, 12, 10, 0.04);
+  padding: 15px 16px 14px;
+}
+.beta-card__tag {
+  display: flex; align-items: center; gap: 7px;
+  font-family: var(--font-mono, 'Geist Mono', monospace);
+  font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--ink-3);
+}
+/* green = ready, the same semantic the rest of the app uses */
+.beta-card__dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #1a7f4b; flex: 0 0 auto;
+}
+.beta-card__h {
+  font-size: 14.5px; font-weight: 600; letter-spacing: -0.012em;
+  color: var(--ink); margin: 9px 0 5px;
+}
+.beta-card__p {
+  font-size: 12.5px; line-height: 1.6; color: var(--ink-2); margin: 0 0 13px;
+}
+.beta-card__row { display: flex; align-items: center; gap: 6px; }
+.beta-btn {
+  font-family: inherit; font-size: 12.5px; font-weight: 500;
+  border: 0; border-radius: 8px; padding: 8px 14px; cursor: pointer;
+  background: var(--ink); color: var(--surface);
+}
+.beta-btn:hover { opacity: 0.88; }
+.beta-btn--ghost { background: transparent; color: var(--ink-3); padding: 8px 10px; }
+.beta-btn--ghost:hover { background: var(--soft); color: var(--ink-2); opacity: 1; }
+.beta-card__foot {
+  margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line-2);
+  font-size: 11.5px; line-height: 1.5; color: var(--ink-3);
+}
+.beta-card__foot a { color: var(--ink-2); text-decoration: underline; text-underline-offset: 2px; }
+
+.beta-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: var(--font-mono, 'Geist Mono', monospace);
+  font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase;
+  background: var(--ink); color: var(--surface);
+  border: 0; border-radius: 999px; padding: 9px 15px; cursor: pointer;
+  box-shadow: 0 6px 18px rgba(12, 12, 10, 0.16);
+}
+.beta-chip:hover { opacity: 0.9; }
+.beta-chip .beta-card__dot { background: #4ade80; }
+
+/* Clear the mobile bottom nav (60px) and the home-indicator inset. */
+@media (max-width: 900px) {
+  .beta-corner {
+    right: 16px; left: 16px; width: auto;
+    bottom: calc(60px + 14px + env(safe-area-inset-bottom));
+  }
+  .beta-corner--chip { left: auto; }
 }

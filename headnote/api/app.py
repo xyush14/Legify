@@ -488,14 +488,30 @@ from fastapi.responses import RedirectResponse
 
 class HTTPSRedirectMiddleware(BaseHTTPMiddleware):
     """Redirect HTTP requests to HTTPS based on the X-Forwarded-Proto
-    header set by Railway's edge proxy. Skips /api/health for monitoring
-    tools that may legitimately probe over HTTP."""
+    header set by the edge proxy. Skips /api/live and /api/health, which the
+    platform health check and external monitors probe over plain HTTP."""
 
     async def dispatch(self, request, call_next):
         proto = request.headers.get("x-forwarded-proto", "").lower()
         # Only redirect if we know we're behind a proxy AND it's HTTP.
         # If header is missing (local dev, direct access), let it through.
-        if proto == "http" and not request.url.path.startswith("/api/health"):
+        #
+        # /.well-known/acme-challenge/ MUST stay reachable over plain HTTP.
+        # Let's Encrypt validates a new domain by fetching a token over HTTP —
+        # if we 301 that to HTTPS, the cert can never be issued, because the
+        # cert it would need doesn't exist yet. That deadlock blocked issuance
+        # for headnote.in during the move off Railway, and would silently break
+        # every future renewal too.
+        # /api/live is the platform's health-check target and Fly probes it
+        # internally over plain HTTP. A 301 here would read as a failed check,
+        # pull the only machine from rotation and 503 the whole site — the same
+        # shape of failure as the 2026-08-04 outage, from the opposite cause.
+        _exempt = (
+            request.url.path.startswith("/api/live")
+            or request.url.path.startswith("/api/health")
+            or request.url.path.startswith("/.well-known/")
+        )
+        if proto == "http" and not _exempt:
             https_url = str(request.url).replace("http://", "https://", 1)
             return RedirectResponse(url=https_url, status_code=301)
         response = await call_next(request)
@@ -534,7 +550,6 @@ _AUTOREBUILD_STATUS: dict = {"state": "not_started", "detail": ""}
 def _maybe_autorebuild_corpus_on_boot() -> None:
     import os as _os
     import threading as _threading
-    import subprocess as _subprocess
     import logging as _log
     import time as _time
     from pathlib import Path as _Path
@@ -660,15 +675,53 @@ def _mark_rebuild_active(active: bool) -> None:
         pass
 
 
+# How long a rebuild worker waits after boot before touching the CPU. Uvicorn
+# needs to bind the port and answer the platform's first health checks before
+# anything heavy starts competing with it; without this the corpus work and the
+# web server race during the most fragile 2 minutes of the machine's life.
+_REBUILD_BOOT_DELAY_SEC = 120
+
+
+def _spawn_bg_job(cmd, cwd, logger):
+    """Start a long-running corpus job at the lowest possible CPU priority.
+
+    The production machine is a single shared vCPU. A harvest or embedding run
+    at normal priority starves uvicorn badly enough that the platform health
+    check (10s timeout) never gets an answer, the only machine is marked
+    unhealthy, and the whole site 503s — the 2026-08-04 outage. Renicing the
+    child to 19 makes that impossible: the kernel always prefers the web server,
+    so the rebuild simply takes longer instead of taking the site down.
+
+    Renicing from the parent after spawn rather than via preexec_fn, which is
+    unsafe in a multi-threaded process (this runs on a worker thread).
+    """
+    import os as _nice_os
+    import subprocess as _sp
+
+    proc = _sp.Popen(
+        cmd, cwd=cwd,
+        stdout=_sp.PIPE, stderr=_sp.STDOUT,
+        text=True, bufsize=1,
+    )
+    try:
+        _nice_os.setpriority(_nice_os.PRIO_PROCESS, proc.pid, 19)
+    except Exception as e:  # pragma: no cover - platform dependent
+        logger.warning("[autorebuild] could not renice pid %s (%s); "
+                       "job runs at normal priority", proc.pid, e)
+    return proc
+
+
 def _spawn_full_rebuild_thread(logger) -> None:
     import threading as _threading
-    import subprocess as _subprocess
     import time as _time
     from pathlib import Path as _Path
 
     def _rebuild_worker():
         global _AUTOREBUILD_STATUS
         repo_root = _Path(__file__).resolve().parent.parent.parent
+        # Let the web server bind and go healthy before competing for the CPU.
+        _AUTOREBUILD_STATUS["phase"] = "waiting-for-server"
+        _time.sleep(_REBUILD_BOOT_DELAY_SEC)
         t_start = _time.time()
         _mark_rebuild_active(True)
         try:
@@ -689,11 +742,7 @@ def _spawn_full_rebuild_thread(logger) -> None:
                 _AUTOREBUILD_STATUS["last_log"] = f"Harvesting subset: {subset}"
                 harvest_cmd = ["python", "scripts/harvest_hf_corpus.py",
                               "--subsets", subset]
-                proc = _subprocess.Popen(
-                    harvest_cmd, cwd=str(repo_root),
-                    stdout=_subprocess.PIPE, stderr=_subprocess.STDOUT,
-                    text=True, bufsize=1,
-                )
+                proc = _spawn_bg_job(harvest_cmd, str(repo_root), logger)
                 last_lines: list[str] = []
                 for line in proc.stdout or []:
                     logger.info("[autorebuild:harvest:%s] %s", subset, line.rstrip())
@@ -733,11 +782,7 @@ def _spawn_full_rebuild_thread(logger) -> None:
             t_emb = _time.time()
             logger.warning("[autorebuild] === EMBEDDING BACKFILL starting (~60-90 min) ===")
             backfill_cmd = ["python", "scripts/backfill_embeddings.py", "--skip-ik"]
-            proc = _subprocess.Popen(
-                backfill_cmd, cwd=str(repo_root),
-                stdout=_subprocess.PIPE, stderr=_subprocess.STDOUT,
-                text=True, bufsize=1,
-            )
+            proc = _spawn_bg_job(backfill_cmd, str(repo_root), logger)
             for line in proc.stdout or []:
                 logger.info("[autorebuild:backfill] %s", line.rstrip())
                 _AUTOREBUILD_STATUS["last_log"] = line.rstrip()[:200]
@@ -749,11 +794,7 @@ def _spawn_full_rebuild_thread(logger) -> None:
             t_md = _time.time()
             logger.warning("[autorebuild] === METADATA BACKFILL starting (~15-25 min) ===")
             md_cmd = ["python", "scripts/backfill_metadata.py"]
-            proc = _subprocess.Popen(
-                md_cmd, cwd=str(repo_root),
-                stdout=_subprocess.PIPE, stderr=_subprocess.STDOUT,
-                text=True, bufsize=1,
-            )
+            proc = _spawn_bg_job(md_cmd, str(repo_root), logger)
             for line in proc.stdout or []:
                 logger.info("[autorebuild:metadata] %s", line.rstrip())
                 _AUTOREBUILD_STATUS["last_log"] = line.rstrip()[:200]
@@ -798,7 +839,6 @@ def _spawn_full_rebuild_thread(logger) -> None:
 
 def _spawn_backfill_thread(logger) -> None:
     import threading as _threading
-    import subprocess as _subprocess
     import time as _time
     from pathlib import Path as _Path
 
@@ -808,11 +848,9 @@ def _spawn_backfill_thread(logger) -> None:
         _mark_rebuild_active(True)
         try:
             logger.warning("[autorebuild] embedding-only backfill starting")
-            proc = _subprocess.Popen(
+            proc = _spawn_bg_job(
                 ["python", "scripts/backfill_embeddings.py", "--skip-ik"],
-                cwd=str(repo_root),
-                stdout=_subprocess.PIPE, stderr=_subprocess.STDOUT,
-                text=True, bufsize=1,
+                str(repo_root), logger,
             )
             for line in proc.stdout or []:
                 logger.info("[autorebuild:backfill] %s", line.rstrip())
@@ -823,11 +861,9 @@ def _spawn_backfill_thread(logger) -> None:
             # write to hf_judgments and SQLite write contention slows things.
             t_md = _time.time()
             logger.warning("[autorebuild] metadata backfill starting")
-            proc = _subprocess.Popen(
+            proc = _spawn_bg_job(
                 ["python", "scripts/backfill_metadata.py"],
-                cwd=str(repo_root),
-                stdout=_subprocess.PIPE, stderr=_subprocess.STDOUT,
-                text=True, bufsize=1,
+                str(repo_root), logger,
             )
             for line in proc.stdout or []:
                 logger.info("[autorebuild:metadata] %s", line.rstrip())
@@ -1120,6 +1156,32 @@ def _maybe_bootstrap_judgments_on_boot() -> None:
 _maybe_autorebuild_corpus_on_boot()
 _maybe_bootstrap_judgments_on_boot()
 
+
+@app.on_event("startup")
+async def _start_court_sync_scheduler() -> None:
+    """Arm the daily court sweep (18:00 IST by default).
+
+    Started here rather than at module import because it needs a running event
+    loop. It is OFF unless COURT_SYNC_SCHEDULE=1, so deploying this code changes
+    nothing on its own — arming is a deliberate `fly secrets set` and disarming
+    is `fly secrets unset`, neither of which needs a rebuild.
+
+    The sweep itself runs on a worker thread, never on the loop: it is blocking
+    HTTP against the eCourts vendor, and stalling the loop would stall
+    /api/live — the Fly health check — which is exactly how this site was pulled
+    out of the routing pool twice while the app was serving fine.
+    """
+    import logging as _log
+    logger = _log.getLogger("court-sync")
+    try:
+        from headnote.cases import sync_scheduler
+        if sync_scheduler.start():
+            logger.info("[court-sync] armed: %s", sync_scheduler.status())
+        else:
+            logger.info("[court-sync] not armed (COURT_SYNC_SCHEDULE is off)")
+    except Exception as e:  # noqa: BLE001 — never block startup on this
+        logger.warning("[court-sync] scheduler failed to start: %s", e)
+
 # Drafting engine (10 document types, story-first). Per-type templates
 # ship one at a time; the API surface lives here from v0 so the FE can
 # integrate against `/api/draft/*` while individual templates are ported.
@@ -1128,6 +1190,15 @@ from headnote.drafter.storage import init_drafts_db as _init_drafts_db
 
 app.include_router(_drafter_router)
 _init_drafts_db()
+
+# The V2 one door: /api/draft/{one,skeleton,questions,preflight}. `/from-prompt`
+# and `/from-document` being separate endpoints is exactly why the frontend grew
+# separate drafting flows, so the new /draft screen has ONE endpoint that takes the
+# brief, attachments each tagged facts-or-format, a matter and a language. Mounted
+# after the legacy drafter router (same /api/draft prefix, distinct paths); the old
+# endpoints keep working for the pages that still call them. require_beta.
+from headnote.api.draft_one import router as _draft_one_router
+app.include_router(_draft_one_router)
 
 # Cases — CNR-driven case folders that pre-fill the drafter: /api/cases/*
 # (SQLite, next to drafts; mock-first CNR adapter — see headnote/cases/.)
@@ -1146,8 +1217,10 @@ app.include_router(_daily_router)
 # (SQLite, next to drafts/cases; reuses the Groq vision OCR + the shared
 # fastembed model for hybrid keyword + semantic search — see headnote/documents/.)
 from headnote.api.documents import router as _documents_router
+from headnote.api.doclens import router as _doclens_router
 from headnote.documents.storage import init_documents_db as _init_documents_db
 app.include_router(_documents_router)
+app.include_router(_doclens_router)
 _init_documents_db()
 
 # Recorder / consultations — record a client conversation → structured report
@@ -1230,6 +1303,19 @@ app.include_router(_saved_caselaw_router)
 # Lexlegis-style two-tier memorandum: /api/memorandum
 from headnote.api.memorandum import router as _memorandum_router
 app.include_router(_memorandum_router)
+
+# Client document intake: one write-only, revocable link per matter that the
+# lawyer sends the client. Uploads land in a pending tray and only enter the case
+# file when the lawyer approves them. See migrations/013_client_intake.sql.
+from headnote.api.intake import router as _intake_router
+app.include_router(_intake_router)
+
+# Home hub + hearing note sheets: /api/home, /api/matters/{id}/prep|notesheet.
+# Readiness is derived server-side from the court's purpose × the matter's own
+# artifacts, so the badge is authoritative rather than the frontend's guess.
+# See migrations/011_notesheets.sql.
+from headnote.api.notesheets import router as _notesheets_router
+app.include_router(_notesheets_router)
 
 # Server-side PDF export: /api/draft/pdf — renders the drafted document to a
 # real, text-selectable PDF (WeasyPrint). One blob powers Download, WhatsApp
@@ -1321,6 +1407,75 @@ def auth_test():
 @app.get("/", include_in_schema=False)
 def landing():
     return FileResponse(config.STATIC_DIR / "landing.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
+@app.get("/intake/{token}", include_in_schema=False)
+def intake_page(token: str):
+    """The client's upload page — opens with no login. The token is validated by
+    /api/intake/{token}; this only serves the shell."""
+    return FileResponse(config.STATIC_DIR / "intake.html",
+                        headers={"Cache-Control": "no-store",
+                                 "X-Robots-Tag": "noindex, nofollow"})
+
+
+@app.get("/welcome", include_in_schema=False)
+def welcome_page():
+    """First run — name, enrolment number, and an explicit consent to pull his
+    pending matters off the eCourts record so the chamber is not empty on day
+    one. Reads/writes /api/lawyer-profile and the two-step advocate import
+    (search → confirm); optional diary photos reuse the diary-photo OCR. Same
+    bearer token as /home. `?demo=1` runs the whole flow on sample data."""
+    return FileResponse(config.STATIC_DIR / "welcome.html",
+                        headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
+@app.get("/home", include_in_schema=False)
+def home_page():
+    """The chamber Home — today's board, readiness, and the hearing note sheets.
+    Reads /api/home; auth is the same bearer token the rest of the app uses."""
+    return FileResponse(config.STATIC_DIR / "home.html",
+                        headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
+@app.get("/research", include_in_schema=False)
+def research_page():
+    """V2 Research — one door for Find law / Ask / Statute / Saved. Talks to
+    the existing pipelines (/api/situation, /api/chat/message,
+    /api/judgment/chat, /api/mapping/lookup, /api/saved-caselaw); same bearer
+    token as /home. ?matter=<id> pre-seeds the matter's context."""
+    return FileResponse(config.STATIC_DIR / "research.html",
+                        headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
+@app.get("/draft-dna", include_in_schema=False)
+def draft_dna_page():
+    """Draft DNA — the advocate uploads their own filed .docx drafts; Headnote
+    captures their exact LAYOUT (page size, margins, per-block indents/tab stops/
+    sizes, tables) plus their font, stores it under their user id, and thereafter
+    drafts on their page in their font. Talks to /api/draft-dna/{layout,capture,
+    render} + /api/draft-dna; same bearer token as /home. Opening the file
+    directly (or `?demo=1`) runs the whole flow on sample data."""
+    return FileResponse(config.STATIC_DIR / "draft-dna.html",
+                        headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
+@app.get("/draft", include_in_schema=False)
+def draft_page():
+    """V2 Draft — one screen, one action. A single brief box the advocate talks or
+    types into; attachments each carry an explicit "facts from this / format from
+    this" choice; the canonical skeleton renders instantly in his own page geometry
+    so the paper is never blank, and the junior's note (deterministic checks, no
+    model) sits beside the result with Download .docx as the primary action.
+
+    Talks to /api/draft/{one,skeleton,questions,preflight} + /api/draft/transcribe
+    + /api/draft/{id}/docx + /api/draft-dna/layout; same bearer token as /home.
+    `?matter=<id>` binds the draft to that matter; `?demo=1` (or opening the file
+    directly) runs the whole flow on sample data.
+
+    This replaces the drafting doors on /app — it is NOT the template picker, and
+    the 8 public /draft/<type> SEO pages and the 11 review pages are untouched."""
+    return FileResponse(config.STATIC_DIR / "draft.html",
+                        headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
 # ---- SEO: sitemap.xml + robots.txt --------------------------------------
@@ -1481,6 +1636,51 @@ Free 3-day demo (no card). ₹599/month or ₹5,999/year, unlimited, no auto-ren
     return PlainTextResponse(body)
 
 
+# ---- PWA + Android TWA (Play Store) --------------------------------------
+# Headnote ships to the Play Store as a Trusted Web Activity (TWA) wrapping
+# headnote.in. Three things make that work:
+#   1. /manifest.webmanifest  — the web app manifest (name, icons, scope).
+#   2. /sw.js                 — service worker served at root with an
+#                               explicit Service-Worker-Allowed: / so its
+#                               scope covers the whole site (not just /static).
+#   3. /.well-known/assetlinks.json — Digital Asset Links: proves the Android
+#                               app (in.headnote.app) is allowed to handle
+#                               headnote.in URLs, so the TWA runs full-screen
+#                               with NO browser address bar. Fill the SHA-256
+#                               fingerprint from Play Console → App signing.
+@app.get("/manifest.webmanifest", include_in_schema=False)
+def web_manifest():
+    return FileResponse(
+        config.STATIC_DIR / "manifest.webmanifest",
+        media_type="application/manifest+json",
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
+
+
+@app.get("/sw.js", include_in_schema=False)
+def service_worker():
+    # Served from root + Service-Worker-Allowed:/ so the SW can claim scope "/".
+    return FileResponse(
+        config.STATIC_DIR / "sw.js",
+        media_type="text/javascript",
+        headers={
+            "Cache-Control": "no-cache, must-revalidate, max-age=0",
+            "Service-Worker-Allowed": "/",
+        },
+    )
+
+
+@app.get("/.well-known/assetlinks.json", include_in_schema=False)
+def asset_links():
+    # Digital Asset Links for the Android TWA. Must be reachable over HTTPS at
+    # exactly this path with Content-Type application/json.
+    return FileResponse(
+        config.STATIC_DIR / "assetlinks.json",
+        media_type="application/json",
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
+
+
 @app.get("/legal-ai", include_in_schema=False)
 @app.get("/legal-ai/", include_in_schema=False)
 def legal_ai_page():
@@ -1635,6 +1835,15 @@ def cases_page():
     linked from the public app nav, so live users don't see it until we ship.
     (/cases kept as a back-compat alias.)"""
     return FileResponse(config.STATIC_DIR / "cases.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
+@app.get("/diary", include_in_schema=False)
+@app.get("/diary/", include_in_schema=False)
+def diary_page():
+    """Diary — the minimal experimental flow: shoot today's paper cause-list
+    page, we OCR it into typed rows, and the lawyer emails or downloads the
+    clean copy. Standalone from the full /matters product while we experiment."""
+    return FileResponse(config.STATIC_DIR / "diary.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 
 @app.get("/draft/bail", include_in_schema=False)
@@ -2365,7 +2574,27 @@ def _effective_situation_model(deep_mode: bool) -> str:
     return choice
 
 
-@app.get("/api/health", summary="Liveness check + config summary")
+@app.get("/api/live", summary="Liveness probe — constant time, touches nothing")
+async def live():
+    """The platform health check points here, NOT at /api/health.
+
+    /api/health is a diagnostics endpoint: it opens SQLite three times (HF
+    corpus, embedding index, SC corpus) and imports the LLM router. Under CPU
+    or SQLite contention those reads are slow, and a slow health check reads to
+    the platform as a dead machine — it pulls the (single) machine out of
+    rotation and every request 503s, static assets included, while the process
+    is in fact alive and fine. That is precisely how headnote.in stayed down
+    for two days from 2026-08-04.
+
+    So liveness answers one question only — is this process serving HTTP? — in
+    constant time, with no I/O, no imports and no locks, and is `async` so it
+    is answered on the event loop without waiting for a threadpool worker that
+    a busy background job might be occupying.
+    """
+    return {"ok": True}
+
+
+@app.get("/api/health", summary="Diagnostics — config, corpus and LLM summary")
 def health():
     # Add HF corpus stats so we can confirm the import landed without
     # querying the DB directly.
@@ -2790,6 +3019,45 @@ async def api_try(req: TryRequest, request: Request):
     }
 
 
+def _seed_situation_from_matter(req: SituationRequest, user_id: str) -> None:
+    """Attach-a-matter, server-side: fold the matter's sections, stage, court
+    and next-hearing purpose into the situation text (they drive query
+    refinement AND Indian Kanoon retrieval — the biggest relevance lever we
+    have), and use the matter's court as the jurisdiction hint when the
+    caller didn't send one. Fails soft: unknown/foreign matter → no-op."""
+    if not req.matter_id:
+        return
+    try:
+        from headnote.cases import storage as cases_storage
+        row = cases_storage.get_case(req.matter_id, user_id=user_id)
+    except Exception:
+        row = None
+    if not row:
+        return
+    cj = row.get("case_json") or {}
+    bits = []
+    secs = cj.get("sections") or []
+    acts = cj.get("acts") or []
+    if secs:
+        bits.append("Sections involved: " + ", ".join(str(s) for s in secs)
+                    + (f" ({'; '.join(str(a) for a in acts)})" if acts else ""))
+    if row.get("stage"):
+        bits.append(f"Stage: {row['stage']}")
+    if row.get("court_name"):
+        bits.append(f"Court: {row['court_name']}")
+    purpose = (cj.get("prep") or {}).get("purpose")
+    if purpose:
+        bits.append(f"Next hearing listed for: {purpose}")
+    if bits:
+        extra = "\n\n[Matter context] " + ". ".join(bits) + "."
+        # respect the model's max_length — the lawyer's own words win
+        room = 8000 - len(req.situation)
+        if room > 40:
+            req.situation = req.situation + extra[:room]
+    if not req.jurisdiction and row.get("court_name"):
+        req.jurisdiction = row["court_name"]
+
+
 @app.post("/api/situation", summary="Situation -> relevant precedents")
 def api_situation(
     req: SituationRequest,
@@ -2805,6 +3073,7 @@ def api_situation(
 
     Gated: deep_search feature. Counts against the user's quota; 402 if exhausted.
     """
+    _seed_situation_from_matter(req, user.id)
     with check_and_record(user.id, "deep_search", endpoint="situation", email=user.email) as _record:
         return _api_situation_impl(req, _record)
 
@@ -2833,12 +3102,25 @@ def _build_situation_shells(retrieval_cases: list, limit: int = 6) -> list:
             if len(why) > 240:
                 why = why[:237].rstrip() + "…"
         src = getattr(cs, "source", "ik") or "ik"
+        # The link to the judgment itself. Safe to derive here — a shell is a
+        # REAL retrieved case, never an LLM selection, so the guard in
+        # _enrich_case (which refuses to build IK urls from model-authored
+        # case_ids) does not apply. Without this the first cards a lawyer sees
+        # carry no way to open the judgment until the analysis lands.
+        kdoc = _kanoon_doc_id_from_case_id(cs.case_id)
+        official_doc_id = getattr(cs, "official_doc_id", "") or ""
         shells.append({
             "case_id": cs.case_id,
             "title": cs.title,
             "court": cs.court,
             "year": cs.year,
             "citation": cs.citation,
+            "kanoon_doc_id": str(kdoc) if kdoc else "",
+            "kanoon_url": f"https://indiankanoon.org/doc/{kdoc}/" if kdoc else "",
+            "official_pdf_url": (getattr(cs, "official_pdf_url", "") or
+                                 (f"/api/judgment/pdf/{official_doc_id}" if official_doc_id else "")),
+            "official_citation": (getattr(cs, "neutral_citation", "")
+                                  or getattr(cs, "scr_citation", "") or ""),
             "citations_all": list(getattr(cs, "citations_all", []) or []),
             "neutral_citation": (getattr(cs, "neutral_citation", "")
                                  or getattr(cs, "scr_citation", "") or ""),
@@ -2868,6 +3150,7 @@ def api_situation_stream(
     /api/situation is unchanged and remains the client's fallback. Same gate
     (deep_search) and same single quota charge as the classic endpoint.
     """
+    _seed_situation_from_matter(req, user.id)
     # Gate up-front: quota / entitlement errors must surface as a clean status
     # BEFORE the 200 stream opens (a half-open stream can't carry a 402/429).
     _cm = check_and_record(user.id, "deep_search", endpoint="situation", email=user.email)

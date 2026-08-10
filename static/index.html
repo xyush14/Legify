@@ -5,6 +5,12 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#ffffff" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Headnote" />
+  <script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("/sw.js",{scope:"/"}).catch(function(){});});}</script>
   <meta name="description" content="Headnote — AI research for Indian criminal advocates. Verified citations, hidden authorities, BNS-mapped." />
   <script>if(location.protocol==='http:'&&location.hostname!=='localhost'&&!location.hostname.startsWith('127.')){location.replace(location.href.replace(/^http:/,'https:'));}</script>
   <title>Research &amp; Drafting — Headnote</title>
@@ -69,6 +75,15 @@
       </div>
 
       <nav class="sidebar__nav" aria-label="Primary">
+        <!-- V2 private beta: the only door from /app into the new chamber.
+             Hidden by default and revealed by app.js ONLY when /api/me says
+             beta:true, so nobody outside the allowlist ever sees it. -->
+        <a id="v2-beta-entry" class="navitem" href="/home" style="display:none;text-decoration:none">
+          <svg class="navicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/>
+          </svg>
+          <span>new chamber</span>
+        </a>
         <button type="button" class="navitem" data-view="ask">
           <svg class="navicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7a8.5 8.5 0 0 1-.9-3.8A8.38 8.38 0 0 1 12.5 3 8.38 8.38 0 0 1 21 11.5z"/>
@@ -93,6 +108,12 @@
           </svg>
           <span>saved</span>
         </button>
+        <a class="navitem" href="/matters">
+          <svg class="navicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+          </svg>
+          <span>matters</span>
+        </a>
         <a class="navitem" href="/recorder">
           <svg class="navicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/>
@@ -387,6 +408,8 @@
               <input type="file" id="pd-file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,.doc,.docx,.xls,.xlsx" multiple hidden>
               <button type="button" id="pd-ref-upload" class="pd__attach-btn pd__attach-btn--ref" title="Upload a draft you like — we match its structure, formatting & writing style.">✦ Reference draft</button>
               <input type="file" id="pd-ref-file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,.doc,.docx,.xls,.xlsx" multiple hidden>
+              <button type="button" id="pd-fir-upload" class="pd__attach-btn pd__attach-btn--fir" title="Upload an FIR — we read it and auto-fill a bail application. You confirm every detail before it goes in.">📄 From FIR → bail</button>
+              <input type="file" id="pd-fir-file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" multiple hidden>
               <a href="/draft/smart" class="pd__attach-btn pd__voice" title="Dictate your matter, hands-free">🎙 Voice</a>
               <span class="pd__grow"></span>
               <span class="pd__auto mono" id="pd-auto" title="We draft in the language you type — no need to choose">auto-detects language</span>
@@ -398,6 +421,76 @@
 
           <div class="pd__loading mono" id="pd-loading" hidden><span class="pd__spin" aria-hidden="true"></span><span id="pd-loading-text">Reading the matter…</span></div>
           <div class="pd__err" id="pd-err" hidden></div>
+
+          <!-- ✦ Draft from FIR — confirm step. Hidden until an FIR is read. Every value
+               the FIR supplied is amber (machine-read → advocate confirms); required fields
+               it can't supply are prompted. Nothing is written into a draft until "Confirm
+               & build". Jurisdiction (court city) is never assumed — only suggested. -->
+          <div class="fir" id="fir-confirm" hidden>
+            <div class="fir__head">
+              <div>
+                <div class="fir__title">Confirm the FIR details</div>
+                <div class="fir__sub mono" id="fir-sub">Read from your FIR — check each before it goes into the draft.</div>
+              </div>
+              <span class="pd__grow"></span>
+              <label class="fir__lang mono" title="Which bail application to build">bail:
+                <select class="fir__court" id="fir-court">
+                  <option value="bail_sessions">Regular · Sessions §483</option>
+                  <option value="bail_magistrate">Regular · Magistrate §480</option>
+                  <option value="bail_hc">Regular · High Court §483</option>
+                  <option value="anticipatory_bail">Anticipatory · Sessions §482</option>
+                  <option value="anticipatory_bail_hc">Anticipatory · High Court §482</option>
+                </select>
+              </label>
+              <label class="fir__lang mono" title="Type in English — it lands in the draft's language">input:
+                <span class="pd__seg pd__seg--sm" id="fir-inlang"><button type="button" data-l="hi" class="on">हिं</button><button type="button" data-l="en">EN</button></span>
+              </label>
+              <button type="button" class="fir__x" id="fir-cancel" aria-label="cancel">✕</button>
+            </div>
+            <div class="fir__note mono" id="fir-note" hidden></div>
+            <div class="fir__grid" id="fir-grid"></div>
+            <div class="fir__auth" id="fir-auth" hidden>
+              <div class="fir__auth-head mono">relevant authorities <span class="mono" id="fir-auth-tag">verified only</span></div>
+              <div id="fir-auth-list"></div>
+            </div>
+            <div class="fir__bar">
+              <span class="fir__trust mono" id="fir-trust"></span>
+              <span class="pd__grow"></span>
+              <button type="button" class="pd__btn pd__btn--primary" id="fir-build">Confirm &amp; build the bail draft →</button>
+            </div>
+          </div>
+          <style>
+            .pd__attach-btn--fir{border-color:var(--gold,#b8860b);color:var(--gold,#b8860b)}
+            .fir{margin:14px 0 4px;border:1px solid var(--line,#e6e2d9);border-radius:12px;background:var(--surface,#fff);padding:16px 18px}
+            .fir__head{display:flex;align-items:flex-start;gap:12px;margin-bottom:6px}
+            .fir__title{font-weight:600;font-size:15px}
+            .fir__sub{font-size:11.5px;opacity:.7;margin-top:2px}
+            .fir__lang{display:inline-flex;align-items:center;gap:6px;font-size:11px;opacity:.85}
+            .fir__court{font:inherit;font-size:11.5px;border:1px solid var(--line,#e6e2d9);border-radius:6px;padding:3px 6px;background:#fff;cursor:pointer}
+            .fir__x{background:none;border:0;font-size:16px;cursor:pointer;opacity:.5;line-height:1}
+            .fir__x:hover{opacity:1}
+            .fir__note{margin:6px 0 10px;padding:8px 12px;border-radius:8px;background:#fdf0c9;border:1px solid #e9c46a;color:#5a4a12;font-size:12px}
+            .fir__grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px 16px;margin:8px 0}
+            .fir-f{display:flex;flex-direction:column;gap:3px}
+            .fir-f__lab{font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;opacity:.6;font-family:var(--mono,ui-monospace,monospace);display:flex;align-items:center;gap:6px}
+            .fir-f__dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto}
+            .fir-f--found .fir-f__dot{background:#e0a800}
+            .fir-f--missing .fir-f__dot{background:#c0392b}
+            .fir-f--empty .fir-f__dot{background:var(--line,#ccc)}
+            .fir-f__in{border:1px solid var(--line,#e6e2d9);border-radius:7px;padding:7px 9px;font:inherit;font-size:13px;width:100%;background:#fff}
+            .fir-f--found .fir-f__in{border-color:#e9c46a;background:#fffdf5}
+            .fir-f--missing .fir-f__in{border-color:#e5b4ad;background:#fff8f7}
+            .fir-f__in:focus{outline:none;border-color:var(--gold,#b8860b)}
+            .fir-f__hint{font-size:10.5px;opacity:.6}
+            .fir-f__sugg{font-size:11px;color:var(--gold,#8a6d0b);cursor:pointer;text-decoration:underline;background:none;border:0;padding:0;font-family:var(--mono,monospace)}
+            .fir__auth{margin:12px 0 4px;padding-top:10px;border-top:1px dashed var(--line,#e6e2d9)}
+            .fir__auth-head{font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;opacity:.65;margin-bottom:6px}
+            #fir-auth-tag{font-size:9.5px;opacity:.6;border:1px solid var(--line,#ddd);border-radius:4px;padding:1px 5px;margin-left:6px;text-transform:none}
+            .fir-auth-item{font-size:12.5px;padding:4px 0;display:flex;gap:7px;align-items:baseline}
+            .fir-auth-item__v{font-size:11px}
+            .fir__bar{display:flex;align-items:center;gap:12px;margin-top:12px}
+            .fir__trust{font-size:11px;opacity:.7}
+          </style>
 
           <!-- result (hidden until a draft returns) -->
           <div class="pd-result" id="pd-result" hidden>
@@ -458,6 +551,18 @@
             <button type="button" class="draft-search__clear" id="draft-search-clear" aria-label="clear search" hidden>×</button>
           </div>
 
+          <!-- ✦ Draft DNA — premium personalization. Opens the concierge
+               explainer modal (wired in app.js). Always visible; paid users get
+               the full setup flow, demo users see the upgrade path. -->
+          <button type="button" class="dna-banner" id="dna-banner">
+            <span class="dna-banner__mark">✦</span>
+            <span class="dna-banner__body">
+              <span class="dna-banner__title">Draft DNA<span class="dna-banner__chip mono">Premium</span></span>
+              <span class="dna-banner__sub">Every draft in your exact court format, layout and voice — learned from your own filed drafts.</span>
+            </span>
+            <span class="dna-banner__cta">See how it works <span class="dna-banner__arrow">→</span></span>
+          </button>
+
           <!-- COURT BROWSE — main IA. Cards rendered by renderCourtCards(). -->
           <div id="draft-court-browse">
             <div class="draft-section-eyebrow mono">browse by court</div>
@@ -498,6 +603,62 @@
           </div>
         </div>
       </section>
+
+      <!-- ============ ✦ DRAFT DNA — concierge explainer modal ============
+           Single-screen pop-up. Premium-gated: auto-shows once for paid users
+           on the drafting view, and on demand from the #dna-banner. The actual
+           template collection + tuning is a white-glove step our team runs off
+           the app — this screen explains the process and registers intent.
+           Wiring + gating live in app.js. -->
+      <div id="dna-modal" class="dna-modal" role="dialog" aria-modal="true" aria-labelledby="dna-modal-title" hidden>
+        <div class="dna-modal__backdrop" data-dna-close="1"></div>
+        <div class="dna-modal__card">
+          <button type="button" class="dna-modal__close" data-dna-close="1" aria-label="Close">×</button>
+
+          <!-- STATE A: offer / process (paid users) -->
+          <div id="dna-modal-offer">
+            <div class="dna-modal__eyebrow mono">✦ Draft DNA · Premium</div>
+            <h2 class="dna-modal__title" id="dna-modal-title">Every draft, in your own hand</h2>
+            <p class="dna-modal__lead">Headnote learns your court format, layout, framing and voice from a few of your own filed drafts, then applies them to every draft it makes for you. Your format applied exactly, your voice closely matched.</p>
+
+            <ol class="dna-steps">
+              <li class="dna-step"><span class="dna-step__n">1</span><div class="dna-step__t"><b>Our team reaches out</b><span>We connect with you personally — no forms to wrestle with.</span></div></li>
+              <li class="dna-step"><span class="dna-step__n">2</span><div class="dna-step__t"><b>You share a few templates</b><span>2–3 of your own filed drafts. Photo, PDF or Word — whatever you have.</span></div></li>
+              <li class="dna-step"><span class="dna-step__n">3</span><div class="dna-step__t"><b>We tune Headnote to you</b><span>Your cause-title, numbering, prayer, verification and signature block, matched to how you file.</span></div></li>
+              <li class="dna-step"><span class="dna-step__n">4</span><div class="dna-step__t"><b>Every draft comes out as yours</b><span>From the next draft on, it reads like you filed it.</span></div></li>
+            </ol>
+
+            <div class="dna-modal__trust mono">We keep only what we learn about your style — never your files, never client facts.</div>
+
+            <div class="dna-modal__actions">
+              <button type="button" class="dna-modal__cta" id="dna-request">Set up my Draft DNA →</button>
+              <button type="button" class="dna-modal__skip" data-dna-close="1">Maybe later</button>
+            </div>
+          </div>
+
+          <!-- STATE B: confirmation (after request) -->
+          <div id="dna-modal-done" hidden>
+            <div class="dna-modal__check">✓</div>
+            <h2 class="dna-modal__title">You're on the list</h2>
+            <p class="dna-modal__lead">Our team will connect with you shortly to collect a few of your templates and build your Draft DNA. Keep drafting in the meantime — we'll take it from here.</p>
+            <div class="dna-modal__actions">
+              <button type="button" class="dna-modal__cta" data-dna-close="1">Back to drafting</button>
+            </div>
+          </div>
+
+          <!-- STATE C: locked (demo / non-premium users) -->
+          <div id="dna-modal-locked" hidden>
+            <div class="dna-modal__eyebrow mono">✦ Draft DNA · Premium</div>
+            <h2 class="dna-modal__title">A Headnote that drafts like you</h2>
+            <p class="dna-modal__lead">Draft DNA tunes Headnote to your exact court format, layout and voice — learned from your own filed drafts, applied to every draft. It's part of every paid plan.</p>
+            <div class="dna-modal__trust mono">Our team sets it up with you personally once you're on a paid plan.</div>
+            <div class="dna-modal__actions">
+              <a class="dna-modal__cta" href="/pricing">Upgrade to unlock →</a>
+              <button type="button" class="dna-modal__skip" data-dna-close="1">Not now</button>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- ============ SAVED CASE-LAW VIEW ============
            The lawyer's personal library of kept research hits. Each card is
@@ -664,6 +825,8 @@
 
   <script src="/static/auth.js?v=20260527a" defer></script>
   <script src="/static/app.js?v=20260705c" defer></script>
+  <!-- ⌘K statute quick-look (IPC↔BNS etc.), reachable from anywhere in the app -->
+  <script src="/static/statute-palette.js?v=20260803a" defer></script>
 
   <!-- Prompt drafter (drafting view) — self-contained; POSTs /api/draft/from-prompt -->
   <script>
@@ -975,5 +1138,222 @@
     }catch(e){}
   })();
   </script>
+
+  <!-- Draft from FIR — the confirm-step trust gate. Uploads an FIR to
+       /api/draft/fir/extract, shows every read value as amber (advocate confirms),
+       prompts required fields the FIR can't supply, previews verified authorities,
+       then stashes the confirmed fields and lands in the bail template editor.
+       Self-contained IIFE; shares no scope with the prompt drafter above. -->
+  <script>
+  (function(){
+    var $=function(id){return document.getElementById(id);};
+    var upBtn=$("pd-fir-upload"), fileIn=$("pd-fir-file"), panel=$("fir-confirm");
+    if(!upBtn||!fileIn||!panel) return;
+    var state={ docType:"bail_sessions", court:"sessions", lang:"hi", inputLang:"hi", fields:[], slots:{}, narrative:{} };
+    function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+    async function authHeaders(){
+      try{ if(window.headnoteAuth&&window.headnoteAuth.getAccessToken){
+        var t=await window.headnoteAuth.getAccessToken(); if(t) return {Authorization:"Bearer "+t}; } }catch(e){}
+      return {};
+    }
+    function setLoading(on,msg){
+      $("pd-loading").hidden=!on; if(on)$("pd-loading-text").textContent=msg||"Reading the FIR…";
+      if(on){ $("pd-err").hidden=true; }
+    }
+
+    upBtn.addEventListener("click",function(){ fileIn.click(); });
+    fileIn.addEventListener("change",function(){
+      if(!fileIn.files||!fileIn.files.length) return;
+      extract(fileIn.files);
+    });
+    $("fir-cancel").addEventListener("click",function(){ panel.hidden=true; fileIn.value=""; });
+
+    // input-language toggle (हिं / EN) — controls how NEW/edited values are typed;
+    // on build, EN values are converted to court Hindi before they land.
+    $("fir-inlang").addEventListener("click",function(e){
+      var b=e.target.closest("button"); if(!b) return;
+      state.inputLang=b.dataset.l;
+      [].forEach.call(this.querySelectorAll("button"),function(x){x.classList.toggle("on",x===b);});
+    });
+
+    // Court switch — the FIR facts don't change, only the target template does.
+    // Re-map the same slots onto the new court's field set (no OCR, instant).
+    $("fir-court").addEventListener("change",async function(){
+      state.docType=this.value;
+      try{
+        var r=await fetch("/api/draft/fir/fields",{method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({slots:state.slots,doc_type:state.docType,lang:state.lang})});
+        var res=await r.json();
+        if(res&&res.ok!==false&&res.fields){
+          state.fields=res.fields.filter(function(f){ return f.type!=="table" && (f.status==="found"||f.required); });
+          renderGrid();
+        }
+      }catch(e){/* keep current grid */}
+      loadAuthorities(state.narrative);   // authorities family follows regular ↔ anticipatory
+    });
+
+    async function extract(files){
+      setLoading(true,"Reading the FIR…");
+      var fd=new FormData();
+      for(var i=0;i<files.length;i++) fd.append("files",files[i]);
+      fd.append("court",state.court); fd.append("lang",state.lang);
+      try{
+        var r=await fetch("/api/draft/fir/extract",{method:"POST",headers:await authHeaders(),body:fd});
+        if(r.status===401||r.status===402){ setLoading(false); $("pd-err").textContent="Please sign in to draft from an FIR."; $("pd-err").hidden=false; return; }
+        var res=await r.json();
+        setLoading(false); fileIn.value="";
+        if(!res||res.ok===false){ throw new Error((res&&(res.error||res.detail))||"Could not read the FIR."); }
+        state.docType=res.doc_type||"bail_sessions"; state.lang=res.lang||"hi";
+        state.slots=res.slots||{}; state.narrative=res.narrative||{};
+        var sel=$("fir-court"); if(sel) sel.value=state.docType;
+        state.fields=(res.fields||[]).filter(function(f){
+          return f.type!=="table" && (f.status==="found" || f.required);
+        });
+        renderGrid();
+        var note=$("fir-note");
+        if(res.note){ note.textContent=res.note; note.hidden=false; } else { note.hidden=true; }
+        panel.hidden=false;
+        panel.scrollIntoView({behavior:"smooth",block:"start"});
+        loadAuthorities(res.narrative||{});
+      }catch(e){
+        setLoading(false); $("pd-err").textContent=(e.message||String(e)); $("pd-err").hidden=false;
+      }
+    }
+
+    function renderGrid(){
+      var g=$("fir-grid"); g.innerHTML="";
+      state.fields.forEach(function(f,idx){
+        var cls="fir-f fir-f--"+f.status;
+        var lab=esc(f.label)+(f.required?' <span style="color:#c0392b">*</span>':"");
+        var val = Array.isArray(f.value)? f.value.join(", ") : (f.value||"");
+        var ctl;
+        if(f.type==="longtext"){
+          ctl='<textarea class="fir-f__in" data-i="'+idx+'" rows="3">'+esc(val)+'</textarea>';
+        }else{
+          ctl='<input class="fir-f__in" data-i="'+idx+'" type="text" value="'+esc(val)+'">';
+        }
+        var extra="";
+        if(f.status==="found") extra='<span class="fir-f__hint">from FIR — confirm</span>';
+        else if(f.status==="missing" && f.suggestion) extra='<button type="button" class="fir-f__sugg" data-i="'+idx+'">use “'+esc(f.suggestion)+'” ?</button>';
+        else if(f.status==="missing") extra='<span class="fir-f__hint">not in FIR — please add</span>';
+        g.insertAdjacentHTML("beforeend",
+          '<div class="'+cls+'"><label class="fir-f__lab"><span class="fir-f__dot"></span>'+lab+'</label>'+ctl+extra+'</div>');
+      });
+      [].forEach.call(g.querySelectorAll(".fir-f__in"),function(el){
+        el.addEventListener("input",function(){ state.fields[+el.dataset.i].value=el.value; updateTrust(); });
+      });
+      [].forEach.call(g.querySelectorAll(".fir-f__sugg"),function(btn){
+        btn.addEventListener("click",function(){
+          var f=state.fields[+btn.dataset.i]; f.value=f.suggestion;
+          var el=g.querySelector('.fir-f__in[data-i="'+btn.dataset.i+'"]'); if(el) el.value=f.suggestion;
+          btn.parentNode.classList.remove("fir-f--missing"); btn.parentNode.classList.add("fir-f--found");
+          btn.remove(); updateTrust();
+        });
+      });
+      updateTrust();
+    }
+
+    function updateTrust(){
+      var found=0,missing=0;
+      state.fields.forEach(function(f){
+        var has=String(f.value||"").trim()!=="";
+        if(f.status==="found"&&has) found++;
+        if(f.required&&!has) missing++;
+      });
+      var en=state.lang==="en";
+      $("fir-trust").textContent = (en
+        ? (found+" read from FIR"+(missing?" · "+missing+" required field(s) still needed":" · all required fields ready"))
+        : (found+" तथ्य FIR से"+(missing?" · "+missing+" आवश्यक field शेष":" · सभी आवश्यक field तैयार")));
+      $("fir-build").disabled = missing>0;
+      $("fir-build").style.opacity = missing>0? .55 : 1;
+    }
+
+    // Verified authorities preview via the existing /suggest ledger. Family follows
+    // the selected court: anticipatory types → anticipatory_bail ledger, else bail.
+    async function loadAuthorities(narrative){
+      narrative=narrative||{};
+      var wrap=$("fir-auth"), list=$("fir-auth-list");
+      var fam=/^anticipatory/.test(state.docType)?"anticipatory_bail":"bail";
+      var text=(narrative.hi||narrative.en||"जमानत आवेदन").slice(0,1500);
+      try{
+        var r=await fetch("/api/draft/suggest",{method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({doc_type:fam,text:text,lang:state.lang,llm:false})});
+        var s=await r.json();
+        if(!s||s.ok===false||!(s.authorities||[]).length){ wrap.hidden=true; return; }
+        list.innerHTML=s.authorities.slice(0,4).map(function(a){
+          var v=a.verified? '<span class="fir-auth-item__v" title="verified against source">✓</span>'
+                           : '<span class="fir-auth-item__v" title="verify before use" style="opacity:.5">⚠</span>';
+          return '<div class="fir-auth-item">'+v+'<span><strong>'+esc(a.case||"")+'</strong>'+(a.point?' — '+esc(a.point):"")+'</span></div>';
+        }).join("");
+        wrap.hidden=false;
+      }catch(e){ wrap.hidden=true; }
+    }
+
+    $("fir-build").addEventListener("click",build);
+    async function build(){
+      // flat field dict; section_list stays a comma string (the editor's to_data splits it).
+      var flat={};
+      state.fields.forEach(function(f){
+        var v=f.value; if(v==null) v="";
+        flat[f.key]= Array.isArray(v)? v.join(", ") : v;
+      });
+      // "type in English → lands in the draft's language": convert typed values when the
+      // advocate was inputting in EN but the draft is Hindi. Names/numbers/statutes are
+      // preserved by the endpoint; already-Hindi values pass through unchanged.
+      if(state.inputLang==="en" && state.lang!=="en"){
+        setLoading(true,"Converting to court Hindi…");
+        try{
+          var tr=await fetch("/api/draft/translate-fields",{method:"POST",
+            headers:Object.assign({"Content-Type":"application/json"},await authHeaders()),
+            body:JSON.stringify({fields:flat,target:"hi"})});
+          if(tr.ok){ var td=await tr.json(); if(td&&td.translated) flat=Object.assign(flat,td.translated); }
+        }catch(e){/* fall back to as-typed */}
+        setLoading(false);
+      }
+      // Stash under a key the template editor's privacy-clear does NOT purge; it is
+      // consumed once on load. Then land in the full bail editor (live render, edit,
+      // EN/हिं, export) pre-filled with the confirmed facts.
+      try{
+        sessionStorage.setItem("hn_fir_prefill",
+          JSON.stringify({ docType:state.docType, fields:flat, lang:state.lang }));
+      }catch(e){}
+      location.href="/draft/template/"+encodeURIComponent(state.docType);
+    }
+  })();
+  </script>
+
+<!-- ==========================================================================
+     V2 private beta — the corner.
+     Hidden by default. app.js reveals it ONLY when /api/me returns beta:true,
+     so a user outside the allowlist never learns this exists. Two states: the
+     introduction the first time, then a small chip once dismissed.
+     ========================================================================== -->
+<div id="beta-corner" class="beta-corner" aria-live="polite">
+
+  <div id="beta-intro" class="beta-card" role="region" aria-label="Headnote beta">
+    <div class="beta-card__tag"><span class="beta-card__dot"></span>Beta · in testing</div>
+    <div class="beta-card__h">Your new chamber is open</div>
+    <p class="beta-card__p">
+      Home, Research and Draft DNA are being tested with a small group of
+      advocates before release. Expect rough edges — and tell us about them.
+      Everything in your account keeps working exactly as it does now.
+    </p>
+    <div class="beta-card__row">
+      <button type="button" class="beta-btn" id="beta-try">Try it</button>
+      <button type="button" class="beta-btn beta-btn--ghost" id="beta-later">Not now</button>
+    </div>
+    <div class="beta-card__foot">
+      Something broken or confusing?
+      <a href="mailto:hello@headnote.in?subject=Headnote%20beta%20feedback">Tell us</a> —
+      it goes straight to the team.
+    </div>
+  </div>
+
+  <button type="button" id="beta-chip" class="beta-chip" style="display:none"
+          title="Open the new chamber">
+    <span class="beta-card__dot"></span>Beta
+  </button>
+
+</div>
 </body>
 </html>
