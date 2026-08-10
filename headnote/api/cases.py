@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -1051,6 +1052,49 @@ def _needs_cnr(row: dict) -> bool:
     return not ecourts_client.is_valid_cnr((row.get("cnr") or "").strip())
 
 
+# Words that carry no identifying weight in an Indian cause title. Matching on
+# them would link every State prosecution to every other one.
+_PARTY_NOISE = {
+    "vs", "v", "versus", "and", "anr", "another", "ors", "others", "the",
+    "state", "of", "govt", "government", "union", "india", "through", "thru",
+    "shri", "sri", "smt", "mr", "mrs", "ms", "m", "s", "son", "wife", "w", "o",
+    "late", "minor", "applicant", "respondent", "petitioner", "accused",
+    "complainant", "police", "station", "sho", "no", "unknown",
+}
+
+
+def _party_tokens(*vals: object) -> set[str]:
+    """The identifying words in a party name / cause title.
+
+    Diary matters are typed off a photographed cause list, so their case NUMBER
+    is often mangled or missing while the party name is legible. Matching on the
+    name recovers exactly those matters — but only on words that actually
+    identify somebody.
+    """
+    toks: set[str] = set()
+    for v in vals:
+        for t in re.split(r"[^0-9a-zऀ-ॿ]+", str(v or "").lower()):
+            t = t.strip()
+            if len(t) > 2 and t not in _PARTY_NOISE and not t.isdigit():
+                toks.add(t)
+    return toks
+
+
+def _party_match(want: set[str], have: set[str]) -> bool:
+    """True only on a confident name match.
+
+    Deliberately strict: linking rewrites a matter's identity, and two of this
+    lawyer's clients may well share a surname. Requires at least two identifying
+    words in common AND that they cover most of the shorter name — so
+    "Kalyan Vs Rajni Jatav" matches "Kalyan v. Rajni Jatav & Anr", but
+    "Naim Khan" does not match "Naim Ali".
+    """
+    if len(want) < 2 or len(have) < 2:
+        return False
+    shared = want & have
+    return len(shared) >= 2 and len(shared) >= min(len(want), len(have)) * 0.6
+
+
 @router.post("/resolve-cnr/bulk",
              summary="Match every unlinked matter against the advocate's eCourts docket")
 def resolve_cnr_bulk(body: ResolveCnrBody,
@@ -1083,16 +1127,37 @@ def resolve_cnr_bulk(body: ResolveCnrBody,
             if key:
                 by_no.setdefault(key, c)
 
+    # Second index: the parties. A matter typed off a photographed cause list
+    # very often has a mangled case number but a perfectly legible party name,
+    # and the number was the ONLY thing we matched on — so those matters could
+    # never be linked at all, however obvious the match was to a human.
+    by_party = [(_party_tokens(c.get("case_title"),
+                               c.get("petitioner"), c.get("respondent")), c)
+                for c in docket]
+
     proposals, unmatched = [], 0
     for r in unlinked:
         want = (ecourts_client._caseno_key(f"{r.get('case_number') or ''}/{r.get('case_year') or ''}")
                 or ecourts_client._caseno_key(r.get("case_number")))
         hit = by_no.get(want) if want else None
+        matched_by = "case number" if hit else None
+
+        if not hit:
+            # Fall back to the party name — but only on an unambiguous hit. If
+            # two cases in the docket answer to the same name we cannot tell
+            # them apart, and guessing would rewrite the wrong file.
+            mine = _party_tokens(((r.get("case_json") or {}).get("client") or {}).get("name"),
+                                 r.get("case_title"))
+            cands = [c for toks, c in by_party if _party_match(mine, toks)]
+            if len(cands) == 1:
+                hit, matched_by = cands[0], "party name"
+
         if not hit:
             unmatched += 1
             continue
         proposals.append({
             "case_id": r["id"],
+            "matched_by": matched_by,
             "current": {"party": (((r.get("case_json") or {}).get("client") or {}).get("name")
                                   or r.get("case_title") or r.get("cnr") or "—"),
                         "case_number": r.get("case_number"),

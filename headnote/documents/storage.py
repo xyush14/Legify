@@ -372,6 +372,33 @@ def list_documents(*, user_id: Optional[str], limit: int = 200,
     return out
 
 
+def counts_by_case(user_id: Optional[str], case_ids: list[str]) -> dict[str, int]:
+    """How many documents sit in each of these matters, in ONE grouped query.
+
+    Home only ever needs the count — the readiness rule asks "are there exhibits
+    on file", not which ones. Fetching whole document rows per matter, on a fresh
+    connection each time, was pure waste on the board.
+    """
+    ids = [str(c) for c in case_ids if c]
+    if not ids:
+        return {}
+    if pgstore.ready(_PG):
+        return {cid: len(list_documents(user_id=user_id, case_id=cid, limit=200))
+                for cid in ids}
+    try:
+        marks = ",".join("?" for _ in ids)
+        with _conn() as c:
+            rows = c.execute(
+                f"SELECT case_id, COUNT(*) FROM documents "
+                f"WHERE user_id IS ? AND case_id IN ({marks}) GROUP BY case_id",
+                tuple([user_id] + ids),
+            ).fetchall()
+        return {str(r[0]): int(r[1]) for r in rows if r[0]}
+    except Exception as e:  # noqa: BLE001
+        log.warning("bulk document count failed: %s", e)
+        return {}
+
+
 def set_document_case(doc_id: str, *, case_id: Optional[str], user_id: Optional[str]) -> bool:
     """Attach (or detach, with case_id=None) a document to a case folder."""
     if pgstore.ready(_PG):

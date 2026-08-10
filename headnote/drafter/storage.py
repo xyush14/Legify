@@ -15,6 +15,7 @@ front-end passes as the bearer-validated identifier (Supabase user.id).
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 import uuid
 from contextlib import contextmanager
@@ -25,6 +26,8 @@ from typing import Iterator, Optional
 
 from headnote.config import KANOON_CACHE_PATH
 from headnote import pgstore
+
+log = logging.getLogger(__name__)
 
 _PG = "drafts"  # public.drafts — the durable backend (migration 012)
 
@@ -246,6 +249,51 @@ def list_drafts(*, user_id: Optional[str] = None, limit: int = 20,
             tuple(params),
         ).fetchall()
     return [Draft._row_to(r) for r in rows]
+
+
+def drafts_for_cases(user_id: str, case_ids: list[str]) -> dict[str, list[dict]]:
+    """Every draft filed under each of these matters, in ONE query.
+
+    Home's readiness rule needs each matter's drafts (their title, and whether one
+    is final). Calling list_drafts() per matter opened a fresh SQLite connection —
+    and ran the schema DDL — once per card. This answers the whole board with a
+    single connection and a single SELECT.
+
+    Only the three fields readiness actually reads are returned; a board does not
+    need answers_json. Returns {} on failure so a board still paints.
+    """
+    ids = [str(c) for c in case_ids if c]
+    if not ids:
+        return {}
+    out: dict[str, list[dict]] = {}
+
+    def _add(cid: str, title, exported_at, did) -> None:
+        out.setdefault(str(cid), []).append({
+            "id": did, "title": title,
+            "status": "filed" if exported_at else "draft"})
+
+    if pgstore.ready(_PG):
+        # Kept correct rather than fast: the child-table cutover is off in
+        # production, so this path is not the one costing Home its seconds.
+        for cid in ids:
+            for d in list_drafts(user_id=user_id, case_id=cid, limit=50):
+                _add(cid, d.title, d.exported_at, d.id)
+        return out
+
+    try:
+        marks = ",".join("?" for _ in ids)
+        with _conn() as c:
+            rows = c.execute(
+                f"SELECT case_id, id, title, exported_at FROM drafts "
+                f"WHERE user_id = ? AND case_id IN ({marks}) ORDER BY updated_at DESC",
+                tuple([user_id] + ids),
+            ).fetchall()
+        for r in rows:
+            _add(r[0], r[2], r[3], r[1])
+    except Exception as e:  # noqa: BLE001
+        log.warning("bulk draft lookup failed: %s", e)
+        return {}
+    return out
 
 
 def set_draft_case(draft_id: str, *, case_id: Optional[str], user_id: Optional[str]) -> bool:

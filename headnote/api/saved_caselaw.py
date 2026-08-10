@@ -178,3 +178,38 @@ def list_for_matter(user_id: str, matter_id: str, *, limit: int = 50) -> list[di
     except Exception as e:  # noqa: BLE001
         log.warning("saved_caselaw matter lookup failed: %s", e)
         return []
+
+
+def counts_by_matter(user_id: str, matter_ids: list[str]) -> dict[str, int]:
+    """How many authorities are saved against each of these matters — in ONE call.
+
+    The Home board needs this for every matter it paints. Asking per matter meant
+    one HTTP round trip to Postgres per card: a 40-matter board cost 40 sequential
+    network calls before the page could render, which is most of why Home felt
+    slow. PostgREST's `in.()` answers the whole board in a single request.
+
+    Returns {} on failure, which degrades a readiness badge — never the board.
+    """
+    ids = [str(m) for m in matter_ids if m]
+    if not ids:
+        return {}
+    out: dict[str, int] = {}
+    # PostgREST puts the filter in the URL, so chunk to keep it well under any
+    # proxy's URI limit. 100 uuids ≈ 3.7 KB, comfortably safe.
+    for i in range(0, len(ids), 100):
+        chunk = ids[i:i + 100]
+        quoted = ",".join(f'"{c}"' for c in chunk)
+        try:
+            rows = _supabase.select(_TABLE, params={
+                "user_id": f"eq.{user_id}",
+                "matter_id": f"in.({quoted})",
+                "select": "matter_id",
+                "limit": "2000"}) or []
+        except Exception as e:  # noqa: BLE001
+            log.warning("saved_caselaw bulk count failed: %s", e)
+            continue
+        for r in rows:
+            mid = str(r.get("matter_id") or "")
+            if mid:
+                out[mid] = out.get(mid, 0) + 1
+    return out

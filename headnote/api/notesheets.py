@@ -126,15 +126,53 @@ def _artifacts(case_id: str, user_id: str) -> dict:
     }
 
 
-def _matter_card(case: dict, user_id: str, *, with_artifacts: bool = True) -> dict:
+def _artifacts_bulk(case_ids: list[str], user_id: str) -> dict[str, dict]:
+    """`_artifacts` for a whole board — FOUR queries instead of four per matter.
+
+    Painting Home used to cost 4 lookups per card: three SQLite round trips that
+    each opened a connection and re-ran the schema DDL, plus one HTTP call to
+    Postgres for saved authorities. A 40-matter board therefore made ~160 calls,
+    40 of them over the network, strictly sequentially — which is the bulk of why
+    Home took seconds to appear and why changing the date felt broken.
+
+    Readiness needs the real draft rows (their title, and whether one is final),
+    but only the COUNT of documents, recordings and authorities. So drafts come
+    back in full and the rest as integers.
+    """
+    ids = [str(c) for c in case_ids if c]
+    if not ids:
+        return {}
+    drafts_by = draft_storage.drafts_for_cases(user_id, ids)
+    docs_n = docs_storage.counts_by_case(user_id, ids)
+    recs_n = consult_storage.counts_by_case(user_id, ids)
+    auth_n = saved_caselaw.counts_by_matter(user_id, ids)
+    return {cid: {"drafts": drafts_by.get(cid, []),
+                  "documents": docs_n.get(cid, 0),
+                  "recordings": recs_n.get(cid, 0),
+                  "authorities": auth_n.get(cid, 0)}
+            for cid in ids}
+
+
+def _as_rows(v) -> list[dict]:
+    """Readiness takes lists; the bulk path carries counts. A count of n is
+    exactly n anonymous rows as far as `derive` is concerned — it only ever asks
+    "any?" of documents and "how many?" of authorities."""
+    if isinstance(v, int):
+        return [{} for _ in range(max(0, v))]
+    return v or []
+
+
+def _matter_card(case: dict, user_id: str, *, with_artifacts: bool = True,
+                 arts: Optional[dict] = None) -> dict:
     prep = ns_storage.get_prep(case)
     row = dict(case)
     row["prep"] = prep
-    arts = _artifacts(str(case["id"]), user_id) if with_artifacts else {}
+    if arts is None:
+        arts = _artifacts(str(case["id"]), user_id) if with_artifacts else {}
     state = rd.derive(row,
-                      drafts=arts.get("drafts"),
-                      documents=arts.get("documents"),
-                      authorities=arts.get("authorities"))
+                      drafts=_as_rows(arts.get("drafts")),
+                      documents=_as_rows(arts.get("documents")),
+                      authorities=_as_rows(arts.get("authorities")))
     # Carry the wording with the state. Every screen used to keep its own copy of
     # the state→label map, so adding a state (e.g. "research") silently degraded
     # to "Review" everywhere until each copy was found and updated.
@@ -161,7 +199,8 @@ def _matter_card(case: dict, user_id: str, *, with_artifacts: bool = True) -> di
         "court_no": prep.get("court_no"),
         "judge": prep.get("judge"),
         "readiness": state,
-        "counts": {k: len(v) for k, v in arts.items()} if arts else {},
+        "counts": {k: (v if isinstance(v, int) else len(v))
+                   for k, v in arts.items()} if arts else {},
         "court_updates": len(courtsync.unseen(cj)),
     }
 
@@ -198,10 +237,15 @@ def home(date: Optional[str] = Query(None, description="board date, YYYY-MM-DD (
     unlinked = sum(1 for c in cases
                    if not ecourts_client.is_valid_cnr((c.get("cnr") or "").strip()))
 
+    # Everything the board will paint, resolved in one batch before the loop.
+    # Building cards inside the loop meant the artifact lookups ran per matter.
+    on_board = [c for c in cases if _iso_of(c.get("next_hearing_date")) in boards]
+    arts_by = _artifacts_bulk([str(c["id"]) for c in on_board], user.id)
+
     for c in cases:
         iso = _iso_of(c.get("next_hearing_date"))
         if iso in boards:
-            boards[iso].append(_matter_card(c, user.id))
+            boards[iso].append(_matter_card(c, user.id, arts=arts_by.get(str(c["id"]), {})))
         if iso is None or not c.get("next_hearing_date"):
             undated.append({"id": c["id"], "party": _party(c),
                             "court_name": c.get("court_name"),
@@ -246,7 +290,20 @@ def home(date: Optional[str] = Query(None, description="board date, YYYY-MM-DD (
                           "court_name": c.get("court_name")})
     inbox.sort(key=lambda u: str(u.get("at") or ""), reverse=True)
 
+    # Who is actually in this chamber — learned from the names the advocate has
+    # assigned work to, never invented. The UI used to offer a hardcoded
+    # ["Adv. Nikhil Jain", "Adv. Priya Soni", "Clerk"] to every user, which is
+    # mock data on a live screen: it tells a sole practitioner he has two juniors
+    # he has never heard of. An empty roster is correct for a lawyer working
+    # alone; the free-text field is how the first name gets in.
+    roster: dict[str, int] = {}
+    for c in cases:
+        who = (ns_storage.get_prep(c).get("assignee") or "").strip()
+        if who:
+            roster[who] = roster.get(who, 0) + 1
+
     return {
+        "roster": [w for w, _ in sorted(roster.items(), key=lambda kv: (-kv[1], kv[0]))][:8],
         "date": day, "today": today, "span": span,
         "board": board,
         "boards": boards,
@@ -279,6 +336,39 @@ def home_month(month: str = Query(..., description="YYYY-MM"),
         if iso and iso[:7] == m:
             days[iso] = days.get(iso, 0) + 1
     return {"month": m, "days": days, "total": sum(days.values())}
+
+
+@router.post("/api/home/sync-court", summary="Re-read the court record for this lawyer's whole docket")
+async def sync_court_now(user: CurrentUser = Depends(require_beta)) -> dict:
+    """The one button behind "check the court for new dates".
+
+    Overdue matters were a dead end: the banner only navigated to the first one,
+    and settling 122 of them by hand is not a thing anyone will do. This runs the
+    same three-pass sweep the 18:00 cron runs — batch cause list, then a full
+    read only for matters the court actually moved — but for this lawyer, now.
+
+    Deliberately reuses `sync_all_dockets` rather than looping `fetch_cnr`: the
+    per-matter refresh costs one vendor call per matter, where the sweep answers
+    a whole docket in a handful.
+
+    Runs in a worker thread. It is blocking HTTP to the vendor, and blocking the
+    event loop is exactly how this app got pulled from Fly's routing pool twice
+    while it was perfectly healthy.
+    """
+    from headnote.cases.daily_sync import sync_all_dockets
+
+    res = await asyncio.to_thread(sync_all_dockets, only_user_id=user.id)
+
+    # Be straight about the split. Most of this docket came off a photographed
+    # cause list and has no CNR, so "check the court" can do nothing for those —
+    # saying "0 updated" without saying why reads as a broken button.
+    return {"ok": bool(res.get("ok", True)),
+            "reason": res.get("reason"),
+            "checked": res.get("synced", 0),
+            "changed": res.get("changed", 0),
+            "no_cnr": res.get("skipped_no_cnr", 0),
+            "failed": res.get("failed", 0),
+            "updates": (res.get("updates") or [])[:20]}
 
 
 # ============================================================ preparation state
@@ -353,7 +443,7 @@ def get_notesheet(case_id: str, date: Optional[str] = Query(None),
 class SheetBody(BaseModel):
     hearing_date: Optional[str] = None
     sheet: dict = Field(default_factory=dict)
-    source: str = Field("junior", description="'junior' or 'hand'")
+    source: str = Field("junior", description="'junior', 'hand' or 'mine'")
 
 
 @router.put("/api/matters/{case_id}/notesheet", summary="Save the note sheet")
@@ -363,7 +453,10 @@ def put_notesheet(case_id: str, body: SheetBody,
     if not case:
         raise HTTPException(status_code=404, detail="matter not found")
     day = _check_date(body.hearing_date or _iso_of(case.get("next_hearing_date")))
-    src = body.source if body.source in ("junior", "hand") else "junior"
+    # "mine" = the advocate typed or corrected it himself. Worth distinguishing
+    # from "junior": once he has touched a sheet, the screen must stop captioning
+    # it "drafted by your junior — edit before you rely on it".
+    src = body.source if body.source in ("junior", "hand", "mine") else "junior"
     saved = ns_storage.save_sheet(case_id, user.id, day, body.sheet or {}, source=src)
     if not saved:
         raise HTTPException(status_code=500, detail="could not save the note sheet")
@@ -421,11 +514,33 @@ def prepare_notesheet(case_id: str, date: Optional[str] = Query(None),
         logs = cases_storage.list_hearing_logs(case_id, user_id=user.id) or []
     except Exception:  # noqa: BLE001
         logs = []
-    chronology = [{"date": l.get("hearing_date"), "event": l.get("what_happened"),
-                   "source": "court record"} for l in logs if l.get("hearing_date")]
-    if cj.get("last_listed_date"):
-        chronology.append({"date": cj["last_listed_date"], "event": "Previous hearing",
+    # Two sources overlap here, so the same hearing could be listed twice: a
+    # diary import writes a hearing log AND sets case_json.last_listed_date, and
+    # re-importing the same cause-list page writes the log again. A chronology
+    # that repeats "22/4 listed (from diary page)" twice reads as a broken file,
+    # so collapse on (date, event) and only fall back to last_listed_date when no
+    # log already speaks for that day.
+    chronology, seen, dated = [], set(), set()
+    for l in logs:
+        d = l.get("hearing_date")
+        if not d:
+            continue
+        ev = (l.get("what_happened") or "").strip()
+        key = (str(d), ev.casefold())
+        if key in seen:
+            continue
+        seen.add(key)
+        dated.add(str(d))
+        chronology.append({"date": d, "event": ev or "Listed",
+                           "source": "court record"})
+
+    last = cj.get("last_listed_date")
+    if last and str(last) not in dated:
+        chronology.append({"date": last, "event": "Previous hearing",
                            "source": "from file"})
+
+    # Most recent first — a chronology in arbitrary storage order is unreadable.
+    chronology.sort(key=lambda r: str(_iso_of(r["date"]) or r["date"]), reverse=True)
 
     cat = rd.category(prep.get("purpose"))
     sheet = {

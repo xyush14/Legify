@@ -17,6 +17,7 @@ consultation links to a matter (case_id) so it sits alongside the CNR folder.
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 import uuid
 from contextlib import contextmanager
@@ -25,6 +26,8 @@ from typing import Iterator, Optional
 
 from headnote.config import KANOON_CACHE_PATH
 from headnote import pgstore
+
+log = logging.getLogger(__name__)
 
 _PG = "consultations"  # public.consultations — durable backend (migration 012)
 
@@ -189,6 +192,29 @@ def list_consultations(*, user_id: Optional[str], limit: int = 100,
             row.pop("transcript", None)
             out.append(row)
     return out
+
+
+def counts_by_case(user_id: Optional[str], case_ids: list[str]) -> dict[str, int]:
+    """How many recordings sit in each of these matters, in ONE grouped query.
+    See documents.counts_by_case — same reason, same shape."""
+    ids = [str(c) for c in case_ids if c]
+    if not ids:
+        return {}
+    if pgstore.ready(_PG):
+        return {cid: len(list_consultations(user_id=user_id, case_id=cid, limit=100))
+                for cid in ids}
+    try:
+        marks = ",".join("?" for _ in ids)
+        with _conn() as c:
+            rows = c.execute(
+                f"SELECT case_id, COUNT(*) FROM consultations "
+                f"WHERE user_id IS ? AND case_id IN ({marks}) GROUP BY case_id",
+                tuple([user_id] + ids),
+            ).fetchall()
+        return {str(r[0]): int(r[1]) for r in rows if r[0]}
+    except Exception as e:  # noqa: BLE001
+        log.warning("bulk recording count failed: %s", e)
+        return {}
 
 
 def update_consultation(
