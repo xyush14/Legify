@@ -585,3 +585,81 @@ def _fetch_mock(cnr: str) -> dict:
     c["court_level"] = _infer_level(c["court_name"], c["case_type"])
     c["raw"] = {"_mock": True, "cnr": cnr, "shape": "bail" if cs % 2 == 0 else "discharge"}
     return c
+
+
+# ------------------------------------------------------- the court's cause list
+#
+# `POST /api/partner/causelist/cnr/batch` answers for MANY CNRs in one call, and
+# it is the better source of truth for "when is this next in court":
+#
+#   • the case record's `nextHearingDate` goes STALE — it is what the case file
+#     said when it was last written. Observed live: a matter whose case record
+#     said 2026-07-17 (already past) was actually listed for 2026-08-13.
+#   • the cause list is the court's own board, so it also carries what no case
+#     record has: the COURT NUMBER, the SERIAL/ITEM number on that board, the
+#     judge sitting, and what it is listed FOR.
+#
+# One call covers a whole docket, so this is both fresher and far cheaper than
+# re-fetching every case. Full `fetch_cnr` stays for stage/orders/IAs.
+
+_CAUSELIST_CHUNK = 50
+
+
+def _norm_listing(row: dict) -> Optional[dict]:
+    """Vendor cause-list row → the fields a lawyer actually needs on the board."""
+    nl = (row or {}).get("nextListing")
+    if not isinstance(nl, dict):
+        return None
+    judges = nl.get("judge") or []
+    if isinstance(judges, str):
+        judges = [judges]
+    nums = nl.get("caseNumber") or []
+    if isinstance(nums, str):
+        nums = [nums]
+    return {
+        "date": nl.get("date"),                          # 'YYYY-MM-DD'
+        "court_no": _clean_str(nl.get("courtNo")),
+        "court_name": _clean_str(nl.get("courtName")),
+        "bench": _clean_str(nl.get("bench")),
+        "item": nl.get("listingNo"),                     # serial on the board
+        "purpose": _clean_str(nl.get("listingFor")),
+        "judge": ", ".join(str(j) for j in judges if j) or None,
+        "list_type": _clean_str(nl.get("listType")),
+        "case_number": nums[0] if nums else None,
+        "party": _clean_str(nl.get("party")),
+        "district": _clean_str(nl.get("district")),
+        "state": _clean_str(nl.get("state")),
+    }
+
+
+def _clean_str(v):
+    s = str(v).strip() if v is not None else ""
+    return s or None
+
+
+def fetch_causelist_batch(cnrs: list[str]) -> dict[str, dict]:
+    """{cnr: listing} for every CNR that is actually on a cause list.
+
+    A CNR with no listing is simply absent from the result — "not listed" and
+    "we could not ask" must never look the same, so a failed chunk raises rather
+    than quietly returning fewer keys.
+    """
+    if config.CNR_API_MODE != "live":
+        raise RuntimeError("cause list needs CNR_API_MODE=live")
+    if not config.CNR_API_TOKEN:
+        raise RuntimeError("CNR_API_MODE=live but CNR_API_TOKEN is not set")
+
+    valid = [c.strip() for c in (cnrs or []) if is_valid_cnr((c or "").strip())]
+    out: dict[str, dict] = {}
+    url = config.CNR_API_BASE_URL.rstrip("/") + config.CNR_API_CAUSELIST_PATH
+    for i in range(0, len(valid), _CAUSELIST_CHUNK):
+        chunk = valid[i:i + _CAUSELIST_CHUNK]
+        r = httpx.post(url, headers=_headers(), json={"cnrs": chunk}, timeout=45.0)
+        if r.status_code != 200:
+            raise ValueError(f"vendor {r.status_code} at {url}: {r.text[:300]}")
+        for row in ((r.json() or {}).get("data") or []):
+            cnr = (row or {}).get("cnr")
+            listing = _norm_listing(row)
+            if cnr and listing and listing.get("date"):
+                out[cnr] = listing
+    return out

@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<meta name="robots" content="noindex">
+<title>Set up your chamber — Headnote</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;450;500;600;700&family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#ffffff;--surface:#ffffff;--raise:#fcfcfb;
+  --ink:#0c0c0a;--ink-2:#4b4b48;--ink-3:#8a8a82;--ink-4:#b8b6ae;
+  --line:#e7e7e4;--line-2:#f1f1ef;--soft:#f6f6f4;
+  --amber:#b7791f;--amber-soft:#fdf5e6;--amber-line:#eddcb8;
+  --red:#b0392b;--red-soft:#fbeeec;--green:#2f8f57;--green-soft:#ecf6ef;--green-line:#cfe8d8;
+  --r:10px;--r-lg:16px;--r-sm:8px;
+  --shadow:0 1px 2px rgba(12,12,10,.05);
+  --lift:0 16px 34px -22px rgba(12,12,10,.26);--ease:cubic-bezier(.16,1,.3,1);
+  --sans:'Geist',-apple-system,'Segoe UI',sans-serif;--mono:'Geist Mono',ui-monospace,monospace;--hi:'Noto Sans Devanagari','Geist',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer;border:0;background:none;color:inherit}
+input,select{font-family:inherit}
+.mono{font-family:var(--mono)}.hi{font-family:var(--hi)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;font-size:13px;font-weight:500;padding:10px 15px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--surface);color:var(--ink);transition:.14s var(--ease);white-space:nowrap}
+.btn:hover{border-color:var(--ink-3)}
+.btn:disabled{opacity:.5;cursor:default}
+.btn--primary{background:var(--ink);color:#fff;border-color:var(--ink)}.btn--primary:hover{background:#000}
+.btn--sm{padding:7px 11px;font-size:12.5px}
+.btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.7}
+
+/* ---- shell ---- */
+.top{border-bottom:1px solid var(--line-2);padding:16px 22px;display:flex;align-items:center;justify-content:space-between}
+.top .wm{height:16px;width:auto;display:block}
+.top .sk{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+.top .sk:hover{color:var(--ink)}
+.wrap{max-width:720px;margin:0 auto;padding:38px 22px 90px}
+.eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-4)}
+h1{font-size:27px;font-weight:600;letter-spacing:-.028em;margin-top:8px;line-height:1.22}
+.sub{color:var(--ink-2);font-size:14.5px;margin-top:11px;line-height:1.62;max-width:600px}
+
+/* ---- a step ---- */
+.step{border:1px solid var(--line);border-radius:var(--r-lg);padding:22px 22px 20px;margin-top:22px;background:var(--surface)}
+.step.done{background:var(--raise)}
+.sh{display:flex;align-items:flex-start;gap:12px}
+.snum{flex:none;width:23px;height:23px;border-radius:50%;border:1px solid var(--line);color:var(--ink-3);font-family:var(--mono);font-size:11px;display:grid;place-items:center;margin-top:1px}
+.step.done .snum{background:var(--green);border-color:var(--green);color:#fff}
+.st{font-size:16.5px;font-weight:600;letter-spacing:-.016em}
+.ss{color:var(--ink-2);font-size:13.5px;margin-top:6px;line-height:1.6}
+.opt{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-4);border:1px solid var(--line);border-radius:999px;padding:3px 8px;margin-left:auto;flex:none}
+.sbody{margin-top:17px;padding-left:35px}
+@media(max-width:560px){.sbody{padding-left:0}}
+
+/* ---- fields ---- */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+@media(max-width:560px){.grid{grid-template-columns:1fr}}
+.fld label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px}
+.fld label .rq{color:var(--red)}
+.in{width:100%;border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 12px;font-size:14px;outline:0;background:var(--surface);color:var(--ink)}
+.in:focus{border-color:var(--ink)}
+.in.bad{border-color:var(--red);background:var(--red-soft)}
+.hint{font-size:12px;color:var(--ink-3);margin-top:6px;line-height:1.5}
+
+/* ---- consent ---- */
+.consent{border:1px solid var(--line);border-radius:var(--r);padding:15px 16px;background:var(--raise);margin-top:4px}
+.crow{display:flex;gap:11px;align-items:flex-start;cursor:pointer}
+.crow input{margin-top:3px;width:16px;height:16px;flex:none;accent-color:var(--ink)}
+.ct{font-size:13.5px;font-weight:500;line-height:1.5}
+.cd{font-size:12.5px;color:var(--ink-2);margin-top:6px;line-height:1.58}
+.cd b{font-weight:600;color:var(--ink)}
+
+/* ---- candidate list (the trust gate) ---- */
+.cands{margin-top:16px;border-top:1px solid var(--line-2);padding-top:15px}
+.cbar{display:flex;gap:8px;align-items:center;margin-bottom:11px;flex-wrap:wrap}
+.cbar .in{flex:1;min-width:170px}
+.clist{max-height:340px;overflow:auto;border:1px solid var(--line-2);border-radius:var(--r);padding:5px}
+.cand{display:flex;gap:11px;align-items:flex-start;padding:10px 11px;border-radius:var(--r-sm);cursor:pointer}
+.cand:hover{background:var(--soft)}
+.cand input{margin-top:3px;width:15px;height:15px;flex:none;accent-color:var(--ink)}
+.cn{font-size:13.5px;font-weight:500;line-height:1.4}
+.cm{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:3px;line-height:1.55}
+.foot{display:flex;justify-content:flex-end;gap:9px;margin-top:15px;padding-top:14px;border-top:1px solid var(--line-2);flex-wrap:wrap}
+
+/* ---- states ---- */
+.load{padding:26px 12px;text-align:center}
+.spin{width:26px;height:26px;border:2.5px solid var(--line);border-top-color:var(--ink);border-radius:50%;margin:0 auto 12px;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.load .lt{font-size:14px;font-weight:500}
+.load .ls{font-size:12.5px;color:var(--ink-3);margin-top:4px}
+.note{border-radius:var(--r);padding:12px 14px;font-size:13px;line-height:1.55;margin-top:13px}
+.note.ok{background:var(--green-soft);border:1px solid var(--green-line);color:#215f3c}
+.note.warn{background:var(--amber-soft);border:1px solid var(--amber-line);color:#7d5410}
+.note.err{background:var(--red-soft);border:1px solid #eccfc9;color:#8d2b20}
+.hidden{display:none!important}
+
+/* ---- diary review rows ---- */
+.drow{display:grid;grid-template-columns:22px 92px minmax(0,1fr) minmax(0,.85fr) minmax(0,1.1fr) 86px 86px 28px;gap:6px;align-items:center;margin-bottom:6px}
+.dhead{display:grid;grid-template-columns:22px 92px minmax(0,1fr) minmax(0,.85fr) minmax(0,1.1fr) 86px 86px 28px;gap:6px;font-family:var(--mono);font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-4);margin-bottom:6px}
+.dscroll{overflow-x:auto}.dscroll>div{min-width:740px}
+.dn{font-family:var(--mono);font-size:10.5px;color:var(--ink-4)}
+.din{width:100%;border:1px solid var(--line);border-radius:7px;padding:8px 9px;font-size:13px;outline:0}
+.din:focus{border-color:var(--ink)}
+.din.flagd{background:var(--amber-soft);border-color:var(--amber-line)}
+.dx{width:26px;height:26px;border-radius:6px;border:1px solid var(--line);color:var(--ink-4);font-size:11px}
+.dx:hover{border-color:var(--red);color:var(--red)}
+
+/* ---- finish bar ---- */
+.fin{position:sticky;bottom:0;background:linear-gradient(to top,#fff 62%,rgba(255,255,255,0));padding:22px 0 4px;margin-top:26px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.fin .fm{font-size:12.5px;color:var(--ink-3);margin-right:auto}
+.toasts{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:8px;z-index:200}
+.toast{background:var(--ink);color:#fff;font-size:13px;padding:10px 15px;border-radius:var(--r-sm);box-shadow:var(--lift)}
+.toast--error{background:var(--red)}.toast--success{background:var(--green)}
+
+/* ---- sign-in gate ---- */
+.gate{max-width:420px;margin:90px auto;text-align:center;padding:0 22px}
+.gate h2{font-size:19px;font-weight:600;letter-spacing:-.02em}
+.gate p{color:var(--ink-2);font-size:13.5px;margin:9px 0 20px;line-height:1.6}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <img class="wm" src="/static/headnote-logo.svg" alt="Headnote" />
+  <button class="sk" onclick="skipAll()">Skip for now</button>
+</div>
+
+<div id="gate" class="gate hidden">
+  <h2>Please sign in</h2>
+  <p>Setting up your chamber needs your account, so your matters are filed to you and nobody else.</p>
+  <button class="btn btn--primary" onclick="location.href='/app'">Sign in</button>
+</div>
+
+<div class="wrap" id="main">
+  <div class="eyebrow">Welcome to Headnote</div>
+  <h1>Let's set up your chamber.</h1>
+  <p class="sub">Three things, and only the first is required. Give us your name as the court has it and we can pull your pending matters straight off the eCourts record — so you open Headnote to your own cases, not an empty screen.</p>
+
+  <!-- ============ 1. who you are ============ -->
+  <div class="step" id="st1">
+    <div class="sh">
+      <div class="snum" id="n1">1</div>
+      <div>
+        <div class="st">Who you are</div>
+        <div class="ss">This goes on every draft's signature block and vakalatnama, exactly as you type it. It is also how the court record is searched.</div>
+      </div>
+    </div>
+    <div class="sbody">
+      <div class="grid">
+        <div class="fld">
+          <label>Name as it appears on record <span class="rq">*</span></label>
+          <input class="in" id="f_name" placeholder="e.g. Vishnu Shivhare" maxlength="120" autocomplete="name">
+        </div>
+        <div class="fld">
+          <label>Bar enrolment number <span class="rq">*</span></label>
+          <input class="in mono" id="f_enrol" placeholder="e.g. MP/2349/2010" maxlength="60">
+        </div>
+        <div class="fld">
+          <label>Bar council</label>
+          <input class="in" id="f_bar" placeholder="e.g. State Bar Council of M.P." maxlength="120">
+        </div>
+        <div class="fld">
+          <label>Your court / district</label>
+          <input class="in" id="f_court" placeholder="e.g. District Court, Gwalior" maxlength="120">
+          <div class="hint">Used to narrow the case search to your own courts.</div>
+        </div>
+        <div class="fld" style="grid-column:1/-1">
+          <label>Chamber address</label>
+          <input class="in" id="f_addr" placeholder="Optional — printed on your drafts" maxlength="400">
+        </div>
+      </div>
+      <div class="note err hidden" id="e1"></div>
+    </div>
+  </div>
+
+  <!-- ============ 2. bring in the cases ============ -->
+  <div class="step" id="st2">
+    <div class="sh">
+      <div class="snum" id="n2">2</div>
+      <div>
+        <div class="st">Bring in your pending cases</div>
+        <div class="ss">Headnote can read the public eCourts record and file your pending matters into your diary — with their next dates, parties and stage. You tick which ones are actually yours; nothing is saved before that.</div>
+      </div>
+      <div class="opt">Recommended</div>
+    </div>
+    <div class="sbody">
+      <div class="consent">
+        <label class="crow">
+          <input type="checkbox" id="f_consent">
+          <div>
+            <div class="ct">Fetch my pending cases from the public eCourts record.</div>
+            <div class="cd">Headnote searches the eCourts case record using <b>your name and court</b> — that is how the record is indexed, so your enrolment number alone cannot find them. Only the matters you tick are stored, in your account. You can remove any of them later.</div>
+          </div>
+        </label>
+      </div>
+      <div class="foot" id="searchFoot">
+        <button class="btn btn--primary" id="findBtn" onclick="findCases()" disabled>Find my cases</button>
+      </div>
+
+      <div id="s2state"></div>
+
+      <div class="cands hidden" id="candWrap">
+        <div class="ss" style="margin-bottom:11px">Tick the matters that are yours. Anything belonging to another advocate with a similar name, leave unticked — you only do this once.</div>
+        <div class="cbar">
+          <input class="in" id="candFilter" placeholder="Filter — type a client you recognise" oninput="renderCands()">
+          <button class="btn btn--sm" onclick="pickAll(true)">Select all</button>
+          <button class="btn btn--sm" onclick="pickAll(false)">None</button>
+        </div>
+        <div class="clist" id="candList"></div>
+        <div class="foot">
+          <button class="btn" onclick="hideCands()">Not now</button>
+          <button class="btn btn--primary" id="addBtn" onclick="addSelected()">Add selected</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 3. the diary ============ -->
+  <div class="step" id="st3">
+    <div class="sh">
+      <div class="snum" id="n3">3</div>
+      <div>
+        <div class="st">Photograph a week of your diary</div>
+        <div class="ss">If your matters are not on the eCourts record — or you keep your own register — photograph a week of pages. Headnote reads each page, you check the rows, and they land on their own dates.</div>
+      </div>
+      <div class="opt">Optional</div>
+    </div>
+    <div class="sbody">
+      <input type="file" id="dFile" accept="image/*,.heic,.heif,.webp,.pdf,application/pdf" multiple style="display:none">
+      <div id="s3state">
+        <button class="btn" onclick="$('#dFile').click()">
+          <svg viewBox="0 0 24 24"><path d="M3 8V5.5A1.5 1.5 0 0 1 4.5 4H8M16 4h3.5A1.5 1.5 0 0 1 21 5.5V8M21 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H4.5A1.5 1.5 0 0 1 3 18.5V16M7 12h10"/></svg>
+          Choose diary photos
+        </button>
+        <div class="hint" style="margin-top:9px">One photo per day's page. Nothing is filed until you have checked the rows.</div>
+      </div>
+      <div id="dReview" class="hidden"></div>
+    </div>
+  </div>
+
+  <div class="fin">
+    <div class="fm" id="finMsg">Your name and enrolment number are all we need to begin.</div>
+    <button class="btn btn--primary" id="doneBtn" onclick="finish()">Save and open my chamber</button>
+  </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<script>
+/* ============================================================================
+   First run — the screen that turns an empty account into a working chamber.
+
+     GET   /api/lawyer-profile              what we already know about him
+     PATCH /api/lawyer-profile             name · enrolment · bar · court
+     POST  /api/cases/import/advocate/search    candidates — NOTHING stored
+     POST  /api/cases/import/advocate/confirm   only the ticked CNRs
+     POST  /api/cases/import/diary-photo        one page → rows
+     POST  /api/cases/import/diary-confirm      the rows he approved
+
+   Two rules this screen exists to honour:
+     1. Consent is explicit and worded. We never reach into a court record
+        because a checkbox was pre-ticked.
+     2. Nothing about his practice is stored until he has looked at it. Same
+        name as another advocate is common; a stranger's matter silently
+        appearing in his diary would be worse than an empty diary.
+   ========================================================================== */
+const $ = s=>document.querySelector(s);
+const esc = s=>(s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function toast(m,k){const t=document.createElement('div');t.className='toast'+(k?' toast--'+k:'');t.textContent=m;$('#toasts').appendChild(t);setTimeout(()=>t.remove(),3400);}
+
+function authToken(){
+  try{ for(const k of Object.keys(localStorage)){ if(k.includes('auth-token')){
+    const v=JSON.parse(localStorage.getItem(k)); if(v&&v.access_token) return v.access_token; } } }catch(e){}
+  return null;
+}
+function H(json){ const h=json?{'Content-Type':'application/json'}:{}; const t=authToken(); if(t) h.Authorization='Bearer '+t; return h; }
+async function api(path,opts){
+  /* FormData keeps the browser's own multipart Content-Type — forcing JSON
+     here strips the boundary and the server sees no file at all. */
+  const body=(opts||{}).body;
+  const isForm = typeof FormData!=='undefined' && body instanceof FormData;
+  const r=await fetch(path,{...(opts||{}),headers:{...H(!!body && !isForm),...((opts||{}).headers||{})}});
+  let d=null; try{ d=await r.json(); }catch(e){}
+  if(r.status===401){ gate(); throw new Error('Please sign in again'); }
+  if(!r.ok) throw new Error((d&&(d.detail||d.error))||`Request failed (${r.status})`);
+  return d;
+}
+function gate(){ $('#main').classList.add('hidden'); $('#gate').classList.remove('hidden'); }
+
+const DEMO = /[?&]demo=1/.test(location.search) || location.protocol==='file:';
+
+/* ---------------- load what we already know ---------------- */
+async function boot(){
+  if(!authToken() && !DEMO){ gate(); return; }
+  /* Pre-fill from the JWT so he is not retyping his own name. */
+  try{
+    const t=authToken();
+    if(t){ const p=JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
+      const nm=p.user_metadata&&(p.user_metadata.full_name||p.user_metadata.name);
+      if(nm) $('#f_name').value=nm; }
+  }catch(e){}
+  if(DEMO) return;
+  try{
+    const p=await api('/api/lawyer-profile');
+    if(p.advocate_name)    $('#f_name').value  = p.advocate_name;
+    if(p.enrolment_number) $('#f_enrol').value = p.enrolment_number;
+    if(p.bar_council)      $('#f_bar').value   = p.bar_council;
+    if(p.home_court)       $('#f_court').value = p.home_court;
+    if(p.chamber_address)  $('#f_addr').value  = p.chamber_address;
+    if(p.complete) markDone('#st1','#n1');
+  }catch(e){ /* a fresh account has no row yet — that is the normal case */ }
+}
+function markDone(step,num){ $(step).classList.add('done'); $(num).textContent='✓'; }
+
+/* consent drives the fetch button — never the other way round */
+$('#f_consent').addEventListener('change',e=>{ $('#findBtn').disabled = !e.target.checked; });
+
+/* ---------------- 1. the profile ---------------- */
+function readProfile(){
+  return {advocate_name:$('#f_name').value.trim(), enrolment_number:$('#f_enrol').value.trim(),
+          bar_council:$('#f_bar').value.trim(), home_court:$('#f_court').value.trim(),
+          chamber_address:$('#f_addr').value.trim()};
+}
+function validate(){
+  const p=readProfile(); const miss=[];
+  ['f_name','f_enrol'].forEach(id=>$('#'+id).classList.remove('bad'));
+  if(!p.advocate_name){ miss.push('your name'); $('#f_name').classList.add('bad'); }
+  if(!p.enrolment_number){ miss.push('your enrolment number'); $('#f_enrol').classList.add('bad'); }
+  const e=$('#e1');
+  if(miss.length){ e.textContent='We still need '+miss.join(' and ')+'.'; e.classList.remove('hidden'); return null; }
+  e.classList.add('hidden'); return p;
+}
+async function saveProfile(){
+  const p=validate(); if(!p) return null;
+  if(DEMO){ markDone('#st1','#n1'); return p; }
+  await api('/api/lawyer-profile',{method:'PATCH',body:JSON.stringify(p)});
+  markDone('#st1','#n1');
+  return p;
+}
+
+/* ---------------- 2. his cases off the court record ---------------- */
+let CANDS=[], PICKED=new Set();
+async function findCases(){
+  if(!$('#f_consent').checked){ toast('Tick the consent line first','error'); return; }
+  let p; try{ p=await saveProfile(); }catch(e){ toast(e.message,'error'); return; }
+  if(!p) return;                                   // missing name/enrolment
+  const b=$('#findBtn'); b.disabled=true;
+  $('#s2state').innerHTML=`<div class="load"><div class="spin"></div>
+    <div class="lt">Searching the court record…</div>
+    <div class="ls">Looking for pending matters listed to ${esc(p.advocate_name)}.</div></div>`;
+  try{
+    const d = DEMO ? demoCands(p) : await api('/api/cases/import/advocate/search',
+      {method:'POST',body:JSON.stringify({advocate_name:p.advocate_name, city:p.home_court, state:''})});
+    CANDS=d.candidates||[]; PICKED=new Set(CANDS.map(c=>c.cnr));   // default: all his
+    $('#s2state').innerHTML='';
+    if(!CANDS.length){
+      $('#s2state').innerHTML=`<div class="note warn">No pending matters came back for that name and court.
+        The record is indexed by the name printed on the cause list, so a different spelling can hide them —
+        try it exactly as the cause list has it, or skip this and photograph your diary below instead.</div>`;
+      b.disabled=false; return;
+    }
+    $('#candWrap').classList.remove('hidden'); renderCands();
+  }catch(e){
+    $('#s2state').innerHTML=`<div class="note err">Couldn't reach the court record — ${esc(e.message)}.
+      Nothing was changed. You can try again, or photograph your diary below.</div>`;
+    b.disabled=false;
+  }
+}
+function renderCands(){
+  const q=($('#candFilter').value||'').toLowerCase().trim();
+  const list=CANDS.filter(c=>!q||JSON.stringify(c).toLowerCase().includes(q));
+  $('#candList').innerHTML = list.map(c=>{
+    const meta=[c.case_number?(c.case_number+(c.case_year?'/'+c.case_year:'')):'',c.court_name,
+                c.next_hearing_date?('next '+c.next_hearing_date):'',c.stage].filter(Boolean).join(' · ');
+    return `<label class="cand">
+      <input type="checkbox" ${PICKED.has(c.cnr)?'checked':''} onchange="pick('${esc(c.cnr)}',this.checked)">
+      <div>
+        <div class="cn hi">${esc(c.case_title||[c.petitioner_name,c.respondent_name].filter(Boolean).join(' v. ')||c.cnr)}</div>
+        <div class="cm">${esc(meta)}</div>
+      </div></label>`;
+  }).join('') || `<div class="hint" style="padding:12px">Nothing matches that filter.</div>`;
+  $('#addBtn').textContent = PICKED.size ? `Add ${PICKED.size} matter(s)` : 'Add selected';
+}
+function pick(cnr,on){ on?PICKED.add(cnr):PICKED.delete(cnr); $('#addBtn').textContent = PICKED.size?`Add ${PICKED.size} matter(s)`:'Add selected'; }
+function pickAll(on){ PICKED = on ? new Set(CANDS.map(c=>c.cnr)) : new Set(); renderCands(); }
+function hideCands(){ $('#candWrap').classList.add('hidden'); $('#findBtn').disabled=false; }
+async function addSelected(){
+  if(!PICKED.size){ toast('Tick at least one matter','error'); return; }
+  const b=$('#addBtn'); b.disabled=true; b.textContent='Adding…';
+  try{
+    const d = DEMO ? {imported:PICKED.size} : await api('/api/cases/import/advocate/confirm',
+      {method:'POST',body:JSON.stringify({cnrs:[...PICKED]})});
+    $('#candWrap').classList.add('hidden');
+    $('#s2state').innerHTML=`<div class="note ok">${d.imported} matter(s) are now in your diary, with their next dates.</div>`;
+    markDone('#st2','#n2'); refreshFinish(d.imported);
+  }catch(e){ b.disabled=false; b.textContent=`Add ${PICKED.size} matter(s)`; toast(e.message,'error'); }
+}
+
+/* ---------------- 3. the diary pages ---------------- */
+let DROWS=[], DDATE='', DPAGES=0;
+$('#dFile').addEventListener('change',e=>{ const f=[...(e.target.files||[])]; e.target.value=''; if(f.length) readDiary(f); });
+async function readDiary(files){
+  $('#s3state').innerHTML=`<div class="load"><div class="spin"></div>
+    <div class="lt">Reading ${files.length>1?files.length+' pages':'the page'}…</div>
+    <div class="ls">Transcribing — up to a minute per page.</div></div>`;
+  DROWS=[]; DPAGES=0;
+  try{
+    for(const f of files){
+      const fd=new FormData(); fd.append('file',f);
+      const d = DEMO ? demoDiary() : await api('/api/cases/import/diary-photo',{method:'POST',body:fd});
+      const pd=d.page_date||'';
+      (d.rows||[]).forEach(r=>DROWS.push({page_date:pd,court:r.court||'',case_no:r.case_no||'',
+        title:r.title||'',proceeding:r.proceeding||'',last_date:r.last_date||'',next_date:r.next_date||'',flags:r.flags||[]}));
+      DPAGES++;
+    }
+    if(!DROWS.length){
+      $('#s3state').innerHTML=`<div class="note warn">No case rows could be read off those pages. Try a straighter, better-lit photo of the whole page.</div>
+        <button class="btn" style="margin-top:12px" onclick="resetDiary()">Choose different photos</button>`;
+      return;
+    }
+    DDATE=[...new Set(DROWS.map(r=>r.page_date).filter(Boolean))][0]||'';
+    $('#s3state').innerHTML='';
+    renderDiary();
+  }catch(e){
+    $('#s3state').innerHTML=`<div class="note err">${esc(e.message)}</div>
+      <button class="btn" style="margin-top:12px" onclick="resetDiary()">Try again</button>`;
+  }
+}
+function resetDiary(){
+  DROWS=[]; $('#dReview').classList.add('hidden');
+  $('#s3state').innerHTML=`<button class="btn" onclick="$('#dFile').click()">Choose diary photos</button>
+    <div class="hint" style="margin-top:9px">One photo per day's page. Nothing is filed until you have checked the rows.</div>`;
+}
+function renderDiary(){
+  const flagged=DROWS.filter(r=>(r.flags||[]).length).length;
+  const cols=['','Page date','Court / judge','Case no.','Party','Prev','Next',''];
+  $('#dReview').classList.remove('hidden');
+  $('#dReview').innerHTML=`
+    <div class="ss" style="margin-bottom:4px">Read <b>${DROWS.length}</b> matter(s) from ${DPAGES} page(s).
+      ${flagged?`<b>${flagged}</b> row(s) the reader was unsure about are amber — check those first.`:''}
+      Nothing is filed until you press save.</div>
+    <label style="font-family:var(--mono);font-size:10px;color:var(--ink-3);display:block;margin:12px 0">Default date
+      <input class="din" style="width:120px;display:inline-block;margin-left:7px" value="${esc(DDATE)}" oninput="DDATE=this.value"></label>
+    <div class="dscroll"><div>
+      <div class="dhead">${cols.map(c=>`<div>${c}</div>`).join('')}</div>
+      ${DROWS.map((r,i)=>drowHTML(r,i)).join('')}
+    </div></div>
+    <div class="foot">
+      <button class="btn" onclick="resetDiary()">Different photos</button>
+      <button class="btn btn--primary" id="dSave" onclick="saveDiary()">File ${DROWS.length} to my diary</button>
+    </div>`;
+}
+function drowHTML(r,i){
+  const fl=f=>(r.flags||[]).includes(f)?' flagd':'';
+  const cell=(f,ph)=>`<input class="din${fl(f)}" placeholder="${ph}" value="${esc(r[f]||'')}" oninput="dEdit(${i},'${f}',this.value)">`;
+  return `<div class="drow"><div class="dn">${i+1}</div>
+    ${cell('page_date','date')}${cell('court','court')}${cell('case_no','case no.')}
+    ${cell('title','party')}${cell('last_date','prev')}${cell('next_date','next')}
+    <button class="dx" title="Remove" onclick="dDel(${i})">✕</button></div>`;
+}
+function dEdit(i,f,v){ if(!DROWS[i]) return; DROWS[i][f]=v; DROWS[i].flags=(DROWS[i].flags||[]).filter(x=>x!==f); }
+function dDel(i){ DROWS.splice(i,1); DROWS.length?renderDiary():resetDiary(); }
+async function saveDiary(){
+  const rows=DROWS.filter(r=>(r.case_no||'').trim()||(r.title||'').trim());
+  if(!rows.length){ toast('Every row is blank','error'); return; }
+  const b=$('#dSave'); b.disabled=true; b.textContent='Filing…';
+  try{
+    const d = DEMO ? {imported:rows.length,logged:0} : await api('/api/cases/import/diary-confirm',{method:'POST',
+      body:JSON.stringify({page_date:(DDATE||'').trim()||null,
+        rows:rows.map(x=>({case_no:x.case_no,court:x.court,title:x.title,proceeding:x.proceeding,
+          last_date:x.last_date,next_date:x.next_date,page_date:(x.page_date||'').trim()||(DDATE||'').trim()||null}))})});
+    $('#dReview').classList.add('hidden');
+    $('#s3state').innerHTML=`<div class="note ok">${d.imported} matter(s) filed from your diary.</div>`;
+    markDone('#st3','#n3'); refreshFinish(d.imported);
+  }catch(e){ b.disabled=false; b.textContent=`File ${rows.length} to my diary`; toast(e.message,'error'); }
+}
+
+/* ---------------- finish ---------------- */
+let TOTAL=0;
+function refreshFinish(n){ TOTAL+=(n||0);
+  $('#finMsg').textContent = TOTAL ? `${TOTAL} matter(s) ready in your chamber.` : 'Your name and enrolment number are all we need to begin.'; }
+async function finish(){
+  const b=$('#doneBtn'); b.disabled=true; b.textContent='Saving…';
+  try{
+    const p=await saveProfile();
+    if(!p){ b.disabled=false; b.textContent='Save and open my chamber'; $('#f_name').scrollIntoView({block:'center'}); return; }
+    location.href='/home';
+  }catch(e){ b.disabled=false; b.textContent='Save and open my chamber'; toast(e.message,'error'); }
+}
+/* Skipping is allowed and remembered, so the screen does not ambush him every
+   visit — but the profile is genuinely incomplete, so /home keeps a nudge. */
+function skipAll(){ try{ localStorage.setItem('hn_welcome_skipped','1'); }catch(e){} location.href='/home'; }
+
+/* ---------------- demo data (file:// or ?demo=1) ---------------- */
+function demoCands(p){ return {count:3,candidates:[
+  {cnr:'MPGW010012342026',case_title:'Ramesh Yadav v. State of M.P.',court_name:'District Court, Gwalior',case_number:'MCRC 1234',case_year:'2026',next_hearing_date:'2026-08-21',stage:'Arguments'},
+  {cnr:'MPGW010088882025',case_title:'Sunita Devi v. Anil Kumar',court_name:'Family Court, Gwalior',case_number:'HMA 888',case_year:'2025',next_hearing_date:'2026-08-30',stage:'Evidence'},
+  {cnr:'MPGW010077772024',case_title:'Nagar Nigam v. Verma Traders',court_name:'District Court, Gwalior',case_number:'CS 777',case_year:'2024',next_hearing_date:'2026-09-04',stage:'Written statement'}]}; }
+function demoDiary(){ return {page_date:'2026-08-07',engine:'gemini',rows:[
+  {court:'District Court, Gwalior',case_no:'MCRC 1234/2026',title:'Ramesh v. State',last_date:'2026-07-10',next_date:'2026-08-21',flags:['case_no']},
+  {court:'Family Court, Gwalior',case_no:'HMA 888/2025',title:'Sunita v. Anil',last_date:'',next_date:'2026-08-30',flags:[]}]}; }
+
+boot();
+</script>
+</body>
+</html>

@@ -779,6 +779,72 @@ def import_diary_confirm(body: DiaryConfirmBody,
     return settle_rows(user.id, body.rows, (body.page_date or "").strip())
 
 
+class DiaryEmailBody(BaseModel):
+    rows: list[dict] = Field(default_factory=list, description="reviewed cause-list rows")
+    page_date: Optional[str] = Field(None, description="the date this cause list is FOR")
+
+
+def _causelist_email(rows: list[dict], page_date: str) -> tuple[str, str]:
+    """Render the reviewed cause-list as (html, text) for a plain, printable email."""
+    label = page_date.strip() if page_date else ""
+    head = f"Your cause list{(' — ' + label) if label else ''}"
+    # HTML table — one row per matter, court-diary column order
+    trs = []
+    for i, r in enumerate(rows, 1):
+        cells = [
+            str(i),
+            (r.get("case_no") or "").strip() or "—",
+            (r.get("title") or "").strip() or "—",
+            (r.get("court") or "").strip() or "—",
+            (r.get("next_date") or "").strip() or "—",
+        ]
+        tds = "".join(
+            f"<td style='padding:9px 12px;border-bottom:1px solid #eee;font-size:14px;"
+            f"vertical-align:top;{'color:#888;width:34px' if j == 0 else ''}'>{c}</td>"
+            for j, c in enumerate(cells))
+        trs.append(f"<tr>{tds}</tr>")
+    ths = "".join(
+        f"<th style='text-align:left;padding:9px 12px;border-bottom:2px solid #181b17;"
+        f"font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#5f665e'>{h}</th>"
+        for h in ["#", "Case no.", "Party", "Court / judge", "Next date"])
+    html = (
+        f"<div style='font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto;color:#181b17'>"
+        f"<p style='font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:#8a8f88;margin:0'>HEADNOTE · COURT DIARY</p>"
+        f"<h2 style='font-weight:600;margin:6px 0 2px'>{head}</h2>"
+        f"<p style='color:#5f665e;font-size:13px;margin:0 0 16px'>{len(rows)} matter(s) read from your diary page.</p>"
+        f"<table style='border-collapse:collapse;width:100%'><thead><tr>{ths}</tr></thead>"
+        f"<tbody>{''.join(trs)}</tbody></table>"
+        f"<p style='color:#8a8f88;font-size:12px;margin-top:20px'>headnote · your diary, typed and ready to carry</p></div>")
+    # plain-text fallback
+    lines = [head, ""]
+    for i, r in enumerate(rows, 1):
+        lines.append(f"{i}. {(r.get('case_no') or '').strip()}  {(r.get('title') or '').strip()}"
+                     f"  [{(r.get('court') or '').strip()}]  next: {(r.get('next_date') or '').strip() or '—'}")
+    return html, "\n".join(lines)
+
+
+@router.post("/diary/email", summary="Email the reviewed cause-list to the signed-in lawyer")
+def email_diary(body: DiaryEmailBody, user: CurrentUser = Depends(get_current_user)) -> dict:
+    """Send the confirmed cause-list rows to the lawyer's own account email. No
+    storage, no sharing — just a typed copy of what they shot, in their inbox.
+    Returns ok:false with reason 'email_not_configured' if RESEND isn't set up
+    (dev boxes) so the UI can fall back to download."""
+    to = (user.email or "").strip()
+    if not to:
+        raise HTTPException(status_code=400, detail="no email on your account")
+    rows = [r for r in (body.rows or []) if (r.get("case_no") or r.get("title"))]
+    if not rows:
+        raise HTTPException(status_code=400, detail="nothing to send")
+    from headnote.cases import daily_send
+    label = (body.page_date or "").strip()
+    subject = f"Your cause list{(' — ' + label) if label else ''}"
+    html, text = _causelist_email(rows, label)
+    ok = daily_send._send_email(to, subject, html, text)
+    if not ok:
+        return {"ok": False, "reason": "email_not_configured", "to": to}
+    return {"ok": True, "to": to, "count": len(rows)}
+
+
 @router.post("/_reset", summary="[testing] wipe this user's matters so the flow restarts fresh")
 def reset_cases(user: CurrentUser = Depends(get_current_user)) -> dict:
     """Testing-mode only: clears the signed-in user's matters + hearing logs so a
@@ -967,6 +1033,115 @@ class ResolveCnrBody(BaseModel):
     state:         str = Field("", max_length=60)
 
 
+# ------------------------------------------------- linking a whole diary docket
+#
+# Why this exists, measured on production 2026-08-08: of 125 matters, 123 came
+# from `source=diary` (a photographed cause-list page) and carry a synthetic
+# 14-character placeholder in the `cnr` column. They hold no court identifier,
+# so the daily court sweep can do NOTHING for them — it correctly reports
+# skipped_no_cnr:123. "Fetch it automatically" is worth nothing until the
+# matters are linked to the court record, and linking them one at a time while
+# retyping the advocate's name each time is not something anyone will finish.
+#
+# So: pull the advocate's docket ONCE and match every unlinked matter against it
+# locally. One vendor fetch for the whole chamber instead of one per matter.
+
+def _needs_cnr(row: dict) -> bool:
+    """A matter that cannot be court-synced: no real 16-character CNR."""
+    return not ecourts_client.is_valid_cnr((row.get("cnr") or "").strip())
+
+
+@router.post("/resolve-cnr/bulk",
+             summary="Match every unlinked matter against the advocate's eCourts docket")
+def resolve_cnr_bulk(body: ResolveCnrBody,
+                     user: CurrentUser = Depends(get_current_user)) -> dict:
+    """Propose a real CNR for each diary matter. Writes NOTHING — the lawyer
+    confirms, because same-name advocates and recycled case numbers are common
+    and silently rewriting a matter's identity is not recoverable."""
+    if not (body.advocate_name or "").strip():
+        raise HTTPException(status_code=400, detail="advocate name is required")
+
+    rows = cases_storage.list_cases(user_id=user.id, limit=500) or []
+    unlinked = [r for r in rows if _needs_cnr(r)]
+    if not unlinked:
+        return {"ok": True, "unlinked": 0, "docket": 0, "matched": 0, "unmatched": 0,
+                "proposals": [], "note": "every matter is already linked to the court record"}
+
+    try:
+        docket = ecourts_client.import_by_advocate(
+            "", advocate_name=body.advocate_name, city=body.city,
+            court_code=body.court_code, state=body.state) or []
+    except Exception as e:  # noqa: BLE001 — network / vendor
+        log.warning("bulk resolve: advocate docket fetch failed: %s", e)
+        raise HTTPException(status_code=502, detail=f"could not read the court record: {e}")
+
+    # Index the docket by normalised case number so matching is local and free.
+    by_no: dict = {}
+    for c in docket:
+        for key in (ecourts_client._caseno_key(f"{c.get('case_number')}/{c.get('case_year')}"),
+                    ecourts_client._caseno_key(c.get("case_number"))):
+            if key:
+                by_no.setdefault(key, c)
+
+    proposals, unmatched = [], 0
+    for r in unlinked:
+        want = (ecourts_client._caseno_key(f"{r.get('case_number') or ''}/{r.get('case_year') or ''}")
+                or ecourts_client._caseno_key(r.get("case_number")))
+        hit = by_no.get(want) if want else None
+        if not hit:
+            unmatched += 1
+            continue
+        proposals.append({
+            "case_id": r["id"],
+            "current": {"party": (((r.get("case_json") or {}).get("client") or {}).get("name")
+                                  or r.get("case_title") or r.get("cnr") or "—"),
+                        "case_number": r.get("case_number"),
+                        "case_year": r.get("case_year"), "court_name": r.get("court_name"),
+                        "next_hearing_date": r.get("next_hearing_date")},
+            "proposed": {"cnr": hit.get("cnr"), "case_title": hit.get("case_title"),
+                         "court_name": hit.get("court_name"),
+                         "case_number": hit.get("case_number"), "case_year": hit.get("case_year"),
+                         "next_hearing_date": hit.get("next_hearing_date"),
+                         "stage": hit.get("stage")},
+        })
+    return {"ok": True, "unlinked": len(unlinked), "docket": len(docket),
+            "matched": len(proposals), "unmatched": unmatched, "proposals": proposals}
+
+
+class BulkConfirmItem(BaseModel):
+    case_id: str = Field(..., max_length=64)
+    cnr:     str = Field(..., min_length=16, max_length=32)
+
+
+class BulkConfirmBody(BaseModel):
+    items: list[BulkConfirmItem] = Field(default_factory=list)
+
+
+@router.post("/resolve-cnr/bulk/confirm",
+             summary="Apply the CNRs the lawyer ticked")
+def resolve_cnr_bulk_confirm(body: BulkConfirmBody,
+                             user: CurrentUser = Depends(get_current_user)) -> dict:
+    """Link each ticked matter to its court record. One failure is one matter —
+    a bad CNR must not undo the rest of the batch."""
+    linked, failed = 0, []
+    for it in (body.items or [])[:200]:
+        if cases_storage.get_case(it.case_id, user_id=user.id) is None:
+            failed.append({"case_id": it.case_id, "reason": "no such matter"})
+            continue
+        try:
+            fresh = ecourts_client.fetch_cnr(it.cnr.strip())
+        except Exception as e:  # noqa: BLE001
+            failed.append({"case_id": it.case_id, "reason": str(e)[:160]})
+            continue
+        # replace_case_identity preserves client + prep, so the folder, the
+        # hearing prep and the logs survive the upgrade.
+        if cases_storage.replace_case_identity(it.case_id, user_id=user.id, case=fresh) is None:
+            failed.append({"case_id": it.case_id, "reason": "could not save"})
+            continue
+        linked += 1
+    return {"ok": True, "linked": linked, "failed": failed}
+
+
 @router.post("/{case_id}/resolve-cnr",
              summary="Find the real eCourts CNR for a diary/manual matter (candidates)")
 def resolve_cnr_candidates(case_id: str, body: ResolveCnrBody,
@@ -1029,7 +1204,10 @@ def case_folder(case_id: str, user: CurrentUser = Depends(get_current_user)) -> 
     recordings = consult_storage.list_consultations(user_id=user.id, case_id=case_id)
     drafts = [d.to_dict() for d in draft_storage.list_drafts(user_id=user.id, case_id=case_id, limit=100)]
     documents = docs_storage.list_documents(user_id=user.id, case_id=case_id)
-    caselaw: list = []  # matter-linked case-law needs a Supabase matter_id column — deferred
+    # Authorities the lawyer saved against this matter (saved_caselaw.matter_id,
+    # migration 012) — "the law we found for this case" now lives in the case.
+    from headnote.api.saved_caselaw import list_for_matter
+    caselaw = list_for_matter(user.id, case_id)
 
     return {
         "case": _diary_item(row),

@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#ffffff" />
+<title>Diary — Headnote</title>
+<meta name="robots" content="noindex" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/static/style.css?v=20260705b" />
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+<style>
+  .hi{font-family:'Noto Sans Devanagari','Geist',sans-serif;}
+  .mono{font-family:'Geist Mono',ui-monospace,monospace;}
+  .diary-wrap{max-width:900px;}
+
+  /* page head */
+  .ph{margin-bottom:20px;}
+  .ph__eyebrow{font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);}
+  .ph h1{font-size:var(--t-2xl);font-weight:700;letter-spacing:-0.02em;margin:5px 0 5px;}
+  .ph p{font-size:var(--t-sm);color:var(--ink-2);max-width:560px;}
+
+  /* stat bar */
+  .stats{display:flex;border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow:hidden;margin-bottom:16px;box-shadow:var(--shadow-card);}
+  .stat{flex:1;padding:12px 18px;border-right:1px solid var(--line-2);}
+  .stat:last-child{border-right:0;}
+  .stat__n{font-size:20px;font-weight:600;letter-spacing:-.02em;}
+  .stat__l{font-size:11px;color:var(--ink-3);margin-top:1px;}
+
+  /* action bar */
+  .actbar{display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap;}
+  .actbar .input{flex:1;min-width:200px;padding:9px 13px;border-radius:8px;}
+
+  /* date nav + week strip */
+  .datenav{display:flex;align-items:center;gap:8px;margin-bottom:14px;}
+  .datenav__arrow{border:1px solid var(--line);background:var(--surface);width:32px;height:32px;border-radius:8px;cursor:pointer;color:var(--ink-2);font-size:15px;line-height:1;}
+  .datenav__arrow:hover{border-color:var(--ink);color:var(--ink);}
+  .datenav__today{border:1px solid var(--line);background:var(--surface);font:inherit;font-size:12px;color:var(--ink-2);padding:0 12px;height:32px;border-radius:8px;cursor:pointer;}
+  .datenav__today:hover{border-color:var(--ink);color:var(--ink);}
+  .datenav__range{font-family:'Geist Mono',monospace;font-size:11px;color:var(--ink-3);margin-left:auto;}
+  .week{display:flex;gap:7px;margin-bottom:18px;}
+  .week__d{flex:1;border:1px solid var(--line);border-radius:10px;padding:9px 4px 8px;text-align:center;cursor:pointer;background:var(--surface);transition:all .12s ease;}
+  .week__d:hover{border-color:var(--ink-3);transform:translateY(-1px);}
+  .week__d.sel{background:var(--ink);border-color:var(--ink);color:var(--surface);}
+  .week__d.today .week__num{color:#b7791f;}
+  .week__d.sel.today .week__num{color:#fff;}
+  .week__dow{font-family:'Geist Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);}
+  .week__d.sel .week__dow{color:rgba(255,255,255,.65);}
+  .week__num{font-size:16px;font-weight:600;margin-top:3px;letter-spacing:-.01em;}
+  .week__cnt{font-size:10px;color:var(--ink-3);margin-top:3px;}
+  .week__d.sel .week__cnt{color:rgba(255,255,255,.7);}
+  .undated-pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2);background:var(--soft);border:1px solid var(--line);border-radius:999px;padding:5px 12px;cursor:pointer;margin-bottom:16px;}
+  .undated-pill.sel{background:var(--ink);color:#fff;border-color:var(--ink);}
+
+  /* ledger (register / diary board) — columns mirror the paper diary */
+  .ledger{border:1px solid var(--line);border-radius:14px;background:var(--surface);overflow:hidden;box-shadow:var(--shadow-card);}
+  .regrow{display:grid;grid-template-columns:28px 104px 96px minmax(0,1fr) 118px;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line-2);}
+  .regrow:last-child{border-bottom:0;}
+  .reghead{background:#fbfbf8;font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);}
+  .lrow.regrow:hover{background:#fbfbf8;}
+  .lrow__sl{font-family:'Geist Mono',monospace;font-size:12px;color:var(--ink-3);}
+  .rc-mono{font-family:'Geist Mono',monospace;font-size:11.5px;color:var(--ink-2);min-width:0;overflow:hidden;text-overflow:ellipsis;}
+  .rc-name{font-size:14px;font-weight:600;letter-spacing:-.01em;min-width:0;overflow:hidden;text-overflow:ellipsis;}
+  .nxcell{display:flex;align-items:center;gap:6px;}
+  .nxcell .setnx{background:none;border:1px dashed var(--line);border-radius:6px;color:var(--ink-3);font-size:11px;padding:3px 7px;cursor:pointer;font-family:'Geist Mono',monospace;}
+  .nxcell .setnx:hover{border-color:var(--ink-3);color:var(--ink-2);}
+  .nxcell input{width:96px;font-family:'Geist Mono',monospace;font-size:11.5px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;}
+  .paneempty{text-align:center;color:var(--ink-3);font-size:13px;padding:30px 12px;}
+
+  /* inline OCR review (trust gate) */
+  .review{border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:18px 20px;margin-bottom:18px;box-shadow:var(--shadow-card);display:none;}
+  .review.on{display:block;}
+  .review__h{font-size:15px;font-weight:600;letter-spacing:-.01em;margin-bottom:4px;}
+  .review__eng{font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.04em;margin-bottom:8px;}
+  .review__sub{font-size:13px;color:var(--ink-2);line-height:1.55;margin-bottom:14px;}
+  .drtable{width:100%;border-collapse:collapse;font-size:13px;}
+  .drtable th{text-align:left;font-family:'Geist Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);padding:4px 6px;border-bottom:1px solid var(--line-2);}
+  .drtable td{padding:4px 6px;vertical-align:middle;}
+  .drtable .input{width:100%;min-width:90px;font-size:12.5px;padding:6px 8px;}
+  .drtable .input.flagd{background:#fff8e6;border-color:#e6c65c;}
+  .review__foot{display:flex;justify-content:space-between;align-items:center;margin-top:16px;gap:10px;}
+
+  /* first-run empty state */
+  .firstrun{border:1.5px dashed var(--line);border-radius:14px;background:var(--soft);padding:40px 24px;text-align:center;margin-bottom:8px;}
+  .firstrun .ic{width:46px;height:46px;border-radius:12px;background:var(--surface);border:1px solid var(--line);display:grid;place-items:center;margin:0 auto 14px;color:var(--ink-2);}
+  .firstrun h2{font-size:var(--t-lg);font-weight:600;letter-spacing:-.01em;}
+  .firstrun p{color:var(--ink-2);font-size:var(--t-sm);margin:6px auto 18px;max-width:420px;}
+
+  /* sign-in gate */
+  .signin{border:1px solid var(--line);border-radius:14px;background:var(--surface);box-shadow:var(--shadow-card);text-align:center;padding:46px 20px;}
+  .signin .ic{width:46px;height:46px;border-radius:12px;background:var(--soft);border:1px solid var(--line);display:grid;place-items:center;margin:0 auto 14px;color:var(--ink-2);}
+  .signin h2{font-size:var(--t-lg);font-weight:600;}
+  .signin p{color:var(--ink-2);margin:8px 0 20px;font-size:var(--t-sm);}
+
+  /* overlay */
+  .overlay{position:fixed;inset:0;background:rgba(250,249,246,.82);backdrop-filter:blur(2px);z-index:200;display:none;align-items:center;justify-content:center;}
+  .overlay.on{display:flex;}
+  .overlay__t{font-size:15px;font-weight:600;margin-top:16px;letter-spacing:-.01em;}
+  .overlay__s{font-size:12.5px;color:var(--ink-3);margin-top:4px;}
+  .spinner{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--ink);border-radius:50%;margin:0 auto;animation:spin .8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .hidden{display:none !important;}
+  @media(max-width:640px){
+    .regrow{grid-template-columns:24px minmax(0,1fr) 108px;gap:8px;}
+    .reg-hidem{display:none;}
+    .stats{flex-wrap:wrap;} .stat{min-width:50%;}
+  }
+</style>
+  <script src="/static/auth.js"></script>
+</head>
+<body class="auth-ready">
+<a href="#main" class="skip-link">Skip to content</a>
+
+<div class="shell">
+  <aside class="sidebar">
+    <div class="sidebar__brand"><a href="/" class="brand" aria-label="headnote home"><img src="/static/headnote-logo.svg" alt="headnote" class="brand__logo" style="height:20px;width:auto;display:block;" /></a></div>
+    <nav class="sidebar__nav" aria-label="Primary">
+      <a class="navitem" href="/app"><svg class="navicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg><span>research</span></a>
+      <a class="navitem" href="/drafter"><svg class="navicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4z"/></svg><span>drafting</span></a>
+      <a class="navitem is-active" href="/matters" aria-current="page"><svg class="navicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>matters</span></a>
+      <a class="navitem" href="/recorder"><svg class="navicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></svg><span>recorder</span></a>
+      <a class="navitem" href="/documents"><svg class="navicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h6"/></svg><span>documents</span></a>
+      <a class="navitem" href="/app"><svg class="navicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg><span>saved</span></a>
+      <a class="navitem" href="/sections"><svg class="navicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span>IPC → BNS</span></a>
+    </nav>
+    <div class="sidebar__footer"><a class="footer-link" href="/pricing">pricing &amp; plans</a></div>
+  </aside>
+
+  <main id="main" class="main">
+    <div class="diary-wrap">
+      <div class="ph">
+        <div class="ph__eyebrow">Matters</div>
+        <h1>Diary</h1>
+        <p>Shoot each day's cause-list page — Headnote types it into your diary. Move across dates, then email or download the day you need.</p>
+      </div>
+
+      <!-- sign-in gate -->
+      <div class="signin hidden" id="signin">
+        <div class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+        <h2>Sign in to Headnote first</h2>
+        <p>Your diary lives on your account so only you can see it.</p>
+        <a class="btn btn--primary" href="/app">Open Headnote</a>
+      </div>
+
+      <!-- the single diary screen -->
+      <div id="diaryApp" class="hidden">
+        <input type="file" id="diaryFile" accept="image/*,.heic,.heif,.webp,.tiff,.pdf,application/pdf" multiple style="display:none" />
+
+        <!-- first run: empty diary -->
+        <div class="firstrun hidden" id="firstRun">
+          <div class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L8 6H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-4l-1.5-2Z"/><circle cx="12" cy="13" r="3.2"/></svg></div>
+          <h2>Your diary is empty</h2>
+          <p>Shoot today's cause-list page and Headnote will type it into your diary. You can add more pages any day.</p>
+          <button class="btn btn--primary" onclick="openPhoto()">Add from photo</button>
+        </div>
+
+        <!-- inline OCR review (trust gate) -->
+        <div class="review" id="review">
+          <div class="review__h">Check the page before it's saved</div>
+          <div class="review__eng mono" id="drEngine"></div>
+          <div class="review__sub">We read your diary page(s). Each row lands on its own <b>page date</b>, so a photo of the 16 July page fills your 16 July list. <b>Amber</b> cells are worth a second look — fix anything misread, then save. Nothing is added until you do.</div>
+          <div class="fld" style="max-width:230px;margin-bottom:12px">
+            <label style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3)">Default date (rows with no page date)</label>
+            <input id="dpage" class="input mono" placeholder="dd/mm/yyyy" style="margin-top:5px" />
+          </div>
+          <div style="overflow-x:auto"><table class="drtable" id="drtable"></table></div>
+          <div class="review__foot">
+            <button class="btn" onclick="addReviewRow()">+ Add a row</button>
+            <div style="display:flex;gap:10px">
+              <button class="btn" onclick="cancelReview()">Cancel</button>
+              <button class="btn btn--primary" id="drSave" onclick="saveDiaryReview()">Save to diary</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="stats" id="stats"></div>
+
+        <div class="actbar">
+          <input class="input" id="dfilter" placeholder="Search this day — party, case no. or court…" />
+          <button class="btn btn--primary" onclick="openPhoto()">Add from photo</button>
+          <button class="btn" title="Download this day's cause list as a PDF" onclick="downloadDayPDF()">⬇ Download</button>
+          <button class="btn" title="Email this day's list to yourself" onclick="emailDay()">✉ Email this day</button>
+        </div>
+
+        <div class="datenav">
+          <button class="datenav__arrow" title="Previous week" onclick="shiftWeek(-7)">‹</button>
+          <button class="datenav__arrow" title="Next week" onclick="shiftWeek(7)">›</button>
+          <button class="datenav__today" onclick="goToday()">Today</button>
+          <span class="datenav__range" id="range"></span>
+        </div>
+        <div class="week" id="week"></div>
+        <div id="undatedWrap"></div>
+        <div class="ledger" id="board"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="overlay" id="overlay"><div><div class="spinner"></div><div class="overlay__t" id="overlayT">Working…</div><div class="overlay__s" id="overlayS">This can take up to a minute.</div></div></div>
+<div class="toasts" id="toasts"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+
+/* ---- auth + helpers (same as the app) ---- */
+/* A Supabase access token expires after about an hour, and ONLY the Supabase
+   client refreshes it. This page used to read the stored token straight out of
+   localStorage, so a browser that had been open (or was simply revisited the
+   next day) sent a dead token, got a 401, and drew an EMPTY diary — which reads
+   exactly like "you have no matters". Keep H() synchronous (it has many callers
+   here) and instead keep the cached token warm well inside its lifetime. */
+let _tok=null;
+function storedToken(){ try{ for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i);
+  if(/sb-.*-auth-token/.test(k)){ const v=JSON.parse(localStorage.getItem(k)); if(v&&v.access_token) return v.access_token; if(Array.isArray(v)&&v[0]) return v[0]; } } }catch(e){} return null; }
+function authToken(){ return _tok||storedToken(); }
+async function refreshToken(){
+  try{
+    if(window.headnoteAuth&&typeof window.headnoteAuth.getAccessToken==='function'){
+      const t=await window.headnoteAuth.getAccessToken();
+      if(t){ _tok=t; return t; }
+    }
+  }catch(e){}
+  _tok=storedToken();
+  return _tok;
+}
+setInterval(refreshToken, 5*60*1000);
+function H(json){ const h=json?{'Content-Type':'application/json'}:{}; const t=authToken(); if(t) h.Authorization='Bearer '+t; return h; }
+/* Never hand an error body to a renderer. A 401 parsed as JSON becomes
+   {detail:"..."} — .items is undefined, .days is undefined, and the screen goes
+   quietly blank. Say what actually happened instead. */
+function sessionExpired(){
+  toast('Your session expired — please sign in again','error');
+  setTimeout(()=>{ location.href='/app'; }, 1800);
+}
+async function getJSON(url){
+  const r=await fetch(url,{headers:H()});
+  if(r.status===401){ sessionExpired(); throw new Error('session expired'); }
+  if(!r.ok) throw new Error('Request failed ('+r.status+')');
+  return r.json();
+}
+function esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function toast(m,kind){ const t=document.createElement('div'); t.className='toast'+(kind?' toast--'+kind:''); t.textContent=m; $('#toasts').appendChild(t); setTimeout(()=>t.remove(),3200); }
+function showOverlay(t,s){ $('#overlayT').textContent=t||'Working…'; $('#overlayS').textContent=s||'This can take up to a minute.'; $('#overlay').classList.add('on'); }
+function hideOverlay(){ $('#overlay').classList.remove('on'); }
+const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function parseISO(s){ const [y,m,d]=(s||'').split('-').map(Number); return new Date(y,(m||1)-1,d||1); }
+function fmtDay(iso){ const d=parseISO(iso); return `${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}`; }
+function isoToDMY(iso){ const d=parseISO(iso); const p=n=>String(n).padStart(2,'0'); return `${p(d.getDate())}/${p(d.getMonth()+1)}/${d.getFullYear()}`; }
+function shortCourt(s){ return (s||'').replace(/^न्यायालय\s*/,''); }
+function partyName(item){ const cj=item.case_json||{}, cl=cj.client||{};
+  if(cl.name) return cl.name;
+  const bad=x=> x && /राज्य|state|म\.?प्र\.?|u\.?p\.?|मध्य|union of india/i.test(x);
+  const r=cj.respondent_name, p=cj.petitioner_name;
+  if(r && !bad(r)) return r; if(p && !bad(p)) return p;
+  return item.case_title || item.cnr; }
+
+const DEMO = /[?&]demo=1/.test(location.search);
+let CASES=[], DIARY=null, selDate=null, weekAnchor=null;
+
+/* ========================= LOAD ========================= */
+async function loadAll(){
+  if(DEMO){ seedDemo(); renderDiary(); return; }
+  await refreshToken();
+  try{ CASES=(await getJSON('/api/cases')).items||[]; }
+  catch(e){ if(String(e.message)!=='session expired') toast('Could not load matters','error'); CASES=[]; return; }
+  try{ await loadDiary(weekAnchor); }
+  catch(e){ if(String(e.message)!=='session expired') toast('Could not load the diary','error'); }
+}
+async function loadDiary(anchor){
+  const q=anchor?('?from_='+encodeURIComponent(anchor)):'';
+  DIARY=await getJSON('/api/cases/diary'+q);
+  weekAnchor=DIARY.from;
+  if(!selDate || !DIARY.days.some(d=>d.date===selDate)){
+    selDate = DIARY.days.some(d=>d.date===DIARY.today) ? DIARY.today : (DIARY.days[0]&&DIARY.days[0].date);
+  }
+  renderDiary();
+}
+
+/* ========================= RENDER ========================= */
+function renderDiary(){
+  if(!DIARY) return;
+  $('#firstRun').classList.toggle('hidden', CASES.length>0);
+  const todayCount=(DIARY.days.find(d=>d.date===DIARY.today)||{}).count||0;
+  $('#stats').innerHTML=[
+    ['Today',todayCount],['This week',DIARY.total],['Undated',(DIARY.undated||[]).length],
+  ].map(([l,n])=>`<div class="stat"><div class="stat__n">${n}</div><div class="stat__l">${l}</div></div>`).join('');
+  $('#range').textContent = `${fmtDay(DIARY.from)} — ${fmtDay(DIARY.to)}`;
+  $('#week').innerHTML=DIARY.days.map(d=>{ const dt=parseISO(d.date);
+    return `<div class="week__d${d.date===selDate?' sel':''}${d.date===DIARY.today?' today':''}" onclick="pickDay('${d.date}')">
+      <div class="week__dow">${DOW[dt.getDay()]}</div><div class="week__num">${dt.getDate()}</div>
+      <div class="week__cnt">${d.count||'—'}</div></div>`; }).join('');
+  $('#undatedWrap').innerHTML = (DIARY.undated||[]).length
+    ? `<div class="undated-pill${selDate==='__undated'?' sel':''}" onclick="pickDay('__undated')">⚑ ${DIARY.undated.length} matter(s) with no next date — set one</div>` : '';
+  renderBoard();
+}
+function shiftWeek(delta){ if(DEMO){ return; } const d=parseISO(weekAnchor); d.setDate(d.getDate()+delta);
+  const iso=d.toISOString().slice(0,10); selDate=null; loadDiary(iso); }
+function goToday(){ if(DIARY){ selDate=DIARY.today; if(DEMO){ renderDiary(); } else { loadDiary(DIARY.today); } } }
+function pickDay(d){ selDate=d; renderDiary(); }
+function dayItems(){ if(selDate==='__undated') return DIARY.undated||[];
+  return (DIARY.days.find(d=>d.date===selDate)||{}).items||[]; }
+
+const REGHEAD=`<div class="regrow reghead"><div>#</div><div class="reg-hidem">Court · न्याया.</div><div class="reg-hidem">Case no. · प्र.क्र.</div><div>Party · शीर्षक</div><div>Next date · आगे दि.</div></div>`;
+function renderBoard(){
+  const q=($('#dfilter').value||'').toLowerCase().trim();
+  let items=dayItems();
+  if(q) items=items.filter(c=>JSON.stringify(c).toLowerCase().includes(q));
+  if(!items.length){ $('#board').innerHTML=`<div class="paneempty">Nothing listed for ${selDate==='__undated'?'undated matters':fmtDay(selDate||DIARY.today)}. <br><span style="font-size:12px">Shoot this day's page to fill it.</span></div>`; return; }
+  $('#board').innerHTML=REGHEAD + items.map((c,i)=>lrow(c,i)).join('');
+}
+function lrow(c,i){
+  const court=shortCourt(c.court_name||(c.case_json||{}).court_name)||'—';
+  const cno=c.case_number?esc(c.case_number)+(c.case_year?'/'+esc(c.case_year):''):'—';
+  const title=partyName(c);
+  const nx = c.next_hearing_date
+    ? `<span class="rc-mono hi" onclick="editNx('${c.id}',${i})" style="cursor:pointer" title="Click to change">${esc(c.next_hearing_date)}</span>`
+    : `<button class="setnx" onclick="editNx('${c.id}',${i})">+ set date</button>`;
+  return `<div class="lrow regrow" id="row${i}">
+    <div class="lrow__sl">${String(i+1).padStart(2,'0')}</div>
+    <div class="rc-mono hi reg-hidem">${esc(court)}</div>
+    <div class="rc-mono reg-hidem">${cno}</div>
+    <div class="rc-name hi">${esc(title)}</div>
+    <div class="nxcell" id="nx${i}">${nx}</div>
+  </div>`;
+}
+function editNx(id,i){
+  const cell=$('#nx'+i); if(!cell) return;
+  const cur=(dayItems().find(c=>c.id===id)||{}).next_hearing_date||'';
+  cell.innerHTML=`<input class="mono" id="nxi${i}" value="${esc(cur)}" placeholder="dd/mm/yyyy"><button class="iconbtn" title="Save" onclick="saveNx('${id}',${i})" style="width:30px;height:28px;border:1px solid var(--line);border-radius:6px;background:var(--surface);cursor:pointer">✓</button>`;
+  const el=$('#nxi'+i); el.focus(); el.select();
+  el.addEventListener('keydown',ev=>{ if(ev.key==='Enter') saveNx(id,i); });
+}
+async function saveNx(id,i){
+  const v=($('#nxi'+i)&&$('#nxi'+i).value.trim())||'';
+  if(!v){ renderBoard(); return; }
+  if(DEMO){ const it=dayItems().find(c=>c.id===id); if(it) it.next_hearing_date=v; renderBoard(); toast('Next date set · '+v,'success'); return; }
+  try{ const r=await fetch(`/api/cases/${id}/set-next-date`,{method:'POST',headers:H(true),body:JSON.stringify({next_hearing_date:v})});
+    if(!r.ok) throw new Error((await r.json()).detail||'save failed');
+    toast('Next date set · '+v,'success'); await loadAll();
+  }catch(e){ toast(e.message,'error'); }
+}
+$('#dfilter').addEventListener('input',renderBoard);
+
+/* ========================= UPLOAD → INLINE REVIEW ========================= */
+function openPhoto(){ if(DEMO){ demoUpload(); return; } const el=$('#diaryFile'); if(el){ el.value=''; el.click(); } }
+let DROWS=[];
+$('#diaryFile').addEventListener('change', async (e)=>{
+  const files=[...(e.target.files||[])]; if(!files.length) return;
+  showOverlay('Reading your diary…', files.length>1?`Transcribing ${files.length} pages — up to a minute each.`:'Transcribing the page — this can take up to a minute.');
+  DROWS=[]; const engs=new Set(); const errs=[]; let pages=0;
+  try{
+    for(const f of files){
+      const fd=new FormData(); fd.append('file',f);
+      const r=await fetch('/api/cases/import/diary-photo',{method:'POST',headers:H(),body:fd});
+      const d=await r.json(); if(!r.ok) throw new Error(d.detail||'read failed');
+      const pd=d.page_date||'';
+      (d.rows||[]).forEach(row=>DROWS.push({page_date:pd,court:row.court||'',case_no:row.case_no||'',
+        title:row.title||'',proceeding:row.proceeding||'',last_date:row.last_date||'',next_date:row.next_date||'',flags:row.flags||[]}));
+      engs.add((d.engine||'').toLowerCase()); if(d.sarvam_error) errs.push(d.sarvam_error); pages++;
+    }
+    if(!DROWS.length){ toast("Couldn't read case rows — try clearer photos",'error'); return; }
+    const eng=engs.has('gemini')?'gemini':([...engs][0]||'fallback');
+    $('#drEngine').innerHTML = eng==='gemini'
+      ? `<span style="color:#1a7f4b">● read by Gemini vision — ${pages} page(s)</span>`
+      : `<span style="color:#c0392b">⚠ Gemini NOT active — used "${esc(eng)}"${errs[0]?' ('+esc(errs[0])+')':''}. Set GEMINI_API_KEY on the server.</span>`;
+    const dts=[...new Set(DROWS.map(r=>r.page_date).filter(Boolean))];
+    $('#dpage').value = dts.length===1 ? dts[0] : '';
+    openReview();
+    toast(`Read ${DROWS.length} case(s) from ${pages} page(s) — check and save`, eng==='gemini'?'success':'error');
+  }catch(e){ toast(e.message,'error'); } finally{ hideOverlay(); }
+});
+function openReview(){ $('#review').classList.add('on'); renderReview(); window.scrollTo({top:0,behavior:'smooth'}); }
+const DRHEAD=`<thead><tr><th>Page date</th><th>Court / judge</th><th>Case no.</th><th>Party</th><th>Prev date</th><th>Next date</th><th></th></tr></thead>`;
+function drInput(i,field,val,flag){ return `<td><input class="input${flag?' flagd':''}" value="${esc(val)}" oninput="drEdit(${i},'${field}',this.value)"></td>`; }
+function renderReview(){
+  const t=$('#drtable'); if(!t) return;
+  t.innerHTML=DRHEAD+'<tbody>'+DROWS.map((r,i)=>{
+    const fl=f=>(r.flags||[]).includes(f);
+    return `<tr>
+      ${drInput(i,'page_date',r.page_date||'',false)}
+      ${drInput(i,'court',r.court,fl('court'))}
+      ${drInput(i,'case_no',r.case_no,fl('case_no'))}
+      ${drInput(i,'title',r.title,fl('title'))}
+      ${drInput(i,'last_date',r.last_date,false)}
+      ${drInput(i,'next_date',r.next_date,false)}
+      <td style="text-align:center"><button class="iconbtn" style="width:30px;height:28px;border:1px solid var(--line);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--ink-3)" title="Remove row" onclick="delReviewRow(${i})">✕</button></td>
+    </tr>`;
+  }).join('')+'</tbody>';
+}
+function drEdit(i,field,val){ if(DROWS[i]){ DROWS[i][field]=val; DROWS[i].flags=(DROWS[i].flags||[]).filter(f=>f!==field); } }
+function addReviewRow(){ DROWS.push({page_date:$('#dpage').value.trim()||'',court:'',case_no:'',title:'',proceeding:'',last_date:'',next_date:'',flags:[]}); renderReview(); }
+function delReviewRow(i){ DROWS.splice(i,1); renderReview(); }
+function cancelReview(){ DROWS=[]; $('#review').classList.remove('on'); }
+async function saveDiaryReview(){
+  const rows=DROWS.filter(r=>(r.case_no||'').trim()||(r.title||'').trim());
+  if(!rows.length){ toast('Nothing to save','error'); return; }
+  const dflt=$('#dpage').value.trim()||null;
+  if(DEMO){ demoSave(rows,dflt); return; }
+  const b=$('#drSave'); b.disabled=true; b.textContent='Saving…';
+  showOverlay('Saving to your diary…','Filing these onto their dates.');
+  try{
+    const r=await fetch('/api/cases/import/diary-confirm',{method:'POST',headers:H(true),
+      body:JSON.stringify({page_date:dflt,
+        rows:rows.map(x=>({case_no:x.case_no,court:x.court,title:x.title,proceeding:x.proceeding,last_date:x.last_date,next_date:x.next_date,page_date:(x.page_date||'').trim()||dflt}))})});
+    const d=await r.json(); if(!r.ok) throw new Error(d.detail||'save failed');
+    const extra=d.logged?` · ${d.logged} added to existing matters`:'';
+    toast(`Saved ${d.imported} case(s)${extra}`,'success');
+    cancelReview(); await loadAll();
+  }catch(e){ toast(e.message,'error'); } finally{ b.disabled=false; b.textContent='Save to diary'; hideOverlay(); }
+}
+
+/* ========================= DOWNLOAD (per-day PDF, same as app) ========================= */
+function downloadDayPDF(){
+  const items=dayItems();
+  const dayLabel = selDate==='__undated' ? 'Undated matters' : fmtDay(selDate||DIARY.today);
+  if(!items.length){ toast('Nothing to download for this day','error'); return; }
+  const rowsHtml=items.map((c,i)=>{
+    const court=shortCourt(c.court_name||'')||'—';
+    const cno=c.case_number?esc(c.case_number)+(c.case_year?'/'+esc(c.case_year):''):'—';
+    const prev=((c.case_json||{}).last_listed_date)||'';
+    return `<tr><td>${i+1}</td><td>${esc(court)}</td><td class="m">${cno}</td><td>${esc(partyName(c))}</td><td class="m">${esc(prev)||'—'}</td><td class="nd"></td></tr>`;
+  }).join('');
+  const blanks=Array.from({length:3},(_,k)=>`<tr class="blank"><td>${items.length+k+1}</td><td></td><td class="m"></td><td></td><td class="m"></td><td class="nd"></td></tr>`).join('');
+  const logo=location.origin+'/static/headnote-logo.svg';
+  const html=`<!doctype html><html><head><meta charset="utf-8"><title>Cause list — ${esc(dayLabel)}</title><style>
+   @page{margin:16mm 14mm;} *{box-sizing:border-box;} body{font-family:Georgia,serif;color:#1a1a1a;margin:0;}
+   .wm{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-24deg);opacity:.06;width:72%;z-index:0;pointer-events:none;}
+   .hd{display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1a1a1a;padding-bottom:10px;margin-bottom:16px;position:relative;z-index:1;}
+   .hd img{height:24px;} .hd .t{text-align:right;} .hd .t b{font-size:16px;display:block;}
+   .hd .date{display:inline-block;margin-top:5px;background:#ffe58a;padding:3px 12px;border-radius:4px;font-weight:bold;font-size:14px;font-family:monospace;letter-spacing:.02em;}
+   .hd .cnt{font-size:11px;color:#555;font-family:monospace;margin-top:4px;}
+   table{width:100%;border-collapse:collapse;position:relative;z-index:1;font-size:12.5px;}
+   th{text-align:left;font-family:monospace;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:#555;border-bottom:1px solid #999;padding:7px 8px;}
+   th.ndh{width:26%;}
+   td{padding:11px 8px;border-bottom:1px solid #ddd;vertical-align:top;} td:first-child{color:#999;width:26px;} .m{font-family:monospace;font-size:11.5px;}
+   tr.blank td{height:30px;}
+   .ft{margin-top:20px;font-size:10px;color:#999;font-family:monospace;text-align:center;position:relative;z-index:1;}
+  </style></head><body>
+   <img class="wm" src="${logo}" alt="">
+   <div class="hd"><img src="${logo}" alt="headnote"><div class="t"><b>Cause List</b><span class="date">${esc(dayLabel)}</span><span class="cnt">${items.length} matter(s)</span></div></div>
+   <table><thead><tr><th>#</th><th>Court / Judge</th><th>Case No.</th><th>Party</th><th>Prev Date</th><th class="ndh">Next Date</th></tr></thead><tbody>${rowsHtml}${blanks}</tbody></table>
+   <div class="ft">Generated by headnote · headnote.in</div>
+   <scr`+`ipt>window.onload=function(){setTimeout(function(){window.print();},400);};<\/scr`+`ipt>
+  </body></html>`;
+  const w=window.open('','_blank'); if(!w){ toast('Allow pop-ups to download the PDF','error'); return; }
+  w.document.open(); w.document.write(html); w.document.close();
+}
+
+/* ========================= EMAIL (this day, to the lawyer's own inbox) ========================= */
+async function emailDay(){
+  const items=dayItems();
+  if(!items.length){ toast('Nothing to email for this day','error'); return; }
+  const page_date = selDate==='__undated' ? '' : isoToDMY(selDate||DIARY.today);
+  const rows=items.map(c=>({
+    case_no: c.case_number?(c.case_number+(c.case_year?'/'+c.case_year:'')):'',
+    title: partyName(c), court: shortCourt(c.court_name||''), next_date: c.next_hearing_date||''
+  }));
+  if(DEMO){ toast('Email runs on the live server — not in this preview','error'); return; }
+  showOverlay('Emailing your list…','Sending this day to your inbox.');
+  try{
+    const r=await fetch('/api/cases/diary/email',{method:'POST',headers:H(true),body:JSON.stringify({rows,page_date})});
+    const d=await r.json();
+    if(d.ok){ toast('Emailed to '+d.to,'success'); }
+    else if(d.reason==='email_not_configured'){ toast('Email is off on this server — download instead','error'); }
+    else { toast('Could not email that','error'); }
+  }catch(e){ toast('Could not email that','error'); } finally{ hideOverlay(); }
+}
+
+/* ========================= DEMO (preview without a backend) ========================= */
+function seedDemo(){
+  const today=new Date(); today.setHours(0,0,0,0);
+  const iso=d=>{ const p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; };
+  const dowMon=(today.getDay()+6)%7; const mon=new Date(today); mon.setDate(today.getDate()-dowMon);
+  const days=[]; for(let i=0;i<7;i++){ const d=new Date(mon); d.setDate(mon.getDate()+i); days.push({date:iso(d),count:0,items:[]}); }
+  let n=0; const mk=(court,no,yr,party,next,prev)=>({id:'demo'+(++n),court_name:court,case_number:no,case_year:yr,case_title:party,next_hearing_date:next||'',case_json:{last_listed_date:prev||'',client:{}}});
+  const put=(offset,items)=>{ const d=days[offset]; if(d){ d.items=items; d.count=items.length; } };
+  put(dowMon,[ mk('Court 9 / Sh. Verma','5677','24','State v. Ramesh Kumar','','16/07/2026'),
+               mk('JMFC Court 3','882','25','Jeetu @ Shivcharan v. State','','16/07/2026'),
+               mk('II ADJ / Sh. Gupta','1123','23','Dulari Bai v. Ramratan','','02/07/2026') ]);
+  if(days[dowMon+1]) put(dowMon+1,[ mk('Commercial Court','441','24','M/s Sona Traders v. Union Bank','','09/07/2026') ]);
+  if(days[dowMon+2]) put(dowMon+2,[ mk('Court 6 / Sh. Rao','77','25','Anita v. Suresh','','11/07/2026'),
+                                     mk('Family Court','305','24','Rekha v. Mahesh','','04/07/2026') ]);
+  CASES=days.flatMap(d=>d.items);
+  DIARY={ today:iso(today), from:days[0].date, to:days[6].date, days, undated:[], total:CASES.length };
+  selDate=iso(today);
+}
+function demoUpload(){
+  showOverlay('Reading your diary…','Demo — transcribing a sample page.');
+  setTimeout(()=>{ hideOverlay();
+    DROWS=[
+      {page_date:'25/07/2026',court:'Court 9 / Sh. Verma',case_no:'5677/24',title:'State v. Ramesh Kumar',proceeding:'',last_date:'16/07/2026',next_date:'',flags:[]},
+      {page_date:'25/07/2026',court:'II ADJ / Sh. Gupta',case_no:'1123/23',title:'Dulari Bai v. Ramratan',proceeding:'',last_date:'02/07/2026',next_date:'',flags:['court']},
+      {page_date:'25/07/2026',court:'JMFC Court 3',case_no:'882/25',title:'Jeetu @ Shivcharan v. State',proceeding:'',last_date:'16/07/2026',next_date:'',flags:[]}
+    ];
+    $('#drEngine').innerHTML='<span style="color:#1a7f4b">● read by Gemini vision — 1 page (demo)</span>';
+    $('#dpage').value='25/07/2026';
+    openReview();
+    toast('Read 3 case(s) — check and save','success');
+  },700);
+}
+function demoSave(rows,dflt){
+  showOverlay('Saving to your diary…','Demo.');
+  setTimeout(()=>{ hideOverlay();
+    const d=DIARY.days.find(x=>x.date===DIARY.today)||DIARY.days[0];
+    let n=CASES.length;
+    rows.forEach(x=>{ const [no,yr]=(x.case_no||'').split('/'); const it={id:'demo'+(++n),court_name:x.court,case_number:no||x.case_no,case_year:yr||'',case_title:x.title,next_hearing_date:x.next_date||'',case_json:{last_listed_date:x.last_date||'',client:{}}}; d.items.push(it); CASES.push(it); });
+    d.count=d.items.length; DIARY.total=CASES.length; selDate=d.date;
+    cancelReview(); renderDiary(); toast(`Saved ${rows.length} case(s)`,'success');
+  },600);
+}
+
+/* ========================= BOOT ========================= */
+function boot(){
+  if(!DEMO && !authToken()){ $('#signin').classList.remove('hidden'); return; }
+  $('#diaryApp').classList.remove('hidden');
+  loadAll();
+}
+boot();
+</script>
+</body>
+</html>

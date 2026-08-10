@@ -139,6 +139,13 @@ def _sb_replace_identity(case_id, user_id, case: dict) -> Optional[dict]:
     merged = dict(case)
     if cj.get("client"):
         merged["client"] = {**(case.get("client") or {}), **cj["client"]}
+    # The lawyer's OWN work lives under keys the court never sends. Replacing a
+    # matter's identity (e.g. upgrading a diary row to a real CNR) must not throw
+    # away the hearing prep — the purpose, the "prepared" tick, the assigned
+    # junior, the board position — or the file silently regresses to unprepared.
+    for k in ("prep", "last_listed_date"):
+        if cj.get(k) is not None and case.get(k) is None:
+            merged[k] = cj[k]
     payload = {
         "cnr": merged.get("cnr"), "case_title": merged.get("case_title"),
         "court_name": merged.get("court_name"), "case_number": merged.get("case_number"),
@@ -169,6 +176,18 @@ def _sb_update_client(case_id, user_id, client: dict) -> Optional[dict]:
         return None
     cj = row["case_json"] or {}
     cj["client"] = {**(cj.get("client") or {}), **(client or {})}
+    _supabase.update(_CASES, {"case_json": cj, "updated_at": _now()},
+                     params={"id": f"eq.{case_id}", "user_id": f"eq.{user_id}"})
+    return _sb_get_case(case_id, user_id)
+
+
+def _sb_merge_prep(case_id, user_id, prep: dict) -> Optional[dict]:
+    row = _sb_get_case(case_id, user_id)
+    if row is None:
+        return None
+    cj = row["case_json"] or {}
+    merged = {**(cj.get("prep") or {}), **(prep or {})}
+    cj["prep"] = {k: v for k, v in merged.items() if v is not None}
     _supabase.update(_CASES, {"case_json": cj, "updated_at": _now()},
                      params={"id": f"eq.{case_id}", "user_id": f"eq.{user_id}"})
     return _sb_get_case(case_id, user_id)
@@ -390,6 +409,9 @@ def _sq_replace_identity(case_id, user_id, case: dict) -> Optional[dict]:
     merged = dict(case)
     if cj.get("client"):
         merged["client"] = {**(case.get("client") or {}), **cj["client"]}
+    for k in ("prep", "last_listed_date"):      # see the note in _sb_replace_identity
+        if cj.get(k) is not None and case.get(k) is None:
+            merged[k] = cj[k]
     try:
         with _conn() as c:
             c.execute(
@@ -430,6 +452,22 @@ def _sq_update_client(case_id, user_id, client: dict) -> Optional[dict]:
         return None
     cj = row["case_json"] or {}
     cj["client"] = {**(cj.get("client") or {}), **(client or {})}
+    with _conn() as c:
+        c.execute(
+            "UPDATE cases SET case_json = ?, updated_at = ? WHERE id = ? AND user_id IS ?",
+            (json.dumps(cj, ensure_ascii=False), _now(), case_id, user_id),
+        )
+        c.commit()
+    return _sq_get_case(case_id, user_id)
+
+
+def _sq_merge_prep(case_id, user_id, prep: dict) -> Optional[dict]:
+    row = _sq_get_case(case_id, user_id)
+    if row is None:
+        return None
+    cj = row["case_json"] or {}
+    merged = {**(cj.get("prep") or {}), **(prep or {})}
+    cj["prep"] = {k: v for k, v in merged.items() if v is not None}
     with _conn() as c:
         c.execute(
             "UPDATE cases SET case_json = ?, updated_at = ? WHERE id = ? AND user_id IS ?",
@@ -560,6 +598,19 @@ def update_client(case_id: str, *, user_id: Optional[str], client: dict) -> Opti
     if _use_sb():
         return _sb_update_client(case_id, user_id, client)
     return _sq_update_client(case_id, user_id, client)
+
+
+def merge_prep(case_id: str, *, user_id: Optional[str], prep: dict) -> Optional[dict]:
+    """Merge the hearing-preparation block into case_json.prep.
+
+    Carries the court's purpose for the next hearing, the lawyer's explicit
+    "prepared" tick, the junior it is assigned to, and the board position —
+    the inputs the readiness rules and the Home hub read. Keys set to None are
+    removed, so unassigning a junior is just {"assignee": None}.
+    """
+    if _use_sb():
+        return _sb_merge_prep(case_id, user_id, prep)
+    return _sq_merge_prep(case_id, user_id, prep)
 
 
 def set_next_date(case_id: str, *, user_id: Optional[str],

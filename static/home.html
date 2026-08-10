@@ -1,0 +1,2093 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<meta name="robots" content="noindex">
+<title>Home — Headnote</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;450;500;600;700&family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#ffffff;--surface:#ffffff;--raise:#fcfcfb;
+  --ink:#0c0c0a;--ink-2:#4b4b48;--ink-3:#8a8a82;--ink-4:#b8b6ae;
+  --line:#e7e7e4;--line-2:#f1f1ef;--soft:#f6f6f4;
+  --amber:#b7791f;--amber-soft:#fdf5e6;--amber-line:#eddcb8;
+  --red:#b0392b;--red-soft:#fbeeec;--green:#2f8f57;--green-soft:#ecf6ef;--green-line:#cfe8d8;
+  --r:10px;--r-lg:16px;--r-sm:8px;
+  --shadow:0 1px 2px rgba(12,12,10,.05);--shadow-card:0 1px 2px rgba(12,12,10,.05),0 1px 1px rgba(12,12,10,.03);
+  --lift:0 16px 34px -22px rgba(12,12,10,.26);--ease:cubic-bezier(.16,1,.3,1);
+  --sans:'Geist',-apple-system,'Segoe UI',sans-serif;--mono:'Geist Mono',ui-monospace,monospace;--hi:'Noto Sans Devanagari','Geist',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer;border:0;background:none;color:inherit}
+input{font-family:inherit}
+.mono{font-family:var(--mono)}.hi{font-family:var(--hi)}
+::selection{background:#eaeae4}
+.btn{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:500;padding:9px 14px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--surface);color:var(--ink);transition:.14s var(--ease);white-space:nowrap}
+.btn:hover{border-color:#d4d2cb;background:var(--raise)}
+.btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.7}
+.btn--primary{background:var(--ink);color:#fff;border-color:var(--ink)}.btn--primary:hover{background:#000}
+.btn--sm{padding:7px 11px;font-size:12.5px}
+.hidden{display:none!important}
+
+/* shell */
+.app{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+.sb{border-right:1px solid var(--line);padding:20px 12px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;background:var(--raise)}
+.sb .brand{display:flex;align-items:center;gap:9px;padding:4px 8px 20px}
+.sbtog{margin-left:auto;width:28px;height:28px;border-radius:7px;display:grid;place-items:center;color:var(--ink-4);transition:.14s}
+.sbtog:hover{background:#eeece5;color:var(--ink-2)}
+.sbtog svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.7}
+/* collapsed sidebar */
+body.sb-min .app{grid-template-columns:66px 1fr}
+body.sb-min .sb{padding:20px 9px}
+body.sb-min .sb .brand{padding:4px 0 20px;justify-content:center;position:relative}
+body.sb-min .sb .brand .wm,body.sb-min .sb .lbl,body.sb-min .nvt,body.sb-min .sb .user>div:not(.av){display:none}
+body.sb-min .sb .brand .mk{display:grid}
+body.sb-min .sbtog{position:absolute;left:0;right:0;top:34px;margin:0 auto}
+body.sb-min .navi{justify-content:center;padding:10px 0}
+body.sb-min .navi .kbd{display:none}
+body.sb-min .kbtn{justify-content:center;padding:10px 0;width:100%}
+body.sb-min .sb .user{justify-content:center;padding:8px 0}
+body.sb-min .sb .brand{margin-bottom:26px}
+/* The wordmark is the brand in the expanded rail; the monogram takes over when
+   the rail collapses to 66px, where a 91x16 wordmark would be illegible. */
+.sb .brand .mk{width:25px;height:25px;border-radius:7px;background:var(--ink);color:#fff;display:none;place-items:center;font-weight:700;font-size:14px}
+.sb .brand .wm{height:17px;width:auto;display:block}
+.sb .lbl{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-4);margin:10px 10px 6px}
+.navi{display:flex;align-items:center;gap:11px;padding:8px 11px;border-radius:var(--r-sm);color:var(--ink-2);font-size:13.5px;font-weight:500;width:100%;text-align:left;transition:.14s}
+.navi svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;flex:none}
+.navi:hover{background:#eeece5;color:var(--ink)}.navi.on{background:var(--ink);color:#fff}.navi.on svg{stroke:#fff}
+.sb .kbtn{display:flex;align-items:center;gap:8px;margin:14px 4px 4px;padding:9px 11px;border:1px solid var(--line);border-radius:var(--r-sm);color:var(--ink-3);font-size:12.5px;background:var(--surface);width:calc(100% - 8px)}
+.sb .kbtn:hover{border-color:#d4d2cb;color:var(--ink-2)}
+.sb .kbtn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.7}
+.sb .kbtn .k{margin-left:auto;font-family:var(--mono);font-size:10px;border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+.navi .nvt{flex:1;text-align:left}
+.sb .grow{flex:1}
+.sb .user{display:flex;align-items:center;gap:9px;padding:8px;border-radius:var(--r-sm)}
+.sb .user .av{width:29px;height:29px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:600}
+.sb .user .u{font-size:13px;font-weight:500;line-height:1.15}.sb .user .r{font-size:10.5px;color:var(--ink-3);font-family:var(--mono)}
+.main{min-width:0}.mtop{display:none}
+.wrap{padding:24px 32px 90px;max-width:1560px}
+
+.hhead{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:18px}
+.hhead .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.hhead h1{font-size:24px;font-weight:700;letter-spacing:-.025em;margin-top:5px}
+.hhead .sub{font-size:13.5px;color:var(--ink-2);margin-top:6px}.hhead .sub b{color:var(--ink);font-weight:600}
+.hhead .hacts{display:flex;gap:8px;flex:none}
+.mtabs{display:none}
+
+/* stat strip (demoted) */
+.strip{display:flex;gap:0;border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow:hidden;box-shadow:var(--shadow-card);margin-bottom:16px}
+.strip .s{flex:1;padding:12px 16px;border-right:1px solid var(--line-2);cursor:pointer;transition:.14s;display:flex;align-items:baseline;gap:8px}
+.strip .s:last-child{border-right:0}
+.strip .s:hover{background:var(--raise)}
+.strip .s .n{font-size:19px;font-weight:700;letter-spacing:-.02em}
+.strip .s .l{font-size:11.5px;color:var(--ink-3)}
+.strip .s.warn .n{color:var(--amber)}
+.strip .s .tag{margin-left:auto;font-family:var(--mono);font-size:9px;color:var(--amber);background:var(--amber-soft);border:1px solid var(--amber-line);border-radius:999px;padding:2px 6px;align-self:center}
+/* hero summary band (upper Home) — summary before detail */
+.heroband{background:linear-gradient(180deg,#fbfbf8 0%,var(--surface) 60%);border:1px solid var(--line);border-radius:18px;padding:22px 26px;box-shadow:var(--shadow-card);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:20px;align-items:center;margin-bottom:16px}
+.hmain .hk{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.hmain .hk svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.7}
+.heroband{grid-template-columns:minmax(0,1.55fr) minmax(0,1fr)}
+.hverdict{display:flex;align-items:baseline;gap:4px;margin-top:14px;flex-wrap:wrap}
+.hverdict .hv-n{font-size:58px;font-weight:700;letter-spacing:-.05em;line-height:.82;font-variant-numeric:tabular-nums}
+.hverdict .hv-of{font-size:26px;font-weight:600;color:var(--ink-4);letter-spacing:-.03em;margin-right:12px}
+.hverdict .hv-t{font-size:15px;color:var(--ink-2);font-weight:500}
+.hgap{display:flex;align-items:center;gap:10px;width:100%;text-align:left;margin-top:16px;padding:11px 13px;border-radius:11px;border:1px solid var(--amber-line);background:var(--amber-soft);transition:.14s var(--ease)}
+.hgap:hover{box-shadow:0 6px 16px -8px rgba(183,121,31,.5)}
+.hgap .gi svg{width:17px;height:17px;stroke:var(--amber);fill:none;stroke-width:1.8;display:block}
+.hgap .gt{flex:1;font-size:13px;color:#7d5514;min-width:0}.hgap .gt b{color:#5d3d0a;font-weight:600}
+.hgap .gx{font-family:var(--mono);font-size:10.5px;color:var(--amber);white-space:nowrap}
+.hgap.ok{border-color:var(--green-line);background:var(--green-soft);cursor:default}
+.hgap.ok .gi svg{stroke:var(--green)}.hgap.ok .gt{color:#215f3b}
+.hroute{display:flex;align-items:center;gap:7px;margin-top:16px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.hroute::-webkit-scrollbar{display:none}
+.rt{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:7px 11px;border-radius:9px;border:1px solid var(--line);background:var(--surface);transition:.14s var(--ease);white-space:nowrap;position:relative}
+.rt:hover{border-color:var(--ink);transform:translateY(-1px);box-shadow:var(--shadow-card)}
+.rt::before{content:"";position:absolute;top:8px;right:8px;width:5px;height:5px;border-radius:50%}
+.rt.ok::before{background:var(--green)}.rt.warn::before{background:var(--amber)}
+.rt-c{font-size:12.5px;font-weight:600;letter-spacing:-.01em;padding-right:12px}
+.rt-m{font-family:var(--mono);font-size:10px;color:var(--ink-3)}
+.rt-a{color:var(--ink-4);font-size:12px;flex:none}
+.hmain{min-width:0}
+.hside{display:flex;min-width:0}
+.hnotes{flex:1;min-width:0;border:1px solid var(--line);border-radius:14px;background:var(--raise);padding:16px 17px;display:flex;flex-direction:column}
+.hn-k{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.hn-k svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.7}
+.hn-s{font-size:13px;color:var(--ink-2);margin-top:10px;line-height:1.55}.hn-s b{color:var(--ink);font-weight:600}
+.hn-b{margin-top:14px;width:100%;justify-content:center}
+.hn-m{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.hn-f{font-family:var(--mono);font-size:10px;color:var(--amber);background:var(--amber-soft);border:1px solid var(--amber-line);border-radius:999px;padding:3px 9px}
+.hn-f.ok{color:var(--green);background:var(--green-soft);border-color:var(--green-line)}
+.rn{font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink-2)}
+/* week nav (single date control) */
+.wknav{display:flex;align-items:center;gap:6px}
+.wkb{width:32px;height:34px;border:1px solid var(--line);border-radius:8px;background:var(--surface);display:grid;place-items:center;color:var(--ink-2);transition:.14s}
+.wkb:hover{border-color:var(--ink);color:var(--ink)}
+.wkb svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.9}
+.wkt{height:34px;padding:0 13px;border:1px solid var(--line);border-radius:8px;background:var(--surface);font-size:12.5px;font-weight:500;color:var(--ink-2);transition:.14s}
+.wkt:hover{border-color:var(--ink);color:var(--ink)}
+.wkm{font-size:13.5px;font-weight:600;letter-spacing:-.01em;min-width:118px;text-align:center}
+.dfil{display:inline-flex;background:var(--soft);border:1px solid var(--line);border-radius:9px;padding:3px;margin-left:auto}
+.dfil button{border:0;background:transparent;color:var(--ink-3);font-family:var(--mono);font-size:10px;letter-spacing:.04em;text-transform:uppercase;font-weight:500;padding:6px 11px;border-radius:6px;transition:.15s}
+.dfil button.on{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.cgrp{display:flex;align-items:center;gap:9px;padding:9px 16px;background:var(--raise);border-bottom:1px solid var(--line-2);position:sticky;top:0;z-index:2}
+.cgrp .cn{font-family:var(--mono);font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-2);font-weight:500}
+.cgrp .cc{font-family:var(--mono);font-size:9px;color:var(--ink-4);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:1px 6px}
+.showing{font-family:var(--mono);font-size:10.5px;color:var(--ink-3)}
+.wkc{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink-3);cursor:pointer}
+.wkc svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.7}
+.wkc input{border:0;outline:0;font-family:var(--mono);font-size:11.5px;color:var(--ink);background:transparent;width:112px;cursor:pointer}
+/* prepared + assignee */
+.prep{display:flex;flex-direction:column;gap:14px}
+.prepchk{display:flex;align-items:flex-start;gap:11px;text-align:left;width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:11px;background:var(--surface);transition:.14s var(--ease)}
+.prepchk:hover{border-color:var(--ink-3)}
+.prepchk.on{border-color:var(--green-line);background:var(--green-soft)}
+.pbox{width:20px;height:20px;border-radius:6px;border:1.6px solid var(--line);display:grid;place-items:center;flex:none;margin-top:1px;background:var(--surface)}
+.prepchk.on .pbox{background:var(--green);border-color:var(--green)}
+.pbox svg{width:12px;height:12px;stroke:#fff;fill:none;stroke-width:2.6}
+.prepchk .pl b{display:block;font-size:13.5px;font-weight:600;letter-spacing:-.01em}
+.prepchk.on .pl b{color:#215f3b}
+.prepchk .pl small{display:block;font-size:11.5px;color:var(--ink-3);margin-top:2px}
+.asgk{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:7px}
+.asgr{margin-bottom:8px}
+.asgn{font-size:12.5px;color:var(--ink-4)}
+.asgc{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:500;border:1px solid var(--line);border-radius:999px;padding:4px 5px 4px 4px;background:var(--surface)}
+.asgc button{width:18px;height:18px;border-radius:50%;color:var(--ink-4);font-size:10px}
+.asgc button:hover{background:var(--soft);color:var(--red)}
+.av2{width:22px;height:22px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;font-size:9.5px;font-weight:700;font-family:var(--mono)}
+.av3{display:inline-grid;place-items:center;width:19px;height:19px;border-radius:50%;background:var(--soft);border:1px solid var(--line);color:var(--ink-2);font-size:8.5px;font-weight:700;font-family:var(--mono);margin-left:5px;vertical-align:2px}
+.asgp{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.jchip{font-size:11.5px;color:var(--ink-2);border:1px dashed var(--line);border-radius:999px;padding:4px 10px;transition:.13s}
+.jchip:hover{border-style:solid;border-color:var(--ink);color:var(--ink)}
+.asgi{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12.5px;outline:0}
+.asgi:focus{border-color:var(--ink)}
+.prapwrap{border:1px solid var(--line);border-radius:13px;padding:14px 15px;background:var(--raise);max-width:520px}
+/* diary row tick */
+.tick{width:19px;height:19px;border-radius:6px;border:1.5px solid var(--line);background:var(--surface);display:grid;place-items:center;flex:none;margin-right:8px;transition:.13s}
+.tick:hover{border-color:var(--green)}
+.tick.on{background:var(--green);border-color:var(--green)}
+.tick svg{width:11px;height:11px;stroke:#fff;fill:none;stroke-width:2.8}
+/* note sheet switcher */
+.nswitch{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--raise);margin-bottom:20px}
+.nsw-l{display:flex;align-items:center;gap:11px}
+.nsw-d{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+.nsw-r{display:flex;gap:7px;flex-wrap:wrap;flex:1}
+.nsw-e{font-size:12.5px;color:var(--ink-4)}
+.nsw-r{align-items:center;gap:8px;flex:none}
+.msel{height:34px;border:1px solid var(--line);border-radius:8px;background:var(--surface);font-family:inherit;font-size:13px;font-weight:500;color:var(--ink);padding:0 8px;max-width:260px;outline:0;cursor:pointer}
+.msel:focus{border-color:var(--ink)}
+.nsw-c{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);white-space:nowrap}
+.wkb[disabled]{opacity:.35;cursor:default}
+.wkb[disabled]:hover{border-color:var(--line);color:var(--ink-2)}
+.mchip{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;color:var(--ink-2);border:1px solid var(--line);border-radius:999px;padding:6px 13px;background:var(--surface);transition:.14s var(--ease)}
+.mchip:hover{border-color:var(--ink);color:var(--ink)}
+.mchip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.mtick{color:var(--green);font-size:11px;font-weight:700}
+.mchip.on .mtick{color:#8fe0aa}
+/* ===== note sheet (document view) ===== */
+.nsheet{max-width:880px}
+.nhead{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:20px;align-items:start;padding-bottom:20px;border-bottom:2px solid var(--ink)}
+.nhead .nk{font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.ntitle{font-size:24px;font-weight:700;letter-spacing:-.025em;margin:8px 0 9px;line-height:1.18}
+.nmeta{display:flex;flex-wrap:wrap;gap:5px 16px;font-family:var(--mono);font-size:11.5px;color:var(--ink-3)}
+.npurpose{margin-top:11px;font-size:14px;color:var(--ink-2)}.npurpose b{color:var(--ink)}
+.nsrc{display:inline-flex;align-items:center;gap:7px;margin-top:13px;font-family:var(--mono);font-size:10px;letter-spacing:.03em;color:var(--green);background:var(--green-soft);border:1px solid var(--green-line);border-radius:999px;padding:4px 10px}
+.nsrc svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.8}
+.nsrc.hand{color:#3f5ba8;background:#eef1fd;border-color:#d3dcf6}
+.nsrc.warn{color:var(--amber);background:var(--amber-soft);border-color:var(--amber-line)}
+.nacts{display:flex;flex-direction:column;gap:8px;flex:none}
+.nacts .btn{justify-content:flex-start}
+.nempty{border:1.5px dashed var(--line);border-radius:16px;background:var(--soft);padding:44px 28px;text-align:center;margin-top:24px}
+.nempty .ic{width:48px;height:48px;border-radius:14px;background:var(--surface);border:1px solid var(--line);display:grid;place-items:center;margin:0 auto 14px}
+.nempty .ic svg{width:22px;height:22px;stroke:var(--ink-2);fill:none;stroke-width:1.6}
+.nempty .et{font-size:17px;font-weight:600;letter-spacing:-.01em}
+.nempty .es{font-size:13.5px;color:var(--ink-2);max-width:460px;margin:8px auto 18px;line-height:1.6}
+.nempty .eb{display:flex;gap:9px;justify-content:center;flex-wrap:wrap}
+.ncount{font-family:var(--mono);font-size:9.5px;color:var(--ink-4);background:var(--soft);border-radius:5px;padding:1px 6px;letter-spacing:0}
+.nsec{margin:26px 0}
+.ntab{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.ntr{display:grid;grid-template-columns:98px minmax(0,1fr) auto;gap:14px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line-2)}
+.ntr:last-child{border-bottom:0}
+.ntr .nd{font-family:var(--mono);font-size:11.5px;color:var(--ink);font-variant-numeric:tabular-nums}
+.ntr .nev{font-size:13.5px;color:var(--ink-2)}
+.nsrc2{font-family:var(--mono);font-size:9px;letter-spacing:.04em;color:var(--ink-4);border:1px solid var(--line);border-radius:999px;padding:2px 7px;white-space:nowrap}
+.nsrc2.court{color:var(--green);border-color:var(--green-line);background:var(--green-soft)}
+.npts{margin:0;padding-left:20px;counter-reset:p}
+.npts li{font-size:14px;color:var(--ink);line-height:1.6;margin-bottom:11px;padding-left:4px}
+.npts .pt{font-weight:450}
+.pcite{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:9.5px;color:var(--green);background:var(--green-soft);border:1px solid var(--green-line);border-radius:999px;padding:2px 8px;margin-left:7px;white-space:nowrap;vertical-align:1.5px}
+.pcite svg{width:10px;height:10px;stroke:currentColor;fill:none;stroke-width:2.4}
+.pcite.un{color:var(--amber);background:var(--amber-soft);border-color:var(--amber-line)}
+.nhint{font-size:12px;color:var(--ink-3);margin-top:2px}
+.nprov{display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;flex-wrap:wrap}
+.nprov .pv1{font-family:var(--mono);font-size:12.5px;font-weight:500;min-width:112px}
+.nprov .pv2{font-size:13px;color:var(--ink-2);flex:1;min-width:140px}
+.nopp{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.oprow{display:grid;grid-template-columns:1fr 1.25fr;gap:0;border-bottom:1px solid var(--line-2)}
+.oprow:last-child{border-bottom:0}
+.op-q{padding:12px 14px;font-size:13.5px;color:var(--ink-2);background:var(--amber-soft);border-right:1px solid var(--amber-line)}
+.op-a{padding:12px 14px;font-size:13.5px;color:var(--ink)}
+.npb{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.pbr{display:flex;justify-content:space-between;gap:14px;padding:10px 14px;border-bottom:1px solid var(--line-2);font-size:13.5px}
+.pbr:last-child{border-bottom:0}.pbr .mono{color:var(--ink-3);font-size:11.5px}
+.nask{margin:0;padding-left:20px}.nask li{font-size:13.5px;color:var(--ink-2);margin-bottom:6px}
+.nafter textarea{width:100%;min-height:74px;border:1px solid var(--line);border-radius:11px;padding:11px 13px;font-size:13.5px;font-family:inherit;outline:0;resize:vertical}
+.nafter textarea:focus{border-color:var(--ink)}
+.nar{display:flex;gap:9px;margin-top:10px;flex-wrap:wrap;align-items:center}
+.nfoot{margin-top:28px;padding-top:16px;border-top:1px solid var(--line-2);font-size:11.5px;color:var(--ink-3);line-height:1.6}
+/* scan / OCR review */
+.scbox{width:min(660px,94vw);max-height:88vh;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 36px 80px -24px rgba(12,12,10,.44);display:flex;flex-direction:column;overflow:hidden}
+.schead{display:flex;align-items:flex-start;justify-content:space-between;padding:18px 20px 15px;border-bottom:1px solid var(--line-2)}
+.scht{font-size:17px;font-weight:600;letter-spacing:-.015em;margin-top:4px}
+.scbody{padding:18px 20px;overflow:auto}
+.scdrop{border:1.5px dashed var(--line);border-radius:14px;background:var(--soft);padding:40px 24px;text-align:center;cursor:pointer;transition:.15s}
+.scdrop:hover{border-color:var(--ink-3);background:#f2f2ef}
+.scdrop .ic{width:46px;height:46px;border-radius:13px;background:var(--surface);border:1px solid var(--line);display:grid;place-items:center;margin:0 auto 13px}
+.scdrop .ic svg{width:21px;height:21px;stroke:var(--ink-2);fill:none;stroke-width:1.6}
+.scdrop .st{font-size:16px;font-weight:600;letter-spacing:-.01em}
+.scdrop .ss{font-size:13px;color:var(--ink-2);margin:7px auto 16px;max-width:340px;line-height:1.55}
+.scdrop .sn{font-family:var(--mono);font-size:10px;color:var(--ink-4);margin-top:12px}
+.scload{padding:52px 20px;text-align:center}
+.scload .st{font-size:15.5px;font-weight:600;margin-top:16px}
+.scload .ss{font-size:12.5px;color:var(--ink-3);margin-top:5px}
+.spin{width:32px;height:32px;border:3px solid var(--line);border-top-color:var(--ink);border-radius:50%;margin:0 auto;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.scengine{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10.5px;color:var(--green);background:var(--green-soft);border:1px solid var(--green-line);border-radius:999px;padding:4px 11px}
+.scengine svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2.2}
+.scnote{font-size:13px;color:var(--ink-2);margin:12px 0 14px;line-height:1.55}
+.scrow{display:grid;grid-template-columns:26px minmax(0,1fr) 30px;gap:9px;align-items:center;margin-bottom:7px}
+.scn{font-family:var(--mono);font-size:11px;color:var(--ink-4)}
+.scin{width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:13.5px;outline:0}
+.scin:focus{border-color:var(--ink)}
+.scin.flagd{background:var(--amber-soft);border-color:var(--amber-line)}
+.scx{width:28px;height:28px;border-radius:7px;border:1px solid var(--line);color:var(--ink-4);font-size:11px}
+.scx:hover{border-color:var(--red);color:var(--red)}
+.scadd{font-family:var(--mono);font-size:11px;color:var(--ink-3);border:1px dashed var(--line);border-radius:8px;padding:7px 12px;margin-top:4px}
+.scadd:hover{border-color:var(--ink-3);color:var(--ink-2)}
+.scan-an{margin-top:20px;border:1px solid var(--line);border-radius:13px;padding:15px 16px;background:var(--raise)}
+.anh{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);margin-bottom:12px}
+.anh svg{width:14px;height:14px;stroke:var(--ink-3);fill:none;stroke-width:1.8}
+.anr{display:flex;gap:10px;font-size:13px;color:var(--ink-2);line-height:1.55;padding:9px 0;border-top:1px solid var(--line-2)}
+.anr:first-of-type{border-top:0}
+.anr b{color:var(--ink);font-weight:600}
+.anr .ai{flex:none;width:20px;height:20px;border-radius:6px;display:grid;place-items:center;margin-top:1px}
+.anr .ai svg{width:12px;height:12px;fill:none;stroke-width:2.2}
+.anr.ok .ai{background:var(--green-soft)}.anr.ok .ai svg{stroke:var(--green)}
+.anr.warn .ai{background:var(--amber-soft)}.anr.warn .ai svg{stroke:var(--amber)}
+.scfoot{display:flex;justify-content:flex-end;gap:9px;margin-top:18px;padding-top:15px;border-top:1px solid var(--line-2)}
+.nsec .nh{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px}
+.nsec .nh svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.7;flex:none}
+.nsec .nb{font-size:13.5px;color:var(--ink-2);line-height:1.62}
+.nsec ul{margin:0;padding-left:17px}.nsec li{font-size:13.5px;color:var(--ink-2);line-height:1.6;margin-bottom:6px}
+.nflag{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9.5px;color:var(--amber);background:var(--amber-soft);border:1px solid var(--amber-line);border-radius:999px;padding:2px 7px;margin-left:6px;vertical-align:1px}
+.ncarry{display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid var(--line-2);font-size:13px}
+.ncarry:last-child{border-bottom:0}
+.ncarry .cb{width:16px;height:16px;border-radius:5px;border:1.5px solid var(--line);flex:none}
+.ncarry.has .cb{background:var(--green);border-color:var(--green);position:relative}
+.ncarry.has .cb::after{content:"✓";position:absolute;inset:0;color:#fff;font-size:10px;display:grid;place-items:center;font-weight:700}
+
+/* HUB two-pane */
+.hub{display:block}
+.fband{border:1px solid var(--line);border-radius:14px;background:var(--surface);box-shadow:var(--shadow-card);padding:13px 16px;margin-bottom:18px}
+.fbh{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);margin-bottom:11px}
+.fbh svg{width:14px;height:14px;stroke:var(--amber);fill:none;stroke-width:1.8}
+.fbn{font-family:var(--mono);font-size:9.5px;color:var(--amber);background:var(--amber-soft);border:1px solid var(--amber-line);border-radius:999px;padding:1px 7px}
+.fbl{display:flex;gap:9px;flex-wrap:wrap}
+.fchip{display:flex;align-items:center;gap:9px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);transition:.14s var(--ease);text-align:left}
+.fchip:hover{border-color:var(--ink);transform:translateY(-1px);box-shadow:var(--shadow-card)}
+.fchip .fi{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;flex:none}
+.fchip.log .fi{background:var(--red-soft)}.fchip.log .fi svg{stroke:var(--red)}
+.fchip.date .fi{background:var(--amber-soft)}.fchip.date .fi svg{stroke:var(--amber)}
+.fchip .fi svg{width:14px;height:14px;fill:none;stroke-width:1.8}
+.fchip .fb{display:flex;flex-direction:column;min-width:0}
+.fchip .ft{font-size:13px;font-weight:600;letter-spacing:-.01em}
+.fchip .fs{font-family:var(--mono);font-size:10px;color:var(--ink-3)}
+.lane .lane-h{display:flex;align-items:baseline;justify-content:space-between;margin:2px 2px 12px}
+.lane .lane-h .t{font-size:16px;font-weight:600;letter-spacing:-.01em}
+.lane .lane-h .c{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+.cgroup{margin-bottom:14px}
+.cghead{display:flex;align-items:center;gap:8px;padding:0 2px 8px}
+.cghead .nm{font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3)}
+.cghead .ln{flex:1;height:1px;background:var(--line-2)}
+.cgcard{border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface);overflow:hidden;box-shadow:var(--shadow-card)}
+.wrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line-2);cursor:pointer;transition:background .12s;position:relative}
+.wrow:last-child{border-bottom:0}
+.wrow:hover{background:var(--raise)}
+.wrow .who{min-width:0}
+.wrow .party{font-size:14.5px;font-weight:600;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
+.wrow .party .party-nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wrow .meta{font-family:var(--mono);font-size:11px;color:var(--ink-3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wrow .right{display:flex;align-items:center;gap:10px}
+.rdy{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:500;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.rdy i{width:5px;height:5px;border-radius:50%}
+.rdy.ready{color:var(--green);background:var(--green-soft);border:1px solid var(--green-line)}.rdy.ready i{background:var(--green)}
+.rdy.warn{color:var(--amber);background:var(--amber-soft);border:1px solid var(--amber-line)}.rdy.warn i{background:var(--amber)}
+.upnext{font-family:var(--mono);font-size:9px;letter-spacing:.05em;text-transform:uppercase;color:#fff;background:var(--ink);border-radius:5px;padding:2px 6px}
+.wacts{display:flex;gap:3px;opacity:0;transition:.14s}
+.wrow:hover .wacts{opacity:1}
+.wacts button{width:29px;height:29px;border-radius:7px;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;color:var(--ink-3);transition:.13s}
+.wacts button:hover{border-color:var(--ink);color:var(--ink);background:#fff}
+.wacts svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.7}
+.chev{width:16px;height:16px;stroke:var(--ink-4);fill:none;stroke-width:1.7;flex:none}
+.lane-empty{border:1.5px dashed var(--line);border-radius:var(--r-lg);background:var(--soft);padding:34px;text-align:center;color:var(--ink-3);font-size:13px}
+
+/* right rail */
+.rail{display:flex;flex-direction:column;gap:14px}
+.rpanel{border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface);box-shadow:var(--shadow-card);overflow:hidden}
+.rpanel .rh{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px}
+.rpanel .rh .t{font-size:13.5px;font-weight:600;letter-spacing:-.01em}
+.rpanel .rh .badge{font-family:var(--mono);font-size:10px;color:var(--amber);background:var(--amber-soft);border:1px solid var(--amber-line);border-radius:999px;padding:2px 8px}
+.rpanel .rh .badge.n{color:var(--ink-3);background:var(--soft);border-color:var(--line)}
+.task{display:flex;align-items:center;gap:11px;padding:11px 16px;border-top:1px solid var(--line-2);cursor:pointer;transition:.12s}
+.task:hover{background:var(--raise)}
+.task .ic{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;flex:none}
+.task .ic.log{background:var(--red-soft);color:var(--red)}.task .ic.date{background:var(--amber-soft);color:var(--amber)}.task .ic.draft{background:#eef1fd;color:#3f63c6}.task .ic.doc{background:var(--soft);color:var(--ink-2)}
+.task .ic svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8}
+.task .bd{flex:1;min-width:0}
+.task .tt{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.task .ts{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:1px}
+.task .go{font-family:var(--mono);font-size:10px;color:var(--ink-4)}
+.rempty{padding:20px 16px;text-align:center;color:var(--ink-3);font-size:12.5px;border-top:1px solid var(--line-2)}
+.wk{display:flex;gap:5px;padding:12px 14px 14px}
+.wk .d{flex:1;text-align:center;cursor:pointer;border-radius:8px;padding:6px 2px 7px;transition:.13s}
+.wk .d:hover{background:var(--raise)}
+.wk .dow{font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-4)}
+.wk .bar{height:34px;display:flex;align-items:flex-end;justify-content:center;margin:5px 0 4px}
+.wk .bar span{width:70%;max-width:20px;background:var(--soft);border-radius:4px;min-height:3px}
+.wk .d.has .bar span{background:var(--ink)}
+.wk .d.today .bar span{background:var(--amber)}
+.wk .num{font-size:11px;font-weight:600}
+.wk .d.today .num{color:var(--amber)}
+.recent{display:flex;align-items:center;gap:10px;padding:10px 16px;border-top:1px solid var(--line-2);cursor:pointer;transition:.12s}
+.recent:hover{background:var(--raise)}
+.recent .fo{width:26px;height:26px;border-radius:7px;background:var(--ink);display:grid;place-items:center;flex:none}
+.recent .fo svg{width:13px;height:13px;stroke:#fff;fill:none;stroke-width:1.7}
+.recent .nm{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.recent .mt{font-family:var(--mono);font-size:10px;color:var(--ink-3)}
+
+/* ===== DIARY (reused component) ===== */
+.diarysec{margin-top:28px}
+.sect-lbl{display:flex;align-items:center;gap:10px;margin:6px 0 14px}
+.sect-lbl span{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+.sect-lbl .rule{flex:1;height:1px;background:var(--line-2)}
+.dtools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.seg{display:inline-flex;background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:3px}
+.seg button{border:0;background:transparent;color:var(--ink-2);font-size:13px;font-weight:500;padding:6px 14px;border-radius:7px;transition:.18s var(--ease)}
+.seg button.on{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.jump{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:var(--r-sm);padding:0 10px;height:34px;background:var(--surface);color:var(--ink-3);font-size:12.5px}
+.jump svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.7}
+.jump input{border:0;outline:0;font-family:var(--mono);font-size:12px;color:var(--ink);background:transparent;width:120px}
+.dsearch{flex:1;min-width:180px;display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:var(--r-sm);padding:0 12px;height:34px;background:var(--surface)}
+.dsearch svg{width:14px;height:14px;stroke:var(--ink-3);fill:none;stroke-width:1.7}
+.dsearch input{border:0;outline:0;font-size:13px;width:100%;background:transparent}
+/* Date navigation. The seven-card week strip is gone: reaching a date four
+   months out meant seventeen clicks of a ‹ arrow, seven days at a time. The
+   day a lawyer wants is almost always yesterday, today or tomorrow — those are
+   one tap now — and anything else is one click through the calendar. */
+.dseg{display:inline-flex;background:var(--soft);border:1px solid var(--line);border-radius:var(--r-sm);padding:3px;flex:none}
+.dseg button{border:0;background:transparent;color:var(--ink-2);font-size:12.5px;font-weight:500;padding:5px 13px;border-radius:6px;transition:.16s var(--ease);white-space:nowrap}
+.dseg button:hover{color:var(--ink)}
+.dseg button.on{background:var(--surface);color:var(--ink);box-shadow:var(--shadow);font-weight:600}
+.dpick{position:relative;flex:none}
+.datebtn{height:34px;padding:0 12px;display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface);font-size:13px;font-weight:600;color:var(--ink);transition:.14s}
+.datebtn:hover{border-color:var(--ink)}
+.datebtn svg{width:15px;height:15px;stroke:var(--ink-3);fill:none;stroke-width:1.8}
+.datebtn .chev{width:12px;height:12px;stroke:var(--ink-4)}
+.cal{position:absolute;top:calc(100% + 6px);left:0;z-index:60;width:290px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 26px 64px -20px rgba(12,12,10,.36);padding:12px;display:none}
+.cal.on{display:block}
+.calh{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:9px}
+.calh .m{font-size:13px;font-weight:600;letter-spacing:-.01em}
+.calg{display:grid;grid-template-columns:repeat(7,1fr);gap:1px}
+.calg .dw{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);text-align:center;padding-bottom:5px}
+.cald{position:relative;height:33px;border:0;border-radius:7px;background:transparent;font-size:12.5px;color:var(--ink);transition:.12s}
+.cald:hover{background:var(--soft)}
+.cald.off{color:var(--ink-4)}
+.cald.today{color:var(--amber);font-weight:700}
+.cald.sel{background:var(--ink);color:#fff;font-weight:600}
+.cald i{position:absolute;left:50%;transform:translateX(-50%);bottom:4px;width:4px;height:4px;border-radius:50%;background:var(--ink-3)}
+.cald.today i{background:var(--amber)}
+.cald.sel i{background:rgba(255,255,255,.9)}
+.calf{display:flex;align-items:center;justify-content:space-between;margin-top:9px;padding-top:9px;border-top:1px solid var(--line-2);font-size:12px;color:var(--ink-3)}
+/* three-day view: one heading per day, so nothing is hidden behind a tab */
+.d3h{display:flex;align-items:baseline;gap:10px;margin:22px 0 9px}
+.d3h:first-child{margin-top:0}
+.d3h .t{font-size:14px;font-weight:600;letter-spacing:-.01em;flex:none}
+.d3h .n{font-family:var(--mono);font-size:11px;color:var(--ink-3);flex:none}
+.d3h .rule{flex:1;height:1px;background:var(--line-2)}
+/* matters whose date has passed with no new date — they used to vanish */
+.odue{display:flex;align-items:center;gap:10px;border:1px solid var(--amber-line);background:var(--amber-soft);border-radius:var(--r-sm);padding:9px 13px;margin-bottom:14px;font-size:12.5px;color:var(--amber);cursor:pointer;width:100%;text-align:left}
+.odue svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8;flex:none}
+.odue b{font-weight:600}
+.odue .gx{margin-left:auto;font-weight:500;white-space:nowrap}
+.odue.link{background:var(--soft);border-color:var(--line);color:var(--ink-2)}
+.odue.link b{color:var(--ink)}
+.odue.link svg{stroke:var(--ink-3)}
+/* search across every matter, not just the day on screen */
+.msearch{position:relative;margin-bottom:18px}
+.msbox{display:flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:var(--r-sm);padding:0 13px;height:40px;background:var(--surface);transition:.14s}
+.msbox:focus-within{border-color:var(--ink)}
+.msbox svg{width:16px;height:16px;stroke:var(--ink-3);fill:none;stroke-width:1.8;flex:none}
+.msbox input{border:0;outline:0;font-size:14px;width:100%;background:transparent}
+.msbox .k{font-family:var(--mono);font-size:10px;color:var(--ink-4);border:1px solid var(--line);border-radius:5px;padding:2px 6px;flex:none}
+.msres{position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:58;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 26px 64px -20px rgba(12,12,10,.36);max-height:330px;overflow:auto;display:none}
+.msres.on{display:block}
+.msr{display:flex;align-items:center;gap:11px;padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--line-2)}
+.msr:last-child{border-bottom:0}
+.msr:hover,.msr.sel{background:var(--soft)}
+.msr .nm{font-size:13.5px;font-weight:500;color:var(--ink)}
+.msr .mt{font-family:var(--mono);font-size:11px;color:var(--ink-3);margin-top:2px}
+.msr .dt{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink-3);flex:none;text-align:right}
+.msnone{padding:16px 14px;font-size:13px;color:var(--ink-3);text-align:center}
+.undated-pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--amber);background:var(--amber-soft);border:1px solid var(--amber-line);border-radius:999px;padding:5px 12px;cursor:pointer;margin-bottom:14px}
+.undated-pill.sel{background:var(--amber);color:#fff;border-color:var(--amber)}
+.daybar{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px}
+.listacts{display:flex;gap:7px;flex-wrap:wrap}
+.listacts .btn{height:30px;padding:0 11px;font-size:12px}
+.listacts .btn svg{width:13px;height:13px}
+.daybar .dt{font-size:15px;font-weight:600;letter-spacing:-.01em}
+.daybar .dt small{font-family:var(--mono);font-size:11px;font-weight:400;color:var(--ink-3);margin-left:8px}
+.daybar .cnt{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+.ledger{border:1px solid var(--line);border-radius:14px;background:var(--surface);overflow:hidden;box-shadow:var(--shadow-card)}
+.regrow{display:grid;grid-template-columns:26px 1fr .62fr 1.75fr .68fr .8fr 118px;gap:13px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line-2)}
+.prepcol{display:flex;justify-content:flex-end}
+.reghead .prepcol{justify-content:flex-end}
+.tickb{display:inline-flex;align-items:center;gap:7px;padding:5px 10px 5px 7px;border:1px solid var(--line);border-radius:999px;background:var(--surface);transition:.14s var(--ease);white-space:nowrap}
+.tickb:hover{border-color:var(--green);background:var(--green-soft)}
+.tickb .tk{width:17px;height:17px;border-radius:5px;border:1.5px solid var(--line);display:grid;place-items:center;flex:none;background:var(--surface)}
+.tickb .tk svg{width:11px;height:11px;stroke:#fff;fill:none;stroke-width:2.8}
+.tickb .tl{font-family:var(--mono);font-size:9.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3);font-weight:500}
+.tickb:hover .tl{color:var(--green)}
+.tickb.on{border-color:var(--green-line);background:var(--green-soft)}
+.tickb.on .tk{background:var(--green);border-color:var(--green)}
+.tickb.on .tl{color:var(--green)}
+.regrow:last-child{border-bottom:0}
+.reghead{background:var(--raise);font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3)}
+.lrow.regrow{transition:background .12s}.lrow.regrow:hover{background:var(--raise)}
+.lrow__sl{font-family:var(--mono);font-size:12px;color:var(--ink-4)}
+.rc-mono{font-family:var(--mono);font-size:11.5px;color:var(--ink-2);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rc-name{font-size:14px;font-weight:600;letter-spacing:-.01em;min-width:0;cursor:pointer;display:flex;align-items:center;gap:2px;flex-wrap:wrap}
+.rc-name .pn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.rc-name:hover{color:var(--green)}
+.rc-name small{display:none;font-size:11px;font-weight:400;color:var(--ink-3);font-family:var(--mono)}
+.rdot{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9.5px;font-weight:500;padding:2px 7px;border-radius:999px;vertical-align:1px;margin-left:4px;letter-spacing:.02em;cursor:pointer}
+.rdot i{width:4px;height:4px;border-radius:50%}
+.rdot.ready{color:var(--green);background:var(--green-soft);border:1px solid var(--green-line)}.rdot.ready i{background:var(--green)}
+.rdot.warn{color:var(--amber);background:var(--amber-soft);border:1px solid var(--amber-line)}.rdot.warn i{background:var(--amber)}
+.rdot.bad{color:var(--red);background:var(--red-soft);border:1px solid #f0d4cf}.rdot.bad i{background:var(--red)}
+.rc-prev{font-family:var(--mono);font-size:11.5px;color:var(--ink-3)}
+.nxcell{display:flex;align-items:center;gap:6px}
+.nxcell .val{font-family:var(--mono);font-size:11.5px;color:var(--ink);cursor:pointer;border-bottom:1px dashed var(--line);padding-bottom:1px}
+.nxcell .val:hover{border-color:var(--ink-3)}
+.nxcell .setnx{background:none;border:1px dashed var(--line);border-radius:6px;color:var(--ink-3);font-size:11px;padding:4px 8px;cursor:pointer;font-family:var(--mono)}
+.nxcell .setnx:hover{border-color:var(--amber);color:var(--amber)}
+.nxcell input{width:130px;font-family:var(--mono);font-size:11.5px;padding:5px 7px;border:1px solid var(--ink);border-radius:6px;outline:0}
+.nxcell .ok{width:28px;height:28px;border:1px solid var(--line);border-radius:6px;background:var(--surface);display:grid;place-items:center}
+.nxcell .ok svg{width:13px;height:13px;stroke:var(--green);fill:none;stroke-width:2.4}
+.paneempty{text-align:center;color:var(--ink-3);font-size:13px;padding:40px 16px}
+.paneempty .ic{width:42px;height:42px;border-radius:12px;background:var(--soft);display:grid;place-items:center;margin:0 auto 12px}
+.paneempty .ic svg{width:20px;height:20px;stroke:var(--ink-4);fill:none;stroke-width:1.6}
+
+/* ===== FOLDER ===== */
+.fback{display:inline-flex;align-items:center;gap:7px;color:var(--ink-2);font-size:13px;font-weight:500;padding:4px 0;margin-bottom:16px}
+.fback svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.9}.fback:hover{color:var(--ink)}
+.fhero{border-bottom:1px solid var(--line);padding-bottom:22px}
+.fhero .tt{font-size:26px;font-weight:700;letter-spacing:-.03em;margin:10px 0}
+.fhero .ml{display:flex;flex-wrap:wrap;gap:6px 16px;color:var(--ink-3);font-size:13px}.fhero .ml b{color:var(--ink-2);font-weight:500}
+.pillars{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}
+.pillar{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:var(--r-sm);padding:9px 14px;font-size:13px;font-weight:500;transition:.14s;background:var(--surface)}
+.pillar:hover{border-color:var(--ink);transform:translateY(-1px)}
+.pillar svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.7}
+.pillar.hot{background:var(--ink);color:#fff;border-color:var(--ink)}
+.fbody{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:28px;margin-top:24px;align-items:start}
+.fcol h3{font-size:15px;font-weight:600;letter-spacing:-.01em;margin-bottom:3px}
+.fcol .sub{font-size:12px;color:var(--ink-3);margin-bottom:14px}
+.fcol .blk{margin-bottom:26px}
+.fact{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:15px 17px;font-size:13.5px;color:var(--ink-2);line-height:1.6}
+.fact .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px}
+.os{position:relative;padding-left:22px}
+.os::before{content:"";position:absolute;left:5px;top:6px;bottom:6px;width:1px;background:var(--line)}
+.osi{position:relative;padding-bottom:16px}
+.osi::before{content:"";position:absolute;left:-22px;top:3px;width:11px;height:11px;border-radius:50%;background:#fff;border:1.8px solid var(--ink-4)}
+.osi.now::before{border-color:var(--green);background:var(--green)}
+.osi .d{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+.osi .w{font-size:13.5px;margin-top:2px}.osi .w b{font-weight:600}
+.frail{border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface);padding:16px 18px;box-shadow:var(--shadow-card)}
+.frail .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.frail .nx{font-size:17px;font-weight:600;margin-top:6px}
+.frail .divide{height:1px;background:var(--line-2);margin:14px 0}
+.frail .kv{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:5px 0}.frail .kv .k2{color:var(--ink-3)}.frail .kv .v{font-weight:500;text-align:right;font-family:var(--mono);font-size:12px}
+.ftile{display:flex;align-items:center;gap:11px;padding:11px 0;border-top:1px solid var(--line-2);cursor:pointer}
+.ftile:hover .ftn{color:var(--green)}
+.ftile .fi{width:30px;height:30px;border-radius:8px;background:var(--soft);display:grid;place-items:center;flex:none}
+.ftile .fi svg{width:15px;height:15px;stroke:var(--ink-2);fill:none;stroke-width:1.7}
+.ftile .ftn{font-size:13px;font-weight:500}.ftile .fts{font-family:var(--mono);font-size:10.5px;color:var(--ink-3)}
+.ftile .cnt{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+
+/* readiness editor + context sheets */
+.rdy.bad{color:var(--red);background:var(--red-soft);border:1px solid #f0d4cf}.rdy.bad i{background:var(--red)}
+.pop{position:fixed;inset:0;background:rgba(12,12,10,.28);backdrop-filter:blur(3px);z-index:110;display:none;align-items:center;justify-content:center;padding:20px}
+.pop.on{display:flex}
+.popbox{width:min(400px,94vw);background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 30px 70px -20px rgba(12,12,10,.4);padding:18px 20px}
+.popbox .rk{font-size:14px;font-weight:600;letter-spacing:-.01em}
+.popbox .rauto{font-size:12.5px;color:var(--ink-2);background:var(--soft);border:1px solid var(--line-2);border-radius:9px;padding:9px 11px;margin:10px 0 14px;line-height:1.55}
+.popbox .rauto b{color:var(--ink)}
+.popbox .rlabel{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px}
+.rchips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px}
+.rchip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:12.5px;font-weight:500;color:var(--ink-2);transition:.13s}
+.rchip:hover{border-color:var(--ink-3)}.rchip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.rnote{width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:13px;outline:0;margin-bottom:14px}
+.rnote:focus{border-color:var(--ink)}
+.rfoot{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.sheet-wrap{position:fixed;inset:0;z-index:105;display:none}.sheet-wrap.on{display:block}
+.shbg{position:absolute;inset:0;background:rgba(12,12,10,.24);backdrop-filter:blur(2px)}
+.sheet{position:absolute;top:0;right:0;height:100vh;width:min(460px,94vw);background:var(--surface);border-left:1px solid var(--line);box-shadow:-20px 0 60px -30px rgba(12,12,10,.4);display:flex;flex-direction:column;animation:slide .28s var(--ease)}
+@keyframes slide{from{transform:translateX(28px);opacity:.5}to{transform:none;opacity:1}}
+.shhead{display:flex;align-items:flex-start;justify-content:space-between;padding:20px 22px 16px;border-bottom:1px solid var(--line-2)}
+.shk{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+.shc{font-size:19px;font-weight:700;letter-spacing:-.02em;margin-top:4px}
+.shx{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);color:var(--ink-3);font-size:13px}.shx:hover{border-color:var(--ink);color:var(--ink)}
+.shbody{flex:1;overflow:auto;padding:18px 22px}
+.shlbl{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin-bottom:9px}
+.shctx{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.cchip{font-size:11.5px;font-weight:500;color:var(--ink-2);background:var(--soft);border:1px solid var(--line);border-radius:999px;padding:4px 11px}
+.shseed{border:1px solid var(--line);border-radius:10px;background:var(--raise);padding:12px 14px}
+.seedq{font-size:13px;color:var(--ink-2);line-height:1.55}
+.acard{border:1px solid var(--line);border-radius:11px;padding:13px 15px;margin-top:10px}
+.acard .atop{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.acard .at{font-size:14px;font-weight:600;letter-spacing:-.01em}
+.acard .am{font-family:var(--mono);font-size:11px;color:var(--ink-3);margin-top:4px}
+.acard .ah{font-size:12.5px;color:var(--ink-2);margin-top:9px;line-height:1.5}
+.proof{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:10px;color:var(--green);background:var(--green-soft);border:1px solid var(--green-line);border-radius:999px;padding:3px 8px;white-space:nowrap}
+.aempty{border:1px dashed var(--line);border-radius:11px;padding:16px;font-size:12.5px;color:var(--ink-3);margin-top:10px;line-height:1.5}
+.shrefine{display:flex;gap:8px;margin-top:16px}
+.shrefine input{flex:1;border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:13px;outline:0}.shrefine input:focus{border-color:var(--ink)}
+.pf{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--line-2);font-size:13px}
+.pf.col{flex-direction:column;gap:4px}
+.pf .pk{color:var(--ink-3);min-width:118px;font-size:12px}
+.pf .pv{font-weight:500;flex:1}.pf.col .pv{font-weight:400;color:var(--ink-2);line-height:1.55}
+.pdr{font-size:13px;padding:8px 0;border-bottom:1px solid var(--line-2)}
+.shfoot{padding:14px 22px;border-top:1px solid var(--line-2);font-size:11.5px;color:var(--ink-3)}.shfoot .mono{color:var(--ink-2)}
+/* command palette */
+.pal{position:fixed;inset:0;background:rgba(12,12,10,.28);backdrop-filter:blur(3px);z-index:100;display:none;align-items:flex-start;justify-content:center;padding-top:12vh}
+.pal.on{display:flex}
+.palbox{width:min(560px,92vw);background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 30px 70px -20px rgba(12,12,10,.4);overflow:hidden}
+.palin{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line-2)}
+.palin svg{width:17px;height:17px;stroke:var(--ink-3);fill:none;stroke-width:1.8}
+.palin input{border:0;outline:0;font-size:15px;width:100%;background:transparent}
+.palres{max-height:340px;overflow:auto}
+.palr{display:flex;align-items:center;gap:11px;padding:11px 16px;cursor:pointer}
+.palr.sel,.palr:hover{background:var(--raise)}
+.palr .fo{width:26px;height:26px;border-radius:7px;background:var(--soft);display:grid;place-items:center;flex:none}
+.palr .fo svg{width:13px;height:13px;stroke:var(--ink-2);fill:none;stroke-width:1.7}
+.palr .nm{font-size:13.5px;font-weight:500}.palr .mt{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:1px}
+.palempty{padding:22px 16px;text-align:center;color:var(--ink-3);font-size:13px}
+
+/* skeleton + fade */
+@keyframes sh{0%{background-position:-200px 0}100%{background-position:calc(200px + 100%) 0}}
+.skl{background-image:linear-gradient(90deg,#efefec,#f7f7f5,#efefec);background-size:200px 100%;background-repeat:no-repeat;border-radius:6px;animation:sh 1.2s ease-in-out infinite}
+@keyframes fin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.fin{animation:fin .35s var(--ease) both}.fin.d1{animation-delay:.05s}.fin.d2{animation-delay:.1s}
+
+.toasts{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);display:flex;flex-direction:column;gap:8px;z-index:120;align-items:center}
+.toast{background:var(--ink);color:#fff;font-size:13px;font-weight:500;padding:10px 16px;border-radius:999px;box-shadow:var(--lift);animation:fin .25s var(--ease)}
+.toast--success{background:#1c6b40}.toast--error{background:var(--red)}
+.flag{position:fixed;right:14px;bottom:12px;font-family:var(--mono);font-size:9px;color:var(--ink-4);z-index:40}
+
+/* responsive */
+@media(max-width:1080px){
+  .hub{grid-template-columns:1fr}
+  .fbody{grid-template-columns:1fr}
+  .regrow{grid-template-columns:24px 1.3fr 1fr 112px}.reg-hidem{display:none}
+  .heroband{grid-template-columns:1fr;gap:14px}.hside{border-top:1px solid var(--line-2);padding-top:14px}
+}
+@media(max-width:720px){
+  .app{grid-template-columns:1fr}.sb{display:none}
+  .mtop{display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40;background:rgba(255,255,255,.86);backdrop-filter:blur(14px);border-bottom:1px solid var(--line);padding:12px 16px}
+  .mtop .brand{display:flex;align-items:center;gap:8px}.mtop .wm{height:16px;width:auto;display:block}
+  .mtop .msr{display:flex;gap:8px}.mtop .mib{width:34px;height:34px;border-radius:9px;border:1px solid var(--line);display:grid;place-items:center;background:var(--surface)}.mtop .mib svg{width:16px;height:16px;stroke:var(--ink-2);fill:none;stroke-width:1.8}
+  .wrap{padding:14px 16px 90px}
+  .hhead{margin-bottom:12px}.hhead h1{font-size:20px}.hhead .hacts{display:none}
+  .mtabs{display:flex;position:sticky;top:59px;z-index:35;background:rgba(255,255,255,.82);backdrop-filter:blur(14px);padding:10px 0;margin:-2px 0 12px;gap:8px}
+  .mtabs button{flex:1;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:10px;font-size:13.5px;font-weight:600;color:var(--ink-2)}
+  .mtabs button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .sect-lbl{display:none}
+  .heroband{padding:18px 18px}.hmain .hnum .n{font-size:44px}.hside{overflow-x:auto;gap:0}.hside::-webkit-scrollbar{display:none}.ms{padding:6px 16px}
+  .fbl{flex-direction:column}.fchip{width:100%}
+  .nhead{grid-template-columns:1fr}.nacts{flex-direction:row;flex-wrap:wrap}.ntitle{font-size:20px}
+  .ntr{grid-template-columns:80px minmax(0,1fr);gap:4px 10px}.nsrc2{display:none}
+  .oprow{grid-template-columns:1fr}.op-q{border-right:0;border-bottom:1px solid var(--amber-line)}
+  .scbox{max-height:92vh}
+  .wacts{display:none}.wrow .upnext{display:none}.wrow{padding:15px 16px}
+  .regrow{grid-template-columns:1fr auto;gap:8px 10px;padding:14px}.lrow__sl{display:none}.ledger .reghead{display:none}
+  .prepcol{grid-column:1/-1;justify-content:flex-start;margin-top:2px}
+  .rc-name{white-space:normal}.rc-name small{display:block;margin-top:4px}.nxcell{justify-content:flex-end}
+  .fbody{margin-top:16px}.frail{order:-1}
+  .toasts{bottom:78px}.flag{display:none}
+}
+</style>
+
+<style>
+  .signin-gate{border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--shadow-card);text-align:center;padding:56px 24px;max-width:520px;margin:40px auto}
+  .signin-gate .ic{width:48px;height:48px;border-radius:14px;background:var(--soft);border:1px solid var(--line);display:grid;place-items:center;margin:0 auto 16px}
+  .signin-gate .ic svg{width:22px;height:22px;stroke:var(--ink-2);fill:none;stroke-width:1.6}
+  .signin-gate h2{font-size:19px;font-weight:600;letter-spacing:-.02em}
+  .signin-gate p{color:var(--ink-2);font-size:13.5px;margin:8px auto 20px;max-width:380px;line-height:1.6}
+  /* cause-list photo → review. Wider than the note-sheet row: a cause list
+     carries court, case no., party and the two dates side by side. */
+  .clrow{display:grid;grid-template-columns:26px 96px minmax(0,1.1fr) minmax(0,.9fr) minmax(0,1.2fr) 92px 92px 30px;gap:7px;align-items:center;margin-bottom:6px}
+  .clhead{display:grid;grid-template-columns:26px 96px minmax(0,1.1fr) minmax(0,.9fr) minmax(0,1.2fr) 92px 92px 30px;gap:7px;font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-4);margin-bottom:7px}
+  /* the review table needs more width than the note-sheet box: six fields per
+     row have to be readable at a glance, since this is the gate that decides
+     what gets filed. Still scrolls rather than squashes on a phone. */
+  #clWrap .scbox{width:min(1000px,96vw)}
+  .clscroll{overflow-x:auto}
+  .clscroll>div{min-width:800px}
+  /* Today's list, printed. Rendered off-screen and revealed only to the printer
+     so "Today's list" needs no popup and no server round-trip. */
+  #daySheet{display:none}
+  @media print{
+    .sb,.mtop,.nacts,.fback,.nswitch,.toasts,.flag,.prep,.nsec:last-of-type{display:none!important}
+    .app{grid-template-columns:1fr}.wrap{padding:0}
+    .nsheet{max-width:none}body{background:#fff}
+    .nhead{border-bottom:2px solid #000}
+    /* printing the day sheet: nothing else on the page comes with it */
+    body.printing-day>*{display:none!important}
+    body.printing-day #daySheet{display:block!important}
+    body.printing-day{background:#fff}
+  }
+  #daySheet .dsh{border-bottom:2px solid #000;padding-bottom:9px;margin-bottom:14px}
+  #daySheet .dst{font-size:19px;font-weight:600;letter-spacing:-.02em}
+  #daySheet .dsm{font-family:var(--mono);font-size:11px;color:#444;margin-top:4px}
+  #daySheet table{width:100%;border-collapse:collapse;font-size:12px}
+  #daySheet th{text-align:left;font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:#444;border-bottom:1px solid #999;padding:6px 8px 6px 0}
+  #daySheet td{padding:8px 8px 8px 0;border-bottom:1px solid #ddd;vertical-align:top;line-height:1.45}
+  #daySheet .dsn{font-family:var(--mono);color:#666}
+  #daySheet .dsfoot{margin-top:16px;font-family:var(--mono);font-size:10px;color:#666}
+</style>
+<input type="file" id="scanFile" accept="image/*,.heic,.heif,.webp,.pdf" style="display:none">
+<input type="file" id="clFile" accept="image/*,.heic,.heif,.webp,.pdf,application/pdf" multiple style="display:none">
+
+<style>
+  .cblk{padding:22px 0;border-bottom:1px solid var(--line-2)}
+  .cbh{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);margin-bottom:12px}
+  .cbh svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.7}
+  .ctiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  @media(max-width:720px){.ctiles{grid-template-columns:1fr}}
+  .ctile{border:1px solid var(--line);border-radius:11px;padding:13px 15px;background:var(--surface)}
+  .ctile .ct{font-size:13.5px;font-weight:600;letter-spacing:-.01em}
+  .ctile .cm{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:4px}
+  .upband{border:1px solid var(--amber-line);border-radius:14px;background:linear-gradient(180deg,var(--amber-soft),var(--surface) 70%);padding:14px 16px;margin-bottom:18px}
+  .ubh{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--amber);margin-bottom:10px}
+  .ubh svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8}
+  .ubn{font-family:var(--mono);font-size:9.5px;color:#fff;background:var(--amber);border-radius:999px;padding:1px 7px}
+  .uprow{display:flex;align-items:center;gap:11px;padding:10px 0;border-top:1px solid rgba(183,121,31,.18)}
+  .uprow .ui{width:28px;height:28px;border-radius:8px;background:#fff;border:1px solid var(--amber-line);display:grid;place-items:center;flex:none}
+  .uprow .ui svg{width:14px;height:14px;stroke:var(--amber);fill:none;stroke-width:1.8}
+  .uprow .ub{flex:1;min-width:0}
+  .uprow .ut{font-size:13.5px;font-weight:500;letter-spacing:-.01em}
+  .uprow .us{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:2px}
+  .uclr{width:24px;height:24px;border-radius:6px;color:var(--ink-4);font-size:11px;flex:none}
+  .uclr:hover{background:#fff;color:var(--red)}
+  .updot{display:inline-grid;place-items:center;min-width:17px;height:17px;padding:0 4px;border-radius:999px;background:var(--amber);color:#fff;font-family:var(--mono);font-size:9px;font-weight:700;margin-left:5px;vertical-align:2px}
+  .ilink{border:1px solid var(--line);border-radius:12px;padding:13px 14px;background:var(--raise)}
+  .ilk{font-family:var(--mono);font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px}
+  .ilrow{display:flex;gap:8px;align-items:center}
+  .ilrow input{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:9px 11px;
+    font-family:var(--mono);font-size:11.5px;color:var(--ink-2);background:#fff;outline:0}
+  .ilm{font-size:11.5px;color:var(--ink-3);margin-top:9px}
+  .ilrev{background:none;border:0;color:var(--red);font-size:11.5px;text-decoration:underline;cursor:pointer;padding:0}
+  .itray{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+  .iup{display:flex;align-items:center;gap:9px;border:1px solid var(--amber-line);
+    background:var(--amber-soft);border-radius:11px;padding:11px 13px}
+  .iup .ib{flex:1;min-width:0}
+  .iup .it{font-size:13.5px;font-weight:600;letter-spacing:-.01em}
+  .iup .im{font-family:var(--mono);font-size:10.5px;color:#8a6d34;margin-top:2px}
+  .idis{width:26px;height:26px;border-radius:7px;border:1px solid var(--line);background:#fff;
+    color:var(--ink-3);font-size:11px;flex:none}
+  .idis:hover{border-color:var(--red);color:var(--red)}
+  .flink{color:var(--ink-3);text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+  /* the shared icon size: any inline svg in a control, unless told otherwise */
+  .addnew svg,.cbh svg,.btn svg,.nacts .btn svg{width:15px;height:15px;flex:none}
+  .addnew{display:inline-flex;align-items:center;gap:7px;margin-top:12px;color:var(--ink-2);font-size:13px;font-weight:500;background:none;border:0;cursor:pointer}
+  .addnew:hover{color:var(--green)}
+  .flink:hover{color:var(--green)}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside class="sb">
+    <div class="brand"><div class="mk">H</div><img class="wm" src="/static/headnote-logo.svg" alt="Headnote" />
+      <button class="sbtog" id="sbtog" onclick="toggleSb()" title="Collapse sidebar" aria-label="Collapse sidebar"><svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="M9 4.5v15"/></svg></button>
+    </div>
+    <div class="lbl">Chamber</div>
+    <button class="navi on" title="Home"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg><span class="nvt">Home</span></button>
+    <button class="navi" title="Research" onclick="location.href='/research'"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg><span class="nvt">Research</span></button>
+    <button class="navi" title="Draft" onclick="location.href='/draft'"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg><span class="nvt">Draft</span></button>
+    <button class="kbtn" onclick="openPal()" title="Jump to a matter (⌘K)"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg><span class="nvt">Jump to a matter</span><span class="k nvt">⌘K</span></button>
+    <div class="lbl">Personalisation</div>
+    <button class="navi" title="Draft DNA" onclick="location.href='/draft-dna'"><svg viewBox="0 0 24 24" stroke-linecap="round"><path d="M12 3v18"/><path d="M8 5.5v13"/><path d="M16 5.5v13"/><path d="M4.5 9v6"/><path d="M19.5 9v6"/></svg><span class="nvt">Draft DNA</span></button>
+    <div class="grow"></div>
+    <div class="user"><div class="av" id="uav">·</div><div><div class="u" id="unm">Signed in</div><div class="r" id="url">Headnote</div></div></div>
+  </aside>
+
+  <main class="main">
+    <div class="mtop"><div class="brand"><img class="wm" src="/static/headnote-logo.svg" alt="Headnote" /></div><div class="msr"><button class="mib" onclick="openPal()"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg></button></div></div>
+    <div class="wrap">
+      <div id="homeView">
+        <div class="hhead">
+          <div><div class="eyebrow" id="hdate">—</div><h1>Home</h1></div>
+          <!-- The cause-list actions used to live here as a single "Today's
+               list" button, which was the only day you could ever get. They now
+               sit beside the date in the diary, so they always act on the day
+               actually on screen. -->
+          <div class="hacts">
+            <button class="btn" onclick="openCauseList()"><svg viewBox="0 0 24 24"><path d="M3 8V5.5A1.5 1.5 0 0 1 4.5 4H8M16 4h3.5A1.5 1.5 0 0 1 21 5.5V8M21 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H4.5A1.5 1.5 0 0 1 3 18.5V16M7 12h10"/></svg> Add from photo</button>
+            <button class="btn btn--primary" onclick="openAdd()"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> Add matter</button>
+          </div>
+        </div>
+        <!-- Searches every matter, not just the day on screen. The ⌘K palette
+             in the sidebar called an openPal() that was never written, so the
+             only working search here used to be a filter on one day's rows. -->
+        <div class="msearch">
+          <div class="msbox">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>
+            <input id="msearch" autocomplete="off" placeholder="Search all your matters — party, case no., court or CNR…"
+                   oninput="msFind()" onfocus="msFind()" onkeydown="msKey(event)">
+            <span class="k">⌘K</span>
+          </div>
+          <div class="msres" id="msres"></div>
+        </div>
+        <div class="dashwrap"><div id="strip"></div><div class="hub" id="hub"></div></div>
+      </div>
+      
+      
+      <div id="gate" class="signin-gate hidden">
+        <div class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+        <h2>Sign in to open your chamber</h2>
+        <p>Your diary, note sheets and matters live on your Headnote account, so only you can see them.</p>
+        <a class="btn btn--primary" href="/app">Sign in</a>
+      </div>
+      <div id="noteView" class="hidden"></div>
+      <div id="folderView" class="hidden"></div>
+    </div>
+  </main>
+</div>
+
+<div class="pal" id="pal"><div class="palbox"><div class="palin"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg><input id="palq" placeholder="Jump to a matter — client, case no. or court…"></div><div class="palres" id="palres"></div></div></div>
+<div class="pop" id="scanWrap"><div class="scbox"><div class="schead"><div><div class="shk">Handwritten note sheet</div><div class="scht">Read it, check it, set it out</div></div><button class="shx" onclick="closeScan()" aria-label="Close">✕</button></div><div class="scbody" id="scanBody"></div></div></div>
+<div class="pop" id="clWrap"><div class="scbox"><div class="schead"><div><div class="shk">Cause list / diary page</div><div class="scht">Photograph it, check it, file it</div></div><button class="shx" onclick="closeCl()" aria-label="Close">✕</button></div><div class="scbody" id="clBody"></div></div></div>
+<div class="pop" id="readyPop"><div class="popbox" id="readyBox"></div></div>
+<div class="pop" id="linkWrap"><div class="scbox" style="max-width:600px"><div class="schead"><div><div class="shk">Link your matters to the court</div><div class="scht">Diary matters have no CNR — the court cannot update them</div></div><button class="shx" onclick="closeLink()" aria-label="Close">✕</button></div><div class="scbody" id="linkBody"></div></div></div>
+<div class="pop" id="addWrap"><div class="scbox" style="max-width:520px"><div class="schead"><div><div class="shk">Add a matter</div><div class="scht">One number — the court record fills the rest</div></div><button class="shx" onclick="closeAdd()" aria-label="Close">✕</button></div><div class="scbody" id="addBody"></div></div></div>
+<div id="daySheet"></div>
+<!-- Removed: an orphaned #sheetWrap drawer. Nothing opened it, nothing read
+     #sheet, and its backdrop called a closeSheet() that was never written. The
+     note sheet lives in #noteView (see openNote/closeNote). -->
+<div class="toasts" id="toasts"></div>
+
+
+
+<script src="/static/auth.js"></script>
+<script src="/static/v2-beta.js"></script>
+<script>
+/* ============================================================================
+   Home — the live app. Talks to the real API; nothing here is demo data.
+
+     GET   /api/home?date=&week_from=        the board, counts, week strip
+     PATCH /api/matters/{id}/prep           purpose · prepared · assignee
+     POST  /api/cases/{id}/set-next-date    the diary's own writer
+     GET   /api/matters/{id}/notesheet      the sheet for a hearing
+     PUT   /api/matters/{id}/notesheet      save it
+     POST  /api/matters/{id}/notesheet/prepare|scan
+
+   Auth is the same Supabase bearer token the rest of the app uses, so a lawyer
+   sees only their own chamber. Every call has a loading, empty and error state:
+   a court diary that lies about what loaded is worse than one that says so.
+   ========================================================================== */
+const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+
+/* ---------------- auth ----------------
+   The token MUST come through the Supabase client (auth.js → headnoteAuth),
+   never a raw localStorage read. A Supabase access token expires after about
+   an hour and only the client refreshes it. Reading the stored token directly
+   is why the same account looked EMPTY on a second browser: the stale token
+   401'd, and a page that cannot tell "your session expired" from "nothing is
+   listed today" shows an empty diary and says nothing. The localStorage scan
+   survives only as a fallback for the case where auth.js failed to load. */
+let _tok=null;
+function storedToken(){
+  try{
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i);
+      if(/sb-.*-auth-token/.test(k)){
+        const v=JSON.parse(localStorage.getItem(k));
+        if(v&&v.access_token) return v.access_token;
+        if(Array.isArray(v)&&v[0]) return v[0];
+      }
+    }
+  }catch(e){}
+  return null;
+}
+async function freshToken(){
+  try{
+    if(window.headnoteAuth&&typeof window.headnoteAuth.getAccessToken==='function'){
+      const t=await window.headnoteAuth.getAccessToken();
+      if(t){ _tok=t; return t; }
+    }
+  }catch(e){}
+  _tok=storedToken();
+  return _tok;
+}
+/* Sync accessor for the few places that only need "is somebody signed in" —
+   safe because load() always refreshes before anything renders. */
+function authToken(){ return _tok||storedToken(); }
+async function H(json){
+  const h = json ? {'Content-Type':'application/json'} : {};
+  const t = await freshToken(); if(t) h.Authorization='Bearer '+t;
+  return h;
+}
+async function api(path, opts){
+  /* A FormData body must keep the browser's OWN Content-Type, because that is
+     what carries the multipart boundary. Forcing application/json here made
+     the server parse no files at all: every upload on this page arrived with
+     file=None and failed as if nothing had been attached. */
+  const body=(opts||{}).body;
+  const isForm = typeof FormData!=='undefined' && body instanceof FormData;
+  const r = await fetch(path, {...(opts||{}), headers:{...(await H(!!body && !isForm)), ...((opts||{}).headers||{})}});
+  let d=null; try{ d = await r.json(); }catch(e){}
+  if(r.status===401){ gate(); throw new Error('Please sign in again'); }
+  if(!r.ok) throw new Error((d&&(d.detail||d.error))||`Request failed (${r.status})`);
+  return d;
+}
+
+/* ---------------- dates ---------------- */
+const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
+      MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+      MONF=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const parse=s=>{const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d);};
+const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const addDays=(s,n)=>{const d=parse(s);d.setDate(d.getDate()+n);return iso(d);};
+const mondayOf=s=>{const d=parse(s);d.setDate(d.getDate()-((d.getDay()+6)%7));return iso(d);};
+const fmtDay=s=>{const d=parse(s);return `${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}`;};
+const fmtLong=s=>{const d=parse(s);return `${DOW[d.getDay()]}, ${d.getDate()} ${MONF[d.getMonth()]} ${d.getFullYear()}`;};
+const dmy=s=>{const d=parse(s);const p=n=>String(n).padStart(2,'0');return `${p(d.getDate())}/${p(d.getMonth()+1)}/${d.getFullYear()}`;};
+const dmy2iso=v=>{const m=(v||'').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);return m?`${m[3]}-${String(m[2]).padStart(2,'0')}-${String(m[1]).padStart(2,'0')}`:'';};
+const esc=s=>(s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const S=p=>`<svg viewBox="0 0 24 24">${p}</svg>`;
+const IC={folder:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',draft:'<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',research:'<circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/>',mic:'<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4"/>',clock:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',doc:'<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>',cal:'<rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 2.5v4M16 2.5v4"/>',alert:'<path d="M12 8.5v4.5M12 16.5h.01"/><circle cx="12" cy="12" r="8.5"/>',check:'<path d="m5 12.5 4.5 4.5L19 7"/>',note:'<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h4"/>',scan:'<path d="M3 8V5.5A1.5 1.5 0 0 1 4.5 4H8M16 4h3.5A1.5 1.5 0 0 1 21 5.5V8M21 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H4.5A1.5 1.5 0 0 1 3 18.5V16M7 12h10"/>',print:'<path d="M7 9V4h10v5M7 19H5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M7 15h10v6H7z"/>',week:'<path d="M5 20V9M11 20V4M17 20v-8M3 20h18"/>'};
+const STATE_CLASS={ready:'ready',draft:'warn',docs:'warn',research:'warn',args:'warn',review:'warn',blocked:'bad'};
+
+function toast(m,k){const t=document.createElement('div');t.className='toast'+(k?' toast--'+k:'');t.textContent=m;$('#toasts').appendChild(t);setTimeout(()=>t.remove(),3200);}
+
+/* ---------------- app state (server is the source of truth) ---------------- */
+let HOME=null, selDate=null, weekAnchor=null, dMode='all', busy=false;
+/* dSpan 1 = one day, 3 = yesterday+today+tomorrow together.
+   CALC caches per-month hearing counts so paging the calendar is instant. */
+let dSpan=1, calMonth=null, CALC={};
+let noteId=null, noteDate=null, SHEET=null, SCAN=null;
+const JUNIORS=['Adv. Nikhil Jain','Adv. Priya Soni','Clerk'];
+const board=()=>((HOME&&HOME.board)||[]);
+const byId=id=>board().find(m=>String(m.id)===String(id));
+const initials=n=>(n||'').replace(/\(.*\)/,'').trim().split(/\s+/).slice(-2).map(x=>x[0]).join('').toUpperCase().slice(0,2);
+const courtBase=s=>(s||'').split('/')[0].trim();
+
+/* ---------------- load ---------------- */
+/* Who is signed in. Read from the JWT the same way /research does — the
+   sidebar used to carry a hardcoded sample advocate, which every real user
+   saw as somebody else's name. */
+function whoami(){
+  try{
+    const t=authToken(); if(!t) return;
+    const p=JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
+    const em=p.email||''; const nm=em.split('@')[0]||'You';
+    $('#unm').textContent=nm.length>18?nm.slice(0,18)+'…':nm;
+    $('#uav').textContent=(nm[0]||'·').toUpperCase();
+    $('#url').textContent=em.length>22?em.slice(0,22)+'…':em;
+  }catch(e){}
+}
+
+/* True only for an advocate who has never told us who he is AND has not
+   already chosen to skip. Fails CLOSED (never redirects) if the profile call
+   itself fails — a flaky network must not bounce a working chamber to setup. */
+async function needsWelcome(){
+  if(/[?&](dev|demo)=1/.test(location.search)) return false;
+  try{ if(localStorage.getItem('hn_welcome_skipped')==='1') return false; }catch(e){}
+  try{
+    const p=await api('/api/lawyer-profile');
+    return !(p && p.complete);
+  }catch(e){ return false; }
+}
+
+async function load(){
+  /* Refresh BEFORE the gate check, so a merely-expired token is renewed
+     instead of bouncing a signed-in advocate to the sign-in screen. */
+  if(!(await freshToken()) && !/[?&]dev=1/.test(location.search)){ gate(); return; }
+  /* V2 private beta — non-testers get a calm explanation, not a broken page.
+     The server enforces this too (require_beta on every /api/home* route). */
+  if(!/[?&]dev=1/.test(location.search) && !(await hnBetaGate())) return;
+  /* A brand-new advocate has no name, no enrolment number and no matters, so
+     Home would be an empty board with nothing to act on. Send him to first-run
+     once — but honour a skip, because ambushing him on every visit is worse
+     than an incomplete profile. /welcome itself is where the nudge lives. */
+  if(await needsWelcome()){ location.replace('/welcome'); return; }
+  whoami();
+  skeleton();
+  try{
+    const q=`?date=${encodeURIComponent(selDate)}&week_from=${encodeURIComponent(weekAnchor)}&span=${dSpan}`;
+    HOME=await api('/api/home'+q);
+    CALC={};                      // counts can change under us after a sync
+    render();
+  }catch(e){ fail(e.message); }
+}
+function gate(){
+  $('#gate').classList.remove('hidden');
+  $('#homeView').classList.add('hidden');
+}
+function fail(msg){
+  $('#strip').innerHTML='';
+  $('#hub').innerHTML=`<div class="paneempty" style="border:1px solid var(--line);border-radius:14px">
+    <div class="ic">${S(IC.alert)}</div>Couldn't load your chamber.<br>
+    <span style="font-size:12px">${esc(msg)}</span><br>
+    <button class="btn" style="margin-top:14px" onclick="load()">Try again</button></div>`;
+}
+function skeleton(){
+  $('#strip').innerHTML=`<div class="heroband"><div><div class="skl" style="height:12px;width:110px"></div><div class="skl" style="height:46px;width:170px;margin-top:14px"></div><div class="skl" style="height:14px;width:60%;margin-top:14px"></div></div></div>`;
+  $('#hub').innerHTML=`<div class="skl" style="height:34px;width:340px;margin:20px 0 14px"></div><div class="skl" style="height:58px;margin-bottom:16px"></div><div class="skl" style="height:200px;border-radius:14px"></div>`;
+}
+
+/* ---------------- render ---------------- */
+function render(){ renderHero(); renderBoard(); }
+
+function renderHero(){
+  const c=HOME.counts, list=board();
+  const gaps=list.filter(m=>m.readiness.state!=='ready');
+  const gap=gaps[0];
+  const verdict=!list.length?'Nothing listed on this date'
+    :c.gaps===0?'You’re ready for every hearing':`Ready for ${c.ready} of ${c.board} hearings`;
+  $('#hdate').textContent=fmtLong(HOME.today).toUpperCase();
+  $('#strip').innerHTML=`
+   <div class="heroband">
+     <div class="hmain">
+       <div class="hk">${S(IC.cal)} ${esc(fmtLong(selDate))}${selDate===HOME.today?' · today':''}</div>
+       <div class="hverdict"><span class="hv-n">${c.ready}</span><span class="hv-of">/${c.board}</span><span class="hv-t">${esc(verdict)}</span></div>
+       ${gap?(gaps.length===1
+         ?`<button class="hgap" onclick="openNote('${gap.id}')"><span class="gi">${S(IC.alert)}</span><span class="gt"><b>${esc(gap.party)}</b> — ${esc(gap.readiness.why.toLowerCase())}</span><span class="gx">Open ›</span></button>`
+         :`<button class="hgap" onclick="setMode('notready')"><span class="gi">${S(IC.alert)}</span><span class="gt"><b>${gaps.length} files not ready</b> — ${esc(gap.party)} and ${gaps.length-1} other${gaps.length>2?'s':''}</span><span class="gx">Show them ›</span></button>`)
+        :list.length?`<div class="hgap ok"><span class="gi">${S(IC.check)}</span><span class="gt">Every matter on this board is prepared.</span></div>`:''}
+     </div>
+     <!-- There is no such thing as "the" note sheet for a date: a sheet belongs
+          to ONE file. This used to be a primary "Open note sheets" button that
+          silently opened whichever matter sorted first, which is why it read as
+          an odd thing to be asked on the way in. It is a status line now; the
+          sheet is reached from the matter it belongs to, in the list below. -->
+     <div class="hside"><div class="hnotes">
+       <div class="hn-k">${S(IC.note)} Hearing notes</div>
+       ${list.length?`<div class="hn-s">${c.notes_ready
+           ?`A note sheet is ready for <b>${c.notes_ready} of ${c.board}</b> of these matters.`
+           :'No note sheet prepared for this date yet.'}</div>
+         <div class="hn-s" style="color:var(--ink-3);margin-top:6px">Open a matter below to write its sheet.</div>`
+        :''}
+       <div class="hn-m">${c.undated?`<span class="hn-f">${c.undated} without a next date</span>`:'<span class="hn-f ok">Every matter has a next date</span>'}<span class="hn-f ok" style="color:var(--ink-3);background:var(--soft);border-color:var(--line)">${c.week} this week · ${c.month} this month</span></div>
+     </div></div>
+   </div>`;
+}
+
+/* Which of the three one-tap days, if any, is on screen. Returns '' when the
+   lawyer has picked an arbitrary date through the calendar — then no segment is
+   lit, and the date button carries the answer instead. */
+function relDay(){
+  if(dSpan===3) return '3day';
+  if(selDate===HOME.today) return 'today';
+  if(selDate===addDays(HOME.today,-1)) return 'yst';
+  if(selDate===addDays(HOME.today,1)) return 'tom';
+  return '';
+}
+
+function renderBoard(){
+  const rel=relDay(), od=(HOME.counts||{}).overdue||0, unl=(HOME.counts||{}).unlinked||0;
+  const label=dSpan===3
+    ? `${fmtDay(addDays(selDate,-1))} – ${fmtDay(addDays(selDate,1))}`
+    : fmtLong(selDate);
+  $('#hub').innerHTML=renderUpdates()+`
+   <section class="diarysec fin">
+     <div class="sect-lbl"><span>Diary</span><div class="rule"></div></div>
+     <div class="dtools">
+       <div class="dseg">
+         <button class="${rel==='yst'?'on':''}" onclick="goRel(-1)">Yesterday</button>
+         <button class="${rel==='today'?'on':''}" onclick="goRel(0)">Today</button>
+         <button class="${rel==='tom'?'on':''}" onclick="goRel(1)">Tomorrow</button>
+         <button class="${rel==='3day'?'on':''}" onclick="go3()">3-day</button>
+       </div>
+       <div class="dpick">
+         <button class="datebtn" onclick="toggleCal(event)" aria-haspopup="true">
+           ${S(IC.cal)}<span>${esc(label)}</span>${S('<path class="chev" d="m6 9 6 6 6-6"/>')}
+         </button>
+         <div class="cal" id="cal"></div>
+       </div>
+       <div class="dsearch">${S(IC.research)}<input id="dfilter" placeholder="Filter these hearings…" oninput="paintRows()"></div>
+     </div>
+     ${od?`<button class="odue" onclick="showOverdue()">${S(IC.alert)}
+        <span><b>${od} matter${od>1?'s':''}</b> ${od>1?'have':'has'} a date that has passed with no new date.</span>
+        <span class="gx">Settle ${od>1?'them':'it'} ›</span></button>`:''}
+     ${unl?`<button class="odue link" onclick="openLink()">${S(IC.folder)}
+        <span><b>${unl} matter${unl>1?'s are':' is'} not linked to the court record.</b>
+        ${unl>1?'They were':'It was'} added from a diary page, so ${unl>1?'their':'its'} dates can never update on ${unl>1?'their':'its'} own.</span>
+        <span class="gx">Link ${unl>1?'them':'it'} to the court ›</span></button>`:''}
+     <div class="daybar"><div class="dt">${esc(dSpan===3?'Three days':label)}${(dSpan===1&&selDate===HOME.today)?' <small>Today</small>':''}</div>
+       <div class="dfil">${[['all','All'],['notready','Not ready'],['prepared','Prepared']].map(f=>`<button class="${dMode===f[0]?'on':''}" onclick="setMode('${f[0]}')">${f[1]}</button>`).join('')}</div>
+     </div>
+     <!-- Acts on whatever day is on screen, so any date can be taken to court. -->
+     <div class="daybar" style="margin-top:-4px;margin-bottom:12px">
+       <div class="listacts">
+         <button class="btn btn--sm" onclick="printList()">${S(IC.print)} Print this list</button>
+         <button class="btn btn--sm" onclick="downloadList()">${S('<path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/>')} Download</button>
+         <button class="btn btn--sm" onclick="emailList()">${S('<path d="M3 6h18v12H3z"/><path d="m3 7 9 6 9-6"/>')} Email it</button>
+       </div>
+     </div>
+     <div class="daybar" style="margin-top:-2px"><span class="showing" id="daycount"></span></div>
+     <div class="ledger" id="ledger"></div>
+   </section>`;
+  paintRows();
+}
+
+/* ---------------- date navigation ---------------- */
+function goRel(n){ dSpan=1; goDay(addDays(HOME.today,n)); }
+/* Centre on the day already on screen, not on today: browsing to a date through
+   the calendar and then asking for three days should widen THAT date, not throw
+   the lawyer back to this morning. */
+function go3(){ dSpan=3; load(); }
+
+function toggleCal(ev){
+  ev.stopPropagation();
+  const c=$('#cal'); if(!c) return;
+  if(c.classList.contains('on')){ c.classList.remove('on'); return; }
+  calMonth=selDate.slice(0,7);
+  c.classList.add('on');
+  paintCal();
+}
+function closeCal(){ const c=$('#cal'); if(c) c.classList.remove('on'); }
+
+async function paintCal(){
+  const c=$('#cal'); if(!c) return;
+  const [y,m]=calMonth.split('-').map(Number);
+  const first=new Date(y,m-1,1), start=(first.getDay()+6)%7;   // Monday-first
+  const ndays=new Date(y,m,0).getDate();
+  const counts=(CALC[calMonth]||{});
+  let cells='';
+  for(let i=0;i<start;i++) cells+='<span></span>';
+  for(let d=1;d<=ndays;d++){
+    const dt=`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const n=counts[dt]||0;
+    cells+=`<button class="cald${dt===selDate?' sel':''}${dt===HOME.today?' today':''}" onclick="pickDate('${dt}')"
+      title="${n?n+' hearing'+(n>1?'s':''):'nothing listed'}">${d}${n?'<i></i>':''}</button>`;
+  }
+  const total=Object.values(counts).reduce((a,b)=>a+b,0);
+  c.innerHTML=`
+    <div class="calh">
+      <button class="wkb" onclick="calShift(event,-1)" aria-label="Previous month">${S('<path d="m15 6-6 6 6 6"/>')}</button>
+      <span class="m">${MONF[m-1]} ${y}</span>
+      <button class="wkb" onclick="calShift(event,1)" aria-label="Next month">${S('<path d="m9 6 6 6-6 6"/>')}</button>
+    </div>
+    <div class="calg">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<span class="dw">${d}</span>`).join('')}${cells}</div>
+    <div class="calf"><span>${total?total+' hearing'+(total>1?'s':'')+' this month':'Nothing listed this month'}</span>
+      <button class="wkt" style="height:26px;padding:0 10px;font-size:12px" onclick="pickDate('${HOME.today}')">Today</button></div>`;
+  /* Counts come from the server for the month actually on screen, so paging
+     back a year still shows real dots rather than an empty calendar. */
+  if(!CALC[calMonth]){
+    try{
+      const r=await api('/api/home/month?month='+encodeURIComponent(calMonth));
+      CALC[calMonth]=r.days||{};
+      if($('#cal') && $('#cal').classList.contains('on') && calMonth===r.month) paintCal();
+    }catch(e){ CALC[calMonth]={}; }
+  }
+}
+function calShift(ev,n){
+  ev.stopPropagation();
+  const [y,m]=calMonth.split('-').map(Number);
+  const d=new Date(y,m-1+n,1);
+  calMonth=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  paintCal();
+}
+function pickDate(d){ closeCal(); dSpan=1; goDay(d); }
+
+/* Past-due matters are real work, not an empty day. Jump to the most recent
+   one so the lawyer lands on something he can actually settle. */
+function showOverdue(){
+  const o=(HOME.overdue||[])[0];
+  if(!o){ toast('Nothing is overdue'); return; }
+  dSpan=1; goDay(o.next_hearing_iso);
+}
+
+const REGHEAD=`<div class="regrow reghead"><div>#</div><div class="reg-hidem">Court · Judge</div><div class="reg-hidem">Case no.</div><div>Client · Party</div><div class="reg-hidem">Prev date</div><div>Next date</div><div class="prepcol">Prepared</div></div>`;
+
+function sift(rows,q){
+  let items=rows;
+  if(q) items=items.filter(m=>`${m.party} ${m.case_number}/${m.case_year} ${m.court_name} ${m.purpose||''}`.toLowerCase().includes(q));
+  if(dMode==='prepared') items=items.filter(m=>m.prepared);
+  else if(dMode==='notready') items=items.filter(m=>m.readiness.state!=='ready');
+  return items;
+}
+
+/* One day's rows, grouped by court once the list is long enough that a flat
+   register stops being readable. `off` keeps the serial numbers continuous
+   across the three days of the 3-day view. */
+function dayTable(items,off){
+  if(items.length>12){
+    const g={}; items.forEach(m=>{(g[courtBase(m.court_name)]=g[courtBase(m.court_name)]||[]).push(m);});
+    let n=off;
+    return REGHEAD+Object.keys(g).sort().map(c=>
+      `<div class="cgrp"><span class="cn">${esc(c)}</span><span class="cc">${g[c].length}</span></div>`+
+      g[c].map(m=>row(m,n++)).join('')).join('');
+  }
+  return REGHEAD+items.map((m,i)=>row(m,off+i)).join('');
+}
+
+function paintRows(){
+  const q=(($('#dfilter')||{}).value||'').toLowerCase().trim();
+  const L=$('#ledger');
+
+  if(dSpan===3){
+    const dates=[addDays(selDate,-1),selDate,addDays(selDate,1)];
+    const boards=HOME.boards||{};
+    let html='', shown=0, total=0, prepN=0, off=0;
+    dates.forEach(d=>{
+      const all=boards[d]||[];
+      const items=sift(all,q);
+      total+=all.length; shown+=items.length; prepN+=all.filter(m=>m.prepared).length;
+      const rel=d===HOME.today?'Today':d===addDays(HOME.today,-1)?'Yesterday':d===addDays(HOME.today,1)?'Tomorrow':'';
+      html+=`<div class="d3h"><span class="t">${rel?rel+' · ':''}${esc(fmtDay(d))}</span>
+        <span class="n">${all.length||'nothing'} ${all.length===1?'hearing':all.length?'hearings':'listed'}</span><div class="rule"></div></div>`;
+      html+=items.length?dayTable(items,off)
+        :`<div class="paneempty" style="padding:20px">${all.length?'No matter matches this filter.':'Nothing listed.'}</div>`;
+      off+=items.length;
+    });
+    $('#daycount').textContent=total?`Showing ${shown} of ${total} · ${prepN} prepared`:'';
+    L.innerHTML=html;
+    return;
+  }
+
+  const all=board();
+  const items=sift(all,q);
+  const prepN=all.filter(m=>m.prepared).length;
+  $('#daycount').textContent=all.length?`Showing ${items.length} of ${all.length} · ${prepN} prepared`:'';
+  if(!items.length){
+    L.innerHTML=`<div class="paneempty"><div class="ic">${S(IC.cal)}</div>${all.length?'No matter matches this filter.':'Nothing listed on '+fmtDay(selDate)+'.'}<br><span style="font-size:12px">${all.length?'Try “All”, or clear the filter.':'Add a matter, or shoot the cause-list page.'}</span></div>`;
+    return;
+  }
+  L.innerHTML=dayTable(items,0);
+}
+
+function row(m,i){
+  const cno=`${esc(m.case_number||'—')}${m.case_year?'/'+esc(m.case_year):''}`;
+  const court=esc(m.court_name||'—');
+  const st=m.readiness, cls=STATE_CLASS[st.state]||'warn';
+  const nx=m.next_hearing_date
+    ? `<span class="val" onclick="editNx('${m.id}',${i})" title="Click to change">${esc(m.next_hearing_date)}</span>`
+    : `<button class="setnx" onclick="editNx('${m.id}',${i})">+ set date</button>`;
+  return `<div class="lrow regrow">
+    <div class="lrow__sl">${String(i+1).padStart(2,'0')}</div>
+    <div class="rc-mono hi reg-hidem">${court}</div>
+    <div class="rc-mono reg-hidem">${cno}</div>
+    <div class="rc-name hi"><span class="pn" onclick="openNote('${m.id}')" title="Open note sheet">${esc(m.party)}</span>${m.assignee?`<span class="av3" title="Assigned to ${esc(m.assignee)}">${esc(initials(m.assignee))}</span>`:''}${m.court_updates?`<span class="updot" title="${m.court_updates} court update(s)">${m.court_updates}</span>`:''}<span class="rdot ${cls}" title="${esc(st.why)}" onclick="openNote('${m.id}')"><i></i>${esc(readyLabel(st.state))}</span><small>${cno} · ${court} · <span class="flink" onclick="openFolder('${m.id}')">open folder</span>${m.cnr?` · <span class="flink" onclick="syncOne('${m.id}')">check court</span>`:''}</small></div>
+    <div class="rc-prev reg-hidem">${esc(m.prev_hearing_date||'—')}</div>
+    <div class="nxcell" id="nx${i}">${nx}</div>
+    <div class="prepcol"><button class="tickb ${m.prepared?'on':''}" onclick="togglePrepared('${m.id}',event)" title="${m.prepared?'Prepared — click to undo':'Mark this file prepared'}" aria-pressed="${!!m.prepared}"><span class="tk">${m.prepared?S(IC.check):''}</span><span class="tl">${m.prepared?'Prepared':'Mark ready'}</span></button></div>
+  </div>`;
+}
+/* Takes either a readiness object or a bare state. The server sends the wording
+   (readiness.label) — trust it, so a new state never silently reads "Review"
+   here just because this map was not updated too. */
+function readyLabel(s){
+  if(s&&typeof s==='object') return s.label||readyLabel(s.state);
+  return {ready:'Ready',draft:'Draft pending',docs:'Docs pending',research:'Research pending',
+          args:'Prep arguments',review:'Review',blocked:'Blocked'}[s]||'Review';
+}
+
+/* ---------------- navigation ---------------- */
+function goDay(d){ selDate=d; weekAnchor=mondayOf(d); load(); }
+
+/* ---------------- search across every matter ----------------
+   Home's only search used to filter the rows of the day already on screen, so
+   a matter listed next month was unfindable. The sidebar's ⌘K button called an
+   openPal() that was never written — it threw a ReferenceError on every click.
+   One visible box now answers both, over the whole docket. */
+let MATTERS=null, msSel=-1, msRows=[];
+
+async function msLoad(){
+  if(MATTERS) return MATTERS;
+  try{ MATTERS=((await api('/api/cases')).items)||[]; }
+  catch(e){ MATTERS=[]; }
+  return MATTERS;
+}
+function msText(m){
+  const cj=m.case_json||{};
+  return [m.case_title,m.court_name,m.case_number,m.case_year,m.cnr,m.stage,
+          cj.petitioner_name,cj.respondent_name].filter(Boolean).join(' ').toLowerCase();
+}
+async function msFind(){
+  const box=$('#msres'), inp=$('#msearch');
+  if(!box||!inp) return;
+  const q=(inp.value||'').trim().toLowerCase();
+  if(!q){ box.classList.remove('on'); box.innerHTML=''; msRows=[]; msSel=-1; return; }
+  const all=await msLoad();
+  msRows=all.filter(m=>msText(m).includes(q)).slice(0,20);
+  msSel=msRows.length?0:-1;
+  box.classList.add('on');
+  box.innerHTML=msRows.length
+    ? msRows.map((m,i)=>{
+        const cno=`${m.case_number||'—'}${m.case_year?'/'+m.case_year:''}`;
+        return `<div class="msr${i===msSel?' sel':''}" onclick="msOpen(${i})">
+          <div><div class="nm">${esc(m.case_title||'Untitled matter')}</div>
+          <div class="mt">${esc(cno)} · ${esc(m.court_name||'court not set')}</div></div>
+          <div class="dt">${m.next_hearing_date?esc(m.next_hearing_date):'no date'}</div></div>`;}).join('')
+    : `<div class="msnone">No matter matches “${esc(inp.value.trim())}”.</div>`;
+}
+function msOpen(i){
+  const m=msRows[i]; if(!m) return;
+  $('#msres').classList.remove('on'); $('#msearch').value='';
+  openFolder(m.id);
+}
+function msKey(e){
+  const box=$('#msres');
+  if(e.key==='Escape'){ box.classList.remove('on'); $('#msearch').blur(); return; }
+  if(!msRows.length) return;
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+    e.preventDefault();
+    msSel=(msSel+(e.key==='ArrowDown'?1:-1)+msRows.length)%msRows.length;
+    [...box.querySelectorAll('.msr')].forEach((el,i)=>el.classList.toggle('sel',i===msSel));
+    return;
+  }
+  if(e.key==='Enter'&&msSel>=0){ e.preventDefault(); msOpen(msSel); }
+}
+/* The sidebar and mobile search buttons both call this. */
+function openPal(){ const i=$('#msearch'); if(i){ i.focus(); i.select(); } }
+
+document.addEventListener('keydown',e=>{
+  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){ e.preventDefault(); openPal(); }
+});
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.msearch')){ const b=$('#msres'); if(b) b.classList.remove('on'); }
+  if(!e.target.closest('.dpick')) closeCal();
+});
+
+/* ---------------- link a diary docket to the court record ----------------
+   Measured on production: 123 of 125 matters came from a photographed cause
+   list and carry a synthetic placeholder where the CNR should be. Those matters
+   hold no court identifier, so the nightly sweep correctly does nothing for
+   them. This is the bridge: pull the advocate's eCourts docket ONCE, match it
+   against every unlinked matter by case number, and let him tick what is right.
+   Nothing is written until he confirms — same-name advocates are common and
+   rewriting a matter's identity is not undoable. */
+let LINKP = [];
+
+async function openLink(){
+  $('#linkWrap').classList.add('on');
+  let name='', city='';
+  try{                                   /* seed from what /welcome already asked */
+    const p=await api('/api/lawyer-profile');
+    name=(p&&(p.name||p.advocate_name))||'';
+    city=(p&&(p.city||p.court_city||p.district))||'';
+  }catch(e){}
+  $('#linkBody').innerHTML=`
+    <div style="font-size:13.5px;color:var(--ink-2);line-height:1.6;margin-bottom:14px">
+      Matters added from a diary photo carry no CNR, so the court can never update them.
+      Headnote reads your eCourts docket once and matches them by case number — you confirm each one.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="msbox" style="height:42px"><input id="lkName" placeholder="Your name as on the cause list" value="${esc(name)}"></div>
+      <div class="msbox" style="height:42px"><input id="lkCity" placeholder="District / city (e.g. Gwalior)" value="${esc(city)}"></div>
+    </div>
+    <div id="lkMsg" style="font-size:12.5px;color:var(--ink-3);margin-top:10px">The court indexes by advocate name, not enrolment number.</div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn--primary" id="lkGo" onclick="runLink()">Find my cases</button>
+      <button class="btn" onclick="closeLink()">Cancel</button></div>`;
+  setTimeout(()=>{const i=$('#lkName'); if(i&&!i.value) i.focus();},40);
+}
+function closeLink(){ $('#linkWrap').classList.remove('on'); }
+
+async function runLink(){
+  const name=(($('#lkName')||{}).value||'').trim(), city=(($('#lkCity')||{}).value||'').trim();
+  const msg=$('#lkMsg'), go=$('#lkGo');
+  if(!name){ msg.innerHTML='<span style="color:var(--amber)">Enter your name as it appears on the cause list.</span>'; return; }
+  go.disabled=true; go.textContent='Reading your court docket…'; msg.textContent='';
+  try{
+    const r=await api('/api/cases/resolve-cnr/bulk',{method:'POST',
+      body:JSON.stringify({advocate_name:name,city:city})});
+    LINKP=r.proposals||[];
+    if(!LINKP.length){
+      $('#linkBody').innerHTML=`
+        <div class="paneempty" style="padding:26px"><div class="ic">${S(IC.alert)}</div>
+          No match among your ${r.unlinked} unlinked matter(s).<br>
+          <span style="font-size:12px">The court returned ${r.docket} case(s) for “${esc(name)}”${city?' in '+esc(city):''}.
+          ${r.docket?'None of those case numbers matched yours.':'Try the name exactly as the cause list prints it, or add the district.'}</span></div>
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="btn" onclick="openLink()">Try a different name</button>
+          <button class="btn" onclick="closeLink()">Close</button></div>`;
+      return;
+    }
+    $('#linkBody').innerHTML=`
+      <div style="font-size:13.5px;color:var(--ink-2);margin-bottom:12px">
+        Matched <b>${LINKP.length}</b> of ${r.unlinked} unlinked matter(s) against ${r.docket} case(s) in your docket.
+        ${r.unmatched?`${r.unmatched} could not be matched and stay as they are.`:''}
+        Untick anything that is not yours.</div>
+      <div class="ledger" style="max-height:340px;overflow:auto">
+        ${LINKP.map((p,i)=>`<label class="regrow" style="grid-template-columns:26px 1fr;padding:10px 12px;cursor:pointer">
+          <input type="checkbox" class="lkcb" data-i="${i}" checked>
+          <div>
+            <div style="font-size:13.5px;font-weight:500">${esc(p.proposed.case_title||p.current.party||'—')}</div>
+            <div class="rc-mono" style="font-size:11px;color:var(--ink-3);margin-top:3px">
+              ${esc(p.proposed.case_number||'')}${p.proposed.case_year?'/'+esc(p.proposed.case_year):''}
+              · ${esc(p.proposed.court_name||'')}
+              ${p.proposed.next_hearing_date?' · next '+esc(p.proposed.next_hearing_date):''}</div>
+            <div class="rc-mono" style="font-size:10.5px;color:var(--ink-4);margin-top:2px">CNR ${esc(p.proposed.cnr||'')}</div>
+          </div></label>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button class="btn btn--primary" id="lkSave" onclick="saveLink()">Link the ticked matters</button>
+        <button class="btn" onclick="closeLink()">Cancel</button></div>`;
+  }catch(e){
+    go.disabled=false; go.textContent='Find my cases';
+    msg.innerHTML=`<span style="color:var(--amber)">${esc(e.message)}</span>`;
+  }
+}
+
+async function saveLink(){
+  const items=[...document.querySelectorAll('.lkcb')].filter(c=>c.checked)
+    .map(c=>({case_id:LINKP[+c.dataset.i].case_id, cnr:LINKP[+c.dataset.i].proposed.cnr}))
+    .filter(x=>x.cnr);
+  if(!items.length){ toast('Nothing ticked','error'); return; }
+  const b=$('#lkSave'); b.disabled=true; b.textContent=`Linking ${items.length}…`;
+  try{
+    const r=await api('/api/cases/resolve-cnr/bulk/confirm',{method:'POST',body:JSON.stringify({items})});
+    closeLink();
+    toast(`${r.linked} matter(s) linked to the court record${(r.failed||[]).length?` · ${r.failed.length} failed`:''}`,'success');
+    MATTERS=null;
+    load();
+  }catch(e){ b.disabled=false; b.textContent='Link the ticked matters'; toast(e.message,'error'); }
+}
+
+/* ---------------- add a matter by CNR ----------------
+   The whole argument for this product: given the CNR, nothing should be typed.
+   Parties, court, judge, sections, FIR and the next date all come back from the
+   court's own record — the lawyer confirms rather than fills. */
+function openAdd(){
+  $('#addWrap').classList.add('on');
+  $('#addBody').innerHTML=`
+    <div style="font-size:13.5px;color:var(--ink-2);line-height:1.6;margin-bottom:14px">
+      Paste the 16-character CNR. Headnote reads the case from the court record —
+      parties, court, sections and the next date fill themselves.</div>
+    <div class="msbox" style="height:44px"><svg viewBox="0 0 24 24">${IC.folder}</svg>
+      <input id="cnrIn" autocomplete="off" spellcheck="false" placeholder="MPGW010000122021"
+             style="font-family:var(--mono);letter-spacing:.04em;text-transform:uppercase"
+             onkeydown="if(event.key==='Enter')addCnr()"></div>
+    <div id="addMsg" style="font-size:12.5px;color:var(--ink-3);margin-top:10px">Nothing is saved until you confirm.</div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn--primary" id="addGo" onclick="addCnr()">Look it up</button>
+      <button class="btn" onclick="closeAdd()">Cancel</button></div>`;
+  setTimeout(()=>{ const i=$('#cnrIn'); if(i) i.focus(); },40);
+}
+function closeAdd(){ $('#addWrap').classList.remove('on'); }
+
+async function addCnr(){
+  const inp=$('#cnrIn'); if(!inp) return;
+  const cnr=(inp.value||'').trim().toUpperCase().replace(/\s+/g,'');
+  const msg=$('#addMsg'), go=$('#addGo');
+  if(!/^[A-Z0-9]{16}$/.test(cnr)){
+    msg.innerHTML='<span style="color:var(--amber)">A CNR is exactly 16 letters and digits. Check the number and try again.</span>';
+    return;
+  }
+  go.disabled=true; go.textContent='Reading the court record…';
+  msg.textContent='';
+  try{
+    const r=await api('/api/cases/add-cnr',{method:'POST',body:JSON.stringify({cnr})});
+    const c=r.case||{}, cj=c.case_json||{};
+    /* Show what actually came back. If the court record is thin, the lawyer
+       should see that now, not discover it the morning of the hearing. */
+    const facts=[
+      ['Parties', c.case_title],
+      ['Court', c.court_name],
+      ['Case no.', c.case_number?`${c.case_number}${c.case_year?'/'+c.case_year:''}`:''],
+      ['Judge', cj.judge],
+      ['Sections', (cj.sections||[]).join(', ')],
+      /* The vendor sometimes returns fir_number already carrying the year
+         ("335/2021"), so appending fir_year blindly printed "335/2021/2021". */
+      ['FIR', cj.fir_number
+        ? `${cj.fir_number}${(cj.fir_year&&!String(cj.fir_number).includes(String(cj.fir_year)))?'/'+cj.fir_year:''}${cj.police_station?' · '+cj.police_station:''}`
+        : ''],
+      ['Stage', c.stage],
+      ['Next date', c.next_hearing_date],
+    ].filter(f=>f[1]);
+    $('#addBody').innerHTML=`
+      <div class="hgap ok" style="margin-bottom:14px"><span class="gi">${S(IC.check)}</span>
+        <span class="gt">Read from the court record. Saved to your matters.</span></div>
+      <div class="ledger" style="margin-bottom:4px">${facts.map(f=>
+        `<div class="regrow" style="grid-template-columns:120px 1fr;padding:9px 12px">
+           <div class="rc-mono" style="color:var(--ink-3)">${esc(f[0])}</div>
+           <div style="font-size:13.5px">${esc(f[1])}</div></div>`).join('')}</div>
+      ${c.next_hearing_date?'':`<div style="font-size:12.5px;color:var(--amber);margin-top:10px">
+        The court record carries no next date for this case yet. It will appear after the next sync.</div>`}
+      <div style="display:flex;gap:8px;margin-top:16px">
+        <button class="btn btn--primary" onclick="closeAdd();openFolder('${c.id}')">Open the file</button>
+        <button class="btn" onclick="openAdd()">Add another</button>
+        <button class="btn" onclick="closeAdd()">Done</button></div>`;
+    MATTERS=null;                 // the search cache is now a matter short
+    load();
+  }catch(e){
+    go.disabled=false; go.textContent='Look it up';
+    const m=String(e.message||'');
+    msg.innerHTML=`<span style="color:var(--amber)">${esc(
+      /not a valid/i.test(m) ? 'That is not a valid CNR. It is exactly 16 letters and digits.'
+      : /lookup failed/i.test(m) ? 'The court service did not answer for that CNR. It may be a new registration, or the service may be down — try again shortly.'
+      : m)}</span>`;
+  }
+}
+function setMode(m){ dMode=m; renderBoard(); const s=document.querySelector('.diarysec'); if(m!=='all'&&s) s.scrollIntoView({behavior:'smooth',block:'start'}); }
+
+/* ---------------- writes ---------------- */
+async function togglePrepared(id,ev){
+  if(ev) ev.stopPropagation();
+  const m=byId(id); if(!m||busy) return; busy=true;
+  const want=!m.prepared;
+  m.prepared=want; paintRows();                       // optimistic
+  try{
+    const d=await api(`/api/matters/${id}/prep`,{method:'PATCH',body:JSON.stringify({prepared:want})});
+    Object.assign(m,d.matter); HOME=await api(`/api/home?date=${selDate}&week_from=${weekAnchor}`); render();
+    toast(want?'Marked prepared — '+m.party:'Unmarked — back to auto','success');
+  }catch(e){ m.prepared=!want; paintRows(); toast(e.message,'error'); }
+  finally{ busy=false; }
+}
+async function patchPrep(id,patch,msg){
+  try{ const d=await api(`/api/matters/${id}/prep`,{method:'PATCH',body:JSON.stringify(patch)});
+    const m=byId(id); if(m) Object.assign(m,d.matter);
+    HOME=await api(`/api/home?date=${selDate}&week_from=${weekAnchor}`); render();
+    if(noteId===id) openNote(id);
+    if(msg) toast(msg,'success');
+  }catch(e){ toast(e.message,'error'); }
+}
+const assignJunior=(id,name)=>patchPrep(id,name?{assignee:name}:{clear_assignee:true},name?'Assigned to '+name:'Assignment cleared');
+const setPurpose=(id,p)=>patchPrep(id,{purpose:p},'Purpose saved — readiness updated');
+
+function editNx(id,i){
+  const cell=$('#nx'+i); if(!cell) return;
+  const m=byId(id)||{};
+  cell.innerHTML=`<input type="date" id="nxi${i}" value="${dmy2iso(m.next_hearing_date||'')}"><button class="ok" onclick="saveNx('${id}',${i})" title="Save">${S(IC.check)}</button>`;
+  const el=$('#nxi'+i); el.focus();
+  el.addEventListener('keydown',e=>{ if(e.key==='Enter')saveNx(id,i); if(e.key==='Escape')paintRows(); });
+}
+async function saveNx(id,i){
+  const el=$('#nxi'+i), v=el?el.value:''; if(!v){ paintRows(); return; }
+  try{
+    await api(`/api/cases/${id}/set-next-date`,{method:'POST',body:JSON.stringify({next_hearing_date:dmy(v)})});
+    toast('Next date set · '+dmy(v),'success'); await load();
+  }catch(e){ toast(e.message,'error'); paintRows(); }
+}
+
+/* ---------------- note sheet ---------------- */
+function prepBlock(m){
+  return `<div class="prep">
+    <button class="prepchk ${m.prepared?'on':''}" onclick="togglePrepared('${m.id}')" role="checkbox" aria-checked="${!!m.prepared}">
+      <span class="pbox">${m.prepared?S(IC.check):''}</span>
+      <span class="pl"><b>${m.prepared?'Prepared for this hearing':'Mark as prepared'}</b><small>${m.prepared?'You confirmed this file is ready':'Tick when the file is ready to argue'}</small></span>
+    </button>
+    <div class="asg">
+      <div class="asgk">Assigned to</div>
+      <div class="asgr">${m.assignee?`<span class="asgc"><span class="av2">${esc(initials(m.assignee))}</span>${esc(m.assignee)}<button onclick="assignJunior('${m.id}','')" title="Remove" aria-label="Remove">✕</button></span>`:'<span class="asgn">Nobody yet</span>'}</div>
+      <div class="asgp">${JUNIORS.filter(j=>j!==m.assignee).map(j=>`<button class="jchip" onclick="assignJunior('${m.id}','${esc(j)}')">${esc(j)}</button>`).join('')}</div>
+      <input class="asgi" placeholder="Or type a name + Enter" onkeydown="if(event.key==='Enter'){assignJunior('${m.id}',this.value)}">
+    </div>
+  </div>`;
+}
+
+async function openNote(id){
+  if(!id){ toast('Nothing listed on this date','error'); return; }
+  noteId=id; noteDate=selDate;
+  $('#homeView').classList.add('hidden'); $('#noteView').classList.remove('hidden');
+  $('#noteView').innerHTML=`<button class="fback" onclick="closeNote()">${S('<path d="m15 6-6 6 6 6"/>')} Back</button><div class="skl" style="height:120px;border-radius:14px"></div>`;
+  window.scrollTo(0,0);
+  try{ SHEET=await api(`/api/matters/${id}/notesheet?date=${noteDate}`); paintNote(); }
+  catch(e){ $('#noteView').innerHTML=`<button class="fback" onclick="closeNote()">${S('<path d="m15 6-6 6 6 6"/>')} Back</button><div class="paneempty">${esc(e.message)}</div>`; }
+}
+function closeNote(){ $('#noteView').classList.add('hidden'); $('#homeView').classList.remove('hidden'); load(); }
+
+function paintNote(){
+  const m=SHEET.matter, s=SHEET.sheet||{}, list=board(), idx=list.findIndex(x=>String(x.id)===String(noteId));
+  const st=m.readiness, cls=STATE_CLASS[st.state]||'warn';
+  const src=SHEET.exists
+    ? (SHEET.source==='hand'
+        ? `<span class="nsrc hand">${S(IC.scan)} From your handwritten sheet</span>`
+        : `<span class="nsrc">${S(IC.note)} Prepared by your junior</span>`)
+    : `<span class="nsrc warn">${S(IC.alert)} No note sheet yet</span>`;
+  const sec=(t,ic,inner,n)=>`<section class="nsec"><div class="nh">${S(IC[ic])} ${t}${n!=null?` <span class="ncount">${n}</span>`:''}</div>${inner}</section>`;
+  const judge=((m.court_name||'').split('/')[1]||'').trim();
+
+  $('#noteView').innerHTML=`
+   <button class="fback" onclick="closeNote()">${S('<path d="m15 6-6 6 6 6"/>')} Back</button>
+   <div class="nswitch">
+     <div class="nsw-l">
+       <button class="wkb" onclick="noteDay('${addDays(noteDate,-1)}')" title="Previous day" aria-label="Previous day">${S('<path d="m15 6-6 6 6 6"/>')}</button>
+       <span class="nsw-d">${esc(fmtDay(noteDate))}</span>
+       <button class="wkb" onclick="noteDay('${addDays(noteDate,1)}')" title="Next day" aria-label="Next day">${S('<path d="m9 6 6 6-6 6"/>')}</button>
+     </div>
+     <div class="nsw-r">
+       <button class="wkb" onclick="stepMatter(-1)" aria-label="Previous matter" ${idx<=0?'disabled':''}>${S('<path d="m15 6-6 6 6 6"/>')}</button>
+       <select class="msel" onchange="openNote(this.value)" aria-label="Choose a matter">
+         ${list.map((x,i)=>`<option value="${x.id}"${String(x.id)===String(noteId)?' selected':''}>${i+1}. ${esc(x.party)}${x.prepared?'  ✓ prepared':''}</option>`).join('')}
+       </select>
+       <button class="wkb" onclick="stepMatter(1)" aria-label="Next matter" ${idx>=list.length-1?'disabled':''}>${S('<path d="m9 6 6 6-6 6"/>')}</button>
+       <span class="nsw-c">${idx+1} of ${list.length}</span>
+     </div>
+   </div>
+   <div class="nsheet">
+     <div class="nhead">
+       <div class="nhl">
+         <div class="nk">Hearing note sheet · ${esc(fmtLong(noteDate))}</div>
+         <h2 class="ntitle">${esc(m.case_title||m.party)}</h2>
+         <div class="nmeta"><span>${esc(m.case_number||'')}${m.case_year?'/'+esc(m.case_year):''}</span><span>${esc(courtBase(m.court_name))}</span>${judge?`<span>Before ${esc(judge)}</span>`:''}${m.cnr?`<span>CNR ${esc(m.cnr)}</span>`:''}</div>
+         <div class="npurpose">${m.purpose?`<b>For: ${esc(m.purpose)}</b>`:`<button class="btn btn--sm" onclick="askPurpose('${m.id}')">${S(IC.alert)} Set what the court listed it for</button>`}</div>
+         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${src}<span class="rdot ${cls}"><i></i>${esc(readyLabel(st.state))}</span></div>
+         <div style="font-size:12px;color:var(--ink-3);margin-top:8px">${esc(st.why)}</div>
+       </div>
+       <div class="nacts">
+         <button class="btn btn--primary" onclick="openScan()">${S(IC.scan)} Upload my handwritten sheet</button>
+         <button class="btn" onclick="window.print()">${S(IC.print)} Print</button>
+         <button class="btn" onclick="openFolder('${m.id}')">${S(IC.folder)} Open folder</button>
+       </div>
+     </div>
+     ${!SHEET.exists?`<div class="nempty"><div class="ic">${S(IC.note)}</div><div class="et">No note sheet for this hearing yet</div>
+        <div class="es">Upload the sheet you wrote by hand and Headnote will read it, check the sections and citations, and set it out in standard form — or let your junior prepare a first draft from the file.</div>
+        <div class="eb"><button class="btn btn--primary" onclick="openScan()">Upload handwritten sheet</button><button class="btn" onclick="prepareSheet()">Let the junior prepare it</button></div></div>`:`
+     ${sec('Chronology','clock',(s.chronology||[]).length?`<div class="ntab">${s.chronology.map(c=>`<div class="ntr"><span class="nd">${esc(c.date)}</span><span class="nev">${esc(c.event)}</span><span class="nsrc2 ${c.source==='court record'?'court':''}">${esc(c.source||'from file')}</span></div>`).join('')}</div>`:'<div class="aempty">No dated events on file yet.</div>',(s.chronology||[]).length)}
+     ${sec('Points to argue','draft',(s.points||[]).length?`<ol class="npts">${s.points.map(p=>`<li><span class="pt">${esc(p.text)}</span>${p.authority?`<span class="pcite un">${esc(p.authority)}</span>`:''}</li>`).join('')}</ol><div class="nhint">${SHEET.source==='hand'?'Read from your own sheet.':'Drafted by your junior — edit before you rely on it.'}</div>`:'<div class="aempty">No pointers yet.</div>',(s.points||[]).length)}
+     ${(s.provisions||[]).length?sec('Provisions relied on','folder',s.provisions.map(p=>`<div class="nprov"><span class="pv1">${esc(p.ref)}</span><span class="pv2">${esc(p.note||'')}</span>${p.status==='map'?'<span class="nflag">new code — check classification</span>':''}</div>`).join(''),s.provisions.length):''}
+     ${(s.paperbook||[]).length?sec('Paper-book references','doc',`<div class="npb">${s.paperbook.map(p=>`<div class="pbr"><span>${esc(p.item)}</span><span class="mono">${esc(p.ref||'')}</span></div>`).join('')}</div>`,s.paperbook.length):''}
+     ${s.prayer?sec('Prayer','check',`<div class="nb">${esc(s.prayer)}</div>`):''}
+     ${(s.ask||[]).length?sec('Ask the court','clock',`<ul class="nask">${s.ask.map(a=>`<li>${esc(a)}</li>`).join('')}</ul>`):''}
+     ${sec('Preparation','check',`<div class="prapwrap">${prepBlock(m)}</div>`)}
+     `}
+     <div class="nfoot">Facts and dates trace to the file or the court record. Suggested points are your junior’s and are marked as such — nothing is invented.</div>
+   </div>`;
+}
+function noteDay(d){ selDate=d; weekAnchor=mondayOf(d);
+  api(`/api/home?date=${d}&week_from=${weekAnchor}`).then(h=>{ HOME=h; noteDate=d;
+    if(h.board.length) openNote(h.board[0].id);
+    else { noteId=null; $('#noteView').innerHTML=`<button class="fback" onclick="closeNote()">${S('<path d="m15 6-6 6 6 6"/>')} Back</button>
+      <div class="nswitch"><div class="nsw-l"><button class="wkb" onclick="noteDay('${addDays(d,-1)}')">${S('<path d="m15 6-6 6 6 6"/>')}</button><span class="nsw-d">${esc(fmtDay(d))}</span><button class="wkb" onclick="noteDay('${addDays(d,1)}')">${S('<path d="m9 6 6 6-6 6"/>')}</button></div></div>
+      <div class="nempty"><div class="ic">${S(IC.cal)}</div><div class="et">Nothing listed on ${esc(fmtDay(d))}</div><div class="es">Pick another date.</div></div>`; }
+  }).catch(e=>toast(e.message,'error'));
+}
+function stepMatter(d){ const l=board(),i=l.findIndex(x=>String(x.id)===String(noteId)),n=i+d; if(n>=0&&n<l.length) openNote(l[n].id); }
+function askPurpose(id){
+  const p=prompt('What has the court listed this matter for?\ne.g. Bail arguments · Reply · Applicant evidence · Final arguments');
+  if(p&&p.trim()) setPurpose(id,p.trim());
+}
+async function prepareSheet(){
+  toast('Preparing from the file…');
+  try{ SHEET=await api(`/api/matters/${noteId}/notesheet/prepare?date=${noteDate}`,{method:'POST'});
+    paintNote(); toast('Note sheet prepared','success'); }
+  catch(e){ toast(e.message,'error'); }
+}
+
+/* ---------------- handwritten sheet → OCR → check → save ---------------- */
+function openScan(){
+  SCAN=null;
+  $('#scanBody').innerHTML=`<div class="scdrop" onclick="$('#scanFile').click()">
+      <div class="ic">${S(IC.scan)}</div>
+      <div class="st">Photograph or upload your note sheet</div>
+      <div class="ss">A phone photo of the page you wrote by hand is enough. JPG, PNG, HEIC or PDF.</div>
+      <button class="btn btn--primary" onclick="event.stopPropagation();$('#scanFile').click()">Choose a photo</button>
+      <div class="sn">Nothing is saved until you check it.</div>
+    </div>`;
+  $('#scanWrap').classList.add('on');
+}
+function closeScan(){ $('#scanWrap').classList.remove('on'); }
+async function doScan(file){
+  if(!file) return;
+  $('#scanBody').innerHTML=`<div class="scload"><div class="spin"></div><div class="st">Reading your note sheet…</div><div class="ss">Transcribing the handwriting — this can take up to a minute.</div></div>`;
+  const fd=new FormData(); fd.append('file',file);
+  try{
+    SCAN=await api(`/api/matters/${noteId}/notesheet/scan?date=${noteDate}`,{method:'POST',body:fd});
+    paintScan();
+  }catch(e){
+    $('#scanBody').innerHTML=`<div class="paneempty"><div class="ic">${S(IC.alert)}</div>${esc(e.message)}<br>
+      <button class="btn" style="margin-top:14px" onclick="openScan()">Try another photo</button></div>`;
+  }
+}
+function paintScan(){
+  const rows=SCAN.lines.map((l,i)=>`<div class="scrow"><span class="scn">${String(i+1).padStart(2,'0')}</span><input class="scin" value="${esc(l.text)}" oninput="SCAN.lines[${i}].text=this.value"><button class="scx" onclick="SCAN.lines.splice(${i},1);paintScan()" title="Remove">✕</button></div>`).join('');
+  const lvl={ok:'ok',warn:'warn',check:'warn'};
+  $('#scanBody').innerHTML=`
+    <div class="scengine">${S(IC.check)} Read by ${esc(SCAN.engine)} · ${SCAN.lines.length} pointer${SCAN.lines.length===1?'':'s'} found</div>
+    <div class="scnote">Fix anything misread, then save — nothing is added until you do.</div>
+    <div class="scrows">${rows}</div>
+    <button class="scadd" onclick="SCAN.lines.push({text:''});paintScan()">+ Add a pointer</button>
+    <div class="scan-an">
+      <div class="anh">${S(IC.alert)} What your junior checked</div>
+      ${SCAN.analysis.map(a=>`<div class="anr ${lvl[a.level]||'warn'}"><span class="ai">${S(a.level==='ok'?IC.check:IC.alert)}</span><div>${esc(a.text)}</div></div>`).join('')}
+    </div>
+    <div class="scfoot"><button class="btn" onclick="closeScan()">Cancel</button><button class="btn btn--primary" onclick="saveScan()">Save as note sheet</button></div>`;
+}
+async function saveScan(){
+  const lines=SCAN.lines.map(l=>l.text.trim()).filter(Boolean);
+  if(!lines.length){ toast('Nothing to save','error'); return; }
+  const prayerLine=lines.find(l=>/^(pray|prayer|relief)/i.test(l))||'';
+  const sheet={
+    chronology:(SHEET.sheet&&SHEET.sheet.chronology)||[],
+    points:lines.filter(l=>l!==prayerLine).map(l=>({text:l.replace(/^cite\s+/i,''),authority:''})),
+    provisions:[], objections:[], paperbook:(SHEET.sheet&&SHEET.sheet.paperbook)||[],
+    prayer:prayerLine.replace(/^(pray|prayer|relief)[\s:–-]*/i,''), ask:[],
+    from_hand:true
+  };
+  try{
+    SHEET=await api(`/api/matters/${noteId}/notesheet`,{method:'PUT',
+      body:JSON.stringify({hearing_date:noteDate,source:'hand',sheet})});
+    closeScan(); paintNote(); toast('Note sheet saved','success');
+  }catch(e){ toast(e.message,'error'); }
+}
+
+/* ---------------- cause list / diary page → OCR → check → file -------------
+   The advocate photographs the printed cause list (or his own diary page) and
+   the matters land in his board. Same two-step contract the Matters screen
+   uses, and the same rule: NOTHING is filed until he has seen the rows and
+   said save. A wrong case number filed silently is worse than no import.
+
+     POST /api/cases/import/diary-photo    one page  → {page_date, rows[], engine}
+     POST /api/cases/import/diary-confirm  the rows he approved → the diary
+--------------------------------------------------------------------------- */
+let CLROWS=[], CLDATE='', CLENGINE='', CLPAGES=0;
+function openCauseList(){
+  CLROWS=[]; CLDATE=''; CLENGINE=''; CLPAGES=0;
+  clDrop();
+  $('#clWrap').classList.add('on');
+}
+function closeCl(){ $('#clWrap').classList.remove('on'); }
+function clDrop(){
+  $('#clBody').innerHTML=`<div class="scdrop" onclick="$('#clFile').click()">
+      <div class="ic">${S(IC.scan)}</div>
+      <div class="st">Photograph the cause list</div>
+      <div class="ss">A phone photo of the printed list — or a page of your own diary — is enough. One photo per day's list. JPG, PNG, HEIC or PDF.</div>
+      <button class="btn btn--primary" onclick="event.stopPropagation();$('#clFile').click()">Choose photos</button>
+      <div class="sn">Nothing is filed until you have checked the rows</div>
+    </div>`;
+}
+$('#clFile').addEventListener('change', e=>{
+  const files=[...(e.target.files||[])];
+  e.target.value='';                       // so the same photo can be retried
+  if(files.length) doCauseList(files);
+});
+async function doCauseList(files){
+  $('#clBody').innerHTML=`<div class="scload"><div class="spin"></div>
+    <div class="st">Reading ${files.length>1?files.length+' pages':'the page'}…</div>
+    <div class="ss">Transcribing the list — this can take up to a minute per page.</div></div>`;
+  CLROWS=[]; CLPAGES=0; const engines=new Set();
+  try{
+    for(const f of files){
+      const fd=new FormData(); fd.append('file',f);
+      const d=await api('/api/cases/import/diary-photo',{method:'POST',body:fd});
+      const pd=d.page_date||'';
+      (d.rows||[]).forEach(r=>CLROWS.push({page_date:pd,court:r.court||'',case_no:r.case_no||'',
+        title:r.title||'',proceeding:r.proceeding||'',last_date:r.last_date||'',
+        next_date:r.next_date||'',flags:r.flags||[]}));
+      engines.add((d.engine||'').toLowerCase()); CLPAGES++;
+    }
+    if(!CLROWS.length){ return clFailed("Couldn't find any case rows on that page."); }
+    CLENGINE=engines.has('gemini')?'gemini':([...engines][0]||'fallback');
+    const dates=[...new Set(CLROWS.map(r=>r.page_date).filter(Boolean))];
+    CLDATE = dates.length===1 ? dates[0] : (selDate||'');
+    renderClReview();
+  }catch(e){ clFailed(e.message); }
+}
+function clFailed(msg){
+  $('#clBody').innerHTML=`<div class="scload">
+      <div class="st">${esc(msg)}</div>
+      <div class="ss">Try a straighter, better-lit photo of the whole page — or add the matters by hand from Matters.</div>
+      <div class="scfoot" style="justify-content:center;border:0;margin-top:20px">
+        <button class="btn" onclick="closeCl()">Close</button>
+        <button class="btn btn--primary" onclick="clDrop()">Choose different photos</button>
+      </div></div>`;
+}
+function renderClReview(){
+  const flagged=CLROWS.filter(r=>(r.flags||[]).length).length;
+  const cols=['','Page date','Court / judge','Case no.','Party','Prev date','Next date',''];
+  $('#clBody').innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:4px">
+      <div class="scengine">${S(IC.check)} read ${CLROWS.length} matter(s) from ${CLPAGES} page(s)${CLENGINE&&CLENGINE!=='gemini'?' · '+esc(CLENGINE):''}</div>
+      <label style="font-family:var(--mono);font-size:10.5px;color:var(--ink-3)">Default date
+        <input class="scin" style="width:130px;display:inline-block;margin-left:7px" id="clDate" value="${esc(CLDATE)}" oninput="CLDATE=this.value">
+      </label>
+    </div>
+    <div class="scnote">Check every row before it is filed.${flagged?` <b>${flagged}</b> row(s) the reader was unsure about are marked amber.`:''} Edit anything that is wrong — this is what goes into your diary.</div>
+    <div class="clscroll"><div>
+      <div class="clhead">${cols.map(c=>`<div>${c}</div>`).join('')}</div>
+      ${CLROWS.map((r,i)=>clRowHTML(r,i)).join('')}
+    </div></div>
+    <button class="scadd" onclick="addClRow()">+ Add a row by hand</button>
+    <div class="scfoot">
+      <button class="btn" onclick="closeCl()">Cancel</button>
+      <button class="btn" onclick="clDrop()">Different photos</button>
+      <button class="btn btn--primary" id="clSave" onclick="saveCauseList()">File ${CLROWS.length} to my diary</button>
+    </div>`;
+}
+function clRowHTML(r,i){
+  const fl=f=>(r.flags||[]).includes(f)?' flagd':'';
+  const cell=(f,ph)=>`<input class="scin${fl(f)}" placeholder="${ph}" value="${esc(r[f]||'')}" oninput="clEdit(${i},'${f}',this.value)">`;
+  return `<div class="clrow">
+    <div class="scn">${i+1}</div>
+    ${cell('page_date','date')}${cell('court','court')}${cell('case_no','case no.')}
+    ${cell('title','party')}${cell('last_date','prev')}${cell('next_date','next')}
+    <button class="scx" title="Remove this row" onclick="delClRow(${i})">✕</button>
+  </div>`;
+}
+function clEdit(i,field,val){
+  if(!CLROWS[i]) return;
+  CLROWS[i][field]=val;
+  /* an edited field is no longer "the reader was unsure" — drop the amber */
+  CLROWS[i].flags=(CLROWS[i].flags||[]).filter(f=>f!==field);
+}
+function delClRow(i){ CLROWS.splice(i,1); if(!CLROWS.length) return clDrop(); renderClReview(); }
+function addClRow(){
+  CLROWS.push({page_date:CLDATE||'',court:'',case_no:'',title:'',proceeding:'',last_date:'',next_date:'',flags:[]});
+  renderClReview();
+}
+async function saveCauseList(){
+  const rows=CLROWS.filter(r=>(r.case_no||'').trim()||(r.title||'').trim());
+  if(!rows.length){ toast('Nothing to file — every row is blank','error'); return; }
+  const b=$('#clSave'); b.disabled=true; b.textContent='Filing…';
+  try{
+    const d=await api('/api/cases/import/diary-confirm',{method:'POST',
+      body:JSON.stringify({page_date:(CLDATE||'').trim()||null,
+        rows:rows.map(x=>({case_no:x.case_no,court:x.court,title:x.title,proceeding:x.proceeding,
+          last_date:x.last_date,next_date:x.next_date,page_date:(x.page_date||'').trim()||(CLDATE||'').trim()||null}))})});
+    const extra=d.logged?` · ${d.logged} logged against matters you already had`:'';
+    closeCl();
+    toast(`Filed ${d.imported} matter(s)${extra}`,'success');
+    await load();                            // the board now includes them
+  }catch(e){ b.disabled=false; b.textContent=`File ${rows.length} to my diary`; toast(e.message,'error'); }
+}
+
+/* ---------------- today's list, on paper ------------------------------------
+   The board he is already looking at, printed. No server call and no popup:
+   the sheet is built from HOME.board and revealed only to the printer, so
+   "Save as PDF" in the print dialog gives him the day's list to carry.
+--------------------------------------------------------------------------- */
+/* ---------------- the cause list, for ANY day ----------------
+   This used to be a single header button called "Today's list": today was the
+   only day you could ever get out of Headnote, and print was the only way out.
+   These three act on whatever is on screen — a single date reached through the
+   calendar, or the whole three-day view. */
+function listDates(){
+  return dSpan===3 ? [addDays(selDate,-1),selDate,addDays(selDate,1)] : [selDate];
+}
+/* Rows for those dates, honouring the filter the lawyer has set. */
+function listRows(){
+  const q=(($('#dfilter')||{}).value||'').toLowerCase().trim();
+  const out=[];
+  listDates().forEach(d=>{
+    const src = dSpan===3 ? ((HOME.boards||{})[d]||[]) : board();
+    sift(src,q).forEach(m=>out.push({...m, _date:d}));
+  });
+  return out;
+}
+function listTitle(){
+  const d=listDates();
+  return d.length>1 ? `${fmtDay(d[0])} – ${fmtDay(d[d.length-1])}` : fmtLong(d[0]);
+}
+function advocateName(){
+  let who=($('#unm')&&$('#unm').textContent||'').trim();
+  return who==='Signed in' ? '' : who;
+}
+
+function downloadList(){
+  const rows=listRows();
+  if(!rows.length){ toast('Nothing listed to download','error'); return; }
+  /* CSV, because it opens in Excel on a chamber PC and in any phone viewer.
+     Print → "Save as PDF" covers the PDF case. */
+  const head=['Date','Item','Court no.','Case','Case no.','Court','Judge','Purpose','Stage','Next date'];
+  const cell=v=>{const s=(v==null?'':String(v)); return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
+  const lines=[head.join(',')].concat(rows.map(m=>[
+    m._date, m.item||'', m.court_no||'', m.case_title||m.party||'',
+    `${m.case_number||''}${m.case_year?'/'+m.case_year:''}`, m.court_name||'',
+    m.judge||'', m.purpose||'', readyLabel(m.readiness), m.next_hearing_date||''
+  ].map(cell).join(',')));
+  const blob=new Blob(['﻿'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`cause-list-${listDates()[0]}${listDates().length>1?'-3day':''}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  toast(`${rows.length} matter(s) downloaded`,'success');
+}
+
+/* Email the list to the signed-in lawyer, so it is on his phone in court.
+   /api/cases/diary/email takes the ROWS (case_no · title · court · next_date),
+   not a date — it emails a typed copy rather than looking anything up. */
+async function emailList(){
+  const rows=listRows();
+  if(!rows.length){ toast('Nothing listed to email','error'); return; }
+  toast('Sending…');
+  try{
+    const r=await api('/api/cases/diary/email',{method:'POST',body:JSON.stringify({
+      page_date: listTitle(),
+      rows: rows.map(m=>({
+        case_no: `${m.case_number||''}${m.case_year?'/'+m.case_year:''}`.trim(),
+        title:   m.case_title||m.party||'',
+        court:   [m.court_name, m.court_no?`Court no. ${m.court_no}`:null].filter(Boolean).join(' · '),
+        next_date: m.next_hearing_date||''
+      }))
+    })});
+    if(r&&r.ok===false){
+      toast(r.reason==='email_not_configured'
+        ? 'Email is not set up on this server — use Download instead':'Could not send','error');
+      return;
+    }
+    toast(`Sent to ${(r&&r.to)||'your email'}`,'success');
+  }catch(e){ toast(e.message,'error'); }
+}
+
+function printList(){
+  const rows=listRows();
+  if(!rows.length){ toast('Nothing listed for this day','error'); return; }
+  /* the signed-in name, unless whoami() has not replaced the placeholder yet —
+     "Signed in ·" must never appear on a sheet carried into court */
+  const who=advocateName();
+  const multi=listDates().length>1;
+  $('#daySheet').innerHTML=`
+    <div class="dsh">
+      <div class="dst">Cause list — ${esc(listTitle())}</div>
+      <div class="dsm">${esc(who)}${who?' · ':''}${rows.length} matter(s) · printed from Headnote</div>
+    </div>
+    <table><thead><tr>
+      <th style="width:26px">#</th>${multi?'<th style="width:74px">Date</th>':''}
+      <th style="width:52px">Court<br>no.</th><th>Case</th><th>Court · Judge</th>
+      <th>Purpose</th><th>Stage</th><th style="width:78px">Next</th>
+    </tr></thead><tbody>
+    ${rows.map((m,i)=>`<tr>
+      <td class="dsn">${m.item!=null?esc(m.item):i+1}</td>
+      ${multi?`<td class="dsn">${esc(fmtDay(m._date))}</td>`:''}
+      <td class="dsn">${esc(m.court_no||'—')}</td>
+      <td><b>${esc(m.case_title||m.party||'—')}</b>${m.case_number?`<div class="dsn">${esc(m.case_number)}${m.case_year?'/'+esc(m.case_year):''}</div>`:''}</td>
+      <td>${esc(m.court_name||'—')}${m.judge?`<div class="dsn">${esc(m.judge)}</div>`:''}</td>
+      <td>${esc(m.purpose||'—')}</td>
+      <td>${esc(readyLabel(m.readiness))}</td>
+      <td class="dsn">${esc(m.next_hearing_date||'—')}</td>
+    </tr>`).join('')}
+    </tbody></table>
+    <div class="dsfoot">Prepared by Headnote · verify against the court's own list before relying on it</div>`;
+  document.body.classList.add('printing-day');
+  const done=()=>{ document.body.classList.remove('printing-day'); window.removeEventListener('afterprint',done); };
+  window.addEventListener('afterprint',done);
+  window.print();
+  setTimeout(done,1500);          // afterprint is unreliable on some mobiles
+}
+
+/* ---------------- what the courts changed (the reason to open this) -------- */
+function renderUpdates(){
+  const ups=(HOME.court_updates||[]), n=(HOME.counts||{}).court_updates||0;
+  if(!n) return '';
+  const ico={new_order:IC.doc,next_date:IC.cal,stage:IC.clock,purpose:IC.alert,
+             new_hearing:IC.clock,disposed:IC.check,last_order:IC.doc};
+  return `<section class="upband fin">
+    <div class="ubh">${S(IC.alert)} From the courts <span class="ubn">${n}</span>
+      <button class="btn btn--sm" style="margin-left:auto" onclick="syncAll()">${S(IC.research)} Check for updates</button></div>
+    ${ups.map(u=>`<div class="uprow">
+      <span class="ui">${S(ico[u.kind]||IC.alert)}</span>
+      <div class="ub"><div class="ut">${esc(u.text)}</div>
+        <div class="us">${esc(u.party||'')}${u.court_name?' · '+esc(courtBase(u.court_name)):''}</div></div>
+      ${u.kind==='new_order'&&u.link?`<button class="btn btn--sm" onclick="saveOrder('${u.case_id}','${esc(u.link)}','${esc(u.date||'')}','${esc(u.order_type||'Order')}',this)">${S(IC.doc)} Save to folder</button>`:''}
+      <button class="btn btn--sm" onclick="openFolder('${u.case_id}')">Open</button>
+      <button class="uclr" title="Mark seen" onclick="clearUpdates('${u.case_id}')">✕</button>
+    </div>`).join('')}
+  </section>`;
+}
+async function syncAll(){
+  toast('Asking the courts what changed…');
+  try{
+    const r=await api('/api/matters/sync-all',{method:'POST'});
+    toast(r.updates?`${r.updates} update${r.updates>1?'s':''} from the courts`:'Nothing new at the courts','success');
+    await load();
+  }catch(e){ toast(e.message,'error'); }
+}
+async function syncOne(id){
+  toast('Checking this matter…');
+  try{ const r=await api(`/api/matters/${id}/sync`,{method:'POST'});
+    toast(r.ok?(r.updates.length?`${r.updates.length} change(s) found`:'Nothing new'):(r.reason||'Could not check'),
+          r.ok?'success':'error');
+    await load();
+  }catch(e){ toast(e.message,'error'); }
+}
+
+/* Sync from inside the case folder. Same endpoint as the row link, but it says
+   out loud WHAT moved — "nothing new" and "we could not reach the court" are
+   very different answers and must never look the same. */
+async function syncFolder(id){
+  const b=$('#syncBtn'); if(b){ b.disabled=true; b.textContent='Reading the court record…'; }
+  try{
+    const r=await api(`/api/matters/${id}/sync`,{method:'POST'});
+    if(!r.ok){ toast(r.reason||'Could not reach the court record','error'); }
+    else if(!(r.updates||[]).length){ toast('Checked — nothing has changed','success'); }
+    else{
+      const what=r.updates.map(u=>u.label||u.kind||'change').slice(0,3).join(', ');
+      toast(`${r.updates.length} change${r.updates.length>1?'s':''}: ${what}`,'success');
+    }
+    await openFolder(id);
+    load();
+  }catch(e){ toast(e.message,'error'); }
+  finally{ const x=$('#syncBtn'); if(x){ x.disabled=false; } }
+}
+async function clearUpdates(id){
+  try{ await api(`/api/matters/${id}/updates/read`,{method:'POST'}); await load(); }
+  catch(e){ toast(e.message,'error'); }
+}
+async function saveOrder(id,link,date,type,btn){
+  if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
+  try{
+    const r=await api(`/api/matters/${id}/orders/save`,{method:'POST',
+      body:JSON.stringify({link,date,order_type:type})});
+    toast('Order filed in the case folder'+(r.ocr?' and read':''),'success');
+    await load();
+  }catch(e){ toast(e.message,'error'); if(btn){ btn.disabled=false; btn.textContent='Save to folder'; } }
+}
+
+/* ---------------- the case folder: everything filed under one matter ------- */
+let FOLDER=null;
+async function openFolder(id){
+  $('#homeView').classList.add('hidden'); $('#noteView').classList.add('hidden');
+  $('#folderView').classList.remove('hidden'); window.scrollTo(0,0);
+  $('#folderView').innerHTML=`<button class="fback" onclick="closeFolder()">${S('<path d="m15 6-6 6 6 6"/>')} Back</button><div class="skl" style="height:150px;border-radius:14px"></div>`;
+  try{ FOLDER=await api(`/api/cases/${id}/folder`); await loadIntake(id); paintFolder(id); }
+  catch(e){ $('#folderView').innerHTML=`<button class="fback" onclick="closeFolder()">${S('<path d="m15 6-6 6 6 6"/>')} Back</button><div class="paneempty"><div class="ic">${S(IC.alert)}</div>${esc(e.message)}</div>`; }
+}
+function closeFolder(){ $('#folderView').classList.add('hidden'); $('#homeView').classList.remove('hidden'); load(); }
+
+function paintFolder(id){
+  const f=FOLDER, c=f.case||{}, cl=f.client||{};
+  const cj=(c.case_json&&typeof c.case_json==='object')?c.case_json:{};
+  const m=byId(id)||{};
+  const tile=(icon,label,items,render,addLabel,addFn)=>`
+    <section class="cblk">
+      <div class="cbh">${S(IC[icon])} ${label} <span class="ncount">${items.length}</span></div>
+      ${items.length?`<div class="ctiles">${items.map(render).join('')}</div>`
+                    :`<div class="aempty">Nothing filed here yet.</div>`}
+      ${addLabel?`<button class="addnew" onclick="${addFn}">${S('<path d="M12 5v14M5 12h14"/>')} ${addLabel}</button>`:''}
+    </section>`;
+  const party=(c.case_json&&c.case_json.client&&c.case_json.client.name)||cl.name||c.case_title||'—';
+  $('#folderView').innerHTML=`
+   <button class="fback" onclick="closeFolder()">${S('<path d="m15 6-6 6 6 6"/>')} Back to Home</button>
+   <div class="nsheet">
+     <div class="nhead">
+       <div class="nhl">
+         <div class="nk">Case folder</div>
+         <h2 class="ntitle">${esc(party)}</h2>
+         <div class="nmeta">${c.case_number?`<span>${esc(c.case_number)}${c.case_year?'/'+esc(c.case_year):''}</span>`:''}${c.court_name?`<span>${esc(c.court_name)}</span>`:''}${c.cnr?`<span>CNR ${esc(c.cnr)}</span>`:''}${c.next_hearing_date?`<span>Next ${esc(c.next_hearing_date)}</span>`:''}</div>
+         ${cl.mobile?`<div class="npurpose" style="font-size:13px">${esc(cl.name||'')} · ${esc(cl.mobile)}</div>`:''}
+       </div>
+       <div class="nacts">
+         <button class="btn btn--primary" onclick="openNote('${id}')">${S(IC.note)} Note sheet</button>
+         ${c.cnr?`<button class="btn" id="syncBtn" onclick="syncFolder('${id}')" title="Re-read this case from the court record">${S('<path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6"/>')} Sync with court</button>`:''}
+         <button class="btn" onclick="window.print()">${S(IC.print)} Print</button>
+       </div>
+     </div>
+     <!-- Last contact with the court, stated plainly. A lawyer should never
+          have to guess whether what he is looking at is today's record. -->
+     <div class="nmeta" style="margin:-4px 0 14px">
+       ${c.cnr
+         ? `<span>${cj.synced_at?'Court record read '+esc(String(cj.synced_at).slice(0,10)):'Not yet re-read from the court'}</span>`
+         : `<span>No CNR on this matter — it cannot be synced with the court.</span>`}
+     </div>
+     ${tile('draft','Drafts',f.drafts||[],d=>`<div class="ctile"><div class="ct">${esc(d.title||d.story_id||'Draft')}</div><div class="cm">${d.exported_at?'filed':'draft'}${d.updated_at?' · '+esc(String(d.updated_at).slice(0,10)):''}</div></div>`,'New draft from this case',`location.href='/draft?matter=${id}'`)}
+     ${tile('mic','Recordings',f.recordings||[],r=>`<div class="ctile"><div class="ct">${esc(r.title||'Consultation')}</div><div class="cm">${r.duration_sec?Math.round(r.duration_sec/60)+' min':''}${r.created_at?' · '+esc(String(r.created_at).slice(0,10)):''}</div></div>`,'New recording',`location.href='/recorder?case_id=${id}'`)}
+     ${tile('doc','Documents',f.documents||[],d=>`<div class="ctile"><div class="ct">${esc(d.title||'Document')}</div><div class="cm">${d.page_count||1} pp${d.doc_type?' · '+esc(d.doc_type):''}</div></div>`,'Upload document',`location.href='/documents?case_id=${id}'`)}
+     ${intakeBlock(id)}
+     ${tile('research','Saved research',f.caselaw||[],a=>`<div class="ctile"><div class="ct">${esc(a.title||a.case_id)}</div><div class="cm">${esc(a.court||'')}${a.citation?' · '+esc(a.citation):''}</div></div>`,'Find law for this case',`location.href='/research?matter=${id}'`)}
+     ${(f.hearing_logs||[]).length?`<section class="cblk"><div class="cbh">${S(IC.clock)} Hearings <span class="ncount">${f.hearing_logs.length}</span></div>
+       <div class="ntab">${f.hearing_logs.map(h=>`<div class="ntr"><span class="nd">${esc(h.hearing_date||'')}</span><span class="nev">${esc(h.what_happened||'')}</span><span class="nsrc2 court">court record</span></div>`).join('')}</div></section>`:''}
+     <div class="nfoot">Everything filed under this matter. Drafts, recordings and documents are saved to your account, not this device.</div>
+   </div>`;
+}
+
+
+/* ---------------- client uploads: the intake link + approval tray ---------- */
+let INTAKE=null, INLINK=null;
+async function loadIntake(id){
+  try{
+    const [t,l]=await Promise.all([
+      api(`/api/matters/${id}/intake`),
+      api(`/api/matters/${id}/intake-link`)]);
+    INTAKE=t; INLINK=l.link; return true;
+  }catch(e){ INTAKE={count:0,uploads:[]}; INLINK=null; return false; }
+}
+function intakeBlock(id){
+  const ups=(INTAKE&&INTAKE.uploads)||[];
+  const link=INLINK;
+  return `<section class="cblk">
+    <div class="cbh">${S(IC.doc)} Client uploads ${ups.length?`<span class="ncount">${ups.length} awaiting review</span>`:''}</div>
+    ${link?`<div class="ilink">
+        <div class="ilk">Upload link — send this to your client</div>
+        <div class="ilrow"><input readonly value="${esc(location.origin+link.url)}" onclick="this.select()">
+          <button class="btn btn--sm" onclick="copyLink('${esc(location.origin+link.url)}')">Copy</button>
+          <a class="btn btn--sm" target="_blank" rel="noopener" href="${esc(link.url)}">Open</a></div>
+        <div class="ilm">Write-only · never expires · <button class="ilrev" onclick="revokeLink('${id}')">Revoke</button>
+          ${link.last_used_at?` · last used ${esc(String(link.last_used_at).slice(0,10))}`:' · not used yet'}</div>
+      </div>`
+     :`<div class="aempty">No upload link yet.
+        <button class="btn btn--sm" style="margin-left:8px" onclick="makeLink('${id}')">Create upload link</button></div>`}
+    ${ups.length?`<div class="itray">${ups.map(u=>`
+      <div class="iup">
+        <div class="ib"><div class="it">${esc(u.filename||'document')}</div>
+          <div class="im">${u.note?esc(u.note)+' · ':''}${u.uploader_name?esc(u.uploader_name)+' · ':''}${Math.round((u.size_bytes||0)/1024)} KB</div></div>
+        <a class="btn btn--sm" target="_blank" rel="noopener" href="/api/matters/${id}/intake/${u.id}/file">View</a>
+        <button class="btn btn--sm btn--primary" onclick="approveUpload('${id}','${u.id}',this)">Save to file</button>
+        <button class="idis" title="Discard — the file is deleted" onclick="discardUpload('${id}','${u.id}')">✕</button>
+      </div>`).join('')}</div>`:''}
+  </section>`;
+}
+function copyLink(u){ navigator.clipboard.writeText(u).then(()=>toast('Link copied','success'),()=>toast('Copy failed','error')); }
+async function makeLink(id){
+  try{ const r=await api(`/api/matters/${id}/intake-link`,{method:'POST',body:JSON.stringify({})});
+    INLINK=r.link; toast('Upload link created','success'); openFolder(id);
+  }catch(e){ toast(e.message,'error'); }
+}
+async function revokeLink(id){
+  if(!confirm('Revoke this link? The client will not be able to upload until you send a new one.')) return;
+  try{ await api(`/api/matters/${id}/intake-link`,{method:'DELETE'}); toast('Link revoked','success'); openFolder(id); }
+  catch(e){ toast(e.message,'error'); }
+}
+async function approveUpload(id,uid,btn){
+  if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
+  try{ const r=await api(`/api/matters/${id}/intake/${uid}/approve`,{method:'POST',
+        body:JSON.stringify({ocr:true})});
+    toast('Filed: '+(r.document&&r.document.title||'document'),'success'); openFolder(id);
+  }catch(e){ toast(e.message,'error'); if(btn){btn.disabled=false;btn.textContent='Save to file';} }
+}
+async function discardUpload(id,uid){
+  if(!confirm('Discard this document? The file will be deleted.')) return;
+  try{ await api(`/api/matters/${id}/intake/${uid}/discard`,{method:'POST'});
+    toast('Discarded and deleted','success'); openFolder(id);
+  }catch(e){ toast(e.message,'error'); }
+}
+
+/* ---------------- sidebar ---------------- */
+function toggleSb(){
+  const on=document.body.classList.toggle('sb-min');
+  try{ localStorage.setItem('hn_sb',on?'1':'0'); }catch(e){}
+  const b=$('#sbtog'); if(b){ b.title=on?'Expand sidebar':'Collapse sidebar'; b.setAttribute('aria-label',b.title); }
+}
+try{ if(localStorage.getItem('hn_sb')==='1') document.body.classList.add('sb-min'); }catch(e){}
+
+/* ---------------- boot ---------------- */
+(function boot(){
+  const t=new Date(); selDate=iso(t); weekAnchor=mondayOf(selDate);
+  const f=$('#scanFile'); if(f) f.addEventListener('change',e=>doScan(e.target.files[0]));
+  load();
+})();
+
+</script>
+</body>
+</html>
