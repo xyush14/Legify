@@ -38,9 +38,10 @@ router = APIRouter(prefix="/api/saved-caselaw", tags=["saved-caselaw"])
 _TABLE = "saved_caselaw"
 
 # Columns returned to the FE for the list view. case_json carries the full card.
+# matter_id lets the Saved library group by matter (migration 012).
 _LIST_COLS = (
     "id", "case_id", "title", "citation", "court", "year", "source",
-    "note", "source_query", "case_json", "created_at", "updated_at",
+    "note", "source_query", "matter_id", "case_json", "created_at", "updated_at",
 )
 
 
@@ -54,10 +55,17 @@ class SaveBody(BaseModel):
                                         description="The research situation this hit came from")
     note:         Optional[str] = Field(None, max_length=4000,
                                         description="Optional personal note set at save time")
+    matter_id:    Optional[str] = Field(None,
+                                        description="File this authority under a matter, so it "
+                                                    "shows in that case's folder (migration 012)")
 
 
 class NoteBody(BaseModel):
+    """PATCH body — only the fields actually sent are written, so a note edit
+    never clobbers the matter filing and vice-versa."""
     note: Optional[str] = Field(None, max_length=4000)
+    matter_id: Optional[str] = Field(None,
+                                     description="Re-file under a matter; explicit null un-files it")
 
 
 def _clean(s: Optional[str]) -> Optional[str]:
@@ -93,6 +101,8 @@ def save_caselaw(body: SaveBody, user: CurrentUser = Depends(get_current_user)) 
         "source_query": _clean(body.source_query),
         **_denormalise(body.case_id, body.case_json),
     }
+    if body.matter_id:
+        row["matter_id"] = body.matter_id
     if body.note is not None:
         row["note"] = _clean(body.note)
 
@@ -122,20 +132,26 @@ def list_caselaw(user: CurrentUser = Depends(get_current_user)) -> dict:
     return {"items": rows, "count": len(rows)}
 
 
-@router.patch("/{case_id}", summary="Edit the personal note on a saved case")
+@router.patch("/{case_id}", summary="Edit the note / matter filing on a saved case")
 def update_note(case_id: str, body: NoteBody,
                 user: CurrentUser = Depends(get_current_user)) -> dict:
-    note = _clean(body.note)
+    patch: dict = {}
+    if "note" in body.model_fields_set:
+        patch["note"] = _clean(body.note)
+    if "matter_id" in body.model_fields_set:
+        patch["matter_id"] = _clean(body.matter_id)   # null → un-file from the matter
+    if not patch:
+        return {"ok": True}
     try:
         _supabase.update(
             _TABLE,
-            {"note": note},
+            patch,
             params={"user_id": f"eq.{user.id}", "case_id": f"eq.{case_id}"},
         )
     except Exception as e:  # noqa: BLE001
-        log.exception("saved_caselaw note update failed for %.8s case=%s", user.id, case_id)
-        raise HTTPException(status_code=502, detail=f"could not save note: {e}")
-    return {"ok": True, "note": note}
+        log.exception("saved_caselaw update failed for %.8s case=%s", user.id, case_id)
+        raise HTTPException(status_code=502, detail=f"could not save: {e}")
+    return {"ok": True, **patch}
 
 
 @router.delete("/{case_id}", summary="Remove a case from the library (unsave)")
@@ -149,3 +165,16 @@ def delete_caselaw(case_id: str, user: CurrentUser = Depends(get_current_user)) 
         log.exception("saved_caselaw delete failed for %.8s case=%s", user.id, case_id)
         raise HTTPException(status_code=502, detail=f"could not remove case: {e}")
     return {"ok": True}
+
+
+def list_for_matter(user_id: str, matter_id: str, *, limit: int = 50) -> list[dict]:
+    """The authorities saved against one matter — powers the case folder's
+    Research section. Returns [] rather than raising: a folder that fails to open
+    because research is unavailable would be worse than one showing no research."""
+    try:
+        return _supabase.select(_TABLE, params={
+            "user_id": f"eq.{user_id}", "matter_id": f"eq.{matter_id}",
+            "order": "updated_at.desc", "limit": str(limit)}) or []
+    except Exception as e:  # noqa: BLE001
+        log.warning("saved_caselaw matter lookup failed: %s", e)
+        return []

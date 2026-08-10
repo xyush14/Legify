@@ -1,0 +1,2381 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<meta name="robots" content="noindex">
+<title>Research — Headnote</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;450;500;600;700&family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#ffffff;--surface:#ffffff;--raise:#fcfcfb;
+  --ink:#0c0c0a;--ink-2:#4b4b48;--ink-3:#8a8a82;--ink-4:#b8b6ae;
+  --line:#e7e7e4;--line-2:#f1f1ef;--soft:#f6f6f4;
+  --amber:#b7791f;--amber-soft:#fdf5e6;--amber-line:#eddcb8;
+  --red:#b0392b;--red-soft:#fbeeec;--green:#2f8f57;--green-soft:#ecf6ef;--green-line:#cfe8d8;
+  --r:10px;--r-lg:16px;--r-sm:8px;
+  --shadow:0 1px 2px rgba(12,12,10,.05);--shadow-card:0 1px 2px rgba(12,12,10,.05),0 1px 1px rgba(12,12,10,.03);
+  --lift:0 16px 34px -22px rgba(12,12,10,.26);--ease:cubic-bezier(.16,1,.3,1);
+  --sans:'Geist',-apple-system,'Segoe UI',sans-serif;--mono:'Geist Mono',ui-monospace,monospace;--hi:'Noto Sans Devanagari','Geist',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer;border:0;background:none;color:inherit}
+input,textarea{font-family:inherit}
+.mono{font-family:var(--mono)}.hi{font-family:var(--hi)}
+::selection{background:#eaeae4}
+.btn{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:500;padding:9px 14px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--surface);color:var(--ink);transition:.14s var(--ease);white-space:nowrap}
+.btn:hover{border-color:#d4d2cb;background:var(--raise)}
+.btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.7}
+.btn--primary{background:var(--ink);color:#fff;border-color:var(--ink)}.btn--primary:hover{background:#000}
+.btn--sm{padding:7px 11px;font-size:12.5px}
+.btn[disabled]{opacity:.55;cursor:default}
+.hidden{display:none!important}
+
+/* shell (same grid as /home) */
+.app{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+.sb{border-right:1px solid var(--line);padding:20px 12px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;background:var(--raise)}
+.sb .brand{display:flex;align-items:center;gap:9px;padding:4px 8px 20px}
+.sbtog{margin-left:auto;width:28px;height:28px;border-radius:7px;display:grid;place-items:center;color:var(--ink-4);transition:.14s}
+.sbtog:hover{background:#eeece5;color:var(--ink-2)}
+.sbtog svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.7}
+body.sb-min .app{grid-template-columns:66px 1fr}
+body.sb-min .sb{padding:20px 9px}
+body.sb-min .sb .brand{padding:4px 0 20px;justify-content:center;position:relative;margin-bottom:26px}
+body.sb-min .sb .brand .wm,body.sb-min .sb .lbl,body.sb-min .nvt,body.sb-min .sb .user>div:not(.av){display:none}
+body.sb-min .sb .brand .mk{display:grid}
+body.sb-min .sbtog{position:absolute;left:0;right:0;top:34px;margin:0 auto}
+body.sb-min .navi{justify-content:center;padding:10px 0}
+body.sb-min .kbtn{justify-content:center;padding:10px 0;width:100%}
+body.sb-min .sb .user{justify-content:center;padding:8px 0}
+/* The wordmark is the brand in the expanded rail; the monogram takes over when
+   the rail collapses to 66px, where a 91x16 wordmark would be illegible. */
+.sb .brand .mk{width:25px;height:25px;border-radius:7px;background:var(--ink);color:#fff;display:none;place-items:center;font-weight:700;font-size:14px}
+.sb .brand .wm{height:17px;width:auto;display:block}
+.sb .lbl{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-4);margin:10px 10px 6px}
+.navi{display:flex;align-items:center;gap:11px;padding:8px 11px;border-radius:var(--r-sm);color:var(--ink-2);font-size:13.5px;font-weight:500;width:100%;text-align:left;transition:.14s}
+.navi svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;flex:none}
+.navi:hover{background:#eeece5;color:var(--ink)}.navi.on{background:var(--ink);color:#fff}.navi.on svg{stroke:#fff}
+.navi .nvt{flex:1;text-align:left}
+.sb .kbtn{display:flex;align-items:center;gap:8px;margin:14px 4px 4px;padding:9px 11px;border:1px solid var(--line);border-radius:var(--r-sm);color:var(--ink-3);font-size:12.5px;background:var(--surface);width:calc(100% - 8px)}
+.sb .kbtn:hover{border-color:#d4d2cb;color:var(--ink-2)}
+.sb .kbtn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.7}
+.sb .kbtn .k{margin-left:auto;font-family:var(--mono);font-size:10px;border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+.sb .grow{flex:1}
+/* recent — the last threads and searches, one click back into any of them */
+.recent{overflow-y:auto;min-height:0;max-height:38vh;margin:0 -2px;padding:0 2px}
+.rct{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:7px 9px;border-radius:8px;color:var(--ink-2);transition:.13s;position:relative}
+.rct:hover{background:#eeece5;color:var(--ink)}
+.rct svg{width:13px;height:13px;stroke:var(--ink-4);fill:none;stroke-width:1.7;flex:none}
+.rct .rt-t{flex:1;min-width:0;font-size:12.5px;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--hi)}
+.rct .rt-x{width:18px;height:18px;border-radius:5px;display:none;place-items:center;color:var(--ink-4);font-size:10px;flex:none}
+.rct:hover .rt-x{display:grid}
+.rct .rt-x:hover{background:#fff;color:var(--red)}
+.recent .rempty{font-size:11.5px;color:var(--ink-4);padding:4px 9px;font-style:italic}
+.rglbl{font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-4);margin:9px 9px 3px}
+body.sb-min .recent,body.sb-min #recent-lbl{display:none}
+.newchat{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;color:var(--ink-2);border:1px solid var(--line);border-radius:999px;padding:8px 14px;background:var(--surface);transition:.14s}
+.newchat:hover{border-color:var(--ink);color:var(--ink)}
+.newchat svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2}
+.sb .user{display:flex;align-items:center;gap:9px;padding:8px;border-radius:var(--r-sm)}
+.sb .user .av{width:29px;height:29px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:600}
+.sb .user .u{font-size:13px;font-weight:500;line-height:1.15}.sb .user .r{font-size:10.5px;color:var(--ink-3);font-family:var(--mono)}
+.main{min-width:0}.mtop{display:none}
+.wrap{padding:24px 32px 90px;max-width:1420px}
+/* the right rail always earns its keep: the attached matter's file when one
+   is attached, otherwise the lawyer's recent library — never dead space */
+.rgrid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:28px;align-items:start}
+#mside{position:sticky;top:22px;border:1px solid var(--line);border-radius:14px;background:var(--raise);overflow:hidden}
+#mside .msh{padding:14px 16px 12px;border-bottom:1px solid var(--line-2);background:var(--surface)}
+#mside .msk{font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+#mside .msn{font-size:15.5px;font-weight:600;letter-spacing:-.015em;margin-top:3px}
+#mside .msm{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:3px}
+#mside .msb{padding:6px 16px 12px;max-height:calc(100vh - 200px);overflow:auto}
+#mside .msec{padding:10px 0;border-bottom:1px solid var(--line-2)}
+#mside .msec:last-child{border-bottom:0}
+#mside .mst{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px;display:flex;align-items:center;gap:6px}
+#mside .mst .n{color:var(--ink-4);border:1px solid var(--line);border-radius:999px;padding:0 6px;font-size:9px}
+#mside .msr{font-size:12.5px;color:var(--ink-2);line-height:1.55;padding:2px 0}
+#mside .msr b{color:var(--ink);font-weight:600}
+#mside .msr .d{font-family:var(--mono);font-size:10px;color:var(--ink-3);margin-right:6px}
+#mside .schips{display:flex;flex-wrap:wrap;gap:5px}
+#mside .schip{font-family:var(--mono);font-size:10px;color:var(--ink-2);border:1px solid var(--line);border-radius:999px;padding:2px 8px;background:var(--surface)}
+#mside .msfoot{padding:10px 16px;border-top:1px solid var(--line-2);font-size:11px;color:var(--ink-3);background:var(--surface)}
+#mside .msfoot a{color:var(--ink-2)}
+#mside .msempty{font-size:12px;color:var(--ink-4);font-style:italic}
+/* shortlist rows + actions */
+.slrow{display:flex;align-items:flex-start;gap:9px;padding:9px 2px;border-bottom:1px solid var(--line-2)}
+.slrow:last-child{border-bottom:0}
+.slrow input[type=checkbox]{accent-color:var(--ink);margin-top:3px;flex:none}
+.slrow .slb{flex:1;min-width:0}
+.slrow .slt{font-size:12.5px;font-weight:500;line-height:1.4}
+.slrow .slm{font-family:var(--mono);font-size:9.5px;color:var(--ink-3);margin-top:2px}
+.slacts{display:flex;flex-wrap:wrap;gap:6px;padding:12px 14px;border-top:1px solid var(--line-2);background:var(--surface)}
+/* judgment vs judgment */
+.cmp{position:fixed;inset:0;background:rgba(12,12,10,.32);backdrop-filter:blur(3px);z-index:100;display:none;align-items:flex-start;justify-content:center;padding:6vh 20px}
+.cmp.on{display:flex}
+.cmp-box{width:min(1060px,96vw);max-height:88vh;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 30px 70px -20px rgba(12,12,10,.4)}
+.cmp-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line-2);position:sticky;top:0;background:var(--surface);z-index:2}
+.cmp-head .ck2{font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+#cmp-grid{display:grid;gap:0}
+.cmp-col{padding:16px 18px;border-right:1px solid var(--line-2)}
+.cmp-col:last-child{border-right:0}
+.cmp-h{padding-bottom:12px;border-bottom:1px solid var(--line-2);margin-bottom:12px}
+.cmp-t{font-size:14.5px;font-weight:650;letter-spacing:-.015em;line-height:1.35}
+.cmp-m{font-family:var(--mono);font-size:10px;color:var(--ink-3);margin-top:4px}
+.cmp-c{padding:10px 0;border-bottom:1px solid var(--line-2);font-size:13px;line-height:1.6;color:var(--ink)}
+.cmp-c:last-child{border-bottom:0}
+.cmp-c.warn{color:#7d5514}
+.cmp-c.empty{color:var(--ink-4)}
+.cmp-foot{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;border-top:1px solid var(--line-2);position:sticky;bottom:0;background:var(--surface)}
+.micbtn.busy{color:#fff;background:var(--amber);border-color:var(--amber)}
+/* empty-state example prompts — dead air becomes a teacher */
+
+.hhead{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:14px}
+.hhead .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.hhead h1{font-size:27px;font-weight:700;letter-spacing:-.03em;margin-top:6px}
+.hhead .sub{font-size:14px;color:var(--ink-2);margin-top:7px;max-width:74ch}
+
+/* matter context pill */
+.ctxrow{margin:0 0 14px}
+.ctxpill{display:inline-flex;align-items:center;gap:9px;max-width:100%;border:1px solid var(--green-line);background:var(--green-soft);border-radius:999px;padding:6px 8px 6px 13px;font-size:12.5px;color:#215f3b}
+.ctxpill .ck{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--green);flex:none}
+.ctxpill .cv{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ctxpill .cv b{font-weight:600;color:#194b2e}
+.ctxpill .cx{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;color:var(--green);flex:none;font-size:12px}
+.ctxpill .cx:hover{background:#fff;color:var(--red)}
+
+/* mode tabs — the lawyer picks the lane, nothing is guessed */
+.rtabrow{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.liblink{margin-left:auto;display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-3);padding:7px 11px;border-radius:8px;border:1px solid transparent;transition:.14s}
+.liblink:hover{color:var(--ink);border-color:var(--line);background:var(--surface)}
+.liblink.on{color:var(--ink);border-color:var(--line);background:var(--surface);box-shadow:var(--shadow);font-weight:600}
+.liblink .tc{font-family:var(--mono);font-size:10px;color:var(--ink-4);border:1px solid var(--line);border-radius:999px;padding:0 6px}
+.rtabs{display:inline-flex;background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:3px}
+.rtabs button{border:0;background:transparent;color:var(--ink-3);font-size:13.5px;font-weight:500;padding:9px 18px;border-radius:9px;transition:.15s;display:inline-flex;align-items:center;gap:7px}
+.rtabs button.on{background:var(--surface);color:var(--ink);box-shadow:var(--shadow);font-weight:600}
+.rtabs button .tc{font-family:var(--mono);font-size:10px;color:var(--ink-4);border:1px solid var(--line);border-radius:999px;padding:0 6px}
+.rtabs button.on .tc{color:var(--ink-2)}
+
+/* composer — the hero of the page: elevated, generous, obviously "start here" */
+.composer{border:1px solid var(--line);border-radius:18px;background:var(--surface);box-shadow:0 1px 2px rgba(12,12,10,.04),0 10px 30px -18px rgba(12,12,10,.18);overflow:hidden;margin-bottom:20px;transition:border-color .15s,box-shadow .15s}
+.composer:focus-within{border-color:#c4c2ba;box-shadow:0 1px 2px rgba(12,12,10,.04),0 14px 38px -18px rgba(12,12,10,.24)}
+.composer textarea{display:block;width:100%;border:0;outline:0;resize:none;padding:18px 20px 6px;font-size:16px;line-height:1.65;background:transparent;min-height:96px;font-family:var(--hi)}
+.composer textarea::placeholder{color:var(--ink-4)}
+.composer textarea.stretch{resize:vertical;max-height:60vh}
+.composer .crow{display:flex;align-items:center;gap:12px;padding:9px 12px 12px 17px}
+.composer .copt{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-3);cursor:pointer;user-select:none}
+.composer .copt input{accent-color:var(--ink)}
+
+/* the chamber is a full-height chat: thread above, composer docked below */
+.pane-chat{display:flex;flex-direction:column;min-height:calc(100vh - 130px)}
+.pane-chat.hidden{display:none}
+.pane-chat .athread{flex:0 0 auto}
+.pane-chat .hero{flex:1;display:flex;flex-direction:column;justify-content:center}
+.pane-chat .cdock{margin-top:auto;position:sticky;bottom:16px;z-index:6}
+.pane-chat .cdock .composer{margin-bottom:0;box-shadow:0 1px 2px rgba(12,12,10,.05),0 18px 44px -18px rgba(12,12,10,.3)}
+#a-comp textarea{min-height:56px;max-height:38vh;padding:15px 18px 4px}
+#a-comp .crow{flex-wrap:wrap;row-gap:8px}
+#a-comp .sendbtn{margin-left:auto}
+/* persona picker — a compact mode switch inside the composer */
+.pseg{display:inline-flex;background:var(--soft);border:1px solid var(--line);border-radius:9px;padding:2px;flex:none}
+.pseg button{border:0;background:transparent;color:var(--ink-3);font-size:12px;font-weight:500;padding:6px 12px;border-radius:7px;transition:.14s}
+.pseg button.on{background:var(--ink);color:#fff;font-weight:600}
+.sendbtn{width:38px;height:38px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;flex:none;transition:.15s var(--ease)}
+.sendbtn:hover{background:#000;transform:scale(1.05)}
+.sendbtn[disabled]{opacity:.4;transform:none}
+.sendbtn svg{width:17px;height:17px;stroke:#fff;fill:none;stroke-width:2}
+.attachbtn{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;color:var(--ink-2);border:1px dashed #d4d2cb;border-radius:999px;padding:6px 12px;background:var(--surface);transition:.14s;white-space:nowrap}
+.attachbtn:hover{border-color:var(--ink);color:var(--ink);border-style:solid}
+.micbtn,.clipbtn{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:var(--ink-3);border:1px solid var(--line);background:var(--surface);transition:.14s;flex:none}
+.micbtn:hover,.clipbtn:hover{color:var(--ink);border-color:#c9c7bf}
+.micbtn svg,.clipbtn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.7}
+.micbtn.rec{color:#fff;background:var(--red);border-color:var(--red);animation:pulse 1.1s ease-in-out infinite}
+.attrow{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 8px}
+.attchip{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--ink-2);border:1px solid var(--line);border-radius:999px;padding:5px 6px 5px 11px;background:var(--raise)}
+.attchip.loading{color:var(--ink-4);font-style:italic}
+.attchip button{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;color:var(--ink-4);font-size:10px}
+.attchip button:hover{background:var(--soft);color:var(--red)}
+.cc-why .wk{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);display:block;margin-bottom:2px}
+.vb.bad{color:var(--red);background:var(--red-soft);border:1px solid #ecc9c3}
+.cb{color:inherit;text-decoration:underline;text-underline-offset:2px}
+.cb:hover{color:var(--ink)}
+.composer .cspace{flex:1}
+.chint{font-family:var(--mono);font-size:10.5px;color:var(--ink-4)}
+.oneline{display:flex;align-items:center;gap:10px;padding:6px 8px 6px 17px}
+.oneline input{flex:1;min-width:0;border:0;outline:0;font-size:14.5px;padding:9px 0;background:transparent;font-family:var(--hi)}
+
+/* stage line while a search runs */
+.stg{display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:11px;color:var(--ink-3);margin:0 2px 12px}
+.stg .dot{width:6px;height:6px;border-radius:50%;background:var(--amber);animation:pulse 1.1s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
+
+/* chamber personas — three gowns, one control */
+.pchips{display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.pchips button{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--ink-2);border:1px solid var(--line);border-radius:999px;padding:9px 16px;background:var(--surface);transition:.15s var(--ease)}
+.pchips button svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.7;flex:none}
+.pchips button:hover{border-color:#c4c2ba;transform:translateY(-1px);box-shadow:var(--shadow-card)}
+.pchips button.on{background:var(--ink);color:#fff;border-color:var(--ink);font-weight:600;transform:none;box-shadow:none}
+.pchips .pexp{font-size:12.5px;color:var(--ink-3);margin-left:4px}
+
+/* the empty chamber is a hero, not a void */
+.hero{padding:24px 12px;text-align:center}
+.hero .hg{font-size:23px;font-weight:650;letter-spacing:-.028em;line-height:1.3}
+.hero .hs{font-size:14px;color:var(--ink-3);margin-top:8px}
+.exgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:22px auto 0;max-width:820px;text-align:left}
+.exgrid button{border:1px solid var(--line);border-radius:14px;padding:14px 15px;background:var(--surface);transition:.15s var(--ease);text-align:left;font-family:var(--hi);font-size:13.5px;line-height:1.55;color:var(--ink-2);box-shadow:var(--shadow-card)}
+.exgrid button:hover{border-color:#c4c2ba;transform:translateY(-2px);box-shadow:0 10px 26px -16px rgba(12,12,10,.25);color:var(--ink)}
+.exgrid .xk{font-family:var(--mono);font-size:9px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-4);display:block;margin-bottom:6px}
+.crossq{margin-top:11px;border:1px solid var(--amber-line);background:var(--amber-soft);border-radius:10px;padding:10px 13px;font-size:13px;color:#7d5514;line-height:1.6}
+.crossq .ck{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--amber);display:block;margin-bottom:3px}
+.arel{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+.arel button{font-size:12px;color:var(--ink-2);border:1px solid var(--line);border-radius:999px;padding:6px 12px;background:var(--surface);transition:.14s;text-align:left;font-family:var(--hi)}
+.arel button:hover{border-color:var(--ink);color:var(--ink)}
+.rtrace{margin:2px 0 10px;border:1px solid var(--line-2);border-radius:9px;background:var(--raise);overflow:hidden}
+.rtrace .rth{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10.5px;color:var(--ink-3);padding:7px 12px;cursor:pointer;user-select:none}
+.rtrace .rth .dot{width:6px;height:6px;border-radius:50%;background:var(--amber);animation:pulse 1.1s ease-in-out infinite}
+.rtrace.done .rth .dot{background:var(--green);animation:none}
+.rtrace .rtb{font-family:var(--mono);font-size:11px;color:var(--ink-3);line-height:1.6;padding:0 12px 10px;max-height:96px;overflow:auto;white-space:pre-wrap}
+.rtrace.done .rtb{display:none}
+.rtrace.done.open .rtb{display:block;max-height:260px}
+
+/* ============ RESULTS = CASE-LAW CARDS ============
+   Reverted to the V1 anatomy, in this page's monochrome tokens.
+   The "numbered list of authorities" that replaced it dissolved the card into
+   hairlines and split the content into two columns; a lawyer triaging ten
+   results then had to read down the left column and back up the right one for
+   every entry. V1's shape is faster because it is boring: one bordered card
+   per case, one fixed column of labels down the left (why · held · quote ·
+   doesn't decide · new code), and the actions — above all the route to the
+   judgment itself — as explicit chips along the bottom. */
+.rhead{display:flex;align-items:baseline;gap:12px;margin:4px 2px 6px}
+.rhead .rk{font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.rhead .rs{font-size:12.5px;color:var(--ink-3)}
+.rhead .rs b{color:var(--green);font-weight:600}
+.ccard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px 20px;display:flex;flex-direction:column;gap:11px;box-shadow:var(--shadow-card);transition:border-color .14s var(--ease),transform .2s var(--ease),box-shadow .2s var(--ease);animation:fin .35s var(--ease) both}
+.ccard+.ccard{margin-top:12px}
+.ccard:hover{border-color:#d4d2cb;transform:translateY(-1px);box-shadow:var(--lift)}
+.ccard.best{border-color:#c9c7bf}
+.ccard.dim{opacity:.42}
+.ccard.dim .cc-row{pointer-events:none}
+.ccard.shell{opacity:.8;box-shadow:none}
+.cc-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.cc-title{font-size:16.5px;font-weight:650;letter-spacing:-.018em;line-height:1.35;flex:1;min-width:0}
+/* A case name that opens the judgment must LOOK like it opens the judgment.
+   The old hairline border-bottom used --line, the same grey as every divider
+   on the page, so the title read as plain bold text and nobody clicked it. */
+.cc-title a{color:var(--ink);text-decoration:underline;text-decoration-color:var(--ink-4);text-decoration-thickness:1px;text-underline-offset:3px}
+.cc-title a:hover{text-decoration-color:var(--ink)}
+.cc-title .ext{font-size:12px;color:var(--ink-3);margin-left:4px}
+.cc-n{font-family:var(--mono);font-size:11px;color:var(--ink-4);flex:none;white-space:nowrap}
+.cc-n .star{color:var(--ink);margin-left:4px}
+.vmark{font-family:var(--mono);font-size:10.5px;white-space:nowrap;flex:none}
+.vmark.ok{color:var(--green)}
+.vmark.warn{color:var(--amber)}
+.am{font-family:var(--mono);font-size:11px;color:var(--ink-3);line-height:1.7}
+.am .oc-ok{color:var(--green)}.am .oc-bad{color:var(--red)}
+.am .pintag{color:var(--ink);font-weight:500}
+/* the labelled row — a fixed left column the eye runs straight down */
+.cc-row{display:grid;grid-template-columns:74px minmax(0,1fr);gap:14px;font-size:14px;line-height:1.6}
+.cc-rl{font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-4);padding-top:5px}
+.cc-rt{color:var(--ink);min-width:0}
+.cc-row--why .cc-rt{border-left:2px solid var(--line);padding-left:11px}
+.cc-row--quote .cc-rt{color:var(--ink-2);font-size:13.5px}
+.cc-row--warn .cc-rt{color:#7d5514}
+.cc-row--mono .cc-rt{font-family:var(--mono);font-size:11.5px;color:var(--ink-3)}
+.qa2{font-family:var(--mono);font-size:10px;color:var(--ink-3);display:block;margin-top:5px}
+.qa2 a{color:inherit}
+.zl{font-family:var(--mono);font-size:9px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-4);display:block;margin-bottom:5px}
+.hn2-idx{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);line-height:1.55;margin-bottom:5px}
+.hn2-held{font-size:14.5px;line-height:1.68;color:var(--ink)}
+.wz{font-size:13px;line-height:1.6;color:var(--ink-2)}
+.exbar{display:flex;align-items:center;gap:10px;margin:2px 0 12px;font-size:12.5px;color:var(--ink-3)}
+/* Actions — and the FIRST of them is the way into the judgment. It is a real
+   chip, not 10.5px mono tucked under the meta line. */
+.cc-acts{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:2px;padding-top:12px;border-top:1px solid var(--line-2)}
+.cc-acts .btn--sm{border-color:transparent;color:var(--ink-2);padding:6px 10px}
+.cc-acts .btn--sm:hover{border-color:var(--line);background:var(--raise);color:var(--ink)}
+.cc-acts .btn--sm.is-saved{color:var(--green)}
+.cc-go{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;padding:6px 11px;border-radius:var(--r-sm);border:1px solid var(--line);color:var(--ink);background:var(--surface);transition:.14s var(--ease);text-decoration:none;white-space:nowrap}
+.cc-go:hover{border-color:var(--ink);background:var(--raise)}
+.cc-go.off{color:var(--green);border-color:var(--green-line);background:var(--green-soft)}
+.cc-go.off:hover{border-color:var(--green)}
+/* no resolved copy — an honest search, never dressed up as a direct link */
+.cc-go.seek{color:var(--ink-3)}
+.cc-go.seek:hover{color:var(--ink)}
+/* legacy chip style — still used by the drawer verify badge + statute cards */
+.vb{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10px;letter-spacing:.03em;border-radius:999px;padding:3px 9px}
+.vb.ok{color:var(--green);background:var(--green-soft);border:1px solid var(--green-line)}
+.vb.warn{color:var(--amber);background:var(--amber-soft);border:1px solid var(--amber-line)}
+.vb.pin{color:#fff;background:var(--ink);border:1px solid var(--ink)}
+.vb.plain{color:var(--ink-3);background:var(--soft);border:1px solid var(--line)}
+
+/* "ask this judgment" — a right-side drawer, a real reading surface: the
+   judgment's identity on top, the thread in the middle, composer docked */
+.jdrawer{position:fixed;top:0;right:0;bottom:0;width:min(460px,100vw);background:var(--surface);border-left:1px solid var(--line);box-shadow:-24px 0 60px -30px rgba(12,12,10,.35);z-index:95;display:flex;flex-direction:column;transform:translateX(102%);transition:transform .28s var(--ease)}
+.jdrawer.on{transform:none}
+.jback{position:fixed;inset:0;background:rgba(12,12,10,.22);z-index:94;display:none}
+.jback.on{display:block}
+.jd-h{position:relative;padding:16px 46px 13px 18px;border-bottom:1px solid var(--line-2)}
+.jd-h .jdk{font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.jd-h .jdt{font-size:15.5px;font-weight:650;letter-spacing:-.015em;line-height:1.35;margin-top:4px}
+.jd-h .jdm{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:3px}
+.jd-x{position:absolute;top:12px;right:12px;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--ink-3)}
+.jd-x:hover{background:var(--soft);color:var(--ink)}
+.jd-log{flex:1;overflow-y:auto;padding:16px 18px}
+.jd-hint{font-size:12px;color:var(--ink-3);line-height:1.6;margin-bottom:12px}
+.jd-start{display:flex;flex-direction:column;gap:7px;margin-top:10px}
+.jd-start button{text-align:left;font-size:13px;color:var(--ink-2);border:1px solid var(--line);border-radius:10px;padding:9px 12px;background:var(--surface);transition:.13s;font-family:var(--hi)}
+.jd-start button:hover{border-color:var(--ink);color:var(--ink)}
+.jmsg{margin-bottom:14px;font-size:13.5px;line-height:1.65}
+.jmsg .who{font-family:var(--mono);font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);display:block;margin-bottom:3px}
+.jmsg.me{display:flex;justify-content:flex-end}
+.jmsg.me .jq{background:var(--soft);border:1px solid var(--line-2);border-radius:14px 14px 4px 14px;padding:8px 13px;max-width:85%}
+.jd-c{padding:10px 12px;border-top:1px solid var(--line-2);display:flex;gap:8px;align-items:center}
+.jd-c input{flex:1;min-width:0;border:1px solid var(--line);border-radius:10px;padding:10px 13px;font-size:14px;outline:0;background:var(--surface);font-family:var(--hi)}
+.jd-c input:focus{border-color:#c9c7bf}
+
+/* follow-up thread under find-law results */
+.fup{margin-top:18px;border-top:1px solid var(--line-2);padding-top:16px}
+.fup .fk{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:9px}
+
+/* the thread — user speaks in a bubble on the right, the chamber answers
+   full-width under its mark: who's-who is visible at a glance */
+.athread{margin-bottom:14px}
+.aturn{margin-bottom:22px;animation:fin .3s var(--ease) both}
+.aturn.me{display:flex;justify-content:flex-end}
+.aturn.me .aq{background:var(--soft);border:1px solid var(--line-2);border-radius:16px 16px 4px 16px;padding:11px 16px;max-width:min(78%,560px);font-size:14.5px;line-height:1.6;font-family:var(--hi)}
+.aturn .who{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.aturn .who .mk2{width:24px;height:24px;border-radius:7px;background:var(--ink);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:700;flex:none}
+.aturn .who .wn{font-size:12.5px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
+.aturn .ab{font-size:15px;line-height:1.75;color:var(--ink);max-width:74ch;font-family:var(--hi)}
+.aturn .ab p{margin:0 0 11px}.aturn .ab ul{margin:0 0 11px 20px}.aturn .ab li{margin-bottom:5px}
+.aturn .ab h3{font-size:15px;font-weight:600;margin:15px 0 6px}
+.aturn .ab .cursor{display:inline-block;width:7px;height:16px;background:var(--ink);vertical-align:-2px;animation:pulse .9s infinite}
+.asrc{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.asrc .sc{font-family:var(--mono);font-size:10px;color:var(--ink-2);background:var(--soft);border:1px solid var(--line);border-radius:999px;padding:3px 9px}
+.aacts{display:flex;gap:8px;margin-top:9px}
+.areason{font-family:var(--mono);font-size:10.5px;color:var(--ink-4);margin-bottom:6px}
+
+/* statute cards */
+.scard{border:1px solid var(--line);border-radius:13px;background:var(--surface);box-shadow:var(--shadow-card);padding:16px 18px;margin-bottom:10px;animation:fin .3s var(--ease) both}
+.smap{display:grid;grid-template-columns:1fr 34px 1fr;align-items:center;gap:8px}
+.smap .side .code{font-family:var(--mono);font-size:10.5px;color:var(--ink-3)}
+.smap .side .sec{font-size:19px;font-weight:700;letter-spacing:-.02em;margin-top:1px}
+.smap .side .st{font-size:12.5px;color:var(--ink-2);margin-top:2px;line-height:1.4}
+.smap .arr{color:var(--ink-4);text-align:center;font-size:16px}
+.ssum{font-size:13px;color:var(--ink-2);margin-top:11px;line-height:1.6}
+.sdiff{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.sdf{font-family:var(--mono);font-size:10px;border-radius:999px;padding:3px 9px;border:1px solid var(--line);color:var(--ink-3);background:var(--soft)}
+.sdf.chg{color:var(--amber);background:var(--amber-soft);border-color:var(--amber-line)}
+.sdf.vfy{color:var(--amber);background:var(--amber-soft);border-color:var(--amber-line)}
+.snote{margin-top:10px;font-size:12px;color:var(--ink-3);line-height:1.55}
+.sacts{display:flex;gap:8px;margin-top:12px;padding-top:11px;border-top:1px solid var(--line-2);align-items:center}
+.spop{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px}
+.spop button{font-family:var(--mono);font-size:11px;color:var(--ink-2);border:1px solid var(--line);border-radius:999px;padding:6px 12px;background:var(--surface);transition:.14s}
+.spop button:hover{border-color:var(--ink);color:var(--ink)}
+
+/* saved library */
+.vbar{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.vbar .vs{flex:1;min-width:180px;display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:9px;padding:0 12px;background:var(--surface)}
+.vbar .vs svg{width:14px;height:14px;stroke:var(--ink-3);fill:none;stroke-width:1.8;flex:none}
+.vbar .vs input{flex:1;border:0;outline:0;font-size:13px;padding:9px 0;background:transparent}
+.vseg{display:inline-flex;background:var(--soft);border:1px solid var(--line);border-radius:9px;padding:3px}
+.vseg button{border:0;background:transparent;color:var(--ink-3);font-family:var(--mono);font-size:10px;letter-spacing:.04em;text-transform:uppercase;font-weight:500;padding:6px 11px;border-radius:6px;transition:.15s}
+.vseg button.on{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.vcount{font-family:var(--mono);font-size:10.5px;color:var(--ink-4)}
+.vgrp{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2);margin:18px 2px 8px;display:flex;align-items:center;gap:8px}
+.vgrp .gc{color:var(--ink-4);border:1px solid var(--line);border-radius:999px;padding:0 6px;font-size:9px}
+.srow{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:13px 16px;margin-bottom:8px;animation:fin .25s var(--ease) both}
+.srow .sr1{display:flex;align-items:flex-start;gap:10px}
+.srow .kind{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);border:1px solid var(--line);border-radius:5px;padding:2px 6px;flex:none;margin-top:2px}
+.srow .sbody{flex:1;min-width:0}
+.srow .st{font-size:14px;font-weight:600;letter-spacing:-.01em;line-height:1.4}
+.srow .sm{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:3px}
+.srow .sm .mt{color:var(--green)}
+.srow .sacts2{display:flex;gap:4px;flex:none}
+.iby{width:28px;height:28px;border-radius:7px;display:grid;place-items:center;color:var(--ink-4);transition:.13s}
+.iby:hover{background:var(--soft);color:var(--ink)}
+.iby svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.7}
+.snotebox{margin-top:9px}
+.snote-view{font-size:12.5px;color:var(--ink-2);background:var(--raise);border:1px solid var(--line-2);border-radius:8px;padding:7px 11px;cursor:text}
+.snote-view.empty{color:var(--ink-4);font-style:italic}
+.snotebox textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 11px;font-size:12.5px;outline:0;resize:vertical;min-height:54px}
+
+/* matter picker popover */
+.pick{position:absolute;z-index:90;width:290px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 44px -16px rgba(12,12,10,.3);overflow:hidden}
+.pick .pkh{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);padding:10px 13px 7px}
+.pick input{width:calc(100% - 20px);margin:0 10px 8px;border:1px solid var(--line);border-radius:7px;padding:7px 10px;font-size:12.5px;outline:0}
+.pick .pkl{max-height:230px;overflow:auto;padding-bottom:6px}
+.pick .pkr{display:block;width:100%;text-align:left;padding:8px 13px;font-size:13px;transition:.12s}
+.pick .pkr:hover{background:var(--raise)}
+.pick .pkr .pm{font-family:var(--mono);font-size:10px;color:var(--ink-3);display:block;margin-top:1px}
+.pick .pkr.lib{border-top:1px solid var(--line-2);color:var(--ink-2)}
+.pick .pkempty{padding:12px 13px;font-size:12.5px;color:var(--ink-3)}
+
+/* command palette (statute quick-look, ⌘K) */
+.pal{position:fixed;inset:0;background:rgba(12,12,10,.28);backdrop-filter:blur(3px);z-index:100;display:none;align-items:flex-start;justify-content:center;padding-top:12vh}
+.pal.on{display:flex}
+.palbox{width:min(600px,92vw);background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 30px 70px -20px rgba(12,12,10,.4);overflow:hidden}
+.palin{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line-2)}
+.palin svg{width:17px;height:17px;stroke:var(--ink-3);fill:none;stroke-width:1.8}
+.palin input{border:0;outline:0;font-size:15px;width:100%;background:transparent}
+.palres{max-height:380px;overflow:auto}
+.palr{display:flex;align-items:center;gap:12px;padding:11px 16px;cursor:pointer;width:100%;text-align:left}
+.palr:hover{background:var(--raise)}
+.palr .pold{font-family:var(--mono);font-size:12px;color:var(--ink-2);min-width:92px}
+.palr .parr{color:var(--ink-4)}
+.palr .pnew{font-family:var(--mono);font-size:12px;font-weight:500;min-width:92px}
+.palr .ptt{font-size:12.5px;color:var(--ink-3);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.palempty{padding:22px 16px;text-align:center;color:var(--ink-3);font-size:13px}
+.palfoot{padding:9px 16px;border-top:1px solid var(--line-2);font-family:var(--mono);font-size:10px;color:var(--ink-4)}
+
+/* empty / error / skeleton / toasts */
+.paneempty{padding:44px 20px;text-align:center;color:var(--ink-3);font-size:13.5px;line-height:1.6}
+.paneempty .ic{width:40px;height:40px;border-radius:11px;background:var(--soft);border:1px solid var(--line);display:grid;place-items:center;margin:0 auto 12px}
+.paneempty .ic svg{width:18px;height:18px;stroke:var(--ink-3);fill:none;stroke-width:1.6}
+@keyframes sh{0%{background-position:-200px 0}100%{background-position:calc(200px + 100%) 0}}
+.skl{background-image:linear-gradient(90deg,#efefec,#f7f7f5,#efefec);background-size:200px 100%;background-repeat:no-repeat;border-radius:6px;animation:sh 1.2s ease-in-out infinite}
+@keyframes fin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.fin{animation:fin .35s var(--ease) both}
+.toasts{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);display:flex;flex-direction:column;gap:8px;z-index:120;align-items:center}
+.toast{background:var(--ink);color:#fff;font-size:13px;font-weight:500;padding:10px 16px;border-radius:999px;box-shadow:var(--lift);animation:fin .25s var(--ease)}
+.toast--success{background:#1c6b40}.toast--error{background:var(--red)}
+.signin-gate{border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--shadow-card);text-align:center;padding:56px 24px;max-width:520px;margin:40px auto}
+.signin-gate .ic{width:48px;height:48px;border-radius:14px;background:var(--soft);border:1px solid var(--line);display:grid;place-items:center;margin:0 auto 16px}
+.signin-gate .ic svg{width:22px;height:22px;stroke:var(--ink-2);fill:none;stroke-width:1.6}
+.signin-gate h2{font-size:19px;font-weight:600;letter-spacing:-.02em}
+.signin-gate p{color:var(--ink-2);font-size:13.5px;margin:8px auto 20px;max-width:380px;line-height:1.6}
+.notice{border:1px solid var(--amber-line);background:var(--amber-soft);color:#7d5514;border-radius:11px;padding:11px 14px;font-size:13px;margin-bottom:12px}
+.errbox{border:1px solid var(--line);border-radius:14px}
+
+/* mid widths: the rail needs real room — below 1180px it steps aside and the
+   pill / Library tab carry its context */
+@media(max-width:1180px){
+  .rgrid{grid-template-columns:minmax(0,1fr)}
+  #mside{display:none}
+}
+/* responsive — on a phone this must feel like an app screen, not a squeezed
+   desktop: one job per viewport, no decorative text, controls thumb-sized */
+@media(max-width:720px){
+  .app{grid-template-columns:1fr}.sb{display:none}
+  .mtop{display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40;background:rgba(255,255,255,.86);backdrop-filter:blur(14px);border-bottom:1px solid var(--line);padding:10px 14px}
+  .mtop .brand{display:flex;align-items:center;gap:8px}.mtop .wm{height:16px;width:auto;display:block}
+  .mtop .msr{display:flex;gap:8px}.mtop .mib{width:34px;height:34px;border-radius:9px;border:1px solid var(--line);display:grid;place-items:center;background:var(--surface)}.mtop .mib svg{width:16px;height:16px;stroke:var(--ink-2);fill:none;stroke-width:1.8}
+  /* the phone gets the FULL width — no desktop gutters */
+  .wrap{padding:10px 12px 26px}
+  .rtabrow{margin-bottom:10px;gap:8px}
+  .rtabs{flex:1;display:flex}.rtabs button{flex:1;justify-content:center;padding:10px 4px;font-size:13px}
+  .liblink{padding:9px 8px;font-size:0}.liblink svg{width:16px;height:16px}.liblink .tc{font-size:9px}
+  .ctxrow{margin-bottom:10px}.ctxpill{max-width:100%}
+  .pchips{gap:6px;margin-bottom:10px}
+  .pchips button{flex:1;justify-content:center;padding:9px 6px;font-size:12.5px}
+  .pchips button svg{display:none}
+  .paneempty{padding:18px 12px;font-size:12.5px}
+  .paneempty .ic{display:none}
+  /* full-height chat on the phone too: composer rides just above the bottom */
+  .pane-chat{min-height:calc(100vh - 128px)}
+  .pane-chat .cdock{bottom:10px}
+  .hero{padding:12px 2px}
+  .composer{margin-bottom:12px;border-radius:16px}
+  .composer textarea{min-height:64px;padding:13px 14px 4px;font-size:16px} /* 16px stops iOS zoom-on-focus */
+  #a-comp textarea{min-height:48px}
+  #a-comp .crow{padding:6px 8px 8px 10px}
+  /* the follow-up bar (Find law) keeps the same input-first pattern */
+  .oneline{flex-wrap:wrap;padding:10px 10px 8px;gap:8px}
+  .oneline input{flex-basis:100%;order:-1;font-size:16px;padding:2px 4px 10px;border-bottom:1px solid var(--line-2)}
+  #mside{display:none}
+  .hero .hg{font-size:20px}
+  .exgrid{grid-template-columns:1fr;gap:8px}
+  .aturn.me .aq{max-width:88%}
+  .crow{padding:8px 10px;gap:8px;flex-wrap:wrap}
+  .chint{display:none}
+  .attachbtn{padding:6px 10px;font-size:12px}
+  .cc-acts{gap:6px}.cc-acts .btn--sm{padding:7px 9px;font-size:12px}
+  .ccard{padding:14px 14px;border-radius:12px}
+  .cc-title{font-size:15.5px}
+  .hn2-held{font-size:14px}
+  /* the label stacks above its text on a phone — 74px of gutter is a third of
+     the screen, and the labels are short enough to read as headings */
+  .cc-row{grid-template-columns:1fr;gap:3px}
+  .cc-rl{padding-top:0}
+  .cc-row--why .cc-rt{border-left:0;padding-left:0}
+  .vbar{gap:8px}.vbar .vs{min-width:0;flex-basis:100%}
+  .smap{grid-template-columns:1fr}.smap .arr{transform:rotate(90deg);text-align:left;padding-left:2px}
+  .fup .composer .oneline{flex-wrap:nowrap}
+  .toasts{bottom:78px}
+}
+
+/* ---- Document Lens ---- */
+.dldrop{border:1.5px dashed var(--line);border-radius:14px;padding:34px 24px;text-align:center;cursor:pointer;transition:border-color .16s,background .16s;background:#fff}
+.dldrop:hover,.dldrop.over{border-color:var(--ink-3);background:#fcfcfb}
+.dldrop.over{border-style:solid}
+.dldrop .ic{width:34px;height:34px;margin:0 auto 10px}
+.dldrop .ic svg{width:34px;height:34px;stroke:var(--ink-3);fill:none;stroke-width:1.5}
+.dldrop .st{font-size:15px;font-weight:600;letter-spacing:-.01em;margin-bottom:6px}
+.dldrop .ss{font-size:13px;color:var(--ink-3);max-width:520px;margin:0 auto;line-height:1.6}
+.dldrop .sn{font-size:11.5px;color:var(--ink-3);margin-top:12px}
+.dlbtns{display:flex;gap:8px;justify-content:center;margin-top:16px;flex-wrap:wrap}
+.dlbusy{border:1px solid var(--line);border-radius:14px;padding:22px;background:#fff}
+.dlsteps{display:flex;flex-direction:column;gap:7px;margin-bottom:16px}
+.dlstep{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--ink-3)}
+.dlstep.on{color:var(--ink);font-weight:500}
+.dlstep.done{color:var(--ink-3)}
+.dldot{width:15px;height:15px;border-radius:50%;border:1.5px solid var(--line);flex:none;display:grid;place-items:center;font-size:9px}
+.dlstep.on .dldot{border-color:var(--ink);animation:dlp 1.1s ease-in-out infinite}
+.dlstep.done .dldot{border-color:#1c6b40;color:#1c6b40}
+@keyframes dlp{0%,100%{opacity:1}50%{opacity:.35}}
+.dlskl{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+.dlbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-bottom:11px;border-bottom:1px solid var(--line);margin-bottom:14px}
+.dlmeta b{font-size:14px;font-weight:600;display:block;word-break:break-all}
+.dlmeta span{font-size:11.5px;color:var(--ink-3)}
+.dlact{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.dlact select{font:inherit;font-size:12.5px;padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);cursor:pointer}
+.dltext{font-size:13.5px;line-height:1.72;white-space:pre-wrap;word-wrap:break-word}
+.dltext table{border-collapse:collapse;width:100%;margin:12px 0;font-size:12px;white-space:normal;display:block;overflow-x:auto}
+.dltext th,.dltext td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+.dltext th{background:#f4f4f1;font-weight:600}
+.dltext .ill{background:var(--amber-soft,#FEF6E7);color:var(--amber,#B45309);border-radius:3px;padding:0 3px;font-size:12px}
+.dlflag{background:var(--amber-soft,#FEF6E7);border-left:2px solid var(--amber,#B45309);padding:10px 13px;border-radius:0 8px 8px 0;margin-bottom:14px;font-size:12.5px;line-height:1.6}
+.dlflag b{display:block;font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--amber,#B45309);margin-bottom:4px}
+.dlerr{border:1px solid var(--line);border-left:2px solid var(--red,#b42318);border-radius:0 8px 8px 0;padding:12px 14px;font-size:13px;line-height:1.6;background:#fff}
+.dlerr b{display:block;margin-bottom:3px}
+@media(max-width:640px){.dldrop{padding:26px 16px}.dlbar{align-items:flex-start;flex-direction:column}.dlact{width:100%}.dlact .btn{flex:1}}
+
+/* Four tabs no longer fit a 390px phone, so the row scrolls instead of being
+   clipped — "Document" was falling off the right edge entirely. */
+@media(max-width:640px){
+  .rtabs{display:flex;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .rtabs::-webkit-scrollbar{display:none}
+  .rtabs button{padding:9px 13px;font-size:13px;white-space:nowrap;flex:0 0 auto}
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside class="sb">
+    <div class="brand"><div class="mk">H</div><img class="wm" src="/static/headnote-logo.svg" alt="Headnote" />
+      <button class="sbtog" id="sbtog" onclick="toggleSb()" title="Collapse sidebar" aria-label="Collapse sidebar"><svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="M9 4.5v15"/></svg></button>
+    </div>
+    <div class="lbl">Chamber</div>
+    <button class="navi" title="Home"  onclick="location.href='/home'"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg><span class="nvt">Home</span></button>
+    <button class="navi on" title="Research"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg><span class="nvt">Research</span></button>
+    <button class="navi" title="Draft" onclick="location.href='/draft'"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg><span class="nvt">Draft</span></button>
+    <button class="kbtn" onclick="openPal()" title="Statute lookup (⌘K)"><svg viewBox="0 0 24 24"><path d="M4 19V5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1-2-2Zm0 0a2 2 0 0 1 2-2h13"/></svg><span class="nvt">Statute lookup</span><span class="k nvt">⌘K</span></button>
+    <div class="lbl" style="margin-top:16px">Personalisation</div>
+    <button class="navi" title="Draft DNA" onclick="location.href='/draft-dna'"><svg viewBox="0 0 24 24" stroke-linecap="round"><path d="M12 3v18"/><path d="M8 5.5v13"/><path d="M16 5.5v13"/><path d="M4.5 9v6"/><path d="M19.5 9v6"/></svg><span class="nvt">Draft DNA</span></button>
+    <div class="lbl" id="recent-lbl" style="margin-top:16px">Recent</div>
+    <div id="recent" class="recent"></div>
+    <div class="grow"></div>
+    <div class="user"><div class="av" id="uav">·</div><div><div class="u" id="unm">Signed in</div><div class="r" id="url">Headnote</div></div></div>
+  </aside>
+
+  <main class="main">
+    <div class="mtop"><div class="brand"><img class="wm" src="/static/headnote-logo.svg" alt="Headnote" /></div><div class="msr">
+      <button class="mib" onclick="openSheet()" title="Recent chats and searches" aria-label="Recent"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></button>
+      <button class="mib" onclick="openPal()" title="Statute lookup" aria-label="Statute lookup"><svg viewBox="0 0 24 24"><path d="M4 19V5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1-2-2Zm0 0a2 2 0 0 1 2-2h13"/></svg></button>
+    </div></div>
+    <div class="wrap">
+      <div id="rview">
+        <div class="rgrid">
+        <div class="rmain">
+        <div class="ctxrow hidden" id="ctxrow"></div>
+
+        <div class="rtabrow">
+          <div class="rtabs" role="tablist">
+            <button id="tab-find" class="on" onclick="showTab('find')">Find law</button>
+            <button id="tab-ask" onclick="showTab('ask')">Chamber</button>
+            <button id="tab-statute" onclick="showTab('statute')">Statute</button>
+            <button id="tab-document" onclick="showTab('document')">Document</button>
+          </div>
+          <button class="liblink" id="tab-saved" onclick="showTab('saved')" title="Everything you've saved, grouped by matter"><svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.7"><path d="M6 3h12v18l-6-4-6 4z"/></svg>Library <span class="tc" id="savedCount">0</span></button>
+        </div>
+
+        <!-- FIND LAW -->
+        <section id="pane-find">
+          <div class="composer">
+            <textarea id="f-q" rows="4" class="stretch" placeholder="Describe the matter — facts, sections, and what you need authority for. English or Hindi."></textarea>
+            <div class="crow">
+              <button class="attachbtn" id="f-attach" onclick="attachMatter(this)" title="Ground this search in one of your matters — its facts, sections and stage travel with the query">⊕ Attach a matter</button>
+              <button class="micbtn" id="f-mic" onclick="dictateTo(this,'#f-q')" title="Speak instead of typing — Hindi or English" aria-label="Dictate"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4"/></svg></button>
+              <span class="cspace"></span>
+              <span class="chint">⌘↵ to search</span>
+              <button class="btn btn--primary" id="f-go" onclick="findGo()"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg> Find case law</button>
+            </div>
+          </div>
+          <div id="f-status"></div>
+          <div id="f-results"></div>
+          <div id="f-fup" class="fup hidden">
+            <button class="btn" onclick="continueInChamber()" title="Open a chat that carries this search and its results — argue with them, cross-test them, correct them"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H4l2.5-2.5A8 8 0 1 1 21 12Z"/></svg> Continue in Chamber with these results</button>
+          </div>
+        </section>
+
+        <!-- CHAMBER — a full-height chat: thread grows, composer stays put -->
+        <section id="pane-ask" class="hidden pane-chat">
+          <div class="pchips" role="tablist">
+            <button data-p="junior" class="on" onclick="setPersona('junior')"><svg viewBox="0 0 24 24"><path d="M12 3v3M7 21h10M12 6c-3 0-5 2-5 5v10h10V11c0-3-2-5-5-5Z"/></svg>Junior</button>
+            <button data-p="devil" onclick="setPersona('devil')"><svg viewBox="0 0 24 24"><path d="M13 4 5 14h6l-1 6 9-11h-6l1-5Z"/></svg>Devil's advocate</button>
+            <button data-p="judge" onclick="setPersona('judge')"><svg viewBox="0 0 24 24"><path d="M12 3v18M4 7h16M6 7l-2.5 6a3.5 3.5 0 0 0 7 0L8 7M18 7l-2.5 6a3.5 3.5 0 0 0 7 0L20 7M8 21h8"/></svg>Judge</button>
+            <button class="newchat" onclick="newChat()" title="Start a fresh conversation — this one stays in Recent"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New chat</button>
+          </div>
+          <div id="a-thread" class="athread"></div>
+          <div id="a-empty" class="hero">
+            <div class="hg" id="a-greet">Ask anything about the law</div>
+            <div class="hs" id="a-empty-t">Reasons first, cites real sections, never bluffs. English or Hindi — your choice.</div>
+            <div class="exgrid" id="a-ex"></div>
+          </div>
+          <div class="cdock">
+            <div id="a-atts" class="attrow hidden"></div>
+            <div class="composer" id="a-comp">
+              <textarea id="a-q" rows="1" placeholder="Ask a question — English or Hindi"></textarea>
+              <div class="crow">
+                <button class="attachbtn" id="a-attach" onclick="attachMatter(this)" title="Work on a real matter — its whole file travels with every turn">⊕ Matter</button>
+                <button class="clipbtn" onclick="document.getElementById('a-file').click()" title="Attach a document, photo or PDF — it gets read and used as the facts" aria-label="Attach a file"><svg viewBox="0 0 24 24"><path d="m21 11.5-8.5 8.5a5.5 5.5 0 0 1-7.8-7.8L13 4a3.7 3.7 0 0 1 5.2 5.2l-8.2 8.2a1.85 1.85 0 0 1-2.6-2.6L15 7.3"/></svg></button>
+                <button class="micbtn" id="a-mic" onclick="dictateTo(this,'#a-q')" title="Speak instead of typing — English or Hindi, detected automatically" aria-label="Dictate"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4"/></svg></button>
+                <span class="cspace"></span>
+                <span class="chint">↵ to send · shift+↵ new line</span>
+                <button class="sendbtn" id="a-go" onclick="askGo()" title="Send" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M12 19V5m0 0-6 6m6-6 6 6"/></svg></button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- STATUTE -->
+        <section id="pane-statute" class="hidden">
+          <div class="composer"><div class="oneline">
+            <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--ink-3);fill:none;stroke-width:1.7;flex:none"><path d="M4 19V5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1-2-2Zm0 0a2 2 0 0 1 2-2h13"/></svg>
+            <input id="s-q" placeholder="IPC 302 · 420 · anticipatory bail · ४२० — old or new, either way">
+          </div></div>
+          <div id="s-results"></div>
+          <div id="s-empty">
+            <div class="paneempty" style="padding-bottom:14px">
+              <div class="ic"><svg viewBox="0 0 24 24"><path d="M4 19V5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1-2-2Zm0 0a2 2 0 0 1 2-2h13"/></svg></div>
+              IPC → BNS · CrPC → BNSS · Evidence → BSA, from the government concordance. No AI involved.
+            </div>
+            <div class="spop" id="s-pop" style="justify-content:center"></div>
+          </div>
+        </section>
+
+        <!-- DOCUMENT LENS -->
+        <section id="pane-document" class="hidden">
+          <input type="file" id="dl-file" style="display:none"
+                 accept="image/*,.heic,.heif,.webp,.pdf,.doc,.docx,.txt,.md,application/pdf">
+          <input type="file" id="dl-cam" style="display:none" accept="image/*" capture="environment">
+
+          <div id="dl-drop" class="dldrop" onclick="$('#dl-file').click()">
+            <div class="ic"><svg viewBox="0 0 24 24"><path d="M14 3v5h5M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M9 13h6M9 17h4"/></svg></div>
+            <div class="st">A page you can&rsquo;t read &mdash; read it</div>
+            <div class="ss">Handwritten, faint, or in a language you don&rsquo;t work in. PDF, JPG, PNG, HEIC or Word. Every case number, section and date is carried across exactly, and anything illegible is marked rather than guessed.</div>
+            <div class="dlbtns">
+              <button class="btn btn--primary" onclick="event.stopPropagation();$('#dl-file').click()">Choose a file</button>
+              <button class="btn" id="dl-cambtn" onclick="event.stopPropagation();$('#dl-cam').click()">Use camera</button>
+            </div>
+            <div class="sn">Nothing is stored. The page stays in this browser tab.</div>
+          </div>
+
+          <div id="dl-busy" class="dlbusy hidden">
+            <div class="dlsteps" id="dl-steps"></div>
+            <div class="dlskl"><div class="skl" style="height:13px;width:92%"></div><div class="skl" style="height:13px;width:97%"></div><div class="skl" style="height:13px;width:78%"></div><div class="skl" style="height:13px;width:88%"></div></div>
+            <button class="btn btn--sm" onclick="dlCancel()">Cancel</button>
+          </div>
+
+          <div id="dl-result" class="hidden">
+            <div class="dlbar">
+              <div class="dlmeta"><b id="dl-name">document</b><span id="dl-sub"></span></div>
+              <div class="dlact">
+                <select id="dl-lang" onchange="dlSetLang(this.value)" aria-label="Language"></select>
+                <button class="btn btn--sm" id="dl-copy" onclick="dlCopy()">Copy</button>
+                <button class="btn btn--sm btn--primary" id="dl-pdf" onclick="dlPdf()">Download PDF</button>
+              </div>
+            </div>
+            <div id="dl-flags"></div>
+            <div id="dl-text" class="dltext"></div>
+          </div>
+        </section>
+
+        <!-- SAVED -->
+        <section id="pane-saved" class="hidden">
+          <div class="vbar">
+            <div class="vs"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg><input id="v-q" placeholder="Search your saved research…" oninput="renderSaved()"></div>
+            <div class="vseg"><button id="vg-recent" class="on" onclick="setGroup('recent')">Recent</button><button id="vg-matter" onclick="setGroup('matter')">By matter</button></div>
+            <span class="vcount" id="v-count"></span>
+          </div>
+          <div id="v-list"></div>
+        </section>
+        </div><!-- /.rmain -->
+        <aside id="mside" class="hidden" aria-label="The attached matter's file"></aside>
+        </div><!-- /.rgrid -->
+      </div>
+
+      <div id="gate" class="signin-gate hidden">
+        <div class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+        <h2>Sign in to open Research</h2>
+        <p>Your searches, threads and saved authorities live on your Headnote account, so only you can see them.</p>
+        <a class="btn btn--primary" href="/app">Sign in</a>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="pal" id="pal" onclick="if(event.target===this)closePal()"><div class="palbox">
+  <div class="palin"><svg viewBox="0 0 24 24"><path d="M4 19V5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1-2-2Zm0 0a2 2 0 0 1 2-2h13"/></svg><input id="palq" placeholder="Quick statute lookup — IPC 302, 420, anticipatory bail…"></div>
+  <div class="palres" id="palres"><div class="palempty">Type a section — old code or new.</div></div>
+  <div class="palfoot">↵ copies the new section · esc closes · government concordance, no AI</div>
+</div></div>
+
+<div class="cmp" id="cmp" onclick="if(event.target===this)closeCompare()"><div class="cmp-box">
+  <div class="cmp-head"><span class="ck2">Judgment vs judgment</span><button class="iby" onclick="closeCompare()" title="Close" aria-label="Close">✕</button></div>
+  <div id="cmp-grid"></div>
+  <div class="cmp-foot"><button class="btn" onclick="closeCompare()">Close</button><button class="btn btn--primary" id="cmp-ask">Ask the junior which to lead with</button></div>
+</div></div>
+
+<div class="jback" id="jback" onclick="closeJdrawer()"></div>
+<div class="jdrawer" id="jdrawer" aria-label="Ask this judgment">
+  <div class="jd-h">
+    <div class="jdk">Ask this judgment</div>
+    <div class="jdt hi" id="jd-title">—</div>
+    <div class="jdm" id="jd-meta"></div>
+    <button class="jd-x" onclick="closeJdrawer()" title="Close" aria-label="Close">✕</button>
+  </div>
+  <div class="jd-log" id="jd-log"></div>
+  <div class="jd-c">
+    <input id="jd-q" placeholder="Ask about this judgment…">
+    <button class="sendbtn" id="jd-go" title="Send" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M12 19V5m0 0-6 6m6-6 6 6"/></svg></button>
+  </div>
+</div>
+
+<div class="pal" id="rsheet" onclick="if(event.target===this)closeSheet()"><div class="palbox">
+  <div class="palin" style="justify-content:space-between"><span style="font-size:14px;font-weight:600">Recent</span><button class="iby" onclick="closeSheet()" aria-label="Close" title="Close">✕</button></div>
+  <div class="palres" id="recent-m" style="padding:6px"></div>
+</div></div>
+
+<div class="toasts" id="toasts"></div>
+<input type="file" id="a-file" accept="image/*,.heic,.heif,.webp,.pdf,.doc,.docx,.xls,.xlsx" style="display:none">
+
+<script src="/static/voice.js?v=20260626a"></script>
+<script src="/static/auth.js"></script>
+<script src="/static/v2-beta.js"></script>
+<script>
+/* ============================================================================
+   Research — one door for the junior's law work. Four explicit lanes, no
+   intent guessing:
+
+     Find law   POST /api/situation/stream (ndjson: shells → result → error)
+                fallback POST /api/situation
+     Ask        POST /api/chat/message      (SSE: meta/sources/reasoning/delta/done)
+     Statute    GET  /api/mapping/lookup    (deterministic concordance, no LLM)
+     Saved      GET/POST/PATCH/DELETE /api/saved-caselaw (+matter_id → case folder)
+
+   Ask-this-judgment: POST /api/judgment/chat (SSE: delta/verify/done), rendered
+   inline under the card with its post-stream verify badge.
+
+   Zero-fabrication rules on this surface:
+     · a card is marked verified ONLY when the server says
+       verification_status === 'verified' (source resolved + title + quote)
+     · anything else renders an amber "unverified" badge with the reason
+     · the statute lane is pure data lookup — no model in the path
+     · judgment answers show the anchor/quote verify report the server ran
+
+   ?demo=1 (or opening the file directly) runs on built-in sample data so the
+   page can be reviewed or emailed without an account. Live mode uses the same
+   Supabase bearer token as /home.
+   ========================================================================== */
+const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const DEMO = /[?&]demo=1/.test(location.search) || location.protocol==='file:';
+
+function toast(m,k){const t=document.createElement('div');t.className='toast'+(k?' toast--'+k:'');t.textContent=m;$('#toasts').appendChild(t);setTimeout(()=>t.remove(),3200);}
+
+/* ---------------- auth (same contract as /home) ---------------- */
+/* The token MUST come through the Supabase client (auth.js -> headnoteAuth):
+   a stored access token expires after about an hour and only the client
+   refreshes it. A raw localStorage read is why the same account looked empty
+   on a second browser - the stale token 401'd. The scan stays as a fallback. */
+let _tok=null;
+function storedToken(){
+  try{
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i);
+      if(/sb-.*-auth-token/.test(k)){
+        const v=JSON.parse(localStorage.getItem(k));
+        if(v&&v.access_token) return v.access_token;
+        if(Array.isArray(v)&&v[0]) return v[0];
+      }
+    }
+  }catch(e){}
+  return null;
+}
+async function freshToken(){
+  try{
+    if(window.headnoteAuth&&typeof window.headnoteAuth.getAccessToken==='function'){
+      const t=await window.headnoteAuth.getAccessToken();
+      if(t){ _tok=t; return t; }
+    }
+  }catch(e){}
+  _tok=storedToken();
+  return _tok;
+}
+function authToken(){ return _tok||storedToken(); }
+async function H(json){
+  const h = json ? {'Content-Type':'application/json'} : {};
+  const t = await freshToken(); if(t) h.Authorization='Bearer '+t;
+  return h;
+}
+async function api(path, opts){
+  if(DEMO) return demoApi(path, opts);
+  /* A FormData body must keep the browser's OWN Content-Type, because that is
+     what carries the multipart boundary. Forcing application/json here made
+     the server parse no files at all. */
+  const body=(opts||{}).body;
+  const isForm = typeof FormData!=='undefined' && body instanceof FormData;
+  const r = await fetch(path, {...(opts||{}), headers:{...(await H(!!body && !isForm)), ...((opts||{}).headers||{})}});
+  let d=null; try{ d = await r.json(); }catch(e){}
+  if(r.status===401){ gate(); throw new Error('Please sign in again'); }
+  if(r.status===402){ const e=new Error(quotaMsg(d)); e.quota=true; throw e; }
+  if(!r.ok) throw new Error(errMsg(d)||`Request failed (${r.status})`);
+  return d;
+}
+const errMsg = d => { if(!d) return null; const x=d.detail||d.error; if(!x) return null; return typeof x==='string'?x:(x.message||JSON.stringify(x)); };
+const quotaMsg = d => errMsg(d)||"Your plan's research quota is used up for now — upgrade to keep going.";
+function gate(){ $('#gate').classList.remove('hidden'); $('#rview').classList.add('hidden'); }
+
+/* ---------------- stream readers ---------------- */
+async function readNdjson(resp, onEvt){
+  const reader = resp.body.getReader(), dec = new TextDecoder();
+  let buf='';
+  for(;;){
+    const {value, done} = await reader.read();
+    if(done) break;
+    buf += dec.decode(value,{stream:true});
+    let nl;
+    while((nl = buf.indexOf('\n')) >= 0){
+      const line = buf.slice(0,nl).trim(); buf = buf.slice(nl+1);
+      if(!line) continue;
+      let evt; try{ evt = JSON.parse(line); }catch(e){ continue; }
+      onEvt(evt);
+    }
+  }
+}
+async function readSSE(resp, onEvt){
+  const reader = resp.body.getReader(), dec = new TextDecoder();
+  let buf='';
+  for(;;){
+    const {value, done} = await reader.read();
+    if(done) break;
+    buf += dec.decode(value,{stream:true});
+    let idx;
+    while((idx = buf.indexOf('\n\n')) >= 0){
+      const chunk = buf.slice(0,idx); buf = buf.slice(idx+2);
+      const dl = chunk.split('\n').find(l=>l.startsWith('data:'));
+      if(!dl) continue;
+      let evt; try{ evt = JSON.parse(dl.slice(5).trim()); }catch(e){ continue; }
+      onEvt(evt);
+    }
+  }
+}
+
+/* tiny markdown for chat answers (paragraphs, bold, lists, ###) */
+function mdlite(md){
+  const blocks = String(md||'').trim().split(/\n{2,}/);
+  return blocks.map(b=>{
+    const lines=b.split('\n');
+    if(lines.every(l=>/^\s*[-*•]\s+/.test(l)))
+      return '<ul>'+lines.map(l=>'<li>'+inline(l.replace(/^\s*[-*•]\s+/,''))+'</li>').join('')+'</ul>';
+    if(/^#{2,4}\s+/.test(b)) return '<h3>'+inline(b.replace(/^#{2,4}\s+/,''))+'</h3>';
+    return '<p>'+inline(b).replace(/\n/g,'<br>')+'</p>';
+  }).join('');
+  function inline(s){ return esc(s).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g,'$1<i>$2</i>').replace(/`([^`]+)`/g,'<span class="mono" style="font-size:.92em">$1</span>'); }
+}
+
+/* ---------------- state ---------------- */
+let TAB='find';
+let MATTERS=null;            // [{id,label,sub,sections,stage,purpose}] — lazy
+let SEED=null;               // attached matter — grounds Find law AND the Chamber
+let SAVED=[];                // saved-caselaw rows
+let savedBy=new Map();       // case_id -> row
+let LAST=null;               // last find-law result {query, cases[]}
+let EXCL=new Set();          // case_ids the lawyer marked "doesn't fit" — excluded on re-search
+let FCTX='';                 // research context carried into the Chamber by "Continue in Chamber"
+let SL=[];                   // the SHORTLIST: authorities picked while reading, saved together at the end
+let askThread=[];            // Chamber messages
+let vGroup='recent';
+let PERSONA='junior';        // chamber gown: junior | devil | judge
+
+/* Persona copy is professional SaaS English. Hindi is a CAPABILITY (type it,
+   speak it, translate any result) — never the interface voice. One Hindi
+   example tile per set shows the capability without pushing the language. */
+const PERSONAS={
+  junior:{ph:'Ask a question — English or Hindi', who:'Headnote', mk:'H',
+          greet:'Ask anything about the law',
+          sub:'Reasons first, cites real sections, never bluffs. English or Hindi — your choice.',
+          ex:[{k:'Bail',t:'What matters for regular bail in a 302 case after chargesheet?'},{k:'138 NI',t:'धारा 138 NI — नोटिस और शिकायत की समय-सीमा क्या है?'},{k:'Anticipatory',t:'Is anticipatory bail possible after the chargesheet is filed?'}]},
+  devil:{ph:'State your case or argument…', who:'Opposing counsel', mk:'Vs',
+         greet:'State your case',
+         sub:'It argues the other side and ends every reply with the hardest question you\'ll face.',
+         ex:[{k:'Bail',t:'My client deserves bail — parity with the co-accused and 14 months custody'},{k:'Recovery',t:'Recovery is planted — the seizure memo has no independent witness'},{k:'138 NI',t:'138 NI: the cheque was given as security, not repayment'}]},
+  judge:{ph:'Put your submission to the court…', who:'The bench', mk:'J',
+         greet:'Present your submission',
+         sub:'The bench tests it the way a court would — maintainability and jurisdiction first, then merits.',
+         ex:[{k:'Bail',t:'I seek regular bail for the applicant in ST 402/2025'},{k:'Quash',t:'Submission: the FIR is a counterblast to our pending civil suit'},{k:'Maintenance',t:'I press for interim maintenance under §144 BNSS today'}]},
+};
+function renderExamples(){
+  const box=$('#a-ex'); if(!box) return;
+  box.innerHTML=PERSONAS[PERSONA].ex.map(e=>`<button><span class="xk">${esc(e.k)}</span>${esc(e.t)}</button>`).join('');
+  box.querySelectorAll('button').forEach((b,i)=>b.onclick=()=>{ $('#a-q').value=PERSONAS[PERSONA].ex[i].t; askGo(); });
+}
+function setPersona(p){
+  if(askThread.length) newChat();   // park the running argument in Recent BEFORE the gown changes
+  PERSONA=p;
+  $$('.pchips button').forEach(b=>b.classList.toggle('on', b.dataset.p===p));
+  $('#a-q').placeholder=PERSONAS[p].ph;
+  $('#a-greet').textContent=PERSONAS[p].greet;
+  $('#a-empty-t').textContent=PERSONAS[p].sub;
+  renderExamples();
+  $('#a-q').focus();
+}
+/* the composer grows with the text — type a paragraph, see a paragraph */
+function autoGrow(el){
+  el.style.height='auto';
+  el.style.height=Math.min(el.scrollHeight, Math.round(window.innerHeight*0.38))+'px';
+}
+/* the ecosystem hook: any lane can pick up any matter from the database */
+function attachMatter(btn){
+  openPicker(btn, (mid)=>{ if(mid){ loadSeed(mid); toast('Matter attached — its whole file now travels with every query','success'); } },
+    {header:'Work on a matter…', none:false});
+}
+
+/* ---- voice input ----
+   Language is DETECTED, never assumed: the browser recognizer can't detect
+   (locked to hi-IN it types English speech as Devanagari), so dictation goes
+   MediaRecorder → server STT (Sarvam Saarika, Whisper fallback) with
+   language='auto'. Tap to speak, silence ends the turn, text appears. */
+let _dict=null;
+function dictateTo(btn, sel){
+  if(_dict){ _dict.stop(); return; }
+  if(!window.HeadnoteVoice){ toast('Voice input needs the live app server','error'); return; }
+  if(DEMO){ toast('Voice works on the live app (it needs the speech server) — type for now','error'); return; }
+  const el=$(sel);
+  const prefix = el.value ? el.value.replace(/\s+$/,'')+' ' : '';
+  _dict=window.HeadnoteVoice.dictate({
+    lang:'auto', mode:'turn', forceServer:true, silenceMs:1500, maxMs:45000,
+    getAuthHeaders:async()=>await H(false),
+    onInterim:()=>{},
+    onFinal:t=>{ el.value=prefix+t; el.focus(); },
+    onState:s=>{
+      btn.classList.toggle('rec', s==='listening');
+      btn.classList.toggle('busy', s==='processing');
+      if(s==='processing') toast('Heard you — writing it down…');
+      if(s==='stopped'){ _dict=null; }
+    },
+    onError:(k)=>{ toast(k==='denied'?'Mic permission was denied — allow it in the browser':(k==='auth'?'Please sign in to use voice':'Voice input failed — please type instead'),'error'); },
+  });
+}
+
+/* ---- attachments: photo / PDF / Word → OCR text that becomes the facts ---- */
+let askAtts=[];   // [{name, text, loading}]
+function renderAtts(){
+  const r=$('#a-atts');
+  if(!askAtts.length){ r.classList.add('hidden'); r.innerHTML=''; return; }
+  r.classList.remove('hidden');
+  r.innerHTML=askAtts.map((a,i)=>`<span class="attchip${a.loading?' loading':''} hi">${esc(a.name)}${a.loading?' — reading…':''}<button onclick="askAtts.splice(${i},1);renderAtts()" title="Remove" aria-label="Remove">✕</button></span>`).join('');
+}
+async function onFilePicked(f){
+  if(!f) return;
+  const idx=askAtts.push({name:f.name, text:'', loading:true})-1;
+  renderAtts(); showTab('ask');
+  try{
+    let text;
+    if(DEMO){ await dLatency(900); text='[demo extract of '+f.name+'] FIR No. 118/2025, PS Kotwali — §103 BNS. Complainant states the assault took place on 14/06/2025 near the mandi gate; two eyewitnesses named; recovery of the weapon shown from an open field.'; }
+    else{
+      const fd=new FormData(); fd.append('file', f);
+      const r=await fetch('/api/chat/attach',{method:'POST',headers:await H(false),body:fd});
+      const d=await r.json().catch(()=>({}));
+      if(r.status===401){ gate(); return; }
+      if(!r.ok) throw new Error(errMsg(d)||('upload failed ('+r.status+')'));
+      text=d.text||'';
+    }
+    askAtts[idx]={name:f.name, text, loading:false};
+    toast('Read '+f.name+' — it will go with your next question','success');
+  }catch(err){ askAtts.splice(idx,1); toast('Couldn\'t read '+f.name+': '+err.message,'error'); }
+  renderAtts();
+}
+
+/* ---------------- tabs (back button works: tab switches push history) ---------------- */
+function showTab(t, push){
+  TAB=t;
+  ['find','ask','statute','saved','document'].forEach(x=>{
+    $('#pane-'+x).classList.toggle('hidden', x!==t);
+    $('#tab-'+x).classList.toggle('on', x===t);
+  });
+  if(t==='saved') renderSaved();
+  if(t==='statute' && !$('#s-pop').childElementCount) loadPopular();
+  const url=new URL(location); url.searchParams.set('tab',t);
+  if(push===false) return;
+  history.pushState({tab:t},'',url);
+}
+window.addEventListener('popstate',e=>{
+  const t=(e.state&&e.state.tab)||new URLSearchParams(location.search).get('tab')||'find';
+  if(['find','ask','statute','saved','document'].includes(t)) showTab(t,false);
+});
+
+/* ---------------- session memory: threads + searches, per user -----------
+   A junior remembers yesterday's argument. Every Chamber thread and every
+   Find-law search lands in Recent (sidebar / phone sheet) and reopens with
+   one click — persona, matter and all. Stored per-user in localStorage (the
+   same tier the live app's ASK history uses); server-side threads ride with
+   the V2 ship. */
+function uid(){
+  try{ const t=authToken(); if(t) return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).sub||'anon'; }catch(e){}
+  return DEMO?'demo':'anon';
+}
+const SKEY=()=>'hn.research.v1.'+uid();
+function readStore(){ try{ return JSON.parse(localStorage.getItem(SKEY()))||{threads:[],searches:[]}; }catch(e){ return {threads:[],searches:[]}; } }
+function writeStore(s){ try{ localStorage.setItem(SKEY(),JSON.stringify(s)); }catch(e){} }
+let THREAD_ID=null, TURNS=[];      // display record of the open thread
+function saveThread(){
+  if(!TURNS.length) return;
+  const s=readStore();
+  if(!THREAD_ID) THREAD_ID='t'+Date.now();
+  const row={id:THREAD_ID, kind:'thread', persona:PERSONA,
+    matter:SEED?{id:SEED.id,label:SEED.label}:null,
+    title:TURNS[0].q.slice(0,80), turns:TURNS, messages:askThread, ts:Date.now()};
+  const i=s.threads.findIndex(x=>x.id===THREAD_ID);
+  if(i>=0) s.threads[i]=row; else s.threads.unshift(row);
+  s.threads=s.threads.slice(0,30);
+  writeStore(s); renderRecent();
+}
+function saveSearch(){
+  if(!LAST||!LAST.cases||!LAST.cases.length) return;
+  const s=readStore();
+  const row={id:'s'+Date.now(), kind:'search', title:LAST.query.slice(0,80),
+    query:LAST.query, cases:LAST.cases, meta:LAST.meta, ts:Date.now()};
+  s.searches=[row,...s.searches.filter(x=>x.query!==LAST.query)].slice(0,20);
+  writeStore(s); renderRecent();
+}
+function newChat(){
+  saveThread();
+  THREAD_ID=null; TURNS=[]; askThread=[];
+  $('#a-thread').innerHTML=''; $('#a-empty').classList.remove('hidden');
+  $('#a-q').focus();
+}
+function renderRecent(){
+  const s=readStore();
+  const icons={thread:'<path d="M21 12a8 8 0 0 1-8 8H4l2.5-2.5A8 8 0 1 1 21 12Z"/>',search:'<circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/>'};
+  const row=it=>`<button class="rct" data-id="${esc(it.id)}" data-kind="${esc(it.kind)}" title="${esc(it.title)}">`+
+    `<svg viewBox="0 0 24 24">${icons[it.kind]}</svg><span class="rt-t">${esc(it.title)}</span>`+
+    `<span class="rt-x" data-x="1" title="Remove" role="button">✕</span></button>`;
+  // chats and searches are DIFFERENT work — each gets its own labelled shelf
+  const chats=s.threads.slice().sort((a,b)=>b.ts-a.ts).slice(0,7);
+  const searches=s.searches.slice().sort((a,b)=>b.ts-a.ts).slice(0,7);
+  let html='';
+  if(chats.length)    html+='<div class="rglbl">Chats</div>'+chats.map(row).join('');
+  if(searches.length) html+='<div class="rglbl">Case-law searches</div>'+searches.map(row).join('');
+  if(!html) html='<div class="rempty">Your chats and searches will appear here.</div>';
+  ['#recent','#recent-m'].forEach(sel=>{ const el=$(sel); if(el) el.innerHTML=html; });
+  $$('.rct').forEach(b=>{
+    b.onclick=e=>{
+      if(e.target.dataset.x){ removeRecent(b.dataset.id); e.stopPropagation(); return; }
+      openRecent(b.dataset.id, b.dataset.kind); closeSheet();
+    };
+  });
+}
+function removeRecent(id){
+  const s=readStore();
+  s.threads=s.threads.filter(x=>x.id!==id); s.searches=s.searches.filter(x=>x.id!==id);
+  writeStore(s); if(THREAD_ID===id){ THREAD_ID=null; }
+  renderRecent();
+}
+function openRecent(id, kind){
+  const s=readStore();
+  if(kind==='thread'){
+    const t=s.threads.find(x=>x.id===id); if(!t) return;
+    saveThread();                       // park whatever is open first
+    THREAD_ID=t.id; PERSONA=t.persona||'junior';
+    $$('.pchips button').forEach(b=>b.classList.toggle('on', b.dataset.p===PERSONA));
+    $('#a-q').placeholder=PERSONAS[PERSONA].ph;
+    askThread=(t.messages||[]).slice(); TURNS=(t.turns||[]).slice();
+    if(t.matter&&(!SEED||SEED.id!==t.matter.id)) loadSeed(t.matter.id);
+    const th=$('#a-thread'); th.innerHTML='';
+    const P=PERSONAS[PERSONA]||PERSONAS.junior;
+    TURNS.forEach(tr=>{
+      th.insertAdjacentHTML('beforeend',`<div class="aturn me"><div class="aq hi">${esc(tr.q)}</div></div>`);
+      th.insertAdjacentHTML('beforeend',
+        `<div class="aturn"><div class="who"><span class="mk2">${esc(P.mk)}</span><span class="wn">${esc(P.who)}</span></div>`+
+        `<div class="ab">${mdlite(tr.clean)}</div>`+
+        (tr.cross?`<div class="crossq"><span class="ck">Their hardest question — be ready</span><span class="hi">${esc(tr.cross)}</span></div>`:'')+
+        ((tr.sources||[]).length?'<div class="asrc">'+tr.sources.map(x=>`<span class="sc hi">[${esc(x.n)}] ${esc(x.old_ref||'')}${x.old_ref&&x.new_ref?' → ':''}${esc(x.new_ref||'')}${x.title?' · '+esc(x.title):''}</span>`).join('')+'</div>':'')+
+        `</div>`);
+    });
+    $('#a-empty').classList.add('hidden');
+    showTab('ask');
+    th.lastElementChild&&th.lastElementChild.scrollIntoView({block:'end'});
+  }else{
+    const r=s.searches.find(x=>x.id===id); if(!r) return;
+    LAST={query:r.query, cases:r.cases, meta:r.meta||{}};
+    $('#f-q').value=r.query;
+    renderFindResult($('#f-results'));
+    showTab('find');
+  }
+}
+function closeSheet(){ const sh=$('#rsheet'); if(sh) sh.classList.remove('on'); }
+function openSheet(){ renderRecent(); $('#rsheet').classList.add('on'); }
+
+/* ---------------- matters (picker + context pill) ---------------- */
+function matterLabel(c){
+  const cj=c.case_json||{};
+  return (cj.client&&cj.client.name)||c.case_title||('Matter '+(c.case_number||c.id));
+}
+async function loadMatters(){
+  if(MATTERS) return MATTERS;
+  try{
+    const d = await api('/api/cases');
+    MATTERS = (d.items||[]).map(c=>({
+      id:String(c.id), label:matterLabel(c),
+      sub:[c.case_number&&(c.case_number+(c.case_year?'/'+c.case_year:'')), c.court_name].filter(Boolean).join(' · '),
+      sections:(c.case_json&&c.case_json.sections)||[],
+      acts:(c.case_json&&c.case_json.acts)||[],
+      stage:c.stage||'', purpose:(c.case_json&&c.case_json.prep&&c.case_json.prep.purpose)||'',
+      title:c.case_title||'',
+    }));
+  }catch(e){ MATTERS=[]; toast('Could not load your matters: '+e.message,'error'); }
+  return MATTERS;
+}
+let FOLDERC=null;   // the attached matter's folder — feeds the right-side file panel
+async function loadSeed(id){
+  await loadMatters();
+  SEED = (MATTERS||[]).find(m=>m.id===String(id)) || null;
+  if(!SEED){
+    try{
+      const c = await api('/api/cases/'+encodeURIComponent(id));
+      SEED = {id:String(c.id), label:matterLabel(c), title:c.case_title||'',
+        sections:(c.case_json&&c.case_json.sections)||[], acts:(c.case_json&&c.case_json.acts)||[],
+        stage:c.stage||'', purpose:(c.case_json&&c.case_json.prep&&c.case_json.prep.purpose)||''};
+    }catch(e){ SEED=null; }
+  }
+  renderCtx();
+  FOLDERC=null; renderMside();
+  if(SEED){
+    try{ FOLDERC=await api('/api/cases/'+encodeURIComponent(SEED.id)+'/folder'); }catch(e){ FOLDERC=null; }
+    renderMside();
+  }
+}
+/* the right rail, always useful: the attached matter's file when one is
+   attached (exactly what the junior reads before answering), otherwise the
+   lawyer's recent library. Desktop only; the pill carries context on mobile. */
+function renderMside(){
+  const el=$('#mside');
+  document.body.classList.toggle('has-matter', !!SEED);
+  el.classList.remove('hidden');
+  if(!SEED){ renderSLRail(el); return; }
+  const f=FOLDERC||{}, c=f.case||{};
+  const sec=(t,n,rows)=> rows&&rows.length
+    ? `<div class="msec"><div class="mst">${t} <span class="n">${n}</span></div>${rows.join('')}</div>` : '';
+  const r=(html)=>`<div class="msr hi">${html}</div>`;
+  const hearing=(f.hearing_logs||[]).slice(0,4).map(h=>r(`<span class="d">${esc(h.hearing_date||'')}</span>${esc(h.what_happened||'')}`));
+  const law=(f.caselaw||[]).slice(0,5).map(a=>r(`<b>${esc(a.title||a.case_id)}</b>${a.citation?' · '+esc(a.citation):''}`));
+  const docs=(f.documents||[]).slice(0,6).map(d=>r(esc(d.title||'Document')+(d.doc_type?' · '+esc(d.doc_type):'')));
+  const recs=(f.recordings||[]).slice(0,4).map(x=>r(esc(x.title||'Consultation')));
+  const chips=(SEED.sections||[]).map(s=>`<span class="schip">§${esc(s)}</span>`).join('')+(SEED.acts||[]).map(a=>`<span class="schip">${esc(a)}</span>`).join('');
+  el.innerHTML=`
+    <div class="msh"><div class="msk">The matter's file</div>
+      <div class="msn hi">${esc(SEED.label)}</div>
+      <div class="msm">${esc([c.case_number?`${c.case_number}/${c.case_year||''}`.replace(/\/$/,''):'',c.court_name||'',SEED.stage].filter(Boolean).join(' · '))}</div></div>
+    <div class="msb">
+      ${SEED.purpose?`<div class="msec"><div class="mst">Next hearing</div>${r(`<b>${esc(SEED.purpose)}</b>${c.next_hearing_date?' · '+esc(c.next_hearing_date):''}`)}</div>`:''}
+      ${chips?`<div class="msec"><div class="mst">Sections</div><div class="schips">${chips}</div></div>`:''}
+      ${sec('Hearing history',(f.hearing_logs||[]).length,hearing)}
+      ${sec('Saved authorities',(f.caselaw||[]).length,law)}
+      ${sec('Documents',(f.documents||[]).length,docs)}
+      ${sec('Recordings',(f.recordings||[]).length,recs)}
+      ${!FOLDERC?`<div class="msec"><div class="msempty">Opening the file…</div></div>`:''}
+    </div>
+    <div class="msfoot">This is what the junior reads before answering. <a href="/home">Open the full folder →</a></div>`;
+}
+/* ============ THE SHORTLIST ============
+   Research is PICKING. The rail is the tray: toss authorities in while you
+   read, then — at the end — save them all to a matter in one go, compare
+   two side by side, or copy them as a numbered list for a draft. Persisted
+   with the session store so it survives a reload. */
+function saveSL(){ const s=readStore(); s.shortlist=SL; writeStore(s); }
+function toggleSL(c, btn){
+  const i=SL.findIndex(x=>x.case_id===c.case_id);
+  if(i>=0){ SL.splice(i,1); if(btn){ btn.classList.remove('is-saved'); btn.textContent='＋ Shortlist'; } }
+  else{
+    SL.push({case_id:c.case_id, title:c.title, citation:(c.official_citation||c.citation)||'', court:c.court||'', year:c.year||'',
+             held:c.held_line||'', why:c.stinger_sentence||'', carve:c.negative_carve_out||'', outcome:c.outcome||'',
+             verified:c.verification_status==='verified', case_json:c, source_query:(LAST&&LAST.query)||''});
+    if(btn){ btn.classList.add('is-saved'); btn.textContent='✓ Shortlisted'; }
+    toast('On the shortlist — save the set to a matter when you\'re done','success');
+  }
+  saveSL(); if(!SEED) renderMside();
+}
+function renderSLRail(el){
+  if(!SL.length){
+    el.innerHTML=`
+      <div class="msh"><div class="msk">Shortlist</div><div class="msn">Nothing picked yet</div></div>
+      <div class="msb"><div class="msec"><div class="msempty">As you read the authorities, hit <b>＋ Shortlist</b> on the keepers. They collect here — then save the whole set to a matter, compare two side by side, or copy them as a list for your draft.</div></div></div>`;
+    return;
+  }
+  const rows=SL.map((x,i)=>`
+    <div class="slrow">
+      <input type="checkbox" data-ck="${i}" ${i<3?'checked':''} title="Tick to include in Compare">
+      <div class="slb"><div class="slt hi">${esc(x.title)}</div>
+        <div class="slm">${esc([x.court,x.year,x.citation].filter(Boolean).join(' · '))}${x.verified?' · <span style="color:var(--green)">✓</span>':''}</div></div>
+      <button class="iby" data-rm="${i}" title="Remove from shortlist">✕</button>
+    </div>`).join('');
+  el.innerHTML=`
+    <div class="msh"><div class="msk">Shortlist</div>
+      <div class="msn">${SL.length} authorit${SL.length===1?'y':'ies'} picked</div>
+      <div class="msm">tick 2–3 to compare</div></div>
+    <div class="msb" style="padding-top:6px">${rows}</div>
+    <div class="slacts">
+      <button class="btn btn--primary btn--sm" id="sl-save">Save all to a matter</button>
+      <button class="btn btn--sm" id="sl-cmp">Compare</button>
+      <button class="btn btn--sm" id="sl-copy" title="A numbered authorities list, ready to paste into a draft">Copy as list</button>
+      <button class="btn btn--sm" id="sl-clear" title="Empty the shortlist">Clear</button>
+    </div>`;
+  el.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{ SL.splice(Number(b.dataset.rm),1); saveSL(); renderMside(); if(LAST) renderFindResult($('#f-results')); });
+  $('#sl-save').onclick=e=>openPicker(e.currentTarget, bulkSaveSL, {header:'Save the shortlist to…', none:true});
+  $('#sl-cmp').onclick=()=>{
+    const picked=[...el.querySelectorAll('[data-ck]:checked')].map(b=>SL[Number(b.dataset.ck)]);
+    if(picked.length<2||picked.length>3){ toast('Tick 2 or 3 to compare','error'); return; }
+    openCompare(picked);
+  };
+  $('#sl-copy').onclick=()=>{
+    const txt=SL.map((x,i)=>`${i+1}. ${x.title}${x.citation?', '+x.citation:''}${x.court?' ('+x.court+(x.year?' '+x.year:'')+')':''}${x.held?' — held: '+x.held:''}`).join('\n');
+    (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>toast('Copied — paste it into your draft','success')).catch(()=>toast('Could not copy','error'));
+  };
+  $('#sl-clear').onclick=()=>{ SL=[]; saveSL(); renderMside(); if(LAST) renderFindResult($('#f-results')); };
+}
+async function bulkSaveSL(mid, mlabel){
+  let ok=0;
+  for(const x of SL){
+    try{
+      const d=await api('/api/saved-caselaw',{method:'POST',body:JSON.stringify({case_id:x.case_id, case_json:x.case_json, source_query:x.source_query, matter_id:mid})});
+      const row=(d&&d.saved)||{case_id:x.case_id, title:x.title, matter_id:mid, case_json:x.case_json};
+      const i=SAVED.findIndex(r=>r.case_id===row.case_id);
+      if(i>=0) SAVED[i]=row; else SAVED.unshift(row);
+      savedBy.set(row.case_id,row); ok++;
+    }catch(e){ toast('Could not save '+x.title+': '+e.message,'error'); }
+  }
+  $('#savedCount').textContent=String(SAVED.length);
+  if(ok){ toast(ok+' saved'+(mlabel?' to '+mlabel+"'s folder":' to your library'),'success'); SL=[]; saveSL(); renderMside(); if(LAST) renderFindResult($('#f-results')); }
+}
+/* ---- Judgment vs Judgment: a deterministic side-by-side of what each one
+   IS — then one tap hands both to the junior for "which do I lead with?" ---- */
+function openCompare(items){
+  const box=$('#cmp'); const grid=$('#cmp-grid');
+  const cell=(label,val,warn)=> val?`<div class="cmp-c${warn?' warn':''}"><span class="zl">${label}</span><span class="hi">${esc(val)}</span></div>`:`<div class="cmp-c empty"><span class="zl">${label}</span><span>—</span></div>`;
+  grid.style.gridTemplateColumns=`repeat(${items.length},minmax(0,1fr))`;
+  grid.innerHTML=items.map(x=>`
+    <div class="cmp-col">
+      <div class="cmp-h"><div class="cmp-t hi">${esc(x.title)}</div>
+        <div class="cmp-m">${esc([x.court,x.year,x.citation].filter(Boolean).join(' · '))}</div>
+        <div class="cmp-m">${x.verified?'<span style="color:var(--green)">✓ verified</span>':'<span style="color:var(--amber)">⚠ unverified</span>'}${x.outcome?' · '+esc(x.outcome):''}</div></div>
+      ${cell('Held', x.held)}
+      ${cell('For your matter', x.why)}
+      ${cell('Doesn’t decide', x.carve, true)}
+    </div>`).join('');
+  $('#cmp-ask').onclick=()=>{
+    closeCompare(); newChat();
+    FCTX='I am choosing between these authorities:\n'+items.map((x,i)=>`${i+1}. ${x.title}${x.citation?' ['+x.citation+']':''} — held: ${x.held||'(see judgment)'}${x.carve?' — does not decide: '+x.carve:''}`).join('\n');
+    showTab('ask');
+    $('#a-q').value='Which should I lead with, and how do I use the other'+(items.length>2?'s':'')+'?';
+    $('#a-q').focus();
+  };
+  box.classList.add('on');
+}
+function closeCompare(){ $('#cmp').classList.remove('on'); }
+function renderCtx(){
+  const row=$('#ctxrow');
+  // one control per job: while a matter is attached the pill IS the control,
+  // so the ⊕ attach buttons hide rather than sit beside it
+  ['#f-attach','#a-attach'].forEach(s=>{ const b=$(s); if(b) b.classList.toggle('hidden', !!SEED); });
+  if(!SEED){ row.classList.add('hidden'); row.innerHTML=''; return; }
+  const secs = (SEED.sections||[]).slice(0,4).join(', ');
+  const bits=[ '<b>'+esc(SEED.label)+'</b>' ];
+  if(secs) bits.push('§'+esc(secs));
+  if(SEED.purpose) bits.push(esc(SEED.purpose));
+  else if(SEED.stage) bits.push(esc(SEED.stage));
+  row.classList.remove('hidden');
+  row.innerHTML = `<span class="ctxpill"><span class="ck">On matter</span><span class="cv hi">${bits.join(' · ')}</span>`+
+    `<button class="cx" onclick="clearSeed()" title="Detach this matter" aria-label="Detach this matter">✕</button></span>`;
+}
+function clearSeed(){
+  SEED=null; FOLDERC=null; renderCtx(); renderMside();
+  const url=new URL(location); url.searchParams.delete('matter'); history.replaceState(null,'',url);
+  toast('Matter context removed');
+}
+function seedText(){
+  if(!SEED) return '';
+  const p=[];
+  if(SEED.title||SEED.label) p.push('Matter: '+(SEED.title||SEED.label));
+  if((SEED.sections||[]).length) p.push('Sections: '+SEED.sections.join(', ')+((SEED.acts||[]).length?' ('+SEED.acts.join('; ')+')':''));
+  if(SEED.stage) p.push('Stage: '+SEED.stage);
+  if(SEED.purpose) p.push('Next hearing listed for: '+SEED.purpose);
+  return p.length? '\n\n[Matter context] '+p.join('. ')+'.' : '';
+}
+
+/* ---------------- matter picker popover ---------------- */
+let _pick=null;
+function closePicker(){ if(_pick){ _pick.remove(); _pick=null; document.removeEventListener('click',_pickAway,true); } }
+function _pickAway(e){ if(_pick && !_pick.contains(e.target)) closePicker(); }
+async function openPicker(btn, onPick, opts){
+  opts=opts||{};
+  closePicker();
+  const box=document.createElement('div'); box.className='pick';
+  box.innerHTML=`<div class="pkh">${esc(opts.header||'Save to…')}</div><input placeholder="Find a matter…"><div class="pkl"><div class="pkempty">Loading your matters…</div></div>`;
+  document.body.appendChild(box);
+  const r=btn.getBoundingClientRect();
+  const left=Math.min(r.left+window.scrollX, window.scrollX+document.documentElement.clientWidth-306);
+  box.style.left=left+'px'; box.style.top=(r.bottom+window.scrollY+6)+'px';
+  _pick=box;
+  setTimeout(()=>document.addEventListener('click',_pickAway,true));
+  const list=box.querySelector('.pkl'), inp=box.querySelector('input');
+  await loadMatters();
+  const paint=q=>{
+    q=(q||'').toLowerCase();
+    const ms=(MATTERS||[]).filter(m=>!q||m.label.toLowerCase().includes(q)||m.sub.toLowerCase().includes(q));
+    let html = ms.slice(0,30).map(m=>`<button class="pkr" data-id="${esc(m.id)}"><span class="hi">${esc(m.label)}</span>${m.sub?`<span class="pm">${esc(m.sub)}</span>`:''}</button>`).join('');
+    if(!ms.length) html = `<div class="pkempty">${opts.none===false?'No matter matches.':'No matter matches. It saves to your library either way.'}</div>`;
+    if(opts.none!==false) html += `<button class="pkr lib" data-id="">Library only — no matter</button>`;
+    list.innerHTML=html;
+    list.querySelectorAll('.pkr').forEach(b=>b.onclick=()=>{ const id=b.dataset.id||null; closePicker(); onPick(id, id?(MATTERS.find(m=>m.id===id)||{}).label:null); });
+  };
+  paint(''); inp.oninput=()=>paint(inp.value); inp.focus();
+  if(SEED){ // the attached matter jumps to the top — it's almost always the target
+    MATTERS.sort((a,b)=>(a.id===SEED.id?-1:0)-(b.id===SEED.id?-1:0)); paint('');
+  }
+}
+
+/* ---------------- saved library ---------------- */
+async function loadSaved(){
+  try{
+    const d = await api('/api/saved-caselaw');
+    SAVED = d.items||[];
+  }catch(e){ SAVED=[]; }
+  savedBy = new Map(SAVED.map(r=>[r.case_id, r]));
+  $('#savedCount').textContent = String(SAVED.length);
+  if(TAB==='saved') renderSaved();
+  if(!SEED) renderMside();      // the rail shows the library until a matter is attached
+}
+function kindOf(row){
+  const k=(row.case_json&&row.case_json.kind)||'';
+  if(k==='statute') return 'statute';
+  if(k==='ask') return 'answer';
+  return 'case';
+}
+function setGroup(g){ vGroup=g; $('#vg-recent').classList.toggle('on',g==='recent'); $('#vg-matter').classList.toggle('on',g==='matter'); renderSaved(); }
+async function renderSaved(){
+  const list=$('#v-list');
+  await loadMatters();
+  const q=($('#v-q').value||'').toLowerCase();
+  const rows = SAVED.filter(r=>{
+    if(!q) return true;
+    return [r.title,r.citation,r.court,r.note,r.source_query].filter(Boolean).join(' ').toLowerCase().includes(q);
+  });
+  $('#v-count').textContent = `showing ${rows.length} of ${SAVED.length}`;
+  if(!SAVED.length){
+    list.innerHTML=`<div class="paneempty"><div class="ic"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg></div>Nothing saved yet.<br><span style="font-size:12px">Save an authority from Find law, an answer from Ask, or a section from Statute — filed to a matter, it shows in that case's folder too.</span></div>`;
+    return;
+  }
+  if(!rows.length){ list.innerHTML=`<div class="paneempty">No saved item matches “${esc($('#v-q').value)}”.</div>`; return; }
+  const mname=id=>{ const m=(MATTERS||[]).find(x=>x.id===String(id)); return m?m.label:('Matter '+String(id).slice(0,6)); };
+  if(vGroup==='matter'){
+    const groups=new Map();
+    rows.forEach(r=>{ const k=r.matter_id?String(r.matter_id):''; if(!groups.has(k)) groups.set(k,[]); groups.get(k).push(r); });
+    const keys=[...groups.keys()].sort((a,b)=>(a===''?1:0)-(b===''?1:0) || String(mname(a)).localeCompare(String(mname(b))));
+    list.innerHTML = keys.map(k=>`<div class="vgrp"><span class="hi">${k?esc(mname(k)):'Not filed to a matter'}</span><span class="gc">${groups.get(k).length}</span></div>`+groups.get(k).map(savedRowHTML).join('')).join('');
+  }else{
+    list.innerHTML = rows.map(savedRowHTML).join('');
+  }
+  wireSavedRows(list);
+}
+function savedRowHTML(r){
+  const kind=kindOf(r);
+  const meta=[r.court,r.year,r.citation].filter(Boolean).join(' · ');
+  const mn = r.matter_id ? ((MATTERS||[]).find(m=>m.id===String(r.matter_id))||{}).label : null;
+  const note = r.note ? `<div class="snote-view hi" data-act="note">${esc(r.note)}</div>` : `<div class="snote-view empty" data-act="note">Add a note — why this one matters…</div>`;
+  return `<div class="srow" data-cid="${esc(r.case_id)}">
+    <div class="sr1">
+      <span class="kind">${kind}</span>
+      <div class="sbody">
+        <div class="st hi">${esc(r.title||r.case_id)}</div>
+        <div class="sm">${esc(meta)}${r.source_query?` · from “${esc(String(r.source_query).slice(0,70))}${String(r.source_query).length>70?'…':''}”`:''}${mn?` · <span class="mt hi">▣ ${esc(mn)}</span>`:''}</div>
+      </div>
+      <div class="sacts2">
+        <button class="iby" data-act="file" title="${mn?'Move to another matter':'File under a matter'}"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></button>
+        <button class="iby" data-act="del" title="Remove from saved"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2m-8 0 1 13h8l1-13"/></svg></button>
+      </div>
+    </div>
+    <div class="snotebox">${note}</div>
+  </div>`;
+}
+function wireSavedRows(scope){
+  scope.querySelectorAll('.srow').forEach(row=>{
+    const cid=row.dataset.cid;
+    row.querySelector('[data-act="del"]').onclick=async()=>{
+      try{ await api('/api/saved-caselaw/'+encodeURIComponent(cid),{method:'DELETE'});
+        SAVED=SAVED.filter(r=>r.case_id!==cid); savedBy.delete(cid);
+        $('#savedCount').textContent=String(SAVED.length); renderSaved(); toast('Removed','success');
+      }catch(e){ toast(e.message,'error'); }
+    };
+    row.querySelector('[data-act="file"]').onclick=e=>{
+      openPicker(e.currentTarget, async (mid, mlabel)=>{
+        try{ await api('/api/saved-caselaw/'+encodeURIComponent(cid),{method:'PATCH',body:JSON.stringify({matter_id:mid})});
+          const r=SAVED.find(x=>x.case_id===cid); if(r) r.matter_id=mid;
+          renderSaved(); toast(mid?('Filed under '+mlabel):'Moved to library only','success');
+        }catch(e2){ toast(e2.message,'error'); }
+      });
+    };
+    row.querySelector('[data-act="note"]').onclick=ev=>{
+      const view=ev.currentTarget, r=SAVED.find(x=>x.case_id===cid);
+      const box=view.parentElement;
+      box.innerHTML=`<textarea class="hi">${esc(r.note||'')}</textarea>`;
+      const ta=box.querySelector('textarea'); ta.focus();
+      ta.onblur=async()=>{
+        const v=ta.value.trim();
+        try{ await api('/api/saved-caselaw/'+encodeURIComponent(cid),{method:'PATCH',body:JSON.stringify({note:v||null})});
+          r.note=v||null; renderSaved();
+        }catch(e2){ toast(e2.message,'error'); renderSaved(); }
+      };
+    };
+  });
+}
+/* save anything: a case card, a statute mapping, an ask answer */
+async function saveItem(btn, payload){
+  openPicker(btn, async (mid, mlabel)=>{
+    btn.disabled=true;
+    try{
+      const body={...payload, matter_id: mid};
+      if(SEED && mid===null){} // explicit choice — never silently attach the seed
+      const d=await api('/api/saved-caselaw',{method:'POST',body:JSON.stringify(body)});
+      const row=(d&&d.saved)||{...body, title:(payload.case_json.title||''), matter_id:mid};
+      const i=SAVED.findIndex(r=>r.case_id===row.case_id);
+      if(i>=0) SAVED[i]=row; else SAVED.unshift(row);
+      savedBy.set(row.case_id,row);
+      $('#savedCount').textContent=String(SAVED.length);
+      btn.classList.add('is-saved');
+      btn.innerHTML='✓ Saved'+(mlabel?' · <span class="hi">'+esc(mlabel)+'</span>':'');
+      toast(mid?('Saved — it now shows in '+mlabel+"'s folder"):'Saved to your library','success');
+    }catch(e){ toast(e.message,'error'); }
+    finally{ btn.disabled=false; }
+  });
+}
+
+/* ================= FIND LAW ================= */
+function stageLine(txt){ $('#f-status').innerHTML = txt?`<div class="stg"><span class="dot"></span>${esc(txt)}</div>`:''; }
+function shellHTML(c,i){
+  return `<div class="ccard shell">
+    <div class="cc-head">
+      <div class="cc-title hi">${titleLink(c)}</div>
+      <div class="cc-n">#${i+1}</div>
+    </div>
+    <div class="am">${esc([c.court,c.year,c.citation].filter(Boolean).join(' · '))} · <span class="vmark">analysing…</span></div>
+    ${c.why_provisional?`<div class="cc-row cc-row--why"><div class="cc-rl">Why</div><div class="cc-rt wz hi">${esc(c.why_provisional)}</div></div>`:''}
+    <div class="cc-acts">${judgmentActions(c)}</div>
+  </div>`;
+}
+
+/* ---- the way to the judgment itself ----------------------------------------
+   There is ALWAYS a route out of the card, in descending order of authority:
+     1. the court's own signed copy — a bench accepts it, an aggregator it may not
+     2. Indian Kanoon, when the pipeline resolved a real doc id for this case
+     3. an Indian Kanoon SEARCH on the case name — the case that this was
+        missing. When no doc id resolves (curated corpus, or a name the pool
+        could not confirm) we used to render no link at all, so the judgment
+        was genuinely unreachable from the card. A search link is honest: it
+        claims only "here is where to look", never "we found this document",
+        and the unverified badge above it still says so.
+   All three are on the FIRST paint — the shells carry the url too, so a
+   judgment is never something you can read about but not open.
+--------------------------------------------------------------------------- */
+function ikSearchUrl(c){
+  const q=[c.title||'',(c.official_citation||c.citation||'')].filter(Boolean).join(' ').trim();
+  return q?'https://indiankanoon.org/search/?formInput='+encodeURIComponent(q):'';
+}
+function titleLink(c){
+  const t=esc(c.title||c.case_id||'');
+  const u=c.kanoon_url||ikSearchUrl(c);
+  if(!u) return t;
+  const tip=c.kanoon_url?'Open the full judgment on Indian Kanoon':'Search Indian Kanoon for this judgment';
+  return `<a href="${esc(u)}" target="_blank" rel="noopener" title="${tip}">${t}</a><span class="ext">↗</span>`;
+}
+function judgmentActions(c){
+  const out=[];
+  if(c.official_pdf_url)
+    out.push(`<a class="cc-go off" href="${esc(c.official_pdf_url)}" target="_blank" rel="noopener" title="The court's own signed copy — this is what a bench accepts">⚖ Official copy${c.official_citation?' · '+esc(c.official_citation):''}</a>`);
+  if(c.kanoon_url){
+    out.push(`<a class="cc-go" href="${esc(c.kanoon_url)}" target="_blank" rel="noopener" title="Open the full judgment on Indian Kanoon">Read on Indian Kanoon ↗</a>`);
+  }else{
+    const s=ikSearchUrl(c);
+    if(s) out.push(`<a class="cc-go seek" href="${esc(s)}" target="_blank" rel="noopener" title="We could not resolve a direct link to this judgment — this searches Indian Kanoon by name so you do not have to retype it">Search Indian Kanoon ↗</a>`);
+  }
+  return out.join('');
+}
+/* (the 4-dimension match grid was deleted in an earlier round as redundant with
+   the Why row — its renderer went with the card that used it) */
+function vbadge(c){
+  if(c.verification_status==='verified')
+    return `<span class="vmark ok" title="Source resolves, title matches, quote found in the judgment">✓ verified</span>`;
+  const why=c.verification_reason||'not auto-confirmed against the source yet';
+  return `<span class="vmark warn" title="${esc(why)}">⚠ unverified — check before citing</span>`;
+}
+/* Outcome → a coloured tag the eye can sort by: green = relief given,
+   red = refused/dismissed, plain otherwise. Text comes verbatim from the
+   pipeline — only the colour is derived. */
+/* outcome lives in the meta line, coloured by direction — not a chip */
+function outcomeInline(c){
+  const o=(c.outcome||'').trim();
+  if(!o) return '';
+  const k=/grant|allow|upheld|quash|acquit|discharge|set aside|अनुमति|स्वीकार/i.test(o)?'oc-ok'
+        :/denied|dismiss|reject|refus|cancel|convict|खारिज|अस्वीकार/i.test(o)?'oc-bad':'';
+  return ` · <span class="${k}">${esc(o)}</span>`;
+}
+function fameInline(c){
+  if(c.fame_indicator==='famous') return ' · landmark';
+  if(c.fame_indicator==='lesser-known'||c.fame_indicator==='obscure') return ' · lesser-known';
+  return '';
+}
+/* Deep link that actually lands on the right line. Paragraph numbers drift
+   between our parse and IK's page, so for VERIFIED quotes the link is a
+   scroll-to-text fragment (#:~:text=…) — the browser jumps to the exact
+   quoted words wherever they sit. Fallback: para anchor, then the doc. */
+function anchorUrl(c){
+  if(c.kanoon_url && c.court_quote && c.verification_status==='verified'){
+    const words=String(c.court_quote).replace(/[“”"]/g,'').trim().split(/\s+/);
+    const frag=words.slice(0, Math.min(10, words.length)).join(' ');
+    return c.kanoon_url + '#:~:text=' + encodeURIComponent(frag);
+  }
+  return c.kanoon_paragraph_url || c.kanoon_url || '';
+}
+/* One CASE CARD: title + verification on top, the identity line under it, then
+   a fixed column of labels — why · headnote · quote · doesn't decide · new code
+   — and the actions along the bottom, judgment link first. Values are pipeline
+   fields verbatim; nothing is authored client-side. */
+function ccRow(label, body, mod){
+  return `<div class="cc-row${mod?' cc-row--'+mod:''}"><div class="cc-rl">${label}</div><div class="cc-rt">${body}</div></div>`;
+}
+function cardHTML(c, i){
+  const meta=[c.court, c.year, (c.official_citation||c.citation)].filter(Boolean).join(' · ');
+  const cited = c.numcitedby ? (c.kanoon_doc_id
+      ? ` · <a class="cb" href="https://indiankanoon.org/search/?formInput=citedby:${encodeURIComponent(c.kanoon_doc_id)}" target="_blank" rel="noopener" title="Every later judgment that cites this one">cited by ${esc(c.numcitedby)} ↗</a>`
+      : ` · cited by ${esc(c.numcitedby)}`) : '';
+  const idx=(c.journal_headnote&&c.journal_headnote.statute_index)||'';
+  const url=anchorUrl(c);
+  const rows=[];
+  if(c.stinger_sentence)
+    rows.push(ccRow('Why', `<span class="hi wz-why-t">${esc(c.stinger_sentence)}</span>`, 'why'));
+  if(idx||c.held_line)
+    rows.push(ccRow('Headnote', `${idx?`<div class="hn2-idx">${esc(idx)}</div>`:''}<div class="hn2-held hi">${esc(c.held_line||'')}</div>`));
+  if(c.court_quote)
+    rows.push(ccRow('Quote', `<span class="hi">“${esc(c.court_quote)}”</span><span class="qa2">${esc(c.paragraph_anchor||'')}${url?` — <a href="${esc(url)}" target="_blank" rel="noopener" title="Opens the judgment scrolled to this exact line">open at this line ↗</a>`:''}</span>`, 'quote'));
+  if(c.negative_carve_out)
+    rows.push(ccRow("Doesn't decide", `<span class="hi">${esc(c.negative_carve_out)}</span>`, 'warn'));
+  if(c.bns_note)
+    rows.push(ccRow('New code', esc(c.bns_note), 'mono'));
+  const isSL=SL.some(x=>x.case_id===c.case_id);
+  return `<div class="ccard${c.is_best_match?' best':''}${EXCL.has(c.case_id)?' dim':''}" data-i="${i}">
+    <div class="cc-head">
+      <div class="cc-title hi">${titleLink(c)}</div>
+      <div class="cc-n">#${i+1}${c.is_best_match?'<span class="star" title="Closest authority to your facts">★</span>':''}</div>
+    </div>
+    <div class="am">${esc(meta)}${cited}${outcomeInline(c)}${fameInline(c)}${c.is_best_match?' · <span class="pintag">closest authority</span>':''} · ${vbadge(c)}</div>
+    ${rows.join('')}
+    <div class="cc-acts">
+      ${judgmentActions(c)}
+      <button class="btn btn--sm${isSL?' is-saved':''}" data-act="shortlist" title="Keep it on the shortlist — save the whole shortlist to a matter when you're done reading">${isSL?'✓ Shortlisted':'＋ Shortlist'}</button>
+      ${c.kanoon_doc_id?`<button class="btn btn--sm" data-act="jchat">Ask this judgment</button>`:''}
+      ${(c.stinger_sentence||c.held_line)?`<button class="btn btn--sm hi" data-act="hindi" title="Read the headnote and analysis in Hindi">हिंदी</button>`:''}
+      <button class="btn btn--sm" data-act="notfit" title="Poor match — it will be excluded when you search again">${EXCL.has(c.case_id)?'Excluded ↩':'Doesn’t fit'}</button>
+    </div>
+  </div>`;
+}
+/* Per-card Hindi: translate ONLY the explanatory layer (why + holding).
+   The verbatim court quote is NEVER translated — a lawyer must not cite a
+   Hindi line that does not exist in the judgment. Same rule as /app. */
+async function toggleHindi(card, c, btn){
+  // the statute index (.hn2-idx) is section numbers — it is never translated
+  if(btn.dataset.on==='1'){
+    btn.dataset.on=''; btn.textContent='हिंदी';
+    const w=card.querySelector('.wz-why-t'); if(w) w.textContent=c.stinger_sentence||'';
+    const h=card.querySelector('.hn2-held'); if(h) h.textContent=c.held_line||'';
+    return;
+  }
+  btn.disabled=true; btn.textContent='Translating…';
+  try{
+    if(!c._hi){
+      if(DEMO){ await dLatency(700); c._hi=DM_HI[c.case_id]||{stinger:'(अनुवाद डेमो में उपलब्ध नहीं)',held_line:''}; }
+      else{
+        const r=await fetch('/api/translate',{method:'POST',headers:{'Content-Type':'application/json',...(await H(false))},
+          body:JSON.stringify({payload:{stinger:c.stinger_sentence||'', held_line:c.held_line||''}})});
+        const d=await r.json().catch(()=>({}));
+        if(!r.ok) throw new Error(errMsg(d)||('translate failed ('+r.status+')'));
+        c._hi=d.result||{};
+      }
+    }
+    const w=card.querySelector('.wz-why-t'); if(w&&c._hi.stinger) w.textContent=c._hi.stinger;
+    const h=card.querySelector('.hn2-held'); if(h&&c._hi.held_line) h.textContent=c._hi.held_line;
+    btn.dataset.on='1'; btn.textContent='English';
+  }catch(e){ toast('Could not translate: '+e.message,'error'); btn.textContent='हिंदी'; }
+  finally{ btn.disabled=false; }
+}
+async function findGo(){
+  const q=$('#f-q').value.trim();
+  if(q.length<10){ toast('Describe it in a few more words — at least a line.','error'); return; }
+  const btn=$('#f-go'); btn.disabled=true;
+  $('#f-fup').classList.add('hidden');
+  if(q!==(LAST&&LAST.query)) EXCL=new Set();   // fresh query → fresh exclusions
+  const target=$('#f-results');
+  target.innerHTML='';
+  stageLine('understanding the matter…');
+  // the lawyer's "doesn't fit" verdicts travel into the re-run
+  const exNote = EXCL.size && LAST && LAST.query===q
+    ? '\n\n[Do NOT return these — the lawyer marked them as poor matches: '
+      + LAST.cases.filter(c=>EXCL.has(c.case_id)).map(c=>c.title).join('; ') + ']'
+    : '';
+  // live mode: the SERVER folds the matter in (sections/stage/court steer
+  // retrieval + jurisdiction); the client-side seed text is demo-only
+  const body={ situation: q + (DEMO?seedText():'') + exNote, style:'practitioner',
+    deep_mode: false, mode:'hidden', jurisdiction:null,
+    matter_id: SEED?SEED.id:null };
+  let final=null, streamErr=null;
+  try{
+    if(DEMO){
+      await demoFindStream(evt=>onFindEvt(evt, target, v=>final=v, e=>streamErr=e));
+    }else{
+      const ctrl=new AbortController(); const timer=setTimeout(()=>ctrl.abort(),180000);
+      try{
+        const r=await fetch('/api/situation/stream',{method:'POST',headers:{'Content-Type':'application/json',...(await H(false))},body:JSON.stringify(body),signal:ctrl.signal});
+        if(r.status===401){ gate(); throw Object.assign(new Error('Please sign in again'),{noFallback:true}); }
+        if(r.status===402){ const d=await r.json().catch(()=>({})); throw Object.assign(new Error(quotaMsg(d)),{noFallback:true,quota:true}); }
+        if(!r.ok){ const d=await r.json().catch(()=>({})); throw Object.assign(new Error(errMsg(d)||('Request failed ('+r.status+')')),{noFallback:true}); }
+        if(!r.body||typeof r.body.getReader!=='function') throw new Error('streaming unsupported');
+        await readNdjson(r, evt=>onFindEvt(evt, target, v=>final=v, e=>streamErr=e));
+      }catch(err){
+        if(err.name==='AbortError'||err.noFallback) throw err;
+        // stream broke → classic single-shot fallback, same body
+        stageLine('stream interrupted — retrying the classic way…');
+        final = await api('/api/situation',{method:'POST',body:JSON.stringify(body)});
+      }finally{ clearTimeout(timer); }
+    }
+    if(!final) throw new Error(streamErr||'The search ended without a result — please retry.');
+    LAST={ query:q, cases:(final.result&&final.result.cases)||[], meta:final.meta||{} };
+    renderFindResult(target);
+    saveSearch();                       // searches land in Recent too
+  }catch(err){
+    stageLine('');
+    const kind = err.quota?'notice':'errbox';
+    target.innerHTML=`<div class="paneempty ${kind==='errbox'?'errbox':''}" style="${err.quota?'':'border:1px solid var(--line);border-radius:14px'}">
+      <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 8.5v4.5M12 16.5h.01"/><circle cx="12" cy="12" r="8.5"/></svg></div>
+      ${err.quota?esc(err.message):'The search didn’t complete.'}<br>
+      ${err.quota?'':`<span style="font-size:12px">${esc(err.message||'')}</span><br><button class="btn" style="margin-top:14px" onclick="findGo()">Try again</button>`}
+    </div>`;
+  }finally{ btn.disabled=false; stageLine(''); }
+}
+function onFindEvt(evt, target, setFinal, setErr){
+  if(evt.type==='shells'){
+    stageLine('reading the shortlisted judgments — analysis coming…');
+    target.innerHTML=(evt.cases||[]).map(shellHTML).join('');
+  }else if(evt.type==='result'){
+    setFinal({result:evt.result, meta:evt.meta});
+  }else if(evt.type==='error'){
+    setErr(evt.message||'stream error');
+  }
+}
+function renderFindResult(target){
+  const cases=LAST.cases;
+  const meta=LAST.meta||{};
+  if(!cases.length){
+    target.innerHTML=`<div class="paneempty" style="border:1px solid var(--line);border-radius:14px"><div class="ic"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg></div>No authority found for this one.<br><span style="font-size:12px">Try naming the section or the stage — “478 BNSS regular bail, recovery already done”.</span></div>`;
+    return;
+  }
+  const v=meta.verification||{};
+  const nVer=cases.filter(c=>c.verification_status==='verified').length;
+  const head=`<div class="rhead"><span class="rk">Authorities</span><span class="rs">${cases.length} found · <b>${nVer} verified</b>${v.unverified>0?` · ${v.unverified} unverified — amber, check before citing`:''}</span></div>`;
+  const nEx=[...EXCL].filter(id=>cases.some(c=>c.case_id===id)).length;
+  const exbar = nEx?`<div class="exbar">${nEx} marked as poor matches.<button class="btn btn--sm" onclick="findGo()">Search again without them</button></div>`:'';
+  target.innerHTML = head + exbar + cases.map((c,i)=>cardHTML(c,i)).join('');
+  wireCards(target);
+  $('#f-fup').classList.remove('hidden');
+}
+function wireCards(scope){
+  scope.querySelectorAll('.ccard[data-i]').forEach(card=>{
+    const i=Number(card.dataset.i), c=LAST.cases[i];
+    const slBtn=card.querySelector('[data-act="shortlist"]');
+    if(slBtn) slBtn.onclick=()=>toggleSL(c, slBtn);
+    const jbtn=card.querySelector('[data-act="jchat"]');
+    if(jbtn) jbtn.onclick=()=>openJdrawer(c);
+    const hbtn=card.querySelector('[data-act="hindi"]');
+    if(hbtn) hbtn.onclick=()=>toggleHindi(card, c, hbtn);
+    const nfbtn=card.querySelector('[data-act="notfit"]');
+    if(nfbtn) nfbtn.onclick=()=>{
+      // the lawyer's relevance verdict: dims the card, excludes it from the
+      // next run of this search, and is the seed of the feedback dataset
+      if(EXCL.has(c.case_id)) EXCL.delete(c.case_id); else EXCL.add(c.case_id);
+      renderFindResult($('#f-results'));
+    };
+  });
+}
+
+/* ---- ask this judgment: a right-side drawer. Answers come only from this
+   judgment, para-anchored and verified after the stream. Thread survives
+   close/reopen per case (jstate). ---- */
+const jstate=new Map(); // case_id -> {messages:[]}
+let JD=null;            // the case open in the drawer
+function openJdrawer(c){
+  JD=c;
+  $('#jd-title').textContent=c.title||c.case_id;
+  $('#jd-meta').textContent=[c.court,c.year,(c.official_citation||c.citation)].filter(Boolean).join(' · ');
+  const log=$('#jd-log'); log.innerHTML='';
+  const st=jstate.get(c.case_id);
+  if(st&&st.messages.length){
+    st.messages.forEach(m=>{
+      if(m.role==='user') log.insertAdjacentHTML('beforeend',`<div class="jmsg me"><span class="jq hi">${esc(m.content)}</span></div>`);
+      else log.insertAdjacentHTML('beforeend',`<div class="jmsg"><span class="who">This judgment</span><span class="hi">${mdlite(m.content)}</span></div>`);
+    });
+  }else{
+    const starters=[
+      'What exactly did the court hold, and in which para?',
+      'What facts was this decided on — do they match mine?',
+      c.negative_carve_out?'What does this case NOT decide?':'How have later benches read this ruling?',
+    ];
+    log.innerHTML=`<div class="jd-hint">Answers come only from this judgment — every claim is anchored to a paragraph and checked after the answer. Nothing outside its four corners.</div>
+      <div class="jd-start">${starters.map(s=>`<button>${esc(s)}</button>`).join('')}</div>`;
+    log.querySelectorAll('.jd-start button').forEach(b=>b.onclick=()=>{ $('#jd-q').value=b.textContent; sendJdrawer(); });
+  }
+  $('#jdrawer').classList.add('on'); $('#jback').classList.add('on');
+  $('#jd-q').focus();
+}
+function closeJdrawer(){ $('#jdrawer').classList.remove('on'); $('#jback').classList.remove('on'); }
+async function sendJdrawer(){
+  const c=JD; if(!c) return;
+  const inp=$('#jd-q');
+  const q=inp.value.trim(); if(!q) return;
+  inp.value='';
+  const st=jstate.get(c.case_id)||{messages:[]}; jstate.set(c.case_id, st);
+  const log=$('#jd-log');
+  if(!st.messages.length) log.innerHTML='';          // clear the starters
+  st.messages.push({role:'user',content:q});
+  log.insertAdjacentHTML('beforeend',`<div class="jmsg me"><span class="jq hi">${esc(q)}</span></div>`);
+  const ans=document.createElement('div'); ans.className='jmsg';
+  ans.innerHTML=`<span class="who">This judgment</span><span class="jb hi"><span class="cursor" style="display:inline-block;width:7px;height:14px;background:var(--ink);animation:pulse .9s infinite"></span></span>`;
+  log.appendChild(ans);
+  log.scrollTop=log.scrollHeight;
+  const body=ans.querySelector('.jb');
+  let acc='', verify=null;
+  try{
+    const onEvt=evt=>{
+      if(evt.type==='delta'){ acc+=evt.text; body.innerHTML=mdlite(acc); log.scrollTop=log.scrollHeight; }
+      else if(evt.type==='verify'){ verify=evt.report; }
+      else if(evt.type==='error'){ acc+=(acc?'\n\n':'')+'⚠ '+evt.message; body.innerHTML=mdlite(acc); }
+    };
+    if(DEMO){ await demoJchat(q, onEvt); }
+    else{
+      const r=await fetch('/api/judgment/chat',{method:'POST',headers:{'Content-Type':'application/json',...(await H(false))},
+        body:JSON.stringify({doc_id:Number(c.kanoon_doc_id), messages:st.messages.slice(-30)})});
+      if(r.status===401){ gate(); return; }
+      if(r.status===402){ const d=await r.json().catch(()=>({})); body.innerHTML=`<span style="color:var(--amber)">${esc(quotaMsg(d))}</span>`; return; }
+      if(!r.ok||!r.body) throw new Error('HTTP '+r.status);
+      await readSSE(r, onEvt);
+    }
+    body.innerHTML=mdlite(acc||'_No answer._');
+    st.messages.push({role:'assistant',content:acc});
+    if(verify){
+      const ok=verify.clean===true;
+      const label = ok ? '✓ checked — anchors and quotes verified against the judgment'
+        : `⚠ check before relying — ${(verify.anchors_missing||[]).length?`${verify.anchors_missing.length} cited para(s) not found`:''}${verify.quote_fails?` · ${verify.quote_fails} quote(s) not verbatim`:''}`||'⚠ could not fully verify';
+      ans.insertAdjacentHTML('beforeend',`<div style="margin-top:6px"><span class="vb ${ok?'ok':'warn'}">${esc(label)}</span></div>`);
+    }
+  }catch(e){
+    body.innerHTML=`<span style="color:var(--red)">Couldn't reach the judgment — ${esc(e.message)}. Try again.</span>`;
+    st.messages.pop();
+  }
+}
+
+/* ---- continue in Chamber: the results travel into a real, persisted thread
+   where the lawyer can argue with them, cross-test them (Devil/Judge), or say
+   "case 2 doesn't align — distinguish it / find what to search instead". ---- */
+function continueInChamber(){
+  if(!LAST||!LAST.cases.length) return;
+  newChat();
+  FCTX = 'My research question was: '+LAST.query+'\nThe results I have:\n'+
+    LAST.cases.filter(c=>!EXCL.has(c.case_id)).slice(0,6)
+      .map((c,i)=>`${i+1}. ${c.title}${c.citation?' ['+c.citation+']':''}${c.held_line?' — HELD: '+c.held_line:''}`).join('\n')+
+    '\nAnswer with reference to these; if one does not support my position, say so plainly.';
+  showTab('ask');
+  $('#a-greet').textContent='Continuing from your search';
+  $('#a-empty-t').textContent='“'+LAST.query.slice(0,90)+(LAST.query.length>90?'…':'')+'” and its results are loaded — ask, or switch to Devil/Judge to stress-test them.';
+  $('#a-ex').innerHTML='';
+  $('#a-q').focus();
+}
+
+/* ================= CHAMBER ================= */
+async function askGo(){
+  const inp=$('#a-q'); const q=inp.value.trim();
+  const atts=askAtts.filter(a=>a.text&&!a.loading);
+  if(!q && !atts.length) return;
+  inp.value='';
+  $('#a-empty').classList.add('hidden');
+  // What the MODEL sees: attachment text folded in as the facts. The matter's
+  // file itself is assembled SERVER-side from matter_id — not pasted here.
+  let content = q || 'Please read the attached document, tell me what it says, and flag anything I should act on.';
+  if(atts.length){
+    content = atts.map(a=>`[Attached document: ${a.name}]\n${a.text}`).join('\n\n') + '\n\n---\n\n' + content;
+    askAtts=[]; renderAtts();
+  }
+  if(FCTX && !askThread.length){   // carried research context rides the first turn
+    content = FCTX + '\n\nMy question: ' + content;
+    FCTX='';
+  }
+  inp.style.height='auto';
+  askThread.push({role:'user',content});
+  const shown = q || ('Attached: '+atts.map(a=>a.name).join(', '));
+  await runChatTurn($('#a-thread'), askThread, shown, $('#a-go'), PERSONA);
+}
+/* strip the model's protocol tails off the display text:
+   RELATED: a | b | c  → follow-up chips · CROSS: q → the opponent's parting shot */
+function extractTails(text){
+  let related=[], cross=null, clean=text;
+  const rm=clean.match(/\n\s*RELATED:\s*(.+)\s*$/);
+  if(rm){ related=rm[1].split('|').map(s=>s.trim()).filter(Boolean); clean=clean.slice(0,rm.index); }
+  const cm=clean.match(/\n\s*CROSS:\s*(.+)\s*$/s);
+  if(cm){ cross=cm[1].trim(); clean=clean.slice(0,cm.index); }
+  return {clean:clean.trim(), related, cross};
+}
+/* one streamed chat turn — shared by the Chamber and the Find-law follow-up bar */
+async function runChatTurn(threadEl, messages, shownQ, goBtn, persona){
+  persona=persona||'junior';
+  goBtn.disabled=true;
+  const turn=document.createElement('div'); turn.className='aturn me';
+  turn.innerHTML=`<div class="aq hi">${esc(shownQ)}</div>`;
+  threadEl.appendChild(turn);
+  const P=(PERSONAS[persona]||PERSONAS.junior);
+  const ansT=document.createElement('div'); ansT.className='aturn';
+  ansT.innerHTML=`<div class="who"><span class="mk2">${esc(P.mk)}</span><span class="wn">${esc(P.who)}</span></div>`+
+    `<div class="rtrace hidden"><div class="rth"><span class="dot"></span><span class="rtl">thinking…</span></div><div class="rtb"></div></div>`+
+    `<div class="ab"><span class="cursor"></span></div>`;
+  threadEl.appendChild(ansT);
+  const body=ansT.querySelector('.ab'), trace=ansT.querySelector('.rtrace'),
+        traceBody=trace.querySelector('.rtb'), traceLabel=trace.querySelector('.rtl');
+  let acc='', rtext='', sources=[], t0=0;
+  trace.querySelector('.rth').onclick=()=>trace.classList.toggle('open');
+  ansT.scrollIntoView({block:'end',behavior:'smooth'});
+  const traceDone=()=>{
+    if(trace.classList.contains('hidden')||trace.classList.contains('done')) return;
+    trace.classList.add('done');
+    const secs=Math.max(1,Math.round((Date.now()-t0)/1000));
+    traceLabel.textContent=`reasoned for ${secs}s — tap to read its thinking`;
+  };
+  try{
+    const onEvt=evt=>{
+      if(evt.type==='meta'&&evt.reasoning){ trace.classList.remove('hidden'); t0=t0||Date.now(); }
+      else if(evt.type==='sources'){ sources=evt.items||[]; }
+      else if(evt.type==='reasoning'){
+        if(trace.classList.contains('hidden')){ trace.classList.remove('hidden'); }
+        t0=t0||Date.now();
+        rtext+=evt.text; traceBody.textContent=rtext; traceBody.scrollTop=traceBody.scrollHeight;
+      }
+      else if(evt.type==='delta'){ traceDone(); acc+=evt.text; body.innerHTML=mdlite(extractTails(acc).clean||acc)+'<span class="cursor"></span>'; }
+      else if(evt.type==='error'){ acc+=(acc?'\n\n':'')+'⚠ '+evt.message; body.innerHTML=mdlite(acc); }
+    };
+    if(DEMO){ await demoChat(messages, onEvt, persona); }
+    else{
+      const r=await fetch('/api/chat/message',{method:'POST',headers:{'Content-Type':'application/json',...(await H(false))},body:JSON.stringify({messages, persona, matter_id: SEED?SEED.id:null})});
+      if(r.status===401){ gate(); return; }
+      if(r.status===402){ const d=await r.json().catch(()=>({})); body.innerHTML=`<span style="color:var(--amber)">${esc(quotaMsg(d))}</span>`; messages.pop(); return; }
+      if(!r.ok||!r.body) throw new Error('HTTP '+r.status);
+      await readSSE(r, onEvt);
+    }
+    traceDone();
+    acc=acc.trim();
+    const {clean, related, cross}=extractTails(acc);
+    body.innerHTML=mdlite(clean||'_No response._');
+    messages.push({role:'assistant',content:acc});
+    if(cross){
+      ansT.insertAdjacentHTML('beforeend',`<div class="crossq"><span class="ck">Their hardest question — be ready</span><span class="hi">${esc(cross)}</span></div>`);
+    }
+    if(sources.length){
+      ansT.insertAdjacentHTML('beforeend','<div class="asrc">'+sources.map(s=>`<span class="sc hi">[${esc(s.n)}] ${esc(s.old_ref||'')}${s.old_ref&&s.new_ref?' → ':''}${esc(s.new_ref||'')}${s.title?' · '+esc(s.title):''}</span>`).join('')+'</div>');
+    }
+    const acts=document.createElement('div'); acts.className='aacts';
+    const sb=document.createElement('button'); sb.className='btn btn--sm'; sb.textContent='Save to matter';
+    sb.onclick=()=>saveItem(sb,{
+      case_id:'ask:'+Date.now(),
+      case_json:{kind:'ask', title:'Q: '+shownQ.slice(0,120), question:shownQ, answer:clean, persona, sources},
+      source_query:shownQ,
+    });
+    acts.appendChild(sb); ansT.appendChild(acts);
+    if(threadEl.id==='a-thread'){    // chamber turns land in Recent, resumable
+      TURNS.push({q:shownQ, clean, cross, sources});
+      saveThread();
+    }
+    if(related.length && threadEl.id==='a-thread'){
+      const rel=document.createElement('div'); rel.className='arel';
+      related.slice(0,3).forEach(q2=>{ const b=document.createElement('button'); b.textContent=q2;
+        b.onclick=()=>{ $('#a-q').value=q2; askGo(); }; rel.appendChild(b); });
+      ansT.appendChild(rel);
+    }
+    ansT.scrollIntoView({block:'end',behavior:'smooth'});
+  }catch(e){
+    body.innerHTML=`<span style="color:var(--red)">Something went wrong reaching the model — ${esc(e.message)}. Please try again.</span>`;
+    messages.pop();
+  }finally{ goBtn.disabled=false; }
+}
+
+/* ================= STATUTE ================= */
+let _sTimer=null;
+function stWire(){
+  $('#s-q').addEventListener('input',()=>{ clearTimeout(_sTimer); _sTimer=setTimeout(stLookup,220); });
+  $('#s-q').addEventListener('keydown',e=>{ if(e.key==='Enter'){ clearTimeout(_sTimer); stLookup(); } });
+}
+async function loadPopular(){
+  try{
+    const d=await api('/api/mapping/popular');
+    $('#s-pop').innerHTML=(d.suggestions||[]).map(s=>`<button onclick="stSet('${esc(s.query)}')">${esc(s.label)}</button>`).join('');
+  }catch(e){}
+}
+function stSet(q){ $('#s-q').value=q; stLookup(); }
+async function stLookup(){
+  const q=$('#s-q').value.trim();
+  const out=$('#s-results');
+  if(!q){ out.innerHTML=''; $('#s-empty').classList.remove('hidden'); return; }
+  $('#s-empty').classList.add('hidden');
+  out.innerHTML='<div class="skl" style="height:110px;border-radius:13px"></div>';
+  try{
+    const d=await api('/api/mapping/lookup?q='+encodeURIComponent(q)+'&limit=8');
+    const rs=d.results||[];
+    if(!rs.length){
+      out.innerHTML=`<div class="paneempty" style="border:1px solid var(--line);border-radius:13px">No mapping found for “${esc(q)}”.<br><span style="font-size:12px">Try the bare number, or the offence name — “cheating”, “anticipatory bail”.</span></div>`;
+      return;
+    }
+    out.innerHTML=(d.ambiguous?`<div class="notice">“${esc(q)}” matches more than one code — all shown, strongest first.</div>`:'')+rs.map(statuteHTML).join('');
+    out.querySelectorAll('[data-save]').forEach((b,i)=>{
+      b.onclick=()=>{
+        const r=rs[Number(b.dataset.save)];
+        const o=r.old||{}, n=r.new||{};
+        saveItem(b,{
+          case_id:'statute:'+(r.id||((o.code||'')+'-'+(o.section||''))),
+          case_json:{kind:'statute', title:`${o.code||''} ${o.section||''} → ${n.code||''} ${n.section||''} — ${o.title||n.title||''}`.trim(), mapping:r},
+          source_query:q,
+        });
+      };
+    });
+  }catch(e){
+    out.innerHTML=`<div class="paneempty" style="border:1px solid var(--line);border-radius:13px">Lookup failed.<br><span style="font-size:12px">${esc(e.message)}</span><br><button class="btn" style="margin-top:12px" onclick="stLookup()">Try again</button></div>`;
+  }
+}
+function statuteHTML(r,i){
+  const o=r.old||{}, n=r.new||{};
+  const chips=(r.diff||[]).map(d=>{
+    if(d.status==='changed') return `<span class="sdf chg">${esc(d.label)}: ${esc(d.old)} → ${esc(d.new)}</span>`;
+    if(d.status==='verify') return `<span class="sdf vfy">${esc(d.label)}: verify</span>`;
+    return `<span class="sdf">${esc(d.label)}: ${esc(d.new||d.old)}</span>`;
+  }).join('');
+  const conf = r.confidence && r.confidence!=='high' ? `<span class="vb warn">⚠ ${esc(r.confidence.replace(/-/g,' '))}</span>` : `<span class="vb ok">✓ government concordance</span>`;
+  const pf=r.punishment_from?`<div class="snote">Punishment shown lives in ${esc(pfLabel(r.punishment_from))}.</div>`:'';
+  return `<div class="scard">
+    <div class="cc-badges">${conf}${r.material_change?'<span class="vb warn">substantively changed</span>':''}${r.change_type==='new'?'<span class="vb plain">new offence</span>':''}${r.change_type==='omitted'?'<span class="vb plain">omitted</span>':''}</div>
+    <div class="smap">
+      <div class="side"><div class="code">${esc(o.code||'—')}</div><div class="sec">${esc(o.section||'—')}</div><div class="st">${esc(o.title||'')}</div></div>
+      <div class="arr">→</div>
+      <div class="side"><div class="code">${esc(n.code||'—')}</div><div class="sec">${esc(n.section|| (r.has_successor?'':'omitted'))}</div><div class="st">${esc(n.title||'')}</div></div>
+    </div>
+    ${r.summary?`<div class="ssum hi">${esc(r.summary)}</div>`:''}
+    ${chips?`<div class="sdiff">${chips}</div>`:''}
+    ${r.context_note?`<div class="snote">${esc(r.context_note)}</div>`:''}
+    ${pf}
+    <div class="sacts"><button class="btn btn--sm" data-save="${i}">Save to matter</button></div>
+  </div>`;
+}
+const pfLabel=p=>[p.old,p.new].filter(Boolean).join(' → ');
+
+/* ================= ⌘K statute quick-look ================= */
+let _palTimer=null, _palTop=null;
+function openPal(){ $('#pal').classList.add('on'); const i=$('#palq'); i.value=''; palPaint(null); i.focus(); }
+function closePal(){ $('#pal').classList.remove('on'); }
+function palPaint(d){
+  const box=$('#palres');
+  if(!d){ box.innerHTML='<div class="palempty">Type a section — old code or new. IPC 302 · 420 · ४२०</div>'; _palTop=null; return; }
+  const rs=d.results||[];
+  if(!rs.length){ box.innerHTML='<div class="palempty">No mapping found.</div>'; _palTop=null; return; }
+  _palTop=rs[0];
+  box.innerHTML=rs.map(r=>{
+    const o=r.old||{}, n=r.new||{};
+    return `<button class="palr" data-new="${esc((n.code||'')+' '+(n.section||''))}">
+      <span class="pold">${esc((o.code||'')+' '+(o.section||''))}</span><span class="parr">→</span>
+      <span class="pnew">${esc(n.section?(n.code+' '+n.section):'omitted')}</span>
+      <span class="ptt">${esc(o.title||n.title||'')}</span></button>`;
+  }).join('');
+  box.querySelectorAll('.palr').forEach(b=>b.onclick=()=>palCopy(b.dataset.new));
+}
+function palCopy(v){
+  if(!v||!v.trim()){ toast('No successor section — it was omitted'); return; }
+  navigator.clipboard&&navigator.clipboard.writeText(v.trim()).then(()=>toast('Copied '+v.trim(),'success')).catch(()=>toast(v.trim()));
+  closePal();
+}
+function palWire(){
+  document.addEventListener('keydown',e=>{
+    if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){ e.preventDefault(); $('#pal').classList.contains('on')?closePal():openPal(); }
+    if(e.key==='Escape'){ closePal(); closePicker(); closeJdrawer(); closeCompare(); }
+  });
+  $('#palq').addEventListener('input',()=>{
+    clearTimeout(_palTimer);
+    const q=$('#palq').value.trim();
+    if(!q){ palPaint(null); return; }
+    _palTimer=setTimeout(async()=>{
+      try{ palPaint(await api('/api/mapping/lookup?q='+encodeURIComponent(q)+'&limit=6')); }
+      catch(e){ $('#palres').innerHTML='<div class="palempty">Lookup failed — '+esc(e.message)+'</div>'; }
+    },180);
+  });
+  $('#palq').addEventListener('keydown',e=>{
+    if(e.key==='Enter'&&_palTop){ const n=_palTop.new||{}; palCopy((n.code||'')+' '+(n.section||'')); }
+  });
+}
+
+/* ================= demo fixtures (?demo=1 / file://) ================= */
+const DM={
+  matters:[
+    {id:'m1',case_title:'State vs Ramesh Kumar',case_number:'ST 402',case_year:'2025',court_name:'Sessions Court, Bhopal',stage:'Charge / जमानत',case_json:{client:{name:'Ramesh Kumar'},sections:['302','34'],acts:['IPC'],prep:{purpose:'जमानत तर्क'}}},
+    {id:'m2',case_title:'Meena Sahu vs Arun Sahu',case_number:'MJC 88',case_year:'2025',court_name:'Family Court, Bhopal',stage:'Evidence',case_json:{client:{name:'Meena Sahu'},sections:['125'],acts:['CrPC'],prep:{purpose:'साक्ष्य'}}},
+    {id:'m3',case_title:'Sharma Traders vs Gupta & Sons',case_number:'CS 12',case_year:'2024',court_name:'District Court, Bhopal',stage:'Arguments',case_json:{client:{name:'Sharma Traders'},sections:['138'],acts:['NI Act'],prep:{purpose:'अंतिम तर्क'}}},
+  ],
+  cases:[
+    {case_id:'ik:1234567',title:'Satender Kumar Antil v. Central Bureau of Investigation',court:'Supreme Court of India',year:2022,citation:'(2022) 10 SCC 51',kanoon_doc_id:'1234567',kanoon_url:'https://indiankanoon.org/doc/1234567/',kanoon_paragraph_url:'https://indiankanoon.org/doc/1234567/#p_23',numcitedby:412,source:'ik',verification_status:'verified',is_best_match:true,outcome:'guidelines issued',paragraph_anchor:'Para 23',journal_headnote:{statute_index:'(A) BNSS §§480, 483 (CrPC §§437, 439) — Bail — post-chargesheet arrest — categories of offences',paragraph_anchor:'Para 23'},stinger_sentence:'The Supreme Court\'s working manual on bail — it binds every trial court to consider bail categories instead of mechanical refusal.',held_line:'Courts must apply the four offence categories and cannot deny bail mechanically where the accused cooperated with investigation.',court_quote:'The rate of conviction in criminal cases in India is abysmally low… this factor weighs on the mind of the Court while deciding bail applications.',relevance_scores:{fact_archetype_match:3,doctrinal_match:3,outcome_alignment:2,authority_weight:3,total:11},match_dimensions:{statute_match:'CrPC §§437/439 — now BNSS §§480/483 — the same bail provisions your application invokes.',doctrine_match:'Mechanical refusal of bail is impermissible; categories govern.',fact_match:'Chargesheet filed and accused cooperated — squarely your stage.',outcome_match:'Guidelines direct consideration of bail — supports your client.'},negative_carve_out:'Does not decide parity — it addresses categories and mechanical refusal, not co-accused equality.',bns_note:'IPC 302 is now BNS 103 — cite the concordance if the FIR is post-01/07/2024.'},
+    {case_id:'ik:7654321',title:'Prabhakar Tewari v. State of U.P.',court:'Supreme Court of India',year:2020,citation:'(2020) 11 SCC 648',kanoon_doc_id:'7654321',kanoon_url:'https://indiankanoon.org/doc/7654321/',numcitedby:64,source:'ik',verification_status:'verified',outcome:'bail upheld',paragraph_anchor:'Para 9',journal_headnote:{statute_index:'(A) BNSS §483 (CrPC §439) — Bail — criminal antecedents — gravity of offence',paragraph_anchor:'Para 9'},stinger_sentence:'Bail granted in a 302 case despite multiple criminal antecedents — gravity alone does not defeat bail.',held_line:'Pendency of several criminal cases against the accused is not by itself a ground to refuse bail.',court_quote:'The allegations are grave… but the gravity of the offence alone cannot be the basis to refuse the privilege of bail.',relevance_scores:{fact_archetype_match:2,doctrinal_match:3,outcome_alignment:3,authority_weight:2,total:10}},
+    {case_id:'ik:5550001',title:'Ravi Prakash v. State of M.P.',court:'Madhya Pradesh High Court',year:2023,citation:null,kanoon_doc_id:'5550001',kanoon_url:'https://indiankanoon.org/doc/5550001/',numcitedby:3,source:'ik',verification_status:'unverified',verification_reason:'quote could not be located verbatim in the source text',outcome:'bail granted',paragraph_anchor:'Para 14',journal_headnote:{statute_index:'(A) BNSS §483 (CrPC §439) — Bail — parity with co-accused',paragraph_anchor:'Para 14'},stinger_sentence:'A co-ordinate MP HC bench granting bail on parity where the co-accused with the identical role was already out.',held_line:'Parity with a similarly-placed co-accused is a valid, though not absolute, ground for bail.',court_quote:'The role attributed to the present applicant is indistinguishable from that of the co-accused already enlarged on bail.',relevance_scores:{fact_archetype_match:3,doctrinal_match:2,outcome_alignment:3,authority_weight:1,total:9}},
+  ],
+  map:[
+    {id:'ipc-302',domain:'penal',old:{code:'IPC',section:'302',title:'Punishment for murder'},new:{code:'BNS',section:'103',title:'Punishment for murder'},has_successor:true,change_type:'renumbered',material_change:false,confidence:'high',summary:'Straight renumbering — ingredients and punishment unchanged. Murder remains punishable with death or life imprisonment plus fine.',diff:[{field:'punishment',label:'Punishment',old:'Death or life + fine',new:'Death or life + fine',status:'same'},{field:'cognizable',label:'Cognizable',old:'Yes',new:'Yes',status:'same'},{field:'bailable',label:'Bailable',old:'No',new:'No',status:'same'},{field:'court',label:'Triable by',old:'Sessions',new:'Sessions',status:'same'}],changed_fields:[],kind:'offence',context_note:'',tags:[]},
+    {id:'ipc-420',domain:'penal',old:{code:'IPC',section:'420',title:'Cheating and dishonestly inducing delivery of property'},new:{code:'BNS',section:'318(4)',title:'Cheating'},has_successor:true,change_type:'merged',material_change:true,confidence:'verify-classification',summary:'IPC 415–420 are consolidated into BNS 318. The aggravated form (dishonest inducement to deliver property) sits in sub-section (4); punishment goes up to 7 years.',diff:[{field:'punishment',label:'Punishment',old:'Up to 7 yrs + fine',new:'Up to 7 yrs + fine',status:'same'},{field:'bailable',label:'Bailable',old:'No',new:'verify',status:'verify'}],changed_fields:[],kind:'offence',context_note:'',tags:[]},
+    {id:'crpc-438',domain:'procedure',old:{code:'CrPC',section:'438',title:'Anticipatory bail'},new:{code:'BNSS',section:'482',title:'Anticipatory bail'},has_successor:true,change_type:'renumbered',material_change:false,confidence:'high',summary:'Anticipatory bail moves to BNSS 482. Note: old CrPC 482 (inherent powers) is now BNSS 528 — do not confuse the two.',diff:[],changed_fields:[],kind:'procedure',context_note:'Procedural provision — no offence classification grid applies.',tags:[]},
+  ],
+  pop:[{label:'IPC 302 · Murder',query:'IPC 302'},{label:'IPC 420 · Cheating',query:'IPC 420'},{label:'CrPC 438 · Anticipatory bail',query:'438 CrPC'},{label:'IPC 498A · Cruelty',query:'IPC 498A'}],
+  saved:[
+    {id:1,case_id:'ik:1234567',title:'Satender Kumar Antil v. CBI',citation:'(2022) 10 SCC 51',court:'Supreme Court of India',year:'2022',source:'ik',note:'Categories chart — use in every regular bail.',source_query:'302 murder bail after chargesheet',matter_id:'m1',case_json:{title:'Satender Kumar Antil v. CBI'},created_at:'2026-08-01',updated_at:'2026-08-01'},
+    {id:2,case_id:'statute:crpc-438',title:'CrPC 438 → BNSS 482 — Anticipatory bail',citation:null,court:null,year:null,source:null,note:null,source_query:'438',matter_id:null,case_json:{kind:'statute',title:'CrPC 438 → BNSS 482 — Anticipatory bail'},created_at:'2026-07-30',updated_at:'2026-07-30'},
+  ],
+};
+const DM_HI={
+  'ik:1234567':{stinger:'जमानत पर सुप्रीम कोर्ट की कार्य-पुस्तिका — हर ट्रायल कोर्ट को यांत्रिक इनकार की बजाय अपराध-श्रेणियों पर विचार करना बाध्यकारी है।',held_line:'न्यायालयों को चारों अपराध-श्रेणियाँ लागू करनी होंगी; जहाँ अभियुक्त ने जाँच में सहयोग किया है वहाँ यांत्रिक रूप से जमानत नहीं नकारी जा सकती।'},
+  'ik:7654321':{stinger:'कई आपराधिक पूर्ववृत्तों के बावजूद 302 के मामले में जमानत — अपराध की गंभीरता अकेले जमानत को पराजित नहीं करती।',held_line:'अभियुक्त के विरुद्ध कई प्रकरणों का लंबित होना, अपने आप में, जमानत नकारने का आधार नहीं है।'},
+  'ik:5550001':{stinger:'समरूप भूमिका वाले सह-अभियुक्त के पहले से बाहर होने पर समता (parity) के आधार पर जमानत देने वाली समन्वय पीठ।',held_line:'समान स्थिति वाले सह-अभियुक्त से समता जमानत का वैध — यद्यपि आत्यंतिक नहीं — आधार है।'},
+};
+/* demo pacing — but never fight the browser: hidden tabs throttle timers
+   hard, so when the tab isn't visible the demo resolves instantly instead
+   of crawling one chunk per second. Live SSE is network-driven, unaffected. */
+const dLatency=(ms)=>document.hidden?Promise.resolve():new Promise(r=>setTimeout(r,ms));
+async function demoApi(path, opts){
+  await dLatency(220);
+  const m=(opts&&opts.method)||'GET';
+  if(path==='/api/cases') return {items:DM.matters, count:DM.matters.length};
+  if(/^\/api\/cases\/[^/]+\/folder$/.test(path)){
+    const id=path.split('/')[3]; const c=DM.matters.find(x=>x.id===id)||{};
+    return {case:{...c, next_hearing_date:'12/08/2026'}, client:(c.case_json||{}).client||{},
+      hearing_logs:[{hearing_date:'21/07/2026',what_happened:'साक्ष्य हेतु — अभियोजन साक्षी PW-3 उपस्थित नहीं'},{hearing_date:'02/07/2026',what_happened:'जमानत आवेदन प्रस्तुत — आपत्ति हेतु समय'},{hearing_date:'18/06/2026',what_happened:'आरोप विरचित — धारा 302/34'}],
+      caselaw:[{title:'Satender Kumar Antil v. CBI',citation:'(2022) 10 SCC 51'},{title:'Prabhakar Tewari v. State of U.P.',citation:'(2020) 11 SCC 648'}],
+      documents:[{title:'FIR 118/2025',doc_type:'FIR'},{title:'Seizure memo',doc_type:'memo'},{title:'Post-mortem report',doc_type:'medical'}],
+      recordings:[{title:'Client consultation — 14 June'}]};
+  }
+  if(/^\/api\/cases\//.test(path)){ const id=path.split('/').pop(); const c=DM.matters.find(x=>x.id===id); if(!c) throw new Error('no such matter'); return c; }
+  if(path==='/api/saved-caselaw'&&m==='GET') return {items:DM.saved, count:DM.saved.length};
+  if(path==='/api/saved-caselaw'&&m==='POST'){ const b=JSON.parse(opts.body); const row={id:Date.now(),...b,title:(b.case_json.title||b.case_id),citation:b.case_json.citation||null,court:b.case_json.court||null,year:b.case_json.year?String(b.case_json.year):null,created_at:'now',updated_at:'now'}; DM.saved.unshift(row); return {ok:true,saved:row}; }
+  if(/^\/api\/saved-caselaw\//.test(path)){ const cid=decodeURIComponent(path.split('/').pop());
+    if(m==='DELETE'){ DM.saved=DM.saved.filter(r=>r.case_id!==cid); return {ok:true}; }
+    if(m==='PATCH'){ const b=JSON.parse(opts.body); const r=DM.saved.find(x=>x.case_id===cid); if(r) Object.assign(r,b); return {ok:true,...b}; } }
+  if(path.startsWith('/api/mapping/popular')) return {suggestions:DM.pop, meta:{}};
+  if(path.startsWith('/api/mapping/lookup')){
+    const q=decodeURIComponent((path.match(/[?&]q=([^&]*)/)||[])[1]||'').toLowerCase().replace(/[^a-z0-9अ-ह]/g,'');
+    const rs=DM.map.filter(r=>{
+      const hay=(r.old.code+r.old.section+r.new.code+r.new.section+(r.old.title||'')+(r.new.title||'')+r.summary).toLowerCase().replace(/[^a-z0-9]/g,'');
+      return q && hay.includes(q.replace(/[^a-z0-9]/g,''));
+    });
+    return {query:q, results:rs.length?rs:(q?DM.map.filter(r=>r.old.section.includes(q)||(r.old.title||'').toLowerCase().includes(q)):[]), ambiguous:false, suggestions:[], meta:{}};
+  }
+  if(path==='/api/situation') return {result:{cases:DM.cases}, meta:{verification:{checked:3,verified:2,unverified:1}}};
+  throw new Error('demo: no fixture for '+path);
+}
+async function demoFindStream(onEvt){
+  await dLatency(900);
+  onEvt({type:'shells',cases:DM.cases.map(c=>({case_id:c.case_id,title:c.title,court:c.court,year:c.year,citation:c.citation,why_provisional:'shortlisted — reading the full text…'}))});
+  await dLatency(1700);
+  onEvt({type:'result',result:{cases:DM.cases},meta:{verification:{checked:3,verified:2,unverified:1},model:'demo'}});
+}
+const DM_CHAT={
+  junior:{
+    think:'The question is regular bail in a 302/BNS 103 matter. First: what stage? Chargesheet filed means BNSS 483, not 480 — custody for investigation is no longer the State\'s argument. Second: what actually moves courts here — Antil categories, parity, antecedents treated per Prabhakar Tewari. Third: what would I put in para 1 — recovery status and custody period, because that is what the judge scans first…',
+    text:'**Strong chances — parity is your lead ground**, because a co-accused with the identical role already stands enlarged and unequal treatment of equally-placed accused is the one thing bail courts will not defend.\n\n**Your grounds**\n\n1. **Parity.** The co-accused carries the same role in the chargesheet, and he is out. Courts treat parity as a rule of consistency, not charity — put it first: "The applicant stands on the same footing as co-accused X, enlarged by this Hon\'ble Court on [date]; no distinguishing role is attributed to him in the chargesheet."\n2. **Custody has stopped serving any purpose.** Fourteen months in, chargesheet filed, investigation closed — custody now punishes before trial. Tie it to the record: "Investigation stands concluded; nothing remains to be recovered from or through the applicant."\n3. **No early trial in sight.** If the witness list is long and PWs are not turning up, say so with numbers — "34 witnesses cited, 2 examined in 14 months." That single line moves bail courts more than any doctrine [2].\n\n**Authorities**\n\n- *Satender Kumar Antil v. CBI* (2022, SC) — held that bail cannot be refused mechanically once investigation is complete; read the four categories at Para 23 and place your client in his category.\n- *Prabhakar Tewari v. State of U.P.* (2020, SC) — held that pendency of other cases is not, by itself, a ground to refuse bail; deploy it if antecedents are raised.\n\n**They will say**\n\n1. *"The offence is grave — 302."* Answer: gravity was the same when the co-accused was enlarged; parity answers gravity.\n2. *"Roles are not identical — your client is named in the recovery memo."* This is the dangerous one. Read the memo BEFORE the hearing; if the recovery is from an open place or joint, say so with the memo in hand.\n\n**Do this**\n\nFile under **BNSS §483 (CrPC §439)**. Annex: the co-accused\'s bail order (certified), custody certificate, chargesheet role paragraphs, and the order-sheet showing PW progress. Open with parity, close with custody.\n\nRELATED: What changed circumstances count after chargesheet? | How do I plead parity when roles differ slightly? | Which documents must annex a 483 application?'},
+  devil:{
+    think:'The applicant argues parity and long custody. Where is this weakest? Parity requires an indistinguishable role — the FIR gives my side a specific overt act to attribute. Custody length is their emotional point; I neutralise it with gravity plus the pending witnesses. I should also probe conduct: any notice under 35(3) ignored? That is where I cross first…',
+    text:'Counsel, parity will not carry you here, and I will say so in one line to the court: **parity is not a licence — it fails the moment roles differ** (*your own authority concedes it is "not absolute"*).\n\nMy case against you:\n\n- The FIR attributes a **specific overt act** to your client that the bailed co-accused does not carry. Distinguish that, or parity dies.\n- Long custody cuts both ways — the trial is at the **evidence stage**; release now risks witness influence, and I will read the antecedents list to the court.\n- Your recovery point helps me: recovery is complete, so the material is intact and the only live risk is **tampering** — exactly why bail should be refused now and reviewed after the star witnesses.\n\nCROSS: If the roles are truly identical, why does the FIR name only your client in the recovery memo — what is your answer when I put that to the court?'},
+  judge:{
+    think:'Counsel seeks regular bail, 302/BNS 103, chargesheet filed. Threshold questions first: which provision, which court, any earlier application? Then the record: recovery memo, custody period, antecedents. The parity claim needs the co-accused order on record — that is the first thing to ask for…',
+    text:'Counsel, before the merits:\n\n- Which provision are you invoking — **BNSS §483 (CrPC §439)** — and is this the first application, or has one been rejected? If rejected, what has **changed** since?\n- You plead parity. **Is the co-accused\'s bail order on record?** Place it. The court will compare the roles as the chargesheet states them, not as argued.\n- The chargesheet names your client in the recovery memo. What do you say to that — is the recovery disputed?\n\nIf the co-accused order is on record and the role attribution is truly identical, the court would be inclined to consider it favourably. Get the order on record first, Counsel.'},
+};
+async function demoChat(messages,onEvt,persona){
+  const s=DM_CHAT[persona||'junior']||DM_CHAT.junior;
+  onEvt({type:'meta',reasoning:true});
+  if(persona==='junior') onEvt({type:'sources',items:[{n:1,old_ref:'IPC 302',new_ref:'BNS 103',title:'murder'},{n:2,old_ref:'CrPC 439',new_ref:'BNSS 483',title:'regular bail'}]});
+  for(const piece of s.think.match(/.{1,34}/gs)){ await dLatency(26); onEvt({type:'reasoning',text:piece}); }
+  await dLatency(300);
+  for(const piece of s.text.match(/.{1,28}/gs)){ await dLatency(18); onEvt({type:'delta',text:piece}); }
+  onEvt({type:'done',model:'demo'});
+}
+async function demoJchat(q,onEvt){
+  const txt='On your question — the Court dealt with this at **Para 23**: the four categories (A–D) decide the default course, and for Category A the direction is bail on appearance. The judgment does not lay down anything on parity — that is outside this ruling.';
+  for(const piece of txt.match(/.{1,26}/gs)){ await dLatency(22); onEvt({type:'delta',text:piece}); }
+  onEvt({type:'verify',report:{clean:true,anchors_claimed:1,anchors_missing:[],quotes_checked:1,quote_fails:0}});
+  onEvt({type:'done',model:'demo'});
+}
+
+/* ---------------- sidebar + boot ---------------- */
+function toggleSb(){
+  const on=document.body.classList.toggle('sb-min');
+  try{ localStorage.setItem('hn_sb',on?'1':'0'); }catch(e){}
+  const b=$('#sbtog'); if(b){ b.title=on?'Expand sidebar':'Collapse sidebar'; b.setAttribute('aria-label',b.title); }
+}
+try{ if(localStorage.getItem('hn_sb')==='1') document.body.classList.add('sb-min'); }catch(e){}
+
+function whoami(){
+  try{
+    const t=authToken(); if(!t) return;
+    const p=JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
+    const em=p.email||''; const nm=em.split('@')[0]||'You';
+    $('#unm').textContent=nm.length>18?nm.slice(0,18)+'…':nm;
+    $('#uav').textContent=(nm[0]||'·').toUpperCase();
+    $('#url').textContent=em.length>22?em.slice(0,22)+'…':em;
+  }catch(e){}
+}
+
+(async function boot(){
+  const p=new URLSearchParams(location.search);
+  if(!DEMO && !(await freshToken())){ gate(); return; }
+  /* V2 private beta — see static/v2-beta.js. DEMO skips it so the page stays
+     reviewable without an account; the server gates the data either way. */
+  if(!DEMO && !(await hnBetaGate())) return;
+  if(DEMO){ $('#unm').textContent='Demo mode'; $('#url').textContent='sample data'; $('#uav').textContent='D'; }
+  else whoami();
+  palWire(); stWire();
+  $('#a-file').addEventListener('change',e=>{ onFilePicked(e.target.files[0]); e.target.value=''; });
+  $('#f-q').addEventListener('keydown',e=>{ if((e.metaKey||e.ctrlKey)&&e.key==='Enter') findGo(); });
+  $('#f-q').addEventListener('input',e=>autoGrow(e.target));
+  $('#a-q').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); askGo(); } });
+  $('#a-q').addEventListener('input',e=>autoGrow(e.target));
+  $('#jd-go').addEventListener('click',sendJdrawer);
+  $('#jd-q').addEventListener('keydown',e=>{ if(e.key==='Enter') sendJdrawer(); });
+  SL=(readStore().shortlist||[]);          // the shortlist survives a reload
+  renderExamples(); renderRecent();
+  const t=p.get('tab'); if(t&&['find','ask','statute','saved','document'].includes(t)) showTab(t,false);
+  const q=p.get('q'); if(q){ $('#f-q').value=q; }
+  loadSaved();
+  const mid=p.get('matter'); if(mid) loadSeed(mid);
+})();
+
+/* ---------------- Document Lens ----------------------------------------
+   State lives in DL and is the single source of truth for what is on screen.
+   Both the original and each translation are kept, so switching language is
+   instant after the first time and never re-bills a read. An in-flight request
+   is abortable and its result is dropped if the user has moved on — otherwise a
+   slow translation lands on top of a document he already replaced.          */
+const DL = { name:'', kind:'', pages:0, src:'', srcLang:'', cur:'', byLang:{}, flags:[],
+             busy:false, abort:null, seq:0 };
+
+const DL_LANGS = [['','Original'],['en','English'],['hi','हिन्दी'],['mr','मराठी'],
+  ['gu','ગુજરાતી'],['bn','বাংলা'],['ta','தமிழ்'],['te','తెలుగు'],['kn','ಕನ್ನಡ'],
+  ['ml','മലയാളം'],['or','ଓଡ଼ିଆ'],['pa','ਪੰਜਾਬੀ'],['as','অসমীয়া'],['ur','اردو']];
+
+function dlShow(which){
+  ['dl-drop','dl-busy','dl-result'].forEach(id=>
+    $('#'+id).classList.toggle('hidden', id!=='dl-'+which));
+}
+
+function dlSteps(active){
+  const steps=[['prep','Straightening and sharpening the page'],
+               ['read','Reading it, word for word'],
+               ['check','Checking every number and date survived']];
+  $('#dl-steps').innerHTML = steps.map(([k,label],i)=>{
+    const ai = steps.findIndex(x=>x[0]===active);
+    const cls = i<ai ? 'done' : (i===ai ? 'on' : '');
+    return `<div class="dlstep ${cls}"><span class="dldot">${i<ai?'✓':''}</span>${label}</div>`;
+  }).join('');
+}
+
+function dlReset(){
+  if(DL.abort){ try{DL.abort.abort();}catch(e){} }
+  Object.assign(DL,{name:'',kind:'',pages:0,src:'',srcLang:'',cur:'',byLang:{},
+                    flags:[],busy:false,abort:null});
+  DL.seq++; dlShow('drop');
+}
+function dlCancel(){ dlReset(); toast('Stopped'); }
+
+async function dlUpload(f){
+  if(!f) return;
+  if(f.size > 25*1024*1024){ dlFail('That file is over 25 MB','Upload the pages you need rather than the whole bundle.'); return; }
+  const my = ++DL.seq;
+  DL.busy=true; DL.name=f.name||'document'; DL.abort=new AbortController();
+  dlShow('busy'); dlSteps('prep');
+  // the stage labels are honest about a single server call: they advance on
+  // elapsed time, so they never claim a step finished that hasn't.
+  const t1=setTimeout(()=>{ if(DL.seq===my) dlSteps('read'); }, 1200);
+  const t2=setTimeout(()=>{ if(DL.seq===my) dlSteps('check'); }, 6000);
+  try{
+    const fd=new FormData(); fd.append('file', f);
+    const r=await fetch('/api/doclens/read',
+      {method:'POST', headers:await H(false), body:fd, signal:DL.abort.signal});
+    let d=null; try{ d=await r.json(); }catch(e){}
+    if(DL.seq!==my) return;                       // user moved on — drop it
+    if(r.status===401){ gate(); throw new Error('Please sign in again'); }
+    if(r.status===402){ throw new Error(quotaMsg(d)); }
+    if(!r.ok) throw new Error((d&&d.detail)||errMsg(d)||`Could not read that (${r.status})`);
+    DL.src=d.text||''; DL.cur=''; DL.byLang={}; DL.flags=d.flags||[];
+    DL.pages=d.pages||1; DL.kind=d.source_kind||''; DL.srcLang='';
+    DL.busy=false; dlRender();
+  }catch(e){
+    if(DL.seq!==my || e.name==='AbortError') return;
+    DL.busy=false;
+    dlFail('That page could not be read', e.message||'Try a straighter, better-lit photo.');
+  }finally{ clearTimeout(t1); clearTimeout(t2); }
+}
+
+function dlFail(title, detail){
+  dlShow('result');
+  $('#dl-name').textContent = DL.name||'document';
+  $('#dl-sub').textContent  = '';
+  $('#dl-flags').innerHTML  = `<div class="dlerr"><b>${esc(title)}</b>${esc(detail||'')}</div>`;
+  $('#dl-text').innerHTML   = `<button class="btn" onclick="dlReset()">Try another file</button>`;
+  $('#dl-lang').style.display='none'; $('#dl-pdf').style.display='none'; $('#dl-copy').style.display='none';
+}
+
+async function dlSetLang(code){
+  if(DL.busy) return;
+  if(!code){ DL.cur=''; dlRender(); return; }
+  if(DL.byLang[code]){ DL.cur=code; dlRender(); return; }
+  const my = ++DL.seq;
+  DL.busy=true; DL.abort=new AbortController();
+  dlShow('busy');
+  $('#dl-steps').innerHTML =
+    `<div class="dlstep on"><span class="dldot"></span>Translating, keeping every citation exact</div>`;
+  try{
+    const r=await fetch('/api/doclens/translate',{method:'POST',
+      headers:{...(await H(true))}, signal:DL.abort.signal,
+      body:JSON.stringify({text:DL.src, target:code, source:DL.srcLang||''})});
+    let d=null; try{ d=await r.json(); }catch(e){}
+    if(DL.seq!==my) return;
+    if(r.status===401){ gate(); throw new Error('Please sign in again'); }
+    if(!r.ok) throw new Error((d&&d.detail)||'The translation could not be made');
+    DL.byLang[code]={text:d.text||'', flags:d.flags||[]};
+    DL.cur=code; DL.busy=false; dlRender();
+  }catch(e){
+    if(DL.seq!==my || e.name==='AbortError') return;
+    DL.busy=false; DL.cur=''; dlRender();
+    toast(e.message||'Translation failed','error');
+  }
+}
+
+function dlBody(){
+  return DL.cur ? (DL.byLang[DL.cur]||{}).text||'' : DL.src;
+}
+function dlFlags(){
+  return DL.cur ? ((DL.byLang[DL.cur]||{}).flags||[]) : DL.flags;
+}
+
+/* Markdown pipe-tables -> real tables. A gang chart that arrives as a grid has
+   to stay a grid: which row a name sits on is the whole evidentiary point. */
+function dlToHtml(text){
+  const out=[]; let rows=[];
+  const flush=()=>{
+    if(!rows.length) return;
+    const body=rows.filter(r=>!r.every(c=>/^[-: ]*$/.test(c)));
+    if(!body.length){ rows=[]; return; }
+    const [head,...rest]=body;
+    out.push('<table><thead><tr>'+head.map(c=>`<th>${esc(c)}</th>`).join('')+
+      '</tr></thead><tbody>'+rest.map(r=>'<tr>'+r.map(c=>`<td>${esc(c)}</td>`).join('')+'</tr>').join('')+
+      '</tbody></table>');
+    rows=[];
+  };
+  (text||'').split('\n').forEach(line=>{
+    const t=line.trim();
+    if(t.startsWith('|') && t.endsWith('|') && (t.match(/\|/g)||[]).length>=3){
+      rows.push(t.slice(1,-1).split('|').map(c=>c.trim())); return;
+    }
+    flush();
+    out.push(esc(line));
+  });
+  flush();
+  return out.join('\n').replace(/\[illegible\]/gi,'<span class="ill">illegible</span>');
+}
+
+function dlRender(){
+  dlShow('result');
+  $('#dl-lang').style.display=''; $('#dl-pdf').style.display=''; $('#dl-copy').style.display='';
+  const sel=$('#dl-lang');
+  if(!sel.childElementCount)
+    sel.innerHTML = DL_LANGS.map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
+  sel.value = DL.cur||'';
+  $('#dl-name').textContent = DL.name;
+  const bits=[DL.pages>1?`${DL.pages} pages`:'1 page'];
+  if(DL.kind==='office') bits.push('text read directly');
+  bits.push(DL.cur ? 'translated' : 'as written');
+  $('#dl-sub').textContent = bits.join(' · ');
+  const fl=dlFlags();
+  $('#dl-flags').innerHTML = fl.length
+    ? `<div class="dlflag"><b>Check against the original</b>${fl.map(esc).join('<br>')}</div>` : '';
+  $('#dl-text').innerHTML = dlToHtml(dlBody());
+}
+
+async function dlCopy(){
+  try{ await navigator.clipboard.writeText(dlBody()); toast('Copied','success'); }
+  catch(e){ toast('Could not copy','error'); }
+}
+
+async function dlPdf(){
+  const btn=$('#dl-pdf'); const was=btn.textContent;
+  btn.disabled=true; btn.textContent='Making PDF…';
+  try{
+    const r=await fetch('/api/doclens/pdf',{method:'POST', headers:{...(await H(true))},
+      body:JSON.stringify({text:dlBody(), title:DL.name.replace(/\.[^.]+$/,''),
+        subtitle: DL.cur ? 'Translated transcript' : 'Document transcript',
+        flags:dlFlags()})});
+    if(r.status===401){ gate(); return; }
+    if(!r.ok){ let d=null; try{d=await r.json();}catch(e){}
+      throw new Error((d&&d.detail)||'The PDF could not be made'); }
+    const blob=await r.blob(); const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download=DL.name.replace(/\.[^.]+$/,'')+'.pdf';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),4000);
+    toast('PDF downloaded','success');
+  }catch(e){ toast(e.message||'PDF failed','error'); }
+  finally{ btn.disabled=false; btn.textContent=was; }
+}
+
+(function dlWire(){
+  const f=$('#dl-file'), c=$('#dl-cam'), z=$('#dl-drop');
+  if(!f||!z) return;
+  const pick=e=>{ const file=e.target.files&&e.target.files[0]; e.target.value=''; dlUpload(file); };
+  f.addEventListener('change',pick); if(c) c.addEventListener('change',pick);
+  ['dragenter','dragover'].forEach(ev=>z.addEventListener(ev,e=>{
+    e.preventDefault(); e.stopPropagation(); z.classList.add('over'); }));
+  ['dragleave','drop'].forEach(ev=>z.addEventListener(ev,e=>{
+    e.preventDefault(); e.stopPropagation(); z.classList.remove('over'); }));
+  z.addEventListener('drop',e=>{
+    const file=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
+    if(file) dlUpload(file);
+  });
+  // Offer the camera only where there is one to offer. `'capture' in input` is
+  // true in desktop Chrome too, so it tells us nothing; a coarse pointer is the
+  // reliable signal for a phone or tablet, which is where a lawyer photographs
+  // a page in the first place.
+  const touch = window.matchMedia && window.matchMedia('(pointer:coarse)').matches;
+  if(!touch) $('#dl-cambtn').style.display='none';
+})();
+
+</script>
+</body>
+</html>

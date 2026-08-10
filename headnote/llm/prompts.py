@@ -352,7 +352,10 @@ OUTPUT JSON SCHEMA (style-dependent fields shown together — populate the block
       "relevance_explanation": "DEPRECATED — use stinger_sentence + held_line + match_dimensions. Leave empty string.",
       "bns_note": "string — IPC/CrPC/Evidence Act → BNS/BNSS/BSA mapping for matters post 1 July 2024",
       "outcome": "acquittal | quashed | dismissed | conviction | remand | bail-granted | bail-denied | decreed | injunction-granted | specific-performance-granted | eviction-ordered | other",
-      "journal_headnote": null,
+      "journal_headnote": {
+        "statute_index": "string — REQUIRED in EVERY style. The court-report statute index, Cri.L.J. format, most specific provision first: 'Act, Year — S.<section> [new-code equivalent] — Topic — sub-topic'. Example: '(A) Penal Code, 1860 — S.302 [BNS S.103] — Bail — parity with co-accused'. Cite the exact subsection the judgment turns on. This line, followed by held_line, IS the case's headnote — the 2-3 line summary of what the court decided, exactly as a law report would print it. Compose it ONLY from this judgment's own provisions and holding; never invent sections.",
+        "paragraph_anchor": "string — same paragraph anchor as above"
+      },
       "practitioner_notes": null
     }
   ]

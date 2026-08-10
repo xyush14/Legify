@@ -46,6 +46,15 @@ class SituationRequest(BaseModel):
             "Boosts cases from the same court. Supreme Court is always boosted."
         ),
     )
+    matter_id: Optional[str] = Field(
+        None,
+        description=(
+            "Attach a matter: the server appends the case's sections, stage, "
+            "court and hearing purpose to the situation before query refinement "
+            "and retrieval — the single biggest relevance lever, and it also "
+            "sets `jurisdiction` from the matter's court when none was sent."
+        ),
+    )
 
 
 class DigestRequest(BaseModel):
