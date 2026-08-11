@@ -1,4 +1,4 @@
-"""FIR photo/PDF OCR + structured extraction via Groq Llama-4-Scout vision.
+"""FIR photo/PDF OCR + structured extraction via Gemini Flash / Groq vision.
 
 The Indian FIR is a near-universally standard document: the NCRB I.I.F.-I
 (Integrated Investigation Form-I) printed under Section 154 CrPC. It has a
@@ -8,9 +8,11 @@ action taken #13). We bias the prompt to that form so the model can lock
 onto field positions even when handwriting/stamps degrade the image, and we
 accept multiple pages because real FIRs are 3-5 pages.
 
-Provider policy (cost): Groq Llama-4-Scout is the free/near-free primary. A
-hard scan that Groq reads as empty triggers a free higher-DPI Groq retry,
-NOT a paid Claude call. An optional OpenAI-compatible vision fallback
+Provider policy (cost): Gemini Flash-Lite is the primary — it reads a whole
+document in one call and is the more accurate Devanagari reader. Groq is the
+free fallback beneath it. A hard scan that Groq reads as empty triggers a free
+higher-DPI Groq retry, NOT a paid Claude call. An optional OpenAI-compatible
+vision fallback
 (OCR_FALLBACK_API_KEY — e.g. DeepSeek-VL2 / DeepSeek-V4 via OpenRouter) can
 be switched on to rescue scans Groq can't read; it stays DORMANT unless that
 key is set, so the out-of-the-box behavior is unchanged and adding it cannot
@@ -35,6 +37,37 @@ from headnote.llm.client import get_client
 
 
 log = logging.getLogger(__name__)
+
+
+# ── Provider model names ─────────────────────────────────────────────────
+# These were `meta-llama/llama-4-scout-17b-16e-instruct` until 2026-08-11, when
+# Groq retired the Llama-4 family: every OCR call in production was answering
+# `404 - the model does not exist or you do not have access to it`, silently
+# costing the Document Vault its searchable text. The replacements below were
+# chosen by enumerating GET https://api.groq.com/openai/v1/models on the live
+# account and probing each candidate with a real page image — NOT by guessing a
+# name, which is how the stale reference survived a model retirement.
+#
+# `qwen/qwen3.6-27b` is the ONLY vision-capable model the account can reach. It
+# works, but it is a general reasoning model rather than an OCR specialist and
+# on Devanagari it misreads exactly the tokens a legal draft cannot get wrong
+# (it returned "भा.द्या.सं." for "भा.न्या.सं." and "चल" for "छल"). Gemini reads
+# the same page correctly, so Gemini is the OCR PRIMARY (see `_ocr_via_gemini`)
+# and Groq is the free fallback that keeps OCR alive if Gemini is unset or down.
+GROQ_VISION_MODEL_DEFAULT = "qwen/qwen3.6-27b"
+# Office-file field extraction is text-only, so it does NOT need the vision
+# model — a plain instruct model is faster and has a far larger TPM allowance.
+GROQ_TEXT_MODEL_DEFAULT = "llama-3.3-70b-versatile"
+# Groq's vision tier is capped at 8,000 tokens/MINUTE on this plan and one
+# 150-DPI A4 page measures ~4,470 tokens — so even TWO images in a request 413s
+# ("Requested 8937"). One page per request is the only size that fits;
+# `_merge_ocr_results` (JSON) / the per-batch loop (text) stitch the pages back
+# together. Consequence worth knowing: because the cap is per-minute, the Groq
+# fallback can only sustain ~1 page/min, so a multi-page document read through
+# Groq alone will have pages fail — they are reported, not silently dropped.
+# This is a plan limit, not a code limit; a paid Groq tier or GEMINI_API_KEY
+# (the primary, which takes all pages in one call) removes it.
+GROQ_VISION_MAX_IMAGES_DEFAULT = "1"
 
 
 OCR_FIR_PROMPT = """You are reading an Indian FIR (First Information Report) registered under Section 154 CrPC. 99% of Indian FIRs use the standard **NCRB I.I.F.-I (Integrated Investigation Form-I)** format with this fixed structure:
@@ -325,7 +358,7 @@ _NULLISH_VALS = {"", "n/a", "null", "none", "nil", "-", "—"}
 def _merge_ocr_results(results: Sequence[dict]) -> dict:
     """Merge per-batch OCR extractions of ONE document into a single result.
 
-    Llama-4-Scout rejects >5 images per request, so a long FIR/order is
+    Groq's vision tier caps images (and tokens) per request, so a long FIR/order is
     OCR'd in batches and the structured results merged here:
       - scalars   → first non-empty value wins (header fields sit on p1-2)
       - lists     → concatenated + de-duplicated (accused, sections, ...)
@@ -360,6 +393,41 @@ def _merge_ocr_results(results: Sequence[dict]) -> dict:
     return merged
 
 
+# Groq's only vision-capable model (verified against GET /v1/models on the live
+# account, 2026-08-11) is a REASONING model: left to itself it spends the
+# max_tokens budget on hidden chain-of-thought and returns EMPTY content, which
+# is indistinguishable from "the page was blank". `reasoning_effort="none"`
+# turns thinking off; measured 558 completion tokens vs 1330 for the same page,
+# and content is non-empty every time. Groq only accepts "none" or "default",
+# and only on reasoning models — hence the narrow match plus the retry in
+# `_chat_kwargs`' caller.
+_GROQ_REASONING_MODELS = ("qwen3", "deepseek-r1", "gpt-oss")
+
+
+def _no_think_kwargs(model: str) -> dict:
+    """Extra create() kwargs that stop a reasoning model from eating the output
+    budget on thinking. Empty for plain models, which reject the parameter."""
+    m = (model or "").lower()
+    if any(tag in m for tag in _GROQ_REASONING_MODELS):
+        return {"reasoning_effort": "none"}
+    return {}
+
+
+def _chat_create(client, **kwargs):
+    """chat.completions.create with a safety net: if the provider rejects
+    `reasoning_effort` (unknown model, older gateway), retry once without it
+    rather than failing the whole OCR."""
+    try:
+        return client.chat.completions.create(**kwargs)
+    except Exception as e:  # noqa: BLE001 — narrow retry, then re-raise
+        if "reasoning_effort" in kwargs and "reasoning_effort" in str(e):
+            log.warning("provider rejected reasoning_effort — retrying without it: %s",
+                        str(e)[:200])
+            kwargs.pop("reasoning_effort")
+            return client.chat.completions.create(**kwargs)
+        raise
+
+
 def _vision_chat_one_call(client, model: str, pages: Sequence[tuple[bytes, str]],
                           prompt: str, *, page_offset: int = 0, total: int = 0) -> dict:
     """One vision request for a single batch of images over any OpenAI-compatible
@@ -378,18 +446,20 @@ def _vision_chat_one_call(client, model: str, pages: Sequence[tuple[bytes, str]]
         })
     content.append({"type": "text", "text": prompt})
 
-    resp = client.chat.completions.create(
+    resp = _chat_create(
+        client,
         model=model,
         messages=[{"role": "user", "content": content}],
         max_tokens=4000,
         temperature=0.1,
+        **_no_think_kwargs(model),
     )
     raw = resp.choices[0].message.content or ""
     return _parse_json_response(raw)
 
 
 def _ocr_via_groq(pages: Sequence[tuple[bytes, str]], prompt: str = OCR_FIR_PROMPT) -> dict:
-    """Use Groq + Llama-4-Scout vision (free tier, 14400 req/day).
+    """Use Groq vision (free tier) — the FALLBACK beneath Gemini.
 
     Llama-4-Scout rejects requests with more than 5 images ("This model
     supports up to 5 images") — that was the hard failure on 6-8 page FIRs/
@@ -407,8 +477,9 @@ def _ocr_via_groq(pages: Sequence[tuple[bytes, str]], prompt: str = OCR_FIR_PROM
         raise RuntimeError("GROQ_API_KEY not set")
 
     client = Groq(api_key=groq_key)
-    model = os.environ.get("GROQ_OCR_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
-    max_imgs = max(1, int(os.environ.get("GROQ_OCR_MAX_IMAGES", "5")))
+    model = os.environ.get("GROQ_OCR_MODEL", GROQ_VISION_MODEL_DEFAULT)
+    max_imgs = max(1, int(os.environ.get("GROQ_OCR_MAX_IMAGES",
+                                        GROQ_VISION_MAX_IMAGES_DEFAULT)))
     total = len(pages)
 
     if total <= max_imgs:
@@ -422,6 +493,45 @@ def _ocr_via_groq(pages: Sequence[tuple[bytes, str]], prompt: str = OCR_FIR_PROM
         results.append(_vision_chat_one_call(client, model, chunk, prompt,
                                              page_offset=start, total=total))
     return _merge_ocr_results(results)
+
+
+# ── Gemini vision (OCR PRIMARY) ──────────────────────────────────────────
+# The handwriting/diary paths (headnote/api/cases.py::_run_diary_ocr,
+# headnote/api/notesheets.py::_read_sheet_ocr) already ran Gemini first and
+# treated Groq as the last resort, but this shared engine — which the Document
+# Vault, the court-order sync, Draft-from-document and ~10 other call sites all
+# go through — was Groq-ONLY. So a Groq outage or a retired model name took out
+# every one of them at once, which is exactly what the llama-4-scout 404 did.
+# Running Gemini first here puts ONE OCR policy in the codebase, as
+# `_read_sheet_ocr`'s docstring already claimed.
+
+
+def _gemini_enabled() -> bool:
+    """True when the Gemini OCR tier is configured and not switched off.
+    Set OCR_DISABLE_GEMINI=1 to force the Groq path (useful for debugging)."""
+    if os.environ.get("OCR_DISABLE_GEMINI", "").strip().lower() in {"1", "true", "yes", "on"}:
+        return False
+    try:
+        from headnote.integrations import gemini
+        return gemini.enabled()
+    except Exception:  # noqa: BLE001 — treat an import problem as "not available"
+        return False
+
+
+def _ocr_via_gemini(pages: Sequence[tuple[bytes, str]], prompt: str) -> dict:
+    """Structured OCR via Gemini Flash vision — all pages in ONE call.
+
+    Gemini takes the whole document at once (no 5-image cap, no 8k TPM ceiling),
+    so there is no batching and no cross-page merge to get wrong: the model sees
+    a bail order's cause-title and its operative paragraph together."""
+    from headnote.integrations import gemini
+    return gemini.generate_json(prompt, images=list(pages), max_tokens=8192)
+
+
+def _gemini_text_call(pages: Sequence[tuple[bytes, str]], prompt: str) -> str:
+    """Verbatim transcription via Gemini Flash vision — all pages in one call."""
+    from headnote.integrations import gemini
+    return gemini.generate_text(prompt, images=list(pages), max_tokens=8192)
 
 
 OCR_TEXT_PROMPT = (
@@ -465,17 +575,19 @@ def _vision_text_one_call(client, model: str, pages: Sequence[tuple[bytes, str]]
         b64 = base64.standard_b64encode(img_bytes).decode("utf-8")
         content.append({"type": "image_url", "image_url": {"url": f"data:{mt};base64,{b64}"}})
     content.append({"type": "text", "text": prompt})
-    resp = client.chat.completions.create(
-        model=model, messages=[{"role": "user", "content": content}], max_tokens=4000, temperature=0.0)
+    resp = _chat_create(
+        client, model=model, messages=[{"role": "user", "content": content}],
+        max_tokens=4000, temperature=0.0, **_no_think_kwargs(model))
     return (resp.choices[0].message.content or "").strip()
 
 
 def ocr_text_pages(pages: Sequence[tuple[bytes, str]],
                    *, prompt: str = OCR_TEXT_PROMPT, office_text: str = "") -> str:
-    """OCR document pages → transcribed TEXT (no field parsing). Groq Llama-4-Scout
-    vision, batched to the 5-image cap. Powers the prompt drafter's 'upload a document'
-    path (default plain-text prompt) and the document vault (Markdown prompt, passed
-    in) — same verbatim transcription, different layout.
+    """OCR document pages → transcribed TEXT (no field parsing). Gemini Flash
+    vision is the primary and Groq the free fallback (see the provider notes at
+    `_ocr_via_gemini`). Powers the prompt drafter's 'upload a document' path
+    (default plain-text prompt), the document vault and the court-order sync
+    (Markdown prompt, passed in) — same verbatim transcription, different layout.
 
     `office_text` is text extracted from a Word/Excel upload — already accurate,
     so it needs no OCR. When the upload is office-only, it's returned as-is; when
@@ -484,14 +596,36 @@ def ocr_text_pages(pages: Sequence[tuple[bytes, str]],
     if not pages:
         # Office-only upload — nothing to OCR, the extracted text IS the result.
         return office_text
+    # PDF → per-page PNG. Done once, up front, because BOTH providers want
+    # images (Groq vision rejects a PDF with "invalid image data").
+    pages = _rasterize_pdfs(pages)
+
+    gemini_err: Optional[Exception] = None
+    if _gemini_enabled():
+        try:
+            text = _gemini_text_call(pages, prompt)
+            if text.strip():
+                if office_text:
+                    return "\n\n".join(t for t in (text, office_text) if t.strip())
+                return text
+            log.warning("Gemini OCR returned no text — falling back to Groq")
+        except Exception as e:  # noqa: BLE001 — degrade to Groq, never hard-fail
+            gemini_err = e
+            log.warning("Gemini OCR failed, falling back to Groq: %s", e)
+
     from groq import Groq
     groq_key = os.environ.get("GROQ_API_KEY", "")
     if not groq_key:
-        raise RuntimeError("GROQ_API_KEY not set")
+        # Neither provider is usable — say which, rather than blaming Groq alone.
+        if gemini_err is not None:
+            raise RuntimeError(f"OCR failed: Gemini errored ({gemini_err}) and "
+                               "GROQ_API_KEY is not set as a fallback.")
+        raise RuntimeError("OCR is not configured. Set GEMINI_API_KEY (preferred) "
+                           "or GROQ_API_KEY on the server.")
     client = Groq(api_key=groq_key)
-    model = os.environ.get("GROQ_OCR_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
-    max_imgs = max(1, int(os.environ.get("GROQ_OCR_MAX_IMAGES", "5")))
-    pages = _rasterize_pdfs(pages)   # PDF → per-page PNG (Groq vision = images only; else "invalid image data")
+    model = os.environ.get("GROQ_OCR_MODEL", GROQ_VISION_MODEL_DEFAULT)
+    max_imgs = max(1, int(os.environ.get("GROQ_OCR_MAX_IMAGES",
+                                        GROQ_VISION_MAX_IMAGES_DEFAULT)))
     total = len(pages)
     if total <= max_imgs:
         ocr_text = _vision_text_one_call(client, model, pages, page_offset=0, total=total, prompt=prompt)
@@ -679,36 +813,40 @@ def _extract_fields_from_text(text: str, prompt: str) -> dict:
     if not groq_key:
         raise ValueError("Text extraction is not configured. Set GROQ_API_KEY on the server.")
     client = Groq(api_key=groq_key)
-    # A text model — the vision model also accepts text-only turns, so default to it.
-    model = os.environ.get("GROQ_TEXT_MODEL",
-                           os.environ.get("GROQ_OCR_MODEL",
-                                          "meta-llama/llama-4-scout-17b-16e-instruct"))
+    # A plain instruct model: this path has no image, so it must NOT inherit the
+    # vision model's tiny 8k TPM allowance (a long .docx would 413).
+    model = os.environ.get("GROQ_TEXT_MODEL", GROQ_TEXT_MODEL_DEFAULT)
     msg = (
         prompt
         + "\n\nThe document text is provided below (it was extracted directly "
           "from a Word/Excel file, so it is already accurate — do not guess).\n\n"
           "--- DOCUMENT TEXT ---\n" + (text or "")
     )
-    resp = client.chat.completions.create(
+    resp = _chat_create(
+        client,
         model=model,
         messages=[{"role": "user", "content": msg}],
         max_tokens=4000,
         temperature=0.1,
+        **_no_think_kwargs(model),
     )
     raw = resp.choices[0].message.content or ""
     return _parse_json_response(raw)
 
 
 def _run_ocr(pages, prompt, normalise_fn, *, office_text: str = ""):
-    """Generic multi-page OCR runner — Groq-only by default (cost policy).
+    """Generic multi-page OCR runner — Gemini primary, Groq fallback (cost policy).
 
-    Groq Llama-4-Scout is the sole provider we rely on: it's free/near-free.
-    On a hard scan that Groq reads as EMPTY, we retry Groq once at a higher
-    rasterization DPI (still free) instead of paying for Claude. The
-    Anthropic vision fallback remains in the code but is DISABLED by default
-    (Claude vision is ~30x the per-page cost); set OCR_ENABLE_ANTHROPIC=1 to
-    turn it back on. `prompt` selects the schema; `normalise_fn`
-    post-processes. Raises ValueError with a clear message when OCR fails.
+    Gemini Flash reads all pages in one call and is materially more accurate on
+    Devanagari than the only vision model Groq now offers (see the provider
+    notes at `_ocr_via_gemini`). Groq stays as the free fallback, so OCR keeps
+    working if GEMINI_API_KEY is absent or Gemini is down. On a hard scan that
+    Groq reads as EMPTY, we retry Groq once at a higher rasterization DPI (still
+    free) instead of paying for Claude. The Anthropic vision fallback remains in
+    the code but is DISABLED by default (Claude vision is ~30x the per-page
+    cost); set OCR_ENABLE_ANTHROPIC=1 to turn it back on. `prompt` selects the
+    schema; `normalise_fn` post-processes. Raises ValueError with a clear
+    message when OCR fails.
 
     `office_text`, when present, is text extracted from a Word/Excel upload: we
     run the same extraction prompt over it as plain text (no vision) and, if the
@@ -746,10 +884,23 @@ def _run_ocr(pages, prompt, normalise_fn, *, office_text: str = ""):
     bedrock_key   = os.environ.get("AWS_ACCESS_KEY_ID", "").strip()
     anthropic_on  = os.environ.get("OCR_ENABLE_ANTHROPIC", "0").strip().lower() in {"1", "true", "yes", "on"}
 
+    gemini_err: Optional[Exception] = None
     groq_err: Optional[Exception] = None
     anthropic_err: Optional[Exception] = None
     fallback_err: Optional[Exception] = None
     groq_empty_result: Optional[dict] = None  # valid-but-empty Groq parse, kept as last resort
+
+    # Gemini first: one call for the whole document, and the better Devanagari
+    # reader. An empty or failed read falls through to Groq below.
+    if _gemini_enabled():
+        try:
+            gem_raw = _ocr_via_gemini(pages, prompt)
+            if not _ocr_result_is_empty(gem_raw):
+                return _with_office(normalise_fn(gem_raw))
+            log.warning("Gemini OCR returned an empty extraction — trying Groq")
+        except Exception as e:  # noqa: BLE001 — degrade to Groq
+            gemini_err = e
+            log.warning("Gemini OCR failed, falling back to Groq: %s", e)
 
     if groq_key:
         try:
@@ -821,7 +972,10 @@ def _run_ocr(pages, prompt, normalise_fn, *, office_text: str = ""):
         raise ValueError(_format_groq_error(groq_err))
     if fallback_err:
         raise ValueError(f"OCR failed: {fallback_err}")
-    raise ValueError("OCR is not configured. Set GROQ_API_KEY on the server.")
+    if gemini_err:
+        raise ValueError(f"OCR failed: {gemini_err}")
+    raise ValueError("OCR is not configured. Set GEMINI_API_KEY (preferred) "
+                     "or GROQ_API_KEY on the server.")
 
 
 def ocr_fir_pages(pages: Sequence[tuple[bytes, str]], *, office_text: str = "") -> dict:
@@ -970,6 +1124,16 @@ def _format_groq_error(err: Exception) -> str:
         )
     if "401" in s or "unauthorized" in s or "invalid_api_key" in s:
         return "OCR provider rejected the API key. Contact hello@headnote.in."
+    if "does not exist or you do not have access" in s or "model_not_found" in s:
+        # A provider retiring a model looks like this. It cost us days of silent
+        # OCR failure once (llama-4-scout, 2026-08); name the cause explicitly so
+        # the next retirement is diagnosed from the error text alone.
+        return (
+            "The OCR model is no longer available from the provider — it was "
+            "most likely retired. Check GET https://api.groq.com/openai/v1/models "
+            "and update GROQ_OCR_MODEL (or set GEMINI_API_KEY, the preferred "
+            "OCR engine). Contact hello@headnote.in."
+        )
     if "timeout" in s or "timed out" in s:
         return "OCR request timed out. Network or provider slow — please retry."
     return f"OCR failed: {err}"

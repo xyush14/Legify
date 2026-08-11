@@ -643,9 +643,21 @@ def draft_docx(draft_id: str, user: Optional[CurrentUser] = Depends(optional_use
 
     blocks = (d.answers or {}).get("blocks")
     if not blocks:
+        # Only the LLM authoring path produces `blocks`. The reviewed canonical
+        # templates and the deterministic floors produce HTML — and those are
+        # exactly the paths a draft lands on when the model is slow, capped or
+        # down. Recovering the roles from the rendered document (deterministic,
+        # no model call) means "Download .docx" works on EVERY path instead of
+        # 409-ing at the counter on the day the LLM had a bad minute.
+        from headnote.drafter import html_blocks as HB
+        lang = (d.lang or "hi")
+        html = (d.answers or {}).get("html_hi" if lang != "en" else "html_en") \
+            or (d.answers or {}).get("html_hi") or (d.answers or {}).get("html_en")
+        blocks = HB.from_document_html(html or "")
+    if not blocks:
         raise HTTPException(
             status_code=409,
-            detail="this draft has no layout blocks — open it in the editor and export from there")
+            detail="this draft has no document body yet — refresh the draft and try again")
     try:
         data, how = dna_layout.render_blocks(d.user_id, blocks, lang=(d.lang or "hi"))
     except Exception as e:
@@ -821,7 +833,7 @@ async def ocr_fir(
             raise HTTPException(status_code=502, detail=f"OCR error: {e}")
 
         # Cost scales roughly with page count. 300p per page is conservative.
-        _record(cost_paise=0, model="groq/llama-4-scout-vision")
+        _record(cost_paise=0, model="ocr/vision")
         return {"ok": True, "page_count": len(uploads), "extracted": parsed}
 
 
@@ -908,7 +920,7 @@ async def fir_extract(
     if user:
         with check_and_record(user.id, "draft", endpoint="fir_extract", email=user.email) as _record:
             result = await _build()
-            _record(cost_paise=0, model="groq/llama-4-scout-vision")
+            _record(cost_paise=0, model="ocr/vision")
             return result
     return await _build()
 
@@ -1201,7 +1213,7 @@ async def ocr_bail_order(
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"OCR error: {e}")
 
-        _record(cost_paise=0, model="groq/llama-4-scout-vision")
+        _record(cost_paise=0, model="ocr/vision")
         return {"ok": True, "page_count": len(uploads), "extracted": parsed}
 
 
@@ -1256,7 +1268,7 @@ async def ocr_impugned_order(
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"OCR error: {e}")
 
-        _record(cost_paise=0, model="groq/llama-4-scout-vision")
+        _record(cost_paise=0, model="ocr/vision")
         return {"ok": True, "page_count": len(uploads), "extracted": parsed}
 
 
@@ -1271,7 +1283,7 @@ async def ocr_generic(
     """Universal auto-fill: read an uploaded document and extract whatever
     fields the calling template declares. Powers the "auto-fill from a
     document" uploader available on every template. Vision via Groq
-    Llama-4-Scout (DeepSeek fallback); never Claude unless OCR_ENABLE_ANTHROPIC=1.
+    Gemini Flash (Groq fallback); never Claude unless OCR_ENABLE_ANTHROPIC=1.
 
     `fields_json` is a JSON array of {key, label, hint}. Returns the extracted
     values keyed by field key so the frontend's filler applies them directly.
@@ -1312,7 +1324,7 @@ async def ocr_generic(
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"OCR error: {e}")
 
-        _record(cost_paise=0, model="groq/llama-4-scout-vision")
+        _record(cost_paise=0, model="ocr/vision")
         return {"ok": True, "page_count": len(uploads), "extracted": extracted}
 
 
@@ -1599,6 +1611,149 @@ def render_template(
             raise HTTPException(status_code=502, detail=f"render failed: {e}")
         _record(cost_paise=80, model="deepseek-chat")
         return {"ok": True, "document": doc}
+
+
+class TemplateTweakBody(BaseModel):
+    doc_type: str = Field(..., description="the editor id, e.g. 'bail_sessions'")
+    fields:   dict = Field(default_factory=dict, description="the form as it stands")
+    prompt:   str = Field(..., description="what he wants changed, in his own words")
+    lang:     str = "hi"
+    use_llm:  bool = True
+
+
+@router.post("/template-tweak", summary="Change the draft by describing the change")
+def template_tweak(body: TemplateTweakBody,
+                   user: Optional[CurrentUser] = Depends(optional_user)):
+    """The AI change-box on the fields screen: he types "he's been inside 4 months,
+    add that, and it's the High Court" and the form and the document both move.
+
+    This is a STRUCTURED PATCH, not free-text generation — the same guarantee the
+    rest of the drafter makes. The model may only turn knobs the reviewed
+    `field_spec` already defines (field values, reviewed-ground toggles, the
+    forum), plus capture the advocate's OWN extra ground verbatim and flagged. It
+    can never rewrite boilerplate, a section number or a citation, and anything it
+    could not map is reported back rather than silently invented.
+
+    Works for every reviewed type. The old `/api/draft/tweak` was wired to ten
+    hardcoded types and had no caller; this one is driven by `template_adapter`,
+    so a type is supported the moment it has a reviewed field_spec.
+    """
+    from headnote.drafter import prompt_tweak
+    from headnote.drafter import template_adapter as TA
+
+    tid = body.doc_type
+    if not TA.is_canonical(tid):
+        raise HTTPException(status_code=404, detail=f"no reviewed template for '{tid}'")
+    if not (body.prompt or "").strip():
+        raise HTTPException(status_code=400, detail="say what you want changed")
+
+    spec = TA.spec_for(tid)
+    fields = dict(body.fields or {})
+
+    # The patch is applied to the FORM the lawyer is looking at, so every change
+    # is visible in the fields he can then correct by hand — never a hidden edit
+    # buried in the rendered document.
+    result = prompt_tweak.tweak(spec, fields, body.prompt, use_llm=body.use_llm)
+    new_fields = dict(result.get("data") or fields)
+    changelog = list(result.get("changelog") or [])
+
+    # A change of forum is not a field — it is a different reviewed template, so
+    # the screen has to move to that id (Sessions bail and HC bail are not the
+    # same document). `grounds` is the canonical nesting; the form is flat.
+    new_fields.pop("grounds", None)
+    cur_type, cur_court, cur_bt = TA.CANONICAL_MAP[tid]
+    court = new_fields.pop("court", None) or cur_court
+    bail_type = new_fields.pop("bail_type", None) or cur_bt
+    next_tid = tid
+    if (court, bail_type) != (cur_court, cur_bt):
+        moved = TA.editor_id_for(cur_type, court, bail_type)
+        if moved:
+            next_tid = moved
+            changelog.append(f"moved to {TA.LABELS.get(moved, {}).get('en', moved)}")
+        else:
+            changelog.append(f"⚠ no reviewed template for that forum — kept {tid}")
+
+    try:
+        document = TA.document(next_tid, new_fields, body.lang)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"render failed: {type(e).__name__}: {e}")
+
+    return {"ok": True, "doc_type": next_tid, "fields": new_fields,
+            "changelog": changelog, "source": result.get("source"),
+            "note": (result.get("patch") or {}).get("note") or "",
+            "document": document}
+
+
+class TemplateDocxBody(BaseModel):
+    doc_type: str
+    fields:   dict = Field(default_factory=dict)
+    lang:     str = "hi"
+    html:     Optional[str] = Field(
+        None, description="the document as it is on his screen — sent when he has edited it")
+
+
+_MAX_EXPORT_HTML = 4_000_000       # a filing bundle is ~40 KB; this is only a bound
+
+
+@router.post("/template-docx", summary="The filled draft as .docx — in the advocate's own format")
+def template_docx(body: TemplateDocxBody,
+                  user: Optional[CurrentUser] = Depends(optional_user)):
+    """Draft DNA, from the fields screen — the surface most advocates actually use.
+
+    Until now the only route to a `.docx` in the advocate's own layout ran through
+    the LLM authoring path, so the reviewed, deterministic screen at
+    `/draft/template/<id>` — every one of the 50 filing types — could only produce
+    a PDF in Headnote's format, never his. This closes that: the same document he
+    is looking at is converted to role-tagged blocks (deterministically, see
+    html_blocks) and rendered into HIS captured page geometry, indents and
+    typeface.
+
+    `html` is sent when he has edited the document on the canvas, so what he
+    downloads is what he corrected — not a re-render that silently discards it.
+
+    Never a dead action: with no Draft DNA he gets clean standard court format and
+    `X-Headnote-Format: standard`, and the screen says so honestly.
+    """
+    from fastapi.responses import Response
+    from headnote.drafter import dna_layout, html_blocks as HB
+    from headnote.drafter import template_adapter as TA
+
+    lang = (body.lang or "hi").strip().lower()
+    html = body.html or ""
+    if len(html) > _MAX_EXPORT_HTML:
+        raise HTTPException(status_code=413, detail="document too large to export")
+    if not html.strip():
+        if not TA.is_canonical(body.doc_type):
+            raise HTTPException(status_code=400,
+                                detail=f"no reviewed template for '{body.doc_type}'")
+        try:
+            html = TA.document(body.doc_type, body.fields or {}, lang)
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"render failed: {type(e).__name__}: {e}")
+
+    blocks = HB.from_document_html(html)
+    if HB.is_empty(blocks):
+        raise HTTPException(status_code=400,
+                            detail="nothing to export yet — fill in the form first")
+
+    uid = user.id if user else None
+    try:
+        data, how = dna_layout.render_blocks(uid, blocks, lang=lang)
+    except Exception as e:
+        import logging
+        logging.getLogger("headnote.drafter").exception(
+            "template docx render failed for %s", body.doc_type)
+        raise HTTPException(status_code=502,
+                            detail=f"could not build the .docx ({type(e).__name__})") from e
+
+    name = re.sub(r"[^A-Za-z0-9_.-]+", "_", (body.doc_type or "draft")).strip("_")[:60] or "draft"
+    return Response(
+        content=data,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{name}.docx"',
+                 "Access-Control-Expose-Headers": "X-Headnote-Format",
+                 "X-Headnote-Format": how},   # "own" | "standard" — the screen says which
+    )
 
 
 class RegionalizeBody(BaseModel):

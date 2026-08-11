@@ -113,17 +113,30 @@ DEFAULT_MODEL = os.environ.get("MODEL", "claude-sonnet-4-6")
 
 # --- Drafter authoring/mirror model (the QUALITY-critical drafting calls) -----
 # The paths that WRITE the draft — the numbered "यह कि …" grounds, the prayer, and
-# the reference field-swap (mirror) — route through this model. Default is Sonnet-tier,
-# which the LLM router (llm/client.py:_CLAUDE_TO_DEEPSEEK) maps to DeepSeek R1
-# (deepseek-reasoner, chain-of-thought). R1 reasons markedly better than V3 on which
-# ground neutralises which limb of a test, and on which reference spans are boilerplate
-# vs case-specific fields to swap — the exact "smart understanding" the drafter lacked
-# on V3 (deepseek-chat, the cheapest tier).
-#   Trade-off: R1 is slower (~60–180s) than V3 (~5–15s). If drafting latency ever hurts
-#   a live demo, set DRAFTER_AUTHOR_MODEL=claude-haiku-4-5 to route drafting back to V3.
-# Extraction/routing calls (classify, /suggest, reference-skeleton) deliberately stay on
+# the reference field-swap (mirror) — route through this model. Haiku-tier, which the
+# LLM router (llm/client.py:_CLAUDE_TO_DEEPSEEK) maps to DeepSeek V3 (deepseek-chat).
+#
+# WAS Sonnet-tier → DeepSeek R1 (deepseek-reasoner), on the theory that R1 reasons
+# better than V3 about which ground neutralises which limb of a test. In production it
+# did the opposite, and the logs are unambiguous — a real drafting run on 2026-08-10:
+#     13:40:00  deepseek-reasoner call starts
+#     13:41:44  "DeepSeek returned empty content (reasoner likely ran out of output
+#                budget)" → falls through to Groq llama-3.3-70b
+# R1 spends its token budget on hidden chain-of-thought and returns an EMPTY answer,
+# so the draft the advocate actually reads is written by the Groq free-tier fallback —
+# by this repo's own description the "lowest quality for Indian legal reasoning" model
+# in the stack. The 12k–16k output floor at llm/client.py:142 was meant to prevent this
+# and does not: an authoring prompt is long enough that CoT eats the floor too. R1 also
+# cannot use strict JSON mode (client.py:159), so the authored payload has to survive
+# being coaxed out of prose — one more way the call yields nothing.
+#
+# So the reasoner was not buying better grounds; it was buying ~3 minutes of latency
+# and then handing the work to the weakest model available. V3 is ~5–15s and strictly
+# better than the Groq text that was actually shipping. Set DRAFTER_AUTHOR_MODEL back
+# to claude-sonnet-4-6 only once R1's empty-content failure is genuinely fixed.
+# Extraction/routing calls (classify, /suggest, reference-skeleton) already sit on
 # V3 — they don't author prose, so paying for reasoning there buys nothing.
-DRAFTER_AUTHOR_MODEL = os.environ.get("DRAFTER_AUTHOR_MODEL", "claude-sonnet-4-6")
+DRAFTER_AUTHOR_MODEL = os.environ.get("DRAFTER_AUTHOR_MODEL", "claude-haiku-4-5")
 # 6000 (was 4000): R1/Sonnet needs room to output 5 detailed cases with
 # stinger_sentence + held_line + court_quote + match_dimensions +
 # negative_carve_out + relevance_scores + internal_reasoning. 4000 was

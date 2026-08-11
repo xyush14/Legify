@@ -30,14 +30,24 @@ def enabled() -> bool:
 
 def generate_json(prompt: str, *, image: bytes | None = None,
                   mime: str = "image/jpeg", model: str = "",
+                  images: list[tuple[bytes, str]] | None = None,
                   max_tokens: int = 8192, temperature: float = 0.0) -> dict:
     """Call Gemini with an optional inline image, force a JSON response, and return
     the parsed object. Raises RuntimeError on any failure so the caller can fall
-    back."""
+    back.
+
+    Pass `images` (a list of (bytes, mime) pairs) instead of `image` for a
+    multi-page document: every page goes in ONE call so the model can reconcile
+    fields that span pages — a bail order's cause-title on page 1 with the
+    operative direction on page 4. `image` remains for single-page callers.
+    """
     if not config.GEMINI_API_KEY:
         raise RuntimeError("GEMINI_API_KEY not set")
     model = model or config.GEMINI_VISION_MODEL
     parts: list = [{"text": prompt}]
+    for data, mt in (images or []):
+        parts.append({"inline_data": {"mime_type": mt,
+                                      "data": base64.b64encode(data).decode()}})
     if image:
         parts.append({"inline_data": {"mime_type": mime,
                                       "data": base64.b64encode(image).decode()}})

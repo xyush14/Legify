@@ -7,6 +7,8 @@ PUT   /api/matters/{id}/notesheet     save the sheet (lawyer edits, or after OCR
 POST  /api/matters/{id}/notesheet/prepare   assemble a first draft from the file
 POST  /api/matters/{id}/notesheet/scan      read the handwritten sheet + check it
 DELETE /api/matters/{id}/notesheet    discard the sheet for that date
+GET   /api/matters/{id}/court-documents        the court's orders/judgments (free)
+POST  /api/matters/{id}/court-documents/fetch  pull ONE order PDF into the folder
 
 Everything is scoped to the signed-in lawyer. These routes are called ONLY by
 the V2 Home screen (static/home.html), so they depend on `require_beta` rather
@@ -25,6 +27,7 @@ citation lookup) — the lawyer confirms before anything is stored.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import re
 from dataclasses import asdict, is_dataclass
@@ -788,19 +791,71 @@ def mark_updates_read(case_id: str, user: CurrentUser = Depends(require_beta)) -
     case = cases_storage.get_case(case_id, user_id=user.id)
     if not case:
         raise HTTPException(status_code=404, detail="matter not found")
-    cj = _case_json(case)
-    ups = [{**u, "seen": True} for u in (cj.get("updates") or []) if isinstance(u, dict)]
-    cj["updates"] = ups
-    payload = dict(cj)
-    payload["cnr"] = case.get("cnr")
-    cases_storage.replace_case_identity(case_id, user_id=user.id, case=payload)
-    return {"ok": True, "cleared": len(ups)}
+    # Was `replace_case_identity`, which rewrites the matter's whole identity
+    # from a payload assembled here — an enormous amount of machinery for
+    # setting one boolean, and one that has to read the row again first.
+    n = cases_storage.mark_updates_seen(case_id, user_id=user.id,
+                                        case_json=_case_json(case))
+    return {"ok": True, "cleared": n}
+
+
+@router.post("/api/updates/read-all", summary="Mark EVERY court update seen, in one call")
+def mark_all_updates_read(user: CurrentUser = Depends(require_beta)) -> dict:
+    """The one CTA behind "clear these".
+
+    A lawyer with a fortnight of court movement has dozens of these rows, and
+    the only way to clear them was the ✕ on each one — and each ✕ cost a
+    round trip PLUS a full reload of the Home screen. Twenty notifications
+    meant forty requests and twenty repaints to get back to an empty band.
+
+    This walks the docket once and writes only the matters that actually have
+    something unread, so the cost is one read plus one write per genuinely
+    unread matter — not per notification, and not per matter on the docket.
+    """
+    cases = cases_storage.list_cases(user_id=user.id, limit=500) or []
+    cleared = matters = 0
+    for c in cases:
+        cj = _case_json(c)
+        if not courtsync.unseen(cj):
+            continue                    # nothing unread here — no write at all
+        n = cases_storage.mark_updates_seen(str(c["id"]), user_id=user.id, case_json=cj)
+        if n:
+            cleared += n
+            matters += 1
+    return {"ok": True, "cleared": cleared, "matters": matters}
 
 
 class SaveOrderBody(BaseModel):
     link: str = Field(..., description="the order's URL from the court listing")
     date: Optional[str] = Field(None, description="order date, as the court states it")
     order_type: Optional[str] = Field(None, description="e.g. Interim Order / Judgment")
+
+
+async def _file_order_in_vault(*, user_id: str, case_id: str, data: bytes, ctype: str,
+                               label: str, filename: str, metadata: dict) -> dict:
+    """The shared tail of every order-filing path: read the PDF so it is
+    searchable, then store it in the Document Vault against this matter.
+
+    OCR is best-effort on purpose — if OCR is unavailable the order is STILL
+    filed. Losing the text is a nuisance; losing the order the lawyer just paid
+    to download is not acceptable."""
+    text, pages = "", []
+    try:
+        from headnote.drafter.ocr import ocr_text_pages, _rasterize_pdfs
+        pages = _rasterize_pdfs([(data, ctype)]) if "pdf" in (ctype or "") else [(data, ctype)]
+        text = await asyncio.to_thread(ocr_text_pages, pages) or ""
+    except Exception as e:  # noqa: BLE001
+        log.warning("order OCR skipped for %s: %s", case_id, e)
+
+    doc = docs_storage.add_document(
+        user_id=user_id, title=label, full_text=text,
+        doc_type="order", original_filename=filename or "order.pdf",
+        mime=ctype or "application/pdf", case_id=case_id, pages=pages or None,
+        metadata=metadata)
+    if not doc:
+        raise HTTPException(status_code=500, detail="could not save the order")
+    return {"ok": True, "document": {"id": doc.get("id"), "title": doc.get("title")},
+            "ocr": bool(text)}
 
 
 @router.post("/api/matters/{case_id}/orders/save",
@@ -827,26 +882,119 @@ async def save_order(case_id: str, body: SaveOrderBody,
     if not data:
         raise HTTPException(status_code=502, detail="the court returned an empty file")
 
-    label = f"{body.order_type or 'Order'} dated {body.date or 'unknown'}"
-
-    # Read the order so it is searchable in the vault. Best-effort: if OCR is
-    # unavailable the order is still filed — losing the text is a nuisance,
-    # losing the order is not acceptable.
-    text, pages = "", []
-    try:
-        from headnote.drafter.ocr import ocr_text_pages, _rasterize_pdfs
-        pages = _rasterize_pdfs([(data, ctype)]) if "pdf" in (ctype or "") else [(data, ctype)]
-        text = await asyncio.to_thread(ocr_text_pages, pages) or ""
-    except Exception as e:  # noqa: BLE001
-        log.warning("order OCR skipped for %s: %s", case_id, e)
-
-    doc = docs_storage.add_document(
-        user_id=user.id, title=label, full_text=text,
-        doc_type="order", original_filename=(body.link.rsplit("/", 1)[-1] or "order.pdf"),
-        mime=ctype or "application/pdf", case_id=case_id, pages=pages or None,
+    return await _file_order_in_vault(
+        user_id=user.id, case_id=case_id, data=data, ctype=ctype,
+        label=f"{body.order_type or 'Order'} dated {body.date or 'unknown'}",
+        filename=(body.link.rsplit("/", 1)[-1] or "order.pdf"),
         metadata={"source": "ecourts", "order_date": body.date,
                   "order_type": body.order_type, "link": body.link})
-    if not doc:
-        raise HTTPException(status_code=500, detail="could not save the order")
-    return {"ok": True, "document": {"id": doc.get("id"), "title": doc.get("title")},
-            "ocr": bool(text)}
+
+
+# ----------------------------------------------------- the court's own documents
+# eCourts publishes the court's signed orders and judgments as PDFs. Listing them
+# is free (they ride along in the case record we already hold); each PDF costs
+# ₹3.75 to pull. So: show the whole list for nothing, fetch on the lawyer's tap,
+# and never pay twice for the same document.
+def _saved_order_filenames(user_id: str, case_id: str) -> dict:
+    """filename → stored document, for orders already in this matter's folder."""
+    out = {}
+    for d in docs_storage.list_documents(user_id=user_id, case_id=case_id) or []:
+        meta = d.get("metadata") or {}
+        if isinstance(meta, str):
+            try:
+                meta = json.loads(meta)
+            except Exception:  # noqa: BLE001
+                meta = {}
+        fn = (meta or {}).get("court_filename") or d.get("original_filename")
+        if fn:
+            out[str(fn)] = d
+    return out
+
+
+@router.get("/api/matters/{case_id}/court-documents",
+            summary="What orders and judgments the court holds on this matter (free)")
+def court_documents(case_id: str, user: CurrentUser = Depends(require_beta)) -> dict:
+    """Read the order list off the matter we already store — no vendor call, no
+    cost. Each row says whether it is already in the folder, so the lawyer can
+    see what is his and what would still have to be pulled."""
+    case = cases_storage.get_case(case_id, user_id=user.id)
+    if not case:
+        raise HTTPException(status_code=404, detail="matter not found")
+    cj = _case_json(case)
+    saved = _saved_order_filenames(user.id, case_id)
+    items = []
+    for o in ecourts_client.case_orders(cj):
+        doc = saved.get(o["filename"]) if o["filename"] else None
+        items.append({**o,
+                      "saved": bool(doc),
+                      "document_id": (doc or {}).get("id")})
+    return {"cnr": case.get("cnr"), "count": len(items),
+            "saved": sum(1 for i in items if i["saved"]), "items": items}
+
+
+class FetchCourtDocBody(BaseModel):
+    filename: str = Field(..., min_length=1, max_length=140,
+                          description="the court filename from /court-documents")
+    date:     Optional[str] = Field(None, max_length=40)
+    title:    Optional[str] = Field(None, max_length=120)
+    signed:   bool = Field(True, description="certified true copy (default) vs raw court PDF")
+
+
+@router.post("/api/matters/{case_id}/court-documents/fetch",
+             summary="Pull one court order PDF into this matter's folder")
+async def fetch_court_document(case_id: str, body: FetchCourtDocBody,
+                               user: CurrentUser = Depends(require_beta)) -> dict:
+    """Download the court's own signed copy of ONE order and file it under this
+    matter. Costs a vendor credit, so it is deliberately one document per call and
+    only ever on the lawyer's own tap — and if we already hold it, we return the
+    document we have instead of buying it again."""
+    case = cases_storage.get_case(case_id, user_id=user.id)
+    if not case:
+        raise HTTPException(status_code=404, detail="matter not found")
+    cnr = case.get("cnr") or ""
+    if not ecourts_client.is_valid_cnr(cnr):
+        raise HTTPException(
+            status_code=400,
+            detail="This matter is not linked to the court record yet, so the court "
+                   "has no file to give. Link it first.")
+
+    # The filename must be one the COURT told us about on this matter — never
+    # whatever the caller typed. That keeps a paid, authenticated fetch from
+    # being pointed at an arbitrary document by a crafted request.
+    cj = _case_json(case)
+    known = {o["filename"]: o for o in ecourts_client.case_orders(cj) if o["filename"]}
+    order = known.get(body.filename.strip())
+    if not order:
+        raise HTTPException(
+            status_code=404,
+            detail="The court record for this matter lists no such order. "
+                   "Sync the matter and try again.")
+
+    already = _saved_order_filenames(user.id, case_id).get(order["filename"])
+    if already:
+        return {"ok": True, "already_saved": True,
+                "document": {"id": already.get("id"), "title": already.get("title")}}
+
+    try:
+        data, ctype = await asyncio.to_thread(
+            ecourts_client.fetch_order_pdf, cnr, order["filename"], signed=body.signed)
+    except ecourts_client.VendorAccountError as e:
+        log.error("eCourts vendor account problem fetching order: %s", e)
+        raise HTTPException(
+            status_code=503,
+            detail="The court-record service is not answering right now. Nothing was "
+                   "charged and nothing was filed — try again shortly.")
+    except ValueError as e:
+        raise HTTPException(status_code=502, detail=f"could not download the order: {e}")
+
+    label_kind = body.title or order.get("title") or (
+        "Judgment" if order.get("kind") == "judgment" else "Order")
+    when = body.date or order.get("date") or ""
+    return await _file_order_in_vault(
+        user_id=user.id, case_id=case_id, data=data, ctype=ctype,
+        label=f"{label_kind}{' dated ' + str(when) if when else ''}",
+        filename=order["filename"],
+        metadata={"source": "ecourts", "order_date": order.get("date"),
+                  "order_type": order.get("title"), "order_kind": order.get("kind"),
+                  "court_filename": order["filename"], "cnr": cnr,
+                  "certified_copy": bool(body.signed)})

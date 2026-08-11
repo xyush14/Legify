@@ -24,8 +24,6 @@ import shutil
 from pathlib import Path
 from typing import Optional
 
-import httpx
-
 import headnote.config as config          # loads .env before _supabase binds
 from headnote.entitlements import _supabase
 
@@ -56,7 +54,7 @@ def ensure_bucket() -> bool:
     if _bucket_ready or not enabled():
         return _bucket_ready
     try:
-        r = httpx.post(f"{_base()}/bucket", headers=_supabase._headers(),
+        r = _supabase._http().post(f"{_base()}/bucket", headers=_supabase._headers(),
                        json={"id": BUCKET, "name": BUCKET, "public": False},
                        timeout=15.0)
         if r.status_code < 400 or r.status_code == 409:
@@ -74,7 +72,7 @@ def put(path: str, data: bytes, *, mime: str = "application/octet-stream") -> Op
         return None
     if enabled() and ensure_bucket():
         try:
-            r = httpx.post(f"{_base()}/object/{BUCKET}/{path}",
+            r = _supabase._http().post(f"{_base()}/object/{BUCKET}/{path}",
                            headers={**_supabase._headers(), "Content-Type": mime,
                                     "x-upsert": "true"},
                            content=data, timeout=60.0)
@@ -97,7 +95,7 @@ def put(path: str, data: bytes, *, mime: str = "application/octet-stream") -> Op
 def get(path: str) -> Optional[bytes]:
     if enabled():
         try:
-            r = httpx.get(f"{_base()}/object/{BUCKET}/{path}",
+            r = _supabase._http().get(f"{_base()}/object/{BUCKET}/{path}",
                           headers=_supabase._headers(), timeout=60.0)
             if r.status_code < 400:
                 return r.content
@@ -113,7 +111,7 @@ def signed_url(path: str, *, seconds: int = 300) -> Optional[str]:
     if not enabled():
         return None
     try:
-        r = httpx.post(f"{_base()}/object/sign/{BUCKET}/{path}",
+        r = _supabase._http().post(f"{_base()}/object/sign/{BUCKET}/{path}",
                        headers=_supabase._headers(), json={"expiresIn": seconds},
                        timeout=15.0)
         if r.status_code < 400:
@@ -128,7 +126,7 @@ def delete(path: str) -> bool:
     """Actually remove the object — 'discard' must mean gone."""
     if enabled():
         try:
-            r = httpx.delete(f"{_base()}/object/{BUCKET}/{path}",
+            r = _supabase._http().delete(f"{_base()}/object/{BUCKET}/{path}",
                              headers=_supabase._headers(), timeout=30.0)
             return r.status_code < 400
         except Exception as e:  # noqa: BLE001

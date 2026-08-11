@@ -6,7 +6,7 @@ GET    /api/documents/search?q=  hybrid keyword + semantic search
 GET    /api/documents/{id}       one document (full transcribed text)
 DELETE /api/documents/{id}       remove a document
 
-The OCR reuses the same Groq Llama-4-Scout vision pipeline that powers the
+The OCR reuses the same Gemini-primary / Groq-fallback vision pipeline that powers the
 drafter's "draft from a document" path (handwriting + Hindi + PDF). The win
 here is persistence + search: every upload becomes part of a searchable pile.
 
@@ -103,7 +103,7 @@ async def upload_document(
             raise HTTPException(status_code=502, detail=f"OCR failed: {e}")
         except Exception as e:  # noqa: BLE001
             raise HTTPException(status_code=502, detail=f"OCR error: {e}")
-        _record(cost_paise=0, model="groq/llama-4-scout-vision")
+        _record(cost_paise=0, model="ocr/vision")
 
     if not (text or "").strip():
         raise HTTPException(

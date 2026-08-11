@@ -72,11 +72,10 @@ def ready(table: str) -> bool:
     if table in _present:
         return True
 
-    import httpx
     try:
-        r = httpx.get(f"{_supabase.SUPABASE_URL}/rest/v1/{table}",
-                      headers=_supabase._headers(),
-                      params={"select": "id", "limit": "1"}, timeout=5.0)
+        r = _supabase._http().get(f"{_supabase.SUPABASE_URL}/rest/v1/{table}",
+                                  headers=_supabase._headers(),
+                                  params={"select": "id", "limit": "1"}, timeout=5.0)
         if r.status_code < 400:
             _present.add(table)
             return True

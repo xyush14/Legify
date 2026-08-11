@@ -64,7 +64,11 @@ def apply_patch(data: dict, patch: dict, spec: dict) -> tuple[dict, list[str]]:
 
     for gtext in (patch.get("add_grounds") or []):
         if str(gtext).strip():
-            data.setdefault("custom_grounds", []).append(str(gtext).strip())
+            # a caller may hand us data whose custom_grounds is still a raw string
+            # (OCR autofill / an older saved draft) — .append would blow up on it
+            from headnote.drafter.templates._fields import coerce_value
+            cur = coerce_value("custom_grounds", data.get("custom_grounds"))
+            data["custom_grounds"] = cur + [str(gtext).strip()]
             log.append(f"+ lawyer ground (flagged): “{str(gtext).strip()[:60]}…”")
 
     if patch.get("note"):
@@ -73,12 +77,22 @@ def apply_patch(data: dict, patch: dict, spec: dict) -> tuple[dict, list[str]]:
 
 
 def validate_patch(patch: dict, spec: dict) -> dict:
-    """Strip anything not in the spec — the router output is never trusted blindly."""
-    field_keys = {f["key"] for f in spec.get("fields", [])}
+    """Strip anything not in the spec — the router output is never trusted blindly.
+
+    Values are also COERCED to the type the spec declares. The LLM happily returns
+    a textarea/section-list field as one string; every render() iterates those keys,
+    and iterating a string yields one character per pass — which shipped a filed
+    bail application with a numbered `यह कि` paragraph per letter of the advocate's
+    own sentence. Stripping unknown keys was never enough; the types matter too.
+    """
+    from headnote.drafter.templates._fields import coerce_value
+    field_types = {f["key"]: f.get("type") for f in spec.get("fields", [])}
+    field_keys = set(field_types)
     toggle_keys = {t["key"] for t in spec.get("toggles", [])}
     variants = spec.get("variants", {})
     return {
-        "set": {k: v for k, v in (patch.get("set") or {}).items() if k in field_keys},
+        "set": {k: coerce_value(k, v, field_types.get(k))
+                for k, v in (patch.get("set") or {}).items() if k in field_keys},
         "toggles": {k: bool(v) for k, v in (patch.get("toggles") or {}).items() if k in toggle_keys},
         "variant": {k: v for k, v in (patch.get("variant") or {}).items()
                     if k in variants and v in variants[k]},

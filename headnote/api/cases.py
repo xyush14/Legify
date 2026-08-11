@@ -1,6 +1,9 @@
 """Cases ("Matters") — CNR-driven case folders that pre-fill the drafter.
 
 POST   /api/cases/add-cnr              fetch a CNR (+ optional client), store it
+GET    /api/cases/courts               court directory search (the court picker)
+POST   /api/cases/import/case-number/search
+                                       find a case by NUMBER + court (no CNR needed)
 GET    /api/cases                      list the lawyer's matters (with suggestions)
 GET    /api/cases/{id}                 one matter (full payload + suggestions)
 PATCH  /api/cases/{id}/client          save/merge client details (name/mobile/…)
@@ -21,6 +24,7 @@ CNR never has the client's phone) and power both autofill and reminders.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import re
 from typing import Optional
@@ -76,6 +80,12 @@ def _enrich(row: Optional[dict]) -> Optional[dict]:
 def add_case_by_cnr(body: AddCnrBody, user: CurrentUser = Depends(get_current_user)) -> dict:
     try:
         case = ecourts_client.fetch_cnr(body.cnr)
+    except ecourts_client.VendorAccountError as e:
+        log.error("eCourts vendor account problem: %s", e)
+        raise HTTPException(
+            status_code=503,
+            detail="The court-record service is not answering right now. Your CNR "
+                   "is fine — try again shortly.")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:  # noqa: BLE001 — network / vendor errors
@@ -273,6 +283,93 @@ def advocate_confirm(body: AdvocateConfirmBody,
         if row:
             stored.append(_diary_item(row))
     return {"ok": True, "imported": len(stored), "items": stored}
+
+
+# ---------------------------------------------------------- add by case number
+# The CNR is the clean key, but almost no advocate carries it in his head — he
+# knows "6345/2017" and the court he filed it in. These three routes are that
+# door: pick the court → type the number → tick the case that is his. The confirm
+# step is shared with the advocate import (same per-user candidate cache), so a
+# ticked case is stored WITHOUT a second paid fetch.
+@router.get("/courts", summary="Search the court directory (for the court picker)")
+def courts(q: str = "", limit: int = 40,
+           user: CurrentUser = Depends(get_current_user)) -> dict:
+    """Type 'Gwalior' → every court whose name mentions it, with the vendor's own
+    description so the lawyer reads a court name, never a code."""
+    try:
+        items = ecourts_client.court_options(q, limit=max(1, min(limit, 100)))
+    except Exception as e:  # noqa: BLE001
+        log.warning("court directory failed: %s", e)
+        raise HTTPException(status_code=502, detail=f"court directory unavailable: {e}")
+    return {"count": len(items), "items": items}
+
+
+@router.get("/case-types", summary="The vendor's case-type list (optional narrowing)")
+def case_types(user: CurrentUser = Depends(get_current_user)) -> dict:
+    return {"items": ecourts_client.case_type_options()}
+
+
+class CaseNumberSearchBody(BaseModel):
+    case_number: str = Field(..., min_length=1, max_length=40,
+                             description="Registration or filing number, e.g. 6345/2017")
+    court_code:  str = Field("", max_length=20, description="Vendor court code from /courts")
+    state:       str = Field("", max_length=10, description="Two-letter state code, if no court is picked")
+    case_type:   str = Field("", max_length=30, description="Optional case-type code (CC, ABA, SC …)")
+    pending_only: bool = Field(False, description="Restrict to PENDING matters")
+
+
+@router.post("/import/case-number/search",
+             summary="Find a case by its number in a chosen court (candidates — NOT stored yet)")
+def case_number_search(body: CaseNumberSearchBody,
+                       user: CurrentUser = Depends(get_current_user)) -> dict:
+    """Step 1: the court's own record for a typed case number. Nothing is saved.
+
+    The vendor matches on relevance, not equality, so candidates come back with
+    `exact_match` computed on our side and the near-misses kept visible but
+    unticked — the lawyer decides, exactly as with the advocate import."""
+    try:
+        cases = ecourts_client.search_by_case_number(
+            case_number=body.case_number, court_code=body.court_code,
+            state=body.state, case_type=body.case_type,
+            pending_only=body.pending_only)
+    except ecourts_client.VendorAccountError as e:
+        # Our wallet, not his case. Say so — telling a lawyer "no such case"
+        # because our account ran dry is the worst possible lie here.
+        log.error("eCourts vendor account problem: %s", e)
+        raise HTTPException(
+            status_code=503,
+            detail="The court-record service is not answering right now. Your case "
+                   "number is fine — try again shortly.")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:  # noqa: BLE001
+        log.warning("case-number search failed for %s: %s", body.case_number, e)
+        raise HTTPException(status_code=502, detail=f"search failed: {e}")
+
+    # Share the advocate-import cache so /import/advocate/confirm stores the
+    # ticked rows with no second vendor call.
+    cache = _SEARCH_CACHE.setdefault(user.id, {})
+    cache.update({c["cnr"]: c for c in cases if c.get("cnr")})
+    candidates = [{
+        "cnr": c.get("cnr"),
+        "exact_match": bool(c.get("exact_match")),
+        "case_title": c.get("case_title"),
+        "court_name": c.get("court_name"),
+        "case_number": c.get("case_number"), "case_year": c.get("case_year"),
+        "registration_number": c.get("registration_number"),
+        "filing_number": c.get("filing_number"),
+        "next_hearing_date": c.get("next_hearing_date"),
+        "stage": c.get("stage"), "case_type": c.get("case_type"),
+        "case_status": c.get("case_status"),
+        "judge": c.get("judge"),
+        "sections": c.get("sections") or [],
+        "petitioner_name": c.get("petitioner_name"),
+        "respondent_name": c.get("respondent_name"),
+        "advocates": (c.get("petitioner_advocates") or []) + (c.get("respondent_advocates") or []),
+    } for c in cases]
+    return {"count": len(candidates),
+            "exact": sum(1 for c in candidates if c["exact_match"]),
+            "candidates": candidates}
 
 
 _DIARY_VISION_PROMPT = (
@@ -1274,6 +1371,28 @@ def case_folder(case_id: str, user: CurrentUser = Depends(get_current_user)) -> 
     from headnote.api.saved_caselaw import list_for_matter
     caselaw = list_for_matter(user.id, case_id)
 
+    # What the COURT holds on this matter — its own signed orders and judgments.
+    # Free: read off the case record we already store, no vendor call. Each row
+    # says whether we already hold the PDF, so the folder can offer to pull only
+    # the ones it does not have (each pull is a paid vendor credit).
+    court_orders = []
+    try:
+        saved_names = set()
+        for d in documents or []:
+            meta = d.get("metadata") or {}
+            if isinstance(meta, str):
+                try:
+                    meta = json.loads(meta)
+                except Exception:  # noqa: BLE001
+                    meta = {}
+            fn = (meta or {}).get("court_filename") or d.get("original_filename")
+            if fn:
+                saved_names.add(str(fn))
+        for o in ecourts_client.case_orders(row.get("case_json") or {}):
+            court_orders.append({**o, "saved": o["filename"] in saved_names})
+    except Exception as e:  # noqa: BLE001 — never let the order list break the folder
+        log.warning("court order list failed for %s: %s", case_id, e)
+
     return {
         "case": _diary_item(row),
         "client": (row.get("case_json") or {}).get("client") or {},
@@ -1281,6 +1400,7 @@ def case_folder(case_id: str, user: CurrentUser = Depends(get_current_user)) -> 
         "drafts": drafts,
         "documents": documents,
         "caselaw": caselaw,
+        "court_orders": court_orders,
         "hearing_logs": cases_storage.list_hearing_logs(case_id, user_id=user.id),
     }
 

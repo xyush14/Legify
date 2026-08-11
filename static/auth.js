@@ -132,12 +132,32 @@ async function initAuth() {
   // never tap the phone option, and avoids a CDN request on dev/test deploys.
   _bootOtplessIfConfigured(cfg.otpless_app_id);
 
-  // Wait for the Supabase CDN script to load (defer-loaded; usually ready
-  // by the time we get here but be defensive).
+  // Make sure the Supabase library is actually here, loading it ourselves if
+  // the page never included it.
+  //
+  // This was the single biggest source of slowness in the app. The V2 pages
+  // (/home, /research, /draft, /draft-dna, /welcome) load auth.js but none of
+  // them carries the Supabase CDN <script> that auth.js depends on. So
+  // `window.supabase` was never going to appear, and this line sat in a 50ms
+  // polling loop for the FULL 8 SECONDS on every single page load before
+  // giving up — 8 seconds during which `headnoteAuth.ready()` (and therefore
+  // the first API call of every V2 screen) was blocked. That is the "it keeps
+  // loading for ages on first load" the advocate was reporting.
+  //
+  // Two consequences beyond the wait, both silent:
+  //   * `_sb` stayed null, so getAccessToken() always returned null and every
+  //     page fell back to reading the raw token out of localStorage — which
+  //     expires after about an hour and is never refreshed. The cross-device
+  //     "it forgot my cases" bug was supposed to have been fixed by loading
+  //     auth.js on the V2 pages; without the library it could not work.
+  //   * it then called _showLoginModal() on pages that have no login modal.
+  //
+  // Loading it HERE rather than adding a <script> tag to seven files means any
+  // page that loads auth.js is fixed, including ones added later.
   if (!window.supabase || !window.supabase.createClient) {
-    await _waitFor(() => window.supabase && window.supabase.createClient, 8000);
+    await _ensureSupabaseLib();
   }
-  if (!window.supabase) {
+  if (!window.supabase || !window.supabase.createClient) {
     console.error('[auth] Supabase CDN failed to load');
     _cancelWatchdog();
     _markReady();
@@ -191,6 +211,10 @@ async function initAuth() {
     // First time the auth state is known (signed-in OR signed-out),
     // unblock anyone awaiting headnoteAuth.ready().
     _markReady();
+    // Any change of auth state — refresh, sign-out, a different user — makes
+    // the memoised token wrong. Drop it here so the very next call re-reads
+    // rather than sending a token that belongs to a session that has moved on.
+    _clearTokenCache();
     const prevUserId = currentUser?.id || null;
     if (session?.user) {
       currentUser = session.user;
@@ -350,7 +374,26 @@ window.headnoteAuthDebug = function () {
  * race the init and return null on the first call — bouncing signed-in
  * users to the login modal.
  */
+/* Short-lived memo of the access token.
+ *
+ * Every API call on every screen goes through here, and each one was an
+ * awaited getSession() — which takes a cross-tab lock and re-reads and
+ * re-parses the session out of localStorage. Individually small; not small
+ * when a screen makes a dozen calls and each one has to queue behind the lock.
+ *
+ * The TTL is deliberately far shorter than a token's ~1h life, so a token that
+ * Supabase rotates underneath us is picked up almost immediately. Sign-out and
+ * user-switch clear it outright (see onAuthStateChange), so a stale token can
+ * never outlive the session it belongs to. */
+let _tokCache = { value: null, at: 0 };
+const _TOK_TTL_MS = 30000;
+
+function _clearTokenCache() { _tokCache = { value: null, at: 0 }; }
+
 async function getAuthToken() {
+  const now = Date.now();
+  if (_tokCache.value && (now - _tokCache.at) < _TOK_TTL_MS) return _tokCache.value;
+
   // Cap the wait so a broken init never hangs a fetch indefinitely.
   await Promise.race([
     _readyPromise,
@@ -359,13 +402,16 @@ async function getAuthToken() {
   if (!_sb) return null;
   try {
     const { data: { session } } = await _sb.auth.getSession();
-    return session?.access_token || null;
+    const t = session?.access_token || null;
+    _tokCache = { value: t, at: Date.now() };
+    return t;
   } catch (e) {
     return null;
   }
 }
 
 async function signOut() {
+  _clearTokenCache();   // before the await, so nothing in flight can re-memo it
   if (!_sb) return;
   await _sb.auth.signOut();
   // onAuthStateChange will trigger login modal
@@ -867,6 +913,54 @@ function _showUpdateBanner(newVersion) {
     try { localStorage.setItem('_hn_update_snoozed_for_version', newVersion); } catch {}
     b.remove();
   };
+}
+
+/* The Supabase UMD bundle, fetched on demand.
+ *
+ * Some pages (index.html, the /draft/<type> SEO pages) carry their own
+ * <script> tag for this; the V2 screens do not. Rather than poll for a script
+ * that may never have been requested, we look once, and if it is genuinely
+ * absent we request it ourselves and wait on the load event — which resolves
+ * in whatever the network actually takes rather than a fixed timeout.
+ *
+ * Idempotent: a page that already has the tag (still downloading) is waited on
+ * instead of getting a second copy, and concurrent callers share one promise.
+ */
+const _SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+let _supabaseLibPromise = null;
+
+function _ensureSupabaseLib() {
+  if (window.supabase && window.supabase.createClient) return Promise.resolve(true);
+  if (_supabaseLibPromise) return _supabaseLibPromise;
+
+  _supabaseLibPromise = new Promise((resolve) => {
+    const done = () => resolve(!!(window.supabase && window.supabase.createClient));
+
+    // Already on the page (e.g. /app) — just wait for it, don't add a second.
+    const existing = document.querySelector('script[src*="supabase-js"]');
+    if (existing) {
+      existing.addEventListener('load', done, { once: true });
+      existing.addEventListener('error', done, { once: true });
+      // It may have finished before we attached the listener.
+      if (window.supabase && window.supabase.createClient) return done();
+      setTimeout(done, 8000);
+      return;
+    }
+
+    const s = document.createElement('script');
+    s.src = _SUPABASE_CDN;
+    s.async = true;
+    s.addEventListener('load', done, { once: true });
+    s.addEventListener('error', () => {
+      console.error('[auth] Supabase library failed to load from', _SUPABASE_CDN);
+      done();
+    }, { once: true });
+    document.head.appendChild(s);
+    // Hard cap so a stalled CDN connection cannot hold the page hostage; the
+    // caller already handles "library not available" as a clean failure.
+    setTimeout(done, 8000);
+  });
+  return _supabaseLibPromise;
 }
 
 function _waitFor(cond, timeoutMs) {

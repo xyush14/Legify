@@ -608,6 +608,13 @@ def render_into_layout(template: dict, blocks: list[tuple]) -> bytes:
         if role == "table":
             _emit_table(out, content, template, primary)
             continue
+        if role == "page_break":
+            # A real filing is several sheets (Application · Affidavit · Index).
+            # Without this they run together and the affidavit starts mid-page,
+            # which is not a filable document in any court.
+            from docx.enum.text import WD_BREAK
+            out.add_paragraph().add_run().add_break(WD_BREAK.PAGE)
+            continue
         fmt = _role_base(role, primary, primary_size)
         fmt.update(tpl_roles.get(role, {}) or {})   # his captured format always wins
         font = fmt.get("font") or primary

@@ -2,7 +2,7 @@
 
 Chosen over Groq for the two Indic-heavy paths: Hindi handwriting OCR (court
 diary pages) and Hindi consultation speech. Sarvam Vision + Saarika are trained
-on Indian scripts, so they read Devanagari far better than Groq's Llama-4-Scout.
+on Indian scripts, so they read Devanagari far better than Groq's vision model.
 
 Enabled only when SARVAM_API_KEY is set (on Railway). When it's absent (local
 dev) `enabled()` is False and callers fall back to Groq — so nothing breaks.

@@ -54,9 +54,17 @@ def _iso(v: Any) -> str:
 
 
 def _order_key(o: dict) -> str:
-    """Identity of an order row, so the same order re-sent isn't 'new'."""
-    return "|".join([_iso(o.get("date")), _norm(o.get("type")).lower(),
-                     _norm(o.get("link") or o.get("url"))])
+    """Identity of an order row, so the same order re-sent isn't 'new'.
+
+    Must read the vendor's OWN key names (`orderDate`/`orderType`/`orderUrl`) as
+    well as ours: reading only date/type/link made every live order row hash to
+    the same empty string, so after the first one no order could ever register as
+    new."""
+    return "|".join([
+        _iso(o.get("date") or o.get("orderDate") or o.get("order_date")),
+        _norm(o.get("type") or o.get("orderType")).lower(),
+        _norm(o.get("link") or o.get("url") or o.get("orderUrl")),
+    ])
 
 
 def _hearing_key(h: dict) -> str:
@@ -115,16 +123,25 @@ def diff(stored: dict, fresh: dict) -> list[dict]:
                     "text": f"Listed for “{n_purpose}”"})
 
     # --- orders: the thing a lawyer most wants to know about
+    # The vendor names the order's own date `orderDate` and its document
+    # `orderUrl`, so reading only date/link meant a genuinely new order was
+    # skipped as having neither — and the "Save to folder" button, which the UI
+    # shows only when `link` is set, could never appear.
     seen = {_order_key(o) for o in _rows(stored, "orders")}
     for o in _rows(fresh, "orders"):
         k = _order_key(o)
-        if k in seen or not (o.get("date") or o.get("link")):
+        from headnote.cases import ecourts_client
+        when = o.get("date") or o.get("orderDate") or o.get("order_date")
+        fname = ecourts_client._order_filename(o)
+        if k in seen or not (when or fname):
             continue
-        label = _norm(o.get("type")) or "Order"
-        out.append({"kind": "new_order", "date": o.get("date"),
+        label = _norm(o.get("type")) or _norm(o.get("orderType")) or "Order"
+        out.append({"kind": "new_order", "date": when,
                     "order_type": label, "link": o.get("link") or o.get("url"),
+                    # the court's own filename — what /court-documents/fetch needs
+                    "court_filename": fname,
                     "new": label,
-                    "text": f"{label} dated {o.get('date') or '—'} is available"})
+                    "text": f"{label} dated {when or '—'} is available"})
 
     # --- the business/history rows behind the order sheet
     seen_h = {_hearing_key(h) for h in _rows(stored, "hearings")}

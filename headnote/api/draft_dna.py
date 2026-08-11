@@ -16,13 +16,18 @@ Endpoints
 Stored as one `draft_style` jsonb column on public.user_profiles
 (migrations/010_draft_dna.sql). Facts are never learned — DNA is format-side only.
 
-V2 beta gating
---------------
-GET / PATCH /api/draft-dna and /analyze stay on plain `get_current_user`: the
-LIVE /settings page calls them today, and gating them would break existing
-users. The layout-mirroring endpoints (/layout, /capture, /template, /generate,
-/render) are new and reachable only from /draft-dna, so they use `require_beta`.
-Check static/settings.html before moving anything between those two groups.
+Who can reach this
+------------------
+Every SIGNED-IN advocate — `get_current_user` throughout, no beta gate.
+
+The layout-mirroring endpoints (/layout, /capture, /template, /generate, /render)
+were originally `require_beta` because they were new and only /draft-dna called
+them. The beta is over (V2 is public), and they are now called from the fields
+drafting screen too, which every paying user is on. Leaving them gated meant the
+whole feature would silently switch off for everybody the moment `V2_PUBLIC` was
+unset — a one-env-var outage of the product's main differentiator. Draft DNA is
+per-advocate by construction (everything is keyed by his own user id), so there
+is nothing here a signed-in user should not reach for himself.
 """
 
 from __future__ import annotations
@@ -40,7 +45,6 @@ from headnote.entitlements import (
     CurrentUser,
     check_and_record,
     get_current_user,
-    require_beta,
 )
 
 log = logging.getLogger("headnote.api.draft_dna")
@@ -150,7 +154,7 @@ def _layout_summary(tpl: Optional[dict]) -> dict:
 
 
 @router.get("/layout", summary="The advocate's saved LAYOUT template (summary)")
-def get_layout(user: CurrentUser = Depends(require_beta)) -> dict:
+def get_layout(user: CurrentUser = Depends(get_current_user)) -> dict:
     return {"ok": True, **_layout_summary(style_profile.load_layout(user.id))}
 
 
@@ -159,7 +163,7 @@ async def capture_layout_dna(
     files: Optional[List[UploadFile]] = File(None),
     file: Optional[UploadFile] = File(None),
     doc_type: str = Form("general"),
-    user: CurrentUser = Depends(require_beta),
+    user: CurrentUser = Depends(get_current_user),
 ) -> dict:
     """Read the advocate's own .docx filings and persist his format under his id.
 
@@ -207,7 +211,7 @@ async def capture_layout_dna(
 
 
 @router.get("/template/{doc_type}", summary="The advocate's extracted template for one type")
-def get_template(doc_type: str, user: CurrentUser = Depends(require_beta)) -> dict:
+def get_template(doc_type: str, user: CurrentUser = Depends(get_current_user)) -> dict:
     """What Headnote will reuse verbatim from his own filing, and which values it
     will fill — so he can see the template before trusting it."""
     from headnote.drafter import dna_layout, doc_skeleton
@@ -233,7 +237,7 @@ class GenerateBody(BaseModel):
 
 @router.post("/generate", summary="A draft in the advocate's own format → .docx")
 async def generate_in_format(body: GenerateBody,
-                             user: CurrentUser = Depends(require_beta)) -> dict:
+                             user: CurrentUser = Depends(get_current_user)) -> dict:
     """Fills his own filing (exact) when he has one for this type; otherwise renders
     into his measured geometry. `how` says which path produced it."""
     from headnote.drafter import dna_layout
@@ -257,7 +261,7 @@ class RenderLayoutBody(BaseModel):
 
 
 @router.post("/render", summary="Render content INTO the advocate's saved layout (his font) → .docx")
-async def render_in_layout(body: RenderLayoutBody, user: CurrentUser = Depends(require_beta)) -> dict:
+async def render_in_layout(body: RenderLayoutBody, user: CurrentUser = Depends(get_current_user)) -> dict:
     from headnote.drafter import dna_layout
 
     src = body.blocks if body.blocks else (body.lines or [])

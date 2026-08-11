@@ -7,6 +7,10 @@
 <meta name="robots" content="noindex">
 <title>Draft — Headnote</title>
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<!-- auth.js loads the Supabase library from this host on demand; warming the
+     connection here saves a DNS+TLS round trip on the first API call. -->
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;450;500;600;700&family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600&display=swap" rel="stylesheet">
@@ -1593,12 +1597,6 @@ async function demoDraft(brief){
    ========================================================================== */
 (async function boot(){
   const p=new URLSearchParams(location.search);
-  if(!DEMO && !(await freshToken())){ gate(); return; }
-  /* V2 private beta — see static/v2-beta.js. DEMO skips it so the page stays
-     reviewable without an account; the server gates the data either way. */
-  if(!DEMO && !(await hnBetaGate())) return;
-  if(DEMO){ $('#unm').textContent='Demo mode'; $('#url').textContent='sample data'; $('#uav').textContent='D'; }
-  else whoami();
 
   $('#fileIn').addEventListener('change',e=>{ addFiles([...e.target.files]); e.target.value=''; });
   $('#brief').addEventListener('input',e=>{ autoGrow(e.target); renderCrow(); });
@@ -1636,6 +1634,21 @@ async function demoDraft(brief){
   autoGrow($('#brief'));
   renderCrow();
   $('#brief').focus();
+  const q0=p.get('q'); if(q0){ $('#brief').value=q0; autoGrow($('#brief')); renderCrow(); }
+
+  /* Auth runs AFTER the box is on screen and typable, never before it.
+     Resolving the Supabase session is an external round-trip, and the beta gate
+     then spends a second one on /api/me — measured at ~11s on a real session,
+     during which this page used to render nothing at all. The advocate can now
+     start typing his brief immediately; the token only has to exist by the time
+     he presses "Draft it". Both checks still fail exactly as they did: gate()
+     for a signed-out user, hnBetaGate()'s own screen for a non-tester. */
+  if(!DEMO && !(await freshToken())){ gate(); return; }
+  /* V2 private beta — see static/v2-beta.js. DEMO skips it so the page stays
+     reviewable without an account; the server gates the data either way. */
+  if(!DEMO && !(await hnBetaGate())) return;
+  if(DEMO){ $('#unm').textContent='Demo mode'; $('#url').textContent='sample data'; $('#uav').textContent='D'; }
+  else whoami();
 
   try{ const d=await api('/api/draft-dna/layout'); DNA=d||null; }catch(e){ DNA=null; }
   renderDna();
@@ -1643,7 +1656,6 @@ async function demoDraft(brief){
 
   const mid=p.get('matter');
   if(mid){ await loadMatters(); MATTER=(MATTERS||[]).find(m=>m.id===String(mid))||null; renderCrow(); }
-  const q=p.get('q'); if(q){ $('#brief').value=q; autoGrow($('#brief')); renderCrow(); }
 })();
 </script>
 </body>

@@ -7,6 +7,10 @@
 <meta name="robots" content="noindex">
 <title>Home — Headnote</title>
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<!-- auth.js loads the Supabase library from this host on demand; warming the
+     connection here saves a DNS+TLS round trip on the first API call. -->
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;450;500;600;700&family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600&display=swap" rel="stylesheet">
@@ -1009,35 +1013,77 @@ function whoami(){
 /* True only for an advocate who has never told us who he is AND has not
    already chosen to skip. Fails CLOSED (never redirects) if the profile call
    itself fails — a flaky network must not bounce a working chamber to setup. */
+/* Has this advocate told us who he is? Answered from the profile call, which
+   the boot fires ALONGSIDE the board rather than in front of it. */
+function profileIncomplete(p){ return !(p && p.complete); }
+
 async function needsWelcome(){
   if(/[?&](dev|demo)=1/.test(location.search)) return false;
   try{ if(localStorage.getItem('hn_welcome_skipped')==='1') return false; }catch(e){}
-  try{
-    const p=await api('/api/lawyer-profile');
-    return !(p && p.complete);
-  }catch(e){ return false; }
+  try{ return profileIncomplete(await api('/api/lawyer-profile')); }
+  catch(e){ return false; }
 }
 
+/* The board query for the state currently on screen. */
+function homeQuery(){
+  return `/api/home?date=${encodeURIComponent(selDate)}`
+       + `&week_from=${encodeURIComponent(weekAnchor)}&span=${dSpan}`;
+}
+
+/* Refetch the board and repaint. Used by everything that changes what the
+   court says; NOT by things that only change one card (see applyMatter). */
+async function reload(){
+  try{
+    HOME=await api(homeQuery());
+    CALC={};                      // counts can change under us after a sync
+    render();
+  }catch(e){ fail(e.message); }
+}
+
+/* Boot.
+
+   This used to be four network round trips, strictly one after another:
+   resolve the token, then /api/me for the beta gate, then /api/lawyer-profile
+   to decide about first-run, and only THEN ask for the board. Nothing was on
+   screen until the last of them came back, and each one is a real trip to a
+   server in another region — which is most of why opening Home felt like the
+   app had hung.
+
+   Only the token genuinely has to come first (everything else needs it in a
+   header). The other three are independent questions, so they now go out
+   together and we wait for whichever answer we need next. The board — the
+   expensive one — is therefore already in flight while the gate and the
+   profile are being decided. */
 async function load(){
   /* Refresh BEFORE the gate check, so a merely-expired token is renewed
      instead of bouncing a signed-in advocate to the sign-in screen. */
-  if(!(await freshToken()) && !/[?&]dev=1/.test(location.search)){ gate(); return; }
+  const dev=/[?&]dev=1/.test(location.search);
+  if(!(await freshToken()) && !dev){ gate(); return; }
+
+  whoami();
+  skeleton();
+
+  /* Fire all three now; await them in the order the decisions need them. A
+     rejection here must not become an unhandled rejection while we are still
+     awaiting an earlier promise, so each one is caught at the point it is
+     created. */
+  const betaP    = dev ? Promise.resolve(true) : hnBetaGate().catch(()=>false);
+  const welcomeP = needsWelcome();          // already catches internally
+  const boardP   = api(homeQuery()).catch(e=>({__err:e}));
+
   /* V2 private beta — non-testers get a calm explanation, not a broken page.
      The server enforces this too (require_beta on every /api/home* route). */
-  if(!/[?&]dev=1/.test(location.search) && !(await hnBetaGate())) return;
+  if(!(await betaP)) return;
   /* A brand-new advocate has no name, no enrolment number and no matters, so
      Home would be an empty board with nothing to act on. Send him to first-run
      once — but honour a skip, because ambushing him on every visit is worse
      than an incomplete profile. /welcome itself is where the nudge lives. */
-  if(await needsWelcome()){ location.replace('/welcome'); return; }
-  whoami();
-  skeleton();
-  try{
-    const q=`?date=${encodeURIComponent(selDate)}&week_from=${encodeURIComponent(weekAnchor)}&span=${dSpan}`;
-    HOME=await api('/api/home'+q);
-    CALC={};                      // counts can change under us after a sync
-    render();
-  }catch(e){ fail(e.message); }
+  if(await welcomeP){ location.replace('/welcome'); return; }
+
+  const h=await boardP;
+  if(h && h.__err){ fail(h.__err.message); return; }
+  HOME=h; CALC={};
+  render();
 }
 function gate(){
   $('#gate').classList.remove('hidden');
@@ -1500,9 +1546,18 @@ async function saveLink(){
    The whole argument for this product: given the CNR, nothing should be typed.
    Parties, court, judge, sections, FIR and the next date all come back from the
    court's own record — the lawyer confirms rather than fills. */
-function openAdd(){
+function openAdd(lane){
   $('#addWrap').classList.add('on');
-  $('#addBody').innerHTML=`
+  openAdd.lane = lane || openAdd.lane || 'cnr';
+  const tabs=`
+    <div class="segwrap" style="display:flex;gap:6px;margin-bottom:14px">
+      <button class="btn${openAdd.lane==='cnr'?' btn--primary':''}" style="flex:1;height:34px;font-size:12.5px"
+              onclick="openAdd('cnr')">By CNR</button>
+      <button class="btn${openAdd.lane==='no'?' btn--primary':''}" style="flex:1;height:34px;font-size:12.5px"
+              onclick="openAdd('no')">By case number</button>
+    </div>`;
+  if(openAdd.lane==='no'){ $('#addBody').innerHTML=tabs+addNoLane(); paintCourtPick(); return; }
+  $('#addBody').innerHTML=tabs+`
     <div style="font-size:13.5px;color:var(--ink-2);line-height:1.6;margin-bottom:14px">
       Paste the 16-character CNR. Headnote reads the case from the court record —
       parties, court, sections and the next date fill themselves.</div>
@@ -1510,13 +1565,150 @@ function openAdd(){
       <input id="cnrIn" autocomplete="off" spellcheck="false" placeholder="MPGW010000122021"
              style="font-family:var(--mono);letter-spacing:.04em;text-transform:uppercase"
              onkeydown="if(event.key==='Enter')addCnr()"></div>
-    <div id="addMsg" style="font-size:12.5px;color:var(--ink-3);margin-top:10px">Nothing is saved until you confirm.</div>
+    <div id="addMsg" style="font-size:12.5px;color:var(--ink-3);margin-top:10px">
+      Don’t have the CNR? Use <b>By case number</b> — pick your court and type 6345/2017.</div>
     <div style="display:flex;gap:8px;margin-top:16px">
       <button class="btn btn--primary" id="addGo" onclick="addCnr()">Look it up</button>
       <button class="btn" onclick="closeAdd()">Cancel</button></div>`;
   setTimeout(()=>{ const i=$('#cnrIn'); if(i) i.focus(); },40);
 }
 function closeAdd(){ $('#addWrap').classList.remove('on'); }
+
+/* ---------------- add a matter by CASE NUMBER + court ----------------
+   Almost no advocate carries the 16-character CNR in his head; he knows
+   "6345/2017" and the court he filed it in. Same contract as the CNR lane:
+   the court's own record fills everything, and nothing is saved until he ticks.
+   The court MUST be picked — the identical number exists in every district. */
+let COURT={code:'',description:''}, NOCAND=[], CTLIST=[], _ctT=null;
+
+function addNoLane(){
+  return `
+    <div style="font-size:13.5px;color:var(--ink-2);line-height:1.6;margin-bottom:14px">
+      No CNR needed. Choose the court, type the case number as the court registers it
+      — Headnote reads the rest from the court record.</div>
+    <div id="ctPick"></div>
+    <div class="msbox" style="height:44px;margin-top:8px"><svg viewBox="0 0 24 24">${IC.folder}</svg>
+      <input id="noIn" autocomplete="off" spellcheck="false" placeholder="Case number — e.g. 6345/2017"
+             style="font-family:var(--mono);letter-spacing:.02em"
+             onkeydown="if(event.key==='Enter')runNoSearch()"></div>
+    <div id="noMsg" style="font-size:12.5px;color:var(--ink-3);margin-top:10px">
+      Registration or filing number, both work. Nothing is saved until you confirm.</div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn--primary" id="noGo" onclick="runNoSearch()">Find the case</button>
+      <button class="btn" onclick="closeAdd()">Cancel</button></div>`;
+}
+
+function paintCourtPick(){
+  const p=$('#ctPick'); if(!p) return;
+  p.innerHTML = COURT.code ? `
+    <div class="regrow" style="grid-template-columns:1fr auto;padding:10px 12px;border:1px solid var(--line);border-radius:8px">
+      <div><div style="font-size:13px">${esc(COURT.description)}</div>
+        <div class="rc-mono" style="font-size:10.5px;color:var(--ink-4);margin-top:2px">${esc(COURT.code)}</div></div>
+      <button class="btn" style="height:28px;font-size:12px" onclick="COURT={code:'',description:''};paintCourtPick()">Change</button>
+    </div>` : `
+    <div class="msbox" style="height:44px"><svg viewBox="0 0 24 24">${IC.research}</svg>
+      <input id="ctIn" autocomplete="off" placeholder="Your court — type a district or city (e.g. Gwalior)"
+             oninput="courtLookup(this.value)"></div>
+    <div id="ctList" style="margin-top:6px"></div>`;
+  if(!COURT.code) setTimeout(()=>{const i=$('#ctIn'); if(i) i.focus();},40);
+}
+
+function courtLookup(q){
+  clearTimeout(_ctT);
+  const list=$('#ctList'); if(!list) return;
+  q=(q||'').trim();
+  if(q.length<3){ list.innerHTML=''; return; }
+  list.innerHTML=`<div style="font-size:12px;color:var(--ink-4);padding:6px 2px">Searching the court directory…</div>`;
+  _ctT=setTimeout(async()=>{
+    try{
+      const r=await api(`/api/cases/courts?q=${encodeURIComponent(q)}&limit=25`);
+      CTLIST=r.items||[];
+      /* index, not inlined JSON — a court named "Judge's Court" would break an
+         inline object literal inside an onclick attribute. */
+      list.innerHTML = CTLIST.length ? `
+        <div class="ledger" style="max-height:210px;overflow:auto">${CTLIST.map((c,i)=>`
+          <div class="regrow" style="grid-template-columns:1fr;padding:9px 12px;cursor:pointer"
+               onclick="pickCourt(${i})">
+            <div style="font-size:13px">${esc(c.description)}</div>
+            <div class="rc-mono" style="font-size:10.5px;color:var(--ink-4);margin-top:2px">${esc(c.code)}</div>
+          </div>`).join('')}</div>` :
+        `<div style="font-size:12px;color:var(--ink-3);padding:6px 2px">No court matched “${esc(q)}”. Try the district name on its own.</div>`;
+    }catch(e){
+      list.innerHTML=`<div style="font-size:12px;color:var(--amber);padding:6px 2px">${esc(e.message)}</div>`;
+    }
+  },260);
+}
+
+function pickCourt(i){
+  const c=CTLIST[i]; if(!c) return;
+  COURT={code:c.code,description:c.description};
+  paintCourtPick();
+  setTimeout(()=>{const n=$('#noIn'); if(n) n.focus();},40);
+}
+
+async function runNoSearch(){
+  const num=(($('#noIn')||{}).value||'').trim();
+  const msg=$('#noMsg'), go=$('#noGo');
+  if(!COURT.code){ msg.innerHTML='<span style="color:var(--amber)">Pick your court first — the same case number exists in every district in India.</span>'; return; }
+  if(!num){ msg.innerHTML='<span style="color:var(--amber)">Type the case number, e.g. 6345/2017.</span>'; return; }
+  go.disabled=true; go.textContent='Reading the court record…'; msg.textContent='';
+  try{
+    const r=await api('/api/cases/import/case-number/search',{method:'POST',
+      body:JSON.stringify({case_number:num,court_code:COURT.code})});
+    NOCAND=r.candidates||[];
+    if(!NOCAND.length){
+      $('#addBody').innerHTML=`
+        <div class="paneempty" style="padding:26px"><div class="ic">${S(IC.alert)}</div>
+          The court record has no case <b>${esc(num)}</b> in this court.<br>
+          <span style="font-size:12px">Check the number and the year, or try the other court
+          if the matter has moved.</span></div>
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="btn" onclick="openAdd('no')">Try again</button>
+          <button class="btn" onclick="closeAdd()">Close</button></div>`;
+      return;
+    }
+    $('#addBody').innerHTML=`
+      <div style="font-size:13.5px;color:var(--ink-2);margin-bottom:12px">
+        ${r.exact?`<b>${r.exact}</b> case${r.exact>1?'s carry':' carries'} that exact number.`:'No case carries that exact number.'}
+        ${NOCAND.length>r.exact?` The court also returned ${NOCAND.length-r.exact} near match${NOCAND.length-r.exact>1?'es':''} — left unticked.`:''}
+        Tick what is yours.</div>
+      <div class="ledger" style="max-height:340px;overflow:auto">
+        ${NOCAND.map((c,i)=>`
+          <label class="regrow" style="grid-template-columns:26px 1fr;padding:10px 12px;cursor:pointer">
+          <input type="checkbox" class="nocb" data-i="${i}"${c.exact_match?' checked':''}>
+          <div>
+            <div style="font-size:13.5px;font-weight:500">${esc(c.case_title||'—')}
+              ${c.exact_match?'':'<span class="ncount" style="background:var(--amber-soft);color:var(--amber)">near match</span>'}</div>
+            <div class="rc-mono" style="font-size:11px;color:var(--ink-3);margin-top:3px">
+              ${esc(c.case_type||'')} ${esc(c.registration_number||'')}${c.filing_number&&c.filing_number!==c.registration_number?' · filed '+esc(c.filing_number):''}
+              ${c.case_status?' · '+esc(c.case_status):''}${c.next_hearing_date?' · next '+esc(c.next_hearing_date):''}</div>
+            <div style="font-size:11.5px;color:var(--ink-3);margin-top:3px">${esc(c.court_name||'')}${c.judge?' · '+esc(c.judge):''}</div>
+            ${(c.advocates||[]).length?`<div style="font-size:11px;color:var(--ink-4);margin-top:2px">Advocates: ${esc((c.advocates||[]).join(', '))}</div>`:''}
+            <div class="rc-mono" style="font-size:10.5px;color:var(--ink-4);margin-top:2px">CNR ${esc(c.cnr||'')}</div>
+          </div></label>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button class="btn btn--primary" id="noSave" onclick="saveNoPicked()">Add the ticked matters</button>
+        <button class="btn" onclick="openAdd('no')">Search again</button></div>`;
+  }catch(e){
+    go.disabled=false; go.textContent='Find the case';
+    msg.innerHTML=`<span style="color:var(--amber)">${esc(e.message)}</span>`;
+  }
+}
+
+async function saveNoPicked(){
+  const cnrs=[...document.querySelectorAll('.nocb')].filter(c=>c.checked)
+    .map(c=>NOCAND[+c.dataset.i].cnr).filter(Boolean);
+  if(!cnrs.length){ toast('Nothing ticked','error'); return; }
+  const b=$('#noSave'); b.disabled=true; b.textContent=`Adding ${cnrs.length}…`;
+  try{
+    const r=await api('/api/cases/import/advocate/confirm',{method:'POST',body:JSON.stringify({cnrs})});
+    closeAdd();
+    toast(`${r.imported} matter(s) added from the court record`,'success');
+    MATTERS=null;
+    load();
+  }catch(e){ b.disabled=false; b.textContent='Add the ticked matters'; toast(e.message,'error'); }
+}
 
 async function addCnr(){
   const inp=$('#cnrIn'); if(!inp) return;
@@ -2177,7 +2369,7 @@ function renderUpdates(){
       <span class="ui">${S(ico[u.kind]||IC.alert)}</span>
       <div class="ub"><div class="ut">${esc(u.text)}</div>
         <div class="us">${esc(u.party||'')}${u.court_name?' · '+esc(courtBase(u.court_name)):''}</div></div>
-      ${u.kind==='new_order'&&u.link?`<button class="btn btn--sm" onclick="saveOrder('${u.case_id}','${esc(u.link)}','${esc(u.date||'')}','${esc(u.order_type||'Order')}',this)">${S(IC.doc)} Save to folder</button>`:''}
+      ${u.kind==='new_order'&&(u.court_filename||u.link)?`<button class="btn btn--sm" onclick="saveNewOrder('${u.case_id}','${esc(u.court_filename||'')}','${esc(u.link||'')}','${esc(u.date||'')}','${esc(u.order_type||'Order')}',this)">${S(IC.doc)} Save to folder</button>`:''}
       <button class="btn btn--sm" onclick="openFolder('${u.case_id}')">Open</button>
       <button class="uclr" title="Mark seen" onclick="clearUpdates('${u.case_id}')">✕</button>
     </div>`).join('')}
@@ -2232,6 +2424,43 @@ async function saveOrder(id,link,date,type,btn){
   }catch(e){ toast(e.message,'error'); if(btn){ btn.disabled=false; btn.textContent='Save to folder'; } }
 }
 
+/* An order the sweep just found. Prefer the court's own filename (an
+   authenticated, paid vendor fetch of the signed copy); fall back to a plain
+   public link when the listing happens to carry one. */
+async function saveNewOrder(id,filename,link,date,type,btn){
+  if(filename){
+    if(btn){ btn.disabled=true; btn.textContent='Getting the court copy…'; }
+    try{
+      const r=await api(`/api/matters/${id}/court-documents/fetch`,{method:'POST',
+        body:JSON.stringify({filename,date,title:type})});
+      toast(r.already_saved?'That order is already in this folder'
+        :'Order filed in the case folder'+(r.ocr?' and read':''),'success');
+      await load();
+    }catch(e){ toast(e.message,'error'); if(btn){ btn.disabled=false; btn.textContent='Save to folder'; } }
+    return;
+  }
+  return saveOrder(id,link,date,type,btn);
+}
+
+/* Pull one of the court's own order PDFs into this matter's folder. One document
+   per tap on purpose: each is a paid call to the court-record service, so a
+   "download everything" button would spend real money on orders nobody opened. */
+let COURTDOCS=[];
+async function pullCourtDoc(id,i,btn){
+  const o=COURTDOCS[i]; if(!o) return;
+  if(btn){ btn.disabled=true; btn.textContent='Getting the court copy…'; }
+  try{
+    const r=await api(`/api/matters/${id}/court-documents/fetch`,{method:'POST',
+      body:JSON.stringify({filename:o.filename,date:o.date,title:o.title})});
+    toast(r.already_saved?'That order is already in this folder'
+      :`${o.title||'Order'} filed in this matter${r.ocr?' and read':''}`,'success');
+    await openFolder(id);
+  }catch(e){
+    toast(e.message,'error');
+    if(btn){ btn.disabled=false; btn.textContent='Save to folder'; }
+  }
+}
+
 /* ---------------- the case folder: everything filed under one matter ------- */
 let FOLDER=null;
 async function openFolder(id){
@@ -2267,6 +2496,23 @@ function paintFolder(id){
   tile('recs','mic','Recordings',f.recordings||[],r=>`<div class="ctile"><div class="ct">${esc(r.title||'Consultation')}</div><div class="cm">${r.duration_sec?Math.round(r.duration_sec/60)+' min':''}${r.created_at?' · '+esc(String(r.created_at).slice(0,10)):''}</div></div>`,'New recording',`location.href='/recorder?case_id=${id}'`);
   tile('docs','doc','Documents',f.documents||[],d=>`<div class="ctile"><div class="ct">${esc(d.title||'Document')}</div><div class="cm">${d.page_count||1} pp${d.doc_type?' · '+esc(d.doc_type):''}</div></div>`,'Upload document',`location.href='/documents?case_id=${id}'`);
   tile('law','research','Saved research',f.caselaw||[],a=>`<div class="ctile"><div class="ct">${esc(a.title||a.case_id)}</div><div class="cm">${esc(a.court||'')}${a.citation?' · '+esc(a.citation):''}</div></div>`,'Find law for this case',`location.href='/research?matter=${id}'`);
+  /* The court's OWN signed orders and judgments. Listing them is free — it comes
+     off the case record we already hold — so every order the court has is shown
+     whether or not we hold the PDF. Pulling a PDF is a paid call, so it happens
+     one document at a time, on his tap, and never twice for the same order. */
+  COURTDOCS=f.court_orders||[];
+  tile('corders','doc','From the court record',COURTDOCS,(o,i)=>`
+    <div class="ctile">
+      <div class="ct">${esc(o.title||'Order')}${o.kind==='judgment'?' <span class="ncount">judgment</span>':''}</div>
+      <div class="cm">${o.date?esc(o.date):'date not stated'}</div>
+      <div style="margin-top:8px">${
+        o.saved
+          ? `<span style="font-size:11.5px;color:var(--green)">✓ in this folder</span>`
+          : o.fetchable
+            ? `<button class="btn btn--sm" onclick="pullCourtDoc('${id}',${i},this)">${S(IC.doc)} Save to folder</button>`
+            : `<span style="font-size:11.5px;color:var(--ink-4)">the court lists this order but gives no copy to download</span>`
+      }</div>
+    </div>`);
   if((f.hearing_logs||[]).length){
     secs.push({id:'hear',t:'Hearings',n:f.hearing_logs.length});
     filed.push(`<section class="cblk" id="cf-hear"><div class="cbh">${S(IC.clock)} Hearings <span class="ncount">${f.hearing_logs.length}</span></div>

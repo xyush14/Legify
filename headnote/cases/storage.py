@@ -193,6 +193,32 @@ def _sb_merge_prep(case_id, user_id, prep: dict) -> Optional[dict]:
     return _sb_get_case(case_id, user_id)
 
 
+def _sb_mark_updates_seen(case_id, user_id, case_json: Optional[dict]) -> int:
+    """Tick every court update on this matter as seen. Returns how many.
+
+    Deliberately NOT `replace_case_identity`: that reads the row, merges an
+    entire eCourts case over it and rewrites nine columns — far too much
+    machinery for setting a boolean, and it costs a read before every write.
+    Dismissing a notification should be one PATCH of one column.
+
+    `case_json` may be handed in by a caller that already holds the row (the
+    bulk path holds the whole docket), which removes the read entirely.
+    """
+    cj = case_json
+    if cj is None:
+        row = _sb_get_case(case_id, user_id)
+        if row is None:
+            return 0
+        cj = row.get("case_json") or {}
+    ups = [u for u in (cj.get("updates") or []) if isinstance(u, dict)]
+    if not any(not u.get("seen") for u in ups):
+        return 0                        # nothing unread — don't spend a write
+    cj = {**cj, "updates": [{**u, "seen": True} for u in ups]}
+    _supabase.update(_CASES, {"case_json": cj, "updated_at": _now()},
+                     params={"id": f"eq.{case_id}", "user_id": f"eq.{user_id}"})
+    return len(ups)
+
+
 def _sb_set_next_date(case_id, user_id, next_hearing_date, stage) -> Optional[dict]:
     row = _sb_get_case(case_id, user_id)
     if row is None:
@@ -477,6 +503,27 @@ def _sq_merge_prep(case_id, user_id, prep: dict) -> Optional[dict]:
     return _sq_get_case(case_id, user_id)
 
 
+def _sq_mark_updates_seen(case_id, user_id, case_json: Optional[dict]) -> int:
+    """SQLite twin of _sb_mark_updates_seen — see the note there."""
+    cj = case_json
+    if cj is None:
+        row = _sq_get_case(case_id, user_id)
+        if row is None:
+            return 0
+        cj = row.get("case_json") or {}
+    ups = [u for u in (cj.get("updates") or []) if isinstance(u, dict)]
+    if not any(not u.get("seen") for u in ups):
+        return 0
+    cj = {**cj, "updates": [{**u, "seen": True} for u in ups]}
+    with _conn() as c:
+        c.execute(
+            "UPDATE cases SET case_json = ?, updated_at = ? WHERE id = ? AND user_id IS ?",
+            (json.dumps(cj, ensure_ascii=False), _now(), case_id, user_id),
+        )
+        c.commit()
+    return len(ups)
+
+
 def _sq_set_next_date(case_id, user_id, next_hearing_date, stage) -> Optional[dict]:
     row = _sq_get_case(case_id, user_id)
     if row is None:
@@ -611,6 +658,20 @@ def merge_prep(case_id: str, *, user_id: Optional[str], prep: dict) -> Optional[
     if _use_sb():
         return _sb_merge_prep(case_id, user_id, prep)
     return _sq_merge_prep(case_id, user_id, prep)
+
+
+def mark_updates_seen(case_id: str, *, user_id: Optional[str],
+                      case_json: Optional[dict] = None) -> int:
+    """Tick every court update on this matter as seen; returns how many.
+
+    Pass `case_json` when the caller already has the row in hand (the whole
+    docket is in memory while Home is being painted) — then dismissing a
+    notification is one write and no read. Returns 0 without writing when
+    there was nothing unread.
+    """
+    if _use_sb():
+        return _sb_mark_updates_seen(case_id, user_id, case_json)
+    return _sq_mark_updates_seen(case_id, user_id, case_json)
 
 
 def set_next_date(case_id: str, *, user_id: Optional[str],

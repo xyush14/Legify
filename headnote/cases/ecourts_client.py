@@ -142,7 +142,9 @@ def _fetch_live(cnr: str) -> dict:
     url = f"{config.CNR_API_BASE_URL.rstrip('/')}{config.CNR_API_CASE_PATH.rstrip('/')}/{cnr}"
     r = httpx.get(url, headers=_headers(), timeout=25.0)
     if r.status_code != 200:
-        raise ValueError(f"vendor {r.status_code} at {r.url}: {r.text[:300]}")
+        # 402/429 → VendorAccountError, so an empty wallet is never reported to
+        # the lawyer as "that is not a valid CNR".
+        _raise_vendor(r)
     payload = r.json() or {}
     data = payload.get("data") if isinstance(payload.get("data"), dict) else payload
     # Case detail nests the record under data.courtCaseData; search rows are flat.
@@ -204,9 +206,15 @@ def _normalise_webapi(row: dict, cnr: str = "") -> dict:
     c["respondent_advocates"] = _names(_first(row, "respondentAdvocates", default=[]))
     c["judge"] = (", ".join(_names(_first(row, "judges", default=[]))) or None)
 
+    # actsAndSections comes back as a LIST on some rows and as one pipe-joined
+    # STRING on others ("Indian Penal Code (I.P.C.), 1860 | Sections 304, 279").
+    # Only the list branch existed, so the string form was silently dropped and
+    # every live case showed no sections at all.
     secs = _first(row, "actsAndSections", default=[])
     if isinstance(secs, list):
         c["sections"] = [str(s) for s in secs if s]
+    elif isinstance(secs, str) and secs.strip():
+        c["sections"] = [p.strip() for p in secs.split("|") if p.strip()]
     c["sections_en"] = list(c["sections"])
 
     # richer fields present on the case-detail record (absent on search rows)
@@ -217,9 +225,19 @@ def _normalise_webapi(row: dict, cnr: str = "") -> dict:
     c["police_station"] = _first(fir, "policeStation", "police_station")
     c["fir_number"] = _first(fir, "firNumber", "fir_number")
     c["fir_year"] = _first(fir, "firYear", "fir_year")
-    io = _first(row, "interimOrders", "judgmentOrders", default=[])
-    if isinstance(io, list):
-        c["orders"] = io
+    # BOTH order lists, concatenated. _first() returns whichever is non-empty
+    # FIRST, so a case carrying interim orders AND a judgment silently lost the
+    # judgment — the single most important document on the file.
+    orders = []
+    for key, kind in (("interimOrders", "interim"), ("judgmentOrders", "judgment")):
+        v = row.get(key)
+        if isinstance(v, list):
+            for o in v:
+                if isinstance(o, dict):
+                    orders.append({**o, "_kind": o.get("_kind") or kind})
+                elif o:
+                    orders.append({"title": str(o), "_kind": kind})
+    c["orders"] = orders
     ia = _first(row, "interlocutoryApplications", default=[])
     if isinstance(ia, list):
         c["ias"] = ia
@@ -267,6 +285,145 @@ def resolve_city_to_courts(city: str, *, limit: int = 15) -> list[str]:
             if len(out) >= limit:
                 break
     return out
+
+
+class VendorAccountError(RuntimeError):
+    """The vendor refused for a BILLING reason, not a data reason — the case may
+    well exist. Kept distinct so the lawyer is never told 'no such case' when the
+    truth is that our own account is out of credit."""
+
+
+def _raise_vendor(r) -> None:
+    """Turn a non-200 vendor response into the right exception. 402/429 are OUR
+    problem (wallet empty / rate-limited) and must never read as 'not found'."""
+    body = (r.text or "")[:300]
+    if r.status_code in (402, 429) or "INSUFFICIENT_CREDITS" in body:
+        raise VendorAccountError(
+            f"court-record service unavailable (vendor {r.status_code}): {body}")
+    raise ValueError(f"vendor {r.status_code} at {r.url}: {body}")
+
+
+def court_options(query: str = "", *, limit: int = 40) -> list[dict]:
+    """The court picker's source of truth: the vendor's own court directory
+    (~10,000 entries — every district court, family court, HC bench and DCDRC),
+    filtered by a typed fragment of the court / district / state name.
+
+    Returns [{code, description}]. The vendor's descriptions are imperfect (a row
+    may name one district and a neighbouring one), so we OVER-match deliberately
+    and let the lawyer read the full description and pick — the same principle as
+    the advocate import: never guess the court on his behalf."""
+    q = (query or "").strip().lower()
+    out = []
+    for e in _court_index():
+        code, desc = str(e.get("code") or ""), str(e.get("description") or "")
+        if code == "UNKNOWN" or not code:
+            continue
+        if q and q not in desc.lower() and q not in code.lower():
+            continue
+        out.append({"code": code, "description": desc})
+        if len(out) >= limit:
+            break
+    return out
+
+
+_CASE_TYPE_INDEX = None
+
+
+def case_type_options() -> list[dict]:
+    """The vendor's case-type directory (CC, ABA, SC, MJC, WP_C …) as
+    [{code, description}], for the optional 'type of case' narrowing. Optional by
+    design: a lawyer knows '6345/2017' far more reliably than he knows the
+    vendor's code for it."""
+    global _CASE_TYPE_INDEX
+    if _CASE_TYPE_INDEX is None:
+        try:
+            url = config.CNR_API_BASE_URL.rstrip("/") + "/api/partner/enums"
+            r = httpx.get(url, params={"types": "caseType"}, headers=_headers(), timeout=30.0)
+            data = (r.json() or {}).get("data") or {}
+            rows = data.get("enums", {}).get("caseType", []) or []
+        except Exception:  # noqa: BLE001 — non-fatal; the field is optional
+            rows = []
+        _CASE_TYPE_INDEX = [{"code": x.get("code"), "description": x.get("description")}
+                            for x in rows if x.get("code") and x.get("code") != "UNKNOWN"]
+    return _CASE_TYPE_INDEX
+
+
+def search_by_case_number(*, case_number: str, court_code: str = "", state: str = "",
+                          case_type: str = "", pending_only: bool = False,
+                          page_size: int = 25) -> list[dict]:
+    """Find cases by the number the lawyer actually knows — '6345/2017' — scoped
+    to a court he picks. The alternative to the CNR, which most advocates do not
+    carry in their head.
+
+    Verified live against the vendor: ``CaseNumbers`` matches the REGISTRATION
+    number or the FILING number, and the search row already carries parties,
+    advocates, court, judge, acts, stage and the next hearing date — so one call
+    is enough to show the lawyer what he is about to save.
+
+    Two things this must respect:
+      • The match is RELEVANCE-ranked, not exact — '1/2024' also returns
+        '396/2024'. Every candidate is therefore returned with ``exact_match``
+        set from OUR OWN normalised comparison, exact ones first, and nothing is
+        stored until the lawyer ticks it.
+      • Without a court scope the number is hopelessly ambiguous ('6345/2017'
+        exists in dozens of courts across India), so a court or a state is
+        REQUIRED rather than optional.
+    """
+    target = _caseno_key(case_number)
+    if not target:
+        raise ValueError("Enter the case number, e.g. 6345/2017")
+    if not (court_code or state):
+        raise ValueError("Pick the court (or at least the State) — the same case "
+                         "number exists in every district in India")
+
+    if config.CNR_API_MODE != "live":
+        return _search_by_case_number_mock(case_number, court_code=court_code)
+
+    if not config.CNR_API_TOKEN:
+        raise RuntimeError("CNR_API_MODE=live but CNR_API_TOKEN is not set")
+
+    url = config.CNR_API_BASE_URL.rstrip("/") + config.CNR_API_ADVOCATE_PATH
+    params = [("CaseNumbers", str(case_number).strip()), ("PageSize", page_size), ("Page", 1)]
+    if court_code:
+        params.append(("CourtCodes", court_code))
+    if state:
+        params.append(("StateCodes", state))
+    if case_type:
+        params.append(("CaseTypes", case_type))
+    if pending_only:
+        params.append(("CaseStatuses", "PENDING"))
+    r = httpx.get(url, params=params, headers=_headers(), timeout=40.0)
+    if r.status_code != 200:
+        _raise_vendor(r)
+    rows = ((r.json() or {}).get("data") or {}).get("results") or []
+
+    out = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        c = _normalise_webapi(row, _first(row, "cnr", "id", default=""))
+        c["exact_match"] = target in {_caseno_key(c.get("registration_number")),
+                                      _caseno_key(c.get("filing_number"))}
+        out.append(c)
+    out.sort(key=lambda c: (not c.get("exact_match"),))
+    return out
+
+
+def _search_by_case_number_mock(case_number: str, *, court_code: str = "") -> list[dict]:
+    """One deterministic candidate carrying the typed number, so the
+    pick-a-court → search → tick → save flow is demoable with no vendor key."""
+    num, _, yr = str(case_number or "").partition("/")
+    seed = re.sub(r"\D", "", num) or "1"
+    yy = (re.sub(r"\D", "", yr) or "24")[-2:]
+    c = _fetch_mock(f"MPGW01{int(seed) % 1000000:06d}20{yy}")
+    c["case_number"] = re.sub(r"\D", "", num) or c["case_number"]
+    c["case_year"] = "20" + yy
+    c["registration_number"] = f"{c['case_number']}/{c['case_year']}"
+    c["source"] = "mock"
+    c["exact_match"] = True
+    if court_code:
+        c["raw"]["_court_code"] = court_code
+    return [c]
 
 
 def import_by_advocate(enrolment_number: str = "", *, advocate_name: str = "",
@@ -379,6 +536,147 @@ def resolve_cnr(*, case_number: str, advocate_name: str = "", city: str = "",
         c["source"] = "mock"
         return [c]
     return []
+
+
+# ------------------------------------------------------- court order documents
+# eCourts publishes the court's OWN signed order and judgment PDFs, and the
+# vendor proxies them. Two facts drive the whole design here:
+#
+#   • The LIST is free — it arrives inside the case detail we already pay for,
+#     as interimOrders[] / judgmentOrders[] carrying an `orderUrl`.
+#   • Each PDF costs ₹3.75 (measured against the live vendor 2026-08-10, the
+#     same price signed or unsigned).
+#
+# So we surface the list for nothing and fetch a PDF only when the lawyer asks
+# for that one. Blind-syncing every order on every matter would spend real money
+# per matter, per sweep, on documents nobody opened.
+_ORDER_FILENAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,120}\.pdf$", re.I)
+
+
+def _order_filename(entry: dict) -> str:
+    """Pull the vendor's order filename out of an order entry.
+
+    The filename is the vendor's own key for the document (e.g. 'order-1.pdf');
+    the endpoint rejects anything else with INVALID_FILENAME. It may arrive as a
+    bare filename or as the tail of `orderUrl`, so accept either — and validate,
+    because this value comes from a THIRD PARTY and lands in a URL path. A
+    filename containing a slash or '..' must never be able to redirect the fetch
+    somewhere else."""
+    cand = ""
+    for key in ("filename", "fileName", "downloadFilename", "orderUrl", "url", "link"):
+        v = (entry or {}).get(key)
+        if v:
+            cand = str(v).split("?")[0].split("#")[0].rstrip("/").rsplit("/", 1)[-1]
+            if _ORDER_FILENAME_RE.match(cand):
+                return cand
+    return ""
+
+
+def case_orders(case: dict) -> list[dict]:
+    """The court's orders and judgments for one matter, as a plain list.
+
+    Reads what is ALREADY stored on the matter (no vendor call, no cost) and
+    returns [{kind, date, title, filename, fetchable}]. `fetchable` is False when
+    the vendor gave us no usable filename — those rows are still shown, because
+    "the court has an order here that we cannot pull" is information the lawyer
+    needs, and hiding it would look like the order does not exist."""
+    out = []
+    for o in (case or {}).get("orders") or []:
+        if not isinstance(o, dict):
+            continue
+        fn = _order_filename(o)
+        kind = o.get("_kind") or ("judgment" if "judg" in
+                                  str(o.get("orderType") or o.get("type") or "").lower()
+                                  else "interim")
+        out.append({
+            "kind": kind,
+            "date": _first(o, "orderDate", "date", "order_date"),
+            "title": _first(o, "orderType", "type", "title", "orderNumber",
+                            default="Order"),
+            "filename": fn,
+            "fetchable": bool(fn),
+        })
+    return out
+
+
+def fetch_order_pdf(cnr: str, filename: str, *, signed: bool = True) -> tuple[bytes, str]:
+    """Download ONE court order PDF. Returns (bytes, content_type).
+
+    COSTS ₹3.75 per call — never call this in a loop over a whole docket without
+    the lawyer having asked for those specific orders.
+
+    `signed=True` (default) is the vendor's watermarked certified true copy;
+    `signed=False` is the raw court PDF. Default to the certified copy: an
+    advocate filing or serving a copy wants the one that carries the court's
+    signature.
+    """
+    cnr = clean_cnr(cnr)
+    if not is_valid_cnr(cnr):
+        raise ValueError(f"'{cnr}' is not a valid 16-character CNR")
+    filename = (filename or "").strip()
+    if not _ORDER_FILENAME_RE.match(filename):
+        raise ValueError("that is not a court order filename")
+    if config.CNR_API_MODE != "live":
+        return _fetch_order_pdf_mock(cnr, filename)
+    if not config.CNR_API_TOKEN:
+        raise RuntimeError("CNR_API_MODE=live but CNR_API_TOKEN is not set")
+
+    url = (f"{config.CNR_API_BASE_URL.rstrip('/')}"
+           f"{config.CNR_API_CASE_PATH.rstrip('/')}/{cnr}/order/{filename}")
+    params = {} if signed else {"signed": "false"}
+    r = httpx.get(url, params=params, headers=_headers(), timeout=60.0,
+                  follow_redirects=True)
+    if r.status_code != 200:
+        _raise_vendor(r)
+
+    ctype = (r.headers.get("content-type") or "").split(";")[0].strip().lower()
+    # The endpoint may hand back the PDF itself or a JSON envelope pointing at
+    # one. Handle both, and NEVER hand a JSON body back as if it were the order —
+    # that would file an error message into a lawyer's case folder captioned
+    # "Order dated 10/07/2025".
+    if ctype == "application/json" or r.content[:1] == b"{":
+        data = (r.json() or {}).get("data") or {}
+        link = _first(data, "url", "downloadUrl", "signedUrl", "link")
+        if not link:
+            raise ValueError("the vendor returned no order document")
+        r2 = httpx.get(link, timeout=60.0, follow_redirects=True)
+        if r2.status_code != 200:
+            _raise_vendor(r2)
+        blob = r2.content
+        ctype = (r2.headers.get("content-type") or "").split(";")[0].strip().lower()
+    else:
+        blob = r.content
+
+    if not blob:
+        raise ValueError("the court returned an empty file")
+    if not (blob[:5] == b"%PDF-" or "pdf" in ctype):
+        raise ValueError("what came back is not a PDF")
+    return blob, (ctype or "application/pdf")
+
+
+def _fetch_order_pdf_mock(cnr: str, filename: str) -> tuple[bytes, str]:
+    """A minimal but genuinely valid one-page PDF, so the download → OCR → file
+    in the vault path is exercisable end-to-end with no vendor key and no spend."""
+    body = (f"BT /F1 11 Tf 40 780 Td (Order in {cnr}) Tj ET\n"
+            f"BT /F1 9 Tf 40 762 Td ({filename} - sample) Tj ET")
+    objs = [
+        "1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj",
+        "2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj",
+        "3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]"
+        "/Resources<</Font<</F1 4 0 R>>>>/Contents 5 0 R>>endobj",
+        "4 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj",
+        f"5 0 obj<</Length {len(body)}>>stream\n{body}\nendstream endobj",
+    ]
+    pdf = "%PDF-1.4\n"
+    offsets = []
+    for o in objs:
+        offsets.append(len(pdf))
+        pdf += o + "\n"
+    start = len(pdf)
+    pdf += f"xref\n0 {len(objs) + 1}\n0000000000 65535 f \n"
+    pdf += "".join(f"{off:010d} 00000 n \n" for off in offsets)
+    pdf += (f"trailer<</Size {len(objs) + 1}/Root 1 0 R>>\nstartxref\n{start}\n%%EOF\n")
+    return pdf.encode("latin-1"), "application/pdf"
 
 
 def probe_raw(path: str, params: dict) -> dict:

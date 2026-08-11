@@ -12,6 +12,7 @@ live-preview, PDF/print/WhatsApp) keep working unchanged.
 from __future__ import annotations
 
 import inspect
+from typing import Optional
 
 from headnote.drafter.bundle import module_for, assemble
 from headnote.drafter.templates._doc_header import HEADER_CSS
@@ -131,6 +132,26 @@ def is_canonical(tid: str) -> bool:
     return tid in CANONICAL_MAP
 
 
+def spec_for(tid: str) -> dict:
+    """The reviewed `field_spec` behind an editor id — the list of knobs that
+    exist. The AI change-box validates every requested change against this, which
+    is what keeps a prompt from inventing a field (or a ground) that no advocate
+    reviewed."""
+    return _spec(tid)
+
+
+def editor_id_for(doc_type: str, court: str, bail_type: str = "regular") -> Optional[str]:
+    """(canonical type, court, bail_type) → the editor id that serves it.
+
+    The reverse of CANONICAL_MAP. Needed when a change moves the filing to a
+    different forum ("file this in the High Court instead"): the court is not a
+    field, it is a different reviewed template, so the screen has to switch id."""
+    for tid, (t, c, bt) in CANONICAL_MAP.items():
+        if t == doc_type and c == court and bt == bail_type:
+            return tid
+    return None
+
+
 def _spec(tid: str) -> dict:
     t, court, bt = CANONICAL_MAP[tid]
     mod = module_for(t)
@@ -173,26 +194,20 @@ def to_data(tid: str, fields: dict) -> dict:
     """Flat editor fields → canonical data dict (toggles→grounds, lists, court)."""
     t, court, bt = CANONICAL_MAP[tid]
     spec = _spec(tid)
+    from headnote.drafter.templates._fields import coerce_value as _coerce_value
     toggle_keys = {tg["key"] for tg in spec.get("toggles", [])}
-    list_keys = {f["key"] for f in spec.get("fields", []) if f.get("type") == "section_list"}
-    # TABLE fields (prior_bail / co_accused) render as list-of-dicts. The editor's
-    # OCR auto-fill coerces EVERY value to a string (String(v)); a string here made
-    # render_* do row.get(...) on a str → AttributeError → HTTP 500. Coerce anything
-    # that isn't already a proper list-of-rows back to an empty table.
-    table_keys = {f["key"] for f in spec.get("fields", []) if f.get("type") == "table"}
+    # section_list / TABLE / custom_grounds all need shaping: the editor's OCR
+    # auto-fill coerces EVERY value to a string (String(v)), and a string where a
+    # render expects rows made render_* do row.get(...) on a str → 500.
+    field_types = {f["key"]: f.get("type") for f in spec.get("fields", [])}
     data, grounds = {}, {}
     for k, v in (fields or {}).items():
         if k in toggle_keys:
             grounds[k] = v in (True, "true", "on", 1, "1")
-        elif k == "custom_grounds":
-            # free-text textarea (one ground per line) → the list every render expects
-            data[k] = [ln.strip() for ln in str(v or "").splitlines() if ln.strip()]
-        elif k in list_keys:
-            data[k] = [x.strip() for x in str(v or "").split(",") if x.strip()]
-        elif k in table_keys:
-            data[k] = v if isinstance(v, list) and all(isinstance(r, dict) for r in v) else []
         else:
-            data[k] = v
+            # one shared coercion for every producer (form, OCR, LLM extraction) —
+            # see _fields.coerce_value for why a string here corrupts the document
+            data[k] = _coerce_value(k, v, field_types.get(k))
     # default-on toggles when the form hasn't sent them yet
     for tg in spec.get("toggles", []):
         grounds.setdefault(tg["key"], bool(tg.get("default")))

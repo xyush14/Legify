@@ -549,6 +549,7 @@
         <option value="bn">বাংলা</option>
       </select>
     </div>
+    <button class="btn" id="btn-docx" title="Download Word (.docx) — in your own format">⬇ <span class="btn-long">Word</span></button>
     <button class="btn" id="btn-pdf" title="Download PDF">⬇ <span class="btn-long">PDF</span></button>
     <button class="btn" id="btn-print" title="Print" data-en="🖨 Print" data-hi="🖨 प्रिंट">🖨 <span class="btn-long">प्रिंट</span></button>
     <button class="btn" id="btn-edit" title="Edit document directly" data-en="✏️ Edit" data-hi="✏️ संपादन">✏️ संपादन</button>
@@ -557,6 +558,7 @@
     <div class="topbar__more-wrap" id="topbar-more-wrap">
       <button class="btn topbar__more" id="btn-more" aria-label="More actions" aria-haspopup="true" aria-expanded="false">⋯</button>
       <div class="topbar__menu" id="topbar-menu" hidden>
+        <button type="button" data-act="docx"  data-en="⬇ Download Word (.docx)" data-hi="⬇ Word (.docx) डाउनलोड">⬇ Word (.docx) डाउनलोड</button>
         <button type="button" data-act="pdf"   data-en="⬇ Download PDF"      data-hi="⬇ PDF डाउनलोड">⬇ PDF डाउनलोड</button>
         <button type="button" data-act="print" data-en="🖨 Print"            data-hi="🖨 प्रिंट">🖨 प्रिंट</button>
         <button type="button" data-act="edit"  data-en="✏️ Edit document"     data-hi="✏️ दस्तावेज़ संपादन">✏️ दस्तावेज़ संपादन</button>
@@ -576,6 +578,21 @@
 <div class="split">
   <!-- LEFT: form -->
   <div class="form-pane" id="form-pane">
+    <!-- Draft DNA — an honest status line, never an advert. Green when the .docx
+         will come out in HIS captured format; amber when it will be standard
+         court format and he can fix that in two minutes. -->
+    <style>
+      .dnaline{display:flex;align-items:center;gap:8px;margin:0 0 14px;padding:8px 12px;
+               border-radius:9px;font-size:12.5px;line-height:1.5;flex-wrap:wrap}
+      .dnaline.ok{background:#eaf6ee;border:1px solid #bfe0cb;color:#1f6b41}
+      .dnaline.no{background:#fdf4e3;border:1px solid #ecd9ac;color:#7d5514}
+      .dnaline .sp{flex:1;min-width:8px}
+      .dnaline a{color:inherit;font-weight:600;text-decoration:underline;
+                 text-underline-offset:2px;cursor:pointer}
+      .dnaline code{font-family:var(--mono,ui-monospace,monospace);font-size:11px;
+                    background:rgba(255,255,255,.65);padding:1px 5px;border-radius:4px}
+    </style>
+    <div id="dna-line"></div>
     <div id="form-container"><!-- sections rendered by JS --></div>
     <!-- Verified case-law rail — bail family. /suggest (deterministic, ₹0): sections
          check, verified authorities, limitation. "add to grounds" drops a citation
@@ -599,6 +616,47 @@
     <div id="auth-rail" class="auth-rail" hidden>
       <div class="auth-rail__h mono">सुझाव · authorities <span id="auth-rail-tag"></span></div>
       <div id="auth-rail-body"></div>
+    </div>
+    <!-- AI change box — say the change instead of hunting for the field.
+         A STRUCTURED PATCH: it may only turn knobs this reviewed template already
+         has, and captures his own extra ground verbatim + flagged. It never
+         rewrites boilerplate, a section number or a citation. -->
+    <style>
+      .aibox{margin:16px 0 4px;border:1px solid var(--line,#e6e2d9);border-radius:10px;
+             background:var(--panel,#fff);padding:12px 14px}
+      .aibox__h{font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;
+                color:var(--muted,#888);margin-bottom:8px;display:flex;gap:6px;align-items:center}
+      .aibox__row{display:flex;gap:8px;align-items:flex-end}
+      .aibox textarea{flex:1;min-height:56px;max-height:180px;resize:vertical;width:100%;
+                      font-family:inherit;font-size:13.5px;line-height:1.55;padding:8px 10px;
+                      border:1px solid var(--line,#ddd);border-radius:8px;background:var(--bg,#fff);
+                      color:var(--ink,#222)}
+      .aibox textarea:focus{outline:none;border-color:var(--line-strong,#bbb)}
+      .aibox__go{flex:0 0 auto;height:38px;padding:0 14px;border-radius:8px;cursor:pointer;
+                 border:1px solid var(--ink,#222);background:var(--ink,#1a1a1a);color:#fff;
+                 font-family:inherit;font-size:13px}
+      .aibox__go:disabled{opacity:.55;cursor:default}
+      .aibox__ex{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px}
+      .aibox__ex button{font-size:11px;border:1px solid var(--line,#e0dcd3);background:var(--soft,#f7f5f0);
+                        color:var(--muted,#6b6b6b);border-radius:20px;padding:3px 10px;cursor:pointer;
+                        font-family:inherit}
+      .aibox__ex button:hover{background:var(--panel,#fff);color:var(--ink,#222)}
+      .aibox__log{margin-top:9px;font-size:11.5px;line-height:1.6;color:var(--muted,#6b6b6b);
+                  border-top:1px dotted var(--line,#eee);padding-top:8px}
+      .aibox__log b{color:var(--ink,#222);font-weight:600}
+    </style>
+    <div class="aibox" id="ai-box" hidden>
+      <div class="aibox__h mono"><span aria-hidden="true">✨</span>
+        <span data-en="Change it by describing it" data-hi="जो बदलना है, लिख दीजिए">जो बदलना है, लिख दीजिए</span></div>
+      <div class="aibox__row">
+        <textarea id="ai-prompt" rows="2"
+          data-ph-en="e.g. he has been in custody 4 months; add that he is the sole earner; file it in the Sessions Court"
+          data-ph-hi="जैसे— 4 माह से न्यायिक अभिरक्षा में है; यह जोड़ें कि परिवार में अकेला कमाने वाला है; सत्र न्यायालय में लगाना है"></textarea>
+        <button type="button" class="aibox__go" id="ai-go"
+          data-en="Apply" data-hi="लागू करें">लागू करें</button>
+      </div>
+      <div class="aibox__ex" id="ai-examples"></div>
+      <div class="aibox__log" id="ai-log" hidden></div>
     </div>
     <div class="form-cta">
       <button class="btn btn--primary" id="btn-generate">
@@ -988,6 +1046,11 @@ function applyLang() {
   const sel = $('#lang-select'); if (sel) sel.value = state.docLang;
   if (state.template) updateTitle();
   if (typeof updateProgress === 'function') updateProgress();   // meter label follows language
+  // These three build their own text in JS, so `data-en/hi` above cannot reach
+  // them — they have to be repainted by hand or they stay in the old language.
+  if (typeof paintDnaLine === 'function') paintDnaLine();
+  if (typeof applyAiLang === 'function') applyAiLang();
+  if (typeof renderAiExamples === 'function' && state.template) renderAiExamples();
   // Re-render document with new lang's parsing
   if (state.document) renderDocument();
 }
@@ -1037,6 +1100,8 @@ async function loadTemplate() {
     consumeFirPrefill();          // one-shot FIR confirm-step fields (survives the clear)
     await prefillFromPersona();
     maybeRenderInitial();
+    wireAiBox();                  // "say the change" — needs the loaded schema
+    loadDNA();                    // whose format the .docx will come out in
   } catch (e) {
     showError('Failed to load: ' + e.message);
   }
@@ -2460,7 +2525,7 @@ setTimeout(hideBootLoader, 10000);
     menu.hidden = !open;
     btn.setAttribute('aria-expanded', String(open));
   });
-  const MAP = { pdf: 'btn-pdf', print: 'btn-print', edit: 'btn-edit', share: 'btn-share' };
+  const MAP = { docx: 'btn-docx', pdf: 'btn-pdf', print: 'btn-print', edit: 'btn-edit', share: 'btn-share' };
   menu.querySelectorAll('button[data-act]').forEach(b => {
     b.addEventListener('click', () => { close(); $('#' + MAP[b.dataset.act])?.click(); });
   });
@@ -2876,6 +2941,236 @@ function _tplDownloadAndOpenWA(blob, filename) {
   const msg = `${state.template?.name_en || 'Document'} — prepared via Headnote`;
   window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
   toast(state.lang === 'hi' ? 'PDF डाउनलोड हो गया — WhatsApp में attach करें' : 'PDF downloaded — drag into WhatsApp Web', 'ok', 5000);
+}
+
+/* =========================================================================
+   DRAFT DNA — whose format the Word file comes out in.
+   An honest status line, not an upsell: green when his own captured format
+   will be used, amber when it will be plain court format and he can fix that.
+   Signed-out advocates see nothing here — the sign-in banner already covers it.
+   ========================================================================= */
+let DNA = null;
+
+async function loadDNA() {
+  try {
+    const r = await fetch('/api/draft-dna/layout', { headers: await authHeaders() });
+    DNA = r.ok ? await r.json() : null;
+  } catch (e) { DNA = null; }
+  paintDnaLine();
+}
+
+function paintDnaLine() {
+  const box = $('#dna-line');
+  if (!box) return;
+  if (!DNA) { box.innerHTML = ''; return; }     // signed out / unreachable — stay quiet
+  const isHi = state.lang === 'hi';
+  if (DNA.has_layout) {
+    const bits = [];
+    if (DNA.font) bits.push('<code>' + esc(DNA.font) + '</code>');
+    const p = DNA.page || {};
+    if (p.width && p.height) bits.push('<code>' + p.width + '×' + p.height + ' in</code>');
+    box.innerHTML = '<div class="dnaline ok"><span aria-hidden="true">✓</span><span>'
+      + (isHi ? 'Word डाउनलोड आपके अपने फॉर्मेट में आएगा' : 'The Word download comes out in your own format')
+      + (bits.length ? ' — ' + bits.join(' ') : '') + '.</span>'
+      + '<span class="sp"></span><a onclick="location.href=\'/draft-dna\'">'
+      + (isHi ? 'बदलें' : 'Change') + '</a></div>';
+  } else {
+    box.innerHTML = '<div class="dnaline no"><span aria-hidden="true">!</span><span>'
+      + (isHi ? 'Word डाउनलोड सामान्य कोर्ट फॉर्मेट में आएगा — आपका अपना फॉर्मेट अभी सेट नहीं है।'
+              : 'The Word download will be in standard court format — your own format is not set up yet.')
+      + '</span><span class="sp"></span><a onclick="location.href=\'/draft-dna\'">'
+      + (isHi ? 'अपने 2 फाइल किए ड्राफ्ट दें — 2 मिनट' : 'Drop 2 of your filed drafts — 2 minutes')
+      + '</a></div>';
+  }
+}
+
+/* ---- Download .docx — the Draft DNA payoff on this screen ---------------- */
+$('#btn-docx').addEventListener('click', async () => {
+  const btn = $('#btn-docx');
+  const isHi = state.lang === 'hi';
+  if (!state.document) {
+    toast(isHi ? 'पहले दस्तावेज़ बनाएं' : 'Refresh the draft first', 'warn');
+    return;
+  }
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '⏳ <span class="btn-long">Word</span>';
+  try {
+    // Send the document AS IT IS ON HIS SCREEN, so anything he corrected on the
+    // canvas is what he downloads — never a silent re-render that drops his edits.
+    const docEl = $('#doc-page');
+    const html = docEl ? docEl.innerHTML : '';
+    const r = await fetch('/api/draft/template-docx', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+      body: JSON.stringify({
+        doc_type: state.docType, fields: state.fields,
+        lang: state.docLang || 'hi', html,
+      }),
+    });
+    if (await handleAuthError(r.status)) return;
+    if (!r.ok) {
+      let detail = '';
+      try { detail = (await r.json()).detail || ''; } catch (_) {}
+      throw new Error(detail || ('server error ' + r.status));
+    }
+    const how = r.headers.get('X-Headnote-Format') || '';
+    const blob = await r.blob();
+    const filename = _tplFilename().replace(/\.pdf$/i, '.docx');
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    toast(how === 'own'
+      ? (isHi ? 'सहेजा गया ✓ — आपके अपने फॉर्मेट में' : 'Saved ✓ — in your own format')
+      : (isHi ? 'सहेजा गया ✓ — सामान्य कोर्ट फॉर्मेट में' : 'Saved ✓ — standard court format'),
+      'ok', 4000);
+  } catch (e) {
+    console.error(e);
+    toast('Word failed — ' + (e.message || 'try again'), 'err', 4000);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+});
+
+/* =========================================================================
+   AI CHANGE BOX — he says the change, the form and the document both move.
+   Structured patch only: the server validates every change against this
+   template's reviewed field_spec, so nothing outside it can be invented.
+   ========================================================================= */
+function wireAiBox() {
+  const box = $('#ai-box');
+  if (!box || !state.template) return;
+  // Only the reviewed, deterministic templates have a field_spec to validate a
+  // patch against. Offering the box where it cannot work would be a dead button.
+  if (!state.template.deterministic) return;
+  box.hidden = false;
+  renderAiExamples();
+  $('#ai-go').addEventListener('click', runAiTweak);
+  $('#ai-prompt').addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); runAiTweak(); }
+  });
+  applyAiLang();
+}
+
+// Suggestions come from THIS template's own toggles, so they are correct for
+// every type and every language without a hardcoded list anywhere.
+function renderAiExamples() {
+  const wrap = $('#ai-examples');
+  if (!wrap) return;
+  const isHi = state.lang === 'hi';
+  const toggles = (state.template.fields || []).filter(f => f.type === 'toggle').slice(0, 3);
+  wrap.innerHTML = '';
+  toggles.forEach(t => {
+    const label = isHi ? t.label_hi : t.label_en;
+    const b = ce('button', { type: 'button', textContent: (isHi ? '+ ' : '+ ') + label });
+    b.addEventListener('click', () => {
+      const ta = $('#ai-prompt');
+      ta.value = (isHi ? 'यह आधार जोड़ें: ' : 'Add this ground: ') + label;
+      ta.focus();
+    });
+    wrap.appendChild(b);
+  });
+}
+
+function applyAiLang() {
+  const ta = $('#ai-prompt');
+  if (ta) ta.placeholder = state.lang === 'hi' ? ta.dataset.phHi : ta.dataset.phEn;
+}
+
+async function runAiTweak() {
+  const ta = $('#ai-prompt'), go = $('#ai-go');
+  const prompt = (ta.value || '').trim();
+  const isHi = state.lang === 'hi';
+  if (!prompt) { ta.focus(); return; }
+  const orig = go.textContent;
+  go.disabled = true; go.textContent = isHi ? 'लगा रहे हैं…' : 'Applying…';
+  try {
+    const r = await fetch('/api/draft/template-tweak', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+      body: JSON.stringify({
+        doc_type: state.docType, fields: state.fields,
+        prompt, lang: state.docLang || 'hi',
+      }),
+    });
+    if (await handleAuthError(r.status)) return;
+    if (!r.ok) {
+      let detail = '';
+      try { detail = (await r.json()).detail || ''; } catch (_) {}
+      throw new Error(detail || ('server error ' + r.status));
+    }
+    const d = await r.json();
+    state.fields = d.fields || state.fields;
+
+    // A change of forum is a different reviewed template, not a field — reload
+    // its schema so the form shows the fields that court actually needs.
+    if (d.doc_type && d.doc_type !== state.docType) {
+      state.docType = d.doc_type;
+      try {
+        const sr = await fetch(`/api/draft/template-schema/${encodeURIComponent(d.doc_type)}`,
+                               { headers: await authHeaders() });
+        if (sr.ok) { state.template = (await sr.json()).template; updateTitle(); }
+      } catch (_) {}
+      history.replaceState(null, '', '/draft/template/' + encodeURIComponent(d.doc_type)
+                                     + window.location.search);
+    }
+
+    // The document the server just rendered IS the new document — showing a
+    // stale one while a background re-render catches up is how a lawyer files
+    // the wrong text.
+    state.document = d.document;
+    state.docByLang = {};
+    state._editVersion = (state._editVersion || 0) + 1;
+    renderForm();
+    applyLang();
+    renderAiExamples();
+    applyAiLang();
+    renderDocument();
+    saveToLocalStorage();
+    updateProgress();
+    paintAiLog(d.changelog, d.note, d.source);
+    ta.value = '';
+  } catch (e) {
+    console.error(e);
+    toast((isHi ? 'बदलाव नहीं हो सका — ' : 'Could not apply — ') + (e.message || 'try again'),
+          'err', 4500);
+  } finally {
+    go.disabled = false; go.textContent = orig;
+  }
+}
+
+// Say out loud what changed AND what was ignored. A change box that silently
+// drops half the request is worse than one that refuses — he has to know which
+// parts of his instruction actually landed on the paper.
+function paintAiLog(changelog, note, source) {
+  const box = $('#ai-log');
+  if (!box) return;
+  const isHi = state.lang === 'hi';
+  const lines = (changelog || []).filter(Boolean);
+  if (!lines.length && !note) {
+    box.hidden = false;
+    box.innerHTML = '<b>' + (isHi ? 'कुछ नहीं बदला' : 'Nothing changed')
+      + '</b> — ' + (isHi ? 'यह बदलाव इस प्रारूप के किसी ज्ञात विकल्प से नहीं जुड़ा। नीचे फ़ॉर्म में सीधे भर दें।'
+                          : 'that did not map to anything this template can change. Type it into the form below instead.');
+    return;
+  }
+  box.hidden = false;
+  const done = lines.filter(l => !l.startsWith('⚠'));
+  const skipped = lines.filter(l => l.startsWith('⚠'));
+  let html = '';
+  if (done.length) {
+    html += '<b>' + (isHi ? 'बदला गया' : 'Changed') + '</b><br>'
+         + done.map(l => '· ' + esc(l)).join('<br>');
+  }
+  if (skipped.length) {
+    html += (html ? '<br><br>' : '') + '<b>' + (isHi ? 'नहीं किया जा सका' : 'Not applied') + '</b><br>'
+         + skipped.map(l => '· ' + esc(l)).join('<br>');
+  }
+  if (note) html += (html ? '<br><br>' : '') + esc(note);
+  box.innerHTML = html;
 }
 
 // ---- Boot ----

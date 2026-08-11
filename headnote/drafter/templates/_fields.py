@@ -69,6 +69,46 @@ def custom_grounds(hi="अतिरिक्त आधार (प्रति �
              hint="प्रत्येक आधार नई पंक्ति में — ज्यों-का-त्यों 'यह कि' पैरा बनेगा")
 
 
+# Keys declared as free text that EVERY render() nevertheless iterates as a list,
+# one paragraph per entry (see custom_grounds above). The declared type alone can't
+# tell us: the field is a textarea to the lawyer and a list to the document.
+LIST_TEXT_KEYS = {"custom_grounds"}
+
+
+def coerce_value(key, value, ftype=None):
+    """One field's raw value → the shape `render_hi`/`render_en` actually expects.
+
+    Three different producers write into the data dict — the editor form, the OCR
+    auto-fill, and the LLM field-extractor — and only the form naturally produces
+    the right types. A string where a render iterates a list is not a Python type
+    error: `for c in "15 दिन"` silently yields one CHARACTER per pass, so the
+    document rendered a numbered `यह कि` paragraph per letter. Coerce at the entry
+    point rather than trusting the producer.
+    """
+    if ftype == TOGGLE:
+        return value in (True, "true", "on", 1, "1")
+    if ftype == TABLE:
+        # renders call row.get(...) per row; a bare string raises AttributeError → 500
+        return value if isinstance(value, list) and all(isinstance(r, dict) for r in value) else []
+    if ftype == SECTION_LIST or key in LIST_TEXT_KEYS:
+        if isinstance(value, list):
+            return [str(x).strip() for x in value if str(x).strip()]
+        if value is None:
+            return []
+        # commas for a section list ("420, 380"); newlines for one-ground-per-line
+        raw = str(value)
+        parts = raw.replace(",", "\n").splitlines() if ftype == SECTION_LIST else raw.splitlines()
+        return [p.strip() for p in parts if p.strip()]
+    return value
+
+
+def coerce_data(data, spec):
+    """Apply `coerce_value` across a data dict using `spec`'s own declared types."""
+    types = {fl["key"]: fl.get("type") for fl in (spec or {}).get("fields", [])}
+    types.update({tg["key"]: TOGGLE for tg in (spec or {}).get("toggles", [])})
+    return {k: coerce_value(k, v, types.get(k)) for k, v in (data or {}).items()}
+
+
 def build_spec(doc_type, fields, toggles=None, *, variants=None, companions=None):
     """Assemble the schema the API/UI consumes: fields grouped into ordered
     sections, the toggle set, the forum variants, and the auto-attached companions."""
