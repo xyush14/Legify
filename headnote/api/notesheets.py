@@ -315,7 +315,10 @@ def home(date: Optional[str] = Query(None, description="board date, YYYY-MM-DD (
                    "overdue": len(overdue), "unlinked": unlinked,
                    "notes_ready": sum(1 for m in board if m["has_note_sheet"]),
                    "court_updates": len(inbox)},
-        "court_updates": inbox[:12],
+        # Home shows a few and hides the rest behind "Show all", so it needs
+        # enough rows to actually expand into. At 12 the screen offered to show
+        # more than it had been sent.
+        "court_updates": inbox[:60],
         "week_days": wk_days,
         "month_days": month_days,
         "undated": undated[:20],

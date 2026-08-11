@@ -215,6 +215,26 @@ def test_sync_case_refuses_a_matter_with_no_fetchable_cnr(monkeypatch):
 
 # --------------------------------------------------- Home: the diary's new data
 
+@pytest.fixture(autouse=True)
+def _restore_notesheet_globals():
+    """Put `notesheets`' module-level names back after every test in this file.
+
+    `_home_client` below assigns its stub straight onto `ns.cases_storage` and
+    `ns.ns_storage.list_for_date` and never restores them, so the stub outlived
+    this file and leaked into every test that ran afterwards — where it passes
+    for the real storage module right up until something asks it for a method
+    it does not have. Snapshot and restore, so the blast radius is one test.
+    """
+    from headnote.api import notesheets as ns
+    saved_cases = ns.cases_storage
+    saved_list_for_date = ns.ns_storage.list_for_date
+    try:
+        yield
+    finally:
+        ns.cases_storage = saved_cases
+        ns.ns_storage.list_for_date = saved_list_for_date
+
+
 def _home_client(rows):
     """A TestClient over just /api/home, with storage and the beta gate stubbed."""
     from fastapi import FastAPI

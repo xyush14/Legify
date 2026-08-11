@@ -555,9 +555,17 @@ body.sb-min .recent,body.sb-min #recent-lbl{display:none}
 @media(max-width:640px){.dldrop{padding:26px 16px}.dlbar{align-items:flex-start;flex-direction:column}.dlact{width:100%}.dlact .btn{flex:1}}
 
 /* Four tabs no longer fit a 390px phone, so the row scrolls instead of being
-   clipped — "Document" was falling off the right edge entirely. */
+   clipped — "Document" was falling off the right edge entirely.
+
+   The scroll alone was not enough: with the scrollbar hidden, "Document" was cut
+   off mid-word against a hard edge, which reads as a broken layout rather than
+   as "swipe for more". The mask fades the last few pixels so the cut is
+   obviously a continuation, and it lifts once the row is scrolled to the end. */
 @media(max-width:640px){
-  .rtabs{display:flex;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .rtabs{display:flex;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;
+         -webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent);
+         mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent)}
+  .rtabs.at-end{-webkit-mask-image:none;mask-image:none}
   .rtabs::-webkit-scrollbar{display:none}
   .rtabs button{padding:9px 13px;font-size:13px;white-space:nowrap;flex:0 0 auto}
 }
@@ -768,6 +776,10 @@ body.sb-min .recent,body.sb-min #recent-lbl{display:none}
 <script src="/static/voice.js?v=20260626a"></script>
 <script src="/static/auth.js"></script>
 <script src="/static/v2-beta.js"></script>
+<!-- Shared V2 navigation: the mobile bottom tab bar (this page hides the
+     sidebar at 720px, so without it a phone has no way between screens)
+     plus the sidebar entries for Documents / Recorder / Settings. -->
+<script src="/static/v2-nav.js"></script>
 <script>
 /* ============================================================================
    Research — one door for the junior's law work. Four explicit lanes, no
@@ -1022,9 +1034,31 @@ function showTab(t, push){
   });
   if(t==='saved') renderSaved();
   if(t==='statute' && !$('#s-pop').childElementCount) loadPopular();
+  tabsIntoView();
   const url=new URL(location); url.searchParams.set('tab',t);
   if(push===false) return;
   history.pushState({tab:t},'',url);
+}
+
+/* On a phone the tab row scrolls (four tabs don't fit 390px). Two things have to
+   be true or it feels broken: the tab you just chose must be visible even if it
+   was off the right edge, and the fade that signals "there is more" must go away
+   once there is nothing more. */
+function tabsIntoView(){
+  const row=$('.rtabs'); if(!row) return;
+  const on=row.querySelector('button.on');
+  if(on && row.scrollWidth>row.clientWidth+1){
+    on.scrollIntoView({block:'nearest',inline:'nearest'});
+  }
+  markTabEnd();
+}
+function markTabEnd(){
+  const row=$('.rtabs'); if(!row) return;
+  /* 8px of slack, not 2: scrollIntoView stops the moment the last tab is fully
+     visible, which can be a few pixels short of the true end — and a fade left
+     sitting over the tab you just selected is the thing this is meant to fix. */
+  const done=row.scrollLeft >= row.scrollWidth-row.clientWidth-8;
+  row.classList.toggle('at-end', done);
 }
 window.addEventListener('popstate',e=>{
   const t=(e.state&&e.state.tab)||new URLSearchParams(location.search).get('tab')||'find';
@@ -2162,12 +2196,13 @@ function whoami(){
 
 (async function boot(){
   const p=new URLSearchParams(location.search);
-  if(!DEMO && !(await freshToken())){ gate(); return; }
-  /* V2 private beta — see static/v2-beta.js. DEMO skips it so the page stays
-     reviewable without an account; the server gates the data either way. */
-  if(!DEMO && !(await hnBetaGate())) return;
-  if(DEMO){ $('#unm').textContent='Demo mode'; $('#url').textContent='sample data'; $('#uav').textContent='D'; }
-  else whoami();
+
+  /* Wire and paint the screen FIRST, then resolve auth.
+     Everything below this block is local — event listeners, the shortlist out
+     of localStorage, the examples, the tab from the URL. It used to sit behind
+     the token round trip and the beta gate's /api/me, so the advocate stared
+     at an inert page for as long as those took before he could even type a
+     query. Nothing here reads his data, so nothing here needs to wait. */
   palWire(); stWire();
   $('#a-file').addEventListener('change',e=>{ onFilePicked(e.target.files[0]); e.target.value=''; });
   $('#f-q').addEventListener('keydown',e=>{ if((e.metaKey||e.ctrlKey)&&e.key==='Enter') findGo(); });
@@ -2177,9 +2212,20 @@ function whoami(){
   $('#jd-go').addEventListener('click',sendJdrawer);
   $('#jd-q').addEventListener('keydown',e=>{ if(e.key==='Enter') sendJdrawer(); });
   SL=(readStore().shortlist||[]);          // the shortlist survives a reload
+  $('.rtabs')?.addEventListener('scroll', markTabEnd, {passive:true});
+  addEventListener('resize', markTabEnd);
+  markTabEnd();
   renderExamples(); renderRecent();
   const t=p.get('tab'); if(t&&['find','ask','statute','saved','document'].includes(t)) showTab(t,false);
   const q=p.get('q'); if(q){ $('#f-q').value=q; }
+
+  if(!DEMO && !(await freshToken())){ gate(); return; }
+  /* V2 private beta — see static/v2-beta.js. DEMO skips it so the page stays
+     reviewable without an account; the server gates the data either way. */
+  if(!DEMO && !(await hnBetaGate())) return;
+  if(DEMO){ $('#unm').textContent='Demo mode'; $('#url').textContent='sample data'; $('#uav').textContent='D'; }
+  else whoami();
+
   loadSaved();
   const mid=p.get('matter'); if(mid) loadSeed(mid);
 })();

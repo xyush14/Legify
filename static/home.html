@@ -788,6 +788,10 @@ body.sb-min .sb .brand{margin-bottom:26px}
   .uprow .us{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:2px}
   .uclr{width:24px;height:24px;border-radius:6px;color:var(--ink-4);font-size:11px;flex:none}
   .uclr:hover{background:#fff;color:var(--red)}
+  .upmore{display:block;width:100%;margin-top:10px;padding:8px;border-top:1px solid rgba(183,121,31,.18);font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--amber)}
+  .upmore:hover{color:var(--ink)}
+  /* The header wraps rather than squeezing the two buttons on a phone. */
+  @media(max-width:640px){ .ubh{flex-wrap:wrap} .ubh .btn{margin-left:0!important} }
   .updot{display:inline-grid;place-items:center;min-width:17px;height:17px;padding:0 4px;border-radius:999px;background:var(--amber);color:#fff;font-family:var(--mono);font-size:9px;font-weight:700;margin-left:5px;vertical-align:2px}
   .ilink{border:1px solid var(--line);border-radius:12px;padding:13px 14px;background:var(--raise)}
   .ilk{font-family:var(--mono);font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px}
@@ -890,6 +894,10 @@ body.sb-min .sb .brand{margin-bottom:26px}
 
 <script src="/static/auth.js"></script>
 <script src="/static/v2-beta.js"></script>
+<!-- Shared V2 navigation: the mobile bottom tab bar (this page hides the
+     sidebar at 720px, so without it a phone has no way between screens)
+     plus the sidebar entries for Documents / Recorder / Settings. -->
+<script src="/static/v2-nav.js"></script>
 <script>
 /* ============================================================================
    Home — the live app. Talks to the real API; nothing here is demo data.
@@ -954,6 +962,11 @@ async function api(path, opts){
      file=None and failed as if nothing had been attached. */
   const body=(opts||{}).body;
   const isForm = typeof FormData!=='undefined' && body instanceof FormData;
+  /* Anything that is not a GET may have changed the board. Recorded here — the
+     one place every request passes through — so closing a panel can tell "he
+     only looked at it" from "he changed something", without every caller
+     having to remember to say so. */
+  if(((opts||{}).method||'GET').toUpperCase()!=='GET') dirty=true;
   const r = await fetch(path, {...(opts||{}), headers:{...(await H(!!body && !isForm)), ...((opts||{}).headers||{})}});
   let d=null; try{ d = await r.json(); }catch(e){}
   if(r.status===401){ gate(); throw new Error('Please sign in again'); }
@@ -982,6 +995,9 @@ function toast(m,k){const t=document.createElement('div');t.className='toast'+(k
 
 /* ---------------- app state (server is the source of truth) ---------------- */
 let HOME=null, selDate=null, weekAnchor=null, dMode='all', busy=false;
+/* Set by api() on any non-GET. Lets closing a panel skip a full board refetch
+   when nothing was actually written while it was open. */
+let dirty=false;
 /* dSpan 1 = one day, 3 = yesterday+today+tomorrow together.
    CALC caches per-month hearing counts so paging the calendar is instant. */
 let dSpan=1, calMonth=null, CALC={};
@@ -1033,12 +1049,16 @@ function homeQuery(){
 /* Refetch the board and repaint. Used by everything that changes what the
    court says; NOT by things that only change one card (see applyMatter). */
 async function reload(){
+  dirty=false;                    // whatever was pending is about to be painted
   try{
     HOME=await api(homeQuery());
     CALC={};                      // counts can change under us after a sync
     render();
   }catch(e){ fail(e.message); }
 }
+
+/* Refetch only if a write happened since the last paint. */
+function refreshIfDirty(){ if(dirty){ dirty=false; reload(); } }
 
 /* Boot.
 
@@ -1204,7 +1224,7 @@ function goRel(n){ dSpan=1; goDay(addDays(HOME.today,n)); }
 /* Centre on the day already on screen, not on today: browsing to a date through
    the calendar and then asking for three days should widen THAT date, not throw
    the lawyer back to this morning. */
-function go3(){ dSpan=3; load(); }
+function go3(){ dSpan=3; reload(); }
 
 function toggleCal(ev){
   ev.stopPropagation();
@@ -1286,7 +1306,7 @@ async function syncAllCourt(){
     if(r.no_cnr) bits.push(`${r.no_cnr} not linked to the court record — link them and they update on their own`);
     if(r.failed) bits.push(`${r.failed} could not be read`);
     toast(bits.join(' · '), r.changed?'ok':'');
-    if(r.changed) await load();
+    if(r.changed) await reload();
   }catch(e){ toast(e.message,'error'); }
   finally{ b.disabled=false; b.textContent=was; }
 }
@@ -1377,7 +1397,7 @@ function readyLabel(s){
 }
 
 /* ---------------- navigation ---------------- */
-function goDay(d){ selDate=d; weekAnchor=mondayOf(d); load(); }
+function goDay(d){ selDate=d; weekAnchor=mondayOf(d); reload(); }
 
 /* ---------------- search across every matter ----------------
    Home's only search used to filter the rows of the day already on screen, so
@@ -1538,7 +1558,7 @@ async function saveLink(){
     closeLink();
     toast(`${r.linked} matter(s) linked to the court record${(r.failed||[]).length?` · ${r.failed.length} failed`:''}`,'success');
     MATTERS=null;
-    load();
+    reload();
   }catch(e){ b.disabled=false; b.textContent='Link the ticked matters'; toast(e.message,'error'); }
 }
 
@@ -1706,7 +1726,7 @@ async function saveNoPicked(){
     closeAdd();
     toast(`${r.imported} matter(s) added from the court record`,'success');
     MATTERS=null;
-    load();
+    reload();
   }catch(e){ b.disabled=false; b.textContent='Add the ticked matters'; toast(e.message,'error'); }
 }
 
@@ -1753,7 +1773,7 @@ async function addCnr(){
         <button class="btn" onclick="openAdd()">Add another</button>
         <button class="btn" onclick="closeAdd()">Done</button></div>`;
     MATTERS=null;                 // the search cache is now a matter short
-    load();
+    reload();
   }catch(e){
     go.disabled=false; go.textContent='Look it up';
     const m=String(e.message||'');
@@ -1766,6 +1786,37 @@ async function addCnr(){
 function setMode(m){ dMode=m; renderBoard(); const s=document.querySelector('.diarysec'); if(m!=='all'&&s) s.scrollIntoView({behavior:'smooth',block:'start'}); }
 
 /* ---------------- writes ---------------- */
+
+/* Fold one matter's fresh server card into the board already on screen.
+
+   Ticking "prepared" used to PATCH the matter — which answers with that
+   matter's rebuilt card — and then throw the answer away by refetching the
+   ENTIRE board, rebuilding every card on the server, just to repaint. So the
+   cheapest action on the screen cost the most expensive request on the screen,
+   and the tick visibly lagged.
+
+   Everything the board shows about a matter is in the card the PATCH already
+   returned. The only figures that also move are the ready/gaps tallies, and
+   those are derived from the board — so they are recomputed here rather than
+   re-asked for. A prep change never moves a hearing date, so no card can
+   arrive on, or leave, a day because of one. */
+function applyMatter(id,matter){
+  if(!matter||!HOME) return;
+  const merge=arr=>{ const m=(arr||[]).find(x=>String(x.id)===String(id));
+                     if(m) Object.assign(m,matter); };
+  merge(HOME.board);
+  Object.values(HOME.boards||{}).forEach(merge);
+  const list=HOME.board||[];
+  HOME.counts=HOME.counts||{};
+  HOME.counts.ready=list.filter(m=>m.readiness&&m.readiness.state==='ready').length;
+  HOME.counts.gaps =list.length-HOME.counts.ready;
+  /* This write is now fully reflected on screen, so it must not also leave the
+     board marked stale — otherwise the next panel-close puts back the very
+     refetch this function exists to avoid. */
+  dirty=false;
+  render();
+}
+
 async function togglePrepared(id,ev){
   if(ev) ev.stopPropagation();
   const m=byId(id); if(!m||busy) return; busy=true;
@@ -1773,15 +1824,14 @@ async function togglePrepared(id,ev){
   m.prepared=want; paintRows();                       // optimistic
   try{
     const d=await api(`/api/matters/${id}/prep`,{method:'PATCH',body:JSON.stringify({prepared:want})});
-    Object.assign(m,d.matter); HOME=await api(`/api/home?date=${selDate}&week_from=${weekAnchor}`); render();
+    applyMatter(id,d.matter);
     toast(want?'Marked prepared — '+m.party:'Unmarked — back to auto','success');
   }catch(e){ m.prepared=!want; paintRows(); toast(e.message,'error'); }
   finally{ busy=false; }
 }
 async function patchPrep(id,patch,msg){
   try{ const d=await api(`/api/matters/${id}/prep`,{method:'PATCH',body:JSON.stringify(patch)});
-    const m=byId(id); if(m) Object.assign(m,d.matter);
-    HOME=await api(`/api/home?date=${selDate}&week_from=${weekAnchor}`); render();
+    applyMatter(id,d.matter);
     if(noteId===id) openNote(id);
     if(msg) toast(msg,'success');
   }catch(e){ toast(e.message,'error'); }
@@ -1800,7 +1850,7 @@ async function saveNx(id,i){
   const el=$('#nxi'+i), v=el?el.value:''; if(!v){ paintRows(); return; }
   try{
     await api(`/api/cases/${id}/set-next-date`,{method:'POST',body:JSON.stringify({next_hearing_date:dmy(v)})});
-    toast('Next date set · '+dmy(v),'success'); await load();
+    toast('Next date set · '+dmy(v),'success'); await reload();
   }catch(e){ toast(e.message,'error'); paintRows(); }
 }
 
@@ -1829,7 +1879,11 @@ async function openNote(id){
   try{ SHEET=await api(`/api/matters/${id}/notesheet?date=${noteDate}`); paintNote(); }
   catch(e){ $('#noteView').innerHTML=`<button class="fback" onclick="closeNote()">${S('<path d="m15 6-6 6 6 6"/>')} Back</button><div class="paneempty">${esc(e.message)}</div>`; }
 }
-function closeNote(){ $('#noteView').classList.add('hidden'); $('#homeView').classList.remove('hidden'); load(); }
+/* Closing a panel is navigation, not a change. It used to refetch the whole
+   board every time — so merely opening a note sheet and closing it again cost
+   the most expensive request on the screen. Refresh only if something was
+   actually written while it was open. */
+function closeNote(){ $('#noteView').classList.add('hidden'); $('#homeView').classList.remove('hidden'); refreshIfDirty(); }
 
 function paintNote(){
   const m=SHEET.matter, s=SHEET.sheet||{}, list=board(), idx=list.findIndex(x=>String(x.id)===String(noteId));
@@ -2237,7 +2291,7 @@ async function saveCauseList(){
     const extra=d.logged?` · ${d.logged} logged against matters you already had`:'';
     closeCl();
     toast(`Filed ${d.imported} matter(s)${extra}`,'success');
-    await load();                            // the board now includes them
+    await reload();                            // the board now includes them
   }catch(e){ b.disabled=false; b.textContent=`File ${rows.length} to my diary`; toast(e.message,'error'); }
 }
 
@@ -2357,15 +2411,29 @@ function printList(){
 }
 
 /* ---------------- what the courts changed (the reason to open this) -------- */
+/* Show a handful; the rest are behind "Show all". A wall of twenty rows pushed
+   the actual board off the screen, and the only way out of it was the ✕ on
+   every single row. */
+const UPS_SHOWN=5;
+let upsAll=false;
+
 function renderUpdates(){
   const ups=(HOME.court_updates||[]), n=(HOME.counts||{}).court_updates||0;
   if(!n) return '';
   const ico={new_order:IC.doc,next_date:IC.cal,stage:IC.clock,purpose:IC.alert,
              new_hearing:IC.clock,disposed:IC.check,last_order:IC.doc};
+  const shown=upsAll?ups:ups.slice(0,UPS_SHOWN);
+  /* Count off what we were actually SENT, not the total. The server caps the
+     list, so `n` can exceed `ups.length` — offering to show rows that were
+     never delivered would open into nothing. */
+  const hidden=ups.length-shown.length;
   return `<section class="upband fin">
     <div class="ubh">${S(IC.alert)} From the courts <span class="ubn">${n}</span>
-      <button class="btn btn--sm" style="margin-left:auto" onclick="syncAll()">${S(IC.research)} Check for updates</button></div>
-    ${ups.map(u=>`<div class="uprow">
+      <button class="btn btn--sm" style="margin-left:auto" onclick="syncAll()">${S(IC.research)} Check for updates</button>
+      <!-- The one CTA. Clearing these one ✕ at a time cost a round trip and a
+           full repaint of the board per notification. -->
+      <button class="btn btn--sm" id="upClrAll" onclick="clearAllUpdates(this)" title="Mark every one of these as seen">${S(IC.check)} Mark all as seen</button></div>
+    ${shown.map(u=>`<div class="uprow">
       <span class="ui">${S(ico[u.kind]||IC.alert)}</span>
       <div class="ub"><div class="ut">${esc(u.text)}</div>
         <div class="us">${esc(u.party||'')}${u.court_name?' · '+esc(courtBase(u.court_name)):''}</div></div>
@@ -2373,14 +2441,35 @@ function renderUpdates(){
       <button class="btn btn--sm" onclick="openFolder('${u.case_id}')">Open</button>
       <button class="uclr" title="Mark seen" onclick="clearUpdates('${u.case_id}')">✕</button>
     </div>`).join('')}
+    ${hidden>0?`<button class="upmore" onclick="upsAll=true;render()">Show ${hidden} more ›</button>`
+      :(upsAll&&n>UPS_SHOWN?`<button class="upmore" onclick="upsAll=false;render()">Show fewer</button>`:'')}
   </section>`;
+}
+
+/* Mark every court update seen — one request, one repaint.
+   The count comes from the SERVER's own re-read, so the band cannot be
+   emptied on screen while rows are still unread in the database. */
+async function clearAllUpdates(btn){
+  const n=(HOME.counts||{}).court_updates||0;
+  if(!n) return;
+  if(btn){ btn.disabled=true; btn.textContent='Clearing…'; }
+  try{
+    const r=await api('/api/updates/read-all',{method:'POST'});
+    upsAll=false;
+    await reload();
+    toast(r.cleared?`${r.cleared} update${r.cleared>1?'s':''} marked as seen`
+                   :'Nothing left to clear','success');
+  }catch(e){
+    toast(e.message,'error');
+    if(btn){ btn.disabled=false; btn.textContent='Mark all as seen'; }
+  }
 }
 async function syncAll(){
   toast('Asking the courts what changed…');
   try{
     const r=await api('/api/matters/sync-all',{method:'POST'});
     toast(r.updates?`${r.updates} update${r.updates>1?'s':''} from the courts`:'Nothing new at the courts','success');
-    await load();
+    await reload();
   }catch(e){ toast(e.message,'error'); }
 }
 async function syncOne(id){
@@ -2388,7 +2477,7 @@ async function syncOne(id){
   try{ const r=await api(`/api/matters/${id}/sync`,{method:'POST'});
     toast(r.ok?(r.updates.length?`${r.updates.length} change(s) found`:'Nothing new'):(r.reason||'Could not check'),
           r.ok?'success':'error');
-    await load();
+    await reload();
   }catch(e){ toast(e.message,'error'); }
 }
 
@@ -2406,12 +2495,12 @@ async function syncFolder(id){
       toast(`${r.updates.length} change${r.updates.length>1?'s':''}: ${what}`,'success');
     }
     await openFolder(id);
-    load();
+    reload();
   }catch(e){ toast(e.message,'error'); }
   finally{ const x=$('#syncBtn'); if(x){ x.disabled=false; } }
 }
 async function clearUpdates(id){
-  try{ await api(`/api/matters/${id}/updates/read`,{method:'POST'}); await load(); }
+  try{ await api(`/api/matters/${id}/updates/read`,{method:'POST'}); await reload(); }
   catch(e){ toast(e.message,'error'); }
 }
 async function saveOrder(id,link,date,type,btn){
@@ -2420,7 +2509,7 @@ async function saveOrder(id,link,date,type,btn){
     const r=await api(`/api/matters/${id}/orders/save`,{method:'POST',
       body:JSON.stringify({link,date,order_type:type})});
     toast('Order filed in the case folder'+(r.ocr?' and read':''),'success');
-    await load();
+    await reload();
   }catch(e){ toast(e.message,'error'); if(btn){ btn.disabled=false; btn.textContent='Save to folder'; } }
 }
 
@@ -2435,7 +2524,7 @@ async function saveNewOrder(id,filename,link,date,type,btn){
         body:JSON.stringify({filename,date,title:type})});
       toast(r.already_saved?'That order is already in this folder'
         :'Order filed in the case folder'+(r.ocr?' and read':''),'success');
-      await load();
+      await reload();
     }catch(e){ toast(e.message,'error'); if(btn){ btn.disabled=false; btn.textContent='Save to folder'; } }
     return;
   }
@@ -2470,7 +2559,7 @@ async function openFolder(id){
   try{ FOLDER=await api(`/api/cases/${id}/folder`); await loadIntake(id); paintFolder(id); }
   catch(e){ $('#folderView').innerHTML=`<button class="fback" onclick="closeFolder()">${S('<path d="m15 6-6 6 6 6"/>')} Back</button><div class="paneempty"><div class="ic">${S(IC.alert)}</div>${esc(e.message)}</div>`; }
 }
-function closeFolder(){ $('#folderView').classList.add('hidden'); $('#homeView').classList.remove('hidden'); load(); }
+function closeFolder(){ $('#folderView').classList.add('hidden'); $('#homeView').classList.remove('hidden'); refreshIfDirty(); }
 
 function paintFolder(id){
   const f=FOLDER, c=f.case||{}, cl=f.client||{};

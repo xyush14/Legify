@@ -486,6 +486,10 @@ body.sb-min .rct{justify-content:center}
 
 <script src="/static/auth.js"></script>
 <script src="/static/v2-beta.js"></script>
+<!-- Shared V2 navigation: the mobile bottom tab bar (this page hides the
+     sidebar at 720px, so without it a phone has no way between screens)
+     plus the sidebar entries for Documents / Recorder / Settings. -->
+<script src="/static/v2-nav.js"></script>
 <script>
 /* ============================================================================
    V2 Draft — one screen, one action.
@@ -599,6 +603,7 @@ async function readNdjson(resp, onEvt){
 let ATT=[];            /* [{file, name, role:'facts'|'format', meta}] */
 let MATTER=null;       /* {id,label} — the draft is filed into this matter */
 let MATTERS=null;
+let SEED_CASE=null;    /* matter id handed over by the Recorder, if any */
 let DNA=null;          /* {has_layout, font, page, n_drafts} */
 let LANG='auto';       /* what the ENGINE drafts in; 'auto' unless he picks */
 let SLANG=null;        /* the language he speaks, from the mic chip */
@@ -1370,7 +1375,11 @@ async function loadRecent(){
   let rows=[];
   try{ const d=await api('/api/draft/?limit=8'); rows=(d&&d.drafts)||[]; }
   catch(e){ rows=[]; }
+  /* This now runs alongside the beta gate rather than after it, so it can land
+     on a page the gate has already replaced with its own screen. Writing into
+     elements that are no longer there would throw over the top of it. */
   const side=$('#rcList');
+  if(!side || !$('#rcl') || !$('#shelf')) return;
   side.innerHTML = rows.slice(0,4).map(d=>
     '<button class="rct" onclick="location.href=\'/draft/editor/'+encodeURIComponent(d.id)+'\'" title="'+esc(d.title||'Draft')+'">'
     +'<svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/></svg>'
@@ -1636,6 +1645,23 @@ async function demoDraft(brief){
   $('#brief').focus();
   const q0=p.get('q'); if(q0){ $('#brief').value=q0; autoGrow($('#brief')); renderCrow(); }
 
+  /* Recorder handoff. The Recorder (/recorder) turns a client conversation into
+     a work-product report, then drops the suggested brief into sessionStorage
+     and opens the drafting screen. That destination used to be V1's /app#drafting
+     and only index.html read these keys, so pointing the Recorder at V2's /draft
+     without reading them here would have silently dropped the whole brief — the
+     advocate would arrive at an empty box having just recorded his client.
+     Read once, then clear, so a reload does not resurrect an old conversation. */
+  try{
+    const seed=sessionStorage.getItem('hn_seed_prompt');
+    if(seed){
+      sessionStorage.removeItem('hn_seed_prompt');
+      $('#brief').value=seed; autoGrow($('#brief')); renderCrow();
+    }
+    SEED_CASE=sessionStorage.getItem('hn_seed_case')||null;
+    sessionStorage.removeItem('hn_seed_case');
+  }catch(e){}
+
   /* Auth runs AFTER the box is on screen and typable, never before it.
      Resolving the Supabase session is an external round-trip, and the beta gate
      then spends a second one on /api/me — measured at ~11s on a real session,
@@ -1644,18 +1670,34 @@ async function demoDraft(brief){
      he presses "Draft it". Both checks still fail exactly as they did: gate()
      for a signed-out user, hnBetaGate()'s own screen for a non-tester. */
   if(!DEMO && !(await freshToken())){ gate(); return; }
+
+  /* Everything below needs a token and nothing below needs anything else
+     below, so it all goes out at once. It used to run strictly in order —
+     the beta gate's /api/me, then the DNA layout, then the recent list, then
+     the matters list — four round trips end to end, with the DNA status line
+     and the recent drafts appearing one after another over several seconds.
+     Each is caught where it is created so a rejection cannot escape while we
+     are still awaiting an earlier one. */
+  const betaP   = DEMO ? Promise.resolve(true) : hnBetaGate().catch(()=>false);
+  const dnaP    = DEMO ? Promise.resolve(null)
+                       : api('/api/draft-dna/layout').catch(()=>null);
+  /* ?matter=<id> is the explicit binding; the Recorder's hn_seed_case is the
+     same thing arriving by handoff — a conversation recorded against a matter
+     should land in that matter's folder without the advocate re-picking it. */
+  const mid     = p.get('matter') || SEED_CASE;
+  const mattersP= mid ? loadMatters().catch(()=>null) : null;
+  loadRecent();                                  // paints itself when it lands
+
   /* V2 private beta — see static/v2-beta.js. DEMO skips it so the page stays
      reviewable without an account; the server gates the data either way. */
-  if(!DEMO && !(await hnBetaGate())) return;
+  if(!(await betaP)) return;
   if(DEMO){ $('#unm').textContent='Demo mode'; $('#url').textContent='sample data'; $('#uav').textContent='D'; }
   else whoami();
 
-  try{ const d=await api('/api/draft-dna/layout'); DNA=d||null; }catch(e){ DNA=null; }
+  DNA=await dnaP;
   renderDna();
-  loadRecent();
 
-  const mid=p.get('matter');
-  if(mid){ await loadMatters(); MATTER=(MATTERS||[]).find(m=>m.id===String(mid))||null; renderCrow(); }
+  if(mattersP){ await mattersP; MATTER=(MATTERS||[]).find(m=>m.id===String(mid))||null; renderCrow(); }
 })();
 </script>
 </body>
