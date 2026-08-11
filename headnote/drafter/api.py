@@ -155,6 +155,25 @@ def get_template_schema(doc_type: str):
     return {"template": slim}
 
 
+@router.get("/layout-presets", summary="The page layouts he can choose between")
+def layout_presets(lang: str = "hi", user: CurrentUser = Depends(get_current_user)):
+    """The style rail on the drafting screen.
+
+    His own captured format leads when he has one — his real filed paper outranks
+    anything we can offer him — followed by four distinct court layouts. Each
+    entry carries its real page geometry and per-role formats so the browser can
+    draw a true-to-scale thumbnail of the page instead of a mock-up.
+    """
+    from headnote.drafter import layout_presets as LP
+    from headnote.drafter import style_profile as SP
+
+    try:
+        own = SP.load_layout(user.id)
+    except Exception:
+        own = None
+    return {"ok": True, "presets": LP.catalogue(lang, own=own), "has_own": bool(own)}
+
+
 class RenderLiveBody(BaseModel):
     story_id: str
     answers:  dict = Field(default_factory=dict)
@@ -1623,7 +1642,7 @@ class TemplateTweakBody(BaseModel):
 
 @router.post("/template-tweak", summary="Change the draft by describing the change")
 def template_tweak(body: TemplateTweakBody,
-                   user: Optional[CurrentUser] = Depends(optional_user)):
+                   user: CurrentUser = Depends(get_current_user)):
     """The AI change-box on the fields screen: he types "he's been inside 4 months,
     add that, and it's the High Court" and the form and the document both move.
 
@@ -1684,12 +1703,70 @@ def template_tweak(body: TemplateTweakBody,
             "document": document}
 
 
+@router.post("/reference-format", summary="Match the format of a document he attaches")
+async def reference_format(file: UploadFile = File(...), lang: str = Form("hi"),
+                           user: CurrentUser = Depends(get_current_user)):
+    """"Make it look like this one."
+
+    He attaches a filing — his senior's, or one the registry has accepted — and
+    the draft takes ITS page setup, indents and typeface. Deliberately scoped to
+    this draft and NOT saved as his Draft DNA: a reference is a decision about one
+    matter, and silently rewriting the format of every future draft from a single
+    attachment would be a far bigger change than he asked for. He has an explicit
+    place to set his own format.
+
+    Needs a real .docx — a scan or a PDF has no layout stored inside it, and
+    saying so plainly beats returning a format we invented.
+    """
+    import logging as _logging
+
+    from fastapi.responses import JSONResponse
+
+    from headnote.drafter import layout_presets as LP
+    from headnote.drafter import layout_template as LT
+
+    name = (file.filename or "").strip()
+    if not name.lower().endswith(".docx"):
+        return JSONResponse({"ok": False, "error":
+                             "a format can only be read from a Word file (.docx) — "
+                             "a scan or a PDF has no layout stored inside it"},
+                            status_code=400)
+    data = await file.read()
+    if not data:
+        return JSONResponse({"ok": False, "error": "that file was empty"}, status_code=400)
+    if len(data) > 20 * 1024 * 1024:
+        return JSONResponse({"ok": False, "error": "that file is too large"}, status_code=413)
+
+    try:
+        tpl = await run_in_threadpool(LP.capture_reference, data, lang=lang)
+    except Exception as e:
+        _logging.getLogger("headnote.drafter").warning(
+            "reference format capture failed", exc_info=True)
+        return JSONResponse({"ok": False, "error":
+                             f"could not read that document's format ({type(e).__name__})"},
+                            status_code=400)
+    if not tpl:
+        return JSONResponse({"ok": False, "error":
+                             "could not find a document structure in that file — "
+                             "try one of your normal filed drafts"}, status_code=400)
+
+    return {"ok": True, "name": name,
+            "font": LT.template_primary_font(tpl),
+            "page": tpl.get("page") or {},
+            "roles": tpl.get("roles") or {},
+            "layout": tpl}
+
+
 class TemplateDocxBody(BaseModel):
     doc_type: str
     fields:   dict = Field(default_factory=dict)
     lang:     str = "hi"
     html:     Optional[str] = Field(
         None, description="the document as it is on his screen — sent when he has edited it")
+    layout_id: Optional[str] = Field(
+        None, description="'own', or a preset id from GET /layout-presets")
+    layout:   Optional[dict] = Field(
+        None, description="a layout captured from a reference document; beats layout_id")
 
 
 _MAX_EXPORT_HTML = 4_000_000       # a filing bundle is ~40 KB; this is only a bound
@@ -1697,7 +1774,7 @@ _MAX_EXPORT_HTML = 4_000_000       # a filing bundle is ~40 KB; this is only a b
 
 @router.post("/template-docx", summary="The filled draft as .docx — in the advocate's own format")
 def template_docx(body: TemplateDocxBody,
-                  user: Optional[CurrentUser] = Depends(optional_user)):
+                  user: CurrentUser = Depends(get_current_user)):
     """Draft DNA, from the fields screen — the surface most advocates actually use.
 
     Until now the only route to a `.docx` in the advocate's own layout ran through
@@ -1713,9 +1790,19 @@ def template_docx(body: TemplateDocxBody,
 
     Never a dead action: with no Draft DNA he gets clean standard court format and
     `X-Headnote-Format: standard`, and the screen says so honestly.
+
+    Auth is `get_current_user`, NOT `optional_user`, and that is load-bearing.
+    `optional_user` returns None both when there is no token AND when the token
+    has merely expired — and a Supabase token expires after about an hour. On
+    this screen that would mean an advocate who HAS set up his format leaves the
+    tab open, comes back, downloads, and silently gets standard format with no
+    error and no explanation: precisely the "Draft DNA doesn't work" report. A
+    401 he can act on is the honest failure, and the screen already requires
+    sign-in to render the document at all.
     """
     from fastapi.responses import Response
     from headnote.drafter import dna_layout, html_blocks as HB
+    from headnote.drafter import layout_template as LT
     from headnote.drafter import template_adapter as TA
 
     lang = (body.lang or "hi").strip().lower()
@@ -1737,8 +1824,17 @@ def template_docx(body: TemplateDocxBody,
                             detail="nothing to export yet — fill in the form first")
 
     uid = user.id if user else None
+    # The layout he PICKED on the style rail wins over his saved default — that
+    # is the whole point of the rail. `how` is the same word the screen shows, so
+    # the header and the label on his screen can never disagree.
+    from headnote.drafter import layout_presets as LP
+    chosen, how_chosen = LP.resolve(layout_id=body.layout_id, layout=body.layout,
+                                    user_id=uid, lang=lang)
     try:
-        data, how = dna_layout.render_blocks(uid, blocks, lang=lang)
+        if chosen:
+            data, how = LT.render_into_layout(chosen, blocks), how_chosen
+        else:
+            data, how = dna_layout.render_blocks(uid, blocks, lang=lang)
     except Exception as e:
         import logging
         logging.getLogger("headnote.drafter").exception(

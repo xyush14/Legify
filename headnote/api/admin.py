@@ -17,6 +17,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from headnote import config
+from headnote.api.admin_session import require_admin_bearer
 from headnote.api.telemetry import get_summary
 
 
@@ -25,30 +26,14 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 def _require_admin(authorization: Optional[str]) -> None:
-    """Raises HTTPException unless the header carries the configured bearer."""
-    if not config.ADMIN_TOKEN:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=(
-                "Admin routes are disabled: ADMIN_TOKEN env var is not set. "
-                "Add it to .env (e.g. `ADMIN_TOKEN=<random-long-string>`) "
-                "and restart."
-            ),
-        )
-    if not authorization or not authorization.lower().startswith("bearer "):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing 'Authorization: Bearer <ADMIN_TOKEN>' header.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    token = authorization.split(None, 1)[1].strip()
-    # Constant-time-ish compare. Python lacks a builtin, but for short
-    # admin tokens the timing leak is academic.
-    if token != config.ADMIN_TOKEN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Bearer token does not match ADMIN_TOKEN.",
-        )
+    """Raises HTTPException unless the header carries a valid admin credential.
+
+    Delegates to the shared gate so the raw ADMIN_TOKEN and a console
+    sign-in session are accepted identically everywhere. This used to be a
+    local copy of the check, duplicated again in admin_v2.py and
+    partners_admin.py; all three now share one implementation.
+    """
+    require_admin_bearer(authorization)
 
 
 @router.get("/telemetry", summary="Cost / escalation / quality summary")
@@ -923,10 +908,10 @@ def admin_grant_sub_by_email(
     ----
     {
       "email": "lawyer@example.com",     # required — must already exist in auth.users
-      "plan":  "monthly",                # weekly | monthly | yearly
+      "plan":  "quarterly",              # weekly | quarterly | yearly
       "name":  "Adv. Mansi Singh",       # optional, used in salutation
       "note":  "Influencer collab",      # optional, surfaces in the invite email
-      "duration_days": 30,               # optional — overrides plan's default
+      "duration_days": 90,               # optional — overrides plan's default
       "send_email": true                 # optional, default true
     }
 
@@ -942,7 +927,7 @@ def admin_grant_sub_by_email(
     """
     _require_admin(authorization)
     email = ((payload or {}).get("email") or "").strip().lower()
-    plan  = ((payload or {}).get("plan") or "monthly").strip().lower()
+    plan  = ((payload or {}).get("plan") or "quarterly").strip().lower()
     name  = (payload or {}).get("name") or ""
     note  = (payload or {}).get("note") or ""
     duration_days = (payload or {}).get("duration_days")
@@ -950,8 +935,11 @@ def admin_grant_sub_by_email(
 
     if "@" not in email:
         raise HTTPException(400, "email must be a valid address")
-    if plan not in ("weekly", "monthly", "yearly"):
-        raise HTTPException(400, "plan must be weekly | monthly | yearly")
+    # "monthly" is still accepted so a legacy monthly subscriber can be
+    # re-granted the tier they already know, but it is no longer the default
+    # and is not offered on the console.
+    if plan not in ("weekly", "quarterly", "monthly", "yearly"):
+        raise HTTPException(400, "plan must be weekly | quarterly | yearly")
 
     from headnote.api.auth_otpless import _find_user as _supabase_find_user
     from headnote.entitlements import _supabase

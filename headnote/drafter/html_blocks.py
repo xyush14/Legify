@@ -207,17 +207,19 @@ def from_document_html(html: str, *, number_grounds: bool = True) -> list[tuple]
 
     blocks: list[tuple] = []
     party_seen: dict = {}
-    sheet_no = {"n": 0}
 
     def walk(el) -> None:
         for child in el.find_all(True, recursive=False):
             cl = _classes(child)
             name = child.name or ""
 
-            # a new sheet of the filing bundle starts on its own page
+            # A new sheet of the filing bundle starts on its own page. The break
+            # is emitted only once something has already been written — some
+            # builders nest a sheet wrapper inside another, and counting sheets
+            # instead of content put a page break at the very top, i.e. a blank
+            # first page in every one of those advocates' filings.
             if "doc-a4" in cl:
-                sheet_no["n"] += 1
-                if sheet_no["n"] > 1:
+                if blocks:
                     blocks.append(PAGE_BREAK)
                 party_seen.clear()
                 walk(child)

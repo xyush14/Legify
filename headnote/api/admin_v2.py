@@ -21,6 +21,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from pydantic import BaseModel
 
 from headnote import config
+from headnote.api.admin_session import verify_admin_bearer
 from headnote.entitlements import _supabase
 from headnote.entitlements.auth import optional_user
 from headnote.entitlements.plans import PLANS
@@ -37,15 +38,15 @@ def _admin_guard(
     authorization: Optional[str] = Header(default=None),
     user=Depends(optional_user),
 ) -> str:
-    """Allow either Bearer ADMIN_TOKEN OR a JWT for an admin_users row.
+    """Allow a Bearer admin credential OR a JWT for an admin_users row.
 
-    Returns the actor id (admin user id, or 'ops' for token-based access).
+    Returns the actor id: 'ops' for the raw ADMIN_TOKEN, the signed-in
+    email for a console session, or the admin user id for the JWT path.
     """
-    # Bearer ADMIN_TOKEN path
-    if authorization and authorization.lower().startswith("bearer "):
-        token = authorization.split(None, 1)[1].strip()
-        if config.ADMIN_TOKEN and token == config.ADMIN_TOKEN:
-            return "ops"
+    # Bearer path — raw ADMIN_TOKEN or a console sign-in session.
+    actor = verify_admin_bearer(authorization)
+    if actor:
+        return actor
     # JWT path
     if user and is_admin(user.id):
         return user.id

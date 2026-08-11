@@ -111,30 +111,29 @@ def test_gated_endpoint_allows_a_tester():
 
 # --------------------------------------------- the gate must stay invisible
 
-def test_v2_only_routes_are_gated_but_shared_ones_are_not():
-    """The split that protects existing users.
+def test_no_draft_dna_route_is_beta_gated():
+    """Draft DNA belongs to every signed-in advocate, not to a beta list.
 
-    /settings (live today) calls GET/PATCH /api/draft-dna and /analyze, so
-    those must NOT require beta. Only the layout-mirroring routes, which just
-    /draft-dna reaches, are gated. If someone moves an endpoint between these
-    groups this test is the tripwire.
+    The layout-mirroring routes (/layout /capture /template /generate /render)
+    used to be `require_beta` because only /draft-dna called them. Two things
+    changed: the beta is over (V2 is public), and the fields drafting screen at
+    /draft/template/<id> — which every paying user is on — now calls /layout on
+    load and offers ".docx in your own format". Leaving them gated meant unsetting
+    one env var would silently switch the product's main differentiator off for
+    the entire user base.
+
+    Draft DNA is per-advocate by construction (every read and write is keyed by
+    his own user id), so `get_current_user` is the whole access rule. This test is
+    the tripwire against re-gating it.
     """
     from headnote.api import draft_dna
 
-    gated, open_ = set(), set()
     for route in draft_dna.router.routes:
-        deps = {d.call for d in getattr(route, "dependant", None).dependencies} \
-            if getattr(route, "dependant", None) else set()
-        (gated if beta_mod.require_beta in deps else open_).add(route.path)
-
-    P = "/api/draft-dna"
-    # Reachable only from /draft-dna → gated.
-    for path in (f"{P}/layout", f"{P}/capture", f"{P}/render", f"{P}/generate"):
-        assert path in gated, f"{path} should require beta"
-
-    # Reachable from the LIVE /settings page → must stay open.
-    for path in (P, f"{P}/analyze"):
-        assert path in open_, f"{path} is used by /settings and must not be gated"
+        dep = getattr(route, "dependant", None)
+        deps = {d.call for d in dep.dependencies} if dep else set()
+        assert beta_mod.require_beta not in deps, (
+            f"{route.path} is beta-gated — Draft DNA must work for every "
+            f"signed-in advocate, not only testers")
 
 
 def test_every_home_route_is_gated():

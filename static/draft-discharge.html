@@ -548,7 +548,7 @@
 
 <div class="topbar">
   <div class="topbar__left">
-    <a href="/app#drafting" class="topbar__back">←</a>
+    <a href="/draft" class="topbar__back">←</a>
     <div>
       <div class="topbar__title">उन्मोचन आवेदन — धारा 239 / 498ए</div>
       <div class="topbar__sub" id="topbar-sub">draft auto-saves · live preview on the right</div>
@@ -991,7 +991,7 @@ function showInlineSignInModal() {
     if (window.headnoteAuth && window.headnoteAuth.signInInline) {
       await window.headnoteAuth.signInInline();
     } else {
-      window.location.href = '/app#drafting';
+      window.location.href = '/draft';
     }
   };
   document.getElementById('inline-signin-close').onclick = () => m.remove();

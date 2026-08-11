@@ -884,6 +884,8 @@ body.sb-min .sb .brand{margin-bottom:26px}
 <div class="pop" id="readyPop"><div class="popbox" id="readyBox"></div></div>
 <div class="pop" id="linkWrap"><div class="scbox" style="max-width:600px"><div class="schead"><div><div class="shk">Link your matters to the court</div><div class="scht">Diary matters have no CNR — the court cannot update them</div></div><button class="shx" onclick="closeLink()" aria-label="Close">✕</button></div><div class="scbody" id="linkBody"></div></div></div>
 <div class="pop" id="addWrap"><div class="scbox" style="max-width:520px"><div class="schead"><div><div class="shk">Add a matter</div><div class="scht">One number — the court record fills the rest</div></div><button class="shx" onclick="closeAdd()" aria-label="Close">✕</button></div><div class="scbody" id="addBody"></div></div></div>
+<div class="pop" id="remWrap"><div class="scbox" style="max-width:660px"><div class="schead"><div><div class="shk">Remind your clients</div><div class="scht">One message each — read it before it goes</div></div><button class="shx" onclick="closeRem()" aria-label="Close">✕</button></div><div class="scbody" id="remBody"></div></div></div>
+<div class="pop" id="cliWrap"><div class="scbox" style="max-width:460px"><div class="schead"><div><div class="shk">Client on this matter</div><div class="scht">Their number, and their consent to be reminded</div></div><button class="shx" onclick="closeCli()" aria-label="Close">✕</button></div><div class="scbody" id="cliBody"></div></div></div>
 <div id="daySheet"></div>
 <!-- Removed: an orphaned #sheetWrap drawer. Nothing opened it, nothing read
      #sheet, and its backdrop called a closeSheet() that was never written. The
@@ -1198,6 +1200,7 @@ function renderBoard(){
           <button class="btn btn--sm btn--primary" id="syncAllBtn" onclick="syncAllCourt()">Check the court for new dates</button>
           <button class="btn btn--sm" onclick="showOverdue()">Review ${od>1?'them':'it'} ›</button>
         </span></div>`:''}
+     ${remindBanner()}
      ${unl?`<button class="odue link" onclick="openLink()">${S(IC.folder)}
         <span><b>${unl} matter${unl>1?'s are':' is'} not linked to the court record.</b>
         ${unl>1?'They were':'It was'} added from a diary page, so ${unl>1?'their':'its'} dates can never update on ${unl>1?'their':'its'} own.</span>
@@ -1381,12 +1384,24 @@ function row(m,i){
     <div class="lrow__sl">${String(i+1).padStart(2,'0')}</div>
     <div class="rc-mono hi reg-hidem">${court}</div>
     <div class="rc-mono reg-hidem">${cno}</div>
-    <div class="rc-name hi"><span class="pn" onclick="openNote('${m.id}')" title="Open note sheet">${esc(m.party)}</span>${m.assignee?`<span class="av3" title="Assigned to ${esc(m.assignee)}">${esc(initials(m.assignee))}</span>`:''}${m.court_updates?`<span class="updot" title="${m.court_updates} court update(s)">${m.court_updates}</span>`:''}<span class="rdot ${cls}" title="${esc(st.why)}" onclick="openNote('${m.id}')"><i></i>${esc(readyLabel(st.state))}</span><small>${cno} · ${court} · <span class="flink" onclick="openFolder('${m.id}')">open folder</span>${m.cnr?` · <span class="flink" onclick="syncOne('${m.id}')">check court</span>`:''}</small></div>
+    <div class="rc-name hi"><span class="pn" onclick="openNote('${m.id}')" title="Open note sheet">${esc(m.party)}</span>${m.assignee?`<span class="av3" title="Assigned to ${esc(m.assignee)}">${esc(initials(m.assignee))}</span>`:''}${m.court_updates?`<span class="updot" title="${m.court_updates} court update(s)">${m.court_updates}</span>`:''}<span class="rdot ${cls}" title="${esc(st.why)}" onclick="openNote('${m.id}')"><i></i>${esc(readyLabel(st.state))}</span><small>${cno} · ${court} · <span class="flink" onclick="openFolder('${m.id}')">open folder</span>${m.cnr?` · <span class="flink" onclick="syncOne('${m.id}')">check court</span>`:''} · ${clientLink(m)}</small></div>
     <div class="rc-prev reg-hidem">${esc(m.prev_hearing_date||'—')}</div>
     <div class="nxcell" id="nx${i}">${nx}</div>
     <div class="prepcol"><button class="tickb ${m.prepared?'on':''}" onclick="togglePrepared('${m.id}',event)" title="${m.prepared?'Prepared — click to undo':'Mark this file prepared'}" aria-pressed="${!!m.prepared}"><span class="tk">${m.prepared?S(IC.check):''}</span><span class="tl">${m.prepared?'Prepared':'Mark ready'}</span></button></div>
   </div>`;
 }
+/* The client's contact state, on the row where the lawyer already is.
+   Worded as the next action rather than as a status: "no client" is a thing to
+   fix, and until this link existed the only place to fix it was the old /app
+   matters page — which is why almost no matter has a number on it. */
+function clientLink(m){
+  const c=m.client||{};
+  if(c.reachable) return `<span class="flink" onclick="openCli('${m.id}')" title="${esc(c.name||'')} · ${esc(c.mobile||'')} · consented">client ✓</span>`;
+  if(c.has_mobile) return `<span class="flink" onclick="openCli('${m.id}')" title="A number is saved but the client has not consented to reminders">consent needed</span>`;
+  if(c.name)      return `<span class="flink" onclick="openCli('${m.id}')">add number</span>`;
+  return `<span class="flink" onclick="openCli('${m.id}')">add client</span>`;
+}
+
 /* Takes either a readiness object or a bare state. The server sends the wording
    (readiness.label) — trust it, so a new state never silently reads "Review"
    here just because this map was not updated too. */
@@ -1560,6 +1575,253 @@ async function saveLink(){
     MATTERS=null;
     reload();
   }catch(e){ b.disabled=false; b.textContent='Link the ticked matters'; toast(e.message,'error'); }
+}
+
+/* ================= remind the clients ================================
+   The matters screen has asked for the client's mobile "for reminders" and taken
+   a "client consents to hearing reminders" tick since the diary shipped, and
+   nothing ever sent one. This is that promise kept.
+
+   TWO DELIBERATE CHOICES, both of them about trust rather than convenience:
+
+   1. The nudge is for TOMORROW, and the send is HIS tap. A reminder is useful the
+      evening before, so the banner tracks tomorrow's board and not the date he
+      happens to be browsing. But 123 of 125 matters in production hold a date
+      typed off a photographed cause list, so every row states where its date came
+      from and nothing goes out until he has looked. A client sent to court on the
+      wrong day blames his advocate, and rightly.
+
+   2. Every matter on the day is listed, including the ones that cannot be sent.
+      A row that quietly disappeared because the client has no number would leave
+      him believing that client was told. Each carries the reason and a button
+      that fixes it in place.
+
+   The words come from the server (headnote/reminders/copy.py) — this file shows
+   them and never composes them. */
+let REM = null;
+/* A note that must SURVIVE a panel refresh — which client was not told, and why.
+   Held here rather than in the DOM because paintRem() rebuilds #remBody. */
+let REM_NOTE = '';
+
+function remindBanner(){
+  const r=(HOME&&HOME.remind)||null;
+  if(!r||r.unavailable) return '';
+  const n=r.pending||0, b=r.blocked||0;
+  if(!n&&!b) return '';
+  const when=r.date===addDays(HOME.today,1)?'tomorrow':fmtDay(r.date);
+  /* Neutral, not amber: reminding clients is a task, not a fault — the same
+     reasoning as the unlinked-matters banner above. */
+  return `<button class="odue link" onclick="openRem('${r.date}')">${S(IC.note)}
+    <span>${n?`<b>${n} client${n>1?'s':''}</b> can be reminded about ${esc(when)}’s hearing${n>1?'s':''}.`
+            :`<b>No client can be reminded about ${esc(when)}</b> yet.`}
+    ${b?`${n?'Another ':''}${b} ${b>1?'have':'has'} no number or no consent on file.`:''}</span>
+    <span class="gx">${n?'Review and send ›':'See why ›'}</span></button>`;
+}
+
+async function openRem(date){
+  $('#remWrap').classList.add('on');
+  $('#remBody').innerHTML=`<div class="paneempty" style="padding:30px">Reading your board…</div>`;
+  try{
+    const q=REM&&REM.lang?`&lang=${encodeURIComponent(REM.lang)}`:'';
+    REM=await api(`/api/reminders/due?date=${encodeURIComponent(date)}${q}`);
+    REM.date=date;
+    paintRem();
+  }catch(e){
+    $('#remBody').innerHTML=`<div class="paneempty" style="padding:26px"><div class="ic">${S(IC.alert)}</div>
+      ${esc(e.message)}<br><span style="font-size:12px">Nothing was sent.</span></div>
+      <div style="display:flex;gap:8px;margin-top:14px"><button class="btn" onclick="openRem('${date}')">Try again</button>
+      <button class="btn" onclick="closeRem()">Close</button></div>`;
+  }
+}
+/* Clearing the note on CLOSE (not on open) is what makes it survive the refresh
+   after a partial send while never resurfacing on a fresh visit. */
+function closeRem(){ $('#remWrap').classList.remove('on'); REM_NOTE=''; }
+
+/* The self-send lane. Always available and needs no approval from anybody: it
+   opens WhatsApp with the message already written, from the advocate's OWN
+   number — which is also the number his client recognises. This is the honest
+   floor beneath the automatic lane, not a consolation prize. */
+function waLink(e){
+  const digits=(e.client_phone||'').replace(/\D/g,'');
+  return `https://wa.me/${digits}?text=${encodeURIComponent(e.message)}`;
+}
+
+function paintRem(){
+  const c=REM.counts, ch=REM.channel||{}, auto=!!ch.auto;
+  /* Whole-batch preconditions are stated ONCE. They used to arrive as a blocker on
+     every row, which read as twelve separate problems when it was one, and buried
+     the per-client gaps that genuinely differ. */
+  const noNumber=!(REM.advocate||{}).has_number;
+  const canSend=!!REM.can_send;
+  const langs=[['','Per client'],['hi','हिन्दी'],['en','English'],['mr','मराठी'],['gu','ગુજરાતી'],['bn','বাংলা']];
+
+  const head=`
+    ${REM_NOTE?`<div class="odue" style="margin-bottom:12px">${S(IC.alert)}
+      <span id="remNote">${esc(REM_NOTE)}</span></div>`:''}
+    <div style="font-size:13.5px;color:var(--ink-2);line-height:1.6;margin-bottom:12px">
+      ${c.total?`<b>${c.total}</b> matter${c.total>1?'s are':' is'} listed on ${esc(fmtDay(REM.date))}.
+        ${c.sendable?`${c.sendable} client${c.sendable>1?'s':''} can be told now.`:''}
+        ${c.blocked?`${c.blocked} need${c.blocked>1?'':'s'} something from you first.`:''}
+        ${c.already?`${c.already} ${c.already>1?'have':'has'} already been reminded.`:''}`
+       :`Nothing is listed on ${esc(fmtDay(REM.date))}.`}
+    </div>
+    ${auto?'':`<div class="odue" style="margin-bottom:12px">${S(IC.alert)}
+      <span><b>Automatic sending is not switched on.</b> ${esc(ch.why||'')}
+      You can still send each one yourself from your own number — the message is written for you.</span></div>`}
+    ${noNumber?`<div class="odue" style="margin-bottom:12px">${S(IC.alert)}
+      <span><b>Add your own office number.</b> The message tells your client who to call if they cannot attend.</span>
+      <span class="oact"><span class="msbox" style="height:34px;width:180px;display:inline-flex">
+        <input id="remMyNo" placeholder="Your mobile" inputmode="tel"></span>
+        <button class="btn btn--sm btn--primary" onclick="saveMyNumber()">Save</button></span></div>`:''}
+    ${c.total?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <span style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)">Language</span>
+      <div class="dfil">${langs.map(l=>`<button class="${(REM.lang||'')===l[0]?'on':''}" onclick="setRemLang('${l[0]}')">${l[1]}</button>`).join('')}</div>
+      </div>`:''}`;
+
+  const rows=REM.entries.map((e,i)=>{
+    const src=e.date_source||{};
+    const chip=src.kind==='own'
+      ? `<span class="ncount" style="background:var(--amber-soft);color:var(--amber)">${esc(src.label)}</span>`
+      : `<span class="ncount">${esc(src.label)}</span>`;
+    const fixBtn=(e.blocker==='no_phone'||e.blocker==='no_consent'||e.blocker==='no_details')
+      ? `<button class="btn btn--sm" onclick="openCli('${e.case_id}','${REM.date}')">${e.blocker==='no_consent'?'Tick consent':'Add number'}</button>` : '';
+    return `<div class="regrow" style="grid-template-columns:26px 1fr;padding:11px 12px;align-items:start;gap:10px">
+      <div>${e.sendable
+        ? `<input type="checkbox" class="remcb" data-id="${esc(e.case_id)}" checked>`
+        : `<span style="display:inline-block;width:13px;height:13px;border:1px solid var(--line);border-radius:3px;opacity:.45"></span>`}</div>
+      <div style="min-width:0">
+        <div style="font-size:13.5px;font-weight:500">${esc(e.party)}
+          ${e.lang_needs_signoff?`<span class="ncount" title="This wording has not been checked by an advocate in that state yet">${esc(e.lang)} · unchecked wording</span>`:''}</div>
+        <div class="rc-mono" style="font-size:11px;color:var(--ink-3);margin-top:3px">
+          ${esc(e.case_number||'')} · ${esc(e.court_name||'')}${e.client_phone?' · '+esc(e.client_phone):''}</div>
+        <div style="margin-top:5px">${chip}</div>
+        ${e.blocker?`<div style="font-size:12px;color:var(--amber);margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <span>${esc(e.fix)}</span>${fixBtn}</div>`:''}
+        ${e.sendable?`<details style="margin-top:7px">
+            <summary style="font-size:11.5px;color:var(--ink-3);cursor:pointer">See the message</summary>
+            <pre style="white-space:pre-wrap;font-family:inherit;font-size:12.5px;color:var(--ink-2);background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:10px;margin:7px 0 0;line-height:1.55">${esc(e.message)}</pre>
+            <a class="btn btn--sm" style="margin-top:7px;display:inline-flex;text-decoration:none" target="_blank" rel="noopener"
+               href="${esc(waLink(e))}">Send this one myself ↗</a>
+          </details>`:''}
+      </div></div>`;}).join('');
+
+  $('#remBody').innerHTML=head+
+    (REM.entries.length?`<div class="ledger" style="max-height:360px;overflow:auto">${rows}</div>`:'')+
+    `<div style="display:flex;gap:8px;margin-top:14px;align-items:center">
+      ${(canSend&&c.sendable)?`<button class="btn btn--primary" id="remGo" onclick="sendRem()">Send all ${c.sendable}</button>`
+        :c.sendable?`<button class="btn" id="remGo" disabled title="${esc(REM.blocked_reason||'')}">Send all ${c.sendable}</button>`:''}
+      <button class="btn" onclick="closeRem()">${(canSend&&c.sendable)?'Cancel':'Close'}</button>
+      <span id="remMsg" style="font-size:12px;color:var(--ink-3)"></span></div>`;
+}
+
+function setRemLang(l){ REM.lang=l; openRem(REM.date); }
+
+async function saveMyNumber(){
+  const v=(($('#remMyNo')||{}).value||'').trim();
+  if(!v){ toast('Enter your mobile number','error'); return; }
+  try{
+    await api('/api/reminders/my-number',{method:'PATCH',body:JSON.stringify({phone:v})});
+    toast('Saved — your clients will be told to call this number','success');
+    openRem(REM.date);
+  }catch(e){ toast(e.message,'error'); }
+}
+
+async function sendRem(){
+  const ids=[...document.querySelectorAll('.remcb')].filter(c=>c.checked).map(c=>c.dataset.id);
+  if(!ids.length){ toast('Nothing ticked','error'); return; }
+  const b=$('#remGo'), msg=$('#remMsg');
+  b.disabled=true; b.textContent=`Sending to ${ids.length}…`; msg.textContent='';
+  try{
+    const r=await api('/api/reminders/send',{method:'POST',
+      body:JSON.stringify({date:REM.date, case_ids:ids, lang:REM.lang||null})});
+    /* Report per client, never just a count. "12 sent" over a batch where three
+       failed leaves him unable to tell which client to telephone. */
+    const bad=(r.results||[]).filter(x=>x.status==='failed');
+    toast(`${r.sent} client${r.sent===1?'':'s'} reminded${bad.length?` · ${bad.length} failed`:''}`,
+          bad.length?'error':'success');
+    if(bad.length){
+      /* Carry the failure INTO the re-render, not into #remMsg — refreshing the
+         panel rebuilds #remBody, so a note written here would be wiped a moment
+         later and the only trace of which client was not told would be a toast
+         that disappears after three seconds. */
+      REM_NOTE=`Not sent: ${bad.map(x=>x.party).join(', ')}. Nothing was double-sent — those are ticked again, so you can retry.`;
+      openRem(REM.date);
+    } else { REM_NOTE=''; closeRem(); }
+    dirty=true; refreshIfDirty();
+  }catch(e){
+    b.disabled=false; b.textContent=`Send all ${ids.length}`;
+    msg.innerHTML=`<span style="color:var(--amber)">${esc(e.message)}</span>`;
+  }
+}
+
+/* ---------------- the client on a matter ----------------
+   Until now this could only be entered on the old /app matters page, which is
+   precisely why the mobile field is empty on nearly every matter: the lawyer
+   works here. Same endpoint, so both screens stay in agreement. */
+let CLI_BACK = null;
+
+async function openCli(caseId, backDate){
+  CLI_BACK = backDate || null;
+  const row = (REM&&(REM.entries||[]).find(e=>e.case_id===caseId)) || null;
+  const m = findMatter(caseId);
+  const name  = row? row.client_name : ((m&&m.client&&m.client.name)||'');
+  const phone = row? row.client_phone_raw : ((m&&m.client&&m.client.mobile)||'');
+  const cons  = row? !!row.consent : !!(m&&m.client&&m.client.consent);
+  $('#cliWrap').classList.add('on');
+  $('#cliBody').innerHTML=`
+    <div style="font-size:13px;color:var(--ink-2);line-height:1.6;margin-bottom:14px">
+      ${esc((row&&row.party)||(m&&m.party)||'This matter')} — the court record never carries your client's
+      number, so it is yours to add once.</div>
+    <input type="hidden" id="cliId" value="${esc(caseId)}">
+    <div class="msbox" style="height:42px;margin-bottom:8px"><input id="cliName" placeholder="Client's name" value="${esc(name)}"></div>
+    <div class="msbox" style="height:42px"><input id="cliMobile" placeholder="Mobile (10 digits)" inputmode="tel" value="${esc(phone)}"></div>
+    <label style="display:flex;gap:9px;align-items:flex-start;margin-top:14px;font-size:13px;cursor:pointer;line-height:1.5">
+      <input type="checkbox" id="cliConsent" ${cons?'checked':''} style="margin-top:2px">
+      <span>My client agrees to be sent hearing reminders on this number.
+        <span style="display:block;color:var(--ink-3);font-size:11.5px;margin-top:2px">
+          Required before Headnote will message them. You are confirming their consent, so ask first.</span></span></label>
+    <div id="cliMsg" style="font-size:12.5px;color:var(--amber);margin-top:10px;min-height:16px"></div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn btn--primary" id="cliSave" onclick="saveCli()">Save</button>
+      <button class="btn" onclick="closeCli()">Cancel</button></div>`;
+  setTimeout(()=>{const i=$(phone?'#cliMobile':'#cliName'); if(i) i.focus();},40);
+}
+function closeCli(){
+  $('#cliWrap').classList.remove('on');
+  if(CLI_BACK){ const d=CLI_BACK; CLI_BACK=null; openRem(d); }
+}
+
+function findMatter(id){
+  const all=[].concat(...Object.values((HOME&&HOME.boards)||{}), (HOME&&HOME.board)||[]);
+  return all.find(m=>String(m.id)===String(id))||null;
+}
+
+async function saveCli(){
+  const id=$('#cliId').value, msg=$('#cliMsg'), b=$('#cliSave');
+  const name=($('#cliName').value||'').trim();
+  const mobile=($('#cliMobile').value||'').trim();
+  const consent=$('#cliConsent').checked;
+  const digits=mobile.replace(/\D/g,'');
+  if(mobile&&(digits.length<10||digits.length>15)){
+    msg.textContent='That does not look like a full mobile number.'; return; }
+  if(consent&&!mobile){
+    msg.textContent='Add the number you have their consent to message.'; return; }
+  b.disabled=true; b.textContent='Saving…'; msg.textContent='';
+  try{
+    /* The SAME endpoint the old matters page uses, so a client added here shows
+       up there and vice versa. It merges, so sending only these three keys
+       cannot wipe the address or occupation entered on the other screen. */
+    await api(`/api/cases/${encodeURIComponent(id)}/client`,
+      {method:'PATCH',body:JSON.stringify({name,mobile,consent})});
+    toast('Client saved','success');
+    MATTERS=null; dirty=true;
+    /* Read the return path BEFORE closing — closeCli() consumes it. Saving from
+       the reminder panel must land back in that panel with the row now sendable,
+       not reload Home underneath it. */
+    const back=CLI_BACK;
+    closeCli();
+    if(!back) reload();
+  }catch(e){ b.disabled=false; b.textContent='Save'; msg.textContent=e.message; }
 }
 
 /* ---------------- add a matter by CNR ----------------

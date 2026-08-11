@@ -49,6 +49,7 @@ from headnote.api import saved_caselaw
 from headnote.entitlements import CurrentUser, require_beta
 from headnote.notesheets import readiness as rd
 from headnote.notesheets import storage as ns_storage
+from headnote.reminders import service as reminder_service
 
 log = logging.getLogger(__name__)
 router = APIRouter(tags=["home"])
@@ -205,6 +206,34 @@ def _matter_card(case: dict, user_id: str, *, with_artifacts: bool = True,
         "counts": {k: (v if isinstance(v, int) else len(v))
                    for k, v in arts.items()} if arts else {},
         "court_updates": len(courtsync.unseen(cj)),
+        # Can this matter's client be reminded, and if not why. The board needs
+        # this to offer the action inline: until now client contact could only be
+        # entered on the old /app matters page, which is the reason the mobile
+        # field — labelled "for reminders" since the diary shipped — sits empty on
+        # almost every matter. The number itself is NOT sent to the browser as a
+        # dialable string beyond what the lawyer typed; it is his own record.
+        "client": _client_state(cj),
+    }
+
+
+def _client_state(cj: dict) -> dict:
+    """The client's contact state on a matter, for the board row.
+
+    `reachable` deliberately requires BOTH a number and consent. Showing "ready to
+    remind" off a phone number alone would put the lawyer one tap from messaging a
+    client who never agreed to be messaged, which is the consent the matters
+    screen has been recording all along.
+    """
+    cl = cj.get("client") or {}
+    name = (cl.get("name") or "").strip()
+    mobile = (cl.get("mobile") or "").strip()
+    consent = bool(cl.get("consent"))
+    return {
+        "name": name,
+        "mobile": mobile,
+        "consent": consent,
+        "has_mobile": bool(mobile),
+        "reachable": bool(mobile and consent),
     }
 
 
@@ -305,14 +334,29 @@ def home(date: Optional[str] = Query(None, description="board date, YYYY-MM-DD (
         if who:
             roster[who] = roster.get(who, 0) + 1
 
+    # Clients to remind about TOMORROW's board. Tomorrow, not the day on screen:
+    # the reminder a client can act on is the one that reaches him the evening
+    # before, and tying the nudge to whatever date the lawyer happens to be
+    # browsing would make it appear and vanish as he pages through the calendar.
+    tomorrow = (datetime.fromisoformat(today) + timedelta(days=1)).date().isoformat()
+    try:
+        remind = reminder_service.summary(user_id=user.id, hearing_iso=tomorrow,
+                                          cases=cases)
+    except Exception as e:  # noqa: BLE001 — a banner must never take Home down
+        log.warning("reminder summary failed for %.8s: %s", user.id, e)
+        remind = {"date": tomorrow, "total": 0, "pending": 0, "blocked": 0,
+                  "already": 0, "unavailable": True}
+
     return {
         "roster": [w for w, _ in sorted(roster.items(), key=lambda kv: (-kv[1], kv[0]))][:8],
         "date": day, "today": today, "span": span,
+        "remind": remind,
         "board": board,
         "boards": boards,
         "counts": {"board": len(board), "ready": len(ready), "gaps": len(gaps),
                    "week": week, "month": month, "undated": len(undated),
                    "overdue": len(overdue), "unlinked": unlinked,
+                   "remind": remind.get("pending", 0),
                    "notes_ready": sum(1 for m in board if m["has_note_sheet"]),
                    "court_updates": len(inbox)},
         # Home shows a few and hides the rest behind "Show all", so it needs

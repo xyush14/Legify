@@ -161,6 +161,25 @@ def upsert_or_raise(table: str, payload: dict | list[dict], *,
                  headers=headers, timeout=timeout)
 
 
+def insert_or_raise(table: str, payload: dict | list[dict],
+                    timeout: float = 10.0) -> list[dict]:
+    """A PLAIN insert — no merge-duplicates — that raises SupabaseError on failure.
+
+    Distinct from upsert_or_raise() because of what a unique-index violation
+    means. `resolution=merge-duplicates` turns a conflict into an UPDATE of the
+    existing row, which is right for a cache and wrong for a ledger: a table
+    whose unique index exists to stop a second write (the client-reminder
+    double-send guard, migrations/014) would quietly accept that second write
+    and overwrite the first record of it.
+
+    So this variant lets Postgres reject the conflict and surfaces it as a 409
+    with SQLSTATE 23505, which the caller reads as "this already happened".
+    """
+    headers = _headers()
+    headers["Prefer"] = "return=representation"
+    return _send("POST", table, payload=payload, headers=headers, timeout=timeout)
+
+
 def update_or_raise(table: str, payload: dict, *, params: dict[str, str],
                     timeout: float = 10.0) -> list[dict]:
     """update(), but a failed request raises SupabaseError.

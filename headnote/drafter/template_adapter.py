@@ -186,7 +186,13 @@ def schema(tid: str) -> dict:
             "hint": tg.get("hint", ""),   # one-line description → shown on the ground card
         })
     lab = LABELS.get(tid, {"en": tid, "hi": tid})
+    # `name_en`/`name_hi` are what the editor reads for the screen title and for
+    # the download filename; the legacy compose templates have always used those
+    # keys. This adapter only emitted `label_*`, so every one of the 50 reviewed
+    # types opened with a BLANK title and downloaded as "document-<date>.pdf".
+    # Both spellings are returned so neither consumer can go quiet again.
     return {"id": tid, "label_en": lab["en"], "label_hi": lab["hi"],
+            "name_en": lab["en"], "name_hi": lab["hi"],
             "deterministic": True, "fields": fields}
 
 

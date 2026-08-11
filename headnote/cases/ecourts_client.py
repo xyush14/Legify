@@ -298,6 +298,16 @@ def _raise_vendor(r) -> None:
     problem (wallet empty / rate-limited) and must never read as 'not found'."""
     body = (r.text or "")[:300]
     if r.status_code in (402, 429) or "INSUFFICIENT_CREDITS" in body:
+        # The vendor publishes no balance endpoint; the ONLY place it ever
+        # states the wallet figure is inside this refusal ("Available: ₹0.20").
+        # Capture it here so the admin console can show the real number
+        # without ever spending a paid call to ask. Best-effort by design —
+        # a bookkeeping failure must not change what the lawyer is told.
+        try:
+            from headnote.api.admin_console import record_vendor_balance
+            record_vendor_balance(body)
+        except Exception:
+            pass
         raise VendorAccountError(
             f"court-record service unavailable (vendor {r.status_code}): {body}")
     raise ValueError(f"vendor {r.status_code} at {r.url}: {body}")

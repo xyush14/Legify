@@ -71,7 +71,7 @@ def _activate_paid_grant(user_id: str, plan: str) -> Optional[dict]:
         )
         if existing and existing[0].get("status") == "active":
             cur_plan = existing[0].get("plan")
-            if cur_plan in ("weekly", "monthly", "yearly", "founder", "partner"):
+            if cur_plan in ("weekly", "quarterly", "monthly", "yearly", "founder", "partner"):
                 return None
     except Exception:
         # Best-effort check; on any error, proceed with activation rather
@@ -141,21 +141,21 @@ def get_active_subscription(user_id: str, email: str | None = None) -> dict | No
                     comp_plan = "yearly"
                 elif e in config.MONTHLY_GRANT_EMAILS:
                     comp_plan = "monthly"
-                elif role in ("yearly", "monthly"):
+                elif role in ("yearly", "quarterly", "monthly"):
                     comp_plan = role
                 if comp_plan:
                     sub = _activate_paid_grant(user_id, comp_plan)
                     if sub is not None:
                         _grants.mark_consumed(e, comp_plan, user_id)
                         # DB grant rows are one-shot — delete after activation.
-                        if role in ("yearly", "monthly"):
+                        if role in ("yearly", "quarterly", "monthly"):
                             _grants.remove_grant(e)
                         return sub
                     # _activate_paid_grant returned None — user already has
                     # an active paid plan; mark consumed anyway so we don't
                     # keep checking, and fall through to the DB lookup.
                     _grants.mark_consumed(e, comp_plan, user_id)
-                    if role in ("yearly", "monthly"):
+                    if role in ("yearly", "quarterly", "monthly"):
                         _grants.remove_grant(e)
         except Exception:
             pass
@@ -304,7 +304,9 @@ def is_admin(user_id: str) -> bool:
 # ---------------------------------------------------------------- add-ons
 
 # Subscription tiers that bundle the Section-Finder premium view for free.
-_SECTIONS_BUNDLED_PLANS = ("monthly", "yearly", "founder", "partner")
+# Retained for the historical record only — since 2026-08-11 the Section
+# Finder is free for EVERY signed-in user, so has_sections_pro ignores this.
+_SECTIONS_BUNDLED_PLANS = ("quarterly", "monthly", "yearly", "founder", "partner")
 
 
 def has_sections_unlock(user_id: str) -> bool:
@@ -327,11 +329,15 @@ def has_sections_unlock(user_id: str) -> bool:
 
 
 def has_sections_pro(user_id: str, plan_name: str | None) -> bool:
-    """Whether the Section-Finder premium view is unlocked for this user —
-    either bundled with their subscription tier, or bought as the ₹99 add-on."""
-    if plan_name in _SECTIONS_BUNDLED_PLANS:
-        return True
-    return has_sections_unlock(user_id)
+    """Whether the Section-Finder premium view is unlocked for this user.
+
+    Always True. The ₹99 one-time unlock was removed on 2026-08-11 and the
+    Section Finder is now free for everyone — including Demo. The function is
+    kept (rather than deleted) because /api/me still publishes `sections_pro`
+    and sections.html branches on it; returning True here is the single place
+    that opens the whole feature.
+    """
+    return True
 
 
 # ---------------------------------------------------------------- helpers

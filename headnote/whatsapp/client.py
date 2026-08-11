@@ -44,8 +44,22 @@ def send_text(to: str, body: str, *, provider: str | None = None, **kwargs: Any)
     return _resolve(provider).send_text(to, body, **kwargs)
 
 
+def send_template(to: str, template: str, lang: str, variables: list[str], *,
+                  provider: str | None = None) -> dict[str, Any]:
+    """Send a pre-approved template. Required for any message WE start.
+
+    send_text() only reaches someone who messaged us in the last 24 hours. Every
+    proactive message — a hearing reminder to a lawyer's client — goes through
+    here. See the provider implementations for what `template` means on each:
+    Meta takes a template NAME (one name, many languages), Twilio a per-language
+    Content SID.
+    """
+    return _resolve(provider).send_template(to, template, lang, variables)
+
+
 def send_document(to: str, pdf_path: Path, *, provider: str | None = None, **kwargs: Any) -> dict[str, Any]:
     return _resolve(provider).send_document(to, pdf_path, **kwargs)
 
 
-__all__ = ["send_text", "send_document", "WAClientError", "provider_for", "InboundMessage"]
+__all__ = ["send_text", "send_template", "send_document", "WAClientError",
+           "provider_for", "InboundMessage"]

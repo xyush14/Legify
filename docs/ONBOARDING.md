@@ -276,9 +276,14 @@ Unicode). Pipeline = Unicode field values → transliterate English names to Dev
 
 ## 7. Product surfaces & routes
 
+**Read this row first — it decides which UI you are looking at.**
+
 | Area | Routes (representative) | Notes |
 |---|---|---|
-| **ASK mode** | `/api/chat/message` (SSE) | "AI for lawyers" chat; DeepSeek→Groq stream, statute-map grounded, no-bluff; SPA `data-view="ask"`. See §15 (2026-07-04) |
+| **The app (V2)** | `/home`, `/research`, `/draft`, `/draft-dna` | **This is the product.** Shared nav in `static/v2-nav.js` (mobile bottom bar + the sidebar's Chamber-tools group) |
+| **Sign-in doorway** | `/app` | Serves `index.html` so the Google OAuth callback and the sign-in overlay stay put; `auth.js::_revealApp` forwards to `/home` once a session exists. **Do not turn this into a server redirect** — the callback URL is allow-listed in Supabase and carries the token in the URL fragment |
+| **V1 (legacy)** | `/app/v1` | Same file, direct URL only, `noindex`, **linked from nowhere** except one last-resort fallback in `v2-beta.js` when `V2_PUBLIC=0` |
+| **ASK mode** | `/api/chat/message` (SSE) | "AI for lawyers" chat; DeepSeek→Groq stream, statute-map grounded, no-bluff; SPA `data-view="ask"` (V1). See §15 (2026-07-04) |
 | **Research** | `/api/situation`, `/api/digest`, `/api/headnote`, `/api/browse/*`, `/api/hf_search`, `/api/judgment/*` | core engine; SC corpus endpoints under `/api/judgment` |
 | **Drafting** | `/draft/bail`, `/draft/discharge`, `/draft/template/{type}`, `/api/draft/*` (start, render-live, pdf, ocr-fir, transcribe) | see §6.4 |
 | **Auth** | `/api/me`, `/api/auth-verify` | Supabase JWT |
@@ -516,6 +521,27 @@ machine with any account, in minutes.
 ## 15. Changelog (living)
 
 > Append a dated line whenever something structural changes. Newest on top.
+
+- **2026-08-11** — **V2 became the main app; V1 moved to `/app/v1` and is linked from nowhere; the V2 screens got
+  a mobile navbar.** The navbar was the urgent half: all four V2 screens hide the sidebar at 720px, and the
+  sidebar was V2's *only* navigation, so a phone had no way to move between Home, Research and Draft. Added
+  **`static/v2-nav.js`** — one shared file for all four screens (a nav duplicated four times drifts) carrying the
+  bottom tab bar, a More sheet, and every offset the bar creates (`.wrap` padding, the sticky chat `.cdock`,
+  toasts, the judgment drawer). It also appends **Documents / Recorder / IPC→BNS / Settings** to the desktop
+  sidebar, which is not cosmetic: V1's sidebar was the only route to the Document Vault, the Recorder and
+  Settings/billing, so unlinking V1 without them would have orphaned a paying user's documents and the page where
+  he manages his subscription. **Routing: `/app` still serves `index.html` on purpose** — it is the Google OAuth
+  callback and the URL allow-listed in Supabase, and the token arrives in the URL fragment, so a server redirect
+  there could break sign-in for everyone. `auth.js::_revealApp` forwards to `/home` when a session exists, gated
+  on the exact `/app` path; V1's hash views map onto V2 (`#drafting`→`/draft`, `#ask`/`#research`/`#saved`→
+  `/research`). Verified with `/api/config` intercepted to a production-shaped Supabase config and no session:
+  `/app` stays put with the overlay and the Google button on screen. **`V2_PUBLIC` now defaults to `"1"`** — a gate
+  that fails closed is right for an unfinished surface and wrong for the front door; losing one Fly secret would
+  otherwise show every advocate "This is a private beta" on the only app they have (allowlist intact, `V2_PUBLIC=0`
+  re-arms it). Two bugs found on the way: `v2-beta.js`'s failure screens pointed back at `/app`, which now forwards
+  to `/home`, which re-ran the gate — a loop with no exit, and the one that fires on a dropped request is the normal
+  case on a phone; and repointing `recorder.html` at `/draft` broke the Recorder→Draft handoff, whose brief travels
+  in `sessionStorage` and was only ever read by `index.html`. 29/29 browser assertions at 390/768/1280.
 
 - **2026-08-07** — **The Postgres child-table switch now has a backfill, a preflight, and no silent-failure writes
   (flag still OFF).** `PG_CHILD_TABLES` moves drafts/consultations/documents from the SQLite volume to Postgres

@@ -36,17 +36,19 @@ _BASE_URL     = (
 )
 _API_VERSION  = "2023-08-01"
 
+# Sellable plans only. "monthly" (₹599) was retired 2026-08-11 in favour of
+# "quarterly", and the ₹99 "sections" add-on was removed entirely (the Section
+# Finder is free for everyone now). Both are deliberately absent here, so no
+# new order can be created for either.
 PLAN_AMOUNTS: dict[str, int] = {
-    "weekly":  120,
-    "monthly": 599,
-    "yearly":  5999,
-    "sections": 99,   # one-time lifetime unlock for the Section Finder (add-on)
+    "weekly":    120,
+    "quarterly": 2499,
+    "yearly":    5999,
 }
 _PLAN_LABELS: dict[str, str] = {
-    "weekly":  "Headnote Weekly Trial (7 days)",
-    "monthly": "Headnote Monthly Subscription",
-    "yearly":  "Headnote Yearly Subscription",
-    "sections": "Headnote — Section Finder (lifetime unlock)",
+    "weekly":    "Headnote Weekly Trial (7 days)",
+    "quarterly": "Headnote Quarterly Subscription (90 days)",
+    "yearly":    "Headnote Yearly Subscription",
 }
 
 

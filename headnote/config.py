@@ -272,6 +272,29 @@ ENABLE_OPUS_ESCALATION = os.environ.get(
 # Bearer token for /admin/* routes. Unset means admin endpoints return 503.
 ADMIN_TOKEN: Optional[str] = os.environ.get("ADMIN_TOKEN")
 
+# ----------------------------------------------------------------- Admin console sign-in
+# The human door to /admin: an email + password, so a co-founder or a
+# colleague can open the console on their own phone without being handed a
+# raw bearer token to paste into a browser prompt.
+#
+# BOTH MUST BE SECRETS, NEVER LITERALS IN THIS FILE. This repository is
+# public (github.com/xyush14/Legify), so a password written here is a
+# password published to the internet — and this one unlocks every user's
+# data, every access grant and every vendor key on the status page. They
+# are set with `fly secrets set ADMIN_EMAIL=... ADMIN_PASSWORD=...`, which
+# is the same precedent already used for the founder/partner access lists.
+#
+# Unset means password sign-in is OFF and the console says so plainly. It
+# fails CLOSED: no default password exists, so a machine that never got the
+# secret cannot be logged into, it can only be locked out.
+ADMIN_EMAIL: Optional[str] = (os.environ.get("ADMIN_EMAIL") or "").strip().lower() or None
+ADMIN_PASSWORD: Optional[str] = os.environ.get("ADMIN_PASSWORD") or None
+
+# How long a console sign-in lasts before it asks again. Long enough that
+# Ayush is not re-typing a password every time he checks the wallet from a
+# corridor, short enough that a forgotten phone stops working within a month.
+ADMIN_SESSION_DAYS: int = int(os.environ.get("ADMIN_SESSION_DAYS", "30") or 30)
+
 # ----------------------------------------------------------------- Founder / partner access
 # Both whitelists below grant the same UNLIMITED access (no quotas, all
 # features unlocked, no metering) — they differ only in the displayed plan
@@ -357,10 +380,20 @@ BETA_EMAILS: frozenset[str] = frozenset(
     if e.strip()
 )
 
-# Master switch. "1" (default) = V2 is private, allowlist only.
-# Set V2_PUBLIC=1 on the day V2 ships to everyone — one env var, no code change,
-# and no need to empty the allowlist.
-V2_PUBLIC: bool = os.environ.get("V2_PUBLIC", "0").strip() == "1"
+# Master switch. Now DEFAULTS TO OPEN, because V2 is the product: /home,
+# /research and /draft are the app, and /app/v1 is a direct-URL fallback.
+#
+# The default flipped from "0" for one reason — a default of closed meant the
+# whole product depended on the V2_PUBLIC secret being present in Fly. Lose it
+# (the way fly.toml's AUTO_REBUILD_CORPUS_ON_BOOT=0 and fly.toml itself have
+# already been lost once) and every paying advocate is shown "This is a private
+# beta" on the only app they have. A gate that fails closed is right while a
+# surface is unfinished and wrong once it is the front door.
+#
+# The allowlist below is left intact and dormant: set V2_PUBLIC=0 to put V2 back
+# behind BETA_EMAILS / FOUNDER_EMAILS / the beta_testers table for the next
+# unfinished surface.
+V2_PUBLIC: bool = os.environ.get("V2_PUBLIC", "1").strip() == "1"
 
 # ------------------------------------------- durable child-table storage
 # drafts / consultations / documents / intake links can live in Postgres

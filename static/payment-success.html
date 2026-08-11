@@ -61,14 +61,16 @@ function showSuccess(data) {
   $('icon').className = 'icon success';
   $('icon').textContent = '✓';
 
-  // Add-on: the ₹99 lifetime Section Finder unlock. Route back to /sections,
-  // not /app — that's where the user was and what they just paid to unlock.
+  // The ₹99 Section Finder add-on was removed on 2026-08-11 (the Section
+  // Finder is free for everyone now), so plan === 'sections' can no longer be
+  // sold. The branch is kept only for an in-flight order that was paid for
+  // just before the change: tell the truth — they already have the feature.
   if ((data.plan || '') === 'sections') {
-    $('title').textContent = 'Unlocked — the Section Finder is yours';
-    $('msg').textContent = 'You now have lifetime access to every section mapping, punishment grid and old→new breakdown.';
+    $('title').textContent = 'The Section Finder is yours — and it is now free for everyone';
+    $('msg').textContent = 'You have full access to every section mapping, punishment grid and old→new breakdown. If you were charged for this, write to hello@headnote.in and we will refund it.';
     $('meta').style.display = '';
     $('meta').innerHTML =
-      `<div><strong>Lifetime unlock</strong> · Section Finder</div>` +
+      `<div><strong>Section Finder</strong> · free for all users</div>` +
       (data.amount ? `<div><strong>Amount paid:</strong> ₹${data.amount}</div>` : '') +
       (data.order_id ? `<div><strong>Order ID:</strong> <code style="font-size:11px">${data.order_id}</code></div>` : '');
     $('actions').innerHTML = `<a class="btn" href="/sections">Open the Section Finder →</a>`;

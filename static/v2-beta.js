@@ -96,20 +96,30 @@
     } catch (e) {}
 
     if (!me) {
+      // Was "Back to Headnote → /app". /app now forwards a signed-in session
+      // straight back to /home, so that button looped the advocate through the
+      // same failure with no way out. A dropped request on a congested cell —
+      // the normal case for this user — needs a retry, not a redirect.
       screen(
         'Could not reach your account',
-        'Check your connection and try again. Your existing workspace is unaffected.',
-        'Back to Headnote', '/app'
+        'Your connection dropped while opening your chamber. Nothing in your ' +
+        'account has changed.',
+        'Try again', location.href
       );
       return false;
     }
 
     if (!me.beta) {
+      // Only reachable if V2 has been deliberately switched off (V2_PUBLIC=0),
+      // which is no longer the default. In that one state V2 is unavailable to
+      // this user, so /app would loop and the previous interface genuinely is
+      // the only place left to send them. This is the sole link to /app/v1 in
+      // the product, and it exists because a dead end would be worse.
       screen(
-        'This is a private beta',
-        'The new chamber is being tested with a small group of advocates first. ' +
-        'Everything in your account keeps working as normal in the meantime.',
-        'Back to Headnote', '/app'
+        'The new chamber is not open for your account yet',
+        'It is being tested with a small group of advocates first. Everything ' +
+        'in your account keeps working as normal in the meantime.',
+        'Open the previous version', '/app/v1'
       );
       return false;
     }

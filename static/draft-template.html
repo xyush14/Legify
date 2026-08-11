@@ -69,8 +69,35 @@
   .lang-select:focus { outline: none; border-color: var(--ink); }
 
   /* Layout — matches bail */
-  .split { display: grid; grid-template-columns: 460px 1fr; height: calc(100vh - 56px); }
-  @media (max-width: 1100px) { .split { grid-template-columns: 380px 1fr; } }
+  /* Three panes: what he fills · the application · how it should look.
+     The style rail is the first thing dropped when the window is narrow — the
+     document itself must never lose room to a chooser. */
+  .split { display: grid; grid-template-columns: 440px 1fr 268px; height: calc(100vh - 56px); }
+  @media (max-width: 1400px) { .split { grid-template-columns: 400px 1fr 244px; } }
+  @media (max-width: 1240px) { .split { grid-template-columns: 380px 1fr; } .style-pane { display: none; } }
+
+  /* ---- the style rail (right pane) ---- */
+  .style-pane { border-left: 1px solid var(--line); background: var(--soft); overflow-y: auto; padding: 16px 14px 40px; }
+  .style-pane__h { font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+  .style-pane__sub { font-size: 11.5px; color: var(--muted); line-height: 1.5; margin-bottom: 14px; }
+  .lcard { width: 100%; text-align: left; background: var(--panel); border: 1px solid var(--line);
+           border-radius: 10px; padding: 10px; margin-bottom: 10px; cursor: pointer; font-family: inherit;
+           display: block; color: var(--ink); transition: border-color .12s, box-shadow .12s; }
+  .lcard:hover { border-color: var(--line-strong); }
+  .lcard.is-active { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+  .lcard__mini { position: relative; margin: 0 auto 9px; background: #fff; border: 1px solid var(--line);
+                 box-shadow: 0 1px 3px rgba(0,0,0,.06); overflow: hidden; }
+  .lcard__mini i { position: absolute; background: #b9b4a9; border-radius: 1px; display: block; }
+  .lcard__mini i.b { background: #6f6a60; }
+  .lcard__name { font-size: 12.5px; font-weight: 600; line-height: 1.35; }
+  .lcard__note { font-size: 10.5px; color: var(--muted); line-height: 1.45; margin-top: 3px; }
+  .lcard__tag { display: inline-block; font-size: 9px; letter-spacing: .05em; text-transform: uppercase;
+                border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; margin-left: 5px;
+                color: var(--muted); vertical-align: 1px; }
+  .lcard.is-active .lcard__tag { border-color: var(--ink); color: var(--ink); }
+  .lref { border-style: dashed; text-align: center; }
+  .lref__t { font-size: 12px; font-weight: 600; }
+  .lref__s { font-size: 10.5px; color: var(--muted); margin-top: 3px; line-height: 1.45; }
   .form-pane { overflow-y: auto; padding: 20px 22px 60px; border-right: 1px solid var(--line); background: var(--panel); }
   .doc-pane { overflow-y: auto; background: #e8e6df; padding: 30px 16px 60px; position: relative; }
 
@@ -533,7 +560,7 @@
 
 <div class="topbar">
   <div class="topbar__left">
-    <a href="/app#drafting" class="topbar__back" aria-label="Back to drafting">←</a>
+    <a href="/draft" class="topbar__back" aria-label="Back to drafting">←</a>
     <div>
       <div class="topbar__title" id="template-title">Loading…</div>
       <div class="topbar__sub" id="template-sub" data-en="fresh draft · live preview" data-hi="नया ड्राफ्ट · लाइव प्रीव्यू">नया ड्राफ्ट · लाइव प्रीव्यू</div>
@@ -696,6 +723,24 @@
       </div>
     </div>
     <div class="doc-page" id="doc-page" style="display:none;"></div>
+  </div>
+
+  <!-- RIGHT: the style rail. Court practice varies by State and by forum, so the
+       page layout is a visible CHOICE rather than a setting buried elsewhere.
+       Each card is drawn to scale from that layout's real geometry — a true
+       miniature of the paper, not a picture of one. -->
+  <div class="style-pane" id="style-pane">
+    <div class="style-pane__h mono" data-en="Page layout" data-hi="पृष्ठ शैली">पृष्ठ शैली</div>
+    <div class="style-pane__sub" id="style-sub"
+         data-en="Pick how the filing should look. The document and the Word download both follow."
+         data-hi="फाइलिंग कैसी दिखे — चुनिए। दस्तावेज़ और Word डाउनलोड दोनों वैसे ही बनेंगे।">फाइलिंग कैसी दिखे — चुनिए। दस्तावेज़ और Word डाउनलोड दोनों वैसे ही बनेंगे।</div>
+    <div id="style-list"></div>
+    <button type="button" class="lcard lref" id="style-ref">
+      <div class="lref__t" data-en="Match a document" data-hi="किसी दस्तावेज़ जैसा">किसी दस्तावेज़ जैसा</div>
+      <div class="lref__s" data-en="Attach a filed .docx — this draft takes its page setup, indents and font."
+           data-hi="फाइल किया .docx लगाइए — यह ड्राफ्ट उसी पेज सेटअप, इंडेंट व फॉन्ट में बनेगा।">फाइल किया .docx लगाइए — यह ड्राफ्ट उसी पेज सेटअप, इंडेंट व फॉन्ट में बनेगा।</div>
+    </button>
+    <input type="file" id="style-ref-input" accept=".docx" hidden>
   </div>
 </div>
 
@@ -1029,7 +1074,7 @@ function showSignInBanner() {
     if (window.headnoteAuth && window.headnoteAuth.signInInline) {
       await window.headnoteAuth.signInInline();
     } else {
-      window.location.href = '/app#drafting';
+      window.location.href = '/draft';
     }
   };
   document.getElementById('inline-signin-close').onclick = () => m.remove();
@@ -1051,6 +1096,7 @@ function applyLang() {
   if (typeof paintDnaLine === 'function') paintDnaLine();
   if (typeof applyAiLang === 'function') applyAiLang();
   if (typeof renderAiExamples === 'function' && state.template) renderAiExamples();
+  if (typeof renderLayoutRail === 'function' && LAYOUTS.length) renderLayoutRail();
   // Re-render document with new lang's parsing
   if (state.document) renderDocument();
 }
@@ -1101,7 +1147,9 @@ async function loadTemplate() {
     await prefillFromPersona();
     maybeRenderInitial();
     wireAiBox();                  // "say the change" — needs the loaded schema
-    loadDNA();                    // whose format the .docx will come out in
+    wireReferenceFormat();        // "make it look like this one"
+    await loadDNA();              // whose format the .docx will come out in
+    loadLayouts();                // the style rail (needs DNA to know if he has one)
   } catch (e) {
     showError('Failed to load: ' + e.message);
   }
@@ -2170,6 +2218,12 @@ function renderDocument() {
   // tabs let them switch when they're ready.
   fitDocToWidth();
   requestAnimationFrame(fitDocToWidth);   // re-measure once fonts/layout settle
+  // Re-apply the chosen page layout: the margins are a ratio of the sheet's
+  // pixel width, so they have to be recomputed once the sheet has been measured.
+  if (typeof applyLayoutToPage === 'function') {
+    applyLayoutToPage();
+    requestAnimationFrame(applyLayoutToPage);
+  }
   maybeAuthRail();                        // refresh the verified case-law rail (bail family)
 }
 
@@ -2964,6 +3018,28 @@ function paintDnaLine() {
   if (!box) return;
   if (!DNA) { box.innerHTML = ''; return; }     // signed out / unreachable — stay quiet
   const isHi = state.lang === 'hi';
+
+  // Once he has picked something on the style rail, the line reports THAT —
+  // saying "your own format" while a legal-size preset is selected would be a
+  // lie about the file he is one click from downloading.
+  const sel = LAYOUT_SEL || {};
+  if (sel.id && sel.id !== 'own' && sel.spec) {
+    const pg = sel.spec.page || {};
+    const bits = [];
+    if (sel.spec.font) bits.push('<code>' + esc(sel.spec.font) + '</code>');
+    if (pg.width && pg.height) bits.push('<code>' + pg.width + '×' + pg.height + ' in</code>');
+    box.innerHTML = '<div class="dnaline ok"><span aria-hidden="true">✓</span><span>'
+      + (isHi ? 'यह ड्राफ्ट इस शैली में बनेगा — ' : 'This draft follows ')
+      + '<b>' + esc(isHi ? sel.spec.name_hi : sel.spec.name_en) + '</b>'
+      + (bits.length ? ' — ' + bits.join(' ') : '') + '.</span>'
+      + (DNA.has_layout
+          ? '<span class="sp"></span><a onclick="useMyOwnFormat()">'
+            + (isHi ? 'मेरा अपना फॉर्मेट लगाएँ' : 'Use my own format') + '</a>'
+          : '')
+      + '</div>';
+    return;
+  }
+
   if (DNA.has_layout) {
     const bits = [];
     if (DNA.font) bits.push('<code>' + esc(DNA.font) + '</code>');
@@ -2982,6 +3058,12 @@ function paintDnaLine() {
       + (isHi ? 'अपने 2 फाइल किए ड्राफ्ट दें — 2 मिनट' : 'Drop 2 of your filed drafts — 2 minutes')
       + '</a></div>';
   }
+}
+
+// One click back to his own paper from wherever the rail has taken him.
+function useMyOwnFormat() {
+  const own = LAYOUTS.find(p => p.is_own);
+  if (own) selectLayout(own);
 }
 
 /* ---- Download .docx — the Draft DNA payoff on this screen ---------------- */
@@ -3006,6 +3088,9 @@ $('#btn-docx').addEventListener('click', async () => {
       body: JSON.stringify({
         doc_type: state.docType, fields: state.fields,
         lang: state.docLang || 'hi', html,
+        // the layout he picked on the rail — so the file matches the page
+        layout_id: (LAYOUT_SEL || {}).id || null,
+        layout: (LAYOUT_SEL || {}).layout || null,
       }),
     });
     if (await handleAuthError(r.status)) return;
@@ -3022,10 +3107,15 @@ $('#btn-docx').addEventListener('click', async () => {
     a.href = url; a.download = filename;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1500);
-    toast(how === 'own'
-      ? (isHi ? 'सहेजा गया ✓ — आपके अपने फॉर्मेट में' : 'Saved ✓ — in your own format')
-      : (isHi ? 'सहेजा गया ✓ — सामान्य कोर्ट फॉर्मेट में' : 'Saved ✓ — standard court format'),
-      'ok', 4000);
+    // Name the format the file actually came out in — `how` is the server's own
+    // word for it, so the toast can never claim a format the file does not have.
+    const named = {
+      own: isHi ? 'आपके अपने फॉर्मेट में' : 'in your own format',
+      reference: isHi ? 'आपके संदर्भ दस्तावेज़ जैसा' : 'matching your reference document',
+    }[how] || (LAYOUT_SEL && LAYOUT_SEL.spec
+      ? (isHi ? LAYOUT_SEL.spec.name_hi : LAYOUT_SEL.spec.name_en)
+      : (isHi ? 'सामान्य कोर्ट फॉर्मेट में' : 'in standard court format'));
+    toast((isHi ? 'सहेजा गया ✓ — ' : 'Saved ✓ — ') + named, 'ok', 4000);
   } catch (e) {
     console.error(e);
     toast('Word failed — ' + (e.message || 'try again'), 'err', 4000);
@@ -3171,6 +3261,186 @@ function paintAiLog(changelog, note, source) {
   }
   if (note) html += (html ? '<br><br>' : '') + esc(note);
   box.innerHTML = html;
+}
+
+/* =========================================================================
+   THE STYLE RAIL — page layout as a visible choice.
+
+   Court practice is not uniform: a district court in MP files on 8.5x14 legal
+   paper, most High Court registries want double spacing and a binding margin,
+   and an English commercial filing wants A4 in a serif. So the layout is offered
+   as something he can SEE and pick, and the same choice drives both the page on
+   screen and the Word file — one decision, not two that can drift apart.
+   ========================================================================= */
+let LAYOUTS = [];            /* the catalogue from /api/draft/layout-presets */
+let LAYOUT_SEL = null;       /* {id, layout?} — what he has chosen */
+let REF_LAYOUT = null;       /* a layout captured from a document he attached */
+
+async function loadLayouts() {
+  try {
+    const r = await fetch('/api/draft/layout-presets?lang=' + encodeURIComponent(state.docLang || 'hi'),
+                          { headers: await authHeaders() });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    LAYOUTS = (await r.json()).presets || [];
+  } catch (e) { LAYOUTS = []; }
+  // His own captured format is the default when he has one; otherwise the
+  // conservative standard. Never silently pick something decorative.
+  if (!LAYOUT_SEL) {
+    const own = LAYOUTS.find(p => p.is_own);
+    LAYOUT_SEL = { id: own ? 'own' : 'standard' };
+  }
+  renderLayoutRail();
+  applyLayoutToPage();
+}
+
+/* A true miniature: the card is drawn from the layout's real inches, so a legal
+   sheet actually looks taller and a wide binding margin actually looks wide.
+   Type is scaled by the same factor as the page (a point is 1/72"), which is
+   what makes double-spacing read as double-spacing at thumbnail size. */
+function layoutMini(p, widthPx) {
+  const pg = p.page || {}, W = pg.width || 8.27, H = pg.height || 11.69;
+  const px = widthPx || 118, py = Math.round(px * (H / W));
+  const s = px / W;
+  const ml = (pg.margin_left || 1) * s, mr = (pg.margin_right || 1) * s;
+  const mt = (pg.margin_top || 1) * s;
+  const textW = px - ml - mr;
+  const R = p.roles || {};
+  const rowsFor = (role, n) => {
+    const f = R[role] || {};
+    const size = Math.max(1.1, (f.size || 14) * (s / 72));
+    const lh = size * (f.line_spacing && f.line_spacing > 1 ? f.line_spacing : 1.3);
+    return { size, lh, align: f.align, bold: f.bold, li: (f.left_indent || 0) * s, n };
+  };
+  let y = mt, html = '';
+  const bar = (x, w, h, bold) =>
+    `<i class="${bold ? 'b' : ''}" style="left:${x.toFixed(1)}px;top:${y.toFixed(1)}px;` +
+    `width:${Math.max(2, w).toFixed(1)}px;height:${Math.max(1, h).toFixed(1)}px"></i>`;
+  // cause title — centred court line, case number, then the body
+  [['court', 1], ['caseno', 1]].forEach(([role, n]) => {
+    const o = rowsFor(role, n);
+    for (let i = 0; i < n; i++) {
+      const w = textW * (role === 'court' ? 0.78 : 0.44);
+      html += bar(ml + (textW - w) / 2, w, o.size * 0.8, true);
+      y += o.lh;
+    }
+  });
+  y += 3;
+  const g = rowsFor('ground', 1);
+  for (let i = 0; i < 9; i++) {
+    const last = i % 3 === 2;
+    html += bar(ml + g.li, textW - g.li - (last ? textW * 0.32 : 0), g.size * 0.62, false);
+    y += g.lh;
+    if (y > py - mt) break;
+  }
+  return `<div class="lcard__mini" style="width:${px}px;height:${py}px">${html}</div>`;
+}
+
+function renderLayoutRail() {
+  const wrap = $('#style-list');
+  if (!wrap) return;
+  const isHi = state.lang === 'hi';
+  const items = LAYOUTS.slice();
+  if (REF_LAYOUT) {
+    items.unshift({
+      id: 'reference', is_ref: true,
+      name_en: REF_LAYOUT.name, name_hi: REF_LAYOUT.name,
+      note_en: 'Matched from the document you attached.',
+      note_hi: 'आपके लगाए दस्तावेज़ से लिया गया।',
+      page: REF_LAYOUT.page, roles: REF_LAYOUT.roles, font: REF_LAYOUT.font,
+    });
+  }
+  wrap.innerHTML = '';
+  items.forEach(p => {
+    const b = ce('button', { type: 'button', className: 'lcard' });
+    if (LAYOUT_SEL && LAYOUT_SEL.id === p.id) b.classList.add('is-active');
+    const tag = p.is_own ? (isHi ? 'आपका' : 'Yours')
+              : p.is_ref ? (isHi ? 'संदर्भ' : 'Reference') : '';
+    const pg = p.page || {};
+    const dims = (pg.width && pg.height) ? `${pg.width}″×${pg.height}″` : '';
+    b.innerHTML = layoutMini(p)
+      + '<div class="lcard__name">' + esc(isHi ? p.name_hi : p.name_en)
+      + (tag ? '<span class="lcard__tag">' + esc(tag) + '</span>' : '') + '</div>'
+      + '<div class="lcard__note">' + esc(isHi ? p.note_hi : p.note_en)
+      + (dims ? ' · ' + dims : '') + (p.font ? ' · ' + esc(p.font) : '') + '</div>';
+    b.addEventListener('click', () => selectLayout(p));
+    wrap.appendChild(b);
+  });
+}
+
+function selectLayout(p) {
+  LAYOUT_SEL = p.is_ref ? { id: 'reference', layout: REF_LAYOUT.layout } : { id: p.id };
+  LAYOUT_SEL.spec = p;
+  renderLayoutRail();
+  applyLayoutToPage();
+  paintDnaLine();
+  saveToLocalStorage();
+}
+
+/* Show the choice on the actual page, not just in a thumbnail. The document
+   HTML is the same either way — only its geometry and type change — so this is
+   a CSS overlay on #doc-page rather than a re-render, which keeps it instant
+   and keeps the lawyer's canvas edits intact. */
+function applyLayoutToPage() {
+  const el = $('#doc-page');
+  if (!el) return;
+  const p = (LAYOUT_SEL && LAYOUT_SEL.spec) || LAYOUTS.find(x => x.id === (LAYOUT_SEL || {}).id);
+  if (!p) return;
+  const pg = p.page || {}, W = pg.width || 8.27, H = pg.height || 11.69;
+  const R = p.roles || {};
+  const body = R.ground || {};
+  // The preview sheet is a fixed pixel width; express the layout as a ratio of
+  // it so the proportions on screen match the proportions on paper.
+  const px = el.clientWidth || 760;
+  const s = px / W;
+  el.style.aspectRatio = W + ' / ' + H;
+  el.style.paddingLeft = ((pg.margin_left || 1) * s).toFixed(1) + 'px';
+  el.style.paddingRight = ((pg.margin_right || 1) * s).toFixed(1) + 'px';
+  el.style.paddingTop = ((pg.margin_top || 1) * s).toFixed(1) + 'px';
+  el.style.paddingBottom = ((pg.margin_bottom || 1) * s).toFixed(1) + 'px';
+  if (body.line_spacing) el.style.lineHeight = String(Math.max(1.15, body.line_spacing));
+  // A captured font is a real installed typeface name; keep a readable stack
+  // behind it so a font the lawyer's machine lacks never renders as boxes.
+  el.style.fontFamily = p.font
+    ? `"${p.font}", "Tiro Devanagari Hindi", "Noto Serif Devanagari", serif`
+    : '';
+  el.dataset.layout = p.id;
+}
+
+/* "Make it look like this one." */
+function wireReferenceFormat() {
+  const btn = $('#style-ref'), input = $('#style-ref-input');
+  if (!btn || !input) return;
+  btn.addEventListener('click', () => input.click());
+  input.addEventListener('change', async () => {
+    const f = input.files && input.files[0];
+    input.value = '';
+    if (!f) return;
+    const isHi = state.lang === 'hi';
+    toast(isHi ? 'दस्तावेज़ का फॉर्मेट पढ़ रहे हैं…' : 'Reading that document’s format…', 'ok');
+    try {
+      const fd = new FormData();
+      fd.append('file', f);
+      fd.append('lang', state.docLang || 'hi');
+      // NOTE: no Content-Type header — the browser must set the multipart
+      // boundary itself. Setting it by hand is what silently broke every upload
+      // on the V2 screens once already.
+      const r = await fetch('/api/draft/reference-format',
+                            { method: 'POST', headers: await authHeaders(), body: fd });
+      if (await handleAuthError(r.status)) return;
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok || !d.ok) throw new Error(d.error || ('server error ' + r.status));
+      REF_LAYOUT = { name: d.name, page: d.page, roles: d.roles, font: d.font, layout: d.layout };
+      selectLayout({ id: 'reference', is_ref: true, name_en: d.name, name_hi: d.name,
+                     note_en: 'Matched from the document you attached.',
+                     note_hi: 'आपके लगाए दस्तावेज़ से लिया गया।',
+                     page: d.page, roles: d.roles, font: d.font });
+      toast(isHi ? '✓ फॉर्मेट मिल गया — ' + (d.font || '') : '✓ Format matched — ' + (d.font || ''),
+            'ok', 4000);
+    } catch (e) {
+      toast((isHi ? 'फॉर्मेट नहीं पढ़ा जा सका — ' : 'Could not read that format — ')
+            + (e.message || 'try again'), 'err', 5000);
+    }
+  });
 }
 
 // ---- Boot ----

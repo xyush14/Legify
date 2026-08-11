@@ -3,6 +3,7 @@
 Each provider module exposes the same surface:
 
     send_text(to: str, body: str, **kw) -> dict
+    send_template(to: str, template: str, lang: str, variables: list[str]) -> dict
     send_document(to: str, pdf_path: Path, *, caption=None, filename=None) -> dict
     verify_signature(raw: bytes, headers: dict, url: str) -> None  # raises HTTPException on bad sig
     parse_webhook(raw: bytes, content_type: str) -> list[InboundMessage]

@@ -2,7 +2,7 @@
 
 Endpoints
 ---------
-POST /api/payments/create-order   auth required. Body {"plan": "weekly|monthly|yearly"}.
+POST /api/payments/create-order   auth required. Body {"plan": "weekly|quarterly|yearly"}.
                                   Returns {payment_session_id, payment_url, order_id}.
                                   FE redirects browser to payment_url.
 
@@ -77,15 +77,22 @@ router = APIRouter(prefix="/api/payments", tags=["payments"])
 #   - subscription plans flip the single public.subscriptions row (change_plan)
 #   - add-on plans grant a permanent, SEPARATE entitlement and must never
 #     touch the subscriptions row (single-plan model)
-_SUBSCRIPTION_PLANS = {"weekly", "monthly", "yearly"}
-_ADDON_PLANS = {"sections"}             # one-time, lifetime unlocks
+#
+# "monthly" (₹599) was retired 2026-08-11 and replaced by "quarterly"
+# (₹2,499 / 90 days), so it is no longer sellable — but the plan is still
+# DEFINED in entitlements/plans.py so existing monthly subscribers keep their
+# access until their period ends. The ₹99 "sections" add-on was removed
+# entirely (the Section Finder is free for everyone now), so there are no
+# add-on plans left; _grant_addon below is retained as an inert no-op.
+_SUBSCRIPTION_PLANS = {"weekly", "quarterly", "yearly"}
+_ADDON_PLANS: set[str] = set()          # one-time, lifetime unlocks (none)
 _SELLABLE_PLANS = _SUBSCRIPTION_PLANS | _ADDON_PLANS
 
 
 # ---------------------------------------------------------------- models
 
 class CreateOrderRequest(BaseModel):
-    plan: str = Field(..., description="weekly | monthly | yearly")
+    plan: str = Field(..., description="weekly | quarterly | yearly")
     phone: Optional[str] = Field(None, description="10-digit phone for Cashfree (optional)")
     referral_code: Optional[str] = Field(None, description="Optional partner/publication referral code")
 
@@ -525,7 +532,7 @@ def verify_payment(
     Idempotent — works whether or not the webhook has already fired.
 
     Returns:
-        {"status": "PAID"|"ACTIVE"|"EXPIRED"|..., "plan": "monthly", "upgraded": bool}
+        {"status": "PAID"|"ACTIVE"|"EXPIRED"|..., "plan": "quarterly", "upgraded": bool}
     """
     if not cashfree.is_configured():
         raise HTTPException(status_code=503, detail="Payments not configured")

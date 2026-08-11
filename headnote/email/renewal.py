@@ -43,7 +43,8 @@ APP_BASE_URL = (os.environ.get("APP_BASE_URL") or "https://headnote.in").rstrip(
 
 _PLAN_COPY = {
     "weekly":  ("Weekly Trial",  120,   "weekly"),
-    "monthly": ("Monthly",       599,   "monthly"),
+    "quarterly": ("Quarterly",   2499,  "quarterly"),
+    "monthly": ("Monthly",       599,   "monthly"),   # legacy, no longer sold
     "yearly":  ("Yearly",        5999,  "yearly"),
 }
 
@@ -335,7 +336,7 @@ def send_due_nudges(
         params={
             "select":      "user_id,plan,period_end,renewal_nudge_sent_for_period_end",
             "status":      "eq.active",
-            "plan":        "in.(weekly,monthly,yearly)",
+            "plan":        "in.(weekly,quarterly,monthly,yearly)",
             "period_end":  f"gte.{lower}",
             "and":         f"(period_end.lte.{upper})",
             "limit":       "500",

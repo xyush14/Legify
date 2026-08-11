@@ -31,6 +31,7 @@ APP_BASE_URL = (os.environ.get("APP_BASE_URL") or "https://headnote.in").rstrip(
 
 
 _ROLE_COPY = {
+    "quarterly": ("Quarterly", "90 days", "90 days of unlimited research and drafting."),
     "monthly": ("Monthly",  "30 days", "30 days of unlimited research and drafting."),
     "yearly":  ("Yearly",   "365 days", "A full year of unlimited research and drafting."),
     "founder": ("Founder",  "perpetual", "Perpetual access — everything Headnote ships, no limits."),

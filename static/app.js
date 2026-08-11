@@ -2063,7 +2063,7 @@
       b.addEventListener('click', () => switchView(b.dataset.view));
     });
 
-    // Brand / logo → Ask (the app home), NOT the marketing site. href="/app#ask"
+    // Brand / logo → Ask (the app home), NOT the marketing site. href="/app/v1#ask"
     // is the no-JS fallback; here we intercept to switch in-place without a reload.
     [$('#sidebar-brand'), $('#mobnav-brand')].forEach(el => {
       if (!el) return;
@@ -2406,8 +2406,9 @@
   function renderBetaEntry() {
     const isBeta = !!(userState && userState.beta);
 
-    const link = document.getElementById('v2-beta-entry');
-    if (link) link.style.display = isBeta ? '' : 'none';
+    // The sidebar door back to /home is NOT gated any more — V2 is the main
+    // app and this shell is a direct-URL fallback, so hiding the way out would
+    // strand whoever is reading it. Only the beta intro card below is gated.
 
     const corner = document.getElementById('beta-corner');
     if (!corner) return;
@@ -2522,7 +2523,7 @@
     const code = detail.code || 'quota_exceeded';
     const feature = detail.feature || 'this feature';
     const currentPlan = detail.plan || 'Demo';
-    const upgradeTo = detail.upgrade_to || 'monthly';
+    const upgradeTo = detail.upgrade_to || 'quarterly';
     const message = detail.message || 'Upgrade to continue.';
 
     // Build the modal once, reuse it after
@@ -2550,7 +2551,10 @@
       : `You've hit your limit`;
     const planCopy = ({
       weekly:  { name: 'Weekly Trial', price: '₹120', tag: '7-day trial' },
-      monthly: { name: 'Monthly',     price: '₹599/mo', tag: 'Most popular' },
+      quarterly: { name: 'Quarterly',  price: '₹2,499/3 mo', tag: 'Most popular' },
+      // Legacy tier, no longer sellable. Kept so a grandfathered monthly user
+      // whose gate suggests "monthly" still sees a sane card, not "Pro · ''".
+      monthly: { name: 'Monthly',     price: '₹599/mo', tag: 'Legacy plan' },
       yearly:  { name: 'Yearly',       price: '₹5,999/yr', tag: 'Best value' },
     })[upgradeTo] || { name: 'Pro', price: '', tag: '' };
 
@@ -2876,7 +2880,7 @@
     vote(up, 'up'); vote(down, 'down');
     rail.appendChild(copyBtn); rail.appendChild(up); rail.appendChild(down);
     if (/\b(bail|discharge|reply|जवाब|notice|application|complaint|petition|vakalatnama|maintenance|अग्रिम|जमानत)\b/i.test(rawText)) {
-      const draftLink = ce('a', { cls: 'answer__draftlink', attrs: { href: '/app#drafting' },
+      const draftLink = ce('a', { cls: 'answer__draftlink', attrs: { href: '/app/v1#drafting' },
         html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4z"/></svg><span>Draft this</span>' });
       rail.appendChild(draftLink);
     }

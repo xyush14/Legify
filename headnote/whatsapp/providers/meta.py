@@ -57,6 +57,52 @@ def send_text(to: str, body: str, *, preview_url: bool = False) -> dict[str, Any
     return r.json()
 
 
+def send_template(to: str, template: str, lang: str, variables: list[str]) -> dict[str, Any]:
+    """Send a PRE-APPROVED template — the only lane Meta permits for a message we
+    start rather than reply to.
+
+    send_text() above works only inside the 24-hour "customer service window",
+    i.e. when the recipient messaged us first. A hearing reminder to a lawyer's
+    client is business-initiated with no prior inbound, so free text is rejected
+    outright. It has to be a template Meta has read and cleared, with the body
+    fixed and only the numbered placeholders varying per recipient.
+
+    `template` is the registered NAME (one name carries every language version, so
+    the same name plus lang="hi" or "gu" reaches the right body — which is why
+    there is no per-language env var). `lang` is Meta's locale code: it wants
+    "en", "hi", "mr", "gu", "bn" for these, and a code with no approved version
+    fails with 132001 rather than falling back to another language.
+
+    Variables are positional and map to {{1}}..{{n}} in the registered body, in
+    order. Meta rejects the send if any is empty, so callers check first — see
+    headnote/reminders/copy.py::missing_vars.
+    """
+    payload = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": to.lstrip("+"),
+        "type": "template",
+        "template": {
+            "name": template,
+            "language": {"code": lang},
+            "components": [{
+                "type": "body",
+                "parameters": [{"type": "text", "text": v} for v in variables],
+            }],
+        },
+    }
+    r = requests.post(f"{_base_url()}/messages", json=payload, headers=_headers(), timeout=15)
+    if not r.ok:
+        # Name the two failures that are configuration rather than code, because
+        # both otherwise read as a generic API error and cost a day of guessing:
+        # 132001 = no template by that name/language is approved on this WABA;
+        # 131047 = outside the service window and no template was used.
+        log.warning("meta send_template %s/%s failed: %s %s",
+                    template, lang, r.status_code, r.text)
+        raise WAClientError(r.status_code, r.text)
+    return r.json()
+
+
 def send_document(to: str, pdf_path: Path, *, caption: str | None = None,
                    filename: str | None = None) -> dict[str, Any]:
     media_id = _upload_media(pdf_path, mime="application/pdf")

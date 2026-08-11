@@ -8,8 +8,8 @@ Shape returned (stable, breaks frontend if changed):
   "is_admin": false,
   "beta": false,          # may see the V2 surfaces (/home, /research, /draft-dna)
   "subscription": {
-    "plan": "monthly",
-    "display_name": "Monthly",
+    "plan": "quarterly",
+    "display_name": "Quarterly",
     "status": "active",
     "period_start": "2026-05-19T...",
     "period_end":   "2026-06-19T...",
@@ -54,7 +54,9 @@ def get_user_state(user_id: str, email: str | None = None) -> dict:
         # V2 private beta (/home, /research, /draft-dna). Orthogonal to plan:
         # this never changes what the user pays or how much quota they get.
         "beta": is_beta(email),
-        # one-time ₹99 add-on OR bundled with monthly/yearly/founder/partner
+        # Section Finder is free for every signed-in user since 2026-08-11
+        # (the ₹99 lifetime add-on was removed). Kept in the payload because
+        # sections.html reads it; it is now always True.
         "sections_pro": has_sections_pro(user_id, plan_name),
         "subscription": {
             "plan":              plan_name,
@@ -79,9 +81,15 @@ def _available_upgrades(current: str, weekly_used: bool) -> list[str]:
     """
     if current == "founder":
         return []
-    ladder = ["demo", "weekly", "monthly", "yearly"]
+    # "monthly" is deliberately absent from the ladder: it is retired and no
+    # longer sellable, so it must never be offered as an upgrade. But a
+    # grandfathered monthly subscriber must not fall through to idx 0 either —
+    # that would offer them the ₹120 weekly trial as an "upgrade". Rank them
+    # where they actually sit, one rung below yearly.
+    ladder = ["demo", "weekly", "quarterly", "yearly"]
+    rank = {"monthly": "quarterly"}.get(current, current)
     try:
-        idx = ladder.index(current)
+        idx = ladder.index(rank)
     except ValueError:
         idx = 0
     out = [p for p in ladder[idx + 1:]]

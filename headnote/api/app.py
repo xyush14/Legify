@@ -4,7 +4,9 @@ Headnote — FastAPI application.
 Endpoints
 ---------
 GET  /                     marketing landing page
-GET  /app                  research tool UI
+GET  /home /research /draft the app (V2) — Home, Research, Draft
+GET  /app                  sign-in doorway; forwards a signed-in session to /home
+GET  /app/v1               V1 interface, direct URL only, linked from nowhere
 GET  /api/health           liveness + config summary
 GET  /api/corpus           slim list of curated cases
 GET  /api/spend            IK API cost ledger (today + lifetime)
@@ -1267,6 +1269,11 @@ app.include_router(_payments_router)
 from headnote.api.partners_admin import router as _partners_admin_router
 app.include_router(_partners_admin_router)
 
+# Admin console: /admin/api/{login, session, services, overview, ops}. The
+# password door and the live vendor status page behind /admin.
+from headnote.api.admin_console import router as _admin_console_router
+app.include_router(_admin_console_router)
+
 # Onboarding side-effects: /api/onboarding/welcome-email
 from headnote.api.onboarding import router as _onboarding_router
 app.include_router(_onboarding_router)
@@ -1316,6 +1323,14 @@ app.include_router(_intake_router)
 # See migrations/011_notesheets.sql.
 from headnote.api.notesheets import router as _notesheets_router
 app.include_router(_notesheets_router)
+
+# Client hearing reminders: /api/reminders/* — one tap tells every client listed
+# that day. The matters screen has taken "client consents to hearing reminders"
+# since the diary shipped and nothing ever read it; this is that promise kept.
+# Consent, a usable number and the double-send guard are enforced server-side.
+# See migrations/014_client_reminders.sql.
+from headnote.api.reminders import router as _reminders_router
+app.include_router(_reminders_router)
 
 # Server-side PDF export: /api/draft/pdf — renders the drafted document to a
 # real, text-selectable PDF (WeasyPrint). One blob powers Download, WhatsApp
@@ -1492,7 +1507,10 @@ _SITEMAP_PAGES = [
     ("/pricing", "pricing.html", "monthly", "0.9"),
     ("/sections", "sections.html", "monthly", "0.9"),
     ("/documents", "documents.html", "monthly", "0.8"),
-    ("/app", "index.html", "weekly", "0.7"),
+    # /app is deliberately NOT here. It is a sign-in doorway that forwards to
+    # /home, and a sitemap entry that redirects is a soft error in Search
+    # Console. /home itself is behind auth, so there is nothing to crawl — the
+    # landing page is the crawlable front door to the app.
     # Live fill-in draft packs — buyer-intent "format" landing pages
     ("/draft/bail", "draft-bail.html", "monthly", "0.8"),
     ("/draft/discharge", "draft-discharge.html", "monthly", "0.8"),
@@ -1615,7 +1633,8 @@ Practising advocates in India — especially the vernacular district-court bar
 that works primarily in Hindi. Solo practitioners and small chambers.
 
 ## Pricing
-Free 3-day demo (no card). ₹599/month or ₹5,999/year, unlimited, no auto-renew.
+Free 3-day demo (no card). ₹2,499 for 3 months or ₹5,999/year, unlimited, no auto-renew.
+The IPC-to-BNS Section Finder is free for everyone.
 
 ## Key pages
 - Home: {_SITE_ORIGIN}/
@@ -1692,7 +1711,37 @@ def legal_ai_page():
 @app.get("/app", include_in_schema=False)
 @app.get("/app/", include_in_schema=False)
 def app_index():
+    """The DOORWAY, not the app. V2 (/home) is the product now; /app exists only
+    to sign people in and hand them over.
+
+    It deliberately still serves index.html rather than redirecting, because
+    this exact URL is the Google OAuth callback (`redirectTo = origin + '/app'`,
+    static/auth.js) and it is the one entry allow-listed in the Supabase
+    dashboard. A server-side redirect here would move the callback to a URL that
+    may not be allow-listed and would put the `#access_token=…` fragment at the
+    mercy of redirect handling — i.e. it could break sign-in for everybody. So
+    the sign-in overlay stays exactly where it has always been, and auth.js
+    forwards to /home the moment a session exists (see `_revealApp`).
+
+    The V1 interface itself lives at /app/v1 and is linked from nowhere."""
     return FileResponse(config.STATIC_DIR / "index.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
+@app.get("/app/v1", include_in_schema=False)
+@app.get("/app/v1/", include_in_schema=False)
+def app_v1():
+    """V1 — the previous interface, kept reachable by direct URL only.
+
+    Same file as /app; the difference is the path. auth.js forwards a signed-in
+    session from /app to /home but leaves /app/v1 alone, so this path is the one
+    way to reach the old Ask/Research/Drafting/Saved shell. Nothing in the
+    product or the marketing site links here, and it is noindex so it cannot
+    turn up in search and compete with the real app."""
+    return FileResponse(
+        config.STATIC_DIR / "index.html",
+        headers={"Cache-Control": "no-cache, must-revalidate, max-age=0",
+                 "X-Robots-Tag": "noindex, nofollow"},
+    )
 
 
 @app.get("/pricing", include_in_schema=False)
@@ -1743,8 +1792,21 @@ def settings_page():
 @app.get("/admin", include_in_schema=False)
 @app.get("/admin/", include_in_schema=False)
 def admin_panel():
-    """Admin panel SPA. Access controlled by JWT (admin_users table) or
-    ADMIN_TOKEN bearer; the HTML shell itself is inert without auth."""
+    """The admin console: one page, an email-and-password door, and every
+    admin job on it (access grants, users, live vendor status, ops).
+
+    The shell is inert without auth — it renders a sign-in screen and can do
+    nothing until /admin/api/login hands it a session token, which the server
+    re-checks on every call behind it."""
+    return FileResponse(config.STATIC_DIR / "admin-console.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
+
+
+@app.get("/admin/legacy", include_in_schema=False)
+@app.get("/admin/legacy/", include_in_schema=False)
+def admin_panel_legacy():
+    """The previous admin page. Kept because it is proven and because the
+    console links to it for deeper per-user subscription work. It reads the
+    same session token out of localStorage, so it no longer prompts."""
     return FileResponse(config.STATIC_DIR / "admin.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 

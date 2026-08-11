@@ -84,6 +84,47 @@ def send_text(to: str, body: str, *, preview_url: bool = False) -> dict[str, Any
     return r.json()
 
 
+def send_template(to: str, template: str, lang: str, variables: list[str]) -> dict[str, Any]:
+    """Send an approved template via Twilio's Content API.
+
+    Twilio fronts the same Meta restriction: a business-initiated message with no
+    inbound in the last 24 hours must use approved content. Twilio's handle for
+    that is a Content SID (starts "HX"), not a template name, and each SID is one
+    language — so unlike Meta, where one template name carries every language, the
+    caller must map language → SID itself. `template` is therefore expected to
+    already BE the SID for the language wanted; `lang` is accepted for interface
+    parity with meta.send_template and used only in the error message.
+
+    Variables go over the wire as a JSON object keyed "1".."n", matching the
+    {{1}}..{{n}} in the content body.
+    """
+    import json as _json
+
+    if not template.startswith("HX"):
+        raise WAClientError(
+            0,
+            f"twilio needs a Content SID (HX…) for the {lang!r} reminder template, "
+            f"got {template!r}. Twilio issues one SID per language; set the SID "
+            f"rather than a template name, or use WA_PROVIDER=meta.")
+    data = {
+        "To": _to_wa(to),
+        "From": _from_number(),
+        "ContentSid": template,
+        "ContentVariables": _json.dumps(
+            {str(i): v for i, v in enumerate(variables, start=1)}),
+    }
+    r = requests.post(
+        _messages_url(),
+        data=data,
+        auth=(_account_sid(), _auth_token()),
+        timeout=15,
+    )
+    if not r.ok:
+        log.warning("twilio send_template %s failed: %s %s", template, r.status_code, r.text)
+        raise WAClientError(r.status_code, r.text)
+    return r.json()
+
+
 def send_document(to: str, pdf_path: Path, *, caption: str | None = None,
                    filename: str | None = None) -> dict[str, Any]:
     """Twilio fetches the file from a public URL we provide.

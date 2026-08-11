@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 
-PlanName = Literal["demo", "weekly", "monthly", "yearly", "founder", "partner"]
+PlanName = Literal["demo", "weekly", "quarterly", "monthly", "yearly", "founder", "partner"]
 Period = Literal["lifetime", "day", "week", "month", "year"]
 
 
@@ -110,6 +110,36 @@ WEEKLY = Plan(
 )
 
 
+QUARTERLY = Plan(
+    name="quarterly",
+    display_name="Quarterly",
+    price_inr=2499,
+    duration_days=90,
+    limits=[
+        PlanLimit("deep_search",   None, "month"),                # unlimited research
+        PlanLimit("draft",         None, "month",  soft_cap=240),  # >240 = silent Haiku downgrade
+        PlanLimit("judgment_read", None, "month"),
+        PlanLimit("export_pdf",    None, "month"),
+        PlanLimit("hindi_export",  None, "month"),
+    ],
+    features={
+        "export_pdf":        True,
+        "hindi_export":      True,
+        "history":           "unlimited",
+        "support":           "email",
+        "custom_letterhead": False,
+        "priority_queue":    False,
+    },
+)
+
+
+# LEGACY — retired 2026-08-11, replaced by QUARTERLY. NOT sellable and NOT
+# shown on any pricing surface (it is absent from _SUBSCRIPTION_PLANS in
+# api/payments.py and from PLAN_AMOUNTS in payments/cashfree.py, so no order
+# can be created for it). It stays defined ONLY so the advocates who already
+# bought it — their subscription rows still say plan="monthly" — keep their
+# entitlements until the period ends. get_plan() falls back to DEMO on an
+# unknown name, so deleting this would silently strip a paying user's access.
 MONTHLY = Plan(
     name="monthly",
     display_name="Monthly",
@@ -212,10 +242,11 @@ PARTNER = Plan(
 
 
 PLANS: dict[str, Plan] = {
-    "demo":    DEMO,
-    "weekly":  WEEKLY,
-    "monthly": MONTHLY,
-    "yearly":  YEARLY,
+    "demo":      DEMO,
+    "weekly":    WEEKLY,
+    "quarterly": QUARTERLY,
+    "monthly":   MONTHLY,   # legacy, grandfathered — see the note above MONTHLY
+    "yearly":    YEARLY,
     "founder": FOUNDER,
     "partner": PARTNER,
 }

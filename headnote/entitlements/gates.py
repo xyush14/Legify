@@ -240,11 +240,11 @@ def _locked_msg(feature: str, plan: str) -> str:
 def _suggest_upgrade(current_plan: str, *, for_feature: Optional[str] = None) -> str:
     """Suggest the cheapest plan that unlocks `for_feature`, or the next tier up."""
     if for_feature == "hindi_export":
-        return "monthly"
+        return "quarterly"
     if current_plan == "demo":
         return "weekly"
     if current_plan == "weekly":
-        return "monthly"
-    if current_plan == "monthly":
+        return "quarterly"
+    if current_plan in ("quarterly", "monthly"):
         return "yearly"
     return "yearly"

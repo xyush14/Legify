@@ -228,7 +228,7 @@ input,textarea,select{font:inherit;color:inherit}
     <button class="navi" onclick="go('/research')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       <span>Research</span></button>
-    <button class="navi" onclick="go('/app')">
+    <button class="navi" onclick="go('/draft')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
       <span>Draft</span></button>
     <div class="lbl">Personalisation</div>
@@ -417,6 +417,10 @@ input,textarea,select{font:inherit;color:inherit}
 
 <script src="/static/auth.js"></script>
 <script src="/static/v2-beta.js"></script>
+<!-- Shared V2 navigation: the mobile bottom tab bar (this page hides the
+     sidebar at 720px, so without it a phone has no way between screens)
+     plus the sidebar entries for Documents / Recorder / Settings. -->
+<script src="/static/v2-nav.js"></script>
 <script>
 /* =====================================================================
    Draft DNA — client. Live mode talks to /api/draft-dna/*; opened as a

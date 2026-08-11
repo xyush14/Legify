@@ -1,0 +1,918 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<meta name="robots" content="noindex, nofollow">
+<title>Console — Headnote</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;450;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Same tokens as the V2 app surface: white, dense, monochrome, colour only
+   where it means something (green = fine, amber = look at this, red = broken). */
+:root{
+  --bg:#ffffff;--surface:#ffffff;--raise:#fcfcfb;
+  --ink:#0c0c0a;--ink-2:#4b4b48;--ink-3:#8a8a82;--ink-4:#b8b6ae;
+  --line:#e7e7e4;--line-2:#f1f1ef;--soft:#f6f6f4;
+  --amber:#b7791f;--amber-soft:#fdf5e6;--amber-line:#eddcb8;
+  --red:#b0392b;--red-soft:#fbeeec;--red-line:#f0d3ce;
+  --green:#2f8f57;--green-soft:#ecf6ef;--green-line:#cfe8d8;
+  --r:10px;--r-lg:16px;--r-sm:8px;
+  --shadow:0 1px 2px rgba(12,12,10,.05);
+  --ease:cubic-bezier(.16,1,.3,1);
+  --sans:'Geist',-apple-system,'Segoe UI',sans-serif;
+  --mono:'Geist Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer;border:0;background:none;color:inherit}
+input,select,textarea{font-family:inherit;font-size:14px;color:var(--ink)}
+a{color:inherit}
+.mono{font-family:var(--mono)}
+.hidden{display:none!important}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;font-size:13px;font-weight:500;padding:9px 14px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--surface);color:var(--ink);transition:.14s var(--ease);white-space:nowrap}
+.btn:hover{border-color:#d4d2cb;background:var(--raise)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn--primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+.btn--primary:hover{background:#000}
+.btn--sm{padding:6px 10px;font-size:12.5px}
+.btn--danger{color:var(--red);border-color:var(--red-line)}
+.btn--danger:hover{background:var(--red-soft)}
+
+.fld{display:block;margin-bottom:12px}
+.fld label{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:5px}
+.fld input,.fld select,.fld textarea{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface);outline:none;transition:.14s}
+.fld input:focus,.fld select:focus,.fld textarea:focus{border-color:var(--ink-4)}
+.fld .hint{font-size:12px;color:var(--ink-3);margin-top:5px;line-height:1.45}
+
+/* ---------------------------------------------------------------- sign in */
+#gate{min-height:100dvh;display:grid;place-items:center;padding:24px}
+.gatecard{width:100%;max-width:360px}
+.gatecard .mk{width:34px;height:34px;border-radius:9px;background:var(--ink);color:#fff;display:grid;place-items:center;font-weight:700;font-size:17px;margin-bottom:18px}
+.gatecard h1{font-size:21px;font-weight:700;letter-spacing:-.02em}
+.gatecard .sub{font-size:13.5px;color:var(--ink-2);margin:6px 0 22px}
+.msg{padding:10px 12px;border-radius:var(--r-sm);font-size:13px;margin-bottom:14px;line-height:1.45}
+.msg--err{background:var(--red-soft);border:1px solid var(--red-line);color:var(--red)}
+.msg--ok{background:var(--green-soft);border:1px solid var(--green-line);color:var(--green)}
+.msg--warn{background:var(--amber-soft);border:1px solid var(--amber-line);color:var(--amber)}
+
+/* ---------------------------------------------------------------- shell */
+.top{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.topin{display:flex;align-items:center;gap:12px;padding:12px 20px}
+.topin .mk{width:26px;height:26px;border-radius:7px;background:var(--ink);color:#fff;display:grid;place-items:center;font-weight:700;font-size:13px;flex:none}
+.topin .ttl{font-weight:600;letter-spacing:-.01em}
+.topin .who{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px}
+.tabs{display:flex;gap:2px;padding:0 12px 0;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{padding:9px 13px;font-size:13.5px;font-weight:500;color:var(--ink-3);border-bottom:2px solid transparent;white-space:nowrap;transition:.14s}
+.tab:hover{color:var(--ink-2)}
+.tab.on{color:var(--ink);border-bottom-color:var(--ink)}
+.tab .pip{display:inline-grid;place-items:center;min-width:17px;height:17px;padding:0 4px;margin-left:6px;border-radius:9px;background:var(--red);color:#fff;font-size:10.5px;font-weight:600;font-family:var(--mono)}
+.wrap{padding:22px 20px 90px;max-width:1180px;margin:0 auto}
+.pane{display:none}.pane.on{display:block}
+
+h2.sec{font-size:16px;font-weight:650;letter-spacing:-.015em;margin:26px 0 4px}
+h2.sec:first-child{margin-top:0}
+p.secsub{font-size:13px;color:var(--ink-2);margin-bottom:14px;max-width:70ch}
+
+.card{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);padding:16px;box-shadow:var(--shadow)}
+.grid{display:grid;gap:12px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+
+.stat{border:1px solid var(--line);border-radius:var(--r);padding:14px;background:var(--raise)}
+.stat .k{font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.stat .v{font-size:25px;font-weight:700;letter-spacing:-.03em;margin-top:5px}
+.stat .n{font-size:12px;color:var(--ink-3);margin-top:2px}
+
+/* service cards */
+.svc{border:1px solid var(--line);border-radius:var(--r);padding:14px;background:var(--surface);display:flex;flex-direction:column;gap:9px}
+.svc.is-down{border-color:var(--red-line);background:var(--red-soft)}
+.svc.is-degraded{border-color:var(--amber-line);background:var(--amber-soft)}
+.svc .hd{display:flex;align-items:flex-start;gap:9px}
+.dot{width:8px;height:8px;border-radius:50%;flex:none;margin-top:6px;background:var(--ink-4)}
+.dot.up{background:var(--green)}.dot.down{background:var(--red)}.dot.degraded{background:var(--amber)}
+.svc .nm{font-weight:600;font-size:14px;letter-spacing:-.01em}
+.svc .role{font-size:12px;color:var(--ink-3);margin-top:2px;line-height:1.4}
+.svc .det{font-size:12.5px;color:var(--ink-2);line-height:1.45}
+.svc .bal{display:flex;align-items:baseline;gap:7px;font-family:var(--mono);font-size:12px;padding:7px 9px;border-radius:var(--r-sm);background:var(--soft)}
+.svc .bal.low{background:var(--amber-soft);color:var(--amber);font-weight:500}
+.svc .bal .bk{color:var(--ink-3);font-size:10px;letter-spacing:.07em;text-transform:uppercase}
+.svc .imp{font-size:12px;color:var(--ink-3);border-left:2px solid var(--line);padding-left:9px;line-height:1.45}
+.svc .acts{display:flex;gap:7px;flex-wrap:wrap;margin-top:auto;padding-top:4px}
+.lat{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink-4);flex:none}
+
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:400;padding:7px 9px;border-bottom:1px solid var(--line)}
+td{padding:9px;border-bottom:1px solid var(--line-2);vertical-align:top}
+tr:last-child td{border-bottom:0}
+.tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+.pill{display:inline-block;padding:2px 7px;border-radius:20px;font-size:11px;font-family:var(--mono);border:1px solid var(--line);background:var(--soft);color:var(--ink-2)}
+.pill.good{background:var(--green-soft);border-color:var(--green-line);color:var(--green)}
+.pill.warn{background:var(--amber-soft);border-color:var(--amber-line);color:var(--amber)}
+.pill.bad{background:var(--red-soft);border-color:var(--red-line);color:var(--red)}
+
+pre.out{background:var(--soft);border:1px solid var(--line);border-radius:var(--r-sm);padding:11px;font-family:var(--mono);font-size:11.5px;overflow-x:auto;white-space:pre-wrap;word-break:break-word;max-height:340px;line-height:1.5}
+.rowacts{display:flex;gap:7px;flex-wrap:wrap}
+.spin{display:inline-block;width:13px;height:13px;border:2px solid var(--line);border-top-color:var(--ink);border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
+@keyframes sp{to{transform:rotate(360deg)}}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(140%);background:var(--ink);color:#fff;padding:11px 16px;border-radius:var(--r-sm);font-size:13px;z-index:100;transition:transform .28s var(--ease);max-width:92vw;text-align:center}
+#toast.on{transform:translateX(-50%) translateY(0)}
+
+@media(max-width:640px){
+  .wrap{padding:18px 14px 90px}
+  .topin{padding:10px 14px}
+  .topin .who{max-width:110px}
+  .stat .v{font-size:21px}
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================ SIGN IN -->
+<div id="gate">
+  <div class="gatecard">
+    <div class="mk">H</div>
+    <h1>Headnote console</h1>
+    <p class="sub">Sign in to manage access, watch the services and see what is
+      costing money.</p>
+    <div id="gateMsg"></div>
+    <form id="loginForm">
+      <div class="fld">
+        <label for="liEmail">Email</label>
+        <input id="liEmail" type="email" autocomplete="username" required
+               inputmode="email" autocapitalize="none" spellcheck="false">
+      </div>
+      <div class="fld">
+        <label for="liPass">Password</label>
+        <input id="liPass" type="password" autocomplete="current-password" required>
+      </div>
+      <button class="btn btn--primary" style="width:100%" type="submit" id="liBtn">Sign in</button>
+    </form>
+  </div>
+</div>
+
+<!-- ============================================================ CONSOLE -->
+<div id="app" class="hidden">
+  <div class="top">
+    <div class="topin">
+      <div class="mk">H</div>
+      <div class="ttl">Console</div>
+      <div class="who" id="whoami"></div>
+      <button class="btn btn--sm" id="signout">Sign out</button>
+    </div>
+    <div class="tabs" id="tabs">
+      <button class="tab on" data-pane="p-overview">Overview</button>
+      <button class="tab" data-pane="p-access">Give access</button>
+      <button class="tab" data-pane="p-services">Services<span class="pip hidden" id="svcPip">0</span></button>
+      <button class="tab" data-pane="p-users">Users</button>
+      <button class="tab" data-pane="p-ops">Ops</button>
+    </div>
+  </div>
+
+  <div class="wrap">
+
+    <!-- ---------------------------------------------------- OVERVIEW -->
+    <section class="pane on" id="p-overview">
+      <div id="ovAlert"></div>
+      <h2 class="sec">The business</h2>
+      <p class="secsub">Read live from Supabase each time you open this tab.</p>
+      <div class="grid g4" id="ovStats"><div class="stat"><div class="k">Loading</div><div class="v"><span class="spin"></span></div></div></div>
+
+      <h2 class="sec">Expiring in the next 7 days</h2>
+      <p class="secsub">Paid subscriptions about to lapse. Worth a message before they go quiet.</p>
+      <div class="card tscroll" id="ovExpiring"></div>
+
+      <h2 class="sec">Model spend, last 7 days</h2>
+      <div class="card" id="ovTelemetry"></div>
+    </section>
+
+    <!-- ---------------------------------------------------- ACCESS -->
+    <section class="pane" id="p-access">
+      <h2 class="sec">Give somebody access</h2>
+      <p class="secsub">
+        Type their email, pick how long, press the button. It takes effect
+        immediately — there is no deploy and nothing to restart.
+      </p>
+
+      <div class="grid g2">
+        <div class="card">
+          <form id="grantForm">
+            <div class="fld">
+              <label for="gEmail">Their email</label>
+              <input id="gEmail" type="email" required placeholder="advocate@gmail.com"
+                     inputmode="email" autocapitalize="none" spellcheck="false">
+            </div>
+            <div class="fld">
+              <label for="gPlan">What they get</label>
+              <select id="gPlan">
+                <option value="weekly">Weekly — 7 days</option>
+                <option value="quarterly" selected>Quarterly — 90 days</option>
+                <option value="yearly">Yearly — 365 days</option>
+                <option value="founder">Founder — unlimited, never expires</option>
+                <option value="partner">Partner — unlimited, never expires</option>
+              </select>
+            </div>
+            <div class="fld">
+              <label for="gDays">For how many days (optional)</label>
+              <input id="gDays" type="number" min="1" max="3650" placeholder="Leave blank for the normal length">
+              <div class="hint">Use this for any length the list above does not cover —
+                14 days, 90 days, whatever you promised. Ignored for Founder and Partner,
+                which never expire.</div>
+            </div>
+            <div class="fld">
+              <label for="gName">Their name (optional)</label>
+              <input id="gName" type="text" placeholder="Adv. Mansi Singh">
+            </div>
+            <div class="fld">
+              <label for="gNote">Note for the invite email (optional)</label>
+              <input id="gNote" type="text" placeholder="Comped a month — met at the Gwalior bar">
+            </div>
+            <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--ink-2);margin-bottom:14px">
+              <input type="checkbox" id="gEmailSend" checked style="width:auto;margin-top:3px">
+              <span>Email them that their access is ready</span>
+            </label>
+            <button class="btn btn--primary" style="width:100%" type="submit" id="gBtn">Give access</button>
+          </form>
+          <div id="grantMsg" style="margin-top:12px"></div>
+        </div>
+
+        <div>
+          <div class="card">
+            <h2 class="sec" style="margin-top:0;font-size:14px">Check somebody</h2>
+            <p class="secsub" style="font-size:12.5px">
+              "I gave them access but they say it is not working" — start here.
+            </p>
+            <form id="lookupForm" style="display:flex;gap:8px">
+              <input id="luEmail" type="email" placeholder="advocate@gmail.com" required
+                     style="flex:1;padding:9px 11px;border:1px solid var(--line);border-radius:var(--r-sm);outline:none"
+                     inputmode="email" autocapitalize="none" spellcheck="false">
+              <button class="btn" type="submit">Look up</button>
+            </form>
+            <div id="lookupOut" style="margin-top:12px"></div>
+          </div>
+
+          <div class="card" style="margin-top:12px">
+            <h2 class="sec" style="margin-top:0;font-size:14px">Standing grants</h2>
+            <p class="secsub" style="font-size:12.5px">
+              Founder and partner access held in this server's own database.
+              Ones marked <span class="pill">config</span> come from a secret and
+              can only be changed by editing it.
+            </p>
+            <div id="grantList"><span class="spin"></span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------- SERVICES -->
+    <section class="pane" id="p-services">
+      <h2 class="sec">Every service Headnote pays for</h2>
+      <p class="secsub">
+        Checked live when you open this tab. Every check here is free — none of
+        them spends your credit. Where a vendor will tell us the balance, it is
+        shown; where it will not, that is said plainly rather than guessed.
+      </p>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+        <button class="btn" id="svcRefresh">Check again</button>
+        <span class="mono" style="font-size:11px;color:var(--ink-4)" id="svcAsOf"></span>
+      </div>
+      <div class="grid g2" id="svcGrid"><div class="card"><span class="spin"></span> Checking every service…</div></div>
+    </section>
+
+    <!-- ---------------------------------------------------- USERS -->
+    <section class="pane" id="p-users">
+      <h2 class="sec">Users</h2>
+      <p class="secsub">Newest changes first. Search filters what is loaded below.</p>
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+        <select id="uPlan" style="padding:9px 11px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface)">
+          <option value="">Every plan</option>
+          <option value="demo">Demo</option>
+          <option value="weekly">Weekly</option>
+          <option value="quarterly">Quarterly</option>
+          <option value="monthly">Monthly (legacy)</option>
+          <option value="yearly">Yearly</option>
+          <option value="founder">Founder</option>
+          <option value="partner">Partner</option>
+        </select>
+        <input id="uSearch" type="search" placeholder="Filter by user id…"
+               style="flex:1;min-width:150px;padding:9px 11px;border:1px solid var(--line);border-radius:var(--r-sm)">
+        <button class="btn" id="uReload">Reload</button>
+      </div>
+      <div class="card tscroll" id="uTable"><span class="spin"></span></div>
+    </section>
+
+    <!-- ---------------------------------------------------- OPS -->
+    <section class="pane" id="p-ops">
+      <h2 class="sec">This machine</h2>
+      <p class="secsub">Flags and schedules that are true about the server, not about a vendor.</p>
+      <div class="card" id="opsBox"><span class="spin"></span></div>
+
+      <h2 class="sec">Run a job now</h2>
+      <p class="secsub">
+        These normally run on their own schedule. Run one by hand when you want
+        to see it work. <b>Preview first</b> shows you what it would do without
+        sending anything or touching a record.
+      </p>
+      <div class="grid g2">
+        <div class="card">
+          <div style="font-weight:600;margin-bottom:4px">Sync dates from the courts</div>
+          <p class="secsub" style="font-size:12.5px">Re-reads every matter from eCourts and moves hearing dates. Runs at 18:00 IST.</p>
+          <div class="rowacts">
+            <button class="btn btn--sm" data-job="sync" data-dry="1">Preview first</button>
+            <button class="btn btn--sm btn--primary" data-job="sync" data-dry="0">Run it</button>
+          </div>
+        </div>
+        <div class="card">
+          <div style="font-weight:600;margin-bottom:4px">Send the evening cause list</div>
+          <p class="secsub" style="font-size:12.5px">WhatsApp and email each lawyer their list for tomorrow.</p>
+          <div class="rowacts">
+            <button class="btn btn--sm" data-job="causelist" data-dry="1">Preview first</button>
+            <button class="btn btn--sm btn--primary" data-job="causelist" data-dry="0">Run it</button>
+          </div>
+        </div>
+        <div class="card">
+          <div style="font-weight:600;margin-bottom:4px">Send renewal reminders</div>
+          <p class="secsub" style="font-size:12.5px">Emails everyone whose plan ends in about three days.</p>
+          <div class="rowacts">
+            <button class="btn btn--sm" data-job="renewals" data-dry="1">Preview first</button>
+            <button class="btn btn--sm btn--primary" data-job="renewals" data-dry="0">Run it</button>
+          </div>
+        </div>
+        <div class="card">
+          <div style="font-weight:600;margin-bottom:4px">Test that email works</div>
+          <p class="secsub" style="font-size:12.5px">Sends a real welcome email through the production path.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <input id="mailTo" type="email" placeholder="you@gmail.com"
+                   style="flex:1;min-width:140px;padding:7px 10px;border:1px solid var(--line);border-radius:var(--r-sm)">
+            <button class="btn btn--sm" data-job="mailtest" data-dry="0">Send</button>
+          </div>
+        </div>
+      </div>
+      <div id="jobOut" style="margin-top:14px"></div>
+
+      <h2 class="sec">The older admin pages</h2>
+      <p class="secsub">Still here, and they no longer ask you for a token — this sign-in covers them.</p>
+      <div class="rowacts">
+        <a class="btn btn--sm" href="/admin/legacy">Users &amp; grants (old page)</a>
+        <a class="btn btn--sm" href="/admin/partners">Partners &amp; referral codes</a>
+        <a class="btn btn--sm" href="/admin/assist">Lawyer help queue</a>
+        <a class="btn btn--sm" href="/admin/cost-dashboard">Cost charts</a>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* =====================================================================
+   Session
+   ---------------------------------------------------------------------
+   The token the login returns is a signed, expiring session — NOT the root
+   ADMIN_TOKEN. The server accepts either, which is what lets the four older
+   admin pages keep working untouched: they each read a differently-named
+   key out of storage, so we write the same session into every one of those
+   names. That is why nobody gets prompted for a raw token any more.
+   ===================================================================== */
+var TOKEN = null;
+var LEGACY_KEYS = ['headnote.admin.token', 'headnote_admin_token', 'headnote.admin_token'];
+var SESSION_KEY = 'headnote.console.session';
+
+function saveToken(t){
+  TOKEN = t;
+  try{
+    localStorage.setItem(SESSION_KEY, t);
+    LEGACY_KEYS.forEach(function(k){ localStorage.setItem(k, t); });
+    sessionStorage.setItem('headnote.admin_token', t);
+  }catch(e){}
+}
+function clearToken(){
+  TOKEN = null;
+  try{
+    localStorage.removeItem(SESSION_KEY);
+    LEGACY_KEYS.forEach(function(k){ localStorage.removeItem(k); });
+    sessionStorage.removeItem('headnote.admin_token');
+  }catch(e){}
+}
+
+/* One fetch wrapper. A 401/403 anywhere means the session died, so drop
+   straight back to the sign-in screen rather than rendering half a page of
+   errors the operator has to interpret. */
+async function api(path, opts){
+  opts = opts || {};
+  var headers = Object.assign({}, opts.headers || {});
+  if (TOKEN) headers['Authorization'] = 'Bearer ' + TOKEN;
+  if (opts.body && typeof opts.body !== 'string') {
+    headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(opts.body);
+  }
+  var r = await fetch(path, Object.assign({}, opts, {headers: headers}));
+  if (r.status === 401 || r.status === 403) {
+    clearToken(); showGate('Your session has expired. Please sign in again.');
+    throw new Error('signed out');
+  }
+  var text = await r.text();
+  var data = null;
+  try { data = text ? JSON.parse(text) : null; } catch(e) { data = {detail: text}; }
+  if (!r.ok) throw new Error((data && (data.detail || data.message)) || ('HTTP ' + r.status));
+  return data;
+}
+
+function esc(s){
+  return String(s === null || s === undefined ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function toast(m){
+  var t = document.getElementById('toast');
+  t.textContent = m; t.classList.add('on');
+  clearTimeout(t._h); t._h = setTimeout(function(){ t.classList.remove('on'); }, 3400);
+}
+function msg(el, kind, html){
+  document.getElementById(el).innerHTML =
+    '<div class="msg msg--' + kind + '">' + html + '</div>';
+}
+function fmtDate(iso){
+  if(!iso) return '—';
+  try{
+    var d = new Date(iso);
+    if (isNaN(d)) return String(iso).slice(0,16);
+    return d.toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'});
+  }catch(e){ return String(iso).slice(0,16); }
+}
+
+/* ---------------------------------------------------------------- gate */
+function showGate(warning){
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('gate').classList.remove('hidden');
+  document.getElementById('gateMsg').innerHTML = warning
+    ? '<div class="msg msg--warn">' + esc(warning) + '</div>' : '';
+}
+async function showApp(email){
+  document.getElementById('gate').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  document.getElementById('whoami').textContent = email || '';
+  loadOverview();
+  loadServices();        // loaded up front so the tab badge is honest on arrival
+}
+
+document.getElementById('loginForm').addEventListener('submit', async function(e){
+  e.preventDefault();
+  var btn = document.getElementById('liBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Signing in…';
+  try{
+    var r = await fetch('/admin/api/login', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        email: document.getElementById('liEmail').value.trim(),
+        password: document.getElementById('liPass').value,
+      }),
+    });
+    var d = await r.json().catch(function(){ return {}; });
+    if (!r.ok) throw new Error(d.detail || ('HTTP ' + r.status));
+    saveToken(d.token);
+    document.getElementById('liPass').value = '';
+    showApp(d.email);
+  }catch(err){
+    msg('gateMsg', 'err', esc(err.message || 'Could not sign in.'));
+  }finally{
+    btn.disabled = false; btn.textContent = 'Sign in';
+  }
+});
+
+document.getElementById('signout').addEventListener('click', function(){
+  clearToken(); showGate('Signed out.');
+});
+
+/* ---------------------------------------------------------------- tabs */
+document.getElementById('tabs').addEventListener('click', function(e){
+  var t = e.target.closest('.tab'); if(!t) return;
+  document.querySelectorAll('.tab').forEach(function(x){ x.classList.remove('on'); });
+  document.querySelectorAll('.pane').forEach(function(x){ x.classList.remove('on'); });
+  t.classList.add('on');
+  document.getElementById(t.dataset.pane).classList.add('on');
+  window.scrollTo(0,0);
+  if (t.dataset.pane === 'p-services') loadServices();
+  if (t.dataset.pane === 'p-users')    loadUsers();
+  if (t.dataset.pane === 'p-ops')      loadOps();
+  if (t.dataset.pane === 'p-access')   loadGrants();
+});
+
+/* ============================================================ OVERVIEW */
+async function loadOverview(){
+  try{
+    var d = await api('/admin/api/overview');
+    var t = d.totals || {};
+    var bp = t.by_plan || {};
+    document.getElementById('ovStats').innerHTML =
+      stat('Accounts', t.accounts, 'signed up in total') +
+      stat('Paying', t.paying, 'on weekly, quarterly or yearly') +
+      stat('Revenue / month', '₹' + (t.mrr_inr || 0).toLocaleString('en-IN'), 'every plan normalised to 30 days') +
+      stat('Free', (bp.demo || 0), 'still on demo');
+
+    var ex = d.expiring_soon || [];
+    document.getElementById('ovExpiring').innerHTML = ex.length
+      ? '<table><thead><tr><th>User</th><th>Plan</th><th>Ends</th><th>Days left</th></tr></thead><tbody>' +
+        ex.map(function(r){
+          return '<tr><td class="mono" style="font-size:11px">' + esc(String(r.user_id).slice(0,8)) + '…</td>' +
+                 '<td><span class="pill">' + esc(r.plan) + '</span></td>' +
+                 '<td>' + esc(fmtDate(r.period_end)) + '</td>' +
+                 '<td>' + (r.days_left <= 2 ? '<span class="pill warn">' + r.days_left + '</span>' : r.days_left) + '</td></tr>';
+        }).join('') + '</tbody></table>'
+      : '<div style="color:var(--ink-3);font-size:13px">Nothing lapses in the next week.</div>';
+
+    var tel = d.telemetry;
+    document.getElementById('ovTelemetry').innerHTML = tel
+      ? '<div class="grid g3">' +
+          stat('Spend', '₹' + ((tel.total_cost_inr !== undefined ? tel.total_cost_inr : (tel.total_cost_paise||0)/100)).toFixed(2), 'on models, last 7 days') +
+          stat('Calls', tel.total_calls || 0, 'model calls made') +
+          stat('Escalations', (tel.escalation_rate_pct !== undefined ? tel.escalation_rate_pct + '%' : '—'), 'retried on a bigger model') +
+        '</div>'
+      : '<div style="color:var(--ink-3);font-size:13px">No telemetry recorded yet.</div>';
+
+    if (d.warning) msg('ovAlert', 'warn', esc(d.warning));
+  }catch(err){
+    if (String(err.message) === 'signed out') return;
+    msg('ovAlert', 'err', 'Could not load the numbers: ' + esc(err.message));
+    document.getElementById('ovStats').innerHTML = '';
+  }
+}
+function stat(k, v, n){
+  return '<div class="stat"><div class="k">' + esc(k) + '</div>' +
+         '<div class="v">' + esc(v === undefined || v === null ? '—' : v) + '</div>' +
+         '<div class="n">' + esc(n || '') + '</div></div>';
+}
+
+/* ============================================================ SERVICES */
+async function loadServices(){
+  var grid = document.getElementById('svcGrid');
+  grid.innerHTML = '<div class="card"><span class="spin"></span> Checking every service…</div>';
+  try{
+    var d = await api('/admin/api/services');
+    document.getElementById('svcAsOf').textContent = 'checked ' + new Date(d.checked_at).toLocaleTimeString('en-IN');
+    var pip = document.getElementById('svcPip');
+    if (d.problem_count > 0){ pip.textContent = d.problem_count; pip.classList.remove('hidden'); }
+    else pip.classList.add('hidden');
+
+    // Broken first — an operator opening this tab is looking for the problem.
+    var rank = {down:0, degraded:1, not_configured:2, up:3};
+    var svcs = (d.services || []).slice().sort(function(a,b){
+      return (rank[a.status] === undefined ? 4 : rank[a.status]) - (rank[b.status] === undefined ? 4 : rank[b.status]);
+    });
+
+    grid.innerHTML = svcs.map(function(s){
+      var cls = s.status === 'down' ? 'is-down' : (s.status === 'degraded' ? 'is-degraded' : '');
+      var h = '<div class="svc ' + cls + '">';
+      h += '<div class="hd"><span class="dot ' + esc(s.status) + '"></span><div style="min-width:0">' +
+           '<div class="nm">' + esc(s.name) + '</div>' +
+           '<div class="role">' + esc(s.role) + '</div></div>' +
+           (s.latency_ms !== null && s.latency_ms !== undefined ? '<span class="lat">' + s.latency_ms + 'ms</span>' : '') +
+           '</div>';
+      h += '<div class="det">' + esc(s.detail) + '</div>';
+      if (s.balance){
+        h += '<div class="bal' + (s.balance.low ? ' low' : '') + '">' +
+             '<span class="bk">' + esc(s.balance.label) + '</span>' +
+             '<span style="font-weight:600">' + esc(s.balance.value) + '</span>' +
+             (s.balance.as_of ? '<span style="color:var(--ink-4);margin-left:auto;font-size:10px">' + esc(fmtDate(s.balance.as_of)) + '</span>' : '') +
+             '</div>';
+        if (s.balance.note) h += '<div style="font-size:11px;color:var(--ink-4);line-height:1.4">' + esc(s.balance.note) + '</div>';
+      }
+      if (s.status === 'down' || s.status === 'degraded')
+        h += '<div class="imp">' + esc(s.impact) + '</div>';
+      h += '<div class="acts">';
+      // "Add money" only where there IS an account to add it to. Offering it
+      // on a service with no key set sends you to a billing page for an
+      // account you do not have; the useful action there is the dashboard.
+      if (s.topup_url && s.configured)
+        h += '<a class="btn btn--sm btn--primary" target="_blank" rel="noopener" href="' + esc(s.topup_url) + '">Add money</a>';
+      if (s.console_url) h += '<a class="btn btn--sm" target="_blank" rel="noopener" href="' + esc(s.console_url) + '">Open dashboard</a>';
+      if (s.key === 'ecourts')
+        h += '<button class="btn btn--sm" id="walletBtn">Check wallet now</button>';
+      h += '</div></div>';
+      return h;
+    }).join('');
+
+    var wb = document.getElementById('walletBtn');
+    if (wb) wb.addEventListener('click', checkWallet);
+  }catch(err){
+    if (String(err.message) === 'signed out') return;
+    grid.innerHTML = '<div class="msg msg--err">Could not check the services: ' + esc(err.message) + '</div>';
+  }
+}
+document.getElementById('svcRefresh').addEventListener('click', loadServices);
+
+async function checkWallet(){
+  // Stated plainly, because this is the one check on the page that can cost
+  // money: a search is ₹0.60, and it only goes through if the wallet has it.
+  if (!confirm('This asks the court vendor for a real search.\n\n' +
+               'If the wallet is empty it is refused and tells us the exact balance — free.\n' +
+               'If the wallet has money the search goes through and ₹0.60 is spent.\n\nGo ahead?')) return;
+  var b = document.getElementById('walletBtn');
+  b.disabled = true; b.innerHTML = '<span class="spin"></span> Checking…';
+  try{
+    var d = await api('/admin/api/services/ecourts/wallet-check', {method:'POST'});
+    toast(d.message);
+    loadServices();
+  }catch(err){
+    if (String(err.message) !== 'signed out') toast('Could not check: ' + err.message);
+  }finally{
+    if (b) { b.disabled = false; b.textContent = 'Check wallet now'; }
+  }
+}
+
+/* ============================================================ ACCESS */
+document.getElementById('gPlan').addEventListener('change', function(){
+  var perpetual = (this.value === 'founder' || this.value === 'partner');
+  document.getElementById('gDays').disabled = perpetual;
+  document.getElementById('gDays').placeholder = perpetual
+    ? 'Founder and partner access never expires'
+    : 'Leave blank for the normal length';
+});
+
+document.getElementById('grantForm').addEventListener('submit', async function(e){
+  e.preventDefault();
+  var btn   = document.getElementById('gBtn');
+  var email = document.getElementById('gEmail').value.trim().toLowerCase();
+  var plan  = document.getElementById('gPlan').value;
+  var days  = document.getElementById('gDays').value;
+  var name  = document.getElementById('gName').value.trim();
+  var note  = document.getElementById('gNote').value.trim();
+  var send  = document.getElementById('gEmailSend').checked;
+
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Giving access…';
+  document.getElementById('grantMsg').innerHTML = '';
+  try{
+    var out;
+    if (plan === 'founder' || plan === 'partner'){
+      // Perpetual roles live in this server's own grants table. They work
+      // even for somebody who has never signed in — the grant waits for them.
+      out = await api('/admin/access/invite', {
+        method:'POST', body:{email:email, name:name, role:plan, note:note},
+      });
+      msg('grantMsg','ok','<b>' + esc(email) + '</b> now has <b>' + esc(plan) +
+          '</b> access, which never expires.' +
+          (out.email_sent ? ' An invite email has gone out.' : ' No email was sent.'));
+    } else {
+      // Timed plans are written to Supabase so they survive every redeploy.
+      try{
+        var body = {email:email, plan:plan, name:name, note:note, send_email:send};
+        if (days) body.duration_days = parseInt(days, 10);
+        out = await api('/admin/users/grant-subscription-by-email', {method:'POST', body:body});
+        msg('grantMsg','ok','<b>' + esc(email) + '</b> is on the <b>' + esc(plan) +
+            '</b> plan until <b>' + esc(fmtDate(out.subscription && out.subscription.period_end)) + '</b>.' +
+            (out.email_sent ? ' An invite email has gone out.' : ' No email was sent.'));
+      }catch(inner){
+        // The most common failure by far: they have never signed in, so there
+        // is no account yet to attach a subscription to. Quarterly and yearly
+        // can still be parked as a grant that activates on first sign-in;
+        // weekly has no such tier, so say so instead of failing silently.
+        if (/auth\.users|has NOT signed up|No user with email/i.test(inner.message)){
+          if (plan === 'weekly'){
+            msg('grantMsg','warn','<b>' + esc(email) + '</b> has never signed in, and a weekly ' +
+                'plan can only be attached to an existing account. Ask them to sign in once at ' +
+                'headnote.in, then give them the week. Or give them a month, which can be parked in advance.');
+          } else {
+            out = await api('/admin/access/invite', {
+              method:'POST', body:{email:email, name:name, role:plan, note:note},
+            });
+            msg('grantMsg','ok','<b>' + esc(email) + '</b> has never signed in, so the ' +
+                '<b>' + esc(plan) + '</b> access has been parked against their email. ' +
+                'It turns into a real subscription the moment they sign in for the first time.' +
+                (out.email_sent ? ' An invite email has gone out.' : ''));
+          }
+        } else { throw inner; }
+      }
+    }
+    document.getElementById('gEmail').value = '';
+    document.getElementById('gNote').value = '';
+    document.getElementById('gName').value = '';
+    loadGrants();
+  }catch(err){
+    if (String(err.message) !== 'signed out') msg('grantMsg','err', esc(err.message));
+  }finally{
+    btn.disabled = false; btn.textContent = 'Give access';
+  }
+});
+
+document.getElementById('lookupForm').addEventListener('submit', async function(e){
+  e.preventDefault();
+  var email = document.getElementById('luEmail').value.trim().toLowerCase();
+  var out = document.getElementById('lookupOut');
+  out.innerHTML = '<span class="spin"></span>';
+  try{
+    var d = await api('/admin/users/by-email?email=' + encodeURIComponent(email));
+    if (!d.found){
+      out.innerHTML = '<div class="msg msg--warn">' + esc(d.diagnosis) + '</div>';
+      return;
+    }
+    var s = d.subscription || {};
+    var h = '<div style="font-size:13px;line-height:1.7">' +
+      '<div><span class="pill">plan</span> <b>' + esc(s.plan || '—') + '</b> · ' + esc(s.status || '—') + '</div>' +
+      '<div><span class="pill">ends</span> ' + esc(fmtDate(s.period_end)) + '</div>' +
+      '<div><span class="pill">last seen</span> ' + esc(fmtDate(d.auth_user && d.auth_user.last_sign_in_at)) + '</div>' +
+      (d.access_grant ? '<div><span class="pill good">standing grant</span> ' + esc(d.access_grant) + '</div>' : '') +
+      '</div>';
+    if (d.diagnosis && d.diagnosis.length)
+      h += '<div class="msg msg--warn" style="margin-top:10px">' + d.diagnosis.map(esc).join('<br>') + '</div>';
+    out.innerHTML = h;
+  }catch(err){
+    if (String(err.message) !== 'signed out') out.innerHTML = '<div class="msg msg--err">' + esc(err.message) + '</div>';
+  }
+});
+
+async function loadGrants(){
+  var box = document.getElementById('grantList');
+  try{
+    var d = await api('/admin/access-grants');
+    var rows = d.grants || d || [];
+    if (!Array.isArray(rows)) rows = rows.grants || [];
+    if (!rows.length){ box.innerHTML = '<div style="color:var(--ink-3);font-size:13px">No standing grants.</div>'; return; }
+    box.innerHTML = '<div class="tscroll"><table><tbody>' + rows.map(function(g){
+      var isCfg = (g.source === 'config');
+      return '<tr><td style="word-break:break-all">' + esc(g.email) + '</td>' +
+             '<td><span class="pill">' + esc(g.role) + '</span></td>' +
+             '<td style="text-align:right">' + (isCfg
+                ? '<span class="pill">config</span>'
+                : '<button class="btn btn--sm btn--danger" data-revoke="' + esc(g.email) + '">Revoke</button>') +
+             '</td></tr>';
+    }).join('') + '</tbody></table></div>';
+  }catch(err){
+    if (String(err.message) !== 'signed out') box.innerHTML = '<div class="msg msg--err">' + esc(err.message) + '</div>';
+  }
+}
+document.getElementById('grantList').addEventListener('click', async function(e){
+  var b = e.target.closest('[data-revoke]'); if(!b) return;
+  var email = b.dataset.revoke;
+  if (!confirm('Revoke access for ' + email + '?')) return;
+  try{
+    await api('/admin/access-grants/' + encodeURIComponent(email), {method:'DELETE'});
+    toast('Revoked ' + email); loadGrants();
+  }catch(err){ if (String(err.message) !== 'signed out') toast(err.message); }
+});
+
+/* ============================================================ USERS */
+async function loadUsers(){
+  var box = document.getElementById('uTable');
+  box.innerHTML = '<span class="spin"></span>';
+  var plan = document.getElementById('uPlan').value;
+  var q = document.getElementById('uSearch').value.trim().toLowerCase();
+  try{
+    var d = await api('/admin/v2/users?limit=300' + (plan ? '&plan=' + encodeURIComponent(plan) : ''));
+    var rows = (d.users || []).filter(function(u){
+      return !q || String(u.user_id || '').toLowerCase().indexOf(q) >= 0;
+    });
+    if (!rows.length){ box.innerHTML = '<div style="color:var(--ink-3);font-size:13px;padding:4px">Nobody matches.</div>'; return; }
+    box.innerHTML = '<table><thead><tr><th>User</th><th>Plan</th><th>Status</th><th>Ends</th><th></th></tr></thead><tbody>' +
+      rows.map(function(u){
+        var st = (u.status||'').toLowerCase();
+        var cls = st === 'active' ? 'good' : (st === 'cancelled' ? 'bad' : '');
+        return '<tr><td class="mono" style="font-size:11px">' + esc(String(u.user_id||'').slice(0,10)) + '…</td>' +
+               '<td><span class="pill">' + esc(u.plan||'—') + '</span></td>' +
+               '<td><span class="pill ' + cls + '">' + esc(u.status||'—') + '</span></td>' +
+               '<td>' + esc(fmtDate(u.period_end)) + '</td>' +
+               '<td style="text-align:right"><div class="rowacts" style="justify-content:flex-end">' +
+                 '<button class="btn btn--sm" data-grant="' + esc(u.user_id) + '">Extend</button>' +
+                 '<button class="btn btn--sm btn--danger" data-cancel="' + esc(u.user_id) + '">Cancel</button>' +
+               '</div></td></tr>';
+      }).join('') + '</tbody></table>';
+  }catch(err){
+    if (String(err.message) !== 'signed out') box.innerHTML = '<div class="msg msg--err">' + esc(err.message) + '</div>';
+  }
+}
+document.getElementById('uReload').addEventListener('click', loadUsers);
+document.getElementById('uPlan').addEventListener('change', loadUsers);
+document.getElementById('uSearch').addEventListener('input', function(){
+  clearTimeout(this._h); this._h = setTimeout(loadUsers, 260);
+});
+document.getElementById('uTable').addEventListener('click', async function(e){
+  var g = e.target.closest('[data-grant]');
+  var c = e.target.closest('[data-cancel]');
+  try{
+    if (g){
+      var plan = prompt('Which plan? weekly, quarterly or yearly', 'quarterly');
+      if (!plan) return;
+      var days = prompt('For how many days? Leave blank for the plan\'s normal length', '');
+      var body = {plan: plan.trim().toLowerCase()};
+      if (days && days.trim()) body.duration_days = parseInt(days.trim(), 10);
+      await api('/admin/v2/users/' + encodeURIComponent(g.dataset.grant) + '/grant', {method:'POST', body:body});
+      toast('Updated.'); loadUsers();
+    } else if (c){
+      if (!confirm('Cancel this subscription? They keep access until it ends.')) return;
+      await api('/admin/v2/users/' + encodeURIComponent(c.dataset.cancel) + '/cancel', {method:'POST'});
+      toast('Cancelled.'); loadUsers();
+    }
+  }catch(err){ if (String(err.message) !== 'signed out') toast(err.message); }
+});
+
+/* ============================================================ OPS */
+async function loadOps(){
+  var box = document.getElementById('opsBox');
+  try{
+    var d = await api('/admin/api/ops');
+    var cs = d.court_sync || {};
+    var f  = d.flags || {};
+    var al = d.access_lists || {};
+    box.innerHTML =
+      '<div class="grid g2">' +
+        '<div><div style="font-weight:600;margin-bottom:6px">Court date sweep</div>' +
+        '<div style="font-size:13px;line-height:1.8">' +
+          '<div><span class="pill ' + (cs.enabled ? 'good' : 'warn') + '">' + (cs.enabled ? 'armed' : 'not armed') + '</span> runs at ' + esc(cs.at_ist || '18:00') + ' IST</div>' +
+          '<div><span class="pill">next</span> ' + esc(cs.next_run_utc || 'not scheduled') + '</div>' +
+          '<div><span class="pill">court data</span> ' + esc(f.CNR_API_MODE || '—') + '</div>' +
+        '</div></div>' +
+        '<div><div style="font-weight:600;margin-bottom:6px">Flags</div>' +
+        '<div style="font-size:13px;line-height:1.8">' +
+          '<div><span class="pill">V2 public</span> ' + esc(String(f.V2_PUBLIC)) + '</div>' +
+          '<div><span class="pill ' + (f.PG_CHILD_TABLES ? 'bad' : 'good') + '">postgres child tables</span> ' + esc(String(f.PG_CHILD_TABLES)) + '</div>' +
+          '<div><span class="pill ' + (String(f.AUTO_REBUILD_CORPUS_ON_BOOT) === '0' ? 'good' : 'bad') + '">corpus rebuild on boot</span> ' + esc(String(f.AUTO_REBUILD_CORPUS_ON_BOOT)) + '</div>' +
+          '<div><span class="pill good">password sign-in</span> on</div>' +
+        '</div></div>' +
+        '<div><div style="font-weight:600;margin-bottom:6px">Access lists from secrets</div>' +
+        '<div style="font-size:13px;line-height:1.8">' +
+          '<div><span class="pill">founder</span> ' + esc(al.founder) + '</div>' +
+          '<div><span class="pill">partner</span> ' + esc(al.partner) + '</div>' +
+          '<div><span class="pill">yearly</span> ' + esc(al.yearly) + ' · <span class="pill">monthly</span> ' + esc(al.monthly) + '</div>' +
+        '</div>' +
+        '<div style="font-size:12px;color:var(--ink-4);margin-top:6px">Counts only. The addresses are not printed here.</div>' +
+        '</div>' +
+      '</div>';
+  }catch(err){
+    if (String(err.message) !== 'signed out') box.innerHTML = '<div class="msg msg--err">' + esc(err.message) + '</div>';
+  }
+}
+
+var JOBS = {
+  sync:      {url:'/admin/cron/sync-court-dates', label:'Court date sweep'},
+  causelist: {url:'/admin/cron/send-daily-causelist', label:'Evening cause list'},
+  renewals:  {url:'/admin/cron/send-renewal-nudges', label:'Renewal reminders'},
+};
+document.getElementById('p-ops').addEventListener('click', async function(e){
+  var b = e.target.closest('[data-job]'); if(!b) return;
+  var job = b.dataset.job, dry = b.dataset.dry === '1';
+  var out = document.getElementById('jobOut');
+
+  if (job === 'mailtest'){
+    var to = document.getElementById('mailTo').value.trim();
+    if (!to){ toast('Type an email address first.'); return; }
+    out.innerHTML = '<span class="spin"></span> Sending…';
+    try{
+      var r = await api('/admin/email/test-send?to=' + encodeURIComponent(to) + '&template=welcome', {method:'POST'});
+      out.innerHTML = '<div class="msg msg--ok">Sent. Check the inbox (and spam).</div><pre class="out">' + esc(JSON.stringify(r,null,2)) + '</pre>';
+    }catch(err){
+      if (String(err.message) !== 'signed out') out.innerHTML = '<div class="msg msg--err">' + esc(err.message) + '</div>';
+    }
+    return;
+  }
+
+  var j = JOBS[job]; if(!j) return;
+  if (!dry && !confirm('Run "' + j.label + '" for real now?')) return;
+  out.innerHTML = '<span class="spin"></span> Running ' + esc(j.label) + '…';
+  try{
+    var res = await api(j.url + '?dry_run=' + (dry ? 'true' : 'false'), {method:'POST'});
+    out.innerHTML = '<div class="msg msg--ok">' + esc(j.label) + (dry ? ' — preview only, nothing was changed.' : ' — done.') + '</div>' +
+                    '<pre class="out">' + esc(JSON.stringify(res, null, 2)) + '</pre>';
+  }catch(err){
+    if (String(err.message) !== 'signed out') out.innerHTML = '<div class="msg msg--err">' + esc(err.message) + '</div>';
+  }
+});
+
+/* ---------------------------------------------------------------- boot */
+(async function(){
+  // Check for password sign-in first: if the server has no ADMIN_PASSWORD
+  // set, saying so beats letting somebody type into a form that can only
+  // ever refuse them.
+  try{
+    var cfg = await (await fetch('/admin/api/login-config')).json();
+    if (!cfg.password_login){
+      showGate(cfg.admin_token_set
+        ? 'Password sign-in is not set up on this server yet. Ask for ADMIN_EMAIL and ADMIN_PASSWORD to be set as secrets.'
+        : 'Admin is switched off on this server: ADMIN_TOKEN is not set.');
+      document.getElementById('loginForm').classList.add('hidden');
+      return;
+    }
+  }catch(e){ /* fall through and let the login attempt report the problem */ }
+
+  var saved = null;
+  try{ saved = localStorage.getItem(SESSION_KEY); }catch(e){}
+  if (saved){
+    TOKEN = saved;
+    try{
+      var s = await api('/admin/api/session');
+      saveToken(saved);                 // re-mirror for the legacy pages
+      showApp(s.actor);
+      return;
+    }catch(e){ /* api() already dropped us back to the gate */ }
+  }
+  showGate();
+})();
+</script>
+</body>
+</html>

@@ -23,8 +23,9 @@ from typing import Literal, Optional
 from headnote import config
 
 
-Role = Literal["founder", "partner", "yearly", "monthly"]
-_VALID_ROLES = ("founder", "partner", "yearly", "monthly")
+Role = Literal["founder", "partner", "yearly", "quarterly", "monthly"]
+# "monthly" retained for grants already in the table; new grants use quarterly.
+_VALID_ROLES = ("founder", "partner", "yearly", "quarterly", "monthly")
 
 
 def _conn() -> sqlite3.Connection:

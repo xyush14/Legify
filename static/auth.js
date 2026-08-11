@@ -706,8 +706,41 @@ function _showOnboardingModal(user) {
   document.body.classList.remove('auth-ready');
 }
 
+/* V2 is the product; /app is only the door.
+ *
+ * The Google OAuth callback lands on /app (that is the URL allow-listed in the
+ * Supabase dashboard, so it must not move) and the sign-in overlay lives in
+ * index.html. Both stay put. What changes is where a signed-in advocate ends
+ * up: /home, not the old shell.
+ *
+ * Only the EXACT /app path forwards. /app/v1 is the old interface and is left
+ * alone, and no other page in the product is affected.
+ *
+ * V1's four views were hash routes on one page. A signed-in user arriving with
+ * one of them asked for something specific, so honour it instead of dumping
+ * everyone on Home. Anything else — including the `#access_token=…` fragment
+ * OAuth leaves behind — falls through to Home.
+ */
+const _V1_HASH_TO_V2 = {
+  '#ask': '/research',        // V2 folds Ask into Research's Chamber tab
+  '#research': '/research',
+  '#drafting': '/draft',
+  '#saved': '/research',      // the shortlist/Library lives inside Research now
+};
+
+function _forwardAppToV2() {
+  const path = window.location.pathname.replace(/\/+$/, '') || '/';
+  if (path !== '/app') return false;
+  const dest = _V1_HASH_TO_V2[window.location.hash] || '/home';
+  console.log('[auth] /app is the doorway — forwarding to', dest);
+  window.location.replace(dest);
+  return true;
+}
+
 /** Hide overlay and unlock app shell. */
 function _revealApp() {
+  // Forward before painting: the old shell must never flash on screen.
+  if (_forwardAppToV2()) return;
   document.body.classList.add('auth-ready');
   document.getElementById('auth-overlay')?.classList.add('is-hidden');
   // Remove the overlay from the DOM after the fade so it can't trap focus

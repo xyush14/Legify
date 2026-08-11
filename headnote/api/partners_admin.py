@@ -39,6 +39,7 @@ from fastapi import APIRouter, Body, Header, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
 from headnote import config
+from headnote.api.admin_session import require_admin_bearer
 from headnote.entitlements import _supabase
 from headnote.payments import referrals
 
@@ -50,24 +51,8 @@ router = APIRouter(prefix="/admin/partners", tags=["admin", "partners"])
 # ---------------------------------------------------------------- auth
 
 def _require_admin(authorization: Optional[str]) -> None:
-    """Same bearer-token gate as admin.py — see that module for rationale."""
-    if not config.ADMIN_TOKEN:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Admin routes disabled: ADMIN_TOKEN env var is not set.",
-        )
-    if not authorization or not authorization.lower().startswith("bearer "):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing 'Authorization: Bearer <ADMIN_TOKEN>' header.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    token = authorization.split(None, 1)[1].strip()
-    if token != config.ADMIN_TOKEN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Bearer token does not match ADMIN_TOKEN.",
-        )
+    """Same gate as admin.py — raw ADMIN_TOKEN or a console sign-in session."""
+    require_admin_bearer(authorization)
 
 
 # ---------------------------------------------------------------- models
