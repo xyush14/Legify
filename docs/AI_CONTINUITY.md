@@ -70,6 +70,11 @@ python3 scripts/export_claude_sessions.py --out ~/Desktop/backup
 
 Re-running is safe — it overwrites the same filenames and rebuilds `INDEX.md`.
 
+**Do this once after you close this session.** A transcript is still being written while the
+session is open, so the export made during it stops a few turns short of the end. Run the
+exporter one more time after quitting Claude Code and this last session will be complete in the
+archive.
+
 ### Restoring the raw transcripts
 
 If `~/.claude` is ever lost and you want Claude Code's own history back (so `resume` works, not just reading):
