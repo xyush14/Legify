@@ -105,3 +105,13 @@ docs/ocr-bakeoff/
 docs/campus-sales/
 docs/fundraise/
 docs/PERSONAL_ASSIST_CONTEXT.md
+
+# AI session archive. Exported Claude Code transcripts live OUTSIDE this repo at
+# ~/Documents/Headnote-AI-Archive precisely because this repository is public and
+# the transcripts contain whatever was on screen during a session: .env values,
+# OCR of real charge-sheets, client and advocate emails. These patterns exist so
+# that a copy accidentally dropped in the repo is never staged.
+# See docs/AI_CONTINUITY.md.
+Headnote-AI-Archive/
+*.jsonl
+claude-projects-raw-*.tar.gz
