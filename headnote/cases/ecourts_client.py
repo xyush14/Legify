@@ -260,14 +260,46 @@ _COURT_INDEX = None
 
 def _court_index() -> list:
     global _COURT_INDEX
+
     if _COURT_INDEX is None:
         try:
             url = config.CNR_API_BASE_URL.rstrip("/") + "/api/partner/enums"
-            r = httpx.get(url, params={"types": "courtCode"}, headers=_headers(), timeout=30.0)
-            data = (r.json() or {}).get("data") or {}
-            _COURT_INDEX = data.get("enums", {}).get("courtCode", []) or []
-        except Exception:  # noqa: BLE001 — non-fatal; fall back to unscoped search
+
+            print(f"[COURTS] Fetching: {url}")
+
+            r = httpx.get(
+                url,
+                params={"types": "courtCode"},
+                headers=_headers(),
+                timeout=30.0,
+            )
+
+            print(f"[COURTS] Status: {r.status_code}")
+            print(f"[COURTS] Response: {r.text[:1000]}")
+
+            r.raise_for_status()
+
+            data = r.json() or {}
+
+            print(f"[COURTS] JSON Keys: {list(data.keys())}")
+
+            data = data.get("data") or {}
+
+            print(f"[COURTS] Data Keys: {list(data.keys())}")
+
+            enums = data.get("enums", {})
+
+            if isinstance(enums, dict):
+                print(f"[COURTS] Enum Keys: {list(enums.keys())}")
+
+            _COURT_INDEX = enums.get("courtCode", []) or []
+
+            print(f"[COURTS] Loaded courts: {len(_COURT_INDEX)}")
+
+        except Exception as e:
+            print(f"[COURTS] ERROR: {e}")
             _COURT_INDEX = []
+
     return _COURT_INDEX
 
 
