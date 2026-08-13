@@ -77,26 +77,24 @@ jobs:
           echo "image=$image" >> "$GITHUB_OUTPUT"
           echo "Currently running: ${image:-<none found>}"
 
-      # --local-only, NOT --remote-only. Fly's depot builder 403s with "Your
-      # account has been marked as high risk" and unlocking it needs a payment
-      # verification we do not want to do right now. The runner has Docker and
-      # 14 GB of disk, so it builds the ~2 GB image itself and pushes it to
-      # registry.fly.io — which only the builder was refusing, not the account.
-      #
-      # Switch back to --remote-only once the account is verified: builds get
-      # faster (Fly's builder caches layers between deploys; a fresh runner
-      # never does) and the 109 MB build context stops crossing the internet
-      # twice.
-      #
+      # --remote-only: the image is ~1 GB; build on Fly's builder, which caches
+      #   layers between deploys where a fresh runner never can.
       # --strategy immediate: there is exactly ONE machine, so there is no
       #   second candidate to roll to. Cost is a ~10s health-check blip, which
       #   is real, user-visible downtime — accepted deliberately.
+      #
+      # BLOCKED AS OF 2026-08-14: every deploy fails with
+      #   "failed to create release (status 403): Your account has been marked
+      #    as high risk. Please go to https://fly.io/high-risk-unlock"
+      # This is the Fly PLATFORM API, not the builder — proven by building
+      # locally instead (--local-only), which built and pushed the image to
+      # registry.fly.io fine and then failed at the identical step. So a deploy
+      # from a laptop is refused the same way; there is nothing to work around
+      # in this file. The account has to be unlocked.
       - name: Deploy
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: |
-          flyctl auth docker
-          flyctl deploy --local-only --strategy immediate -a "$FLY_APP"
+        run: flyctl deploy --remote-only --strategy immediate -a "$FLY_APP"
 
       # A passing Fly health check only proves /api/live answers. Check that
       # the pages advocates actually open come back 200 — twice now this site
