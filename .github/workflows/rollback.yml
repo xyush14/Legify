@@ -40,11 +40,11 @@ jobs:
           {
             echo "### Recent releases — \`$FLY_APP\`"
             echo '```'
-            fly releases -a "$FLY_APP" --image | head -20
+            flyctl releases -a "$FLY_APP" | head -20
             echo '```'
             echo "Currently running:"
             echo '```'
-            fly machines list -a "$FLY_APP" --json | jq -r '.[] | "\(.id) \(.state) \(.config.image)"'
+            flyctl machines list -a "$FLY_APP" --json | jq -r '.[] | "\(.id) \(.state) \(.config.image)"'
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -52,7 +52,7 @@ jobs:
         if: ${{ inputs.image != '' }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: fly deploy --image "${{ inputs.image }}" --strategy immediate -a "$FLY_APP"
+        run: flyctl deploy --image "${{ inputs.image }}" --strategy immediate -a "$FLY_APP"
 
       - name: Verify
         if: ${{ inputs.image != '' }}

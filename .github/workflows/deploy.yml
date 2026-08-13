@@ -1,7 +1,7 @@
 # Deploy headnote.in to Fly.io.
 #
 # Setup, once:
-#   1. fly tokens create deploy -a headnote -x 8760h
+#   1. flyctl tokens create deploy -a headnote -x 8760h
 #   2. Paste it into GitHub → Settings → Secrets and variables → Actions
 #      → New repository secret → name: FLY_API_TOKEN
 #      (a DEPLOY token, not a personal org token — this repo is public, so the
@@ -66,10 +66,10 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
           set -euo pipefail
-          image=$(fly machines list -a "$FLY_APP" --json \
+          image=$(flyctl machines list -a "$FLY_APP" --json \
                   | jq -r '[.[] | select(.state == "started") | .config.image] | first // empty')
           if [ -z "$image" ]; then
-            image=$(fly machines list -a "$FLY_APP" --json | jq -r '.[0].config.image // empty')
+            image=$(flyctl machines list -a "$FLY_APP" --json | jq -r '.[0].config.image // empty')
           fi
           echo "image=$image" >> "$GITHUB_OUTPUT"
           echo "Currently running: ${image:-<none found>}"
@@ -82,7 +82,7 @@ jobs:
       - name: Deploy
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: fly deploy --remote-only --strategy immediate --wait-timeout 600 -a "$FLY_APP"
+        run: flyctl deploy --remote-only --strategy immediate -a "$FLY_APP"
 
       # A passing Fly health check only proves /api/live answers. Check that
       # the pages advocates actually open come back 200 — twice now this site
@@ -126,7 +126,7 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
           echo "::warning::Smoke test failed — rolling back to ${{ steps.current.outputs.image }}"
-          fly deploy --image "${{ steps.current.outputs.image }}" --strategy immediate -a "$FLY_APP"
+          flyctl deploy --image "${{ steps.current.outputs.image }}" --strategy immediate -a "$FLY_APP"
           curl -fsS --max-time 15 "$SITE/api/live" || true
 
       - name: Summary
@@ -143,6 +143,6 @@ jobs:
             echo
             echo "Manual rollback:"
             echo '```'
-            echo "fly deploy --image ${{ steps.current.outputs.image }} --strategy immediate -a $FLY_APP"
+            echo "flyctl deploy --image ${{ steps.current.outputs.image }} --strategy immediate -a $FLY_APP"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
