@@ -1,0 +1,67 @@
+# Put headnote.in back on a previous image, from a phone, without a laptop.
+#
+# Actions → rollback → Run workflow. Leave the image blank to list what is
+# available and pick from the run's summary, then run it again with a digest.
+#
+# This ships NO code: it redeploys an image that already exists in the Fly
+# registry, so nothing is rebuilt and nothing from the working tree can leak in.
+
+name: rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: "Image to deploy (e.g. registry.fly.io/headnote@sha256:...). Blank = just list releases."
+        required: false
+        default: ""
+
+concurrency:
+  group: fly-deploy-headnote
+  cancel-in-progress: false
+
+env:
+  FLY_APP: headnote
+  SITE: https://headnote.in
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 15
+    steps:
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: List recent releases
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          {
+            echo "### Recent releases — \`$FLY_APP\`"
+            echo '```'
+            fly releases -a "$FLY_APP" --image | head -20
+            echo '```'
+            echo "Currently running:"
+            echo '```'
+            fly machines list -a "$FLY_APP" --json | jq -r '.[] | "\(.id) \(.state) \(.config.image)"'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Deploy the chosen image
+        if: ${{ inputs.image != '' }}
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: fly deploy --image "${{ inputs.image }}" --strategy immediate -a "$FLY_APP"
+
+      - name: Verify
+        if: ${{ inputs.image != '' }}
+        run: |
+          set -uo pipefail
+          for i in $(seq 1 30); do
+            body=$(curl -fsS --max-time 10 "$SITE/api/live" 2>/dev/null || true)
+            case "$body" in *'"ok"'*'true'*) echo "live after ${i} attempt(s)"; exit 0;; esac
+            sleep 5
+          done
+          echo "::error::/api/live never came back after the rollback"
+          exit 1

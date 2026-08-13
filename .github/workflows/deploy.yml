@@ -1,0 +1,148 @@
+# Deploy headnote.in to Fly.io.
+#
+# Setup, once:
+#   1. fly tokens create deploy -a headnote -x 8760h
+#   2. Paste it into GitHub → Settings → Secrets and variables → Actions
+#      → New repository secret → name: FLY_API_TOKEN
+#      (a DEPLOY token, not a personal org token — this repo is public, so the
+#      token must be able to do exactly one thing and nothing else)
+#
+# Triggers: every push to main or seo/geo-visibility, or Actions → deploy →
+# Run workflow (pick the branch in the dialog).
+#
+# seo/geo-visibility is here because that is where the live product actually
+# lives right now — main is several rounds behind and the machine has been
+# deployed from this branch's working tree by hand. Both branches deploy to
+# the SAME single machine, so whichever pushes last is what advocates see.
+# To make deploys approval-gated instead of automatic, create a GitHub
+# Environment named "production" and add yourself as a required reviewer —
+# the job below already targets it, so no file change is needed.
+
+name: deploy
+
+on:
+  push:
+    branches:
+      - main
+      - seo/geo-visibility
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "playstore/**"
+  workflow_dispatch:
+    inputs:
+      skip_smoke:
+        description: "Skip the post-deploy smoke test (not recommended)"
+        type: boolean
+        default: false
+
+# One machine, one volume. Two deploys overlapping would fight over the same
+# machine, so queue them — and never cancel one midway, which could leave the
+# machine on a half-applied release.
+concurrency:
+  group: fly-deploy-headnote
+  cancel-in-progress: false
+
+env:
+  FLY_APP: headnote
+  SITE: https://headnote.in
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      # Record what is running BEFORE we touch anything. This digest is the
+      # rollback target, and it is worth nothing if it is only discovered
+      # after the deploy has already replaced it.
+      - name: Capture the currently deployed image
+        id: current
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          image=$(fly machines list -a "$FLY_APP" --json \
+                  | jq -r '[.[] | select(.state == "started") | .config.image] | first // empty')
+          if [ -z "$image" ]; then
+            image=$(fly machines list -a "$FLY_APP" --json | jq -r '.[0].config.image // empty')
+          fi
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          echo "Currently running: ${image:-<none found>}"
+
+      # --remote-only: the image is ~2 GB with embeddings; build on Fly's
+      #   builder, not on a GitHub runner.
+      # --strategy immediate: there is exactly ONE machine, so there is no
+      #   second candidate to roll to. Cost is a ~10s health-check blip, which
+      #   is real, user-visible downtime — accepted deliberately.
+      - name: Deploy
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: fly deploy --remote-only --strategy immediate --wait-timeout 600 -a "$FLY_APP"
+
+      # A passing Fly health check only proves /api/live answers. Check that
+      # the pages advocates actually open come back 200 — twice now this site
+      # has been "healthy" at the process level while every URL failed at the
+      # edge.
+      - name: Smoke test
+        id: smoke
+        if: ${{ !inputs.skip_smoke }}
+        run: |
+          set -uo pipefail
+
+          # The immediate strategy blips for ~10s; wait for liveness first.
+          for i in $(seq 1 30); do
+            body=$(curl -fsS --max-time 10 "$SITE/api/live" 2>/dev/null || true)
+            case "$body" in *'"ok"'*'true'*) echo "live after ${i} attempt(s)"; break;; esac
+            if [ "$i" = 30 ]; then echo "::error::/api/live never returned ok:true"; exit 1; fi
+            sleep 5
+          done
+
+          fail=0
+          for path in / /home /research /draft /app /api/live; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$SITE$path" || echo 000)
+            ttfb=$(curl -s -o /dev/null -w '%{time_starttransfer}' --max-time 20 "$SITE$path" || echo -)
+            printf '%-12s %s  %ss\n' "$path" "$code" "$ttfb"
+            [ "$code" = 200 ] || { echo "::error::$path returned $code"; fail=1; }
+          done
+
+          # The admin console unlocks every user's data. If it ever answers
+          # unauthenticated, that is worse than an outage.
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$SITE/api/home" || echo 000)
+          echo "/api/home (unauthenticated) $code"
+          case "$code" in 401|403) ;; *) echo "::error::/api/home answered $code unauthenticated"; fail=1;; esac
+
+          exit $fail
+
+      # Put the site back on the last known-good image rather than leaving a
+      # broken release up while someone finds a laptop.
+      - name: Roll back on failed smoke test
+        if: failure() && steps.smoke.outcome == 'failure' && steps.current.outputs.image != ''
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          echo "::warning::Smoke test failed — rolling back to ${{ steps.current.outputs.image }}"
+          fly deploy --image "${{ steps.current.outputs.image }}" --strategy immediate -a "$FLY_APP"
+          curl -fsS --max-time 15 "$SITE/api/live" || true
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Fly deploy — \`$FLY_APP\`"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Commit | \`${GITHUB_SHA:0:8}\` |"
+            echo "| Result | ${{ job.status }} |"
+            echo "| Previous image | \`${{ steps.current.outputs.image }}\` |"
+            echo
+            echo "Manual rollback:"
+            echo '```'
+            echo "fly deploy --image ${{ steps.current.outputs.image }} --strategy immediate -a $FLY_APP"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
