@@ -51,7 +51,10 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: production
-    timeout-minutes: 30
+    # Generous: a local build of the ~2 GB image on a cold runner has no layer
+    # cache at all, so every deploy reinstalls WeasyPrint's system libs,
+    # PyMuPDF and datasets from scratch.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -74,15 +77,26 @@ jobs:
           echo "image=$image" >> "$GITHUB_OUTPUT"
           echo "Currently running: ${image:-<none found>}"
 
-      # --remote-only: the image is ~2 GB with embeddings; build on Fly's
-      #   builder, not on a GitHub runner.
+      # --local-only, NOT --remote-only. Fly's depot builder 403s with "Your
+      # account has been marked as high risk" and unlocking it needs a payment
+      # verification we do not want to do right now. The runner has Docker and
+      # 14 GB of disk, so it builds the ~2 GB image itself and pushes it to
+      # registry.fly.io — which only the builder was refusing, not the account.
+      #
+      # Switch back to --remote-only once the account is verified: builds get
+      # faster (Fly's builder caches layers between deploys; a fresh runner
+      # never does) and the 109 MB build context stops crossing the internet
+      # twice.
+      #
       # --strategy immediate: there is exactly ONE machine, so there is no
       #   second candidate to roll to. Cost is a ~10s health-check blip, which
       #   is real, user-visible downtime — accepted deliberately.
       - name: Deploy
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: flyctl deploy --remote-only --strategy immediate -a "$FLY_APP"
+        run: |
+          flyctl auth docker
+          flyctl deploy --local-only --strategy immediate -a "$FLY_APP"
 
       # A passing Fly health check only proves /api/live answers. Check that
       # the pages advocates actually open come back 200 — twice now this site
