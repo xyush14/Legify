@@ -172,12 +172,22 @@ def _normalise_webapi(row: dict, cnr: str = "") -> dict:
 
     c["case_type"] = _first(row, "caseTypeRaw", "caseType")
     c["case_status"] = _first(row, "caseStatus")
-    regno = _first(row, "registrationNumber", "filingNumber")
-    num, yr = _split_regno(regno)
-    c["case_number"] = num
-    c["case_year"] = _first(row, "filingYear") or yr
+    # The number a matter is KNOWN by — in the cause list, in the order sheet and
+    # in the advocate's own head — is the REGISTRATION number. The filing number
+    # is the registry's intake number: it exists before the case is registered,
+    # is often a different series, and is not what anybody calls the case. So the
+    # matter's case number is the registration number, and the filing number is
+    # kept only as a fact on the record. It is used as a number ONLY when the
+    # court record carries no registration number at all (a freshly filed matter
+    # not yet registered) — a matter with a blank number would be worse.
     c["registration_number"] = _first(row, "registrationNumber")
     c["filing_number"] = _first(row, "filingNumber")
+    regno = c["registration_number"] or c["filing_number"]
+    c["case_number_source"] = ("registration" if c["registration_number"]
+                               else ("filing" if c["filing_number"] else None))
+    num, yr = _split_regno(regno)
+    c["case_number"] = num
+    c["case_year"] = yr or _first(row, "registrationYear") or _first(row, "filingYear")
     c["filing_date"] = _first(row, "filingDate", "registrationDate")
     c["court_name"] = _first(row, "courtName")
     c["court_name_en"] = c["court_name"]
@@ -397,16 +407,17 @@ def search_by_case_number(*, case_number: str, court_code: str = "", state: str 
     to a court he picks. The alternative to the CNR, which most advocates do not
     carry in their head.
 
-    Verified live against the vendor: ``CaseNumbers`` matches the REGISTRATION
-    number or the FILING number, and the search row already carries parties,
+    Verified live against the vendor: ``CaseNumbers`` matches the registration
+    number or the filing number, and the search row already carries parties,
     advocates, court, judge, acts, stage and the next hearing date — so one call
     is enough to show the lawyer what he is about to save.
 
     Two things this must respect:
       • The match is RELEVANCE-ranked, not exact — '1/2024' also returns
         '396/2024'. Every candidate is therefore returned with ``exact_match``
-        set from OUR OWN normalised comparison, exact ones first, and nothing is
-        stored until the lawyer ticks it.
+        set from OUR OWN normalised comparison against the REGISTRATION number
+        (the number the court and the lawyer call the case by), exact ones
+        first, and nothing is stored until the lawyer ticks it.
       • Without a court scope the number is hopelessly ambiguous ('6345/2017'
         exists in dozens of courts across India), so a court or a state is
         REQUIRED rather than optional.
@@ -444,10 +455,20 @@ def search_by_case_number(*, case_number: str, court_code: str = "", state: str 
         if not isinstance(row, dict):
             continue
         c = _normalise_webapi(row, _first(row, "cnr", "id", default=""))
-        c["exact_match"] = target in {_caseno_key(c.get("registration_number")),
-                                      _caseno_key(c.get("filing_number"))}
+        # The vendor searches BOTH numbers, but only the REGISTRATION number
+        # counts as this lawyer's case number, so only that makes a candidate
+        # exact (and pre-ticked). A row that matched on the filing number alone
+        # is still shown — it may genuinely be his matter, not yet registered —
+        # but unticked, and `matched_on` lets the screen say which number matched
+        # instead of leaving him to guess why it is there.
+        reg_k, fil_k = _caseno_key(c.get("registration_number")), _caseno_key(c.get("filing_number"))
+        c["matched_on"] = ("registration" if target == reg_k
+                           else ("filing" if target == fil_k else "related"))
+        c["exact_match"] = c["matched_on"] == "registration"
         out.append(c)
-    out.sort(key=lambda c: (not c.get("exact_match"),))
+    # exact registration matches first, then filing-number matches, then the rest
+    _rank = {"registration": 0, "filing": 1, "related": 2}
+    out.sort(key=lambda c: _rank.get(c.get("matched_on"), 2))
     return out
 
 
@@ -463,6 +484,8 @@ def _search_by_case_number_mock(case_number: str, *, court_code: str = "") -> li
     c["registration_number"] = f"{c['case_number']}/{c['case_year']}"
     c["source"] = "mock"
     c["exact_match"] = True
+    c["matched_on"] = "registration"
+    c["case_number_source"] = "registration"
     if court_code:
         c["raw"]["_court_code"] = court_code
     return [c]

@@ -1837,8 +1837,15 @@ function openAdd(lane){
               onclick="openAdd('cnr')">By CNR</button>
       <button class="btn${openAdd.lane==='no'?' btn--primary':''}" style="flex:1;height:34px;font-size:12.5px"
               onclick="openAdd('no')">By case number</button>
+      <button class="btn${openAdd.lane==='man'?' btn--primary':''}" style="flex:1;height:34px;font-size:12.5px"
+              onclick="openAdd('man')">Enter it myself</button>
     </div>`;
   if(openAdd.lane==='no'){ $('#addBody').innerHTML=tabs+addNoLane(); paintCourtPick(); return; }
+  if(openAdd.lane==='man'){
+    $('#addBody').innerHTML=tabs+addManLane();
+    setTimeout(()=>{const i=$('#mnNum'); if(i) i.focus();},40);
+    return;
+  }
   $('#addBody').innerHTML=tabs+`
     <div style="font-size:13.5px;color:var(--ink-2);line-height:1.6;margin-bottom:14px">
       Paste the 16-character CNR. Headnote reads the case from the court record —
@@ -1848,7 +1855,9 @@ function openAdd(lane){
              style="font-family:var(--mono);letter-spacing:.04em;text-transform:uppercase"
              onkeydown="if(event.key==='Enter')addCnr()"></div>
     <div id="addMsg" style="font-size:12.5px;color:var(--ink-3);margin-top:10px">
-      Don’t have the CNR? Use <b>By case number</b> — pick your court and type 6345/2017.</div>
+      Don’t have the CNR? Use <b>By case number</b> — pick your court and type the
+      registration number, 6345/2017. Not on the court record at all?
+      <b>Enter it myself</b>.</div>
     <div style="display:flex;gap:8px;margin-top:16px">
       <button class="btn btn--primary" id="addGo" onclick="addCnr()">Look it up</button>
       <button class="btn" onclick="closeAdd()">Cancel</button></div>`;
@@ -1866,15 +1875,16 @@ let COURT={code:'',description:''}, NOCAND=[], CTLIST=[], _ctT=null;
 function addNoLane(){
   return `
     <div style="font-size:13.5px;color:var(--ink-2);line-height:1.6;margin-bottom:14px">
-      No CNR needed. Choose the court, type the case number as the court registers it
-      — Headnote reads the rest from the court record.</div>
+      No CNR needed. Choose the court, type the registration number as the court
+      registers it — Headnote reads the rest from the court record.</div>
     <div id="ctPick"></div>
     <div class="msbox" style="height:44px;margin-top:8px"><svg viewBox="0 0 24 24">${IC.folder}</svg>
       <input id="noIn" autocomplete="off" spellcheck="false" placeholder="Case number — e.g. 6345/2017"
              style="font-family:var(--mono);letter-spacing:.02em"
              onkeydown="if(event.key==='Enter')runNoSearch()"></div>
     <div id="noMsg" style="font-size:12.5px;color:var(--ink-3);margin-top:10px">
-      Registration or filing number, both work. Nothing is saved until you confirm.</div>
+      The <b>registration number</b> — the number the court calls the case by, not the filing number.
+      Nothing is saved until you confirm.</div>
     <div style="display:flex;gap:8px;margin-top:16px">
       <button class="btn btn--primary" id="noGo" onclick="runNoSearch()">Find the case</button>
       <button class="btn" onclick="closeAdd()">Cancel</button></div>`;
@@ -1928,6 +1938,74 @@ function pickCourt(i){
   setTimeout(()=>{const n=$('#noIn'); if(n) n.focus();},40);
 }
 
+/* ---------------- add a matter BY HAND ----------------
+   The court record cannot always answer: a matter filed this morning is not on
+   it yet, an arbitration or a revenue-court matter never will be, and the
+   vendor is sometimes simply down. Without this lane the only way to put one
+   matter on the board was to photograph a cause-list page.
+   It is saved the way a diary matter is — no CNR — so it shows up in the
+   "not linked to the court record" banner and can be linked later, after which
+   the nightly sweep moves its dates on its own. */
+function addManLane(){
+  return `
+    <div style="font-size:13.5px;color:var(--ink-2);line-height:1.6;margin-bottom:14px">
+      For a matter the court record cannot give you — filed today, an arbitration,
+      a revenue court. Only a name or a case number is required; everything else
+      can be filled in later from the case folder.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="msbox" style="height:42px"><input id="mnNum" autocomplete="off" spellcheck="false"
+           placeholder="Registration no. — 6345/2017" style="font-family:var(--mono);letter-spacing:.02em"></div>
+      <div class="msbox" style="height:42px"><input id="mnType" autocomplete="off" placeholder="Case type — Cr.A., R.C.S."></div>
+    </div>
+    <div class="msbox" style="height:42px;margin-top:8px"><input id="mnCourt" autocomplete="off"
+         placeholder="Court / judge — as you would write it on the cover"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+      <div class="msbox" style="height:42px"><input id="mnPet" autocomplete="off" placeholder="Petitioner / applicant"></div>
+      <div class="msbox" style="height:42px"><input id="mnRes" autocomplete="off" placeholder="Respondent / opposite party"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+      <div class="msbox" style="height:42px"><input id="mnDate" type="date"></div>
+      <div class="msbox" style="height:42px"><input id="mnStage" autocomplete="off" placeholder="Listed for — arguments, evidence"></div>
+    </div>
+    <div class="msbox" style="height:42px;margin-top:8px"><input id="mnSec" autocomplete="off"
+         placeholder="Acts &amp; sections — 302, 34 IPC (comma separated)"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+      <div class="msbox" style="height:42px"><input id="mnCli" autocomplete="off" placeholder="Client's name (optional)"></div>
+      <div class="msbox" style="height:42px"><input id="mnMob" autocomplete="off" inputmode="tel" placeholder="Client's mobile (optional)"></div>
+    </div>
+    <div id="mnMsg" style="font-size:12.5px;color:var(--ink-3);margin-top:10px">
+      A matter added by hand is not linked to the court record, so its dates will
+      not update on their own until you link it.</div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn--primary" id="mnGo" onclick="saveMan()">Add this matter</button>
+      <button class="btn" onclick="closeAdd()">Cancel</button></div>`;
+}
+
+async function saveMan(){
+  const v=id=>(($('#'+id)||{}).value||'').trim();
+  const msg=$('#mnMsg'), b=$('#mnGo');
+  const num=v('mnNum'), pet=v('mnPet'), res=v('mnRes');
+  if(!num && !pet && !res){
+    msg.innerHTML='<span style="color:var(--amber)">Give it a case number or at least one party’s name, so you can find it again.</span>';
+    return;
+  }
+  b.disabled=true; b.textContent='Adding…';
+  try{
+    const r=await api('/api/cases/manual',{method:'POST',body:JSON.stringify({
+      case_number:num, case_type:v('mnType'), court_name:v('mnCourt'),
+      petitioner_name:pet, respondent_name:res,
+      next_hearing_date:v('mnDate'), stage:v('mnStage'), sections:v('mnSec'),
+      client:{name:v('mnCli')||null, mobile:v('mnMob')||null},
+    })});
+    closeAdd();
+    toast(r.duplicate ? 'You already have this matter — opened it instead'
+                      : 'Matter added','success');
+    MATTERS=null; dirty=true;
+    reload();
+  }catch(e){ b.disabled=false; b.textContent='Add this matter';
+    msg.innerHTML=`<span style="color:var(--amber)">${esc(e.message)}</span>`; }
+}
+
 async function runNoSearch(){
   const num=(($('#noIn')||{}).value||'').trim();
   const msg=$('#noMsg'), go=$('#noGo');
@@ -1951,7 +2029,7 @@ async function runNoSearch(){
     }
     $('#addBody').innerHTML=`
       <div style="font-size:13.5px;color:var(--ink-2);margin-bottom:12px">
-        ${r.exact?`<b>${r.exact}</b> case${r.exact>1?'s carry':' carries'} that exact number.`:'No case carries that exact number.'}
+        ${r.exact?`<b>${r.exact}</b> case${r.exact>1?'s carry':' carries'} that registration number.`:'No case carries that registration number.'}
         ${NOCAND.length>r.exact?` The court also returned ${NOCAND.length-r.exact} near match${NOCAND.length-r.exact>1?'es':''} — left unticked.`:''}
         Tick what is yours.</div>
       <div class="ledger" style="max-height:340px;overflow:auto">
@@ -1960,7 +2038,8 @@ async function runNoSearch(){
           <input type="checkbox" class="nocb" data-i="${i}"${c.exact_match?' checked':''}>
           <div>
             <div style="font-size:13.5px;font-weight:500">${esc(c.case_title||'—')}
-              ${c.exact_match?'':'<span class="ncount" style="background:var(--amber-soft);color:var(--amber)">near match</span>'}</div>
+              ${c.exact_match?'':`<span class="ncount" style="background:var(--amber-soft);color:var(--amber)">${
+                c.matched_on==='filing'?'filing number, not registration':'near match'}</span>`}</div>
             <div class="rc-mono" style="font-size:11px;color:var(--ink-3);margin-top:3px">
               ${esc(c.case_type||'')} ${esc(c.registration_number||'')}${c.filing_number&&c.filing_number!==c.registration_number?' · filed '+esc(c.filing_number):''}
               ${c.case_status?' · '+esc(c.case_status):''}${c.next_hearing_date?' · next '+esc(c.next_hearing_date):''}</div>

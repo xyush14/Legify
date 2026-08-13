@@ -89,12 +89,45 @@ def test_exact_match_is_computed_here_not_trusted_from_the_vendor(monkeypatch):
     assert out[0]["registration_number"] == "1/2024"
 
 
-def test_a_filing_number_match_also_counts_as_exact(monkeypatch):
-    """The vendor matches registration OR filing number, and the lawyer's diary
-    may carry either — so both are exact."""
+def test_a_filing_number_match_is_shown_but_is_NOT_exact(monkeypatch):
+    """The vendor searches registration OR filing number, but only the
+    REGISTRATION number is what the court and the lawyer call the case by. A row
+    that matched on the filing number alone is still worth showing — it may be
+    his matter, not yet registered — but it must arrive UNTICKED and labelled,
+    never presented as the case he asked for."""
     _live(monkeypatch, [_row("MP07010272252017", "6345/2017", filing="22284/2017")])
     out = ec.search_by_case_number(case_number="22284/2017", court_code="MP0701")
-    assert out[0]["exact_match"] is True
+    assert out[0]["exact_match"] is False
+    assert out[0]["matched_on"] == "filing"
+
+
+def test_a_registration_match_ranks_above_a_filing_match(monkeypatch):
+    """Two rows can both legitimately carry the typed number — one as its
+    registration number, one as its filing number. The registration one is his."""
+    _live(monkeypatch, [
+        _row("MP07010346922023", "9001/2024", filing="1/2024"),   # filing match
+        _row("MP07010026132024", "1/2024", filing="17409/2023"),  # registration match
+    ])
+    out = ec.search_by_case_number(case_number="1/2024", court_code="MP0701")
+    assert [c["matched_on"] for c in out] == ["registration", "filing"]
+    assert [c["exact_match"] for c in out] == [True, False]
+
+
+def test_the_matter_number_is_the_registration_number(monkeypatch):
+    """The number stored on the matter — the one printed on the board, in the
+    diary and in every draft's cause-title — is the registration number. The
+    filing number is kept as a fact on the record and used as the number only
+    when the court record carries no registration number at all."""
+    c = ec._normalise_webapi(_row("MP07010272252017", "6345/2017", filing="22284/2017"))
+    assert (c["case_number"], c["case_year"]) == ("6345", "2017")
+    assert c["filing_number"] == "22284/2017"
+    assert c["case_number_source"] == "registration"
+
+    unregistered = _row("MP07010272252017", "", filing="22284/2017")
+    unregistered["registrationNumber"] = ""
+    c2 = ec._normalise_webapi(unregistered)
+    assert (c2["case_number"], c2["case_year"]) == ("22284", "2017")
+    assert c2["case_number_source"] == "filing"
 
 
 def test_two_digit_year_matches_a_four_digit_record(monkeypatch):

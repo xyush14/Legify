@@ -3,7 +3,8 @@
 POST   /api/cases/add-cnr              fetch a CNR (+ optional client), store it
 GET    /api/cases/courts               court directory search (the court picker)
 POST   /api/cases/import/case-number/search
-                                       find a case by NUMBER + court (no CNR needed)
+                                       find a case by REGISTRATION number + court (no CNR needed)
+POST   /api/cases/manual               add a matter by hand (not on the court record)
 GET    /api/cases                      list the lawyer's matters (with suggestions)
 GET    /api/cases/{id}                 one matter (full payload + suggestions)
 PATCH  /api/cases/{id}/client          save/merge client details (name/mobile/…)
@@ -311,7 +312,7 @@ def case_types(user: CurrentUser = Depends(get_current_user)) -> dict:
 
 class CaseNumberSearchBody(BaseModel):
     case_number: str = Field(..., min_length=1, max_length=40,
-                             description="Registration or filing number, e.g. 6345/2017")
+                             description="Registration number as the court registers the case, e.g. 6345/2017")
     court_code:  str = Field("", max_length=20, description="Vendor court code from /courts")
     state:       str = Field("", max_length=10, description="Two-letter state code, if no court is picked")
     case_type:   str = Field("", max_length=30, description="Optional case-type code (CC, ABA, SC …)")
@@ -353,6 +354,10 @@ def case_number_search(body: CaseNumberSearchBody,
     candidates = [{
         "cnr": c.get("cnr"),
         "exact_match": bool(c.get("exact_match")),
+        # which of the court's two numbers this row actually matched on, so the
+        # screen can say it rather than leaving him to work out why a case with a
+        # different registration number is in his results
+        "matched_on": c.get("matched_on"),
         "case_title": c.get("case_title"),
         "court_name": c.get("court_name"),
         "case_number": c.get("case_number"), "case_year": c.get("case_year"),
@@ -370,6 +375,99 @@ def case_number_search(body: CaseNumberSearchBody,
     return {"count": len(candidates),
             "exact": sum(1 for c in candidates if c["exact_match"]),
             "candidates": candidates}
+
+
+# ------------------------------------------------------------- adding by hand
+#
+# The court record is not always an option: a matter filed today is not on it
+# yet, a consultation is not a case at all, an arbitration or a revenue-court
+# matter is not in eCourts, and the vendor is sometimes simply not answering.
+# Without this lane the only way in was to photograph a cause-list page, so a
+# lawyer who wanted one matter on his board had no way to put it there.
+#
+# It is deliberately the SAME shape a diary matter takes — a synthetic id in the
+# `cnr` column — so a hand-added matter is picked up by the "not linked to the
+# court record" banner and can later be linked to its real CNR, at which point
+# the nightly sweep starts moving its dates on its own.
+
+class ManualCaseBody(BaseModel):
+    case_number:  str = Field("", max_length=40, description="Registration number, e.g. 6345/2017")
+    case_year:    str = Field("", max_length=8)
+    case_type:    str = Field("", max_length=60, description="e.g. Cr.A., R.C.S., M.J.C.")
+    court_name:   str = Field("", max_length=200, description="Court / judge, as he would write it")
+    petitioner_name: str = Field("", max_length=200)
+    respondent_name: str = Field("", max_length=200)
+    case_title:   str = Field("", max_length=400, description="Cause title; derived from the parties if blank")
+    next_hearing_date: str = Field("", max_length=40, description="ISO or dd/mm/yyyy")
+    stage:        str = Field("", max_length=120, description="Stage / what it is listed for")
+    sections:     str = Field("", max_length=400, description="Comma-separated acts & sections")
+    fir_number:   str = Field("", max_length=40)
+    police_station: str = Field("", max_length=120)
+    client:       Optional[ClientBody] = None
+
+
+def _ddmmyyyy(value: str) -> str:
+    """Store dates the way the rest of the board carries them (dd/mm/yyyy), so a
+    hand-typed date and a court-fetched one read identically in the diary. The
+    browser's date input sends ISO; anything unparseable is kept verbatim rather
+    than dropped — his own note is better than nothing."""
+    iso = case_dates.to_iso(value)
+    if not iso:
+        return (value or "").strip()
+    y, m, d = iso.split("-")
+    return f"{d}/{m}/{y}"
+
+
+@router.post("/manual", summary="Add a matter by hand (no CNR, no court record)")
+def add_case_manually(body: ManualCaseBody,
+                      user: CurrentUser = Depends(get_current_user)) -> dict:
+    import hashlib
+
+    num, year = (body.case_number or "").strip(), (body.case_year or "").strip()
+    if num and not year:
+        # "6345/2017" typed into one box — split it the same way the diary does
+        num, year = _split_caseno(num) if "/" in num or "-" in num else (num, "")
+    title = (body.case_title or "").strip()
+    pet, res = (body.petitioner_name or "").strip(), (body.respondent_name or "").strip()
+    if not title and (pet or res):
+        title = f"{pet or '—'} vs {res or '—'}"
+    court = (body.court_name or "").strip()
+    if not (title or num):
+        raise HTTPException(
+            status_code=400,
+            detail="Give the matter a name or a case number — one of the two, so "
+                   "you can find it again.")
+
+    # Don't quietly create a second copy of a matter already on his board.
+    existing = cases_storage.find_case_by_number(
+        user_id=user.id, case_number=num, case_year=year,
+        court_name=court) if num else None
+    if existing:
+        return {"ok": True, "duplicate": True,
+                "case": _enrich(cases_storage.get_case(existing["id"], user_id=user.id))}
+
+    key = hashlib.md5(f"{user.id}|manual|{num}|{year}|{court}|{title}".encode()).hexdigest()[:12]
+    case = {
+        "cnr": "MN" + key.upper(),      # 14 chars — deliberately NOT a valid CNR
+        "source": "manual",
+        "case_title": title or f"{num}/{year}".strip("/"),
+        "case_number": num, "case_year": year,
+        "case_type": (body.case_type or "").strip() or None,
+        "registration_number": f"{num}/{year}" if (num and year) else (num or None),
+        "court_name": court,
+        "court_level": ecourts_client._infer_level(court, body.case_type),
+        "petitioner_name": pet or None, "respondent_name": res or None,
+        "stage": (body.stage or "").strip(),
+        "next_hearing_date": _ddmmyyyy(body.next_hearing_date),
+        "sections": [s.strip() for s in (body.sections or "").split(",") if s.strip()],
+        "fir_number": (body.fir_number or "").strip() or None,
+        "police_station": (body.police_station or "").strip() or None,
+        "client": body.client.model_dump(exclude_none=True) if body.client else {},
+    }
+    row = cases_storage.add_case(user_id=user.id, case=case)
+    if not row:
+        raise HTTPException(status_code=500, detail="Could not save the matter. Try again.")
+    return {"ok": True, "duplicate": False, "case": _enrich(row)}
 
 
 _DIARY_VISION_PROMPT = (
