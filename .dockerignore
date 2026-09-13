@@ -30,6 +30,10 @@ feedback.db
 feedback.db-journal
 *.sqlite
 *.sqlite3
+# The 628 MB compressed full corpus is an OFFLINE artefact (scripts/build_shippable_corpus.py,
+# scripts/upload_sc_corpus_to_hf.py) — nothing in the running app reads it. It was being
+# uploaded as build context and baked into every image, ~80% of each deploy's upload.
+*.sqlite.gz
 # SQLite WAL/SHM sidecars must never enter the image (the 950MB judgments
 # corpus carries a ~130MB -wal during extraction).
 *.sqlite-wal
