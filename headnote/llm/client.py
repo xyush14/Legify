@@ -198,8 +198,8 @@ def _call_groq_fallback(
             detail=f"groq SDK not installed on this deploy: {e}",
         ) from e
 
-    model = os.environ.get("GROQ_FALLBACK_MODEL", "llama-3.3-70b-versatile")
-    log.warning("[llm] Falling back to Groq %s (Anthropic + DeepSeek both failed)", model)
+    model = groq_fallback_model()
+    log.warning("[llm] Falling back to Groq %s (Anthropic + DeepSeek + Gemini failed)", model)
 
     client = Groq(api_key=groq_key)
     groq_kwargs: dict = {
@@ -214,6 +214,8 @@ def _call_groq_fallback(
     }
     if json_mode:
         groq_kwargs["response_format"] = {"type": "json_object"}
+    if _groq_is_reasoner(model):
+        groq_kwargs["reasoning_effort"] = "low"
     resp = client.chat.completions.create(**groq_kwargs)
     text = resp.choices[0].message.content or ""
     usage = resp.usage
@@ -226,6 +228,68 @@ def _call_groq_fallback(
     }
 
 
+# Groq retired the whole Llama family from this account in 2026 — the old default
+# `llama-3.3-70b-versatile` now 404s, which silently took the LAST leg of the
+# drafting chain down with it and left every draft on the blank canonical floor.
+# `openai/gpt-oss-120b` is served, but it is a reasoning model: left at its default
+# effort it can spend the whole max_tokens budget thinking and return EMPTY content
+# (measured at small budgets). `reasoning_effort="low"` pins that deterministically.
+GROQ_DEFAULT_MODEL = "openai/gpt-oss-120b"
+
+
+def groq_fallback_model() -> str:
+    return (os.environ.get("GROQ_FALLBACK_MODEL") or GROQ_DEFAULT_MODEL).strip()
+
+
+def _groq_is_reasoner(model: str) -> bool:
+    m = (model or "").lower()
+    return m.startswith("openai/gpt-oss") or m.startswith("qwen/")
+
+
+# Gemini is the one vendor on this account that is funded and answering, yet the
+# text chain never called it — it was wired to OCR only. It now sits between
+# DeepSeek and Groq. Models are tried in order because the `-latest` flash alias is
+# regularly "high demand" (503) while flash-lite answers; `-latest` aliases are
+# used on purpose, since pinned Gemini 2.x names were retired underneath us.
+GEMINI_TEXT_MODELS_DEFAULT = "gemini-flash-latest,gemini-flash-lite-latest"
+
+
+def gemini_text_models() -> list[str]:
+    raw = os.environ.get("GEMINI_TEXT_MODELS") or GEMINI_TEXT_MODELS_DEFAULT
+    return [m.strip() for m in raw.split(",") if m.strip()]
+
+
+def _call_gemini_fallback(
+    system_prompt: str,
+    user_prompt: str,
+    *,
+    max_tokens: int,
+    json_mode: bool = False,
+) -> Tuple[str, dict]:
+    from headnote.integrations import gemini as _gem
+    if not _gem.enabled():
+        raise RuntimeError("GEMINI_API_KEY not set")
+    last: Exception | None = None
+    for model in gemini_text_models():
+        try:
+            text = _gem.generate_text(
+                user_prompt, system=system_prompt, model=model,
+                max_tokens=max(int(max_tokens or 4000), 2048),
+                temperature=0.2, json_mode=json_mode, retry_503=False,
+            )
+            if (text or "").strip():
+                return text, {
+                    "model": f"gemini:{model}",
+                    "input_tokens": 0, "output_tokens": 0,
+                    "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0,
+                }
+            last = RuntimeError(f"Gemini {model} returned empty content")
+        except Exception as exc:  # try the next model, then the next provider
+            last = exc
+            log.warning("[llm] Gemini %s failed: %s", model, str(exc)[:160])
+    raise RuntimeError(f"Gemini unavailable: {last}")
+
+
 def _call_deepseek_or_groq(
     system_prompt: str,
     user_prompt: str,
@@ -234,8 +298,8 @@ def _call_deepseek_or_groq(
     claude_model: str = "claude-sonnet-4-6",
     json_mode: bool = False,
 ) -> Tuple[str, dict]:
-    """Try DeepSeek first; fall through to Groq if DeepSeek key is absent or
-    the call errors. Used as the fallback path after Anthropic fails AND as
+    """Try DeepSeek, then Gemini, then Groq — each on absence of a key, an
+    error, or empty content. Used as the fallback path after Anthropic fails AND as
     the primary path when LLM_PROVIDER=deepseek.
 
     If DeepSeek returns EMPTY content (the reasoner burning its whole token
@@ -254,10 +318,16 @@ def _call_deepseek_or_groq(
             raise RuntimeError("DeepSeek returned empty content (reasoner likely ran out of output budget)")
         return text, meta
     except Exception as ds_exc:
-        log.warning("[llm] DeepSeek failed — trying Groq: %s", str(ds_exc)[:200])
-        return _call_groq_fallback(
+        log.warning("[llm] DeepSeek failed — trying Gemini: %s", str(ds_exc)[:200])
+    try:
+        return _call_gemini_fallback(
             system_prompt, user_prompt, max_tokens=max_tokens, json_mode=json_mode,
         )
+    except Exception as gm_exc:
+        log.warning("[llm] Gemini failed — trying Groq: %s", str(gm_exc)[:200])
+    return _call_groq_fallback(
+        system_prompt, user_prompt, max_tokens=max_tokens, json_mode=json_mode,
+    )
 
 
 def get_client():
@@ -455,15 +525,13 @@ def stream_chat(
         return
     try:
         from groq import Groq
-        gmodel = os.environ.get("GROQ_FALLBACK_MODEL", "llama-3.3-70b-versatile")
+        gmodel = groq_fallback_model()
         gclient = Groq(api_key=groq_key)
-        stream = gclient.chat.completions.create(
-            model=gmodel,
-            messages=full_messages,
-            max_tokens=min(max_tokens, 8000),
-            temperature=0.3,
-            stream=True,
-        )
+        _gkw = dict(model=gmodel, messages=full_messages,
+                    max_tokens=min(max_tokens, 8000), temperature=0.3, stream=True)
+        if _groq_is_reasoner(gmodel):
+            _gkw["reasoning_effort"] = "low"
+        stream = gclient.chat.completions.create(**_gkw)
         for chunk in stream:
             if not chunk.choices:
                 continue

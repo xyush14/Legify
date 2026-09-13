@@ -50,7 +50,8 @@ log = logging.getLogger(__name__)
 
 # Use Flash (cheapest + fastest) by default. Operators can override to
 # gemini-2.5-pro for better quality at higher rate-limit risk.
-DEFAULT_GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+# gemini-2.0-flash / 2.5-* are retired for this account (404); the -latest alias is not.
+DEFAULT_GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-lite-latest")
 
 
 def _is_configured() -> bool:

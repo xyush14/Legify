@@ -57,7 +57,7 @@ log = logging.getLogger(__name__)
 GROQ_VISION_MODEL_DEFAULT = "qwen/qwen3.6-27b"
 # Office-file field extraction is text-only, so it does NOT need the vision
 # model — a plain instruct model is faster and has a far larger TPM allowance.
-GROQ_TEXT_MODEL_DEFAULT = "llama-3.3-70b-versatile"
+GROQ_TEXT_MODEL_DEFAULT = "openai/gpt-oss-120b"   # Llama-3.3 retired on Groq
 # Groq's vision tier is capped at 8,000 tokens/MINUTE on this plan and one
 # 150-DPI A4 page measures ~4,470 tokens — so even TWO images in a request 413s
 # ("Requested 8937"). One page per request is the only size that fits;
@@ -408,6 +408,8 @@ def _no_think_kwargs(model: str) -> dict:
     """Extra create() kwargs that stop a reasoning model from eating the output
     budget on thinking. Empty for plain models, which reject the parameter."""
     m = (model or "").lower()
+    if m.startswith("openai/gpt-oss"):
+        return {"reasoning_effort": "low"}     # gpt-oss accepts low|medium|high, not "none"
     if any(tag in m for tag in _GROQ_REASONING_MODELS):
         return {"reasoning_effort": "none"}
     return {}

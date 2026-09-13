@@ -159,8 +159,14 @@ def generate_text(
     model: str = "",
     max_tokens: int = 8192,
     temperature: float = 0.0,
+    json_mode: bool = False,
+    retry_503: bool = True,
 ) -> str:
-    """Call Gemini with optional inline images and return plain text."""
+    """Call Gemini with optional inline images and return plain text.
+
+    `json_mode` asks for application/json. `retry_503=False` fails fast on a
+    "high demand" 503 so a caller holding a list of models can move to the next
+    one instead of sleeping through backoff."""
 
     if not config.GEMINI_API_KEY:
         raise RuntimeError("GEMINI_API_KEY not set")
@@ -189,6 +195,8 @@ def generate_text(
             "maxOutputTokens": max_tokens,
         },
     }
+    if json_mode:
+        body["generationConfig"]["responseMimeType"] = "application/json"
 
     if system:
         body["system_instruction"] = {
@@ -207,7 +215,7 @@ def generate_text(
             if r.status_code == 200:
                 break
 
-            if r.status_code == 503 and attempt < 2:
+            if r.status_code == 503 and attempt < 2 and retry_503:
                 wait = (2 ** attempt) + random.uniform(0, 1)
                 log.warning(
                     "Gemini text 503 (attempt %d), retrying in %.2fs",
