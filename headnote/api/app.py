@@ -1202,6 +1202,12 @@ _init_drafts_db()
 from headnote.api.draft_one import router as _draft_one_router
 app.include_router(_draft_one_router)
 
+# The /draft workspace: recognise the document, fill it from the brief, render,
+# check, save, export. Its own prefix so `GET /api/draft/{draft_id}` can never
+# swallow one of its routes.
+from headnote.api.drafting import router as _drafting_router
+app.include_router(_drafting_router)
+
 # Cases — CNR-driven case folders that pre-fill the drafter: /api/cases/*
 # (SQLite, next to drafts; mock-first CNR adapter — see headnote/cases/.)
 from headnote.api.cases import router as _cases_router
@@ -2318,9 +2324,13 @@ def draft_complaint_application():
 @app.get("/draft/template/{doc_type}", include_in_schema=False)
 @app.get("/draft/template/{doc_type}/", include_in_schema=False)
 def draft_template_drafter(doc_type: str):
-    """The EXISTING universal editor (all V1 features). For the reviewed canonical
-    types its /api/draft/template-schema + /api/draft/render-template calls are
-    served by the V2 deterministic engine; for other ids, the legacy LLM path."""
+    """Every reviewed type now opens in the /draft workspace (fields filled from
+    the brief, the real page beside them). The old universal editor is kept only
+    for ids that have no reviewed template, so no existing link dead-ends."""
+    from fastapi.responses import RedirectResponse
+    from headnote.drafter import template_adapter as _TA
+    if _TA.is_canonical(doc_type):
+        return RedirectResponse(url=f"/draft?type={doc_type}", status_code=302)
     return FileResponse(config.STATIC_DIR / "draft-template.html", headers={"Cache-Control": "no-cache, must-revalidate, max-age=0"})
 
 

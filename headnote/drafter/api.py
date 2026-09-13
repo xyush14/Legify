@@ -1679,7 +1679,11 @@ def template_tweak(body: TemplateTweakBody,
     # A change of forum is not a field — it is a different reviewed template, so
     # the screen has to move to that id (Sessions bail and HC bail are not the
     # same document). `grounds` is the canonical nesting; the form is flat.
-    new_fields.pop("grounds", None)
+    # The patch writes toggles into the canonical nesting (data["grounds"][key]); the
+    # form is flat. Popping "grounds" without lifting them out first threw every
+    # toggle change away while the changelog still said "breadwinner → ON".
+    for gk, gv in (new_fields.pop("grounds", None) or {}).items():
+        new_fields[gk] = bool(gv)
     cur_type, cur_court, cur_bt = TA.CANONICAL_MAP[tid]
     court = new_fields.pop("court", None) or cur_court
     bail_type = new_fields.pop("bail_type", None) or cur_bt

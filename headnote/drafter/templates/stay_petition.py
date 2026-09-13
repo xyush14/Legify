@@ -25,7 +25,8 @@ def _ov(a):
 def _doc(a, hi):
     a = a if hi else _ov(a); g = a.get("grounds") or {}
     main = _ph(a.get("main_matter"), "मुख्य प्रकरण" if hi else "the main matter")
-    cn = a.get("court_name") or (compose_court_name("hc", a.get("court_city"), a.get("state_name") or "", lang=("hi" if hi else "en")) if a.get("court_city") else ("माननीय उच्च न्यायालय मध्यप्रदेश, खण्डपीठ ग्वालियर" if hi else "High Court of M.P., Bench at Gwalior"))
+    # blank when no city — never a default bench (was "High Court of M.P., Bench at Gwalior")
+    cn = a.get("court_name") or compose_court_name("hc", a.get("court_city") or "", a.get("state_name") or "", lang=("hi" if hi else "en"))
     hdr = render_header({
         "side_label": "", "court_name": cn, "case_code": (a.get("case_code") or ("I.A. क्रमांक" if hi else "I.A. No.")),
         "case_number": a.get("case_number") or "", "case_year": a.get("case_year") or str(date.today().year),

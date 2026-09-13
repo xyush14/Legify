@@ -81,8 +81,10 @@ def render_hi(a: dict) -> str:
     order_date = _ph(a.get("order_date"), "..........")
     case_below = _ph(a.get("case_below_no"), "..../....")
     order_subject = _ph(a.get("order_subject"), "आवेदन/प्रकरण का निराकरण")
-    court_name = a.get("court_name") or compose_court_name(c["level"], a.get("court_city"), state) \
-        if a.get("court_city") else (a.get("court_name") or "माननीय उच्च न्यायालय मध्यप्रदेश खण्डपीठ ग्वालियर")
+    # No city means a blank court line — never one advocate's bench. (This used to
+    # fall back to "…मध्यप्रदेश खण्डपीठ ग्वालियर" for EVERY revision, a Sessions
+    # revision included, so any advocate outside Gwalior filed to the wrong court.)
+    court_name = a.get("court_name") or compose_court_name(c["level"], a.get("court_city") or "", state)
     name = a.get("revisionist_name") or ""
 
     hdr = render_header({
